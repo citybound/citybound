@@ -1,0 +1,10 @@
+[package]
+name = "citybound"
+version = "0.1.0"
+authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
+
+[dependencies.world_record]
+path = "../world_record/"
+
+[dependencies.monet]
+path = "../monet/"
