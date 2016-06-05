@@ -1,6 +1,12 @@
 use world_record::{ID};
 // use std::ops::Range;
 
+#[derive(Default)]
+pub struct Core {
+    pub ticks: u64,
+    pub time: f64
+}
+
 // TODO: make this work
 pub struct MyRange<T> {
     pub start: T,

@@ -133,7 +133,6 @@ impl<Header: Default, Item> GrowableBuffer<Header, Item> {
     }
 
     fn item_cap(&self) -> usize {
-        println!("{:?} / {:?} = {:?}", self.mmap.len(), mem::size_of::<Item>(), self.mmap.len() / mem::size_of::<Item>());
         return (self.mmap.len() / mem::size_of::<Item>()) - Self::header_in_items();
     }
     

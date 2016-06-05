@@ -6,6 +6,7 @@ extern crate glutin;
 
 use gfx::traits::FactoryExt;
 use gfx::Device;
+use std::sync::mpsc::{Sender, Receiver};
 
 pub type ColorFormat = gfx::format::Rgba8;
 pub type DepthFormat = gfx::format::DepthStencil;
@@ -30,7 +31,7 @@ const TRIANGLE: [Vertex; 3] = [
 
 const CLEAR_COLOR: [f32; 4] = [0.1, 0.2, 0.3, 1.0];
 
-pub fn main_loop () {
+pub fn main_loop (prepare_frame: Sender<()>, data_provider: Receiver<()>) {
     let builder = glutin::WindowBuilder::new()
         .with_title("Triangle example".to_string())
         .with_dimensions(512, 512)
@@ -58,6 +59,11 @@ pub fn main_loop () {
                 _ => {},
             }
         }
+        
+        prepare_frame.send(()).unwrap();
+        let new_data = data_provider.recv().unwrap();
+        println!("rendering...");
+        
         // draw a frame
         encoder.clear(&data.out, CLEAR_COLOR);
         encoder.draw(&slice, &pso, &data);

@@ -44,5 +44,6 @@ mod slot_map;
 mod record_collection;
 mod future_record_collection;
 
+pub use growable_buffer::GrowableBuffer;
 pub use record_collection::RecordCollection;
 pub use future_record_collection::FutureRecordCollection;
