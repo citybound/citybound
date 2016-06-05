@@ -3,6 +3,7 @@ extern crate std;
 
 use self::memmap::{Mmap, Protection};
 use std::mem;
+use std::ptr;
 use std::fs::{File, OpenOptions};
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -134,5 +135,13 @@ impl<Header: Default, Item> GrowableBuffer<Header, Item> {
     fn item_cap(&self) -> usize {
         println!("{:?} / {:?} = {:?}", self.mmap.len(), mem::size_of::<Item>(), self.mmap.len() / mem::size_of::<Item>());
         return (self.mmap.len() / mem::size_of::<Item>()) - Self::header_in_items();
+    }
+    
+    pub fn overwrite_with(&mut self, other: &Self) {
+        self.require_cap(other.item_cap());
+        unsafe {
+            ptr::copy_nonoverlapping(other.header.ptr, self.header.ptr, 1);
+            ptr::copy_nonoverlapping(other.items.ptr, self.items.ptr, other.item_cap());
+        }
     }
 }

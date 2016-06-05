@@ -38,6 +38,11 @@ impl<T> SlotMap<T> {
         self.ids_to_slots[id.id as usize] = usize::max_value();
         self.free_ids.push(id);
     }
+    
+    pub fn overwrite_with(&mut self, other: &Self) {
+        self.ids_to_slots.overwrite_with(&other.ids_to_slots);
+        self.free_ids.overwrite_with(&other.free_ids);
+    }
 }
 
 impl<T> Index<ID<T>> for SlotMap<T> {

@@ -35,6 +35,11 @@ impl<T> RecordCollection<T> {
     pub fn reserve(&mut self) -> ID<T> {
         return self.slot_map.reserve();
     }
+    
+    pub fn overwrite_with(&mut self, other: &Self) {
+        self.records.overwrite_with(&other.records);
+        self.slot_map.overwrite_with(&other.slot_map);
+    }
 }
 
 impl<T> Index<ID<T>> for RecordCollection<T> {

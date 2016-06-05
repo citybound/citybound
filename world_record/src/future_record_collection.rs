@@ -27,6 +27,10 @@ impl<T> FutureRecordCollection<T> {
     pub fn remove_soon(&mut self, id: ID<T>) {
         self.to_be_removed.push(id);
     }
+    
+    pub fn overwrite_with(&mut self, other: &Self) {
+        self.collection.overwrite_with(&other.collection);
+    }
 }
 
 impl<T> FutureState for FutureRecordCollection<T> {

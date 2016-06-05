@@ -53,6 +53,10 @@ impl<Item> GrowableVec<Item> {
         self.swap(index, last_index);
         return self.pop().unwrap();
     }
+    
+    pub fn overwrite_with(&mut self, other: &Self) {
+        self.buffer.overwrite_with(&other.buffer);
+    }
 }
 
 impl<Item> std::ops::Deref for GrowableVec<Item> {

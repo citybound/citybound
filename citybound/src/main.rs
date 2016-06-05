@@ -31,6 +31,17 @@ impl State {
             plans: FutureRecordCollection::new(path.join("plans"))
         }
     }
+    
+    fn overwrite_with(&mut self, other: &Self) {
+        self.cars.overwrite_with(&other.cars);
+        self.lanes.overwrite_with(&other.lanes);
+        self.lane_connections.overwrite_with(&other.lane_connections);
+        self.lane_overlaps.overwrite_with(&other.lane_overlaps);
+        self.lane_overlap_groups.overwrite_with(&other.lane_overlap_groups);
+        self.intersections.overwrite_with(&other.intersections);
+        self.lane_plan_entries.overwrite_with(&other.lane_plan_entries);
+        self.plans.overwrite_with(&other.plans);
+    }
 }
 
 impl FutureState for State {
@@ -68,24 +79,31 @@ impl Simulation {
     }
     
     pub fn step(&mut self) {
-        let (past, future) = if self.past_is_a {(&self.a, &mut self.b)}
-                             else {(&self.b, &mut self.a)};
-        
-        for step in &self.steps {
-            step(past, future);
+        {
+            let (past, future) = if self.past_is_a {(&self.a, &mut self.b)}
+                                else {(&self.b, &mut self.a)};
+            
+            for step in &self.steps {
+                step(past, future);
+            }
+            
+            for listener in &self.listeners {
+                listener(past, future);
+            }
+            
+            future.materialize();
+            
+            if self.save_after_next_step {
+                //future.flush();
+                self.save_after_next_step = false;
+            }
         }
         
-        for listener in &self.listeners {
-            listener(past, future);
-        }
+        let (mutable_past, fresh_future) = if self.past_is_a {(&mut self.a, &self.b)}
+                                           else {(&mut self.b, &self.a)};
+        mutable_past.overwrite_with(fresh_future);
         
-        future.materialize();
         self.past_is_a = !self.past_is_a;
-        
-        if self.save_after_next_step {
-            //past.flush();
-            self.save_after_next_step = false;
-        }
     }
     
     pub fn save_soon(&mut self) {
