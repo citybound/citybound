@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use std::marker::PhantomData;
+use std::path::PathBuf;
 use std::ops::{Deref, DerefMut};
 
 type IDRepr = u32;
@@ -35,7 +36,9 @@ impl<T> DerefMut for Record<T> {
 }
 
 pub trait FutureState {
+    fn new(Path: PathBuf) -> Self;
     fn materialize(&mut self);
+    fn overwrite_with(&mut self, other: &Self);
 }
 
 mod growable_buffer;

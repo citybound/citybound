@@ -10,14 +10,6 @@ pub struct FutureRecordCollection<T> {
 }
 
 impl<T> FutureRecordCollection<T> {
-    pub fn new(path: PathBuf) -> FutureRecordCollection<T> {
-        return FutureRecordCollection {
-            collection: RecordCollection::<T>::new(path),
-            to_be_removed: Vec::new(),
-            to_be_added: Vec::new()
-        }
-    }
-    
     pub fn add_soon(&mut self, mut record: Record<T>) -> &mut Record<T> {
         record.id = self.collection.reserve();
         self.to_be_added.push(record);
@@ -27,13 +19,17 @@ impl<T> FutureRecordCollection<T> {
     pub fn remove_soon(&mut self, id: ID<T>) {
         self.to_be_removed.push(id);
     }
-    
-    pub fn overwrite_with(&mut self, other: &Self) {
-        self.collection.overwrite_with(&other.collection);
-    }
 }
 
 impl<T> FutureState for FutureRecordCollection<T> {
+    fn new(path: PathBuf) -> FutureRecordCollection<T> {
+        return FutureRecordCollection {
+            collection: RecordCollection::<T>::new(path),
+            to_be_removed: Vec::new(),
+            to_be_added: Vec::new()
+        }
+    }
+    
     fn materialize(&mut self) {
         for id_to_be_removed in self.to_be_removed.drain(..) {
             self.collection.remove(id_to_be_removed);
@@ -42,6 +38,10 @@ impl<T> FutureState for FutureRecordCollection<T> {
         for record in self.to_be_added.drain(..) {
             self.collection.add(record);
         }
+    }
+    
+    fn overwrite_with(&mut self, other: &Self) {
+        self.collection.overwrite_with(&other.collection);
     }
 }
 
