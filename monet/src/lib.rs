@@ -7,7 +7,7 @@ use glium::Surface;
 
 use std::sync::mpsc::{Sender, Receiver};
 
-pub fn main_loop (prepare_frame: Sender<()>, data_provider: Receiver<()>) {
+pub fn main_loop (prepare_frame: Sender<()>, data_provider: Receiver<String>) {
     use glium::DisplayBuild;
     
     let window = glutin::WindowBuilder::new()
@@ -93,7 +93,7 @@ pub fn main_loop (prepare_frame: Sender<()>, data_provider: Receiver<()>) {
         target.clear_color(0.0, 0.0, 0.0, 0.0);
         target.draw(&vertex_buffer, &index_buffer, &program, &uniforms, &Default::default()).unwrap();
 
-        let text = glium_text::TextDisplay::new(&text_system, &font, "The city sim you deserve.");
+        let text = glium_text::TextDisplay::new(&text_system, &font, new_data.as_str());
         let text_matrix = [
             [0.05, 0.0, 0.0, 0.0],
             [0.0, 0.05, 0.0, 0.0],

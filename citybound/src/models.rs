@@ -2,7 +2,7 @@ use world_record::{ID, FutureState, FutureRecordCollection, GrowableBuffer};
 use std::path::PathBuf;
 // use std::ops::Range;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Core {
     pub ticks: u64,
     pub time: f64

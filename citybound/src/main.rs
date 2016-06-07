@@ -12,13 +12,15 @@ mod simulation;
 
 fn main() {
     let (to_simulation, from_renderer) = channel::<()>();
-    let (to_renderer, from_simulation) = channel::<()>();
+    let (to_renderer, from_simulation) = channel::<String>();
     
     let renderer_listener = move |past: &models::State, future: &models::State| {
         match from_renderer.try_recv() {
             Ok(_) => {
                 println!("creating renderer state...");
-                to_renderer.send(()).unwrap();
+                to_renderer.send(
+                   format!("Simulation frame: {}", past.core.header.ticks)
+                ).unwrap();
             },
             Err(_) => {}
         };
