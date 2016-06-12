@@ -6,3 +6,4 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 [dependencies]
 glium = "*"
 glium_text = "*"
+nalgebra = "*"
