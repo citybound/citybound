@@ -5,6 +5,8 @@ extern crate monet;
 use std::path::PathBuf;
 use std::thread;
 use std::sync::mpsc::channel;
+use monet::glium::DisplayBuild;
+use monet::glium::glutin;
 
 mod models;
 mod steps;
@@ -43,5 +45,28 @@ fn main() {
        }
     }).unwrap();
     
-    monet::main_loop(to_simulation, from_simulation);
+    let window = glutin::WindowBuilder::new()
+        .with_title("Citybound".to_string())
+        .with_dimensions(512, 512)
+        .with_multitouch()
+        .with_vsync().build_glium().unwrap();
+
+    let renderer = monet::Renderer::new(&window);
+
+    'main: loop {
+        // loop over events
+        for event in window.poll_events() {
+            match event {
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape)) |
+                glutin::Event::Closed => break 'main,
+                _ => {},
+            }
+        }
+        
+        to_simulation.send(()).unwrap();
+        let scene = from_simulation.recv().unwrap();
+        println!("rendering...");
+
+        renderer.draw(scene)
+    }
 }

@@ -1,12 +1,12 @@
 #[macro_use]
-extern crate glium;
+pub extern crate glium;
 extern crate glium_text;
 extern crate nalgebra;
 use nalgebra::{Point3, Vector3, Isometry3, Perspective3, ToHomogeneous};
 
-use glium::{glutin, index, Surface};
+use glium::{index, Surface};
+use glium::backend::glutin_backend::GlutinFacade;
 
-use std::sync::mpsc::{Sender, Receiver};
 use std::collections::HashMap;
 
 #[derive(Copy, Clone)]
@@ -55,44 +55,34 @@ impl Scene {
     }
 }
 
-pub fn main_loop (prepare_frame: Sender<()>, data_provider: Receiver<Scene>) {
-    use glium::DisplayBuild;
-    
-    let window = glutin::WindowBuilder::new()
-        .with_title("Citybound".to_string())
-        .with_dimensions(512, 512)
-        .with_multitouch()
-        .with_vsync().build_glium().unwrap();
-    
-    let program = program!(&window,
-        140 => {
-            vertex: include_str!("shader/solid_140.glslv"),
-            fragment: include_str!("shader/solid_140.glslf"),
-        },
-    ).unwrap();
+pub struct Renderer<'a> {
+    window: &'a GlutinFacade,
+    program: glium::Program,
+    text_system: glium_text::TextSystem,
+    font: glium_text::FontTexture
+}
 
-    let text_system = glium_text::TextSystem::new(&window);
-    let font = glium_text::FontTexture::new(
-        &window,
-        std::fs::File::open(&std::path::Path::new("resources/ClearSans-Regular.ttf")).unwrap(),
-        64
-    ).unwrap();
-
-    'main: loop {
-        // loop over events
-        for event in window.poll_events() {
-            match event {
-                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape)) |
-                glutin::Event::Closed => break 'main,
-                _ => {},
-            }
+impl<'a> Renderer<'a> {
+    pub fn new (window: &'a GlutinFacade) -> Renderer<'a> {
+        Renderer{
+            window: window,
+            program: program!(window,
+                140 => {
+                    vertex: include_str!("shader/solid_140.glslv"),
+                    fragment: include_str!("shader/solid_140.glslf"),
+                },
+            ).unwrap(),
+            text_system: glium_text::TextSystem::new(window),
+            font: glium_text::FontTexture::new(
+                window,
+                std::fs::File::open(&std::path::Path::new("resources/ClearSans-Regular.ttf")).unwrap(),
+                64
+            ).unwrap()
         }
-        
-        prepare_frame.send(()).unwrap();
-        let scene = data_provider.recv().unwrap();
-        println!("rendering...");
+    }
 
-        let mut target = window.draw();
+    pub fn draw (&self, scene: Scene) {
+        let mut target = self.window.draw();
 
         let view : [[f32; 4]; 4] = *Isometry3::look_at_rh(
             &scene.eye.position,
@@ -132,12 +122,12 @@ pub fn main_loop (prepare_frame: Sender<()>, data_provider: Receiver<Scene>) {
         target.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
 
         for thing in scene.things.values() {
-            let vertices = glium::VertexBuffer::new(&window, thing.vertices.as_slice()).unwrap();
-            let indices = glium::IndexBuffer::new(&window, index::PrimitiveType::TrianglesList, thing.indices.as_slice()).unwrap();
-            target.draw(&vertices, &indices, &program, &uniforms, &params).unwrap();
+            let vertices = glium::VertexBuffer::new(self.window, thing.vertices.as_slice()).unwrap();
+            let indices = glium::IndexBuffer::new(self.window, index::PrimitiveType::TrianglesList, thing.indices.as_slice()).unwrap();
+            target.draw(&vertices, &indices, &self.program, &uniforms, &params).unwrap();
         }
 
-        let text = glium_text::TextDisplay::new(&text_system, &font, scene.debug_text.as_str());
+        let text = glium_text::TextDisplay::new(&self.text_system, &self.font, scene.debug_text.as_str());
         let text_matrix = [
             [0.05, 0.0, 0.0, 0.0],
             [0.0, 0.05, 0.0, 0.0],
@@ -145,9 +135,8 @@ pub fn main_loop (prepare_frame: Sender<()>, data_provider: Receiver<Scene>) {
             [-0.9, 0.8, 0.0, 1.0f32]
         ];
 
-        glium_text::draw(&text, &text_system, &mut target, text_matrix, (1.0, 1.0, 0.0, 1.0));
+        glium_text::draw(&text, &self.text_system, &mut target, text_matrix, (1.0, 1.0, 0.0, 1.0));
 
         target.finish().unwrap();
-        
     }
 }
