@@ -9,18 +9,21 @@ use std::sync::mpsc::channel;
 mod models;
 mod steps;
 mod simulation;
+#[path = "../resources/car.rs"]
+mod car;
 
 fn main() {
     let (to_simulation, from_renderer) = channel::<()>();
-    let (to_renderer, from_simulation) = channel::<String>();
+    let (to_renderer, from_simulation) = channel::<monet::Scene>();
     
     let renderer_listener = move |past: &models::State, future: &models::State| {
         match from_renderer.try_recv() {
             Ok(_) => {
                 println!("creating renderer state...");
-                to_renderer.send(
-                   format!("Simulation frame: {}", past.core.header.ticks)
-                ).unwrap();
+                let mut scene = monet::Scene::new();
+                scene.things.insert("car", car::create());
+                scene.debug_text = format!("Simulation frame: {}", past.core.header.ticks);
+                to_renderer.send(scene).unwrap();
             },
             Err(_) => {}
         };
