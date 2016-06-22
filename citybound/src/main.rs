@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 extern crate world_record;
 extern crate monet;
+extern crate nalgebra;
 
 use std::path::PathBuf;
 use std::thread;
@@ -11,31 +12,34 @@ use monet::glium::glutin;
 mod models;
 mod steps;
 mod simulation;
-#[path = "../resources/car.rs"]
-mod car;
+mod renderer;
+mod input;
 
 fn main() {
-    let (to_simulation, from_renderer) = channel::<()>();
+    let (input_to_simulation, from_input) = channel::<Vec<input::InputCommand>>();
+    let (renderer_to_simulation, from_renderer) = channel::<()>();
     let (to_renderer, from_simulation) = channel::<monet::Scene>();
     
+    let input_step = move |past: &models::State, future: &mut models::State| {
+        loop {match from_input.try_recv() {
+            Ok(inputs) => for input in inputs {
+                input::apply_input_command(input, past, future)
+            },
+            Err(_) => {break}
+        }}
+    };
+
     let renderer_listener = move |past: &models::State, future: &models::State| {
         match from_renderer.try_recv() {
-            Ok(_) => {
-                println!("creating renderer state...");
-                let mut scene = monet::Scene::new();
-                scene.things.insert("car", car::create());
-                scene.debug_text = format!("Simulation frame: {}", past.core.header.ticks);
-                to_renderer.send(scene).unwrap();
-            },
+            Ok(_) => {to_renderer.send(renderer::render(past, future)).unwrap();},
             Err(_) => {}
-        };
-        
+        };     
     };
     
     thread::Builder::new().name("simulation".to_string()).spawn(|| {
         let mut simulation = simulation::Simulation::<models::State>::new(
             PathBuf::from("savegames/dev"),
-            vec! [Box::new(steps::tick)],
+            vec! [Box::new(input_step), Box::new(steps::tick)],
             vec! [Box::new(renderer_listener)]
         );
     
@@ -52,21 +56,20 @@ fn main() {
         .with_vsync().build_glium().unwrap();
 
     let renderer = monet::Renderer::new(&window);
+    let mut input_state = input::InputState::default();
 
     'main: loop {
-        // loop over events
-        for event in window.poll_events() {
-            match event {
-                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape)) |
-                glutin::Event::Closed => break 'main,
-                _ => {},
+        match input::interpret_events(window.poll_events(), &mut input_state) {
+            input::InputResult::Exit => break 'main,
+            input::InputResult::ContinueWithInputCommands(inputs) => {
+                input_to_simulation.send(inputs).unwrap()
             }
         }
-        
-        to_simulation.send(()).unwrap();
+
+        renderer_to_simulation.send(()).unwrap();
         let scene = from_simulation.recv().unwrap();
         println!("rendering...");
 
-        renderer.draw(scene)
+        renderer.draw(scene);
     }
 }

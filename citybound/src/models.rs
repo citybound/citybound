@@ -1,5 +1,7 @@
 use world_record::{ID, FutureState, FutureRecordCollection, GrowableBuffer};
 use std::path::PathBuf;
+use std::f32::consts::PI;
+use nalgebra::{Point2, Vector1, Vector2, Vector3, Rotation3, Rotation2, Rotate};
 // use std::ops::Range;
 
 #[derive(Default, Clone)]
@@ -25,9 +27,9 @@ pub struct Car {
 }
 
 pub struct Lane {
-    start: [f32; 2],
-    direction: [f32; 2],
-    end: [f32; 2],
+    start: Point2<f32>,
+    direction: Point2<f32>,
+    end: Point2<f32>,
     next: LinkedList<LaneConnection>,
     previous: LinkedList<LaneConnection>,
     first_overlap: LinkedList<LaneOverlap>
@@ -80,6 +82,34 @@ pub struct Plan {
     lanes_to_destroy: LinkedList<LanePlanEntry>
 }
 
+#[derive(Copy, Clone)]
+pub struct Eye {
+    pub target: Point2<f32>,
+    pub azimuth: f32,
+    pub inclination: f32,
+    pub distance: f32
+}
+
+impl Eye {
+    pub fn direction(&self) -> Vector3<f32> {
+        let inclined_vector = Rotation3::<f32>::new(Vector3::x() * -self.inclination).rotate(&Vector3::<f32>::y());
+        Rotation3::new(Vector3::z() * self.azimuth).rotate(&inclined_vector)
+    }
+
+    pub fn direction_2d(&self) -> Vector2<f32> {
+        Rotation2::new(Vector1::new(-self.azimuth)).rotate(&Vector2::y())
+    }
+
+    pub fn right_direction_2d(&self) -> Vector2<f32> {
+        Rotation2::new(Vector1::new(-PI / 2.0)).rotate(&self.direction_2d())
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct UIState {
+    pub eye: Eye
+}
+
 pub struct State {
     pub core: GrowableBuffer<Core, u32>,
     pub cars: FutureRecordCollection<Car>,
@@ -89,7 +119,8 @@ pub struct State {
     pub lane_overlap_groups: FutureRecordCollection<LaneOverlapGroup>,
     pub intersections: FutureRecordCollection<Intersection>,
     pub lane_plan_entries: FutureRecordCollection<LanePlanEntry>,
-    pub plans: FutureRecordCollection<Plan>
+    pub plans: FutureRecordCollection<Plan>,
+    pub ui_state: UIState
 }
 
 impl FutureState for State {
@@ -103,7 +134,15 @@ impl FutureState for State {
             lane_overlap_groups: FutureRecordCollection::new(path.join("lane_overlap_groups")),
             intersections: FutureRecordCollection::new(path.join("intersections")),
             lane_plan_entries: FutureRecordCollection::new(path.join("lane_plan_entries")),
-            plans: FutureRecordCollection::new(path.join("plans"))
+            plans: FutureRecordCollection::new(path.join("plans")),
+            ui_state: UIState{
+                eye: Eye{
+                    target: Point2::new(0.0, 0.0),
+                    azimuth: PI / 4.0,
+                    inclination: PI / 4.0,
+                    distance: 7.0
+                }
+            }
         }
     }
     
@@ -117,6 +156,7 @@ impl FutureState for State {
         self.intersections.overwrite_with(&other.intersections);
         self.lane_plan_entries.overwrite_with(&other.lane_plan_entries);
         self.plans.overwrite_with(&other.plans);
+        self.ui_state = other.ui_state;
     }
     
     fn materialize(&mut self) {

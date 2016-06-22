@@ -35,7 +35,7 @@ impl Thing {
 }
 
 pub struct Scene {
-    eye: Eye,
+    pub eye: Eye,
     pub things: HashMap<&'static str, Thing>,
     pub debug_text: String
 }

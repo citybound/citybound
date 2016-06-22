@@ -1,7 +1,6 @@
 use world_record::{FutureState};
 use std::time::{Duration, Instant};
 use std::path::PathBuf;
-use std::thread;
 
 struct TimingInfo {
     target_ticks_per_second: u32,
