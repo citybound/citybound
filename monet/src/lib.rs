@@ -16,6 +16,13 @@ pub struct Vertex {
 
 implement_vertex!(Vertex, position);
 
+#[derive(Copy, Clone)]
+pub struct WorldPosition {
+    pub world_position: [f32; 3]
+}
+
+implement_vertex!(WorldPosition, world_position);
+
 pub struct Eye {
     pub position: Point3<f32>,
     pub target: Point3<f32>,
@@ -34,9 +41,21 @@ impl Thing {
     }
 }
 
+pub struct Swarm {
+    prototype: Thing,
+    instances: Vec<WorldPosition>
+}
+
+impl Swarm {
+    pub fn new(prototype: Thing, instances: Vec<WorldPosition>) -> Swarm {
+        Swarm{prototype: prototype, instances: instances}
+    }
+}
+
 pub struct Scene {
     pub eye: Eye,
     pub things: HashMap<&'static str, Thing>,
+    pub swarms: HashMap<&'static str, Swarm>,
     pub debug_text: String
 }
 
@@ -50,6 +69,7 @@ impl Scene {
                 field_of_view: 0.3 * std::f32::consts::PI
             },
             things: HashMap::with_capacity(3000),
+            swarms: HashMap::with_capacity(100),
             debug_text: String::new()
         }
     }
@@ -58,6 +78,7 @@ impl Scene {
 pub struct Renderer<'a> {
     window: &'a GlutinFacade,
     program: glium::Program,
+    swarm_program: glium::Program,
     text_system: glium_text::TextSystem,
     font: glium_text::FontTexture
 }
@@ -71,6 +92,12 @@ impl<'a> Renderer<'a> {
                     vertex: include_str!("shader/solid_140.glslv"),
                     fragment: include_str!("shader/solid_140.glslf"),
                 },
+            ).unwrap(),
+            swarm_program: program!(window,
+                140 => {
+                    vertex: include_str!("shader/solid_swarm_140.glslv"),
+                    fragment: include_str!("shader/solid_140.glslf")
+                }
             ).unwrap(),
             text_system: glium_text::TextSystem::new(window),
             font: glium_text::FontTexture::new(
@@ -119,12 +146,19 @@ impl<'a> Renderer<'a> {
         };
         
         // draw a frame
-        target.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
+        target.clear_color_and_depth((1.0, 1.0, 1.0, 1.0), 1.0);
 
         for thing in scene.things.values() {
             let vertices = glium::VertexBuffer::new(self.window, thing.vertices.as_slice()).unwrap();
             let indices = glium::IndexBuffer::new(self.window, index::PrimitiveType::TrianglesList, thing.indices.as_slice()).unwrap();
             target.draw(&vertices, &indices, &self.program, &uniforms, &params).unwrap();
+        }
+
+        for swarm in scene.swarms.values() {
+            let vertices = glium::VertexBuffer::new(self.window, swarm.prototype.vertices.as_slice()).unwrap();
+            let indices = glium::IndexBuffer::new(self.window, index::PrimitiveType::TrianglesList, swarm.prototype.indices.as_slice()).unwrap();
+            let instances = glium::VertexBuffer::dynamic(self.window, swarm.instances.as_slice()).unwrap();
+            target.draw((&vertices, instances.per_instance().unwrap()), &indices, &self.swarm_program, &uniforms, &params).unwrap();
         }
 
         let text = glium_text::TextDisplay::new(&self.text_system, &self.font, scene.debug_text.as_str());
@@ -135,7 +169,7 @@ impl<'a> Renderer<'a> {
             [-0.9, 0.8, 0.0, 1.0f32]
         ];
 
-        glium_text::draw(&text, &self.text_system, &mut target, text_matrix, (1.0, 1.0, 0.0, 1.0));
+        glium_text::draw(&text, &self.text_system, &mut target, text_matrix, (0.0, 0.0, 0.0, 1.0));
 
         target.finish().unwrap();
     }

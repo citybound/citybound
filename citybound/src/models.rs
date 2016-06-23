@@ -140,7 +140,7 @@ impl FutureState for State {
                     target: Point2::new(0.0, 0.0),
                     azimuth: PI / 4.0,
                     inclination: PI / 4.0,
-                    distance: 7.0
+                    distance: 70.0
                 }
             }
         }
