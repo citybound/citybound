@@ -5,43 +5,53 @@ use std::ptr;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
-enum DropBehaviour {
-    ShouldDrop,
-    NoDrop
-}
-
-struct MaybeNonDropPointer <T> {
-    raw_ptr: usize,
+struct TaggedRelativePointer <T> {
+    offset: i32,
     _marker: PhantomData<*const T>
 }
 
-impl<T> MaybeNonDropPointer <T> {
-    fn new(ptr: *mut T, drop_behaviour: DropBehaviour) -> MaybeNonDropPointer<T> {
-        MaybeNonDropPointer{
-            raw_ptr: match drop_behaviour{
-                DropBehaviour::ShouldDrop => (ptr as usize) | 1,
-                DropBehaviour::NoDrop => (ptr as usize) & (!1 as usize)
-            },
+impl<T> Default for TaggedRelativePointer<T> {
+    fn default() -> TaggedRelativePointer<T> {
+        TaggedRelativePointer {
+            offset: 0,
+            _marker: PhantomData
+        }
+    }
+}
+
+const TAG_BIT : i32 = 0xb100_0000_0000_0000i32;
+
+impl<T> TaggedRelativePointer <T> {
+    fn null(tagged: bool) -> TaggedRelativePointer<T> {
+        TaggedRelativePointer{
+            offset: match tagged {false => 0, true => TAG_BIT},
             _marker: PhantomData
         }
     }
 
-    fn ptr(&self) -> *const T {
-        unsafe {
-            let untagged = self.raw_ptr & (!1 as usize);
-            transmute(untagged)
+    fn set(&mut self, ptr: *mut T, tagged: bool) -> TaggedRelativePointer<T> {
+        let mut offset : i32 = ((ptr as isize) - ((self as *const Self) as isize)) as i32;
+        if tagged {offset |= TAG_BIT}
+        TaggedRelativePointer{
+            offset: offset,
+            _marker: PhantomData
         }
     }
 
-    fn mut_ptr(&mut self) -> *mut T {
-        unsafe {
-            let untagged = self.raw_ptr & (!1 as usize);
-            transmute(untagged)
-        }
+    unsafe fn ptr(&self) -> *const T {
+        transmute::<*const u8, *const T>(
+                transmute::<*const Self, *const u8>(self as *const Self)
+                    .offset((self.offset & !TAG_BIT) as isize))
     }
 
-    fn should_drop(&self) -> bool {
-        (self.raw_ptr as usize) & 1 == 1
+    unsafe fn mut_ptr(&mut self) -> *mut T {
+        transmute::<*mut u8, *mut T>(
+                transmute::<*const Self, *mut u8>(self as *mut Self)
+                    .offset((self.offset & !TAG_BIT) as isize))
+    }
+
+    fn is_tagged(&self) -> bool {
+        self.offset & TAG_BIT == TAG_BIT
     }
 }
 
@@ -66,34 +76,52 @@ impl Allocator for DefaultHeap {
     }
 }
 
-struct BackedVec <T, A: Allocator = DefaultHeap> {
-    ptr: MaybeNonDropPointer<T>,
+struct EmbeddedVec <T, A: Allocator = DefaultHeap> {
+    ptr: TaggedRelativePointer<T>,
     len: usize,
     cap: usize,
     _alloc: PhantomData<A>
 }
 
-impl<T, A: Allocator> BackedVec<T, A> {
-    pub fn with_capacity(cap: usize) -> BackedVec<T, A> {
-        BackedVec {
-            ptr: MaybeNonDropPointer::new(A::allocate::<T>(cap), DropBehaviour::ShouldDrop),
+const FREE : bool = true;
+const EMBEDDED : bool = false;
+
+impl<T, A: Allocator> EmbeddedVec<T, A> {
+    pub fn new() -> EmbeddedVec<T, A> {
+        EmbeddedVec {
+            ptr: TaggedRelativePointer::null(EMBEDDED),
+            len: 0,
+            cap: 0,
+            _alloc: PhantomData
+        }
+    }
+
+    pub fn with_capacity(cap: usize) -> EmbeddedVec<T, A> {
+        let mut vec = EmbeddedVec {
+            ptr: TaggedRelativePointer::default(),
             len: 0,
             cap: cap,
             _alloc: PhantomData
-        }
+        };
+
+        vec.ptr.set(A::allocate::<T>(cap), FREE);
+        vec
     }
 
-    pub fn from_backing(ptr: *mut T, len: usize, cap: usize) -> BackedVec<T, A> {
-        BackedVec {
-            ptr: MaybeNonDropPointer::new(ptr, DropBehaviour::NoDrop),
+    pub fn from_backing(ptr: *mut T, len: usize, cap: usize) -> EmbeddedVec<T, A> {
+        let mut vec = EmbeddedVec {
+            ptr: TaggedRelativePointer::default(),
             len: len,
             cap: cap,
             _alloc: PhantomData
-        }
+        };
+
+        vec.ptr.set(ptr, EMBEDDED);
+        vec
     }
 
     fn maybe_drop(&mut self) {
-        if self.ptr.should_drop() {
+        if self.ptr.is_tagged() == FREE {
             unsafe {
                 ptr::drop_in_place(&mut self[..]);
                 A::deallocate(self.ptr.mut_ptr(), self.cap);
@@ -109,7 +137,7 @@ impl<T, A: Allocator> BackedVec<T, A> {
             ptr::copy_nonoverlapping(self.ptr.ptr(), new_ptr, self.len);
         }
         self.maybe_drop();
-        self.ptr = MaybeNonDropPointer::new(new_ptr, DropBehaviour::ShouldDrop);
+        self.ptr.set(new_ptr, FREE);
     }
 
     pub fn push(&mut self, value: T) {
@@ -136,13 +164,13 @@ impl<T, A: Allocator> BackedVec<T, A> {
     }
 }
 
-impl<T, A: Allocator> Drop for BackedVec<T, A> {
+impl<T, A: Allocator> Drop for EmbeddedVec<T, A> {
     fn drop(&mut self) {
         self.maybe_drop();
     }
 }
 
-impl<T, A: Allocator> Deref for BackedVec<T, A> {
+impl<T, A: Allocator> Deref for EmbeddedVec<T, A> {
     type Target = [T];
 
     fn deref(&self) -> &[T] {
@@ -152,7 +180,7 @@ impl<T, A: Allocator> Deref for BackedVec<T, A> {
     }
 }
 
-impl<T, A: Allocator> DerefMut for BackedVec<T, A> {
+impl<T, A: Allocator> DerefMut for EmbeddedVec<T, A> {
     fn deref_mut(&mut self) -> &mut [T] {
         unsafe {
             std::slice::from_raw_parts_mut(self.ptr.mut_ptr(), self.len)
@@ -160,185 +188,129 @@ impl<T, A: Allocator> DerefMut for BackedVec<T, A> {
     }
 }
 
-struct GrowablePointer<T> {
-    offset: u32,
-    len_bytes: u16,
-    cap_bytes: u16,
-    _marker: PhantomData<T>
+trait Embedded {
+    fn is_still_embedded(&self) -> bool;
+    fn data_cap_in_bytes(&self) -> usize;
+    fn data_len_in_bytes(&self) -> usize;
+    unsafe fn data_ptr(&self) -> *const u8;
+    unsafe fn re_embed(&mut self, new_embedded_data: *mut u8);
 }
 
-trait GrowablePointerToValue<T> {
-    fn set_from_new(&mut self, offset: usize, new: &Option<T>, old: &Self);
-    unsafe fn get(ptr: *mut u8, lenu8bytes: usize, cap_bytes: usize) -> T;
-}
-
-impl<T> GrowablePointerToValue<BackedVec<T>> for GrowablePointer<BackedVec<T>> {
-    fn set_from_new(&mut self, offset: usize, new: &Option<BackedVec<T>>, old: &Self) {
-        self.offset = offset as u32;
-        self.len_bytes = match new {&Some(ref new_vec) => (new_vec.len * mem::size_of::<T>()) as u16, &None => old.len_bytes};
-        self.cap_bytes = match new {&Some(ref new_vec) => (new_vec.cap * mem::size_of::<T>()) as u16, &None => old.cap_bytes};
+impl<T, A: Allocator> Embedded for EmbeddedVec<T, A> {
+    fn is_still_embedded(&self) -> bool {
+        self.ptr.is_tagged() == EMBEDDED
     }
 
-    unsafe fn get(ptr: *mut u8, len_bytes: usize, cap_bytes: usize) -> BackedVec<T> {
-        BackedVec::from_backing(mem::transmute(ptr), len_bytes / mem::size_of::<T>(), cap_bytes / mem::size_of::<T>())
+    fn data_cap_in_bytes(&self) -> usize {
+        self.cap * mem::size_of::<T>()
+    }
+
+    fn data_len_in_bytes(&self) -> usize {
+        self.len * mem::size_of::<T>()
+    }
+
+    unsafe fn data_ptr(&self) -> *const u8 {
+        transmute(self.ptr.ptr())
+    }
+
+    unsafe fn re_embed(&mut self, new_embedded_data: *mut u8) {
+        self.ptr.set(transmute(new_embedded_data), EMBEDDED);
     }
 }
 
-impl<T> Clone for GrowablePointer<T> {
-    fn clone(&self) -> GrowablePointer<T> {
-        match *self {
-            GrowablePointer {
-                offset: offset,
-                len_bytes: len_bytes,
-                cap_bytes: cap_bytes,
-                _marker: _
-            } => GrowablePointer {
-                offset: offset,
-                len_bytes: len_bytes,
-                cap_bytes: cap_bytes,
-                _marker: PhantomData
+macro_rules! trivially_embedded {
+    ($($trivial_type:ty),*) => {
+        $(
+            impl Embedded for $trivial_type {
+                fn is_still_embedded(&self) -> bool {true}
+                fn data_cap_in_bytes(&self) -> usize {0}
+                fn data_len_in_bytes(&self) -> usize {0}
+                unsafe fn data_ptr(&self) -> *const u8 {ptr::null()}
+                unsafe fn re_embed(&mut self, _new_embedded_data: *mut u8) {}
+            }
+        )*
+    }
+}
+
+trivially_embedded!(usize, u32, u16);
+
+macro_rules! derive_embeddable {
+    (struct $name:ident $fields:tt) => {
+        echo_struct!($name, $fields);
+
+        impl Embedded for $name {
+            fn is_still_embedded(&self) -> bool {
+                derive_is_still_embedded!(self, $fields)
+            }
+
+            fn data_cap_in_bytes(&self) -> usize {
+                derive_data_cap_in_bytes!(self, $fields)
+            }
+
+            fn data_len_in_bytes(&self) -> usize {
+                self.data_cap_in_bytes()
+            }
+
+            unsafe fn data_ptr(&self) -> *const u8 {
+                transmute::<*const Self, *const u8>(self as *const Self)
+                    .offset(mem::size_of::<Self>() as isize)
+            }
+
+            unsafe fn re_embed(&mut self, new_embedded_data: *mut u8) {
+                let mut offset: isize = 0;
+                derive_re_embed!(self, new_embedded_data, offset, $fields);
             }
         }
     }
-
 }
 
-macro_rules! actor {
-    (struct $name:ident $fields:tt growables $ifields:tt $update_impl:item) => {
-        actor_combined_struct!($name ; $fields ; $ifields);
-        actor_update_fields_struct!(GrowablesUpdate ; $ifields);
-        actor_impl!($name ; $ifields ; GrowablesUpdate);
-        $update_impl
-    }
-}
-
-macro_rules! actor_combined_struct {
-    ($name:ident ; {$($field:ident : $ftype:ty),*} ; {$($ifield:ident: $itype:ty),*}) => {
-        #[derive(Clone)]
+macro_rules! echo_struct {
+    ($name:ident, {$($field:ident: $field_type:ty),*}) => {
         struct $name {
-            $($field: $ftype),*,
-            $($ifield: GrowablePointer<$itype>),*
+            $($field: $field_type),*
         }
     }
 }
 
-macro_rules! actor_impl {
-    ($name:ident ; $ifields:tt ; $update_struct:ident)  => {
-        impl $name {
-            actor_update_wrapper!($ifields ; $update_struct);
-            actor_growables_getters!($ifields);
-        }
+macro_rules! derive_is_still_embedded {
+    ($the_self:ident, {$($field:ident: $field_type:ty),*}) => {
+        $($the_self.$field.is_still_embedded())&&*
     }
 }
 
-macro_rules! actor_update_fields_struct {
-    ($name:ident ; {$($ifield:ident: $itype:ty),*}) => {
-        struct $name {
-            $($ifield: Option<$itype>),*
-        }
+macro_rules! derive_data_cap_in_bytes {
+    ($the_self:ident, {$($field:ident: $field_type:ty),*}) => {
+        $($the_self.$field.data_cap_in_bytes() + )* 0
     }
 }
 
-macro_rules! actor_update_wrapper {
-    ($ifields:tt ; $update_struct:ident) => {
-        pub fn update_and_resize<F: Fn(usize) -> (*mut u8, usize, usize), G: Fn(usize, usize, usize)>
-        (&mut self, get_slot: F, move_to_slot: G) {
-            let field_updates : Option<$update_struct> = self.update();
-            match field_updates {
-                None | Some(actor_update_fields_all_none!($update_struct ; $ifields)) => {return},
-                Some(new_fields) => {
-                    let mut new_self = self.clone();
-                    let mut total_size_requirement = mem::size_of::<Self>();
-                    let mut current_offset = mem::size_of::<Self>();
-
-                    actor_ifields_resize_calc!($ifields ; new_fields ; self ; new_self ; total_size_requirement ; current_offset);
-
-                    let (new_slot, new_slot_cap, new_slot_id) = get_slot(total_size_requirement);
-                    unsafe {
-                        let self_in_new_slot : *mut Self = mem::transmute(new_slot);
-                        *self_in_new_slot = new_self.clone();
-                    }
-
-                    actor_ifields_copy!($ifields ; new_fields ; self ; new_self ; new_slot);
-
-                    move_to_slot(self.id, new_slot_cap, new_slot_id);
-                }
-            }
-        }
-    }
-}
-
-macro_rules! actor_update_fields_all_none {
-    ($struct_name:ident ; {$($ifield:ident: $vtype:ty),*}) => {
-        $struct_name {
-            $($ifield: None),*
-        }
-    }
-}
-
-macro_rules! actor_growables_getters {
-    ({$($ifield:ident: $vtype:ty),*}) => {
+macro_rules! derive_re_embed {
+    ($the_self:ident, $new_embedded_data:ident, $offset:ident, {$($field:ident: $field_type:ty),*}) => {
         $(
-            pub fn $ifield (&mut self) -> $vtype {
-                unsafe {
-                    let base_ptr : *mut u8 = transmute(self as *mut Self);
-                    GrowablePointer::get(
-                        base_ptr.offset(self.$ifield.offset as isize),
-                        self.$ifield.len_bytes as usize,
-                        self.$ifield.cap_bytes as usize
-                    )
-                }
-            }
+            $the_self.$field.re_embed($new_embedded_data.offset($offset));
+            $offset += $the_self.$field.data_cap_in_bytes() as isize;
         )*
     }
 }
 
-macro_rules! actor_ifields_resize_calc {
-    ({$($ifield:ident: $vtype:ty),*} ; $new_fields:ident ; $the_self:ident ; $new_self:ident ; $total_size_requirement:ident ; $current_offset:ident) => {
-        $(
-            {
-                $new_self.$ifield.set_from_new($current_offset, &$new_fields.$ifield, &$the_self.$ifield);
-                $total_size_requirement += $new_self.$ifield.cap_bytes as usize;
-                $current_offset += $new_self.$ifield.cap_bytes as usize;
-            }
-        )*
-    }
-}
-
-macro_rules! actor_ifields_copy {
-    ({$($ifield:ident: $vtype:ty),*} ; $new_fields:ident ; $the_self:ident ; $new_self:ident ; $new_slot:ident) => {
-        $(
-            unsafe {
-                let old_self_pointer : *const u8 = transmute($the_self as *const Self);
-                let src = old_self_pointer.offset($the_self.$ifield.offset as isize);
-                let dest = $new_slot.offset($new_self.$ifield.offset as isize);
-                ptr::copy_nonoverlapping(src, dest, $new_self.$ifield.len_bytes as usize);
-            }
-        )*
-    }
-}
-
-actor! {
+derive_embeddable!{
     struct Test {
         id: usize,
         a: u32,
-        b: u16
-    }
-
-    growables {
-        x: BackedVec<u8>,
-        y: BackedVec<u16>
-    }
-
-    impl Test {
-        fn update (&mut self) -> Option<GrowablesUpdate> {
-            self.a;
-            Some(GrowablesUpdate{x: None, y: None})
-        }
+        b: u16,
+        x: EmbeddedVec<u8>,
+        y: EmbeddedVec<u16>
     }
 }
 
 fn main () {
-    let mut t : Test;
-    t.x();
+    let mut t = Test {
+        id: 0,
+        a: 1,
+        b: 2,
+        x: EmbeddedVec::new(),
+        y: EmbeddedVec::new()
+    };
+    t.x.push(5u8);
+    println!("{}", t.x.len);
 }
