@@ -93,7 +93,7 @@ impl<T, A: Allocator> EmbeddedVec<T, A> {
         self.cap = new_cap;
     }
 
-    pub fn push(&mut self, value: T) where T: ::std::fmt::Debug {
+    pub fn push(&mut self, value: T) {
         if self.len == self.cap {
             self.double_buf();
         }
@@ -141,6 +141,24 @@ impl<T, A: Allocator> DerefMut for EmbeddedVec<T, A> {
     }
 }
 
+impl<'a, T, A: Allocator> IntoIterator for &'a EmbeddedVec<T, A> {
+    type Item = &'a T;
+    type IntoIter = ::std::slice::Iter<'a, T>;
+    
+    fn into_iter(self) -> Self::IntoIter {
+        self.deref().into_iter()
+    }
+}
+
+impl<'a, T, A: Allocator> IntoIterator for &'a mut EmbeddedVec<T, A> {
+    type Item = &'a mut T;
+    type IntoIter = ::std::slice::IterMut<'a, T>;
+    
+    fn into_iter(self) -> Self::IntoIter {
+        self.deref_mut().into_iter()
+    }
+}
+
 impl<T, A: Allocator> Embedded for EmbeddedVec<T, A> {
     fn is_still_embedded(&self) -> bool {
         self.ptr.is_tagged() == EMBEDDED
@@ -172,7 +190,32 @@ macro_rules! trivially_embedded {
     }
 }
 
-trivially_embedded!(usize, u32, u16, u8);
+trivially_embedded!(usize, u32, u16, u8, f32);
+
+impl<T: Embedded> Embedded for Option<T> {
+    fn is_still_embedded(&self) -> bool {
+        match self {
+            &None => true,
+            &Some(ref inner) => inner.is_still_embedded()
+        }
+    }
+    fn dynamic_size_bytes(&self) -> usize {
+        match self {
+            &None => 0,
+            &Some(ref inner) => inner.dynamic_size_bytes()
+        }
+    }
+    unsafe fn embed_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
+        ptr::copy_nonoverlapping(source as *const Self, self as *mut Self, 1);
+        match self {
+            &mut Some(ref mut inner) => match source {
+                &Some(ref inner_source) => inner.embed_from(inner_source, new_dynamic_part),
+                &None => {}
+            },
+            &mut None => {}
+        }
+    }
+}
 
 macro_rules! derive_embedded {
     (struct $name:ident $fields:tt) => {

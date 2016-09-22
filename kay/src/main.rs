@@ -9,101 +9,118 @@ mod inbox;
 mod slot_map;
 mod swarm;
 mod messaging;
+mod actor_system;
 use embedded::{Embedded, EmbeddedVec};
 use chunked::{MemChunker};
 use swarm::Swarm;
 use inbox::{Inbox};
-use messaging::{Message, Recipient, ActorSystem};
-
-#[derive(Copy, Clone)]
-pub struct ID {
-    type_id: u16,
-    version: u8,
-    instance_id: u32
-}
-
-pub trait ShortTypeId {
-    fn type_id() -> usize;
-}
-
-pub struct Actor<ActorState: Embedded>{
-    id: ID,
-    state: ActorState
-}
-
-impl<ActorState: Embedded> Embedded for Actor<ActorState> {
-    fn is_still_embedded(&self) -> bool {self.state.is_still_embedded()}
-    fn dynamic_size_bytes(&self) -> usize {self.state.dynamic_size_bytes()}
-    unsafe fn embed_from(&mut self, other: &Self, new_dynamic_part: *mut u8) {
-        self.id = other.id;
-        self.state.embed_from(&other.state, new_dynamic_part);
-    }
-}
+use messaging::{Message, Recipient};
+use actor_system::{ID, Known, Actor, ActorSystem, SystemServices};
 
 // ----------
 
-derive_embedded!{
-struct Test {
-    a: u32,
-    b: u16,
-    x: EmbeddedVec<u8>,
-    y: EmbeddedVec<u16>
+#[derive(Copy, Clone)]
+struct CarOnLane {
+    trip: ID,
+    position: f32
 }
-}
+
+trivially_embedded!(CarOnLane);
 
 derive_embedded!{
-struct AddX {
-    x: u8
+    struct Lane {
+        length: f32,
+        next: Option<ID>,
+        previous: Option<ID>,
+        cars: EmbeddedVec<CarOnLane>
+    }
 }
+impl Known for Actor<Lane> {fn type_id() -> usize {13}}
+
+#[derive(Copy, Clone)]
+struct AddCar {
+    car: CarOnLane
 }
 
-impl ShortTypeId for AddX {
-    fn type_id() -> usize {42}
-}
+trivially_embedded!(AddCar);
+impl Message for AddCar {}
+impl Known for AddCar {fn type_id() -> usize {42}}
 
-impl Message for AddX {}
+#[derive(Copy, Clone)]
+struct Tick;
+trivially_embedded!(Tick);
+impl Message for Tick {}
+impl Known for Tick {fn type_id() -> usize {43}}
 
-impl Recipient<AddX> for Actor<Test> {
-    fn receive(&mut self, message: &AddX) {
-        self.state.x.push(message.x);
+impl Recipient<AddCar> for Actor<Lane> {
+    fn receive(&mut self, message: &AddCar, _system: &mut SystemServices) {
+        self.state.cars.push(message.car);
     }
 }
 
-impl ShortTypeId for Actor<Test> {
-    fn type_id() -> usize {13}
+impl Recipient<Tick> for Actor<Lane> {
+    fn receive(&mut self, _message: &Tick, system: &mut SystemServices) {
+        for car in &mut self.state.cars {
+            car.position += 1.0;
+        }
+        while self.state.cars.len() > 0 {
+            let mut last_car = self.state.cars[self.state.cars.len() - 1];
+            if last_car.position > self.state.length {
+                last_car.position -= self.state.length;
+                system.send(AddCar{car: last_car}, self.state.next.unwrap());
+                self.state.cars.pop();
+            } else {break;}
+        }
+    }
 }
-
-
 
 fn main () {
     let mut system = ActorSystem::new();
 
-    system.add_swarm::<Test>(Swarm::new(MemChunker::new("test_actors", 512), 30));    
-    system.add_inbox::<AddX, Test>(Inbox::new(MemChunker::new("add_x", 512), 4));
+    system.add_swarm::<Lane>(Swarm::new(MemChunker::new("lane_actors", 512), 30));    
+    system.add_inbox::<AddCar, Lane>(Inbox::new(MemChunker::new("add_car", 512), 4));
+    system.add_inbox::<Tick, Lane>(Inbox::new(MemChunker::new("tick", 512), 4));
 
-    let actor = {
-        let swarm = system.swarm::<Test>();
+    let (actor1, actor2) = {
+        let swarm = system.swarm::<Lane>();
 
-        let actor = swarm.create(Test {
-            a: 1,
-            b: 2,
-            x: EmbeddedVec::new(),
-            y: EmbeddedVec::new()
+        let mut actor1 = swarm.create(Lane {
+            length: 15.0,
+            previous: None,
+            next: None,
+            cars: EmbeddedVec::new()
         });
 
-        swarm.add(&actor);
+        let actor2 = swarm.create(Lane {
+            length: 10.0,
+            previous: Some(actor1.id),
+            next: Some(actor1.id),
+            cars: EmbeddedVec::new()
+        });
 
-        actor
+        actor1.state.next = Some(actor2.id);
+
+        swarm.add(&actor1);
+        swarm.add(&actor2);
+
+        (actor1, actor2)
     };
 
-    system.send(AddX{x: 99}, actor.id);
-    system.send(AddX{x: 77}, actor.id);
+    system.send(AddCar{car: CarOnLane{position: 2.0, trip: ID::invalid()}}, actor1.id);
+    system.send(AddCar{car: CarOnLane{position: 1.0, trip: ID::invalid()}}, actor1.id);
 
-    system.process_messages(); 
+    loop {
+        system.send(Tick, actor1.id);
+        system.send(Tick, actor2.id);
 
-    {
-        let swarm = system.swarm::<Test>();
-        println!("{}, {}, {}", swarm.at(0).state.x.len(), swarm.at(0).state.x[0], swarm.at(0).state.x[1]);
-        println!("done!");
+        for _i in 0..1000 {
+            system.process_messages();
+        }
+
+        {
+            let swarm = system.swarm::<Lane>();
+            println!("{}, {}", swarm.at(0).state.cars.len(), swarm.at(1).state.cars.len());
+            println!("done!");
+        }
     }
 }

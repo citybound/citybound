@@ -3,7 +3,7 @@ use chunked::{Chunker, SizedChunkedArena, MultiSized};
 use slot_map::{SlotIndices, SlotMap};
 use messaging::{Recipient, Message};
 use std::marker::PhantomData;
-use {Actor, ID, ShortTypeId};
+use actor_system::{Actor, ID, Known, SystemServices};
 use std::mem::transmute;
 
 pub struct Swarm<Actor> {
@@ -13,7 +13,7 @@ pub struct Swarm<Actor> {
 }
 
 impl<S: Embedded> Swarm<Actor<S>>
-where Actor<S> : ShortTypeId {
+where Actor<S> : Known {
     pub fn new(chunker: Box<Chunker>, base_size: usize) -> Self {
         Swarm{
             actors: MultiSized::new(chunker.child("_actors"), base_size),
@@ -95,10 +95,10 @@ where Actor<S> : ShortTypeId {
             self.swap_remove(old_i);
     }
 
-    pub fn receive<M: Message>(&mut self, id: usize, message: &M) where Actor<S>: Recipient<M> {
+    pub fn receive<M: Message>(&mut self, id: usize, message: &M, system: &mut SystemServices) where Actor<S>: Recipient<M> {
         let is_still_embedded = {
             let actor = self.at_mut(id);
-            actor.receive(message);
+            actor.receive(message, system);
             actor.is_still_embedded()
         };
 
