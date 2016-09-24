@@ -54,21 +54,21 @@ impl Known for Tick {fn type_id() -> usize {43}}
 
 impl Recipient<AddCar> for Actor<Lane> {
     fn receive(&mut self, message: &AddCar, _system: &mut SystemServices) {
-        self.state.cars.push(message.car);
+        self.cars.push(message.car);
     }
 }
 
 impl Recipient<Tick> for Actor<Lane> {
     fn receive(&mut self, _message: &Tick, system: &mut SystemServices) {
-        for car in &mut self.state.cars {
+        for car in &mut self.cars {
             car.position += 1.0;
         }
-        while self.state.cars.len() > 0 {
-            let mut last_car = self.state.cars[self.state.cars.len() - 1];
-            if last_car.position > self.state.length {
-                last_car.position -= self.state.length;
-                system.send(AddCar{car: last_car}, self.state.next.unwrap());
-                self.state.cars.pop();
+        while self.cars.len() > 0 {
+            let mut last_car = self.cars[self.cars.len() - 1];
+            if last_car.position > self.length {
+                last_car.position -= self.length;
+                system.send(AddCar{car: last_car}, self.next.unwrap());
+                self.cars.pop();
             } else {break;}
         }
     }
@@ -98,7 +98,7 @@ fn main () {
             cars: EmbeddedVec::new()
         });
 
-        actor1.state.next = Some(actor2.id);
+        actor1.next = Some(actor2.id);
 
         swarm.add(&actor1);
         swarm.add(&actor2);
@@ -119,7 +119,7 @@ fn main () {
 
         {
             let swarm = system.swarm::<Lane>();
-            println!("{}, {}", swarm.at(0).state.cars.len(), swarm.at(1).state.cars.len());
+            println!("{}, {}", swarm.at(0).cars.len(), swarm.at(1).cars.len());
             println!("done!");
         }
     }

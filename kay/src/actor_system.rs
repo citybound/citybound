@@ -2,6 +2,7 @@ use embedded::Embedded;
 use swarm::Swarm;
 use messaging::{Message, MessagePacket, Recipient};
 use inbox::Inbox;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Copy, Clone)]
 pub struct ID {
@@ -37,6 +38,21 @@ impl<ActorState: Embedded> Embedded for Actor<ActorState> {
     unsafe fn embed_from(&mut self, other: &Self, new_dynamic_part: *mut u8) {
         self.id = other.id;
         self.state.embed_from(&other.state, new_dynamic_part);
+    }
+}
+
+impl<ActorState: Embedded> Deref for Actor<ActorState> {
+    type Target = ActorState;
+
+    fn deref(&self) -> &ActorState {
+        &self.state
+    }
+}
+
+
+impl<ActorState: Embedded> DerefMut for Actor<ActorState> {
+    fn deref_mut(&mut self) -> &mut ActorState {
+        &mut self.state
     }
 }
 
