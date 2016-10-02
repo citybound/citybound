@@ -10,7 +10,7 @@ mod slot_map;
 mod swarm;
 mod messaging;
 mod actor_system;
-use embedded::{Embedded, EmbeddedVec};
+use embedded::{Embedded, EmbeddedVec as EVec};
 use chunked::{MemChunker};
 use swarm::Swarm;
 use inbox::{Inbox};
@@ -20,41 +20,35 @@ use actor_system::{ID, Known, Actor, ActorSystem, SystemServices};
 // ----------
 
 #[derive(Copy, Clone)]
-struct CarOnLane {
+struct LaneCar {
     trip: ID,
     position: f32
 }
-
-trivially_embedded!(CarOnLane);
 
 derive_embedded!{
     struct Lane {
         length: f32,
         next: Option<ID>,
         previous: Option<ID>,
-        cars: EmbeddedVec<CarOnLane>
+        cars: EVec<LaneCar>
     }
 }
 impl Known for Actor<Lane> {fn type_id() -> usize {13}}
 
 #[derive(Copy, Clone)]
-struct AddCar {
-    car: CarOnLane
-}
+struct AddCar(LaneCar);
 
-trivially_embedded!(AddCar);
 impl Message for AddCar {}
 impl Known for AddCar {fn type_id() -> usize {42}}
 
 #[derive(Copy, Clone)]
 struct Tick;
-trivially_embedded!(Tick);
 impl Message for Tick {}
 impl Known for Tick {fn type_id() -> usize {43}}
 
 impl Recipient<AddCar> for Actor<Lane> {
     fn receive(&mut self, message: &AddCar, _system: &mut SystemServices) {
-        self.cars.push(message.car);
+        self.cars.push(message.0);
     }
 }
 
@@ -67,7 +61,7 @@ impl Recipient<Tick> for Actor<Lane> {
             let mut last_car = self.cars[self.cars.len() - 1];
             if last_car.position > self.length {
                 last_car.position -= self.length;
-                system.send(AddCar{car: last_car}, self.next.unwrap());
+                system.send(AddCar(last_car), self.next.unwrap());
                 self.cars.pop();
             } else {break;}
         }
@@ -88,14 +82,14 @@ fn main () {
             length: 15.0,
             previous: None,
             next: None,
-            cars: EmbeddedVec::new()
+            cars: EVec::new()
         });
 
         let actor2 = swarm.create(Lane {
             length: 10.0,
             previous: Some(actor1.id),
             next: Some(actor1.id),
-            cars: EmbeddedVec::new()
+            cars: EVec::new()
         });
 
         actor1.next = Some(actor2.id);
@@ -106,8 +100,8 @@ fn main () {
         (actor1, actor2)
     };
 
-    system.send(AddCar{car: CarOnLane{position: 2.0, trip: ID::invalid()}}, actor1.id);
-    system.send(AddCar{car: CarOnLane{position: 1.0, trip: ID::invalid()}}, actor1.id);
+    system.send(AddCar(LaneCar{position: 2.0, trip: ID::invalid()}), actor1.id);
+    system.send(AddCar(LaneCar{position: 1.0, trip: ID::invalid()}), actor1.id);
 
     loop {
         system.send(Tick, actor1.id);

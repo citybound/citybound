@@ -176,7 +176,7 @@ impl<T, A: Allocator> Embedded for EmbeddedVec<T, A> {
     }
 }
 
-macro_rules! trivially_embedded {
+macro_rules! plain {
     ($($trivial_type:ty),*) => {
         $(
             impl Embedded for $trivial_type {
@@ -190,32 +190,7 @@ macro_rules! trivially_embedded {
     }
 }
 
-trivially_embedded!(usize, u32, u16, u8, f32);
-
-impl<T: Embedded> Embedded for Option<T> {
-    fn is_still_embedded(&self) -> bool {
-        match self {
-            &None => true,
-            &Some(ref inner) => inner.is_still_embedded()
-        }
-    }
-    fn dynamic_size_bytes(&self) -> usize {
-        match self {
-            &None => 0,
-            &Some(ref inner) => inner.dynamic_size_bytes()
-        }
-    }
-    unsafe fn embed_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
-        ptr::copy_nonoverlapping(source as *const Self, self as *mut Self, 1);
-        match self {
-            &mut Some(ref mut inner) => match source {
-                &Some(ref inner_source) => inner.embed_from(inner_source, new_dynamic_part),
-                &None => {}
-            },
-            &mut None => {}
-        }
-    }
-}
+//plain!(usize, u32, u16, u8, f32);
 
 macro_rules! derive_embedded {
     (struct $name:ident $fields:tt) => {
@@ -236,6 +211,40 @@ macro_rules! derive_embedded {
                 derive_embed_from!(self, source, new_dynamic_part, offset, $fields);
             }
         }
+    }
+}
+
+// TODO: figure out how to resolve overlapping traits
+// impl<T: Embedded + !Copy> Embedded for Option<T> {
+//     fn is_still_embedded(&self) -> bool {
+//         match self {
+//             &None => true,
+//             &Some(ref inner) => inner.is_still_embedded()
+//         }
+//     }
+//     fn dynamic_size_bytes(&self) -> usize {
+//         match self {
+//             &None => 0,
+//             &Some(ref inner) => inner.dynamic_size_bytes()
+//         }
+//     }
+//     unsafe fn embed_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
+//         ptr::copy_nonoverlapping(source as *const Self, self as *mut Self, 1);
+//         match self {
+//             &mut Some(ref mut inner) => match source {
+//                 &Some(ref inner_source) => inner.embed_from(inner_source, new_dynamic_part),
+//                 &None => {}
+//             },
+//             &mut None => {}
+//         }
+//     }
+// }
+
+impl<T: Copy> Embedded for T {
+    fn is_still_embedded(&self) -> bool {true}
+    fn dynamic_size_bytes(&self) -> usize {0}
+    unsafe fn embed_from(&mut self, source: &Self, _new_dynamic_part: *mut u8) {
+        *self = *source;
     }
 }
 

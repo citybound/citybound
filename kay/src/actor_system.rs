@@ -11,8 +11,6 @@ pub struct ID {
     pub instance_id: u32
 }
 
-trivially_embedded!(ID);
-
 impl ID {
     pub fn invalid() -> ID {
         ID {
@@ -84,14 +82,7 @@ impl ActorSystem {
     pub fn add_inbox<M: Message + 'static, S: Embedded + 'static>
         (&mut self, inbox: Inbox<M>)
         where Actor<S> : Recipient<M> {
-        let inbox_ptr = {
-            let ref mut entry = self.routing[M::type_id()][Actor::<S>::type_id()];
-            assert!(entry.is_none());
-            // containing router is now responsible
-            let inbox_ptr = Box::into_raw(Box::new(inbox)) as *mut u8;
-            *entry = Some(inbox_ptr);
-            inbox_ptr
-        };
+        let inbox_ptr = self.store_inbox(inbox, Actor::<S>::type_id());
         let swarm_ptr = self.swarms[Actor::<S>::type_id()].unwrap();
         let self_ptr = self as *mut Self;
         self.update_callbacks.push(Box::new(move || {
@@ -106,6 +97,21 @@ impl ActorSystem {
                 }
             }
         }))
+    }
+
+    pub fn add_external_inbox<M: Message>(&mut self, inbox: Inbox<M>, recipient_type_id: usize) -> &mut Inbox<M> {
+        unsafe {
+            &mut *(self.store_inbox(inbox, recipient_type_id) as *mut Inbox<M>)
+        }
+    }
+
+    fn store_inbox<M: Message>(&mut self, inbox: Inbox<M>, recipient_type_id: usize) -> *mut u8 {
+        let ref mut entry = self.routing[M::type_id()][recipient_type_id];
+        assert!(entry.is_none());
+        // containing router is now responsible
+        let inbox_ptr = Box::into_raw(Box::new(inbox)) as *mut u8;
+        *entry = Some(inbox_ptr);
+        inbox_ptr
     }
 
     pub fn swarm<S: Embedded>(&mut self) -> &mut Swarm<Actor<S>> where Actor<S> : Known  {
