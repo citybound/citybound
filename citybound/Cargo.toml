@@ -6,8 +6,11 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 [dependencies]
 nalgebra = "*"
 
-[dependencies.world_record]
-path = "../world_record/"
+[dependencies.kay]
+path = "../kay/"
 
 [dependencies.monet]
 path = "../monet/"
+
+[dependencies.compass]
+path = "../compass/"

@@ -25,12 +25,12 @@ pub trait Known {
     fn type_id() -> usize;
 }
 
-pub struct Actor<ActorState: Embedded> {
+pub struct LivingActor<Actor: Embedded> {
     pub id: ID,
-    pub state: ActorState
+    pub state: Actor
 }
 
-impl<ActorState: Embedded> Embedded for Actor<ActorState> {
+impl<Actor: Embedded> Embedded for LivingActor<Actor> {
     fn is_still_embedded(&self) -> bool {self.state.is_still_embedded()}
     fn dynamic_size_bytes(&self) -> usize {self.state.dynamic_size_bytes()}
     unsafe fn embed_from(&mut self, other: &Self, new_dynamic_part: *mut u8) {
@@ -39,17 +39,17 @@ impl<ActorState: Embedded> Embedded for Actor<ActorState> {
     }
 }
 
-impl<ActorState: Embedded> Deref for Actor<ActorState> {
-    type Target = ActorState;
+impl<Actor: Embedded> Deref for LivingActor<Actor> {
+    type Target = Actor;
 
-    fn deref(&self) -> &ActorState {
+    fn deref(&self) -> &Actor {
         &self.state
     }
 }
 
 
-impl<ActorState: Embedded> DerefMut for Actor<ActorState> {
-    fn deref_mut(&mut self) -> &mut ActorState {
+impl<Actor: Embedded> DerefMut for LivingActor<Actor> {
+    fn deref_mut(&mut self) -> &mut Actor {
         &mut self.state
     }
 }
@@ -73,22 +73,22 @@ impl ActorSystem {
         }
     }
 
-    pub fn add_swarm<S: Embedded> (&mut self, swarm: Swarm<Actor<S>>)
-        where Actor<S> : Known {
+    pub fn add_swarm<S: Embedded> (&mut self, swarm: Swarm<S>)
+        where S : Known {
         // containing router is now responsible
-        self.swarms[Actor::<S>::type_id()] = Some(Box::into_raw(Box::new(swarm)) as *mut u8);
+        self.swarms[S::type_id()] = Some(Box::into_raw(Box::new(swarm)) as *mut u8);
     }
 
     pub fn add_inbox<M: Message + 'static, S: Embedded + 'static>
         (&mut self, inbox: Inbox<M>)
-        where Actor<S> : Recipient<M> {
-        let inbox_ptr = self.store_inbox(inbox, Actor::<S>::type_id());
-        let swarm_ptr = self.swarms[Actor::<S>::type_id()].unwrap();
+        where S : Recipient<M> {
+        let inbox_ptr = self.store_inbox(inbox, S::type_id());
+        let swarm_ptr = self.swarms[S::type_id()].unwrap();
         let self_ptr = self as *mut Self;
         self.update_callbacks.push(Box::new(move || {
             unsafe {
                 for packet in (*(inbox_ptr as *mut Inbox<M>)).empty() {
-                    (*(swarm_ptr as *mut Swarm<Actor<S>>))
+                    (*(swarm_ptr as *mut Swarm<S>))
                         .receive(
                             packet.recipient_id.instance_id as usize,
                             &packet.message,
@@ -114,9 +114,9 @@ impl ActorSystem {
         inbox_ptr
     }
 
-    pub fn swarm<S: Embedded>(&mut self) -> &mut Swarm<Actor<S>> where Actor<S> : Known  {
+    pub fn swarm<S: Embedded>(&mut self) -> &mut Swarm<S> where S : Known  {
         unsafe {
-            &mut *(self.swarms[Actor::<S>::type_id()].unwrap() as *mut Swarm<Actor<S>>)
+            &mut *(self.swarms[S::type_id()].unwrap() as *mut Swarm<S>)
         }
     }
 
@@ -158,16 +158,16 @@ impl SystemServices {
             (*self.system).send(message, recipient);
         }
     }
-    pub fn create<S: Embedded>(&mut self, initial_state: S) -> Actor<S>
-        where Actor<S> : Known {
+    pub fn create<S: Embedded>(&mut self, initial_state: S) -> LivingActor<S>
+        where S : Known {
         unsafe {
             (*self.system).swarm::<S>().create(initial_state)
         }
     }
-    pub fn start<S: Embedded>(&mut self, actor: Actor<S>)
-        where Actor<S> : Known {
+    pub fn start<S: Embedded>(&mut self, living_actor: LivingActor<S>)
+        where S : Known {
         unsafe {
-            (*self.system).swarm::<S>().add(&actor);
+            (*self.system).swarm::<S>().add(&living_actor);
         }
     }
 }

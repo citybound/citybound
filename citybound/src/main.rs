@@ -1,53 +1,64 @@
 #![allow(dead_code)]
-extern crate world_record;
+#[macro_use]
+extern crate kay;
 extern crate monet;
 extern crate nalgebra;
+extern crate compass;
 
-use std::path::PathBuf;
-use std::thread;
-use std::sync::mpsc::channel;
 use monet::glium::DisplayBuild;
 use monet::glium::glutin;
+use kay::{ID, Known, Message, Recipient, SystemServices, EVec, ActorSystem, Swarm, Inbox, MemChunker, Embedded};
 
-mod models;
-mod steps;
-mod simulation;
-mod renderer;
-mod input;
+#[derive(Copy, Clone)]
+struct LaneCar {
+    trip: ID,
+    position: f32
+}
+
+derive_embedded!{
+    struct Lane {
+        length: f32,
+        next: Option<ID>,
+        previous: Option<ID>,
+        cars: EVec<LaneCar>
+    }
+}
+impl Known for Lane {fn type_id() -> usize {13}}
+
+#[derive(Copy, Clone)]
+struct AddCar(LaneCar);
+
+impl Message for AddCar {}
+impl Known for AddCar {fn type_id() -> usize {42}}
+
+#[derive(Copy, Clone)]
+struct Tick;
+impl Message for Tick {}
+impl Known for Tick {fn type_id() -> usize {43}}
+
+impl Recipient<AddCar> for Lane {
+    fn receive(&mut self, message: &AddCar, _system: &mut SystemServices) {
+        self.cars.push(message.0);
+    }
+}
+
+impl Recipient<Tick> for Lane {
+    fn receive(&mut self, _message: &Tick, system: &mut SystemServices) {
+        for car in &mut self.cars {
+            car.position += 1.0;
+        }
+        while self.cars.len() > 0 {
+            let mut last_car = self.cars[self.cars.len() - 1];
+            if last_car.position > self.length {
+                last_car.position -= self.length;
+                system.send(AddCar(last_car), self.next.unwrap());
+                self.cars.pop();
+            } else {break;}
+        }
+    }
+}
 
 fn main() {
-    let (input_to_simulation, from_input) = channel::<Vec<input::InputCommand>>();
-    let (renderer_to_simulation, from_renderer) = channel::<()>();
-    let (to_renderer, from_simulation) = channel::<monet::Scene>();
-    
-    let input_step = move |past: &models::State, future: &mut models::State| {
-        loop {match from_input.try_recv() {
-            Ok(inputs) => for input in inputs {
-                input::apply_input_command(input, past, future)
-            },
-            Err(_) => {break}
-        }}
-    };
-
-    let renderer_listener = move |past: &models::State, future: &models::State| {
-        match from_renderer.try_recv() {
-            Ok(_) => {to_renderer.send(renderer::render(past, future)).unwrap();},
-            Err(_) => {}
-        };     
-    };
-    
-    thread::Builder::new().name("simulation".to_string()).spawn(|| {
-        let mut simulation = simulation::Simulation::<models::State>::new(
-            PathBuf::from("savegames/dev"),
-            vec! [Box::new(input_step), Box::new(steps::tick)],
-            vec! [Box::new(renderer_listener)]
-        );
-    
-       loop {
-           let duration_to_sleep = simulation.step();
-           thread::sleep(duration_to_sleep);
-       }
-    }).unwrap();
     
     let window = glutin::WindowBuilder::new()
         .with_title("Citybound".to_string())
@@ -55,21 +66,57 @@ fn main() {
         .with_multitouch()
         .with_vsync().build_glium().unwrap();
 
-    let renderer = monet::Renderer::new(&window);
-    let mut input_state = input::InputState::default();
+    let mut system = ActorSystem::new();
+
+    system.add_swarm::<Lane>(Swarm::new(MemChunker::new("lane_actors", 512), 30));    
+    system.add_inbox::<AddCar, Lane>(Inbox::new(MemChunker::new("add_car", 512), 4));
+    system.add_inbox::<Tick, Lane>(Inbox::new(MemChunker::new("tick", 512), 4));
+
+    let (actor1, actor2) = {
+        let swarm = system.swarm::<Lane>();
+
+        let mut actor1 = swarm.create(Lane {
+            length: 15.0,
+            previous: None,
+            next: None,
+            cars: EVec::new()
+        });
+
+        let actor2 = swarm.create(Lane {
+            length: 10.0,
+            previous: Some(actor1.id),
+            next: Some(actor1.id),
+            cars: EVec::new()
+        });
+
+        actor1.next = Some(actor2.id);
+
+        swarm.add(&actor1);
+        swarm.add(&actor2);
+
+        (actor1, actor2)
+    };
+
+    system.send(AddCar(LaneCar{position: 2.0, trip: ID::invalid()}), actor1.id);
+    system.send(AddCar(LaneCar{position: 1.0, trip: ID::invalid()}), actor1.id);
+
 
     'main: loop {
-        match input::interpret_events(window.poll_events(), &mut input_state) {
-            input::InputResult::Exit => break 'main,
-            input::InputResult::ContinueWithInputCommands(inputs) => {
-                input_to_simulation.send(inputs).unwrap()
-            }
+        
+        system.send(Tick, actor1.id);
+        system.send(Tick, actor2.id);
+
+        for _i in 0..1000 {
+            system.process_messages();
         }
 
-        renderer_to_simulation.send(()).unwrap();
-        let scene = from_simulation.recv().unwrap();
+        {
+            let swarm = system.swarm::<Lane>();
+            println!("{}, {}", swarm.at(0).cars.len(), swarm.at(1).cars.len());
+            println!("done!");
+        }
+
         println!("rendering...");
 
-        renderer.draw(scene);
     }
 }

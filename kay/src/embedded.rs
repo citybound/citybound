@@ -192,6 +192,7 @@ macro_rules! plain {
 
 //plain!(usize, u32, u16, u8, f32);
 
+#[macro_export]
 macro_rules! derive_embedded {
     (struct $name:ident $fields:tt) => {
         echo_struct!($name, $fields);
@@ -248,6 +249,7 @@ impl<T: Copy> Embedded for T {
     }
 }
 
+#[macro_export]
 macro_rules! echo_struct {
     ($name:ident, {$($field:ident: $field_type:ty),*}) => {
         struct $name {
@@ -256,18 +258,21 @@ macro_rules! echo_struct {
     }
 }
 
+#[macro_export]
 macro_rules! derive_is_still_embedded {
     ($the_self:ident, {$($field:ident: $field_type:ty),*}) => {
         $($the_self.$field.is_still_embedded())&&*
     }
 }
 
+#[macro_export]
 macro_rules! derive_dynamic_size_bytes {
     ($the_self:ident, {$($field:ident: $field_type:ty),*}) => {
         $($the_self.$field.dynamic_size_bytes() + )* 0
     }
 }
 
+#[macro_export]
 macro_rules! derive_embed_from {
     ($the_self:ident, $source:ident, $new_dynamic_part:ident, $offset:ident, {$($field:ident: $field_type:ty),*}) => {
         $(
