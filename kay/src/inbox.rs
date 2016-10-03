@@ -1,4 +1,4 @@
-use embedded::{Embedded};
+use compact::{Compact};
 use chunked::{Chunker, MultiSized, SizedChunkedQueue};
 use std::marker::PhantomData;
 use std::mem::transmute;
@@ -22,7 +22,7 @@ impl <M: Message> Inbox<M> {
         unsafe {
             let raw_ptr = self.queues.sized_for_mut(required_size).enqueue();
             let message_in_slot : &mut MessagePacket<M> = transmute(raw_ptr);
-            message_in_slot.embed_behind_from(&package);
+            message_in_slot.compact_behind_from(&package);
         }
     }
 

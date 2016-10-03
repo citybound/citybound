@@ -7,7 +7,7 @@ extern crate compass;
 
 use monet::glium::DisplayBuild;
 use monet::glium::glutin;
-use kay::{ID, Known, Message, Recipient, SystemServices, EVec, ActorSystem, Swarm, Inbox, MemChunker, Embedded};
+use kay::{ID, Known, Message, Recipient, World, CVec, ActorSystem, Swarm, Inbox, MemChunker, Compact};
 
 #[derive(Copy, Clone)]
 struct LaneCar {
@@ -15,12 +15,12 @@ struct LaneCar {
     position: f32
 }
 
-derive_embedded!{
+derive_compact!{
     struct Lane {
         length: f32,
         next: Option<ID>,
         previous: Option<ID>,
-        cars: EVec<LaneCar>
+        cars: CVec<LaneCar>
     }
 }
 impl Known for Lane {fn type_id() -> usize {13}}
@@ -37,13 +37,13 @@ impl Message for Tick {}
 impl Known for Tick {fn type_id() -> usize {43}}
 
 impl Recipient<AddCar> for Lane {
-    fn receive(&mut self, message: &AddCar, _system: &mut SystemServices) {
+    fn receive(&mut self, message: &AddCar, _world: &mut World) {
         self.cars.push(message.0);
     }
 }
 
 impl Recipient<Tick> for Lane {
-    fn receive(&mut self, _message: &Tick, system: &mut SystemServices) {
+    fn receive(&mut self, _message: &Tick, world: &mut World) {
         for car in &mut self.cars {
             car.position += 1.0;
         }
@@ -51,7 +51,7 @@ impl Recipient<Tick> for Lane {
             let mut last_car = self.cars[self.cars.len() - 1];
             if last_car.position > self.length {
                 last_car.position -= self.length;
-                system.send(AddCar(last_car), self.next.unwrap());
+                world.send(AddCar(last_car), self.next.unwrap());
                 self.cars.pop();
             } else {break;}
         }
@@ -72,39 +72,37 @@ fn main() {
     system.add_inbox::<AddCar, Lane>(Inbox::new(MemChunker::new("add_car", 512), 4));
     system.add_inbox::<Tick, Lane>(Inbox::new(MemChunker::new("tick", 512), 4));
 
-    let (actor1, actor2) = {
-        let swarm = system.swarm::<Lane>();
+    let mut world = system.world();
 
-        let mut actor1 = swarm.create(Lane {
-            length: 15.0,
-            previous: None,
-            next: None,
-            cars: EVec::new()
-        });
+    let mut actor1 = world.create(Lane {
+        length: 15.0,
+        previous: None,
+        next: None,
+        cars: CVec::new()
+    });
 
-        let actor2 = swarm.create(Lane {
-            length: 10.0,
-            previous: Some(actor1.id),
-            next: Some(actor1.id),
-            cars: EVec::new()
-        });
+    let actor2 = world.create(Lane {
+        length: 10.0,
+        previous: Some(actor1.id),
+        next: Some(actor1.id),
+        cars: CVec::new()
+    });
 
-        actor1.next = Some(actor2.id);
+    actor1.next = Some(actor2.id);
 
-        swarm.add(&actor1);
-        swarm.add(&actor2);
+    let (actor1_id, actor2_id) = (actor1.id, actor2.id);
 
-        (actor1, actor2)
-    };
+    world.start(actor1);
+    world.start(actor2);
 
-    system.send(AddCar(LaneCar{position: 2.0, trip: ID::invalid()}), actor1.id);
-    system.send(AddCar(LaneCar{position: 1.0, trip: ID::invalid()}), actor1.id);
+    world.send(AddCar(LaneCar{position: 2.0, trip: ID::invalid()}), actor1_id);
+    world.send(AddCar(LaneCar{position: 1.0, trip: ID::invalid()}), actor1_id);
 
 
     'main: loop {
         
-        system.send(Tick, actor1.id);
-        system.send(Tick, actor2.id);
+        world.send(Tick, actor1_id);
+        world.send(Tick, actor2_id);
 
         for _i in 0..1000 {
             system.process_messages();
