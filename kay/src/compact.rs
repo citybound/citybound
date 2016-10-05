@@ -90,7 +90,10 @@ impl<T, A: Allocator> CompactVec<T, A> {
         }
         self.maybe_drop();
         self.ptr.set(new_ptr, FREE);
-        self.cap = new_cap;
+        unsafe {
+            let p = self.ptr.ptr();
+            self.cap = new_cap;
+        }
     }
 
     pub fn push(&mut self, value: T) {

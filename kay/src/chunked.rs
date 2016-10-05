@@ -252,7 +252,8 @@ pub struct SizedChunkedQueue {
     start_index: ValueInChunk<usize>,
     pub read_index: ValueInChunk<usize>,
     pub write_index: ValueInChunk<usize>,
-    end_index: ValueInChunk<usize>
+    end_index: ValueInChunk<usize>,
+    n_dropped_chunks: ValueInChunk<usize>
 }
 
 impl SizedChunkedQueue {
@@ -265,7 +266,7 @@ impl SizedChunkedQueue {
     pub unsafe fn enqueue(&mut self) -> *mut u8 {
         if *self.write_index >= *self.end_index {
             self.chunks.push(self.chunker.create_chunk());
-            *self.end_index += self.chunker.chunk_size();
+            *self.end_index += self.items_per_chunk();
         }
 
         let offset = ((*self.write_index % self.items_per_chunk()) * self.item_size) as isize;
@@ -283,7 +284,10 @@ impl SizedChunkedQueue {
             let offset = ((*self.read_index % self.items_per_chunk()) * self.item_size) as isize;
             let ptr = self.chunks[0].offset(offset);
             *self.read_index += 1;
-            // TODO: deallocate?
+            if *self.read_index >= (*self.n_dropped_chunks + 1) * self.items_per_chunk() {
+                self.chunks.remove(0); // TODO: remove file?
+                *self.n_dropped_chunks += 1;
+            }
             Some(ptr)
         }
     }
@@ -298,6 +302,7 @@ impl SizedChunkedCollection for SizedChunkedQueue {
             read_index: ValueInChunk::new(chunker.child("_read"), 0),
             write_index: ValueInChunk::new(chunker.child("_write"), 0),
             end_index: ValueInChunk::new(chunker.child("_end"), 0),
+            n_dropped_chunks: ValueInChunk::new(chunker.child("_end"), 0),
             chunker: chunker,
             chunks: Vec::new(),
             item_size: item_size,

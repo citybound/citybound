@@ -59,20 +59,28 @@ impl Recipient<RenderedCar> for monet::Scene {
 
 impl Recipient<AddCar> for Lane {
     fn receive(&mut self, message: &AddCar, _world: &mut World) {
+        println!("got a car!, {}", self.length);
+        println!("before");
+        for car in &mut self.cars {
+            println!("{}", car.position);
+        }
         self.cars.insert(0, message.0);
+        println!("after");
+        for car in &mut self.cars {
+            println!("{}", car.position);
+        }
     }
 }
 
 impl Recipient<Tick> for Lane {
     fn receive(&mut self, _message: &Tick, world: &mut World) {
         for car in &mut self.cars {
-            car.position += 0.1;
+            car.position += 0.25;
         }
         while self.cars.len() > 0 {
             let mut last_car = self.cars[self.cars.len() - 1];
             if last_car.position > self.length {
-                //last_car.position -= self.length;
-                last_car.position = 0.0;
+                last_car.position -= self.length;
                 world.send(self.next.unwrap(), AddCar(last_car));
                 self.cars.pop();
             } else {break;}
@@ -102,8 +110,8 @@ fn main() {
 
     system.add_swarm::<Lane>(Swarm::new(MemChunker::new("lane_actors", 512), 30));    
     system.add_inbox::<AddCar, Lane>(Inbox::new(MemChunker::new("add_car", 512), 4));
-    system.add_inbox::<Tick, Lane>(Inbox::new(MemChunker::new("tick", 512 * 8), 4));
-    system.add_inbox::<Render, Lane>(Inbox::new(MemChunker::new("render", 512 * 8), 4));
+    system.add_inbox::<Tick, Lane>(Inbox::new(MemChunker::new("tick", 512), 4));
+    system.add_inbox::<Render, Lane>(Inbox::new(MemChunker::new("render", 512), 4));
 
     {
         let mut scene = monet::Scene::new();
@@ -117,30 +125,40 @@ fn main() {
     let mut world = system.world();
 
     let mut actor1 = world.create(Lane {
-        length: 10.0,
+        length: 30.0,
         y_position: 0.0,
         previous: None,
         next: None,
         cars: CVec::new()
     });
 
-    let actor2 = world.create(Lane {
-        length: 5.0,
+    let mut actor2 = world.create(Lane {
+        length: 73.7,
         y_position: 10.0,
-        previous: Some(actor1.id),
+        previous: None,
+        next: None,
+        cars: CVec::new()
+    });
+
+    let actor3 = world.create(Lane {
+        length: 57.2,
+        y_position: 20.0,
+        previous: None,
         next: Some(actor1.id),
         cars: CVec::new()
     });
 
     actor1.next = Some(actor2.id);
+    actor2.next = Some(actor3.id);
 
-    let (actor1_id, actor2_id) = (actor1.id, actor2.id);
+    let (actor1_id, actor2_id, actor3_id) = (actor1.id, actor2.id, actor3.id);
 
     world.start(actor1);
     world.start(actor2);
+    world.start(actor3);
 
-    world.send(actor1_id, AddCar(LaneCar{position: 4.0, trip: ID::invalid()}));
-    world.send(actor1_id, AddCar(LaneCar{position: 0.0, trip: ID::invalid()}));
+    world.send(actor2_id, AddCar(LaneCar{position: 20.0, trip: ID::invalid()}));
+    world.send(actor2_id, AddCar(LaneCar{position: 0.0, trip: ID::invalid()}));
 
     'main: loop {
         for event in window.poll_events() {}
@@ -152,25 +170,18 @@ fn main() {
         
         world.send(actor1_id, Tick);
         world.send(actor2_id, Tick);
+        world.send(actor3_id, Tick);
 
         world.send(actor1_id, Render{scene_id: ID::individual(111)});
         world.send(actor2_id, Render{scene_id: ID::individual(111)});
+        world.send(actor3_id, Render{scene_id: ID::individual(111)});
 
         for _i in 0..1000 {
             system.process_messages();
         }
 
-        {
-            let swarm = system.swarm::<Lane>();
-            println!("{}, {}", swarm.at(0).cars.len(), swarm.at(1).cars.len());
-            println!("done!");
-        }
-
         let scene = system.get_individual::<monet::Scene>(111);
-        println!("{}", scene.swarms["cars"].instances.len());
         renderer.draw(scene);
-
-        println!("rendering...");
 
     }
 }
