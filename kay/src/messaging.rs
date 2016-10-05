@@ -1,7 +1,7 @@
 use actor_system::{ID, Known, World};
 use compact::Compact;
 
-pub trait Recipient<M: Message> : Known {
+pub trait Recipient<M: Message> {
     fn receive(&mut self, message: &M, world: &mut World);
 }
 

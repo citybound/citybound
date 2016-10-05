@@ -43,7 +43,7 @@ impl Thing {
 
 pub struct Swarm {
     prototype: Thing,
-    instances: Vec<WorldPosition>
+    pub instances: Vec<WorldPosition>
 }
 
 impl Swarm {
@@ -108,7 +108,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn draw (&self, scene: Scene) {
+    pub fn draw (&self, scene: &Scene) {
         let mut target = self.window.draw();
 
         let view : [[f32; 4]; 4] = *Isometry3::look_at_rh(

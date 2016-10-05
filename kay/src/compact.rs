@@ -115,6 +115,22 @@ impl<T, A: Allocator> CompactVec<T, A> {
             }
         }
     }
+
+    pub fn insert(&mut self, index: usize, value: T) {
+        if self.len == self.cap {
+            self.double_buf();
+        }
+
+        unsafe {
+            // infallible
+            {
+                let p = self.as_mut_ptr().offset(index as isize);
+                ptr::copy(p, p.offset(1), self.len - index);
+                ptr::write(p, value);
+            }
+            self.len += 1;
+        }
+    }
 }
 
 impl<T, A: Allocator> Drop for CompactVec<T, A> {

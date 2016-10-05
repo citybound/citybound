@@ -19,6 +19,14 @@ impl ID {
             instance_id: u32::max_value()
         }
     }
+
+    pub fn individual(individual_type_id: usize) -> ID {
+        ID {
+            type_id: individual_type_id as u16,
+            version: 0,
+            instance_id: 0
+        }
+    }
 }
 
 pub trait Known {
@@ -57,6 +65,7 @@ impl<Actor: Compact> DerefMut for LivingActor<Actor> {
 pub struct ActorSystem {
     routing: Vec<[Option<*mut u8>; 1024]>,
     swarms: [Option<*mut u8>; 1024],
+    individuals: [Option<*mut u8>; 1024],
     update_callbacks: Vec<Box<Fn()>>,
 }
 
@@ -69,16 +78,17 @@ impl ActorSystem {
         ActorSystem {
             routing: type_entries,
             swarms: [None; 1024],
+            individuals: [None; 1024],
             update_callbacks: Vec::new()
         }
     }
 
     pub fn add_swarm<A: Compact + Known> (&mut self, swarm: Swarm<A>) {
-        // containing router is now responsible
+        // containing system is now responsible
         self.swarms[A::type_id()] = Some(Box::into_raw(Box::new(swarm)) as *mut u8);
     }
 
-    pub fn add_inbox<M: Message + 'static, A: Compact + 'static>
+    pub fn add_inbox<M: Message + 'static, A: Compact + Known + 'static>
         (&mut self, inbox: Inbox<M>)
         where A : Recipient<M> {
         let inbox_ptr = self.store_inbox(inbox, A::type_id());
@@ -98,9 +108,38 @@ impl ActorSystem {
         }))
     }
 
-    pub fn add_external_inbox<M: Message>(&mut self, inbox: Inbox<M>, recipient_type_id: usize) -> &mut Inbox<M> {
+    pub fn add_individual<I>(&mut self, individual: I, individual_id: usize) {
+        self.individuals[individual_id] = Some(Box::into_raw(Box::new(individual)) as *mut u8);
+    }
+
+    pub fn add_individual_inbox<M: Message, I>
+        (&mut self, inbox: Inbox<M>, individual_id: usize)
+        where I: Recipient<M> {
+        let inbox_ptr = self.store_inbox(inbox, individual_id);
+        let individual_ptr = self.individuals[individual_id].unwrap();
+        let self_ptr = self as *mut Self;
+        self.update_callbacks.push(Box::new(move || {
+            unsafe {
+                for packet in (*(inbox_ptr as *mut Inbox<M>)).empty() {
+                    (*(individual_ptr as *mut I))
+                        .receive(
+                            &packet.message,
+                            &mut World{system: self_ptr}
+                        );
+                }
+            }
+        }))
+    }
+
+    pub fn get_individual<I>(&self, individual_id: usize) -> &I {
         unsafe {
-            &mut *(self.store_inbox(inbox, recipient_type_id) as *mut Inbox<M>)
+            &*(self.individuals[individual_id].unwrap() as *const I)
+        }
+    }
+
+    pub fn get_individual_mut<I>(&mut self, individual_id: usize) -> &mut I {
+        unsafe {
+            &mut *(self.individuals[individual_id].unwrap() as *mut I)
         }
     }
 
@@ -124,14 +163,15 @@ impl ActorSystem {
     }
 
     pub fn inbox_for_ids<M: Message>(&mut self, message_type_id: usize, recipient_type_id: usize) -> &mut Inbox<M> {
-        let ptr = self.routing[message_type_id][recipient_type_id].unwrap();
+        let ptr = self.routing[message_type_id][recipient_type_id].expect(
+            &format!("No mailbox found: message type_id {}, recipient type_id {}", message_type_id, recipient_type_id));
         unsafe {
             let inbox: &mut Inbox<M> = &mut *(ptr as *mut Inbox<M>);
             inbox
         }
     }
 
-    fn send<M: Message>(&mut self, message: M, recipient: ID) {
+    fn send<M: Message>(&mut self, recipient: ID, message: M) {
         let packet = MessagePacket{
             recipient_id: recipient,
             message: message
@@ -158,9 +198,9 @@ pub struct World {
 }
 
 impl World {
-    pub fn send<M: Message>(&mut self, message: M, recipient: ID) {
+    pub fn send<M: Message>(&mut self, recipient: ID, message: M) {
         unsafe {
-            (*self.system).send(message, recipient);
+            (*self.system).send(recipient, message);
         }
     }
     pub fn create<A: Compact + Known>(&mut self, initial_state: A) -> LivingActor<A> {
