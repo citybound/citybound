@@ -59,10 +59,12 @@ impl<A: Compact + Known> Swarm<A> {
     pub fn add(&mut self, actor: &LivingActor<A>) {
         let size = actor.total_size_bytes();
         let collection_index = self.actors.size_to_index(size);
+        println!("Adding actor of size {}, coll idx {}", size, collection_index);
         let ref mut collection = self.actors.sized_for_mut(size);
         let (ptr, index) = collection.push();
 
         self.slot_map.associate(actor.id.instance_id as usize, SlotIndices::new(collection_index, index));
+        assert!(self.slot_map.indices_of(actor.id.instance_id as usize).collection()== collection_index);
 
         unsafe {
             let actor_in_slot : &mut LivingActor<A> = transmute(ptr);
@@ -72,10 +74,17 @@ impl<A: Compact + Known> Swarm<A> {
 
     // TODO: what if there is only one actor left??
     fn swap_remove(&mut self, indices: SlotIndices) {
+        println!("Removing actor from coll idx {}", indices.collection());
         unsafe {
             let ref mut collection = self.actors.collections[indices.collection()];
-            let swapped_actor : &LivingActor<A> = transmute(collection.swap_remove(indices.slot()));
-            self.slot_map.associate(swapped_actor.id.instance_id as usize, indices);
+            match collection.swap_remove(indices.slot()) {
+                Some(ptr) => {
+                    let swapped_actor : &LivingActor<A> = transmute(ptr);
+                    self.slot_map.associate(swapped_actor.id.instance_id as usize, indices);
+                },
+                None => {}
+            }
+            
         }
     }
 
@@ -87,8 +96,11 @@ impl<A: Compact + Known> Swarm<A> {
 
     pub fn resize(&mut self, id: usize) {
             let old_i = *self.slot_map.indices_of(id);
+            println!("--------");
+            println!("Resize, old coll idx: {}", old_i.collection());
             let old_actor_ptr = self.at(id) as *const LivingActor<A>;
             unsafe {
+                println!("Actor id {}", (*old_actor_ptr).id.instance_id);
                 self.add(&*old_actor_ptr);
             }
             self.swap_remove(old_i);

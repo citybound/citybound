@@ -59,23 +59,14 @@ impl Recipient<RenderedCar> for monet::Scene {
 
 impl Recipient<AddCar> for Lane {
     fn receive(&mut self, message: &AddCar, _world: &mut World) {
-        println!("got a car!, {}", self.length);
-        println!("before");
-        for car in &mut self.cars {
-            println!("{}", car.position);
-        }
         self.cars.insert(0, message.0);
-        println!("after");
-        for car in &mut self.cars {
-            println!("{}", car.position);
-        }
     }
 }
 
 impl Recipient<Tick> for Lane {
     fn receive(&mut self, _message: &Tick, world: &mut World) {
         for car in &mut self.cars {
-            car.position += 0.25;
+            car.position += 1.25;
         }
         while self.cars.len() > 0 {
             let mut last_car = self.cars[self.cars.len() - 1];
@@ -108,7 +99,7 @@ fn main() {
 
     let mut system = ActorSystem::new();
 
-    system.add_swarm::<Lane>(Swarm::new(MemChunker::new("lane_actors", 512), 30));    
+    system.add_swarm::<Lane>(Swarm::new(MemChunker::new("lane_actors", 512 * 64), 10));
     system.add_inbox::<AddCar, Lane>(Inbox::new(MemChunker::new("add_car", 512), 4));
     system.add_inbox::<Tick, Lane>(Inbox::new(MemChunker::new("tick", 512), 4));
     system.add_inbox::<Render, Lane>(Inbox::new(MemChunker::new("render", 512), 4));
@@ -116,7 +107,7 @@ fn main() {
     {
         let mut scene = monet::Scene::new();
         scene.swarms.insert("cars", monet::Swarm::new(car::create(), Vec::new()));
-        scene.eye.position *= 10.0;
+        scene.eye.position *= 30.0;
 
         system.add_individual(scene, 111);
         system.add_individual_inbox::<RenderedCar, monet::Scene>(Inbox::new(MemChunker::new("rendered_car", 512 * 8), 4), 111);
@@ -125,7 +116,7 @@ fn main() {
     let mut world = system.world();
 
     let mut actor1 = world.create(Lane {
-        length: 30.0,
+        length: 2500.0,
         y_position: 0.0,
         previous: None,
         next: None,
@@ -133,7 +124,7 @@ fn main() {
     });
 
     let mut actor2 = world.create(Lane {
-        length: 73.7,
+        length: 1000.0,
         y_position: 10.0,
         previous: None,
         next: None,
@@ -141,7 +132,7 @@ fn main() {
     });
 
     let actor3 = world.create(Lane {
-        length: 57.2,
+        length: 100.0,
         y_position: 20.0,
         previous: None,
         next: Some(actor1.id),
@@ -157,8 +148,9 @@ fn main() {
     world.start(actor2);
     world.start(actor3);
 
-    world.send(actor2_id, AddCar(LaneCar{position: 20.0, trip: ID::invalid()}));
-    world.send(actor2_id, AddCar(LaneCar{position: 0.0, trip: ID::invalid()}));
+    for i in 0..500 {
+        world.send(actor1_id, AddCar(LaneCar{position: 2500.0 - (i as f32 * 5.0), trip: ID::invalid()}));
+    }
 
     'main: loop {
         for event in window.poll_events() {}

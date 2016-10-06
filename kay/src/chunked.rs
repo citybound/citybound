@@ -150,12 +150,18 @@ impl SizedChunkedArena {
         }
     }
 
-    pub unsafe fn swap_remove(&mut self, index: usize) -> *const u8 {
-        let last = self.at(*self.len - 1);
-        let at_index = self.at_mut(index);
-        ptr::copy_nonoverlapping(last, at_index, self.item_size);
-        self.pop_away();
-        self.at(index)
+    pub unsafe fn swap_remove(&mut self, index: usize) -> Option<*const u8> {
+        let last_index = *self.len - 1;
+        if last_index == index {
+            self.pop_away();
+            None
+        } else {
+            let last = self.at(*self.len - 1);
+            let at_index = self.at_mut(index);
+            ptr::copy_nonoverlapping(last, at_index, self.item_size);
+            self.pop_away();
+            Some(self.at(index))
+        }
     }
 
     pub unsafe fn at(&self, index: usize) -> *const u8 {
