@@ -3,7 +3,7 @@ use std::mem::transmute;
 use std::ptr;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
-use tagged_relative_pointer::TaggedRelativePointer;
+use pointer_to_maybe_compact::PointerToMaybeCompact;
 use allocators::{Allocator, DefaultHeap};
 
 pub trait Compact : Sized {
@@ -24,14 +24,11 @@ pub trait Compact : Sized {
 }
 
 pub struct CompactVec <T, A: Allocator = DefaultHeap> {
-    ptr: TaggedRelativePointer<T>,
+    ptr: PointerToMaybeCompact<T>,
     len: usize,
     cap: usize,
     _alloc: PhantomData<A>
 }
-
-const FREE : bool = true;
-const EMBEDDED : bool = false;
 
 impl<T, A: Allocator> CompactVec<T, A> {
     pub fn len(&self) -> usize {
@@ -40,7 +37,7 @@ impl<T, A: Allocator> CompactVec<T, A> {
 
     pub fn new() -> CompactVec<T, A> {
         CompactVec {
-            ptr: TaggedRelativePointer::null(EMBEDDED),
+            ptr: PointerToMaybeCompact::default(),
             len: 0,
             cap: 0,
             _alloc: PhantomData
@@ -49,30 +46,30 @@ impl<T, A: Allocator> CompactVec<T, A> {
 
     pub fn with_capacity(cap: usize) -> CompactVec<T, A> {
         let mut vec = CompactVec {
-            ptr: TaggedRelativePointer::default(),
+            ptr: PointerToMaybeCompact::default(),
             len: 0,
             cap: cap,
             _alloc: PhantomData
         };
 
-        vec.ptr.set(A::allocate::<T>(cap), FREE);
+        vec.ptr.set_to_free(A::allocate::<T>(cap));
         vec
     }
 
     pub fn from_backing(ptr: *mut T, len: usize, cap: usize) -> CompactVec<T, A> {
         let mut vec = CompactVec {
-            ptr: TaggedRelativePointer::default(),
+            ptr: PointerToMaybeCompact::default(),
             len: len,
             cap: cap,
             _alloc: PhantomData
         };
 
-        vec.ptr.set(ptr, EMBEDDED);
+        vec.ptr.set_to_compact(ptr);
         vec
     }
 
     fn maybe_drop(&mut self) {
-        if self.ptr.is_tagged() == FREE {
+        if !self.ptr.is_compact() {
             unsafe {
                 ptr::drop_in_place(&mut self[..]);
                 A::deallocate(self.ptr.mut_ptr(), self.cap);
@@ -89,11 +86,8 @@ impl<T, A: Allocator> CompactVec<T, A> {
             ptr::copy_nonoverlapping(self.ptr.ptr(), new_ptr, self.len);
         }
         self.maybe_drop();
-        self.ptr.set(new_ptr, FREE);
-        unsafe {
-            let p = self.ptr.ptr();
-            self.cap = new_cap;
-        }
+        self.ptr.set_to_free(new_ptr);
+        self.cap = new_cap;
     }
 
     pub fn push(&mut self, value: T) {
@@ -132,6 +126,23 @@ impl<T, A: Allocator> CompactVec<T, A> {
                 ptr::write(p, value);
             }
             self.len += 1;
+        }
+    }
+}
+
+impl<T, A: Allocator> From<Vec<T>> for CompactVec<T, A> {
+    fn from(mut vec: Vec<T>) -> Self {
+        let p = vec.as_mut_ptr();
+        let len = vec.len();
+        let cap = vec.capacity();
+
+        mem::forget(vec);
+
+        CompactVec{
+            ptr: PointerToMaybeCompact::new_free(p),
+            len: len,
+            cap: cap,
+            _alloc: PhantomData 
         }
     }
 }
@@ -180,7 +191,7 @@ impl<'a, T, A: Allocator> IntoIterator for &'a mut CompactVec<T, A> {
 
 impl<T, A: Allocator> Compact for CompactVec<T, A> {
     fn is_still_compact(&self) -> bool {
-        self.ptr.is_tagged() == EMBEDDED
+        self.ptr.is_compact()
     }
 
     fn dynamic_size_bytes(&self) -> usize {
@@ -190,7 +201,7 @@ impl<T, A: Allocator> Compact for CompactVec<T, A> {
     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
         self.len = source.len;
         self.cap = source.cap;
-        self.ptr.set(transmute(new_dynamic_part), EMBEDDED);
+        self.ptr.set_to_compact(new_dynamic_part as *mut T);
         ptr::copy_nonoverlapping(source.ptr.ptr(), self.ptr.mut_ptr(), self.len);
     }
 }

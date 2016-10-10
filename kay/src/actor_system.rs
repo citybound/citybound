@@ -94,6 +94,8 @@ impl ActorSystem {
         let inbox_ptr = self.store_inbox(inbox, A::type_id());
         let swarm_ptr = self.swarms[A::type_id()].unwrap();
         let self_ptr = self as *mut Self;
+        let m_typeid = M::type_id();
+        let a_typeid = A::type_id();
         self.update_callbacks.push(Box::new(move || {
             unsafe {
                 for packet in (*(inbox_ptr as *mut Inbox<M>)).empty() {

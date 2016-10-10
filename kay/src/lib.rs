@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-mod tagged_relative_pointer;
+mod pointer_to_maybe_compact;
 mod allocators;
 #[macro_use]
 mod compact;

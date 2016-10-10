@@ -8,9 +8,28 @@ extern crate compass;
 use monet::glium::DisplayBuild;
 use monet::glium::glutin;
 use kay::{ID, Known, Message, Recipient, World, CVec, ActorSystem, Swarm, Inbox, MemChunker, Compact};
+use compass::{FiniteCurve, Path, Segment, P2, V2};
 
 #[path = "../resources/car.rs"]
 mod car;
+
+derive_compact! {
+    struct CPath {
+        segments: CVec<compass::Segment>
+    }
+}
+
+impl compass::Path for CPath {
+    fn segments(&self) -> &[compass::Segment] {
+        &self.segments
+    }
+
+    fn new(vec: Vec<compass::Segment>) -> Self {
+        CPath{
+            segments: vec.into()
+        }
+    }
+}
 
 #[derive(Copy, Clone)]
 struct LaneCar {
@@ -21,12 +40,24 @@ struct LaneCar {
 derive_compact!{
     struct Lane {
         length: f32,
-        y_position: f32,
+        path: CPath,
         next: Option<ID>,
-        previous: Option<ID>,
         cars: CVec<LaneCar>
     }
 }
+
+impl Lane {
+    fn new(path: CPath, next: Option<ID>) -> Self {
+        let length = path.length();
+        Lane {
+            length: length,
+            path: path,
+            next: next,
+            cars: CVec::new()
+        }
+    }
+}
+
 impl Known for Lane {fn type_id() -> usize {13}}
 
 #[derive(Copy, Clone)]
@@ -46,14 +77,14 @@ impl Message for Render {}
 impl Known for Render {fn type_id() -> usize {44}}
 
 #[derive(Copy, Clone)]
-struct RenderedCar{x: f32, y: f32, z: f32}
+struct RenderedCar(P2);
 impl Message for RenderedCar {}
 impl Known for RenderedCar {fn type_id() -> usize {44}}
 
 impl Recipient<RenderedCar> for monet::Scene {
     fn receive(&mut self, car: &RenderedCar, _world: &mut World) {
         let instances = &mut self.swarms.get_mut("cars").unwrap().instances;
-        instances.push(monet::WorldPosition{world_position: [car.x, car.y, car.z]});
+        instances.push(monet::WorldPosition{world_position: [car.0.x, car.0.y, 0.0]});
     }
 }
 
@@ -82,7 +113,7 @@ impl Recipient<Tick> for Lane {
 impl Recipient<Render> for Lane {
     fn receive(&mut self, render: &Render, world: &mut World) {
         for car in &self.cars {
-            world.send(render.scene_id, RenderedCar{x: car.position, y: self.y_position, z: 0.0})
+            world.send(render.scene_id, RenderedCar(self.path.along(car.position)))
         }
     }
 }
@@ -115,32 +146,29 @@ fn main() {
 
     let mut world = system.world();
 
-    let mut actor1 = world.create(Lane {
-        length: 2500.0,
-        y_position: 0.0,
-        previous: None,
-        next: None,
-        cars: CVec::new()
-    });
+    let mut actor1 = world.create(Lane::new(
+        CPath::new(vec![
+            Segment::line(P2::new(0.0, 0.0), P2::new(300.0, 0.0)),
+            Segment::arc_with_direction(P2::new(300.0, 0.0), V2::new(1.0, 0.0), P2::new(300.0, 100.0))
+        ]),
+        None
+    ));
 
-    let mut actor2 = world.create(Lane {
-        length: 1000.0,
-        y_position: 10.0,
-        previous: None,
-        next: None,
-        cars: CVec::new()
-    });
+    let actor3 = world.create(Lane::new(
+        CPath::new(vec![
+            Segment::arc_with_direction(P2::new(0.0, 100.0), V2::new(-1.0, 0.0), P2::new(0.0, 0.0))
+        ]),
+        Some(actor1.id)
+    ));
 
-    let actor3 = world.create(Lane {
-        length: 100.0,
-        y_position: 20.0,
-        previous: None,
-        next: Some(actor1.id),
-        cars: CVec::new()
-    });
+    let actor2 = world.create(Lane::new(
+        CPath::new(vec![
+            Segment::line(P2::new(300.0, 100.0), P2::new(0.0, 100.0))
+        ]),
+        Some(actor3.id)
+    ));
 
     actor1.next = Some(actor2.id);
-    actor2.next = Some(actor3.id);
 
     let (actor1_id, actor2_id, actor3_id) = (actor1.id, actor2.id, actor3.id);
 
@@ -148,9 +176,12 @@ fn main() {
     world.start(actor2);
     world.start(actor3);
 
-    for i in 0..500 {
-        world.send(actor1_id, AddCar(LaneCar{position: 2500.0 - (i as f32 * 5.0), trip: ID::invalid()}));
+    let n_cars = 10;
+    for i in 0..n_cars {
+        world.send(actor1_id, AddCar(LaneCar{position: n_cars as f32 * 5.0 - (i as f32 * 5.0), trip: ID::invalid()}));
     }
+
+    system.process_messages();
 
     'main: loop {
         for event in window.poll_events() {}
