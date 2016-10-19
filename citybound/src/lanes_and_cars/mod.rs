@@ -7,7 +7,10 @@ use simulation::Tick;
 #[derive(Copy, Clone)]
 struct LaneCar {
     trip: ID,
-    position: f32
+    position: f32,
+    velocity: f32,
+    acceleration: f32,
+    max_velocity: f32
 }
 
 derive_compact!{
@@ -44,7 +47,8 @@ recipient!(Lane, (&mut self, world: &mut World, self_id: ID) {
 
     Tick: _ => {
         for car in &mut self.cars {
-            car.position += 1.25;
+            car.position += car.velocity;
+            car.velocity = car.max_velocity.min(car.velocity + car.acceleration);
         }
         while self.cars.len() > 0 {
             let mut last_car = self.cars[self.cars.len() - 1];
@@ -102,6 +106,12 @@ fn setup_scenario(system: &mut ActorSystem) {
 
     let n_cars = 10;
     for i in 0..n_cars {
-        world.send(actor1_id, AddCar(LaneCar{position: n_cars as f32 * 5.0 - (i as f32 * 5.0), trip: ID::invalid()}));
+        world.send(actor1_id, AddCar(LaneCar{
+            position: n_cars as f32 * 5.0 - (i as f32 * 5.0),
+            trip: ID::invalid(),
+            velocity: 0.1,
+            acceleration: 0.01,
+            max_velocity: 2.0
+        }));
     }
 }
