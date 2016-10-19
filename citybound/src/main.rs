@@ -18,8 +18,9 @@ fn main() {
     let mut system = kay::ActorSystem::new();
     simulation::setup(&mut system);
     ui::setup(&mut system);
-    
+
     lanes_and_cars::setup(&mut system);
+    lanes_and_cars::ui::setup(&mut system);
 
     system.process_messages();
 

@@ -65,7 +65,6 @@ pub fn setup(system: &mut ActorSystem) {
     system.world().send(ID::individual(::type_ids::Recipients::Simulation as usize), ::simulation::AddSimulatable(ID::broadcast::<Lane>()));
 
     setup_scenario(system);
-    ui::setup(system);
 }
 
 fn setup_scenario(system: &mut ActorSystem) {
