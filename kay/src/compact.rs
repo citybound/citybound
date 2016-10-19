@@ -79,8 +79,7 @@ impl<T, A: Allocator> CompactVec<T, A> {
 
     fn double_buf(&mut self) {
         let new_cap = if self.cap == 0 {1} else {self.cap * 2};
-        let mut vec = Vec::<T>::with_capacity(new_cap);
-        let new_ptr = vec.as_mut_ptr();
+        let new_ptr = A::allocate::<T>(new_cap);
 
         unsafe {
             ptr::copy_nonoverlapping(self.ptr.ptr(), new_ptr, self.len);

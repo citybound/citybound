@@ -5,7 +5,7 @@ use inbox::Inbox;
 use std::ops::{Deref, DerefMut};
 use chunked::{MemChunker};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct ID {
     pub type_id: u16,
     pub version: u8,
