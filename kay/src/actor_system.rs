@@ -3,6 +3,7 @@ use swarm::Swarm;
 use messaging::{Message, MessagePacket, Recipient};
 use inbox::Inbox;
 use std::ops::{Deref, DerefMut};
+use chunked::{MemChunker};
 
 #[derive(Copy, Clone)]
 pub struct ID {
@@ -16,7 +17,7 @@ impl ID {
         ID {
             type_id: u16::max_value(),
             version: u8::max_value(),
-            instance_id: u32::max_value()
+            instance_id: 0
         }
     }
 
@@ -26,6 +27,18 @@ impl ID {
             version: 0,
             instance_id: 0
         }
+    }
+
+    pub fn broadcast<Recipient: Known>() -> ID {
+        ID {
+            type_id: Recipient::type_id() as u16,
+            version: 0,
+            instance_id: u32::max_value()
+        }
+    }
+
+    pub fn is_broadcast(&self) -> bool {
+        self.instance_id == u32::max_value()
     }
 }
 
@@ -69,6 +82,11 @@ pub struct ActorSystem {
     update_callbacks: Vec<Box<Fn()>>,
 }
 
+pub enum Storage {
+    InMemory(&'static str, usize, usize),
+    OnDisk(&'static str, usize, usize)
+}
+
 impl ActorSystem {
     pub fn new() -> ActorSystem {
         let mut type_entries = Vec::with_capacity(1024);
@@ -83,28 +101,37 @@ impl ActorSystem {
         }
     }
 
-    pub fn add_swarm<A: Compact + Known> (&mut self, swarm: Swarm<A>) {
+    pub fn add_swarm<A: Compact + Known> (&mut self, storage: Storage) {
         // containing system is now responsible
+        let swarm = match storage {
+            Storage::InMemory(name, chunk_size, base_size) => Swarm::<A>::new(MemChunker::new(name, chunk_size), base_size),
+            Storage::OnDisk(_, _, _) => unimplemented!()
+        };
         self.swarms[A::type_id()] = Some(Box::into_raw(Box::new(swarm)) as *mut u8);
     }
 
     pub fn add_inbox<M: Message + 'static, A: Compact + Known + 'static>
-        (&mut self, inbox: Inbox<M>)
+        (&mut self, storage: Storage)
         where A : Recipient<M> {
+        let inbox = match storage {
+            Storage::InMemory(name, chunk_size, base_size) => Inbox::<M>::new(MemChunker::new(name, chunk_size), base_size),
+            Storage::OnDisk(_, _, _) => unimplemented!()
+        };
         let inbox_ptr = self.store_inbox(inbox, A::type_id());
         let swarm_ptr = self.swarms[A::type_id()].unwrap();
         let self_ptr = self as *mut Self;
-        let m_typeid = M::type_id();
-        let a_typeid = A::type_id();
         self.update_callbacks.push(Box::new(move || {
             unsafe {
-                for packet in (*(inbox_ptr as *mut Inbox<M>)).empty() {
-                    (*(swarm_ptr as *mut Swarm<A>))
-                        .receive(
-                            packet.recipient_id.instance_id as usize,
-                            &packet.message,
-                            &mut World{system: self_ptr}
-                        );
+                let ref mut inbox = *(inbox_ptr as *mut Inbox<M>);
+                for packet in inbox.empty() {
+                    let ref mut swarm = *(swarm_ptr as *mut Swarm<A>);
+                    let world = &mut World{system: self_ptr};
+                    // TODO: optimize this branch away somehow?
+                    if packet.recipient_id.is_broadcast() {
+                        swarm.receive_broadcast(&packet.message, world)
+                    } else {
+                        swarm.receive(packet.recipient_id, &packet.message, world);
+                    }
                 }
             }
         }))
@@ -115,8 +142,12 @@ impl ActorSystem {
     }
 
     pub fn add_individual_inbox<M: Message, I>
-        (&mut self, inbox: Inbox<M>, individual_id: usize)
+        (&mut self, storage: Storage, individual_id: usize)
         where I: Recipient<M> {
+        let inbox = match storage {
+            Storage::InMemory(name, chunk_size, base_size) => Inbox::<M>::new(MemChunker::new(name, chunk_size), base_size),
+            Storage::OnDisk(_, _, _) => unimplemented!()
+        };
         let inbox_ptr = self.store_inbox(inbox, individual_id);
         let individual_ptr = self.individuals[individual_id].unwrap();
         let self_ptr = self as *mut Self;
@@ -126,7 +157,8 @@ impl ActorSystem {
                     (*(individual_ptr as *mut I))
                         .receive(
                             &packet.message,
-                            &mut World{system: self_ptr}
+                            &mut World{system: self_ptr},
+                            packet.recipient_id
                         );
                 }
             }

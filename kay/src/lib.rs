@@ -16,3 +16,4 @@ pub use swarm::Swarm;
 pub use inbox::{Inbox};
 pub use messaging::{Message, Recipient};
 pub use actor_system::{ID, Known, LivingActor, ActorSystem, World};
+pub use actor_system::Storage::{InMemory, OnDisk};

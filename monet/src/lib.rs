@@ -5,9 +5,7 @@ extern crate nalgebra;
 use nalgebra::{Point3, Vector3, Isometry3, Perspective3, ToHomogeneous};
 
 use glium::{index, Surface};
-use glium::backend::glutin_backend::GlutinFacade;
-
-use std::collections::HashMap;
+pub use glium::backend::glutin_backend::GlutinFacade;
 
 #[derive(Copy, Clone)]
 pub struct Vertex {
@@ -30,6 +28,7 @@ pub struct Eye {
     pub field_of_view: f32
 }
 
+#[derive(Clone)]
 pub struct Thing {
     vertices: Vec<Vertex>,
     indices: Vec<u16>
@@ -41,21 +40,20 @@ impl Thing {
     }
 }
 
-pub struct Swarm {
+pub struct Batch {
     prototype: Thing,
     pub instances: Vec<WorldPosition>
 }
 
-impl Swarm {
-    pub fn new(prototype: Thing, instances: Vec<WorldPosition>) -> Swarm {
-        Swarm{prototype: prototype, instances: instances}
+impl Batch {
+    pub fn new(prototype: Thing, instances: Vec<WorldPosition>) -> Batch {
+        Batch{prototype: prototype, instances: instances}
     }
 }
 
 pub struct Scene {
     pub eye: Eye,
-    pub things: HashMap<&'static str, Thing>,
-    pub swarms: HashMap<&'static str, Swarm>,
+    pub batches: std::collections::HashMap<usize, Batch>,
     pub debug_text: String
 }
 
@@ -68,43 +66,35 @@ impl Scene {
                 up: Vector3::new(0.0, 0.0, 1.0),
                 field_of_view: 0.3 * std::f32::consts::PI
             },
-            things: HashMap::with_capacity(3000),
-            swarms: HashMap::with_capacity(100),
+            batches: std::collections::HashMap::new(),
             debug_text: String::new()
         }
     }
 }
 
-pub struct Renderer<'a> {
-    window: &'a GlutinFacade,
-    program: glium::Program,
-    swarm_program: glium::Program,
+pub struct Renderer {
+    pub window: GlutinFacade,
+    batch_program: glium::Program,
     text_system: glium_text::TextSystem,
     font: glium_text::FontTexture
 }
 
-impl<'a> Renderer<'a> {
-    pub fn new (window: &'a GlutinFacade) -> Renderer<'a> {
+impl Renderer {
+    pub fn new (window: GlutinFacade) -> Renderer {
         Renderer{
-            window: window,
-            program: program!(window,
+            batch_program: program!(&window,
                 140 => {
-                    vertex: include_str!("shader/solid_140.glslv"),
-                    fragment: include_str!("shader/solid_140.glslf"),
-                },
-            ).unwrap(),
-            swarm_program: program!(window,
-                140 => {
-                    vertex: include_str!("shader/solid_swarm_140.glslv"),
+                    vertex: include_str!("shader/solid_batch_140.glslv"),
                     fragment: include_str!("shader/solid_140.glslf")
                 }
             ).unwrap(),
-            text_system: glium_text::TextSystem::new(window),
+            text_system: glium_text::TextSystem::new(&window),
             font: glium_text::FontTexture::new(
-                window,
-                std::fs::File::open(&std::path::Path::new("resources/ClearSans-Regular.ttf")).unwrap(),
+                &window,
+                std::fs::File::open(&std::path::Path::new("fonts/ClearSans-Regular.ttf")).unwrap(),
                 64
-            ).unwrap()
+            ).unwrap(),
+            window: window,
         }
     }
 
@@ -148,17 +138,11 @@ impl<'a> Renderer<'a> {
         // draw a frame
         target.clear_color_and_depth((1.0, 1.0, 1.0, 1.0), 1.0);
 
-        for thing in scene.things.values() {
-            let vertices = glium::VertexBuffer::new(self.window, thing.vertices.as_slice()).unwrap();
-            let indices = glium::IndexBuffer::new(self.window, index::PrimitiveType::TrianglesList, thing.indices.as_slice()).unwrap();
-            target.draw(&vertices, &indices, &self.program, &uniforms, &params).unwrap();
-        }
-
-        for swarm in scene.swarms.values() {
-            let vertices = glium::VertexBuffer::new(self.window, swarm.prototype.vertices.as_slice()).unwrap();
-            let indices = glium::IndexBuffer::new(self.window, index::PrimitiveType::TrianglesList, swarm.prototype.indices.as_slice()).unwrap();
-            let instances = glium::VertexBuffer::dynamic(self.window, swarm.instances.as_slice()).unwrap();
-            target.draw((&vertices, instances.per_instance().unwrap()), &indices, &self.swarm_program, &uniforms, &params).unwrap();
+        for batch in scene.batches.values() {
+            let vertices = glium::VertexBuffer::new(&self.window, batch.prototype.vertices.as_slice()).unwrap();
+            let indices = glium::IndexBuffer::new(&self.window, index::PrimitiveType::TrianglesList, batch.prototype.indices.as_slice()).unwrap();
+            let instances = glium::VertexBuffer::dynamic(&self.window, batch.instances.as_slice()).unwrap();
+            target.draw((&vertices, instances.per_instance().unwrap()), &indices, &self.batch_program, &uniforms, &params).unwrap();
         }
 
         let text = glium_text::TextDisplay::new(&self.text_system, &self.font, scene.debug_text.as_str());

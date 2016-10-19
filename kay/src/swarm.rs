@@ -36,30 +36,26 @@ impl<A: Compact + Known> Swarm<A> {
         }
     }
 
+    fn at_index(&self, index: SlotIndices) -> &LivingActor<A> {
+        unsafe {&*(self.actors.collections[index.collection()].at(index.slot()) as *const LivingActor<A>)}
+    }
+
+    fn at_index_mut(&mut self, index: SlotIndices) -> &mut LivingActor<A> {
+        unsafe {&mut *(self.actors.collections[index.collection()].at_mut(index.slot()) as *mut LivingActor<A>)}
+    }
+
     pub fn at(&self, id: usize) -> &LivingActor<A> {
-        let i = self.slot_map.indices_of(id);
-        unsafe {
-            let actor : &LivingActor<A> = transmute(
-                self.actors.collections[i.collection()].at(i.slot())
-            );
-            actor
-        }
+        self.at_index(*self.slot_map.indices_of(id))
     }
 
     pub fn at_mut(&mut self, id: usize) -> &mut LivingActor<A> {
-        let i = self.slot_map.indices_of(id);
-        unsafe {
-            let actor : &mut LivingActor<A> = transmute(
-                self.actors.collections[i.collection()].at_mut(i.slot())
-            );
-            actor
-        }
+        let index = *self.slot_map.indices_of(id);
+        self.at_index_mut(index)
     }
 
     pub fn add(&mut self, actor: &LivingActor<A>) {
         let size = actor.total_size_bytes();
         let collection_index = self.actors.size_to_index(size);
-        println!("Adding actor of size {}, coll idx {}", size, collection_index);
         let ref mut collection = self.actors.sized_for_mut(size);
         let (ptr, index) = collection.push();
 
@@ -72,17 +68,16 @@ impl<A: Compact + Known> Swarm<A> {
         }
     }
 
-    // TODO: what if there is only one actor left??
-    fn swap_remove(&mut self, indices: SlotIndices) {
-        println!("Removing actor from coll idx {}", indices.collection());
+    fn swap_remove(&mut self, indices: SlotIndices) -> bool {
         unsafe {
             let ref mut collection = self.actors.collections[indices.collection()];
             match collection.swap_remove(indices.slot()) {
                 Some(ptr) => {
                     let swapped_actor : &LivingActor<A> = transmute(ptr);
                     self.slot_map.associate(swapped_actor.id.instance_id as usize, indices);
+                    true
                 },
-                None => {}
+                None => false
             }
             
         }
@@ -94,27 +89,75 @@ impl<A: Compact + Known> Swarm<A> {
         self.slot_map.free(id);
     }
 
-    pub fn resize(&mut self, id: usize) {
-            let old_i = *self.slot_map.indices_of(id);
-            println!("--------");
-            println!("Resize, old coll idx: {}", old_i.collection());
-            let old_actor_ptr = self.at(id) as *const LivingActor<A>;
-            unsafe {
-                println!("Actor id {}", (*old_actor_ptr).id.instance_id);
-                self.add(&*old_actor_ptr);
-            }
-            self.swap_remove(old_i);
+    pub fn resize(&mut self, id: usize) -> bool {
+        let index = *self.slot_map.indices_of(id);
+        self.resize_at_index(index)
     }
 
-    pub fn receive<M: Message>(&mut self, id: usize, message: &M, system: &mut World) where A: Recipient<M> {
+    fn resize_at_index(&mut self, old_i: SlotIndices) -> bool {
+        let old_actor_ptr = self.at_index(old_i) as *const LivingActor<A>;
+        self.add(unsafe{&*old_actor_ptr});
+        self.swap_remove(old_i)
+    }
+
+    pub fn receive<M: Message>(&mut self, id: ID, message: &M, system: &mut World) where A: Recipient<M> {
         let is_still_compact = {
-            let actor = self.at_mut(id);
-            actor.receive(message, system);
+            let actor = self.at_mut(id.instance_id as usize);
+            actor.receive(message, system, id);
             actor.is_still_compact()
         };
 
         if !is_still_compact {
-            self.resize(id);
+            self.resize(id.instance_id as usize);
+        }
+    }
+
+    pub fn receive_broadcast<M: Message>(&mut self, message: &M, system: &mut World) where A: Recipient<M> {
+        // this function has to deal with the fact that during the iteration, receivers of the broadcast can be resized
+        // and thus removed from a collection, swapping in either
+        //    - other receivers that didn't receive the broadcast yet
+        //    - resized and added receivers that alredy received the broadcast
+        //    - actors that were created during one of the broadcast receive handlers, that shouldn't receive this broadcast
+        // the only assumption is that no actors are immediately completely deleted
+
+        let receivers_todo_per_collection : Vec<usize> = {
+            self.actors.collections.iter().map(|collection| {collection.len()}).collect()
+        };
+
+        let n_collections = self.actors.collections.len();
+
+        for c in 0..n_collections {
+            let mut slot = 0;
+            let receivers_todo = receivers_todo_per_collection[c];
+            let mut index_after_last_receiver = receivers_todo;
+
+            for _ in 0..receivers_todo {
+                let index = SlotIndices::new(c, slot);
+                let is_still_compact = {
+                    let actor = self.at_index_mut(index);
+                    let actor_id = actor.id;
+                    actor.receive(message, system, actor_id);
+                    actor.is_still_compact()
+                };
+
+                let repeat_slot = if is_still_compact {
+                    false
+                } else {
+                    self.resize_at_index(index);
+                    // this should also work in the case where the "resized" actor itself is added to the same collection again
+                    let swapped_in_another_receiver = self.actors.collections[c].len() < index_after_last_receiver;
+                    if swapped_in_another_receiver {
+                        index_after_last_receiver -= 1;
+                        true
+                    } else {
+                        false
+                    }
+                };
+
+                if !repeat_slot {
+                    slot += 1;
+                }
+            }
         }
     }
 }

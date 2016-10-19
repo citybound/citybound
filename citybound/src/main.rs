@@ -5,206 +5,46 @@ extern crate monet;
 extern crate nalgebra;
 extern crate compass;
 
-use monet::glium::DisplayBuild;
-use monet::glium::glutin;
-use kay::{ID, Known, Message, Recipient, World, CVec, ActorSystem, Swarm, Inbox, MemChunker, Compact};
-use compass::{FiniteCurve, Path, Segment, P2, V2};
+mod ui;
+mod geometry;
+mod type_ids;
+mod simulation;
 
-#[path = "../resources/car.rs"]
-mod car;
-
-derive_compact! {
-    struct CPath {
-        segments: CVec<compass::Segment>
-    }
-}
-
-impl compass::Path for CPath {
-    fn segments(&self) -> &[compass::Segment] {
-        &self.segments
-    }
-
-    fn new(vec: Vec<compass::Segment>) -> Self {
-        CPath{
-            segments: vec.into()
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-struct LaneCar {
-    trip: ID,
-    position: f32
-}
-
-derive_compact!{
-    struct Lane {
-        length: f32,
-        path: CPath,
-        next: Option<ID>,
-        cars: CVec<LaneCar>
-    }
-}
-
-impl Lane {
-    fn new(path: CPath, next: Option<ID>) -> Self {
-        let length = path.length();
-        Lane {
-            length: length,
-            path: path,
-            next: next,
-            cars: CVec::new()
-        }
-    }
-}
-
-impl Known for Lane {fn type_id() -> usize {13}}
-
-#[derive(Copy, Clone)]
-struct AddCar(LaneCar);
-
-impl Message for AddCar {}
-impl Known for AddCar {fn type_id() -> usize {42}}
-
-#[derive(Copy, Clone)]
-struct Tick;
-impl Message for Tick {}
-impl Known for Tick {fn type_id() -> usize {43}}
-
-#[derive(Copy, Clone)]
-struct Render{scene_id: ID}
-impl Message for Render {}
-impl Known for Render {fn type_id() -> usize {44}}
-
-#[derive(Copy, Clone)]
-struct RenderedCar(P2);
-impl Message for RenderedCar {}
-impl Known for RenderedCar {fn type_id() -> usize {44}}
-
-impl Recipient<RenderedCar> for monet::Scene {
-    fn receive(&mut self, car: &RenderedCar, _world: &mut World) {
-        let instances = &mut self.swarms.get_mut("cars").unwrap().instances;
-        instances.push(monet::WorldPosition{world_position: [car.0.x, car.0.y, 0.0]});
-    }
-}
-
-impl Recipient<AddCar> for Lane {
-    fn receive(&mut self, message: &AddCar, _world: &mut World) {
-        self.cars.insert(0, message.0);
-    }
-}
-
-impl Recipient<Tick> for Lane {
-    fn receive(&mut self, _message: &Tick, world: &mut World) {
-        for car in &mut self.cars {
-            car.position += 1.25;
-        }
-        while self.cars.len() > 0 {
-            let mut last_car = self.cars[self.cars.len() - 1];
-            if last_car.position > self.length {
-                last_car.position -= self.length;
-                world.send(self.next.unwrap(), AddCar(last_car));
-                self.cars.pop();
-            } else {break;}
-        }
-    }
-}
-
-impl Recipient<Render> for Lane {
-    fn receive(&mut self, render: &Render, world: &mut World) {
-        for car in &self.cars {
-            world.send(render.scene_id, RenderedCar(self.path.along(car.position)))
-        }
-    }
-}
+mod lanes_and_cars;
 
 fn main() {
+    let renderer = ui::setup_window_and_renderer();
     
-    let window = glutin::WindowBuilder::new()
-        .with_title("Citybound".to_string())
-        .with_dimensions(512, 512)
-        .with_multitouch()
-        .with_vsync().build_glium().unwrap();
-
-    let renderer = monet::Renderer::new(&window);
-
-    let mut system = ActorSystem::new();
-
-    system.add_swarm::<Lane>(Swarm::new(MemChunker::new("lane_actors", 512 * 64), 10));
-    system.add_inbox::<AddCar, Lane>(Inbox::new(MemChunker::new("add_car", 512), 4));
-    system.add_inbox::<Tick, Lane>(Inbox::new(MemChunker::new("tick", 512), 4));
-    system.add_inbox::<Render, Lane>(Inbox::new(MemChunker::new("render", 512), 4));
-
-    {
-        let mut scene = monet::Scene::new();
-        scene.swarms.insert("cars", monet::Swarm::new(car::create(), Vec::new()));
-        scene.eye.position *= 30.0;
-
-        system.add_individual(scene, 111);
-        system.add_individual_inbox::<RenderedCar, monet::Scene>(Inbox::new(MemChunker::new("rendered_car", 512 * 8), 4), 111);
-    }
-
-    let mut world = system.world();
-
-    let mut actor1 = world.create(Lane::new(
-        CPath::new(vec![
-            Segment::line(P2::new(0.0, 0.0), P2::new(300.0, 0.0)),
-            Segment::arc_with_direction(P2::new(300.0, 0.0), V2::new(1.0, 0.0), P2::new(300.0, 100.0))
-        ]),
-        None
-    ));
-
-    let actor3 = world.create(Lane::new(
-        CPath::new(vec![
-            Segment::arc_with_direction(P2::new(0.0, 100.0), V2::new(-1.0, 0.0), P2::new(0.0, 0.0))
-        ]),
-        Some(actor1.id)
-    ));
-
-    let actor2 = world.create(Lane::new(
-        CPath::new(vec![
-            Segment::line(P2::new(300.0, 100.0), P2::new(0.0, 100.0))
-        ]),
-        Some(actor3.id)
-    ));
-
-    actor1.next = Some(actor2.id);
-
-    let (actor1_id, actor2_id, actor3_id) = (actor1.id, actor2.id, actor3.id);
-
-    world.start(actor1);
-    world.start(actor2);
-    world.start(actor3);
-
-    let n_cars = 10;
-    for i in 0..n_cars {
-        world.send(actor1_id, AddCar(LaneCar{position: n_cars as f32 * 5.0 - (i as f32 * 5.0), trip: ID::invalid()}));
-    }
+    let mut system = kay::ActorSystem::new();
+    simulation::setup(&mut system);
+    ui::setup(&mut system);
+    
+    lanes_and_cars::setup(&mut system);
 
     system.process_messages();
 
     'main: loop {
-        for event in window.poll_events() {}
-
-        {
-            let scene = system.get_individual_mut::<monet::Scene>(111);
-            scene.swarms.get_mut("cars").unwrap().instances.clear();
+        match ui::process_events(&renderer.window) {
+            false => {return},
+            true => {}
         }
-        
-        world.send(actor1_id, Tick);
-        world.send(actor2_id, Tick);
-        world.send(actor3_id, Tick);
-
-        world.send(actor1_id, Render{scene_id: ID::individual(111)});
-        world.send(actor2_id, Render{scene_id: ID::individual(111)});
-        world.send(actor3_id, Render{scene_id: ID::individual(111)});
 
         for _i in 0..1000 {
             system.process_messages();
         }
 
-        let scene = system.get_individual::<monet::Scene>(111);
-        renderer.draw(scene);
+        system.world().send(kay::ID::individual(type_ids::Recipients::Simulation as usize), simulation::Tick);
 
+        for _i in 0..1000 {
+            system.process_messages();
+        }
+
+        system.world().send(kay::ID::individual(type_ids::Recipients::RenderManager as usize), ui::StartFrame);
+
+        for _i in 0..1000 {
+            system.process_messages();
+        }
+
+        ui::finish_frame(&mut system, &renderer);
     }
 }

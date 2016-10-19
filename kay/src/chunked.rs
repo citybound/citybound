@@ -111,9 +111,9 @@ pub trait SizedChunkedCollection {
 }
 
 pub struct SizedChunkedArena {
-    chunker: Box<Chunker>,
-    chunks: Vec<*mut u8>,
-    item_size: usize,
+    pub chunker: Box<Chunker>,
+    pub chunks: Vec<*mut u8>,
+    pub item_size: usize,
     len: ValueInChunk<usize>
 }
 
@@ -194,6 +194,76 @@ impl SizedChunkedCollection for SizedChunkedArena {
         arena
     }
 }
+
+// struct SizedChunkedArenaChunkIter {
+//     item: *mut u8,
+//     chunk_end: *mut u8,
+//     item_size: usize
+// }
+
+// impl SizedChunkedArenaChunkIter {
+//     fn uninitialized() -> Self {
+//         SizedChunkedArenaChunkIter{
+//             item: ::std::ptr::null_mut(),
+//             chunk_end: ::std::ptr::null_mut(),
+//             item_size: 0
+//         }
+//     }
+// }
+
+// impl Iterator for SizedChunkedArenaChunkIter {
+//     type Item = *mut u8;
+//     fn next(&mut self) -> Option<*mut u8> {
+//         if self.item < self.chunk_end {
+//             let item = self.item;
+//             self.item = item.offset(self.item_size as isize);
+//             Some(item)
+//         } else {
+//             None
+//         }
+//     }
+// }
+
+// struct SizedChunkedArenaIter {
+//     chunks_iterator: ::std::vec::IntoIter<*mut u8>,
+//     iterator_in_chunk: SizedChunkedArenaChunkIter,
+//     chunk_size: usize,
+//     item_size: usize
+// }
+
+// impl Iterator for SizedChunkedArenaIter {
+//     type Item = *mut u8;
+//     fn next(&mut self) -> Option<Self::Item> {
+//         match self.iterator_in_chunk.next() {
+//             None => match self.chunks_iterator.next() {
+//                 Some(chunk) => {
+//                     self.iterator_in_chunk = SizedChunkedArenaChunkIter{
+//                         item: chunk,
+//                         chunk_end: chunk.offset(self.chunk_size as isize),
+//                         item_size: self.item_size
+//                     };
+//                     self.next()
+//                 },
+//                 None => None
+//             },
+//             Some(item) => Some(item)
+//         }
+//     } 
+// }
+
+// impl<'a> IntoIterator for &'a mut SizedChunkedArena {
+//     type Item = *mut u8;
+//     type IntoIter = SizedChunkedArenaIter;
+
+//     fn into_iter(self) -> Self::IntoIter {
+//         SizedChunkedArenaIter{
+//             chunks_iterator: self.chunks.into_iter(),
+//             iterator_in_chunk: SizedChunkedArenaChunkIter::uninitialized(),
+//             chunk_size: self.chunker.chunk_size(),
+//             item_size: self.item_size
+//         }
+//     }
+// }
 
 pub struct ChunkedVec<Item: Clone> {
     arena: SizedChunkedArena,

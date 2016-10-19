@@ -226,7 +226,18 @@ macro_rules! plain {
 macro_rules! derive_compact {
     (struct $name:ident $fields:tt) => {
         echo_struct!($name, $fields);
+        derive_compact_impl!($name, $fields);
+    };
 
+    (pub struct $name:ident $fields:tt) => {
+        echo_pub_struct!($name, $fields);
+        derive_compact_impl!($name, $fields);
+    }
+}
+
+#[macro_export]
+macro_rules! derive_compact_impl {
+    ($name:ident, $fields:tt) => {
         impl Compact for $name {
             fn is_still_compact(&self) -> bool {
                 derive_is_still_compact!(self, $fields)
@@ -243,7 +254,7 @@ macro_rules! derive_compact {
             }
         }
     }
-}
+} 
 
 // TODO: figure out how to resolve overlapping traits
 // impl<T: Compact + !Copy> Compact for Option<T> {
@@ -283,6 +294,15 @@ impl<T: Copy> Compact for T {
 macro_rules! echo_struct {
     ($name:ident, {$($field:ident: $field_type:ty),*}) => {
         struct $name {
+            $($field: $field_type),*
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! echo_pub_struct {
+    ($name:ident, {$($field:ident: $field_type:ty),*}) => {
+        pub struct $name {
             $($field: $field_type),*
         }
     }
