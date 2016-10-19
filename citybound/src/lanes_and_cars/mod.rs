@@ -46,9 +46,20 @@ recipient!(Lane, (&mut self, world: &mut World, self_id: ID) {
     },
 
     Tick: &Tick{dt} => {
+        if self.cars.len() >= 2 {
+            for c in 0..(self.cars.len() - 1) {
+                let next_car = self.cars[c + 1];
+                let car = &mut self.cars[c];
+                car.acceleration = intelligent_driver_acceleration(
+                    car.position, car.velocity, car.max_velocity,
+                    next_car.position, next_car.velocity
+                );
+            }
+        }
+
         for car in &mut self.cars {
             car.position += dt * car.velocity;
-            car.velocity = car.max_velocity.min(car.velocity + dt * car.acceleration);
+            car.velocity = car.max_velocity.min(car.velocity + dt * car.acceleration).max(0.0);
         }
         
         while self.cars.len() > 0 {
@@ -61,6 +72,33 @@ recipient!(Lane, (&mut self, world: &mut World, self_id: ID) {
         }
     }
 });
+
+fn intelligent_driver_acceleration(car_position: f32, car_velocity: f32, car_max_velocity: f32, obstacle_position: f32, obstacle_velocity: f32) -> f32 {
+    // http://en.wikipedia.org/wiki/Intelligent_driver_model
+
+    let car_length = 4.0;
+    let acceleration = 14.0;
+	let comfortable_breaking_deceleration : f32 = 15.0;
+	let max_deceleration : f32 = 45.0;
+	let desired_velocity = car_max_velocity;
+	let safe_time_headway = 1.0;
+	let acceleration_exponent = 4.0;
+	let minimum_spacing = 1.0;
+
+	let net_distance = obstacle_position - car_position - car_length;
+	let velocity_difference = car_velocity - obstacle_velocity;
+
+	let s_star = minimum_spacing + 0.0f32.max(car_velocity * safe_time_headway
+		+ (car_velocity * velocity_difference / (2.0 * (acceleration * comfortable_breaking_deceleration).sqrt())));
+
+    let result_acceleration = (-max_deceleration).max(acceleration * (
+		1.0
+		- (car_velocity / desired_velocity).powf(acceleration_exponent)
+		- (s_star / net_distance).powf(2.0)
+	));
+
+	result_acceleration
+}
 
 pub fn setup(system: &mut ActorSystem) {
     system.add_swarm::<Lane>(InMemory("lane_actors", 512 * 64, 10));
@@ -100,6 +138,7 @@ fn setup_scenario(system: &mut ActorSystem) {
     actor1.next = Some(actor2.id);
 
     let actor1_id = actor1.id;
+    let actor2_id = actor2.id;
 
     world.start(actor1);
     world.start(actor2);
@@ -110,9 +149,17 @@ fn setup_scenario(system: &mut ActorSystem) {
         world.send(actor1_id, AddCar(LaneCar{
             position: n_cars as f32 * 5.0 - (i as f32 * 5.0),
             trip: ID::invalid(),
-            velocity: 10.0,
+            velocity: 0.0,
             acceleration: 1.0,
             max_velocity: 22.0
         }));
     }
+
+    world.send(actor2_id, AddCar(LaneCar{
+        position: 50.0,
+        trip: ID::invalid(),
+        velocity: 0.0,
+        acceleration: 1.0,
+        max_velocity: 3.0
+    }));
 }
