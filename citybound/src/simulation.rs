@@ -1,7 +1,7 @@
 use ::kay::{ActorSystem, Message, Recipient, Known, ID, World, InMemory};
 
 #[derive(Copy, Clone)]
-pub struct Tick;
+pub struct Tick{pub dt: f32}
 message!(Tick, ::type_ids::Messages::Tick);
 
 #[derive(Copy, Clone)]
@@ -13,9 +13,9 @@ struct Simulation{
 }
 
 recipient!(Simulation, (&mut self, world: &mut World, self_id: ID) {
-    Tick: _ => {
+    Tick: &Tick{dt} => {
         for simulatable in &self.simulatables {
-            world.send(*simulatable, Tick);
+            world.send(*simulatable, Tick{dt: dt});
         }
     },
 

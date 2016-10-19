@@ -12,6 +12,8 @@ mod simulation;
 
 mod lanes_and_cars;
 
+const SECONDS_PER_TICK : f32 = 1.0 / 20.0;
+
 fn main() {
     let renderer = ui::setup_window_and_renderer();
     
@@ -34,7 +36,7 @@ fn main() {
             system.process_messages();
         }
 
-        system.world().send(kay::ID::individual(type_ids::Recipients::Simulation as usize), simulation::Tick);
+        system.world().send(kay::ID::individual(type_ids::Recipients::Simulation as usize), simulation::Tick{dt: SECONDS_PER_TICK});
 
         for _i in 0..1000 {
             system.process_messages();

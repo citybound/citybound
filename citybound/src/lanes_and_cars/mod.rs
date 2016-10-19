@@ -45,11 +45,12 @@ recipient!(Lane, (&mut self, world: &mut World, self_id: ID) {
         self.cars.insert(0, car);
     },
 
-    Tick: _ => {
+    Tick: &Tick{dt} => {
         for car in &mut self.cars {
-            car.position += car.velocity;
-            car.velocity = car.max_velocity.min(car.velocity + car.acceleration);
+            car.position += dt * car.velocity;
+            car.velocity = car.max_velocity.min(car.velocity + dt * car.acceleration);
         }
+        
         while self.cars.len() > 0 {
             let mut last_car = self.cars[self.cars.len() - 1];
             if last_car.position > self.length {
@@ -109,9 +110,9 @@ fn setup_scenario(system: &mut ActorSystem) {
         world.send(actor1_id, AddCar(LaneCar{
             position: n_cars as f32 * 5.0 - (i as f32 * 5.0),
             trip: ID::invalid(),
-            velocity: 0.1,
-            acceleration: 0.01,
-            max_velocity: 2.0
+            velocity: 10.0,
+            acceleration: 1.0,
+            max_velocity: 22.0
         }));
     }
 }
