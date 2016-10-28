@@ -4,13 +4,7 @@ version = "0.1.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
-nalgebra = "*"
-
-[dependencies.kay]
-path = "../kay/"
-
-[dependencies.monet]
-path = "../monet/"
-
-[dependencies.compass]
-path = "../compass/"
+glium = "*"
+glium_text = "*"
+nalgebra = "0.8.2"
+smallvec = "0.1.7"

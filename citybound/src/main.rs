@@ -1,53 +1,47 @@
+#![feature(core_intrinsics)]
 #![allow(dead_code)]
-#[macro_use]
-extern crate kay;
-extern crate monet;
 extern crate nalgebra;
-extern crate compass;
+#[macro_use]
+pub extern crate glium;
+extern crate glium_text;
 
-mod ui;
-mod geometry;
-mod type_ids;
-mod simulation;
+#[macro_use]
+mod kay;
+mod compass;
+mod monet;
 
-mod lanes_and_cars;
+mod core;
+mod game;
 
 const SECONDS_PER_TICK : f32 = 1.0 / 20.0;
 
-fn main() {
-    let renderer = ui::setup_window_and_renderer();
-    
+fn main() {    
     let mut system = kay::ActorSystem::new();
-    simulation::setup(&mut system);
-    ui::setup(&mut system);
+    core::simulation::setup(&mut system);
 
-    lanes_and_cars::setup(&mut system);
-    lanes_and_cars::ui::setup(&mut system);
+    game::setup(&mut system);
+    game::setup_ui(&mut system);
 
-    system.process_messages();
+    let window = core::ui::setup_window_and_renderer(&mut system);
+
+    system.process_all_messages();
 
     'main: loop {
-        match ui::process_events(&renderer.window) {
+        match core::ui::process_events(&window) {
             false => {return},
             true => {}
         }
 
-        for _i in 0..1000 {
-            system.process_messages();
-        }
+        system.process_all_messages();
 
-        system.world().send(kay::ID::individual(type_ids::Recipients::Simulation as usize), simulation::Tick{dt: SECONDS_PER_TICK});
+        system.world().send_to_individual::<_, core::simulation::Simulation>(core::simulation::Tick{dt: SECONDS_PER_TICK});
 
-        for _i in 0..1000 {
-            system.process_messages();
-        }
+        system.process_all_messages();
 
-        system.world().send(kay::ID::individual(type_ids::Recipients::RenderManager as usize), ui::StartFrame);
+        system.world().send_to_individual::<_, monet::Renderer>(monet::Render);
 
-        for _i in 0..1000 {
-            system.process_messages();
-        }
+        system.process_all_messages();
 
-        ui::finish_frame(&mut system, &renderer);
+        system.world().send_to_individual::<_, monet::Renderer>(monet::Submit);
     }
 }
