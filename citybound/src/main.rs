@@ -4,6 +4,7 @@ extern crate nalgebra;
 #[macro_use]
 pub extern crate glium;
 extern crate glium_text;
+extern crate ordered_float;
 
 #[macro_use]
 mod kay;

@@ -3,6 +3,7 @@ use core::geometry::CPath;
 use kay::{ID, CVec, CDict, Recipient, World, ActorSystem, InMemory, Compact};
 use compass::{FiniteCurve, Path, Segment, P2, V2};
 use core::simulation::{Simulation, Tick, AddSimulatable};
+use ordered_float::OrderedFloat;
 
 #[derive(Copy, Clone)]
 struct LaneCar {
@@ -15,14 +16,14 @@ struct LaneCar {
 
 #[derive(Copy, Clone)]
 struct ObstacleOnNextLane {
-    position: f32,
+    position: OrderedFloat<f32>,
     velocity: f32
 }
 
 impl ObstacleOnNextLane {
     fn far_away() -> ObstacleOnNextLane {
         ObstacleOnNextLane{
-            position: ::std::f32::INFINITY,
+            position: OrderedFloat(::std::f32::INFINITY),
             velocity: ::std::f32::INFINITY
         }
     }
@@ -62,12 +63,22 @@ impl Lane {
 #[derive(Copy, Clone)]
 struct AddCar(LaneCar);
 
+#[derive(Copy, Clone)]
+struct UpdateObstacleOnNextLane(ID, ObstacleOnNextLane);
+
 recipient!(Lane, (&mut self, world: &mut World, self_id: ID) {
     AddCar: &AddCar(car) => {
         self.cars.insert(0, car);
     },
 
     Tick: &Tick{dt} => {
+        let first_obstacle_on_any_next_lane = self.next_lanes_with_obstacles.pairs.iter()
+            .min_by_key(|&&(_id, first_obstacle)| {first_obstacle.position})
+            .map_or(ObstacleOnNextLane::far_away(), |&(_id, first_obstacle)| {ObstacleOnNextLane{
+                position: OrderedFloat(first_obstacle.position.as_ref() + self.length),
+                velocity: first_obstacle.velocity
+            }});
+
         if self.cars.len() >= 2 {
             for c in 0..(self.cars.len() - 1) {
                 let next_car = self.cars[c + 1];
@@ -77,6 +88,13 @@ recipient!(Lane, (&mut self, world: &mut World, self_id: ID) {
                     next_car.position, next_car.velocity
                 );
             }
+        }
+
+        if let Some(last_car) = self.cars.last_mut() {
+            last_car.acceleration = intelligent_driver_acceleration(
+                last_car.position, last_car.velocity, last_car.max_velocity,
+                *first_obstacle_on_any_next_lane.position.as_ref(), first_obstacle_on_any_next_lane.velocity
+            )
         }
 
         for car in &mut self.cars {
@@ -93,6 +111,21 @@ recipient!(Lane, (&mut self, world: &mut World, self_id: ID) {
                 self.cars.pop();
             } else {break;}
         }
+
+        let first_obstacle = match self.cars.first() {
+            Some(car) => ObstacleOnNextLane{
+                position: OrderedFloat(car.position),
+                velocity: car.velocity
+            },
+            None => first_obstacle_on_any_next_lane
+        };
+        for previous_lane in self.previous_lanes.iter() {
+            world.send(*previous_lane, UpdateObstacleOnNextLane(self_id, first_obstacle));
+        }
+    },
+
+    UpdateObstacleOnNextLane: &UpdateObstacleOnNextLane(next_lane_id, first_obstacle) => {
+        self.next_lanes_with_obstacles.insert(next_lane_id, first_obstacle);
     }
 });
 
@@ -126,6 +159,7 @@ fn intelligent_driver_acceleration(car_position: f32, car_velocity: f32, car_max
 pub fn setup(system: &mut ActorSystem) {
     system.add_swarm::<Lane>(InMemory("lane_actors", 512 * 64, 10));
     system.add_inbox::<AddCar, Lane>(InMemory("add_car", 512, 4));
+    system.add_inbox::<UpdateObstacleOnNextLane, Lane>(InMemory("update_obstacle_on_next_lane", 512, 4));
     system.add_inbox::<Tick, Lane>(InMemory("tick", 512, 4));
 
     system.world().send_to_individual::<_, Simulation>(AddSimulatable(system.broadcast_id::<Lane>()));

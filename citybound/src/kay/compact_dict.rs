@@ -3,7 +3,7 @@ use super::compact::Compact;
 use super::compact_vec::CompactVec;
 
 pub struct CompactDict <K, V, A: Allocator = DefaultHeap> {
-    pairs: CompactVec<(K, V), A>
+    pub pairs: CompactVec<(K, V), A>
 }
 
 impl <K: Eq + Copy, V: Copy, A: Allocator> CompactDict<K, V, A> {
