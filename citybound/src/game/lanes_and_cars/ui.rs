@@ -1,6 +1,7 @@
 use compass::{FiniteCurve};
 use kay::{ID, Recipient, World, ActorSystem, InMemory, Swarm};
-use monet::{WorldPosition, RenderToScene, SetupInScene, AddBatch, AddInstance};
+use monet::{Instance, RenderToScene, SetupInScene, AddBatch, AddInstance, UpdateThing};
+use core::geometry::path_to_band;
 use super::Lane;
 
 #[path = "./resources/car.rs"]
@@ -16,12 +17,23 @@ recipient!(Lane, (&mut self, world: &mut World, self_id: ID) {
     RenderToScene: &RenderToScene{renderer_id, scene_id} => {
         for car in &self.cars {
             let position2d = self.path.along(car.position);
+            let direction = self.path.direction_along(car.position);
             world.send(renderer_id, AddInstance{
                 scene_id: scene_id,
                 batch_id: 0,
-                position: WorldPosition{world_position: [position2d.x, position2d.y, 0.0]}
+                position: Instance{
+                    instance_position: [position2d.x, position2d.y, 0.0],
+                    instance_direction: [direction.x, direction.y],
+                    instance_color: [0.5, 0.5, 0.5]
+                }
             });
         }
+
+        world.send(renderer_id, UpdateThing::new(scene_id, self_id.instance_id as usize, path_to_band(&self.path, 3.0), Instance{
+            instance_position: [0.0, 0.0, 0.0],
+            instance_direction: [1.0, 0.0],
+            instance_color: [0.7, 0.7, 0.7]
+        }));
     }
 });
 

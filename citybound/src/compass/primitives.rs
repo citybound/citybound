@@ -106,7 +106,7 @@ impl Segment {
         *self.center_or_direction.as_point()
     }
 
-    fn radius(&self) -> N {
+    pub fn radius(&self) -> N {
         self.signed_radius.abs()
     }
 
@@ -134,6 +134,35 @@ impl FiniteCurve for Segment {
             let angle_to_rotate = distance / -self.signed_radius;
             let center_to_point = rotate(&Rotation2::new(Vector1::new(angle_to_rotate)), &center_to_start);
             self.center() + center_to_point
+        }
+    }
+
+    fn direction_along(&self, distance: N) -> V2 {
+        if self.is_linear() {
+            self.center_or_direction
+        } else {
+            let center_to_start = self.start - self.center();
+            let angle_to_rotate = distance / -self.signed_radius;
+            let center_to_point = rotate(&Rotation2::new(Vector1::new(angle_to_rotate)), &center_to_start);
+            center_to_point.normalize().orthogonal() * self.signed_radius.signum()
+        }
+    }
+
+    fn start_direction(&self) -> V2 {
+        if self.is_linear() {
+            self.center_or_direction
+        } else {
+            let center_to_start = self.start - self.center();
+            center_to_start.normalize().orthogonal() * self.signed_radius.signum()
+        }
+    }
+
+    fn end_direction(&self) -> V2 {
+        if self.is_linear() {
+            self.center_or_direction
+        } else {
+            let center_to_end = self.end - self.center();
+            center_to_end.normalize().orthogonal() * self.signed_radius.signum()
         }
     }
 }

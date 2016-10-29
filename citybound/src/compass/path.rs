@@ -1,4 +1,4 @@
-use super::{N, P2, Curve, FiniteCurve};
+use super::{N, P2, V2, Curve, FiniteCurve};
 use super::primitives::Segment;
 
 pub trait Path {
@@ -19,6 +19,18 @@ pub trait Path {
     > {
         return self.segments().into_iter().scan(StartOffsetState(0.0), Self::scan_segments);
     }
+
+    fn find_on_segment(&self, distance: N) -> Option<(&Segment, N)> {
+        let mut distance_covered = 0.0;
+        for segment in self.segments().iter() {
+            let new_distance_covered = distance_covered + segment.length();
+            if new_distance_covered > distance {
+                return Some((segment, distance - distance_covered));
+            }
+            distance_covered = new_distance_covered;
+        }
+        None
+    }
 }
 
 pub struct StartOffsetState(N);
@@ -29,15 +41,25 @@ impl<T: Path> FiniteCurve for T {
     }
 
     fn along(&self, distance: N) -> P2 {
-        let mut distance_covered = 0.0;
-        for segment in self.segments().into_iter() {
-            let new_distance_covered = distance_covered + segment.length();
-            if new_distance_covered > distance {
-                return segment.along(distance - distance_covered);
-            }
-            distance_covered = new_distance_covered;
+        match self.find_on_segment(distance) {
+            Some((segment, distance_on_segment)) => segment.along(distance_on_segment),
+            None => self.segments()[0].start
         }
-        return self.segments()[0].start;
+    }
+
+    fn direction_along(&self, distance: N) -> V2 {
+        match self.find_on_segment(distance) {
+            Some((segment, distance_on_segment)) => segment.direction_along(distance_on_segment),
+            None => self.segments()[0].direction_along(0.0)
+        }
+    }
+
+    fn start_direction(&self) -> V2 {
+        self.segments()[0].start_direction()
+    }
+
+    fn end_direction(&self) -> V2 {
+        self.segments().last().unwrap().end_direction()
     }
 }
 

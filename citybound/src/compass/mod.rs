@@ -35,7 +35,7 @@ fn angle_along_to(a: V2, a_direction: V2, b: V2) -> N {
     };
 }
 
-trait WithUniqueOrthogonal {
+pub trait WithUniqueOrthogonal {
     fn orthogonal(&self) -> Self;
 }
 
@@ -64,4 +64,11 @@ pub trait Curve {
 pub trait FiniteCurve : Curve {
     fn length(&self) -> N;
     fn along(&self, distance: N) -> P2;
+    fn direction_along(&self, distance: N) -> V2;
+    fn start_direction(&self) -> V2 {
+        self.direction_along(0.0)
+    }
+    fn end_direction(&self) -> V2 {
+        self.direction_along(self.length())
+    }
 }

@@ -14,10 +14,12 @@ pub struct Vertex {
 implement_vertex!(Vertex, position);
 
 #[derive(Copy, Clone)]
-pub struct WorldPosition {
-    pub world_position: [f32; 3]
+pub struct Instance {
+    pub instance_position: [f32; 3],
+    pub instance_direction: [f32; 2],
+    pub instance_color: [f32; 3]
 }
-implement_vertex!(WorldPosition, world_position);
+implement_vertex!(Instance, instance_position, instance_direction, instance_color);
 
 pub struct Eye {
     pub position: Point3<f32>,
@@ -50,11 +52,11 @@ impl Clone for Thing {
 
 pub struct Batch {
     prototype: Thing,
-    pub instances: Vec<WorldPosition>
+    pub instances: Vec<Instance>
 }
 
 impl Batch {
-    pub fn new(prototype: Thing, instances: Vec<WorldPosition>) -> Batch {
+    pub fn new(prototype: Thing, instances: Vec<Instance>) -> Batch {
         Batch{prototype: prototype, instances: instances}
     }
 }
@@ -62,6 +64,7 @@ impl Batch {
 pub struct Scene {
     pub eye: Eye,
     pub batches: HashMap<usize, Batch>,
+    pub things: HashMap<usize, (Thing, Instance)>,
     pub renderables: Vec<ID>,
     pub debug_text: String
 }
@@ -76,6 +79,7 @@ impl Scene {
                 field_of_view: 0.3 * ::std::f32::consts::PI
             },
             batches: HashMap::new(),
+            things: HashMap::new(),
             renderables: Vec::new(),
             debug_text: String::new()
         }
@@ -106,11 +110,7 @@ pub struct RenderToScene {
 }
 
 derive_compact!{
-    pub struct AddBatch {
-        scene_id: usize,
-        batch_id: usize,
-        thing: Thing
-    }
+    pub struct AddBatch {scene_id: usize, batch_id: usize, thing: Thing}
 }
 
 impl AddBatch {
@@ -119,11 +119,21 @@ impl AddBatch {
     }
 }
 
+derive_compact!{
+    pub struct UpdateThing {scene_id: usize, thing_id: usize, thing: Thing, instance: Instance}
+}
+
+impl UpdateThing {
+    pub fn new(scene_id: usize, thing_id: usize, thing: Thing, instance: Instance) -> UpdateThing {
+        UpdateThing{scene_id: scene_id, thing_id: thing_id, thing: thing, instance: instance}
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct AddInstance {
     pub scene_id: usize,
     pub batch_id: usize,
-    pub position: WorldPosition
+    pub position: Instance
 }
 
 #[derive(Copy, Clone)]
@@ -161,6 +171,10 @@ recipient!{Renderer, (&mut self, world: &mut World, self_id: ID) {
 
     AddInstance: &AddInstance{scene_id, batch_id, position} => {
         self.scenes.get_mut(&scene_id).unwrap().batches.get_mut(&batch_id).unwrap().instances.push(position);
+    },
+
+    UpdateThing: &UpdateThing{scene_id, thing_id, ref thing, instance} => {
+        let entry = self.scenes.get_mut(&scene_id).unwrap().things.insert(thing_id, (thing.clone(), instance));
     }
 }}
 
@@ -180,6 +194,7 @@ pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
     system.add_individual_inbox::<Submit, Renderer>(InMemory("submit", 512 * 8, 4));
     system.add_individual_inbox::<AddBatch, Renderer>(InMemory("add_batch", 512 * 8, 4));
     system.add_individual_inbox::<AddInstance, Renderer>(InMemory("add_instance", 512 * 8, 4));
+    system.add_individual_inbox::<UpdateThing, Renderer>(InMemory("update_thing", 512 * 8, 4));
 
     system.world().send_to_individual::<Setup, Renderer>(Setup);
 }
@@ -196,7 +211,7 @@ impl RenderContext {
         RenderContext{
             batch_program: program!(&window,
                 140 => {
-                    vertex: include_str!("shader/solid_batch_140.glslv"),
+                    vertex: include_str!("shader/solid_140.glslv"),
                     fragment: include_str!("shader/solid_140.glslf")
                 }
             ).unwrap(),
@@ -224,16 +239,8 @@ impl RenderContext {
             0.1,
             1000.0
         ).to_matrix().as_ref();
-
-        let model = [
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0f32]
-        ];
         
         let uniforms = uniform! {
-            model: model,
             view: view,
             perspective: perspective
         };
@@ -254,6 +261,13 @@ impl RenderContext {
             let vertices = glium::VertexBuffer::new(&self.window, &batch.prototype.vertices).unwrap();
             let indices = glium::IndexBuffer::new(&self.window, index::PrimitiveType::TrianglesList, &batch.prototype.indices).unwrap();
             let instances = glium::VertexBuffer::dynamic(&self.window, batch.instances.as_slice()).unwrap();
+            target.draw((&vertices, instances.per_instance().unwrap()), &indices, &self.batch_program, &uniforms, &params).unwrap();
+        }
+
+        for &(ref thing, instance) in scene.things.values() {
+            let vertices = glium::VertexBuffer::new(&self.window, &thing.vertices).unwrap();
+            let indices = glium::IndexBuffer::new(&self.window, index::PrimitiveType::TrianglesList, &thing.indices).unwrap();
+            let instances = glium::VertexBuffer::new(&self.window, &[instance]).unwrap();
             target.draw((&vertices, instances.per_instance().unwrap()), &indices, &self.batch_program, &uniforms, &params).unwrap();
         }
 

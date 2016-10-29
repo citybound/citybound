@@ -5,7 +5,7 @@ use super::inbox::Inbox;
 use super::chunked::{MemChunker};
 use super::type_registry::TypeRegistry;
 use std::ops::{Deref, DerefMut};
-use std::intrinsics::type_id;
+use std::intrinsics::{type_id, type_name};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ID {
@@ -238,8 +238,10 @@ impl ActorSystem {
     }
 
     pub fn inbox_for<M: Message>(&mut self, packet: &MessagePacket<M>) -> &mut Inbox<M> {
-        let inbox_ptr = self.routing[packet.recipient_id.type_id as usize].as_ref().expect("Recipient not found")
-                        .get::<M>().expect("Inbox not found");
+        let inbox_ptr = self.routing[packet.recipient_id.type_id as usize].as_ref()
+            .expect("Recipient not found")
+            .get::<M>()
+            .expect(format!("Inbox for {} not found for {}", unsafe{type_name::<M>()}, self.recipient_registry.get_name(packet.recipient_id.type_id as usize)).as_str());
         unsafe{&mut *inbox_ptr}
     }
 

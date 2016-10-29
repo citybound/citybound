@@ -222,6 +222,6 @@ fn setup_scenario(system: &mut ActorSystem) {
         trip: ID::invalid(),
         velocity: 0.0,
         acceleration: 1.0,
-        max_velocity: 0.0
+        max_velocity: 3.0
     }));
 }
