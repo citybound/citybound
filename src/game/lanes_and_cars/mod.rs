@@ -36,12 +36,17 @@ impl DerefMut for LaneCar {
 }
 
 #[derive(Copy, Clone)]
-struct ParallelOverlap {
+enum OverlapKind{Parallel, Conflicting}
+use self::OverlapKind::{Parallel, Conflicting};
+
+#[derive(Copy, Clone)]
+struct Overlap {
     partner_lane: ID,
     start: OrderedFloat<f32>,
     end: OrderedFloat<f32>,
     partner_start: OrderedFloat<f32>,
-    partner_end: OrderedFloat<f32>
+    partner_end: OrderedFloat<f32>,
+    kind: OverlapKind
 }
 
 derive_compact!{
@@ -50,7 +55,7 @@ derive_compact!{
         path: CPath,
         next_lanes_with_obstacles: CDict<ID, Obstacle>,
         previous_lanes: CVec<ID>,
-        overlaps: CVec<ParallelOverlap>,
+        overlaps: CVec<Overlap>,
         overlap_obstacles: CVec<Obstacle>,
         cars: CVec<LaneCar>
     }
@@ -101,22 +106,21 @@ recipient!(Lane, (&mut self, world: &mut World, self_id: ID) {
                 velocity: first_obstacle.velocity
             }});
 
-        if self.cars.len() >= 2 {
-            for c in 0..self.cars.len() {
-                let next_car = if c + 1 < self.cars.len() {*self.cars[c + 1]} else {first_obstacle_on_any_next_lane};
-                let car = &mut self.cars[c];
-                let next_car_acceleration = intelligent_driver_acceleration(car, &next_car);
+        for c in 0..self.cars.len() {
+            let next_car = if c + 1 < self.cars.len() {*self.cars[c + 1]} else {first_obstacle_on_any_next_lane};
+            let car = &mut self.cars[c];
+            let next_car_acceleration = intelligent_driver_acceleration(car, &next_car);
 
-                // TODO: optimize, avoid nested loop
-                let next_overlap_obstacle = self.overlap_obstacles.iter().find(|obstacle| obstacle.position > car.position);
-                let next_overlap_obstacle_acceleration = match next_overlap_obstacle {
-                    Some(obstacle) => intelligent_driver_acceleration(car, obstacle),
-                    None => INFINITY
-                };
+            // TODO: optimize, avoid nested loop
+            let next_overlap_obstacle = self.overlap_obstacles.iter().find(|obstacle| obstacle.position > car.position);
+            let next_overlap_obstacle_acceleration = match next_overlap_obstacle {
+                Some(obstacle) => intelligent_driver_acceleration(car, obstacle),
+                None => INFINITY
+            };
 
-                car.acceleration = next_car_acceleration.min(next_overlap_obstacle_acceleration);
-            }
+            car.acceleration = next_car_acceleration.min(next_overlap_obstacle_acceleration);
         }
+
 
         for car in &mut self.cars {
             *car.position += dt * car.velocity;
@@ -144,9 +148,15 @@ recipient!(Lane, (&mut self, world: &mut World, self_id: ID) {
 
         for overlap in self.overlaps.iter() {
             for car in self.cars.iter().filter(|car| car.position > overlap.start && car.position < overlap.end) {
-                world.send(overlap.partner_lane, AddOverlapObstacle(Obstacle{
-                    position: OrderedFloat(*car.position - *overlap.start + *overlap.partner_start),
-                    velocity: car.velocity
+                world.send(overlap.partner_lane, AddOverlapObstacle(match overlap.kind {
+                    Parallel => Obstacle{
+                        position: OrderedFloat(*car.position - *overlap.start + *overlap.partner_start),
+                        velocity: car.velocity
+                    },
+                    Conflicting => Obstacle{
+                        position: overlap.partner_start,
+                        velocity: 0.0
+                    }
                 }));
             }
         }
@@ -232,7 +242,7 @@ fn setup_scenario(system: &mut ActorSystem) {
 
     let mut overlapping_lane = world.create(Lane::new(
         CPath::new(vec![
-            Segment::line(P2::new(0.0, -10.0), P2::new(300.0, 10.0))
+            Segment::line(P2::new(300.0, 10.0), P2::new(0.0, -10.0))
         ]),
         None,
         None
@@ -242,20 +252,22 @@ fn setup_scenario(system: &mut ActorSystem) {
     lane1.previous_lanes.push(lane3.id);
     lane3.previous_lanes.push(lane2.id);
 
-    lane1.overlaps.push(ParallelOverlap{
+    lane1.overlaps.push(Overlap{
         partner_lane: overlapping_lane.id,
         start: OrderedFloat(100.0),
         end: OrderedFloat(200.0),
         partner_start: OrderedFloat(100.0),
         partner_end: OrderedFloat(200.0),
+        kind: Conflicting
     });
 
-    overlapping_lane.overlaps.push(ParallelOverlap{
+    overlapping_lane.overlaps.push(Overlap{
         partner_lane: lane1.id,
         start: OrderedFloat(100.0),
         end: OrderedFloat(200.0),
         partner_start: OrderedFloat(100.0),
         partner_end: OrderedFloat(200.0),
+        kind: Conflicting
     });
 
     let lane1_id = lane1.id;
@@ -292,7 +304,7 @@ fn setup_scenario(system: &mut ActorSystem) {
 
     world.send(overlapping_lane_id, AddCar(LaneCar{
         as_obstacle: Obstacle {
-            position: OrderedFloat(80.0),
+            position: OrderedFloat(60.0),
             velocity: 0.0,
         },
         trip: ID::invalid(),
