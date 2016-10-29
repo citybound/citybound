@@ -16,8 +16,8 @@ recipient!(Swarm<Lane>, (&mut self, world: &mut World, self_id: ID) {
 recipient!(Lane, (&mut self, world: &mut World, self_id: ID) {
     RenderToScene: &RenderToScene{renderer_id, scene_id} => {
         for car in &self.cars {
-            let position2d = self.path.along(car.position);
-            let direction = self.path.direction_along(car.position);
+            let position2d = self.path.along(*car.position);
+            let direction = self.path.direction_along(*car.position);
             world.send(renderer_id, AddInstance{
                 scene_id: scene_id,
                 batch_id: 0,
@@ -29,11 +29,18 @@ recipient!(Lane, (&mut self, world: &mut World, self_id: ID) {
             });
         }
 
-        world.send(renderer_id, UpdateThing::new(scene_id, self_id.instance_id as usize, path_to_band(&self.path, 3.0), Instance{
+        world.send(renderer_id, UpdateThing::new(scene_id, self_id.instance_id as usize, path_to_band(&self.path, 3.0, 0.0), Instance{
             instance_position: [0.0, 0.0, 0.0],
             instance_direction: [1.0, 0.0],
             instance_color: [0.7, 0.7, 0.7]
         }));
+        if let Some(overlap) = self.overlaps.iter().next() {
+            world.send(renderer_id, UpdateThing::new(scene_id, 100 + self_id.instance_id as usize, path_to_band(&self.path.subsection(*overlap.start, *overlap.end), 1.0, 0.1), Instance{
+                instance_position: [0.0, 0.0, 0.0],
+                instance_direction: [1.0, 0.0],
+                instance_color: [1.0, 0.7, 0.7]
+            }));
+        }
     }
 });
 

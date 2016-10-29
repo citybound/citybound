@@ -165,6 +165,17 @@ impl FiniteCurve for Segment {
             center_to_end.normalize().orthogonal() * self.signed_radius.signum()
         }
     }
+
+    fn subsection(&self, start: N, end: N) -> Segment {
+        let true_start = start.max(0.0);
+        let true_end = end.min(self.length);
+
+        if self.is_linear() {
+            Segment::line(self.along(true_start), self.along(true_end))
+        } else {
+            Segment::arc(self.along(true_start), self.center(), self.along(true_end))
+        }
+    }
 }
 
 impl Curve for Segment {

@@ -71,4 +71,5 @@ pub trait FiniteCurve : Curve {
     fn end_direction(&self) -> V2 {
         self.direction_along(self.length())
     }
+    fn subsection(&self, start: N, end: N) -> Self;
 }

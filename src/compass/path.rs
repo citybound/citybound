@@ -61,6 +61,18 @@ impl<T: Path> FiniteCurve for T {
     fn end_direction(&self) -> V2 {
         self.segments().last().unwrap().end_direction()
     }
+
+    fn subsection(&self, start: N, end: N) -> T {
+        T::new(self.segments_with_start_offsets().filter_map(|pair: (&Segment, N)| {
+            let (segment, start_offset) = pair;
+            let end_offset = start_offset + segment.length;
+            if start_offset > end || end_offset < start {
+                None
+            } else {
+                Some(segment.subsection(start - start_offset, end - start_offset))
+            }
+        }).collect())
+    }
 }
 
 impl<T: Path> Curve for T {

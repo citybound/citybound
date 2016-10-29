@@ -109,6 +109,11 @@ impl<T, A: Allocator> CompactVec<T, A> {
             self.len += 1;
         }
     }
+
+    pub fn clear(&mut self) {
+        // TODO: Drop?
+        self.len = 0;
+    }
 }
 
 impl<T, A: Allocator> From<Vec<T>> for CompactVec<T, A> {
