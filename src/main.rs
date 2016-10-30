@@ -5,6 +5,7 @@ extern crate nalgebra;
 pub extern crate glium;
 extern crate glium_text;
 extern crate ordered_float;
+extern crate itertools;
 
 #[macro_use]
 mod kay;

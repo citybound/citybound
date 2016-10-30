@@ -2,7 +2,7 @@ use compass::{FiniteCurve};
 use kay::{ID, Recipient, World, ActorSystem, InMemory, Swarm};
 use monet::{Instance, RenderToScene, SetupInScene, AddBatch, AddInstance, UpdateThing};
 use core::geometry::path_to_band;
-use super::Lane;
+use super::{Lane, InteractionKind};
 
 #[path = "./resources/car.rs"]
 mod car;
@@ -34,13 +34,17 @@ recipient!(Lane, (&mut self, world: &mut World, self_id: ID) {
             instance_direction: [1.0, 0.0],
             instance_color: [0.7, 0.7, 0.7]
         }));
-        if let Some(overlap) = self.overlaps.iter().next() {
-            world.send(renderer_id, UpdateThing::new(scene_id, 100 + self_id.instance_id as usize, path_to_band(&self.path.subsection(*overlap.start, *overlap.end), 1.0, 0.1), Instance{
-                instance_position: [0.0, 0.0, 0.0],
-                instance_direction: [1.0, 0.0],
-                instance_color: [1.0, 0.7, 0.7]
-            }));
-        }
+        self.interactions.iter().find(|inter| match inter.kind {
+            InteractionKind::Overlap{start, end, ..} => {
+                world.send(renderer_id, UpdateThing::new(scene_id, 100 + self_id.instance_id as usize, path_to_band(&self.path.subsection(start, end), 1.0, 0.1), Instance{
+                    instance_position: [0.0, 0.0, 0.0],
+                    instance_direction: [1.0, 0.0],
+                    instance_color: [1.0, 0.7, 0.7]
+                }));
+                true
+            },
+            _ => false
+        });
     }
 });
 

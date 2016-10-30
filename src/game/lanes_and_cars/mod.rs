@@ -1,28 +1,82 @@
 pub mod ui;
+mod intelligent_acceleration;
+use self::intelligent_acceleration::intelligent_acceleration;
 use core::geometry::CPath;
-use kay::{ID, CVec, CDict, Recipient, World, ActorSystem, InMemory, Compact};
+use kay::{ID, CVec, Recipient, World, ActorSystem, InMemory, Compact};
 use compass::{FiniteCurve, Path, Segment, P2, V2};
 use core::simulation::{Simulation, Tick, AddSimulatable};
 use ordered_float::OrderedFloat;
+use itertools::Itertools;
 use ::std::f32::INFINITY;
 use ::std::ops::{Deref, DerefMut};
 
+derive_compact!{
+    pub struct Lane {
+        length: f32,
+        path: CPath,
+        interactions: CVec<Interaction>,
+        interaction_obstacles: CVec<Obstacle>,
+        cars: CVec<LaneCar>
+    }
+}
+
+impl Lane {
+    fn new(path: CPath) -> Self {
+        Lane {
+            length: path.length(),
+            path: path,
+            interactions: CVec::new(),
+            interaction_obstacles: CVec::new(),
+            cars: CVec::new()
+        }
+    }
+
+    fn add_next_lane(&mut self, next_lane: ID) {
+        self.interactions.push(Interaction{
+            partner_lane: next_lane,
+            kind: Next{partner_start: 0.0}
+        });
+    }
+
+    fn add_previous_lane(&mut self, previous_lane: ID, previous_lane_length: f32) {
+        self.interactions.push(Interaction{
+            partner_lane: previous_lane,
+            kind: Previous{start: 0.0, partner_length: previous_lane_length}
+        });
+    } 
+}
+
 #[derive(Copy, Clone)]
-struct Obstacle {
+pub struct Obstacle {
     position: OrderedFloat<f32>,
     velocity: f32
 }
 
 impl Obstacle {
     fn far_away() -> Obstacle {Obstacle{position: OrderedFloat(INFINITY), velocity: INFINITY}}
+    fn offset_by(&self, delta: f32) -> Obstacle {
+        Obstacle{
+            position: OrderedFloat(*self.position + delta),
+            .. *self
+        }
+    } 
 }
 
 #[derive(Copy, Clone)]
-struct LaneCar {
+pub struct LaneCar {
     trip: ID,
     as_obstacle: Obstacle,
     acceleration: f32,
     max_velocity: f32
+}
+
+impl LaneCar {
+    fn offset_by(&self, delta: f32) -> LaneCar {
+        LaneCar{
+            as_obstacle: self.as_obstacle.offset_by(delta),
+            .. *self
+        }
+    }
 }
 
 impl Deref for LaneCar {
@@ -36,175 +90,114 @@ impl DerefMut for LaneCar {
 }
 
 #[derive(Copy, Clone)]
+struct Interaction {
+    partner_lane: ID,
+    kind: InteractionKind
+}
+
+#[derive(Copy, Clone)]
+enum InteractionKind{
+    Overlap{
+        start: f32,
+        end: f32,
+        partner_start: f32,
+        partner_end: f32,
+        kind: OverlapKind
+    },
+    Next{
+        partner_start: f32
+    },
+    Previous{
+        start: f32,
+        partner_length: f32
+    }
+}
+use self::InteractionKind::{Overlap, Next, Previous};
+
+#[derive(Copy, Clone)]
 enum OverlapKind{Parallel, Conflicting}
 use self::OverlapKind::{Parallel, Conflicting};
 
-#[derive(Copy, Clone)]
-struct Overlap {
-    partner_lane: ID,
-    start: OrderedFloat<f32>,
-    end: OrderedFloat<f32>,
-    partner_start: OrderedFloat<f32>,
-    partner_end: OrderedFloat<f32>,
-    kind: OverlapKind
-}
-
-derive_compact!{
-    pub struct Lane {
-        length: f32,
-        path: CPath,
-        next_lanes_with_obstacles: CDict<ID, Obstacle>,
-        previous_lanes: CVec<ID>,
-        overlaps: CVec<Overlap>,
-        overlap_obstacles: CVec<Obstacle>,
-        cars: CVec<LaneCar>
-    }
-}
-
-impl Lane {
-    fn new(path: CPath, next_lane: Option<ID>, previous_lane: Option<ID>) -> Self {
-        let length = path.length();
-        let mut next_lanes_with_obstacles = CDict::new();
-        let mut previous_lanes = CVec::new();
-        if let Some(id) = next_lane {next_lanes_with_obstacles.insert(id, Obstacle::far_away());}
-        if let Some(id) = previous_lane {previous_lanes.push(id);}
-        Lane {
-            length: length,
-            path: path,
-            next_lanes_with_obstacles: next_lanes_with_obstacles,
-            previous_lanes: previous_lanes,
-            overlaps: CVec::new(),
-            overlap_obstacles: CVec::new(),
-            cars: CVec::new()
-        }
-    }
-
-    fn add_next_lane(&mut self, next_lane: ID) {
-        self.next_lanes_with_obstacles.insert(next_lane, Obstacle::far_away());
-    }
-}
+// MESSAGES
 
 #[derive(Copy, Clone)]
 struct AddCar(LaneCar);
 
 #[derive(Copy, Clone)]
-struct UpdateObstacleOnNextLane(ID, Obstacle);
-
-#[derive(Copy, Clone)]
-struct AddOverlapObstacle(Obstacle);
+struct AddInteractionObstacle(Obstacle);
 
 recipient!(Lane, (&mut self, world: &mut World, self_id: ID) {
     AddCar: &AddCar(car) => {
         self.cars.insert(0, car);
     },
 
-    Tick: &Tick{dt} => {
-        let first_obstacle_on_any_next_lane = self.next_lanes_with_obstacles.pairs.iter()
-            .min_by_key(|&&(_id, first_obstacle)| {first_obstacle.position})
-            .map_or(Obstacle::far_away(), |&(_id, first_obstacle)| {Obstacle{
-                position: OrderedFloat(*first_obstacle.position + self.length),
-                velocity: first_obstacle.velocity
-            }});
+    AddInteractionObstacle: &AddInteractionObstacle(obstacle) => {
+        self.interaction_obstacles.push(obstacle);
+    },
 
+    Tick: &Tick{dt} => {
         for c in 0..self.cars.len() {
-            let next_car = if c + 1 < self.cars.len() {*self.cars[c + 1]} else {first_obstacle_on_any_next_lane};
+            let next_obstacle = self.cars.get(c + 1).map_or(Obstacle::far_away(), |car| car.as_obstacle);
             let car = &mut self.cars[c];
-            let next_car_acceleration = intelligent_driver_acceleration(car, &next_car);
+            let next_obstacle_acceleration = intelligent_acceleration(car, &next_obstacle);
 
             // TODO: optimize, avoid nested loop
-            let next_overlap_obstacle = self.overlap_obstacles.iter().find(|obstacle| obstacle.position > car.position);
-            let next_overlap_obstacle_acceleration = match next_overlap_obstacle {
-                Some(obstacle) => intelligent_driver_acceleration(car, obstacle),
-                None => INFINITY
-            };
+            let next_overlap_obstacle_acceleration = self.interaction_obstacles.iter()
+                .find(|obstacle| obstacle.position > car.position)
+                .map(|obstacle| intelligent_acceleration(car, obstacle));
 
-            car.acceleration = next_car_acceleration.min(next_overlap_obstacle_acceleration);
+            car.acceleration = next_obstacle_acceleration.min(next_overlap_obstacle_acceleration.unwrap_or(INFINITY));
         }
-
 
         for car in &mut self.cars {
             *car.position += dt * car.velocity;
-            car.velocity = car.max_velocity.min(car.velocity + dt * car.acceleration).max(0.0);
+            car.velocity = (car.velocity + dt * car.acceleration).min(car.max_velocity).max(0.0);
         }
         
-        while self.cars.len() > 0 {
-            let mut last_car = self.cars[self.cars.len() - 1];
-            if *last_car.position > self.length {
-                *last_car.position -= self.length;
-                if let Some(next_lane) = self.next_lanes_with_obstacles.keys().next() {
-                    world.send(next_lane, AddCar(last_car));
-                }
-                self.cars.pop();
-            } else {break;}
+        loop {
+            let should_pop = self.cars.iter().rev().find(|car| *car.position > self.length).map(|car_over_end| {
+                if let Some(next_overlap) = self.interactions.iter().find(|overlap| match overlap.kind {Next{..} => true, _ => false}) {
+                    world.send(next_overlap.partner_lane, AddCar(car_over_end.offset_by(-self.length)));
+                };
+                car_over_end
+            }).is_some();
+            if should_pop {self.cars.pop();} else {break;}
         }
 
-        let first_obstacle = match &self.cars.first() {
-            &Some(ref car) => *car,
-            &None => &first_obstacle_on_any_next_lane
-        };
-        for previous_lane in self.previous_lanes.iter() {
-            world.send(*previous_lane, UpdateObstacleOnNextLane(self_id, *first_obstacle));
-        }
-
-        for overlap in self.overlaps.iter() {
-            for car in self.cars.iter().filter(|car| car.position > overlap.start && car.position < overlap.end) {
-                world.send(overlap.partner_lane, AddOverlapObstacle(match overlap.kind {
-                    Parallel => Obstacle{
-                        position: OrderedFloat(*car.position - *overlap.start + *overlap.partner_start),
-                        velocity: car.velocity
-                    },
-                    Conflicting => Obstacle{
-                        position: overlap.partner_start,
-                        velocity: 0.0
+        for interaction in self.interactions.iter() {
+            let mut cars = self.cars.iter();
+            let mut send_obstacle = |obstacle: Obstacle| world.send(interaction.partner_lane, AddInteractionObstacle(obstacle));
+            
+            match interaction.kind {
+                Overlap{start, end, partner_start, kind, ..} => {
+                    let in_overlap = |car: &&LaneCar| *car.position > start && *car.position < end;
+                    match kind {
+                        Parallel => cars.filter(in_overlap).map(|car|
+                            car.as_obstacle.offset_by(-start + partner_start)
+                        ).foreach(send_obstacle),
+                        Conflicting => if cars.find(in_overlap).is_some() {
+                            (send_obstacle)(Obstacle{position: OrderedFloat(partner_start), velocity: 0.0})
+                        }
                     }
-                }));
-            }
+                }
+                Previous{start, partner_length} =>
+                    if let Some(next_car) = cars.find(|car| *car.position > start) {
+                        (send_obstacle)(next_car.as_obstacle.offset_by(-start + partner_length))
+                    },
+                Next{..} => {
+                    //TODO: for looking backwards for merging lanes?
+                }
+            };
         }
 
-        self.overlap_obstacles.clear();
-    },
-
-    UpdateObstacleOnNextLane: &UpdateObstacleOnNextLane(next_lane_id, first_obstacle) => {
-        self.next_lanes_with_obstacles.insert(next_lane_id, first_obstacle);
-    },
-
-    AddOverlapObstacle: &AddOverlapObstacle(obstacle) => {
-        self.overlap_obstacles.push(obstacle);
+        self.interaction_obstacles.clear();
     }
 });
-
-fn intelligent_driver_acceleration(car: &LaneCar, obstacle: &Obstacle) -> f32 {
-    // http://en.wikipedia.org/wiki/Intelligent_driver_model
-
-    let car_length = 4.0;
-    let acceleration = 5.0;
-	let comfortable_breaking_deceleration : f32 = 4.0;
-	let max_deceleration : f32 = 14.0;
-	let desired_velocity = car.max_velocity;
-	let safe_time_headway = 1.0;
-	let acceleration_exponent = 4.0;
-	let minimum_spacing = 10.0;
-
-	let net_distance = *obstacle.position - *car.position - car_length;
-	let velocity_difference = car.velocity - obstacle.velocity;
-
-	let s_star = minimum_spacing + 0.0f32.max(car.velocity * safe_time_headway
-		+ (car.velocity * velocity_difference / (2.0 * (acceleration * comfortable_breaking_deceleration).sqrt())));
-
-    let result_acceleration = (-max_deceleration).max(acceleration * (
-		1.0
-		- (car.velocity / desired_velocity).powf(acceleration_exponent)
-		- (s_star / net_distance).powf(2.0)
-	));
-
-	result_acceleration
-}
 
 pub fn setup(system: &mut ActorSystem) {
     system.add_swarm::<Lane>(InMemory("lane_actors", 512 * 64, 10));
     system.add_inbox::<AddCar, Lane>(InMemory("add_car", 512, 4));
-    system.add_inbox::<UpdateObstacleOnNextLane, Lane>(InMemory("update_obstacle_on_next_lane", 512, 4));
-    system.add_inbox::<AddOverlapObstacle, Lane>(InMemory("add_overlap_obstacle", 512, 4));
+    system.add_inbox::<AddInteractionObstacle, Lane>(InMemory("add_interaction_obstacle", 512, 4));
     system.add_inbox::<Tick, Lane>(InMemory("tick", 512, 4));
 
     system.world().send_to_individual::<_, Simulation>(AddSimulatable(system.broadcast_id::<Lane>()));
@@ -219,55 +212,51 @@ fn setup_scenario(system: &mut ActorSystem) {
         CPath::new(vec![
             Segment::line(P2::new(0.0, 0.0), P2::new(300.0, 0.0)),
             Segment::arc_with_direction(P2::new(300.0, 0.0), V2::new(1.0, 0.0), P2::new(300.0, 100.0))
-        ]),
-        None,
-        None
+        ])
     ));
 
     let mut lane3 = world.create(Lane::new(
         CPath::new(vec![
             Segment::arc_with_direction(P2::new(0.0, 100.0), V2::new(-1.0, 0.0), P2::new(0.0, 0.0))
-        ]),
-        Some(lane1.id),
-        None
+        ])
     ));
 
-    let lane2 = world.create(Lane::new(
+    let mut lane2 = world.create(Lane::new(
         CPath::new(vec![
             Segment::line(P2::new(300.0, 100.0), P2::new(0.0, 100.0))
-        ]),
-        Some(lane3.id),
-        Some(lane1.id)
+        ])
     ));
 
     let mut overlapping_lane = world.create(Lane::new(
         CPath::new(vec![
             Segment::line(P2::new(300.0, 10.0), P2::new(0.0, -10.0))
-        ]),
-        None,
-        None
+        ])
     ));
 
-    lane1.add_next_lane(lane2.id);
-    lane1.previous_lanes.push(lane3.id);
-    lane3.previous_lanes.push(lane2.id);
+    lane1.add_next_lane(lane2.id); lane2.add_previous_lane(lane1.id, lane1.length);
+    lane2.add_next_lane(lane3.id); lane3.add_previous_lane(lane2.id, lane2.length);
+    lane3.add_next_lane(lane1.id); lane1.add_previous_lane(lane3.id, lane3.length);
 
-    lane1.overlaps.push(Overlap{
+    lane1.interactions.push(Interaction{
         partner_lane: overlapping_lane.id,
-        start: OrderedFloat(100.0),
-        end: OrderedFloat(200.0),
-        partner_start: OrderedFloat(100.0),
-        partner_end: OrderedFloat(200.0),
-        kind: Conflicting
+        kind: Overlap{
+            kind: Conflicting,
+            start: 100.0,
+            end: 200.0,
+            partner_start: 100.0,
+            partner_end: 200.0
+        }
     });
 
-    overlapping_lane.overlaps.push(Overlap{
+    overlapping_lane.interactions.push(Interaction{
         partner_lane: lane1.id,
-        start: OrderedFloat(100.0),
-        end: OrderedFloat(200.0),
-        partner_start: OrderedFloat(100.0),
-        partner_end: OrderedFloat(200.0),
-        kind: Conflicting
+        kind: Overlap{
+            kind: Conflicting,
+            start: 100.0,
+            end: 200.0,
+            partner_start: 100.0,
+            partner_end: 200.0
+        }
     });
 
     let lane1_id = lane1.id;
