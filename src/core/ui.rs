@@ -14,6 +14,7 @@ pub fn setup_window_and_renderer(system: &mut ActorSystem) -> GlutinFacade {
     let mut scene = Scene::new();
     scene.eye.position *= 30.0;
     scene.renderables.push(system.broadcast_id::<::game::lanes_and_cars::Lane>());
+    scene.renderables.push(system.broadcast_id::<::game::lanes_and_cars::TransferLane>());
     renderer.scenes.insert(0, scene);
 
     ::monet::setup(system, renderer);

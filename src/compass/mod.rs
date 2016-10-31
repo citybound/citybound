@@ -1,7 +1,8 @@
 extern crate nalgebra;
 extern crate smallvec;
 
-use nalgebra::{Vector2, Point2, Dot, Norm};
+use nalgebra::{Vector2, Point2};
+pub use nalgebra::{Dot, Norm};
 use std::f32::consts::PI;
 
 pub type N = f32;
