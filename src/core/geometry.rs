@@ -1,4 +1,4 @@
-use compass::{Path, Segment, P2, N, FiniteCurve, WithUniqueOrthogonal};
+use descartes::{Path, Segment, P2, N, FiniteCurve, WithUniqueOrthogonal};
 use kay::{CVec, Compact};
 use monet::{Thing, Vertex};
 

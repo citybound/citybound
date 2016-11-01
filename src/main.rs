@@ -9,7 +9,7 @@ extern crate itertools;
 
 #[macro_use]
 mod kay;
-mod compass;
+mod descartes;
 mod monet;
 
 mod core;

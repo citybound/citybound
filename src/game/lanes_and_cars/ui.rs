@@ -1,4 +1,4 @@
-use compass::{FiniteCurve, WithUniqueOrthogonal, Norm};
+use descartes::{FiniteCurve, WithUniqueOrthogonal, Norm};
 use kay::{ID, Recipient, World, ActorSystem, InMemory, Swarm};
 use monet::{Instance, RenderToScene, SetupInScene, AddBatch, AddInstance, UpdateThing};
 use core::geometry::path_to_band;

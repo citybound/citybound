@@ -3,7 +3,7 @@ mod intelligent_acceleration;
 use self::intelligent_acceleration::{intelligent_acceleration, COMFORTABLE_BREAKING_DECELERATION};
 use core::geometry::CPath;
 use kay::{ID, CVec, Recipient, World, ActorSystem, InMemory, Compact};
-use compass::{FiniteCurve, Path, Segment, P2, V2};
+use descartes::{FiniteCurve, Path, Segment, P2, V2};
 use core::simulation::{Simulation, Tick, AddSimulatable};
 use ordered_float::OrderedFloat;
 use itertools::Itertools;
