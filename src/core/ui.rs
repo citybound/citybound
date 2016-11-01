@@ -1,9 +1,9 @@
 use ::monet::glium::{DisplayBuild, glutin};
-use kay::{ActorSystem, World};
+use kay::{ActorSystem, World, ID};
 use ::monet::{Renderer, Scene, GlutinFacade, MoveEye, Vector3};
 use ::monet::glium::glutin::{Event, MouseScrollDelta};
 
-pub fn setup_window_and_renderer(system: &mut ActorSystem) -> GlutinFacade {
+pub fn setup_window_and_renderer(system: &mut ActorSystem, renderables: Vec<ID>) -> GlutinFacade {
     let window = glutin::WindowBuilder::new()
         .with_title("Citybound".to_string())
         .with_dimensions(1024, 512)
@@ -13,8 +13,7 @@ pub fn setup_window_and_renderer(system: &mut ActorSystem) -> GlutinFacade {
     let mut renderer = Renderer::new(window.clone());
     let mut scene = Scene::new();
     scene.eye.position *= 30.0;
-    scene.renderables.push(system.broadcast_id::<::game::lanes_and_cars::Lane>());
-    scene.renderables.push(system.broadcast_id::<::game::lanes_and_cars::TransferLane>());
+    scene.renderables = renderables;
     renderer.scenes.insert(0, scene);
 
     ::monet::setup(system, renderer);

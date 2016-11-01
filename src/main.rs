@@ -24,7 +24,11 @@ fn main() {
     game::setup(&mut system);
     game::setup_ui(&mut system);
 
-    let window = core::ui::setup_window_and_renderer(&mut system);
+    let renderables = vec![
+        system.broadcast_id::<::game::lanes_and_cars::Lane>(),
+        system.broadcast_id::<::game::lanes_and_cars::TransferLane>()
+    ];
+    let window = core::ui::setup_window_and_renderer(&mut system, renderables);
 
     system.process_all_messages();
 
