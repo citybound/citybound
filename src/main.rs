@@ -29,7 +29,7 @@ fn main() {
     system.process_all_messages();
 
     'main: loop {
-        match core::ui::process_events(&window) {
+        match core::ui::process_events(&window, &mut system.world()) {
             false => {return},
             true => {}
         }

@@ -1,4 +1,4 @@
-use ::nalgebra::{Point3, Vector3, Isometry3, Perspective3, ToHomogeneous};
+pub use ::nalgebra::{Point3, Vector3, Isometry3, Perspective3, ToHomogeneous, Norm};
 use ::kay::{ID, World, Recipient, CVec, Compact, ActorSystem, InMemory};
 use std::collections::HashMap;
 extern crate glium_text;
@@ -109,6 +109,12 @@ pub struct RenderToScene {
     pub scene_id: usize
 }
 
+#[derive(Copy, Clone)]
+pub struct MoveEye {
+    pub scene_id: usize,
+    pub delta: Vector3<f32>
+}
+
 derive_compact!{
     pub struct AddBatch {scene_id: usize, batch_id: usize, thing: Thing}
 }
@@ -175,6 +181,17 @@ recipient!{Renderer, (&mut self, world: &mut World, self_id: ID) {
 
     UpdateThing: &UpdateThing{scene_id, thing_id, ref thing, instance} => {
         let entry = self.scenes.get_mut(&scene_id).unwrap().things.insert(thing_id, (thing.clone(), instance));
+    },
+
+    MoveEye: &MoveEye{scene_id, delta} => {
+        let ref mut eye = self.scenes.get_mut(&scene_id).unwrap().eye;
+        let mut eye_direction_2d = eye.target - eye.position;
+        eye_direction_2d.z = 0.0;
+        eye_direction_2d.normalize_mut();
+        let orth_eye_direction_2d = Vector3::<f32>::new(eye_direction_2d.y, -eye_direction_2d.x, 0.0);
+        let absolute_delta = delta.x * eye_direction_2d + delta.y * orth_eye_direction_2d + Vector3::<f32>::new(0.0, 0.0, delta.z);
+        eye.position += absolute_delta;
+        eye.target += absolute_delta;
     }
 }}
 
@@ -195,6 +212,7 @@ pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
     system.add_individual_inbox::<AddBatch, Renderer>(InMemory("add_batch", 512 * 8, 4));
     system.add_individual_inbox::<AddInstance, Renderer>(InMemory("add_instance", 512 * 8, 4));
     system.add_individual_inbox::<UpdateThing, Renderer>(InMemory("update_thing", 512 * 8, 4));
+    system.add_individual_inbox::<MoveEye, Renderer>(InMemory("move_eye", 512 * 8, 4));
 
     system.world().send_to_individual::<Setup, Renderer>(Setup);
 }

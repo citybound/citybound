@@ -1,12 +1,12 @@
 use ::monet::glium::{DisplayBuild, glutin};
-use kay::{ActorSystem};
-use ::monet::{Renderer, Scene, GlutinFacade};
-use ::monet::glium::glutin::{Event};
+use kay::{ActorSystem, World};
+use ::monet::{Renderer, Scene, GlutinFacade, MoveEye, Vector3};
+use ::monet::glium::glutin::{Event, MouseScrollDelta};
 
 pub fn setup_window_and_renderer(system: &mut ActorSystem) -> GlutinFacade {
     let window = glutin::WindowBuilder::new()
         .with_title("Citybound".to_string())
-        .with_dimensions(512, 512)
+        .with_dimensions(1024, 512)
         .with_multitouch()
         .with_vsync().build_glium().unwrap();
 
@@ -22,10 +22,12 @@ pub fn setup_window_and_renderer(system: &mut ActorSystem) -> GlutinFacade {
     window
 }
 
-pub fn process_events(window: &GlutinFacade) -> bool {
+pub fn process_events(window: &GlutinFacade, world: &mut World) -> bool {
     for event in window.poll_events() {
         match event {
             Event::Closed => return false,
+            Event::MouseWheel(MouseScrollDelta::PixelDelta(x, y), _) =>
+                world.send_to_individual::<_, Renderer>(MoveEye{scene_id: 0, delta: Vector3::<f32>::new(y / 5.0, -x / 5.0, 0.0)}),
             _ => {}
         }
     }
