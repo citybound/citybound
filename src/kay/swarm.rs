@@ -92,10 +92,10 @@ impl<A: Actor> Swarm<A> {
         self.swap_remove(old_i)
     }
 
-    pub fn receive_instance<M: Message>(&mut self, message: &M, system: &mut World, id: ID) where A: Recipient<M> {
+    pub fn react_to_instance<M: Message>(&mut self, message: &M, system: &mut World, id: ID) where A: Recipient<M> {
         let is_still_compact = {
             let actor = self.at_mut(id.instance_id as usize);
-            actor.receive(message, system, id);
+            actor.react_to(message, system, id);
             actor.is_still_compact()
         };
 
@@ -104,15 +104,15 @@ impl<A: Actor> Swarm<A> {
         }
     }
 
-    pub fn receive_broadcast<M: Message>(&mut self, message: &M, system: &mut World) where A: Recipient<M> {
-        // this function has to deal with the fact that during the iteration, receivers of the broadcast can be resized
+    pub fn react_to_broadcast<M: Message>(&mut self, message: &M, system: &mut World) where A: Recipient<M> {
+        // this function has to deal with the fact that during the iteration, react_tors of the broadcast can be resized
         // and thus removed from a collection, swapping in either
-        //    - other receivers that didn't receive the broadcast yet
-        //    - resized and added receivers that alredy received the broadcast
-        //    - actors that were created during one of the broadcast receive handlers, that shouldn't receive this broadcast
+        //    - other react_tors that didn't react_to the broadcast yet
+        //    - resized and added react_tors that alredy react_tod the broadcast
+        //    - actors that were created during one of the broadcast react_to handlers, that shouldn't react_to this broadcast
         // the only assumption is that no actors are immediately completely deleted
 
-        let receivers_todo_per_collection : Vec<usize> = {
+        let react_tors_todo_per_collection : Vec<usize> = {
             self.actors.collections.iter().map(|collection| {collection.len()}).collect()
         };
 
@@ -120,15 +120,15 @@ impl<A: Actor> Swarm<A> {
 
         for c in 0..n_collections {
             let mut slot = 0;
-            let receivers_todo = receivers_todo_per_collection[c];
-            let mut index_after_last_receiver = receivers_todo;
+            let react_tors_todo = react_tors_todo_per_collection[c];
+            let mut index_after_last_react_tor = react_tors_todo;
 
-            for _ in 0..receivers_todo {
+            for _ in 0..react_tors_todo {
                 let index = SlotIndices::new(c, slot);
                 let is_still_compact = {
                     let actor = self.at_index_mut(index);
                     let actor_id = actor.id;
-                    actor.receive(message, system, actor_id);
+                    actor.react_to(message, system, actor_id);
                     actor.is_still_compact()
                 };
 
@@ -137,9 +137,9 @@ impl<A: Actor> Swarm<A> {
                 } else {
                     self.resize_at_index(index);
                     // this should also work in the case where the "resized" actor itself is added to the same collection again
-                    let swapped_in_another_receiver = self.actors.collections[c].len() < index_after_last_receiver;
-                    if swapped_in_another_receiver {
-                        index_after_last_receiver -= 1;
+                    let swapped_in_another_react_tor = self.actors.collections[c].len() < index_after_last_react_tor;
+                    if swapped_in_another_react_tor {
+                        index_after_last_react_tor -= 1;
                         true
                     } else {
                         false
@@ -155,11 +155,11 @@ impl<A: Actor> Swarm<A> {
 }
 
 impl <M: Message, A: Actor + Recipient<M>> Recipient<M> for Swarm<A> {
-    fn receive(&mut self, message: &M, world: &mut World, recipient_id: ID) {
+    fn react_to(&mut self, message: &M, world: &mut World, recipient_id: ID) {
         if recipient_id.is_broadcast() {
-            self.receive_broadcast(message, world);
+            self.react_to_broadcast(message, world);
         } else {
-            self.receive_instance(message, world, recipient_id);
+            self.react_to_instance(message, world, recipient_id);
         }
     }
 }

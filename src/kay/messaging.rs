@@ -3,7 +3,10 @@ use super::compact::Compact;
 use ::std::mem::size_of;
 
 pub trait Recipient<M: Message> {
-    fn receive(&mut self, message: &M, world: &mut World, self_id: ID);
+    fn react_to(&mut self, message: &M, _world: &mut World, _self_id: ID) {
+        self.receive(message);
+    }
+    fn receive(&mut self, _message: &M) {unimplemented!()}
 }
 
 pub trait StorageAware : Sized {
@@ -33,22 +36,4 @@ impl<M: Message> Compact for MessagePacket<M> {
         self.recipient_id = source.recipient_id;
         self.message.compact_from(&source.message, new_dynamic_part);
     }
-}
-
-#[macro_export]
-macro_rules! recipient {
-    ($name: path, (&mut $the_self: ident, $world: ident: &mut $World: ty, $self_id: ident: $ID: ty) {
-        $($message_type: path: $message_pat: pat => $receive_impl: block),*
-    }) => (
-        $(
-            impl Recipient<$message_type> for $name {
-                #[allow(unused_variables)]
-                fn receive (&mut $the_self, message: &$message_type, $world: &mut $World, $self_id: $ID) {
-                    match message {
-                        $message_pat => $receive_impl
-                    }
-                }
-            }
-        )*
-    )
 }

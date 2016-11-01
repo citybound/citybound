@@ -122,83 +122,88 @@ use self::OverlapKind::{Parallel, Conflicting};
 // MESSAGES
 
 #[derive(Copy, Clone)]
-struct AddCar(LaneCar);
+enum Add{
+    Car(LaneCar),
+    InteractionObstacle(Obstacle)
+}
 
-#[derive(Copy, Clone)]
-struct AddInteractionObstacle(Obstacle);
-
-recipient!(Lane, (&mut self, world: &mut World, self_id: ID) {
-    AddCar: &AddCar(car) => {
-        // TODO: optimize using BinaryHeap?
-        self.cars.push(car);
-        self.cars.sort_by_key(|car| car.as_obstacle.position);
-    },
-
-    AddInteractionObstacle: &AddInteractionObstacle(obstacle) => {
-        self.interaction_obstacles.push(obstacle);
-    },
-
-    Tick: &Tick{dt} => {
-        // TODO: optimize using BinaryHeap?
-        self.interaction_obstacles.sort_by_key(|obstacle| obstacle.position);
-
-        for c in 0..self.cars.len() {
-            let next_obstacle = self.cars.get(c + 1).map_or(Obstacle::far_ahead(), |car| car.as_obstacle);
-            let car = &mut self.cars[c];
-            let next_obstacle_acceleration = intelligent_acceleration(car, &next_obstacle);
-
-            // TODO: optimize, avoid nested loop
-            let next_overlap_obstacle_acceleration = self.interaction_obstacles.iter()
-                .find(|obstacle| obstacle.position > car.position)
-                .map(|obstacle| intelligent_acceleration(car, obstacle));
-
-            car.acceleration = next_obstacle_acceleration.min(next_overlap_obstacle_acceleration.unwrap_or(INFINITY));
+impl Recipient<Add> for Lane {
+    fn receive(&mut self, msg: &Add) {match msg{
+        &Add::Car(car) => {
+            // TODO: optimize using BinaryHeap?
+            self.cars.push(car);
+            self.cars.sort_by_key(|car| car.as_obstacle.position);
+        },
+        &Add::InteractionObstacle(obstacle) => {
+            self.interaction_obstacles.push(obstacle);
         }
+    }}
+}
 
-        for car in &mut self.cars {
-            *car.position += dt * car.velocity;
-            car.velocity = (car.velocity + dt * car.acceleration).min(car.max_velocity).max(0.0);
-        }
-        
-        loop {
-            let should_pop = self.cars.iter().rev().find(|car| *car.position > self.length).map(|car_over_end| {
-                if let Some(next_overlap) = self.interactions.iter().find(|overlap| match overlap.kind {Next{..} => true, _ => false}) {
-                    world.send(next_overlap.partner_lane, AddCar(car_over_end.offset_by(-self.length)));
-                };
-                car_over_end
-            }).is_some();
-            if should_pop {self.cars.pop();} else {break;}
-        }
+impl Recipient<Tick> for Lane {
+    fn react_to(&mut self, msg: &Tick, world: &mut World, _self_id: ID) {match msg{
+        &Tick{dt} => {
+            // TODO: optimize using BinaryHeap?
+            self.interaction_obstacles.sort_by_key(|obstacle| obstacle.position);
 
-        for interaction in self.interactions.iter() {
-            let mut cars = self.cars.iter();
-            let mut send_obstacle = |obstacle: Obstacle| world.send(interaction.partner_lane, AddInteractionObstacle(obstacle));
+            for c in 0..self.cars.len() {
+                let next_obstacle = self.cars.get(c + 1).map_or(Obstacle::far_ahead(), |car| car.as_obstacle);
+                let car = &mut self.cars[c];
+                let next_obstacle_acceleration = intelligent_acceleration(car, &next_obstacle);
+
+                // TODO: optimize, avoid nested loop
+                let next_overlap_obstacle_acceleration = self.interaction_obstacles.iter()
+                    .find(|obstacle| obstacle.position > car.position)
+                    .map(|obstacle| intelligent_acceleration(car, obstacle));
+
+                car.acceleration = next_obstacle_acceleration.min(next_overlap_obstacle_acceleration.unwrap_or(INFINITY));
+            }
+
+            for car in &mut self.cars {
+                *car.position += dt * car.velocity;
+                car.velocity = (car.velocity + dt * car.acceleration).min(car.max_velocity).max(0.0);
+            }
             
-            match interaction.kind {
-                Overlap{start, end, partner_start, kind, ..} => {
-                    let in_overlap = |car: &&LaneCar| *car.position > start && *car.position < end;
-                    match kind {
-                        Parallel => cars.filter(in_overlap).map(|car|
-                            car.as_obstacle.offset_by(-start + partner_start)
-                        ).foreach(send_obstacle),
-                        Conflicting => if cars.find(in_overlap).is_some() {
-                            (send_obstacle)(Obstacle{position: OrderedFloat(partner_start), velocity: 0.0, max_velocity: 0.0})
+            loop {
+                let should_pop = self.cars.iter().rev().find(|car| *car.position > self.length).map(|car_over_end| {
+                    if let Some(next_overlap) = self.interactions.iter().find(|overlap| match overlap.kind {Next{..} => true, _ => false}) {
+                        world.send(next_overlap.partner_lane, Add::Car(car_over_end.offset_by(-self.length)));
+                    };
+                    car_over_end
+                }).is_some();
+                if should_pop {self.cars.pop();} else {break;}
+            }
+
+            for interaction in self.interactions.iter() {
+                let mut cars = self.cars.iter();
+                let mut send_obstacle = |obstacle: Obstacle| world.send(interaction.partner_lane, Add::InteractionObstacle(obstacle));
+                
+                match interaction.kind {
+                    Overlap{start, end, partner_start, kind, ..} => {
+                        let in_overlap = |car: &&LaneCar| *car.position > start && *car.position < end;
+                        match kind {
+                            Parallel => cars.filter(in_overlap).map(|car|
+                                car.as_obstacle.offset_by(-start + partner_start)
+                            ).foreach(send_obstacle),
+                            Conflicting => if cars.find(in_overlap).is_some() {
+                                (send_obstacle)(Obstacle{position: OrderedFloat(partner_start), velocity: 0.0, max_velocity: 0.0})
+                            }
                         }
                     }
-                }
-                Previous{start, partner_length} =>
-                    if let Some(next_car) = cars.find(|car| *car.position > start) {
-                        (send_obstacle)(next_car.as_obstacle.offset_by(-start + partner_length))
-                    },
-                Next{..} => {
-                    //TODO: for looking backwards for merging lanes?
-                }
-            };
-        }
+                    Previous{start, partner_length} =>
+                        if let Some(next_car) = cars.find(|car| *car.position > start) {
+                            (send_obstacle)(next_car.as_obstacle.offset_by(-start + partner_length))
+                        },
+                    Next{..} => {
+                        //TODO: for looking backwards for merging lanes?
+                    }
+                };
+            }
 
-        self.interaction_obstacles.clear();
-    }
-});
+            self.interaction_obstacles.clear();
+        }
+    }}
+}
 
 derive_compact!{
     pub struct TransferLane {
@@ -250,122 +255,125 @@ impl DerefMut for TransferringLaneCar {
     }
 }
 
-recipient!(TransferLane, (&mut self, world: &mut World, self_id: ID) {
-    AddCar: &AddCar(car) => {
-        self.cars.push(TransferringLaneCar{
-            as_lane_car: car,
-            transfer_position: -1.0,
-            transfer_velocity: 0.0,
-            transfer_acceleration: 0.1
-        });
-        // TODO: optimize using BinaryHeap?
-        self.cars.sort_by_key(|car| car.as_obstacle.position);  
-    },
+impl Recipient<Add> for TransferLane {
+    fn receive(&mut self, msg: &Add) {match msg{
+        &Add::Car(car) => {
+            self.cars.push(TransferringLaneCar{
+                as_lane_car: car,
+                transfer_position: -1.0,
+                transfer_velocity: 0.0,
+                transfer_acceleration: 0.1
+            });
+            // TODO: optimize using BinaryHeap?
+            self.cars.sort_by_key(|car| car.as_obstacle.position);  
+        },
+        &Add::InteractionObstacle(obstacle) => {
+            self.interaction_obstacles.push(obstacle);
+        },
+    }}
+}
 
-    AddInteractionObstacle: &AddInteractionObstacle(obstacle) => {
-        self.interaction_obstacles.push(obstacle);
-    },
+impl Recipient<Tick> for TransferLane {
+    fn react_to(&mut self, msg: &Tick, world: &mut World, _self_id: ID) {match msg{
+        &Tick{dt} => {
+            self.interaction_obstacles.sort_by_key(|obstacle| obstacle.position);
 
-    Tick: &Tick{dt} => {
-        self.interaction_obstacles.sort_by_key(|obstacle| obstacle.position);
+            for c in 0..self.cars.len() {
+                let (acceleration, is_dangerous) = {
+                    let car = &self.cars[c];
+                    
+                    let next_obstacle = self.cars.get(c + 1).map_or(Obstacle::far_ahead(), |car| car.as_obstacle);
+                    let previous_obstacle = if c > 0 {self.cars[c - 1].as_obstacle} else {Obstacle::far_behind()};
 
-        for c in 0..self.cars.len() {
-            let (acceleration, is_dangerous) = {
-                let car = &self.cars[c];
-                
-                let next_obstacle = self.cars.get(c + 1).map_or(Obstacle::far_ahead(), |car| car.as_obstacle);
-                let previous_obstacle = if c > 0 {self.cars[c - 1].as_obstacle} else {Obstacle::far_behind()};
+                    let next_interaction_obstacle_index = self.interaction_obstacles.iter().position(
+                        |obstacle| obstacle.position > car.position
+                    );
+                    let next_interaction_obstacle = next_interaction_obstacle_index
+                        .map(|idx| self.interaction_obstacles[idx]).unwrap_or(Obstacle::far_ahead());
+                    let previous_interaction_obstacle = next_interaction_obstacle_index
+                        .and_then(|idx| self.interaction_obstacles.get(idx - 1)).map(|o| *o).unwrap_or(Obstacle::far_behind());
 
-                let next_interaction_obstacle_index = self.interaction_obstacles.iter().position(
-                    |obstacle| obstacle.position > car.position
-                );
-                let next_interaction_obstacle = next_interaction_obstacle_index
-                    .map(|idx| self.interaction_obstacles[idx]).unwrap_or(Obstacle::far_ahead());
-                let previous_interaction_obstacle = next_interaction_obstacle_index
-                    .and_then(|idx| self.interaction_obstacles.get(idx - 1)).map(|o| *o).unwrap_or(Obstacle::far_behind());
+                    let next_obstacle_acceleration = intelligent_acceleration(car, &next_obstacle)
+                        .min(intelligent_acceleration(car, &next_interaction_obstacle));
+                    let previous_obstacle_acceleration = intelligent_acceleration(&previous_obstacle, &car.as_obstacle)
+                        .min(intelligent_acceleration(&previous_interaction_obstacle, &car.as_obstacle));
 
-                let next_obstacle_acceleration = intelligent_acceleration(car, &next_obstacle)
-                    .min(intelligent_acceleration(car, &next_interaction_obstacle));
-                let previous_obstacle_acceleration = intelligent_acceleration(&previous_obstacle, &car.as_obstacle)
-                    .min(intelligent_acceleration(&previous_obstacle, &car.as_obstacle));
+                    let politeness_factor = 0.3;
 
-                let politeness_factor = 0.3;
+                    let acceleration = if previous_obstacle_acceleration < 0.0 {
+                        (1.0 - politeness_factor) * next_obstacle_acceleration + politeness_factor * previous_obstacle_acceleration
+                    } else {
+                        next_obstacle_acceleration
+                    };
 
-                let acceleration = if previous_obstacle_acceleration < 0.0 {
-                    (1.0 - politeness_factor) * next_obstacle_acceleration + politeness_factor * previous_obstacle_acceleration
-                } else {
-                    next_obstacle_acceleration
+                    let is_dangerous = next_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION
+                        || previous_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION;
+
+                    (acceleration, is_dangerous)
                 };
 
-                let is_dangerous = next_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION
-                    || previous_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION;
-
-                (acceleration, is_dangerous)
-            };
-
-            let car = &mut self.cars[c];
-            car.acceleration = acceleration;
-            if is_dangerous {
-                car.transfer_acceleration = if car.transfer_position >= 0.0 {0.3} else {-0.3}
-            }
-            // smooth out arrival on other lane
-            if car.transfer_velocity.abs() > 0.1 && car.transfer_position.abs() > 0.5 && car.transfer_position.signum() == car.transfer_velocity.signum() {
-                car.transfer_acceleration = -0.9 * car.transfer_velocity;
-            }
-        }
-
-        for car in &mut self.cars {
-            *car.position += dt * car.velocity;
-            car.velocity = (car.velocity + dt * car.acceleration).min(car.max_velocity).max(0.0);
-            car.transfer_position += dt * car.transfer_velocity;
-            car.transfer_velocity += dt * car.transfer_acceleration;
-            if car.transfer_velocity.abs() > car.velocity/12.0 {
-                car.transfer_velocity = car.velocity/12.0 * car.transfer_velocity.signum();
-            }
-        }
-
-        let mut i = 0;
-        loop {
-            let (should_remove, done) = if let Some(car) = self.cars.get(i) {
-                if car.transfer_position < -1.0 {
-                    world.send(self.left, AddCar(car.as_lane_car.offset_by(self.left_start)));
-                    (true, false)
-                } else if car.transfer_position > 1.0 {
-                    world.send(self.right, AddCar(car.as_lane_car.offset_by(self.right_start)));
-                    (true, false)
-                } else {
-                    i += 1;
-                    (false, false)
+                let car = &mut self.cars[c];
+                car.acceleration = acceleration;
+                if is_dangerous {
+                    car.transfer_acceleration = if car.transfer_position >= 0.0 {0.3} else {-0.3}
                 }
-            } else {
-                (false, true)
-            };
-            if done {break;}
-            if should_remove {self.cars.remove(i);}
-        }
-
-        for car in &self.cars {
-            if car.transfer_position < 0.3 || car.transfer_velocity < 0.0 {
-                world.send(self.left, AddInteractionObstacle(car.as_obstacle.offset_by(self.left_start)));
+                // smooth out arrival on other lane
+                if car.transfer_velocity.abs() > 0.1 && car.transfer_position.abs() > 0.5 && car.transfer_position.signum() == car.transfer_velocity.signum() {
+                    car.transfer_acceleration = -0.9 * car.transfer_velocity;
+                }
             }
-            if car.transfer_position > -0.3 || car.transfer_velocity > 0.0 {
-                world.send(self.right, AddInteractionObstacle(car.as_obstacle.offset_by(self.right_start)));
-            }
-        }
 
-        self.interaction_obstacles.clear();
-    }
-});
+            for car in &mut self.cars {
+                *car.position += dt * car.velocity;
+                car.velocity = (car.velocity + dt * car.acceleration).min(car.max_velocity).max(0.0);
+                car.transfer_position += dt * car.transfer_velocity;
+                car.transfer_velocity += dt * car.transfer_acceleration;
+                if car.transfer_velocity.abs() > car.velocity/12.0 {
+                    car.transfer_velocity = car.velocity/12.0 * car.transfer_velocity.signum();
+                }
+            }
+
+            let mut i = 0;
+            loop {
+                let (should_remove, done) = if let Some(car) = self.cars.get(i) {
+                    if car.transfer_position < -1.0 {
+                        world.send(self.left, Add::Car(car.as_lane_car.offset_by(self.left_start)));
+                        (true, false)
+                    } else if car.transfer_position > 1.0 {
+                        world.send(self.right, Add::Car(car.as_lane_car.offset_by(self.right_start)));
+                        (true, false)
+                    } else {
+                        i += 1;
+                        (false, false)
+                    }
+                } else {
+                    (false, true)
+                };
+                if done {break;}
+                if should_remove {self.cars.remove(i);}
+            }
+
+            for car in &self.cars {
+                if car.transfer_position < 0.3 || car.transfer_velocity < 0.0 {
+                    world.send(self.left, Add::InteractionObstacle(car.as_obstacle.offset_by(self.left_start)));
+                }
+                if car.transfer_position > -0.3 || car.transfer_velocity > 0.0 {
+                    world.send(self.right, Add::InteractionObstacle(car.as_obstacle.offset_by(self.right_start)));
+                }
+            }
+
+            self.interaction_obstacles.clear();
+        }
+    }}
+}
 
 pub fn setup(system: &mut ActorSystem) {
     system.add_swarm::<Lane>();
-    system.add_inbox::<AddCar, Lane>();
-    system.add_inbox::<AddInteractionObstacle, Lane>();
+    system.add_inbox::<Add, Lane>();
     system.add_inbox::<Tick, Lane>();
 
     system.add_swarm::<TransferLane>();
-    system.add_inbox::<AddCar, TransferLane>();
-    system.add_inbox::<AddInteractionObstacle, TransferLane>();
+    system.add_inbox::<Add, TransferLane>();
     system.add_inbox::<Tick, TransferLane>();
 
     setup_scenario(system);
@@ -480,7 +488,7 @@ fn setup_scenario(system: &mut ActorSystem) {
 
     let n_cars = 10;
     for i in 0..n_cars {
-        world.send(lane1_id, AddCar(LaneCar{
+        world.send(lane1_id, Add::Car(LaneCar{
             as_obstacle: Obstacle {
                 position: OrderedFloat(n_cars as f32 * 5.0 - (i as f32 * 5.0)),
                 velocity: 0.0,
@@ -490,7 +498,7 @@ fn setup_scenario(system: &mut ActorSystem) {
             acceleration: 1.0
         }));
 
-        world.send(double_lane_1_id, AddCar(LaneCar{
+        world.send(double_lane_1_id, Add::Car(LaneCar{
             as_obstacle: Obstacle {
                 position: OrderedFloat(n_cars as f32 * 20.0 - (i as f32 * 20.0)),
                 velocity: 0.0,
@@ -500,7 +508,7 @@ fn setup_scenario(system: &mut ActorSystem) {
             acceleration: 1.0
         }));
 
-        world.send(double_lane_2_id, AddCar(LaneCar{
+        world.send(double_lane_2_id, Add::Car(LaneCar{
             as_obstacle: Obstacle {
                 position: OrderedFloat(n_cars as f32 * 20.0 - (i as f32 * 20.0)),
                 velocity: 0.0,
@@ -510,9 +518,9 @@ fn setup_scenario(system: &mut ActorSystem) {
             acceleration: 1.0
         }));
 
-        world.send(transfer_lane_id, AddCar(LaneCar{
+        world.send(transfer_lane_id, Add::Car(LaneCar{
             as_obstacle: Obstacle {
-                position: OrderedFloat(5.0 + n_cars as f32 * 20.0 - (i as f32 * 20.0)),
+                position: OrderedFloat(7.0 + n_cars as f32 * 20.0 - (i as f32 * 20.0)),
                 velocity: 0.0,
                 max_velocity: 22.0
             },
@@ -521,7 +529,7 @@ fn setup_scenario(system: &mut ActorSystem) {
         }));
     }
 
-    world.send(lane2_id, AddCar(LaneCar{
+    world.send(lane2_id, Add::Car(LaneCar{
         as_obstacle: Obstacle {
             position: OrderedFloat(5.0),
             velocity: 0.0,
@@ -531,7 +539,7 @@ fn setup_scenario(system: &mut ActorSystem) {
         acceleration: 1.0
     }));
 
-    world.send(overlapping_lane_id, AddCar(LaneCar{
+    world.send(overlapping_lane_id, Add::Car(LaneCar{
         as_obstacle: Obstacle {
             position: OrderedFloat(60.0),
             velocity: 0.0,

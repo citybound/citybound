@@ -94,17 +94,17 @@ pub struct Renderer {
 impl Individual for Renderer {}
 
 #[derive(Copy, Clone)]
-struct Setup;
+pub enum Control {
+    Setup,
+    Render,
+    Submit
+}
 
 #[derive(Copy, Clone)]
 pub struct SetupInScene {
     pub renderer_id: ID,
     pub scene_id: usize
 }
-
-#[derive(Copy, Clone)]
-pub struct Render;
-
 #[derive(Copy, Clone)]
 pub struct RenderToScene {
     pub renderer_id: ID,
@@ -144,58 +144,73 @@ pub struct AddInstance {
     pub position: Instance
 }
 
-#[derive(Copy, Clone)]
-pub struct Submit;
+impl Recipient<Control> for Renderer {
+    fn react_to(&mut self, msg: &Control, world: &mut World, self_id: ID) {match msg {
+        &Control::Setup => {
+            for (scene_id, scene) in &self.scenes {
+                for renderable in &scene.renderables {
+                    world.send(*renderable, SetupInScene{renderer_id: self_id, scene_id: *scene_id});
+                }
+            }
+        },
 
-recipient!{Renderer, (&mut self, world: &mut World, self_id: ID) {
-    Setup: _ => {
-        for (scene_id, scene) in &self.scenes {
-            for renderable in &scene.renderables {
-                world.send(*renderable, SetupInScene{renderer_id: self_id, scene_id: *scene_id});
+        &Control::Render => {
+            for (scene_id, mut scene) in &mut self.scenes {
+                for batch in (&mut scene).batches.values_mut() {
+                    batch.instances.clear();
+                }
+                for renderable in &scene.renderables {
+                    world.send(*renderable, RenderToScene{renderer_id: self_id, scene_id: *scene_id});
+                }
             }
         }
-    },
 
-    Render: _ => {
-        for (scene_id, mut scene) in &mut self.scenes {
-            for batch in (&mut scene).batches.values_mut() {
-                batch.instances.clear();
-            }
-            for renderable in &scene.renderables {
-                world.send(*renderable, RenderToScene{renderer_id: self_id, scene_id: *scene_id});
+        &Control::Submit => {
+            for scene in self.scenes.values() {
+                self.render_context.submit(scene);
             }
         }
-    },
+    }}
+}
 
-    Submit: _ => {
-        for scene in self.scenes.values() {
-            self.render_context.submit(scene);
+impl Recipient<AddBatch> for Renderer {
+    fn receive(&mut self, msg: &AddBatch) {match msg {
+        &AddBatch{scene_id, batch_id, ref thing} => {
+            self.scenes.get_mut(&scene_id).unwrap().batches.insert(batch_id, Batch::new(thing.clone(), Vec::new()));
         }
-    },
+    }}
+}
 
-    AddBatch: &AddBatch{scene_id, batch_id, ref thing} => {
-        self.scenes.get_mut(&scene_id).unwrap().batches.insert(batch_id, Batch::new(thing.clone(), Vec::new()));
-    },
+impl Recipient<AddInstance> for Renderer {
+    fn receive(&mut self, msg: &AddInstance) {match msg {
+        &AddInstance{scene_id, batch_id, position} => {
+            self.scenes.get_mut(&scene_id).unwrap().batches.get_mut(&batch_id).unwrap().instances.push(position);
+        }
+    }}
+}
 
-    AddInstance: &AddInstance{scene_id, batch_id, position} => {
-        self.scenes.get_mut(&scene_id).unwrap().batches.get_mut(&batch_id).unwrap().instances.push(position);
-    },
+impl Recipient<UpdateThing> for Renderer {
+    fn receive(&mut self, msg: &UpdateThing) {match msg {
+        &UpdateThing{scene_id, thing_id, ref thing, instance} => {
+            self.scenes.get_mut(&scene_id).unwrap().things.insert(thing_id, (thing.clone(), instance));
+        }
+    }}
+}
 
-    UpdateThing: &UpdateThing{scene_id, thing_id, ref thing, instance} => {
-        let entry = self.scenes.get_mut(&scene_id).unwrap().things.insert(thing_id, (thing.clone(), instance));
-    },
-
-    MoveEye: &MoveEye{scene_id, delta} => {
-        let ref mut eye = self.scenes.get_mut(&scene_id).unwrap().eye;
-        let mut eye_direction_2d = eye.target - eye.position;
-        eye_direction_2d.z = 0.0;
-        eye_direction_2d.normalize_mut();
-        let orth_eye_direction_2d = Vector3::<f32>::new(eye_direction_2d.y, -eye_direction_2d.x, 0.0);
-        let absolute_delta = delta.x * eye_direction_2d + delta.y * orth_eye_direction_2d + Vector3::<f32>::new(0.0, 0.0, delta.z);
-        eye.position += absolute_delta;
-        eye.target += absolute_delta;
-    }
-}}
+impl Recipient<MoveEye> for Renderer {
+    fn receive(&mut self, msg: &MoveEye) {match msg{
+        &MoveEye{scene_id, delta} => {
+            let ref mut eye = self.scenes.get_mut(&scene_id).unwrap().eye;
+            let mut eye_direction_2d = eye.target - eye.position;
+            eye_direction_2d.z = 0.0;
+            eye_direction_2d.normalize_mut();
+            let orth_eye_direction_2d = Vector3::<f32>::new(eye_direction_2d.y, -eye_direction_2d.x, 0.0);
+            let absolute_delta = delta.x * eye_direction_2d + delta.y * orth_eye_direction_2d + Vector3::<f32>::new(0.0, 0.0, delta.z);
+            eye.position += absolute_delta;
+            eye.target += absolute_delta;
+        }
+    }}
+}
 
 impl Renderer {
     pub fn new (window: GlutinFacade) -> Renderer {
@@ -208,15 +223,13 @@ impl Renderer {
 
 pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
     system.add_individual(renderer);
-    system.add_individual_inbox::<Setup, Renderer>();
-    system.add_individual_inbox::<Render, Renderer>();
-    system.add_individual_inbox::<Submit, Renderer>();
+    system.add_individual_inbox::<Control, Renderer>();
     system.add_individual_inbox::<AddBatch, Renderer>();
     system.add_individual_inbox::<AddInstance, Renderer>();
     system.add_individual_inbox::<UpdateThing, Renderer>();
     system.add_individual_inbox::<MoveEye, Renderer>();
 
-    system.world().send_to_individual::<Renderer, _>(Setup);
+    system.world().send_to_individual::<Renderer, _>(Control::Setup);
 }
 
 pub struct RenderContext {

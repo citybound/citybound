@@ -15,7 +15,7 @@ mod monet;
 mod core;
 mod game;
 
-use monet::{Renderer, Render, Submit};
+use monet::{Renderer, Control};
 use core::simulation::{Simulation, Tick};
 use game::lanes_and_cars::{Lane, TransferLane};
 
@@ -53,10 +53,10 @@ fn main() {
 
         system.process_all_messages();
 
-        system.world().send_to_individual::<Renderer, _>(Render);
+        system.world().send_to_individual::<Renderer, _>(Control::Render);
 
         system.process_all_messages();
 
-        system.world().send_to_individual::<Renderer, _>(Submit);
+        system.world().send_to_individual::<Renderer, _>(Control::Submit);
     }
 }

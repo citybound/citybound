@@ -143,7 +143,7 @@ impl ActorSystem {
                 for packet in (*inbox_ptr).empty() {
                     let ref mut swarm = *(swarm_ptr);
                     let world = &mut World{system: self_ptr};
-                    swarm.receive(&packet.message, world, packet.recipient_id);
+                    swarm.react_to(&packet.message, world, packet.recipient_id);
                 }
             }
         }))
@@ -166,7 +166,7 @@ impl ActorSystem {
             unsafe {
                 for packet in (*inbox_ptr).empty() {
                     (*individual_ptr)
-                        .receive(
+                        .react_to(
                             &packet.message,
                             &mut World{system: self_ptr},
                             packet.recipient_id

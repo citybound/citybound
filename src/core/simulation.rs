@@ -9,13 +9,15 @@ pub struct Simulation{
 
 impl Individual for Simulation {}
 
-recipient!(Simulation, (&mut self, world: &mut World, self_id: ID) {
-    Tick: &Tick{dt} => {
-        for simulatable in &self.simulatables {
-            world.send(*simulatable, Tick{dt: dt});
+impl Recipient<Tick> for Simulation {
+    fn react_to(&mut self, msg: &Tick, world: &mut World, _self_id: ID) {match msg{
+        &Tick{dt} => {
+            for simulatable in &self.simulatables {
+                world.send(*simulatable, Tick{dt: dt});
+            }
         }
-    }
-});
+    }}
+}
 
 pub fn setup(system: &mut ActorSystem, simulatables: Vec<ID>) {
     system.add_individual(Simulation{simulatables: simulatables});
