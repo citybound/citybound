@@ -2,7 +2,6 @@ use super::compact::Compact;
 use super::swarm::Swarm;
 use super::messaging::{Message, Actor, Individual, MessagePacket, Recipient};
 use super::inbox::Inbox;
-use super::chunked::{MemChunker};
 use super::type_registry::TypeRegistry;
 use std::ops::{Deref, DerefMut};
 use std::intrinsics::{type_id, type_name};
@@ -59,11 +58,6 @@ impl<A: Actor> Deref for LivingActor<A> {
 
 impl<A: Actor> DerefMut for LivingActor<A> {
     fn deref_mut(&mut self) -> &mut A {&mut self.state}
-}
-
-pub enum Storage {
-    InMemory(&'static str, usize, usize),
-    OnDisk(&'static str, usize, usize)
 }
 
 const MAX_MESSAGE_TYPES : usize = 1024;
@@ -129,11 +123,8 @@ impl ActorSystem {
         }
     }
 
-    pub fn add_swarm<A: Actor> (&mut self, storage: Storage) {
-        let swarm = match storage {
-            Storage::InMemory(name, chunk_size, base_size) => Swarm::<A>::new(MemChunker::new(name, chunk_size), base_size),
-            Storage::OnDisk(_, _, _) => unimplemented!()
-        };
+    pub fn add_swarm<A: Actor> (&mut self) {
+        let swarm = Swarm::<A>::new();
         let recipient_id = self.recipient_registry.register_new::<A>();
         assert!(self.routing[recipient_id].is_none());
         self.routing[recipient_id] = Some(InboxMap::new());
@@ -141,11 +132,8 @@ impl ActorSystem {
         self.swarms[recipient_id] = Some(Box::into_raw(Box::new(swarm)) as *mut u8);
     }
 
-    pub fn add_inbox<M: Message, A: Actor> (&mut self, storage: Storage) where Swarm<A>: Recipient<M> {
-        let inbox = match storage {
-            Storage::InMemory(name, chunk_size, base_size) => Inbox::<M>::new(MemChunker::new(name, chunk_size), base_size),
-            Storage::OnDisk(_, _, _) => unimplemented!()
-        };
+    pub fn add_inbox<M: Message, A: Actor> (&mut self) where Swarm<A>: Recipient<M> {
+        let inbox = Inbox::<M>::new();
         let recipient_id = self.recipient_registry.get::<A>();
         let inbox_ptr = self.store_inbox(inbox, recipient_id);
         let swarm_ptr = self.swarms[recipient_id].unwrap() as *mut Swarm<A>;
@@ -168,11 +156,8 @@ impl ActorSystem {
         self.individuals[recipient_id] = Some(Box::into_raw(Box::new(individual)) as *mut u8);
     }
 
-    pub fn add_individual_inbox<M: Message, I: Individual + Recipient<M>> (&mut self, storage: Storage) {
-        let inbox = match storage {
-            Storage::InMemory(name, chunk_size, base_size) => Inbox::<M>::new(MemChunker::new(name, chunk_size), base_size),
-            Storage::OnDisk(_, _, _) => unimplemented!()
-        };
+    pub fn add_individual_inbox<M: Message, I: Individual + Recipient<M>> (&mut self) {
+        let inbox = Inbox::<M>::new();
         let recipient_id = self.recipient_registry.get::<I>();
         let inbox_ptr = self.store_inbox(inbox, recipient_id);
         let individual_ptr = self.individuals[recipient_id].unwrap() as *mut I;
@@ -281,7 +266,7 @@ impl World {
     pub fn send<M: Message>(&mut self, recipient: ID, message: M) {
         unsafe {(*self.system).send(recipient, message)};
     }
-    pub fn send_to_individual<M: Message, I: Individual>(&mut self, message: M) {
+    pub fn send_to_individual<I: Individual, M: Message>(&mut self, message: M) {
         unsafe {
             self.send((*self.system).individual_id::<I>(), message);
         }

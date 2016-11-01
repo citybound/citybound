@@ -1,16 +1,25 @@
 use super::actor_system::{ID, World};
 use super::compact::Compact;
+use ::std::mem::size_of;
 
 pub trait Recipient<M: Message> {
     fn receive(&mut self, message: &M, world: &mut World, self_id: ID);
 }
 
-pub trait Message : Compact + 'static {}
+pub trait StorageAware : Sized {
+    fn typical_size() -> usize {
+        // TODO: create versions of containers for 0 size messages & actors
+        let size = size_of::<Self>();
+        if size == 0 {1} else {size}
+    }
+}
+impl <T> StorageAware for T{}
+
+pub trait Message : Compact + StorageAware + 'static {}
 impl <T: Compact + 'static > Message for T{}
-pub trait Actor : Compact + 'static {}
+pub trait Actor : Compact + StorageAware + 'static {}
 impl <T: Compact + 'static > Actor for T{}
 pub trait Individual : 'static {}
-impl <T: 'static > Individual for T{}
 
 pub struct MessagePacket<M: Message> {
     pub recipient_id: ID,

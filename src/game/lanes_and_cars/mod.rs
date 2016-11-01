@@ -2,9 +2,9 @@ pub mod ui;
 mod intelligent_acceleration;
 use self::intelligent_acceleration::{intelligent_acceleration, COMFORTABLE_BREAKING_DECELERATION};
 use core::geometry::CPath;
-use kay::{ID, CVec, Recipient, World, ActorSystem, InMemory, Compact};
+use kay::{ID, CVec, Recipient, World, ActorSystem, Compact};
 use descartes::{FiniteCurve, Path, Segment, P2, V2};
-use core::simulation::{Simulation, Tick, AddSimulatable};
+use core::simulation::Tick;
 use ordered_float::OrderedFloat;
 use itertools::Itertools;
 use ::std::f32::INFINITY;
@@ -358,18 +358,15 @@ recipient!(TransferLane, (&mut self, world: &mut World, self_id: ID) {
 });
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add_swarm::<Lane>(InMemory("lane_actors", 512 * 512, 4));
-    system.add_inbox::<AddCar, Lane>(InMemory("add_car", 512 * 512, 4));
-    system.add_inbox::<AddInteractionObstacle, Lane>(InMemory("add_interaction_obstacle", 512 * 512, 4));
-    system.add_inbox::<Tick, Lane>(InMemory("tick", 512 * 512, 4));
+    system.add_swarm::<Lane>();
+    system.add_inbox::<AddCar, Lane>();
+    system.add_inbox::<AddInteractionObstacle, Lane>();
+    system.add_inbox::<Tick, Lane>();
 
-    system.add_swarm::<TransferLane>(InMemory("transfer_lane_actors", 512 * 512, 10));
-    system.add_inbox::<AddCar, TransferLane>(InMemory("transfer_add_car", 512 * 512, 4));
-    system.add_inbox::<AddInteractionObstacle, TransferLane>(InMemory("transfer_add_interaction_obstacle", 512 * 512, 4));
-    system.add_inbox::<Tick, TransferLane>(InMemory("transfer_tick", 512 * 512, 4));
-
-    system.world().send_to_individual::<_, Simulation>(AddSimulatable(system.broadcast_id::<Lane>()));
-    system.world().send_to_individual::<_, Simulation>(AddSimulatable(system.broadcast_id::<TransferLane>()));
+    system.add_swarm::<TransferLane>();
+    system.add_inbox::<AddCar, TransferLane>();
+    system.add_inbox::<AddInteractionObstacle, TransferLane>();
+    system.add_inbox::<Tick, TransferLane>();
 
     setup_scenario(system);
 }

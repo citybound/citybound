@@ -1,5 +1,5 @@
 use super::compact::{Compact};
-use super::chunked::{Chunker, MultiSized, SizedChunkedQueue};
+use super::chunked::{MemChunker, MultiSized, SizedChunkedQueue};
 use ::std::marker::PhantomData;
 use ::std::mem::transmute;
 use super::messaging::{MessagePacket, Message};
@@ -9,10 +9,13 @@ pub struct Inbox<M: Message> {
     message_marker: PhantomData<[M]>
 }
 
+const CHUNK_SIZE : usize = 4096;
+
 impl <M: Message> Inbox<M> {
-    pub fn new(chunker: Box<Chunker>, base_size: usize) -> Self {
+    pub fn new() -> Self {
+        let chunker = MemChunker::new("", CHUNK_SIZE);
         Inbox {
-            queues: MultiSized::new(chunker, base_size),
+            queues: MultiSized::new(chunker, M::typical_size()),
             message_marker: PhantomData
         }
     }

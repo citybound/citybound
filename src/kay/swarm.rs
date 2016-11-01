@@ -1,5 +1,5 @@
 use super::compact::{Compact};
-use super::chunked::{Chunker, SizedChunkedArena, MultiSized};
+use super::chunked::{MemChunker, SizedChunkedArena, MultiSized};
 use super::slot_map::{SlotIndices, SlotMap};
 use super::messaging::{Actor, Recipient, Message};
 use super::actor_system::{LivingActor, ID, World};
@@ -12,10 +12,13 @@ pub struct Swarm<Actor> {
     _marker: PhantomData<[Actor]>
 }
 
+const CHUNK_SIZE : usize = 4096;
+
 impl<A: Actor> Swarm<A> {
-    pub fn new(chunker: Box<Chunker>, base_size: usize) -> Self {
+    pub fn new() -> Self {
+        let chunker = MemChunker::new("", CHUNK_SIZE);
         Swarm{
-            actors: MultiSized::new(chunker.child("_actors"), base_size),
+            actors: MultiSized::new(chunker.child("_actors"), A::typical_size()),
             slot_map: SlotMap::new(chunker.child("_slot_map")),
             _marker: PhantomData
         }

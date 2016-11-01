@@ -15,18 +15,27 @@ mod monet;
 mod core;
 mod game;
 
+use monet::{Renderer, Render, Submit};
+use core::simulation::{Simulation, Tick};
+use game::lanes_and_cars::{Lane, TransferLane};
+
 const SECONDS_PER_TICK : f32 = 1.0 / 20.0;
 
 fn main() {    
     let mut system = kay::ActorSystem::new();
-    core::simulation::setup(&mut system);
 
     game::setup(&mut system);
     game::setup_ui(&mut system);
 
+    let simulatables = vec![
+        system.broadcast_id::<Lane>(),
+        system.broadcast_id::<TransferLane>()
+    ];
+    core::simulation::setup(&mut system, simulatables);
+
     let renderables = vec![
-        system.broadcast_id::<::game::lanes_and_cars::Lane>(),
-        system.broadcast_id::<::game::lanes_and_cars::TransferLane>()
+        system.broadcast_id::<Lane>(),
+        system.broadcast_id::<TransferLane>()
     ];
     let window = core::ui::setup_window_and_renderer(&mut system, renderables);
 
@@ -40,14 +49,14 @@ fn main() {
 
         system.process_all_messages();
 
-        system.world().send_to_individual::<_, core::simulation::Simulation>(core::simulation::Tick{dt: SECONDS_PER_TICK});
+        system.world().send_to_individual::<Simulation, _>(Tick{dt: SECONDS_PER_TICK});
 
         system.process_all_messages();
 
-        system.world().send_to_individual::<_, monet::Renderer>(monet::Render);
+        system.world().send_to_individual::<Renderer, _>(Render);
 
         system.process_all_messages();
 
-        system.world().send_to_individual::<_, monet::Renderer>(monet::Submit);
+        system.world().send_to_individual::<Renderer, _>(Submit);
     }
 }

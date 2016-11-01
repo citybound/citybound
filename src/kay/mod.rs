@@ -19,6 +19,5 @@ pub use self::compact_dict::{CompactDict as CDict};
 pub use self::chunked::{MemChunker};
 pub use self::swarm::Swarm;
 pub use self::inbox::{Inbox};
-pub use self::messaging::{Message, Recipient};
+pub use self::messaging::{Message, Recipient, Individual};
 pub use self::actor_system::{ID, LivingActor, ActorSystem, World};
-pub use self::actor_system::Storage::{InMemory, OnDisk};

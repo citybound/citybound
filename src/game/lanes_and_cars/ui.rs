@@ -1,5 +1,5 @@
 use descartes::{FiniteCurve, WithUniqueOrthogonal, Norm};
-use kay::{ID, Recipient, World, ActorSystem, InMemory, Swarm};
+use kay::{ID, Recipient, World, ActorSystem, Swarm};
 use monet::{Instance, RenderToScene, SetupInScene, AddBatch, AddInstance, UpdateThing};
 use core::geometry::path_to_band;
 use super::{Lane, TransferLane, InteractionKind};
@@ -81,8 +81,8 @@ recipient!(TransferLane, (&mut self, world: &mut World, self_id: ID) {
 });
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add_inbox::<SetupInScene, Lane>(InMemory("setup_in_scene", 512, 4));
-    system.add_inbox::<RenderToScene, Lane>(InMemory("render_to_scene", 512, 4));
-    system.add_inbox::<SetupInScene, TransferLane>(InMemory("transfer_setup_in_scene", 512, 4));
-    system.add_inbox::<RenderToScene, TransferLane>(InMemory("transfer_render_to_scene", 512, 4));
+    system.add_inbox::<SetupInScene, Lane>();
+    system.add_inbox::<RenderToScene, Lane>();
+    system.add_inbox::<SetupInScene, TransferLane>();
+    system.add_inbox::<RenderToScene, TransferLane>();
 }

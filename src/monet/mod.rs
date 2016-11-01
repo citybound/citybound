@@ -1,5 +1,5 @@
 pub use ::nalgebra::{Point3, Vector3, Isometry3, Perspective3, ToHomogeneous, Norm};
-use ::kay::{ID, World, Recipient, CVec, Compact, ActorSystem, InMemory};
+use ::kay::{ID, World, Recipient, CVec, Compact, ActorSystem, Individual};
 use std::collections::HashMap;
 extern crate glium_text;
 
@@ -90,6 +90,8 @@ pub struct Renderer {
     pub scenes: HashMap<usize, Scene>,
     pub render_context: RenderContext
 }
+
+impl Individual for Renderer {}
 
 #[derive(Copy, Clone)]
 struct Setup;
@@ -206,15 +208,15 @@ impl Renderer {
 
 pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
     system.add_individual(renderer);
-    system.add_individual_inbox::<Setup, Renderer>(InMemory("setup", 512 * 8, 4));
-    system.add_individual_inbox::<Render, Renderer>(InMemory("render", 512 * 8, 4));
-    system.add_individual_inbox::<Submit, Renderer>(InMemory("submit", 512 * 8, 4));
-    system.add_individual_inbox::<AddBatch, Renderer>(InMemory("add_batch", 512 * 8, 4));
-    system.add_individual_inbox::<AddInstance, Renderer>(InMemory("add_instance", 512 * 8, 4));
-    system.add_individual_inbox::<UpdateThing, Renderer>(InMemory("update_thing", 512 * 8, 4));
-    system.add_individual_inbox::<MoveEye, Renderer>(InMemory("move_eye", 512 * 8, 4));
+    system.add_individual_inbox::<Setup, Renderer>();
+    system.add_individual_inbox::<Render, Renderer>();
+    system.add_individual_inbox::<Submit, Renderer>();
+    system.add_individual_inbox::<AddBatch, Renderer>();
+    system.add_individual_inbox::<AddInstance, Renderer>();
+    system.add_individual_inbox::<UpdateThing, Renderer>();
+    system.add_individual_inbox::<MoveEye, Renderer>();
 
-    system.world().send_to_individual::<Setup, Renderer>(Setup);
+    system.world().send_to_individual::<Renderer, _>(Setup);
 }
 
 pub struct RenderContext {
