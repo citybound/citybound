@@ -154,12 +154,32 @@ impl<A: Actor> Swarm<A> {
     }
 }
 
-impl <M: Message, A: Actor + Recipient<M>> Recipient<M> for Swarm<A> {
+pub trait RecipientAsSwarm<M: Message> : Sized {
+    fn react_to(swarm: &mut Swarm<Self>, message: &M, world: &mut World, swarm_id: ID);
+}
+
+// impl <M: Message, A: Actor + Recipient<M>> Recipient<M> for Swarm<A> {
+//     fn react_to(&mut self, message: &M, world: &mut World, recipient_id: ID) {
+//         if recipient_id.is_broadcast() {
+//             self.react_to_broadcast(message, world);
+//         } else {
+//             self.react_to_instance(message, world, recipient_id);
+//         }
+//     }
+// }
+
+impl <M: Message, A: Actor + RecipientAsSwarm<M>> Recipient<M> for Swarm<A> {
     fn react_to(&mut self, message: &M, world: &mut World, recipient_id: ID) {
+        A::react_to(self, message, world, recipient_id);
+    }
+}
+
+impl <M: Message, A: Recipient<M> + Actor> RecipientAsSwarm<M> for A {
+    fn react_to(swarm: &mut Swarm<A>, message: &M, world: &mut World, recipient_id: ID) {
         if recipient_id.is_broadcast() {
-            self.react_to_broadcast(message, world);
+            swarm.react_to_broadcast(message, world);
         } else {
-            self.react_to_instance(message, world, recipient_id);
+            swarm.react_to_instance(message, world, recipient_id);
         }
     }
 }

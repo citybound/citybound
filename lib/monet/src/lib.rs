@@ -1,9 +1,14 @@
-pub use ::nalgebra::{Point3, Vector3, Isometry3, Perspective3, ToHomogeneous, Norm};
-use ::kay::{ID, World, Recipient, CVec, Compact, ActorSystem, Individual};
-use std::collections::HashMap;
+extern crate descartes;
+#[macro_use]
+pub extern crate glium;
+#[macro_use]
+extern crate kay;
 extern crate glium_text;
 
-pub use glium;
+pub use ::descartes::{P3, V3, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d, WithUniqueOrthogonal};
+use ::kay::{ID, World, Recipient, CVec, Compact, ActorSystem, Individual};
+use std::collections::HashMap;
+
 use glium::{index, Surface};
 pub use glium::backend::glutin_backend::GlutinFacade;
 
@@ -22,9 +27,9 @@ pub struct Instance {
 implement_vertex!(Instance, instance_position, instance_direction, instance_color);
 
 pub struct Eye {
-    pub position: Point3<f32>,
-    pub target: Point3<f32>,
-    pub up: Vector3<f32>,
+    pub position: P3,
+    pub target: P3,
+    pub up: V3,
     pub field_of_view: f32
 }
 
@@ -73,9 +78,9 @@ impl Scene {
     pub fn new() -> Scene {
         Scene{
             eye: Eye{
-                position: Point3::new(-5.0, -5.0, 5.0),
-                target: Point3::new(0.0, 0.0, 0.0),
-                up: Vector3::new(0.0, 0.0, 1.0),
+                position: P3::new(-5.0, -5.0, 5.0),
+                target: P3::new(0.0, 0.0, 0.0),
+                up: V3::new(0.0, 0.0, 1.0),
                 field_of_view: 0.3 * ::std::f32::consts::PI
             },
             batches: HashMap::new(),
@@ -114,7 +119,7 @@ pub struct RenderToScene {
 #[derive(Copy, Clone)]
 pub struct MoveEye {
     pub scene_id: usize,
-    pub delta: Vector3<f32>
+    pub delta: V3
 }
 
 derive_compact!{
@@ -201,11 +206,10 @@ impl Recipient<MoveEye> for Renderer {
     fn receive(&mut self, msg: &MoveEye) {match msg{
         &MoveEye{scene_id, delta} => {
             let ref mut eye = self.scenes.get_mut(&scene_id).unwrap().eye;
-            let mut eye_direction_2d = eye.target - eye.position;
-            eye_direction_2d.z = 0.0;
-            eye_direction_2d.normalize_mut();
-            let orth_eye_direction_2d = Vector3::<f32>::new(eye_direction_2d.y, -eye_direction_2d.x, 0.0);
-            let absolute_delta = delta.x * eye_direction_2d + delta.y * orth_eye_direction_2d + Vector3::<f32>::new(0.0, 0.0, delta.z);
+            let eye_direction_2d = (eye.target - eye.position).into_2d().normalize();
+            let absolute_delta = delta.x * eye_direction_2d.into_3d()
+                + delta.y * eye_direction_2d.orthogonal().into_3d()
+                + V3::new(0.0, 0.0, delta.z);
             eye.position += absolute_delta;
             eye.target += absolute_delta;
         }
@@ -261,12 +265,12 @@ impl RenderContext {
     pub fn submit (&self, scene: &Scene) {
         let mut target = self.window.draw();
 
-        let view : [[f32; 4]; 4] = *Isometry3::look_at_rh(
+        let view : [[f32; 4]; 4] = *Iso3::look_at_rh(
             &scene.eye.position,
             &scene.eye.target,
             &scene.eye.up
         ).to_homogeneous().as_ref();
-        let perspective : [[f32; 4]; 4] = *Perspective3::new(
+        let perspective : [[f32; 4]; 4] = *Persp3::new(
             target.get_dimensions().0 as f32 / target.get_dimensions().1 as f32,
             scene.eye.field_of_view,
             0.1,

@@ -1,16 +1,11 @@
-#![feature(core_intrinsics)]
 #![allow(dead_code)]
-extern crate nalgebra;
-#[macro_use]
-pub extern crate glium;
-extern crate glium_text;
 extern crate ordered_float;
 extern crate itertools;
 
 #[macro_use]
-mod kay;
-mod descartes;
-mod monet;
+extern crate kay;
+extern crate monet;
+extern crate descartes;
 
 mod core;
 mod game;

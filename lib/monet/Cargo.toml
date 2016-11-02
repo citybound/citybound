@@ -1,17 +1,14 @@
 [package]
-name = "citybound"
+name = "monet"
 version = "0.1.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
-ordered-float = "*"
-itertools = "*"
+glium = "*"
+glium_text = "*"
 
 [dependencies.kay]
-path = "./lib/kay/"
+path = "../kay"
 
 [dependencies.descartes]
-path = "./lib/descartes/"
-
-[dependencies.monet]
-path = "./lib/monet/"
+path = "../descartes"

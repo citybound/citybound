@@ -1,13 +1,17 @@
 extern crate nalgebra;
 extern crate smallvec;
 
-use nalgebra::{Vector2, Point2};
-pub use nalgebra::{Dot, Norm};
+use nalgebra::{Vector2, Point2, Vector3, Point3, Isometry3, Perspective3};
+pub use nalgebra::{Dot, ToHomogeneous, Norm};
 use std::f32::consts::PI;
 
 pub type N = f32;
 pub type V2 = Vector2<N>;
 pub type P2 = Point2<N>;
+pub type V3 = Vector3<N>;
+pub type P3 = Point3<N>;
+pub type Iso3 = Isometry3<N>;
+pub type Persp3 = Perspective3<N>;
 
 // Thickness radius
 const THICKNESS: N = 0.0001;
@@ -43,6 +47,44 @@ pub trait WithUniqueOrthogonal {
 impl WithUniqueOrthogonal for V2 {
     fn orthogonal(&self) -> V2 {
         V2::new(self.y, -self.x)
+    }
+}
+
+pub trait Into2d {
+    type Target;
+    fn into_2d(self) -> Self::Target;
+}
+
+impl Into2d for V3 {
+    type Target = V2;
+    fn into_2d(self) -> V2 {
+        V2::new(self.x, self.y)
+    }
+}
+
+impl Into2d for P3 {
+    type Target = P2;
+    fn into_2d(self) -> P2 {
+        P2::new(self.x, self.y)
+    }
+}
+
+pub trait Into3d {
+    type Target;
+    fn into_3d(self) -> Self::Target;
+}
+
+impl Into3d for V2 {
+    type Target = V3;
+    fn into_3d(self) -> V3 {
+        V3::new(self.x, self.y, 0.0)
+    }
+}
+
+impl Into3d for P2 {
+    type Target = P3;
+    fn into_3d(self) -> P3 {
+        P3::new(self.x, self.y, 0.0)
     }
 }
 
