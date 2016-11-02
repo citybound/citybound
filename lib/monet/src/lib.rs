@@ -1,12 +1,14 @@
+#![feature(proc_macro)]
 extern crate descartes;
 #[macro_use]
 pub extern crate glium;
-#[macro_use]
 extern crate kay;
+#[macro_use]
+extern crate kay_macros;
 extern crate glium_text;
 
 pub use ::descartes::{P3, V3, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d, WithUniqueOrthogonal};
-use ::kay::{ID, World, Recipient, CVec, Compact, ActorSystem, Individual};
+use ::kay::{ID, World, Recipient, CVec, ActorSystem, Individual};
 use std::collections::HashMap;
 
 use glium::{index, Surface};
@@ -33,11 +35,10 @@ pub struct Eye {
     pub field_of_view: f32
 }
 
-derive_compact!{
-    pub struct Thing {
-        vertices: CVec<Vertex>,
-        indices: CVec<u16>
-    }
+#[derive(Compact)]
+pub struct Thing {
+    vertices: CVec<Vertex>,
+    indices: CVec<u16>
 }
 
 impl Thing {
@@ -122,9 +123,8 @@ pub struct MoveEye {
     pub delta: V3
 }
 
-derive_compact!{
-    pub struct AddBatch {scene_id: usize, batch_id: usize, thing: Thing}
-}
+#[derive(Compact)]
+pub struct AddBatch {scene_id: usize, batch_id: usize, thing: Thing}
 
 impl AddBatch {
     pub fn new(scene_id: usize, batch_id: usize, thing: Thing) -> AddBatch {
@@ -132,9 +132,8 @@ impl AddBatch {
     }
 }
 
-derive_compact!{
-    pub struct UpdateThing {scene_id: usize, thing_id: usize, thing: Thing, instance: Instance}
-}
+#[derive(Compact)]
+pub struct UpdateThing {scene_id: usize, thing_id: usize, thing: Thing, instance: Instance}
 
 impl UpdateThing {
     pub fn new(scene_id: usize, thing_id: usize, thing: Thing, instance: Instance) -> UpdateThing {

@@ -1,9 +1,11 @@
+#![feature(proc_macro)]
 #![allow(dead_code)]
 extern crate ordered_float;
 extern crate itertools;
 
-#[macro_use]
 extern crate kay;
+#[macro_use]
+extern crate kay_macros;
 extern crate monet;
 extern crate descartes;
 

@@ -1,11 +1,10 @@
 use descartes::{Path, Segment, P2, N, FiniteCurve, WithUniqueOrthogonal};
-use kay::{CVec, Compact};
+use kay::{CVec};
 use monet::{Thing, Vertex};
 
-derive_compact! {
-    pub struct CPath {
-        segments: CVec<Segment>
-    }
+#[derive(Compact)]
+pub struct CPath {
+    segments: CVec<Segment>
 }
 
 impl Path for CPath {

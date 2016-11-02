@@ -10,6 +10,9 @@ itertools = "*"
 [dependencies.kay]
 path = "./lib/kay/"
 
+[dependencies.kay_macros]
+path = "./lib/kay_macros/"
+
 [dependencies.descartes]
 path = "./lib/descartes/"
 

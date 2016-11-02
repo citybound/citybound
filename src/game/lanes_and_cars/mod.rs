@@ -2,7 +2,7 @@ pub mod ui;
 mod intelligent_acceleration;
 use self::intelligent_acceleration::{intelligent_acceleration, COMFORTABLE_BREAKING_DECELERATION};
 use core::geometry::CPath;
-use kay::{ID, CVec, Recipient, World, ActorSystem, Compact};
+use kay::{ID, CVec, Recipient, World, ActorSystem};
 use descartes::{FiniteCurve, Path, Segment, P2, V2};
 use core::simulation::Tick;
 use ordered_float::OrderedFloat;
@@ -10,14 +10,13 @@ use itertools::Itertools;
 use ::std::f32::INFINITY;
 use ::std::ops::{Deref, DerefMut};
 
-derive_compact!{
-    pub struct Lane {
-        length: f32,
-        path: CPath,
-        interactions: CVec<Interaction>,
-        interaction_obstacles: CVec<Obstacle>,
-        cars: CVec<LaneCar>
-    }
+#[derive(Compact)]
+pub struct Lane {
+    length: f32,
+    path: CPath,
+    interactions: CVec<Interaction>,
+    interaction_obstacles: CVec<Obstacle>,
+    cars: CVec<LaneCar>
 }
 
 impl Lane {
@@ -205,17 +204,16 @@ impl Recipient<Tick> for Lane {
     }}
 }
 
-derive_compact!{
-    pub struct TransferLane {
-        length: f32,
-        path: CPath,
-        left: ID,
-        left_start: f32,
-        right: ID,
-        right_start: f32,
-        interaction_obstacles: CVec<Obstacle>,
-        cars: CVec<TransferringLaneCar>
-    }
+#[derive(Compact)]
+pub struct TransferLane {
+    length: f32,
+    path: CPath,
+    left: ID,
+    left_start: f32,
+    right: ID,
+    right_start: f32,
+    interaction_obstacles: CVec<Obstacle>,
+    cars: CVec<TransferringLaneCar>
 }
 
 impl TransferLane {

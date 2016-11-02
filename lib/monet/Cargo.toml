@@ -10,5 +10,8 @@ glium_text = "*"
 [dependencies.kay]
 path = "../kay"
 
+[dependencies.kay_macros]
+path = "../kay_macros"
+
 [dependencies.descartes]
 path = "../descartes"
