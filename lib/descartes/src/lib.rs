@@ -1,15 +1,17 @@
 extern crate nalgebra;
 extern crate smallvec;
 
-use nalgebra::{Vector2, Point2, Vector3, Point3, Isometry3, Perspective3};
-pub use nalgebra::{Dot, ToHomogeneous, Norm};
+use nalgebra::{Vector2, Point2, Vector3, Vector4, Point3, Isometry3, Perspective3, Matrix4};
+pub use nalgebra::{Dot, ToHomogeneous, Norm, Inverse, Rotate};
 use std::f32::consts::PI;
 
 pub type N = f32;
 pub type V2 = Vector2<N>;
 pub type P2 = Point2<N>;
 pub type V3 = Vector3<N>;
+pub type V4 = Vector4<N>;
 pub type P3 = Point3<N>;
+pub type M4 = Matrix4<N>;
 pub type Iso3 = Isometry3<N>;
 pub type Persp3 = Perspective3<N>;
 
