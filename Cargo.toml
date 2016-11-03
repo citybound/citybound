@@ -6,6 +6,7 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 [dependencies]
 ordered-float = "*"
 itertools = "*"
+clippy = "*"
 
 [dependencies.kay]
 path = "./lib/kay/"

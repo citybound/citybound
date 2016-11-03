@@ -17,6 +17,10 @@ impl<T, A: Allocator> CompactVec<T, A> {
         self.len
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     pub fn new() -> CompactVec<T, A> {
         CompactVec {
             ptr: PointerToMaybeCompact::default(),

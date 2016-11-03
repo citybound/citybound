@@ -28,8 +28,8 @@ impl UserInterface{
 struct MouseMoved(P2);
 
 impl Recipient<MouseMoved> for UserInterface {
-    fn react_to(&mut self, msg: &MouseMoved, world: &mut World, self_id: ID) {match msg{
-        &MouseMoved(position) => {
+    fn react_to(&mut self, msg: &MouseMoved, world: &mut World, self_id: ID) {match *msg{
+        MouseMoved(position) => {
             self.cursor_2d = position;
             world.send_to_individual::<Renderer, _>(Project2dTo3d{
                 scene_id: 0,
@@ -42,8 +42,8 @@ impl Recipient<MouseMoved> for UserInterface {
 }
 
 impl Recipient<Projected3d> for UserInterface {
-    fn receive(&mut self, msg: &Projected3d) {match msg{
-        &Projected3d{position_3d} => {
+    fn receive(&mut self, msg: &Projected3d) {match *msg{
+        Projected3d{position_3d} => {
             self.cursor_3d = position_3d;
             println!("3d pos: {:?}", position_3d);
         }
@@ -51,8 +51,8 @@ impl Recipient<Projected3d> for UserInterface {
 }
 
 impl Recipient<SetupInScene> for UserInterface {
-    fn react_to(&mut self, msg: &SetupInScene, world: &mut World, _self_id: ID) {match msg{
-        &SetupInScene{renderer_id, scene_id} => {
+    fn react_to(&mut self, msg: &SetupInScene, world: &mut World, _self_id: ID) {match *msg{
+        SetupInScene{renderer_id, scene_id} => {
             world.send(renderer_id, AddBatch::new(scene_id, 42, Thing::new(
                 vec![
                     Vertex{position: [-5.0, -5.0, 0.0]},
@@ -70,8 +70,8 @@ impl Recipient<SetupInScene> for UserInterface {
 }
 
 impl Recipient<RenderToScene> for UserInterface {
-    fn react_to(&mut self, msg: &RenderToScene, world: &mut World, _self_id: ID) {match msg{
-        &RenderToScene{renderer_id, scene_id} => {
+    fn react_to(&mut self, msg: &RenderToScene, world: &mut World, _self_id: ID) {match *msg{
+        RenderToScene{renderer_id, scene_id} => {
             world.send(renderer_id, AddInstance{
                 scene_id: scene_id,
                 batch_id: 42,

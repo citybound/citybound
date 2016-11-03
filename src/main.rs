@@ -1,5 +1,7 @@
 #![feature(proc_macro)]
 #![allow(dead_code)]
+#![feature(plugin)]
+#![plugin(clippy)]
 extern crate ordered_float;
 extern crate itertools;
 
@@ -38,11 +40,8 @@ fn main() {
 
     system.process_all_messages();
 
-    'main: loop {
-        match core::ui::process_events(&window, &mut system.world()) {
-            false => {return},
-            true => {}
-        }
+    loop {
+        if !core::ui::process_events(&window, &mut system.world()) {return}
 
         system.process_all_messages();
 

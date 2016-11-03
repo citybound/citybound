@@ -1,6 +1,9 @@
 use super::{N, P2, V2, Curve, FiniteCurve};
 use super::primitives::Segment;
 
+type ScannerFn<'a> = fn(&mut StartOffsetState, &'a Segment) -> Option<(&'a Segment, N)>;
+type ScanIter<'a> = ::std::iter::Scan<::std::slice::Iter<'a, Segment>, StartOffsetState, ScannerFn<'a>>;
+
 pub trait Path {
     fn segments(&self) -> &[Segment];
     fn new(vec: Vec<Segment>) -> Self;
@@ -10,14 +13,9 @@ pub trait Path {
         start_offset.0 += segment.length;
         Some(pair)
     }
-
-    fn segments_with_start_offsets<'a>(&'a self)
-    -> ::std::iter::Scan<
-        ::std::slice::Iter<Segment>,
-        StartOffsetState,
-        fn(&mut StartOffsetState, &'a Segment) -> Option<(&'a Segment, N)>
-    > {
-        return self.segments().into_iter().scan(StartOffsetState(0.0), Self::scan_segments);
+    
+    fn segments_with_start_offsets(&self) -> ScanIter {
+        self.segments().into_iter().scan(StartOffsetState(0.0), Self::scan_segments)
     }
 
     fn find_on_segment(&self, distance: N) -> Option<(&Segment, N)> {

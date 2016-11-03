@@ -1,3 +1,5 @@
+#![feature(plugin)]
+#![plugin(clippy)]
 #![feature(proc_macro)]
 extern crate descartes;
 #[macro_use]
@@ -92,6 +94,10 @@ impl Scene {
     }
 }
 
+impl Default for Scene {
+    fn default() -> Self {Self::new()}
+}
+
 pub struct Renderer {
     pub scenes: HashMap<usize, Scene>,
     pub render_context: RenderContext
@@ -161,8 +167,8 @@ pub struct Projected3d{
 }
 
 impl Recipient<Control> for Renderer {
-    fn react_to(&mut self, msg: &Control, world: &mut World, self_id: ID) {match msg {
-        &Control::Setup => {
+    fn react_to(&mut self, msg: &Control, world: &mut World, self_id: ID) {match *msg {
+        Control::Setup => {
             for (scene_id, scene) in &self.scenes {
                 for renderable in &scene.renderables {
                     world.send(*renderable, SetupInScene{renderer_id: self_id, scene_id: *scene_id});
@@ -170,7 +176,7 @@ impl Recipient<Control> for Renderer {
             }
         },
 
-        &Control::Render => {
+        Control::Render => {
             for (scene_id, mut scene) in &mut self.scenes {
                 for batch in (&mut scene).batches.values_mut() {
                     batch.instances.clear();
@@ -181,7 +187,7 @@ impl Recipient<Control> for Renderer {
             }
         }
 
-        &Control::Submit => {
+        Control::Submit => {
             for scene in self.scenes.values() {
                 self.render_context.submit(scene);
             }
@@ -190,33 +196,33 @@ impl Recipient<Control> for Renderer {
 }
 
 impl Recipient<AddBatch> for Renderer {
-    fn receive(&mut self, msg: &AddBatch) {match msg {
-        &AddBatch{scene_id, batch_id, ref thing} => {
+    fn receive(&mut self, msg: &AddBatch) {match *msg {
+        AddBatch{scene_id, batch_id, ref thing} => {
             self.scenes.get_mut(&scene_id).unwrap().batches.insert(batch_id, Batch::new(thing.clone(), Vec::new()));
         }
     }}
 }
 
 impl Recipient<AddInstance> for Renderer {
-    fn receive(&mut self, msg: &AddInstance) {match msg {
-        &AddInstance{scene_id, batch_id, position} => {
+    fn receive(&mut self, msg: &AddInstance) {match *msg {
+        AddInstance{scene_id, batch_id, position} => {
             self.scenes.get_mut(&scene_id).unwrap().batches.get_mut(&batch_id).unwrap().instances.push(position);
         }
     }}
 }
 
 impl Recipient<UpdateThing> for Renderer {
-    fn receive(&mut self, msg: &UpdateThing) {match msg {
-        &UpdateThing{scene_id, thing_id, ref thing, instance} => {
+    fn receive(&mut self, msg: &UpdateThing) {match *msg {
+        UpdateThing{scene_id, thing_id, ref thing, instance} => {
             self.scenes.get_mut(&scene_id).unwrap().things.insert(thing_id, (thing.clone(), instance));
         }
     }}
 }
 
 impl Recipient<MoveEye> for Renderer {
-    fn receive(&mut self, msg: &MoveEye) {match msg{
-        &MoveEye{scene_id, delta} => {
-            let ref mut eye = self.scenes.get_mut(&scene_id).unwrap().eye;
+    fn receive(&mut self, msg: &MoveEye) {match *msg{
+        MoveEye{scene_id, delta} => {
+            let eye = &mut self.scenes.get_mut(&scene_id).unwrap().eye;
             let eye_direction_2d = (eye.target - eye.position).into_2d().normalize();
             let absolute_delta = delta.x * eye_direction_2d.into_3d()
                 + delta.y * eye_direction_2d.orthogonal().into_3d()
@@ -228,9 +234,9 @@ impl Recipient<MoveEye> for Renderer {
 }
 
 impl Recipient<Project2dTo3d> for Renderer {
-    fn react_to(&mut self, msg: &Project2dTo3d, world: &mut World, _self_id: ID) {match msg{
-        &Project2dTo3d{scene_id, position_2d, requester} => {
-            let ref eye = self.scenes.get_mut(&scene_id).unwrap().eye;
+    fn react_to(&mut self, msg: &Project2dTo3d, world: &mut World, _self_id: ID) {match *msg{
+        Project2dTo3d{scene_id, position_2d, requester} => {
+            let eye = &self.scenes.get_mut(&scene_id).unwrap().eye;
             let frame_size = self.render_context.window.get_framebuffer_dimensions();
 
             // mouse is on the close plane of the frustum
@@ -299,6 +305,7 @@ pub struct RenderContext {
 }
 
 impl RenderContext {
+    #[allow(redundant_closure)]
     pub fn new (window: GlutinFacade) -> RenderContext {
         RenderContext{
             batch_program: program!(&window,

@@ -1,3 +1,5 @@
+#![feature(plugin)]
+#![plugin(clippy)]
 extern crate nalgebra;
 extern crate smallvec;
 
@@ -28,7 +30,7 @@ pub use self::path::{Path};
 
 fn angle_to(a: V2, b: V2) -> N {
     let theta: N = a.dot(&b) / (a.norm() * b.norm());
-    return theta.min(1.0).max(-1.0).acos();
+    theta.min(1.0).max(-1.0).acos()
 }
 
 fn angle_along_to(a: V2, a_direction: V2, b: V2) -> N {
@@ -36,10 +38,10 @@ fn angle_along_to(a: V2, a_direction: V2, b: V2) -> N {
     let linear_direction = (b - a).normalize();
 
     if a_direction.dot(&linear_direction) >= 0.0 {
-        return simple_angle;
+        simple_angle
     } else {
-        return 2.0 * PI - simple_angle;
-    };
+        2.0 * PI - simple_angle
+    }
 }
 
 pub trait WithUniqueOrthogonal {
@@ -96,7 +98,7 @@ trait RoughlyComparable {
 
 impl RoughlyComparable for N {
     fn is_roughly(&self, other: N) -> bool {
-        return (self - other).abs() <= ROUGH_TOLERANCE;
+        (self - other).abs() <= ROUGH_TOLERANCE
     }
 }
 

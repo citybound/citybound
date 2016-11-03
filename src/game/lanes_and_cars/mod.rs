@@ -127,21 +127,21 @@ enum Add{
 }
 
 impl Recipient<Add> for Lane {
-    fn receive(&mut self, msg: &Add) {match msg{
-        &Add::Car(car) => {
+    fn receive(&mut self, msg: &Add) {match *msg{
+        Add::Car(car) => {
             // TODO: optimize using BinaryHeap?
             self.cars.push(car);
             self.cars.sort_by_key(|car| car.as_obstacle.position);
         },
-        &Add::InteractionObstacle(obstacle) => {
+        Add::InteractionObstacle(obstacle) => {
             self.interaction_obstacles.push(obstacle);
         }
     }}
 }
 
 impl Recipient<Tick> for Lane {
-    fn react_to(&mut self, msg: &Tick, world: &mut World, _self_id: ID) {match msg{
-        &Tick{dt} => {
+    fn react_to(&mut self, msg: &Tick, world: &mut World, _self_id: ID) {match *msg{
+        Tick{dt} => {
             // TODO: optimize using BinaryHeap?
             self.interaction_obstacles.sort_by_key(|obstacle| obstacle.position);
 
@@ -179,12 +179,11 @@ impl Recipient<Tick> for Lane {
                 
                 match interaction.kind {
                     Overlap{start, end, partner_start, kind, ..} => {
-                        let in_overlap = |car: &&LaneCar| *car.position > start && *car.position < end;
                         match kind {
-                            Parallel => cars.filter(in_overlap).map(|car|
+                            Parallel => cars.filter(|car: &&LaneCar| *car.position > start && *car.position < end).map(|car|
                                 car.as_obstacle.offset_by(-start + partner_start)
                             ).foreach(send_obstacle),
-                            Conflicting => if cars.find(in_overlap).is_some() {
+                            Conflicting => if cars.any(|car: &LaneCar| *car.position > start && *car.position < end) {
                                 (send_obstacle)(Obstacle{position: OrderedFloat(partner_start), velocity: 0.0, max_velocity: 0.0})
                             }
                         }
@@ -254,8 +253,8 @@ impl DerefMut for TransferringLaneCar {
 }
 
 impl Recipient<Add> for TransferLane {
-    fn receive(&mut self, msg: &Add) {match msg{
-        &Add::Car(car) => {
+    fn receive(&mut self, msg: &Add) {match *msg{
+        Add::Car(car) => {
             self.cars.push(TransferringLaneCar{
                 as_lane_car: car,
                 transfer_position: -1.0,
@@ -265,15 +264,15 @@ impl Recipient<Add> for TransferLane {
             // TODO: optimize using BinaryHeap?
             self.cars.sort_by_key(|car| car.as_obstacle.position);  
         },
-        &Add::InteractionObstacle(obstacle) => {
+        Add::InteractionObstacle(obstacle) => {
             self.interaction_obstacles.push(obstacle);
         },
     }}
 }
 
 impl Recipient<Tick> for TransferLane {
-    fn react_to(&mut self, msg: &Tick, world: &mut World, _self_id: ID) {match msg{
-        &Tick{dt} => {
+    fn react_to(&mut self, msg: &Tick, world: &mut World, _self_id: ID) {match *msg{
+        Tick{dt} => {
             self.interaction_obstacles.sort_by_key(|obstacle| obstacle.position);
 
             for c in 0..self.cars.len() {
@@ -287,9 +286,9 @@ impl Recipient<Tick> for TransferLane {
                         |obstacle| obstacle.position > car.position
                     );
                     let next_interaction_obstacle = next_interaction_obstacle_index
-                        .map(|idx| self.interaction_obstacles[idx]).unwrap_or(Obstacle::far_ahead());
+                        .map(|idx| self.interaction_obstacles[idx]).unwrap_or_else(Obstacle::far_ahead);
                     let previous_interaction_obstacle = next_interaction_obstacle_index
-                        .and_then(|idx| self.interaction_obstacles.get(idx - 1)).map(|o| *o).unwrap_or(Obstacle::far_behind());
+                        .and_then(|idx| self.interaction_obstacles.get(idx - 1)).cloned().unwrap_or_else(Obstacle::far_behind);
 
                     let next_obstacle_acceleration = intelligent_acceleration(car, &next_obstacle)
                         .min(intelligent_acceleration(car, &next_interaction_obstacle));
@@ -316,7 +315,9 @@ impl Recipient<Tick> for TransferLane {
                     car.transfer_acceleration = if car.transfer_position >= 0.0 {0.3} else {-0.3}
                 }
                 // smooth out arrival on other lane
-                if car.transfer_velocity.abs() > 0.1 && car.transfer_position.abs() > 0.5 && car.transfer_position.signum() == car.transfer_velocity.signum() {
+                #[allow(float_cmp)]
+                let arriving_soon = car.transfer_velocity.abs() > 0.1 && car.transfer_position.abs() > 0.5 && car.transfer_position.signum() == car.transfer_velocity.signum();
+                if arriving_soon {
                     car.transfer_acceleration = -0.9 * car.transfer_velocity;
                 }
             }

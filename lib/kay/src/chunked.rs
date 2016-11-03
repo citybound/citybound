@@ -284,15 +284,13 @@ impl <Item: Clone> ChunkedVec<Item> {
 
     pub fn at(&self, index: usize) -> &Item {
         unsafe {
-            let item_ptr : &Item = transmute(self.arena.at(index));
-            return item_ptr;
+            &*(self.arena.at(index) as *const Item)
         }
     }
 
     pub fn at_mut(&mut self, index: usize) -> &mut Item {
         unsafe {
-            let item_ptr : &mut Item = transmute(self.arena.at(index));
-            return item_ptr;
+            &mut *(self.arena.at(index) as *mut Item)
         }
     }
 
@@ -427,8 +425,8 @@ impl<B: SizedChunkedCollection> MultiSized<B> {
 
     pub fn size_to_index(&self, size: usize) -> usize {
         // TODO: the log two part can probably optimized crazily: http://stackoverflow.com/a/11398748
-        //       |----------- rounding up int div -----------|
-        return (((size + self.base_size - 1) / self.base_size).next_power_of_two() as f32).log2() as usize;
+        //|----------- rounding up int div -----------|
+        (((size + self.base_size - 1) / self.base_size).next_power_of_two() as f32).log2() as usize
     }
 
     pub fn sized_for_mut(&mut self, size: usize) -> &mut B {

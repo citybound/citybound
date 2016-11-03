@@ -6,6 +6,8 @@ pub struct CompactDict <K, V, A: Allocator = DefaultHeap> {
     pub pairs: CompactVec<(K, V), A>
 }
 
+type KeysIter<'a, K, V> = ::std::iter::Map<::std::slice::Iter<'a, (K, V)>, fn(&(K, V)) -> K >;
+
 impl <K: Eq + Copy, V: Copy, A: Allocator> CompactDict<K, V, A> {
     pub fn new() -> Self {
         CompactDict{
@@ -15,7 +17,7 @@ impl <K: Eq + Copy, V: Copy, A: Allocator> CompactDict<K, V, A> {
 
     pub fn get(&self, query: K) -> Option<&V> {
         for &(ref key, ref value) in self.pairs.iter() {
-            if query == *key {return Some(&value)};
+            if query == *key {return Some(value)};
         }
         None
     }
@@ -24,7 +26,7 @@ impl <K: Eq + Copy, V: Copy, A: Allocator> CompactDict<K, V, A> {
     pub fn insert(&mut self, query: K, new_value: V) -> Option<V> {
         for &mut (ref mut key, ref mut value) in &mut self.pairs.iter_mut() {
             if query == *key {
-                let old_val = value.clone();
+                let old_val = *value;
                 *value = new_value;
                 return Some(old_val);
             };
@@ -35,8 +37,8 @@ impl <K: Eq + Copy, V: Copy, A: Allocator> CompactDict<K, V, A> {
 
     fn get_key(pair: &(K, V)) -> K {pair.0}
 
-    pub fn keys<'a>(&'a self) -> ::std::iter::Map<::std::slice::Iter<'a, (K, V)>, fn(&(K, V)) -> K > {
-        return self.pairs.iter().map(Self::get_key);
+    pub fn keys(&self) -> KeysIter<K, V> {
+        self.pairs.iter().map(Self::get_key)
     }
 }
 

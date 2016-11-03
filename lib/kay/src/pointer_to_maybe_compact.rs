@@ -50,8 +50,7 @@ impl<T> PointerToMaybeCompact <T> {
     pub fn is_compact(&self) -> bool {
         match self.inner {
             Inner::Free(_) => false,
-            Inner::Compact(_) => true,
-            Inner::Uninitialized => true
+            Inner::Compact(_) | Inner::Uninitialized => true
         }
     }
 }

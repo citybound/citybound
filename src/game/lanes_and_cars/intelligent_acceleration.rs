@@ -19,11 +19,9 @@ pub fn intelligent_acceleration(car: &Obstacle, obstacle: &Obstacle) -> f32 {
 	let s_star = minimum_spacing + 0.0f32.max(car.velocity * safe_time_headway
 		+ (car.velocity * velocity_difference / (2.0 * (acceleration * COMFORTABLE_BREAKING_DECELERATION).sqrt())));
 
-    let result_acceleration = (-max_deceleration).max(acceleration * (
+    (-max_deceleration).max(acceleration * (
 		1.0
 		- (car.velocity / desired_velocity).powf(acceleration_exponent)
 		- (s_star / net_distance).powf(2.0)
-	));
-
-	result_acceleration
+	))
 }

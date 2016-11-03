@@ -12,7 +12,7 @@ pub struct Intersection {
 
 impl Intersection {
 	fn swapped(self) -> Intersection {
-		return Intersection{
+		Intersection{
 			along_a: self.along_b,
 			along_b: self.along_a,
 			position: self.position
@@ -28,7 +28,7 @@ pub trait Intersect {
 
 impl<'a> Intersect for (&'a Line, &'a Line) {
     fn intersect(&self) -> IntersectionList {
-        let (ref a, ref b) = *self;
+        let (a, b) = *self;
         let mut intersection_list = SmallVec::new();
 
         let det = b.direction.x * a.direction.y - b.direction.y * a.direction.x;
@@ -43,13 +43,13 @@ impl<'a> Intersect for (&'a Line, &'a Line) {
             });
         };
 
-        return intersection_list;
+        intersection_list
     }
 }
 
 impl<'a> Intersect for (&'a Circle, &'a Line) {
     fn intersect(&self) -> IntersectionList {
-        let (ref c, ref l) = *self;
+        let (c, l) = *self;
         let mut intersection_list = SmallVec::new();
 
         let delta = l.start - c.center;
@@ -81,11 +81,12 @@ impl<'a> Intersect for (&'a Circle, &'a Line) {
             };
         }
 
-        return intersection_list;
+        intersection_list
     }
 }
 
 impl<'a> Intersect for (&'a Line, &'a Circle) {
+    #[allow(needless_return)]
     fn intersect(&self) -> IntersectionList {
         let (l, c) = *self;
         let mut intersection_list = (c, l).intersect();

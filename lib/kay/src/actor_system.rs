@@ -77,18 +77,18 @@ impl InboxMap {
 
     fn add_new<M: Message>(&mut self, pointer: *mut Inbox<M>) {
         let message_type_id = unsafe{type_id::<M>()};
-        assert!(self.entries.iter().find(|entry| {
+        let entry_is_for_id = |entry: &&Option<(u64, *mut u8)>| {
             entry.is_some() && entry.unwrap().0 == message_type_id
-        }).is_none());
+        };
+        assert!(self.entries.iter().find(entry_is_for_id).is_none());
         self.entries[self.length] = Some((message_type_id, pointer as *mut u8));
         self.length += 1;
     }
 
     fn get<M: Message>(&self) -> Option<*mut Inbox<M>> {
         let message_type_id = unsafe{type_id::<M>()};
-        for entry in &self.entries {match entry {
-            &Some((id, pointer)) => {if id == message_type_id {return Some(pointer as *mut Inbox<M>)}},
-            &None => {}
+        for entry in &self.entries {if let Some((id, pointer)) = *entry {
+            if id == message_type_id {return Some(pointer as *mut Inbox<M>)}
         }}
         None
     }
@@ -141,7 +141,7 @@ impl ActorSystem {
         self.update_callbacks.push(Box::new(move || {
             unsafe {
                 for packet in (*inbox_ptr).empty() {
-                    let ref mut swarm = *(swarm_ptr);
+                    let swarm = &mut *(swarm_ptr);
                     let world = &mut World{system: self_ptr};
                     swarm.react_to(&packet.message, world, packet.recipient_id);
                 }
@@ -254,6 +254,12 @@ impl ActorSystem {
         World{
             system: self
         }
+    }
+}
+
+impl Default for ActorSystem {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -10,8 +10,8 @@ pub struct Simulation{
 impl Individual for Simulation {}
 
 impl Recipient<Tick> for Simulation {
-    fn react_to(&mut self, msg: &Tick, world: &mut World, _self_id: ID) {match msg{
-        &Tick{dt} => {
+    fn react_to(&mut self, msg: &Tick, world: &mut World, _self_id: ID) {match *msg{
+        Tick{dt} => {
             for simulatable in &self.simulatables {
                 world.send(*simulatable, Tick{dt: dt});
             }

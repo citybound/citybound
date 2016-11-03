@@ -8,16 +8,16 @@ use super::{Lane, TransferLane, InteractionKind};
 mod car;
 
 impl RecipientAsSwarm<SetupInScene> for Lane {
-    fn react_to(_swarm: &mut Swarm<Lane>, msg: &SetupInScene, world: &mut World, _self_id: ID) {match msg {
-        &SetupInScene{renderer_id, scene_id} => {
+    fn react_to(_swarm: &mut Swarm<Lane>, msg: &SetupInScene, world: &mut World, _self_id: ID) {match *msg {
+        SetupInScene{renderer_id, scene_id} => {
             world.send(renderer_id, AddBatch::new(scene_id, 0, car::create()));
         }
     }}
 }
 
 impl Recipient<RenderToScene> for Lane {
-    fn react_to(&mut self, msg: &RenderToScene, world: &mut World, self_id: ID) {match msg {
-        &RenderToScene{renderer_id, scene_id} => {
+    fn react_to(&mut self, msg: &RenderToScene, world: &mut World, self_id: ID) {match *msg {
+        RenderToScene{renderer_id, scene_id} => {
             for car in &self.cars {
                 let position2d = self.path.along(*car.position);
                 let direction = self.path.direction_along(*car.position);
@@ -53,16 +53,16 @@ impl Recipient<RenderToScene> for Lane {
 }
 
 impl RecipientAsSwarm<SetupInScene> for TransferLane {
-    fn react_to(_swarm: &mut Swarm<TransferLane>, msg: &SetupInScene, world: &mut World, _self_id: ID) {match msg{
-        &SetupInScene{renderer_id, scene_id} => {
+    fn react_to(_swarm: &mut Swarm<TransferLane>, msg: &SetupInScene, world: &mut World, _self_id: ID) {match *msg{
+        SetupInScene{renderer_id, scene_id} => {
             world.send(renderer_id, AddBatch::new(scene_id, 1, car::create()));
         }
     }}
 }
 
 impl Recipient<RenderToScene> for TransferLane {
-    fn react_to(&mut self, msg: &RenderToScene, world: &mut World, self_id: ID) {match msg{
-        &RenderToScene{renderer_id, scene_id} => {
+    fn react_to(&mut self, msg: &RenderToScene, world: &mut World, self_id: ID) {match *msg{
+        RenderToScene{renderer_id, scene_id} => {
             for car in &self.cars {
                 let position2d = self.path.along(*car.position);
                 let direction = self.path.direction_along(*car.position);

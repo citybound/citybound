@@ -1,3 +1,5 @@
+#![feature(plugin)]
+#![plugin(clippy)]
 #![feature(core_intrinsics)]
 #![allow(dead_code)]
 mod pointer_to_maybe_compact;

@@ -4,7 +4,6 @@ use super::slot_map::{SlotIndices, SlotMap};
 use super::messaging::{Actor, Recipient, Message};
 use super::actor_system::{LivingActor, ID, World};
 use ::std::marker::PhantomData;
-use ::std::mem::transmute;
 
 pub struct Swarm<Actor> {
     actors: MultiSized<SizedChunkedArena>,
@@ -48,24 +47,24 @@ impl<A: Actor> Swarm<A> {
     pub fn add(&mut self, actor: &LivingActor<A>) {
         let size = actor.total_size_bytes();
         let collection_index = self.actors.size_to_index(size);
-        let ref mut collection = self.actors.sized_for_mut(size);
+        let collection = &mut self.actors.sized_for_mut(size);
         let (ptr, index) = collection.push();
 
         self.slot_map.associate(actor.id.instance_id as usize, SlotIndices::new(collection_index, index));
         assert!(self.slot_map.indices_of(actor.id.instance_id as usize).collection()== collection_index);
 
         unsafe {
-            let actor_in_slot : &mut LivingActor<A> = transmute(ptr);
-            actor_in_slot.compact_behind_from(&actor);
+            let actor_in_slot = &mut *(ptr as *mut LivingActor<A>);
+            actor_in_slot.compact_behind_from(actor);
         }
     }
 
     fn swap_remove(&mut self, indices: SlotIndices) -> bool {
         unsafe {
-            let ref mut collection = self.actors.collections[indices.collection()];
+            let collection = &mut self.actors.collections[indices.collection()];
             match collection.swap_remove(indices.slot()) {
                 Some(ptr) => {
-                    let swapped_actor : &LivingActor<A> = transmute(ptr);
+                    let swapped_actor = &*(ptr as *mut LivingActor<A>);
                     self.slot_map.associate(swapped_actor.id.instance_id as usize, indices);
                     true
                 },
@@ -112,18 +111,17 @@ impl<A: Actor> Swarm<A> {
         //    - actors that were created during one of the broadcast react_to handlers, that shouldn't react_to this broadcast
         // the only assumption is that no actors are immediately completely deleted
 
-        let react_tors_todo_per_collection : Vec<usize> = {
+        let recipients_todo_per_collection : Vec<usize> = {
             self.actors.collections.iter().map(|collection| {collection.len()}).collect()
         };
 
         let n_collections = self.actors.collections.len();
 
-        for c in 0..n_collections {
+        for (c, recipients_todo) in recipients_todo_per_collection.iter().enumerate().take(n_collections) {
             let mut slot = 0;
-            let react_tors_todo = react_tors_todo_per_collection[c];
-            let mut index_after_last_react_tor = react_tors_todo;
+            let mut index_after_last_recipient = *recipients_todo;
 
-            for _ in 0..react_tors_todo {
+            for _ in 0..*recipients_todo {
                 let index = SlotIndices::new(c, slot);
                 let is_still_compact = {
                     let actor = self.at_index_mut(index);
@@ -137,9 +135,9 @@ impl<A: Actor> Swarm<A> {
                 } else {
                     self.resize_at_index(index);
                     // this should also work in the case where the "resized" actor itself is added to the same collection again
-                    let swapped_in_another_react_tor = self.actors.collections[c].len() < index_after_last_react_tor;
+                    let swapped_in_another_react_tor = self.actors.collections[c].len() < index_after_last_recipient;
                     if swapped_in_another_react_tor {
-                        index_after_last_react_tor -= 1;
+                        index_after_last_recipient -= 1;
                         true
                     } else {
                         false
