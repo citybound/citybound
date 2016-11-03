@@ -4,7 +4,6 @@ use self::intelligent_acceleration::{intelligent_acceleration, COMFORTABLE_BREAK
 use core::geometry::CPath;
 use kay::{ID, CVec, Recipient, World, ActorSystem};
 use descartes::{FiniteCurve, Path, Segment, P2, V2};
-use core::simulation::Tick;
 use ordered_float::OrderedFloat;
 use itertools::Itertools;
 use ::std::f32::INFINITY;
@@ -45,80 +44,32 @@ impl Lane {
     } 
 }
 
-#[derive(Copy, Clone)]
-pub struct Obstacle {
-    position: OrderedFloat<f32>,
-    velocity: f32,
-    max_velocity: f32
+#[derive(Compact)]
+pub struct TransferLane {
+    length: f32,
+    path: CPath,
+    left: ID,
+    left_start: f32,
+    right: ID,
+    right_start: f32,
+    interaction_obstacles: CVec<Obstacle>,
+    cars: CVec<TransferringLaneCar>
 }
 
-impl Obstacle {
-    fn far_ahead() -> Obstacle {Obstacle{position: OrderedFloat(INFINITY), velocity: INFINITY, max_velocity: INFINITY}}
-    fn far_behind() -> Obstacle {Obstacle{position: OrderedFloat(-INFINITY), velocity: 0.0, max_velocity: 20.0}}
-    fn offset_by(&self, delta: f32) -> Obstacle {
-        Obstacle{
-            position: OrderedFloat(*self.position + delta),
-            .. *self
-        }
-    } 
-}
-
-#[derive(Copy, Clone)]
-pub struct LaneCar {
-    trip: ID,
-    as_obstacle: Obstacle,
-    acceleration: f32
-}
-
-impl LaneCar {
-    fn offset_by(&self, delta: f32) -> LaneCar {
-        LaneCar{
-            as_obstacle: self.as_obstacle.offset_by(delta),
-            .. *self
+impl TransferLane {
+    fn new(path: CPath, left: ID, left_start: f32, right: ID, right_start: f32) -> TransferLane {
+        TransferLane{
+            length: path.length(),
+            path: path,
+            left: left,
+            left_start: left_start,
+            right: right,
+            right_start: right_start,
+            interaction_obstacles: CVec::new(),
+            cars: CVec::new()
         }
     }
 }
-
-impl Deref for LaneCar {
-    type Target = Obstacle;
-
-    fn deref(&self) -> &Obstacle {&self.as_obstacle}
-}
-
-impl DerefMut for LaneCar {
-    fn deref_mut(&mut self) -> &mut Obstacle {&mut self.as_obstacle}
-}
-
-#[derive(Copy, Clone)]
-struct Interaction {
-    partner_lane: ID,
-    kind: InteractionKind
-}
-
-#[derive(Copy, Clone)]
-enum InteractionKind{
-    Overlap{
-        start: f32,
-        end: f32,
-        partner_start: f32,
-        partner_end: f32,
-        kind: OverlapKind
-    },
-    Next{
-        partner_start: f32
-    },
-    Previous{
-        start: f32,
-        partner_length: f32
-    }
-}
-use self::InteractionKind::{Overlap, Next, Previous};
-
-#[derive(Copy, Clone)]
-enum OverlapKind{Parallel, Conflicting}
-use self::OverlapKind::{Parallel, Conflicting};
-
-// MESSAGES
 
 #[derive(Copy, Clone)]
 enum Add{
@@ -138,6 +89,26 @@ impl Recipient<Add> for Lane {
         }
     }}
 }
+
+impl Recipient<Add> for TransferLane {
+    fn receive(&mut self, msg: &Add) {match *msg{
+        Add::Car(car) => {
+            self.cars.push(TransferringLaneCar{
+                as_lane_car: car,
+                transfer_position: -1.0,
+                transfer_velocity: 0.0,
+                transfer_acceleration: 0.1
+            });
+            // TODO: optimize using BinaryHeap?
+            self.cars.sort_by_key(|car| car.as_obstacle.position);  
+        },
+        Add::InteractionObstacle(obstacle) => {
+            self.interaction_obstacles.push(obstacle);
+        },
+    }}
+}
+
+use core::simulation::Tick;
 
 impl Recipient<Tick> for Lane {
     fn react_to(&mut self, msg: &Tick, world: &mut World, _self_id: ID) {match *msg{
@@ -200,73 +171,6 @@ impl Recipient<Tick> for Lane {
 
             self.interaction_obstacles.clear();
         }
-    }}
-}
-
-#[derive(Compact)]
-pub struct TransferLane {
-    length: f32,
-    path: CPath,
-    left: ID,
-    left_start: f32,
-    right: ID,
-    right_start: f32,
-    interaction_obstacles: CVec<Obstacle>,
-    cars: CVec<TransferringLaneCar>
-}
-
-impl TransferLane {
-    fn new(path: CPath, left: ID, left_start: f32, right: ID, right_start: f32) -> TransferLane {
-        TransferLane{
-            length: path.length(),
-            path: path,
-            left: left,
-            left_start: left_start,
-            right: right,
-            right_start: right_start,
-            interaction_obstacles: CVec::new(),
-            cars: CVec::new()
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-struct TransferringLaneCar {
-    as_lane_car: LaneCar,
-    transfer_position: f32,
-    transfer_velocity: f32,
-    transfer_acceleration: f32
-}
-
-impl Deref for TransferringLaneCar {
-    type Target = LaneCar;
-
-    fn deref(&self) -> &LaneCar {
-        &self.as_lane_car
-    }
-}
-
-impl DerefMut for TransferringLaneCar {
-    fn deref_mut(&mut self) -> &mut LaneCar {
-        &mut self.as_lane_car
-    }
-}
-
-impl Recipient<Add> for TransferLane {
-    fn receive(&mut self, msg: &Add) {match *msg{
-        Add::Car(car) => {
-            self.cars.push(TransferringLaneCar{
-                as_lane_car: car,
-                transfer_position: -1.0,
-                transfer_velocity: 0.0,
-                transfer_acceleration: 0.1
-            });
-            // TODO: optimize using BinaryHeap?
-            self.cars.sort_by_key(|car| car.as_obstacle.position);  
-        },
-        Add::InteractionObstacle(obstacle) => {
-            self.interaction_obstacles.push(obstacle);
-        },
     }}
 }
 
@@ -377,6 +281,101 @@ pub fn setup(system: &mut ActorSystem) {
 
     setup_scenario(system);
 }
+
+#[derive(Copy, Clone)]
+pub struct Obstacle {
+    position: OrderedFloat<f32>,
+    velocity: f32,
+    max_velocity: f32
+}
+
+impl Obstacle {
+    fn far_ahead() -> Obstacle {Obstacle{position: OrderedFloat(INFINITY), velocity: INFINITY, max_velocity: INFINITY}}
+    fn far_behind() -> Obstacle {Obstacle{position: OrderedFloat(-INFINITY), velocity: 0.0, max_velocity: 20.0}}
+    fn offset_by(&self, delta: f32) -> Obstacle {
+        Obstacle{
+            position: OrderedFloat(*self.position + delta),
+            .. *self
+        }
+    } 
+}
+
+#[derive(Copy, Clone)]
+pub struct LaneCar {
+    trip: ID,
+    as_obstacle: Obstacle,
+    acceleration: f32
+}
+
+impl LaneCar {
+    fn offset_by(&self, delta: f32) -> LaneCar {
+        LaneCar{
+            as_obstacle: self.as_obstacle.offset_by(delta),
+            .. *self
+        }
+    }
+}
+
+impl Deref for LaneCar {
+    type Target = Obstacle;
+
+    fn deref(&self) -> &Obstacle {&self.as_obstacle}
+}
+
+impl DerefMut for LaneCar {
+    fn deref_mut(&mut self) -> &mut Obstacle {&mut self.as_obstacle}
+}
+
+#[derive(Copy, Clone)]
+struct TransferringLaneCar {
+    as_lane_car: LaneCar,
+    transfer_position: f32,
+    transfer_velocity: f32,
+    transfer_acceleration: f32
+}
+
+impl Deref for TransferringLaneCar {
+    type Target = LaneCar;
+
+    fn deref(&self) -> &LaneCar {
+        &self.as_lane_car
+    }
+}
+
+impl DerefMut for TransferringLaneCar {
+    fn deref_mut(&mut self) -> &mut LaneCar {
+        &mut self.as_lane_car
+    }
+}
+
+#[derive(Copy, Clone)]
+struct Interaction {
+    partner_lane: ID,
+    kind: InteractionKind
+}
+
+#[derive(Copy, Clone)]
+enum InteractionKind{
+    Overlap{
+        start: f32,
+        end: f32,
+        partner_start: f32,
+        partner_end: f32,
+        kind: OverlapKind
+    },
+    Next{
+        partner_start: f32
+    },
+    Previous{
+        start: f32,
+        partner_length: f32
+    }
+}
+use self::InteractionKind::{Overlap, Next, Previous};
+
+#[derive(Copy, Clone)]
+enum OverlapKind{Parallel, Conflicting}
+use self::OverlapKind::{Parallel, Conflicting};
 
 fn setup_scenario(system: &mut ActorSystem) {
     let mut world = system.world();

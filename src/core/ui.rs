@@ -1,8 +1,7 @@
 use ::monet::glium::{DisplayBuild, glutin};
 use kay::{ActorSystem, World, ID, Individual, Recipient};
 use descartes::{N, P2, P3, V3};
-use ::monet::{Renderer, Scene, GlutinFacade, MoveEye, Project2dTo3d, Projected3d, Thing,
-    Vertex, SetupInScene, RenderToScene, AddBatch, AddInstance, Instance};
+use ::monet::{Renderer, Scene, GlutinFacade, MoveEye, Thing, Vertex, Instance};
 use ::monet::glium::glutin::{Event, MouseScrollDelta};
 
 pub struct UserInterface {
@@ -27,6 +26,8 @@ impl UserInterface{
 #[derive(Copy, Clone)]
 struct MouseMoved(P2);
 
+use ::monet::Project2dTo3d;
+
 impl Recipient<MouseMoved> for UserInterface {
     fn react_to(&mut self, msg: &MouseMoved, world: &mut World, self_id: ID) {match *msg{
         MouseMoved(position) => {
@@ -41,6 +42,8 @@ impl Recipient<MouseMoved> for UserInterface {
     }}
 }
 
+use ::monet::Projected3d;
+
 impl Recipient<Projected3d> for UserInterface {
     fn receive(&mut self, msg: &Projected3d) {match *msg{
         Projected3d{position_3d} => {
@@ -50,24 +53,34 @@ impl Recipient<Projected3d> for UserInterface {
     }}
 }
 
+use ::monet::SetupInScene;
+use ::monet::AddBatch;
+
 impl Recipient<SetupInScene> for UserInterface {
     fn react_to(&mut self, msg: &SetupInScene, world: &mut World, _self_id: ID) {match *msg{
         SetupInScene{renderer_id, scene_id} => {
-            world.send(renderer_id, AddBatch::new(scene_id, 42, Thing::new(
-                vec![
-                    Vertex{position: [-5.0, -5.0, 0.0]},
-                    Vertex{position: [5.0, -5.0, 0.0]},
-                    Vertex{position: [5.0, 5.0, 0.0]},
-                    Vertex{position: [-5.0, 5.0, 0.0]},
-                ],
-                vec![
-                    0, 1, 2,
-                    2, 3, 0
-                ]
-            )));
+            world.send(renderer_id, AddBatch{
+                scene_id: scene_id,
+                batch_id: 42, thing:
+                Thing::new(
+                    vec![
+                        Vertex{position: [-5.0, -5.0, 0.0]},
+                        Vertex{position: [5.0, -5.0, 0.0]},
+                        Vertex{position: [5.0, 5.0, 0.0]},
+                        Vertex{position: [-5.0, 5.0, 0.0]},
+                    ],
+                    vec![
+                        0, 1, 2,
+                        2, 3, 0
+                    ]
+                )
+            });
         }
     }}
 }
+
+use ::monet::RenderToScene;
+use ::monet::AddInstance;
 
 impl Recipient<RenderToScene> for UserInterface {
     fn react_to(&mut self, msg: &RenderToScene, world: &mut World, _self_id: ID) {match *msg{

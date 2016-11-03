@@ -16,155 +16,30 @@ use std::collections::HashMap;
 use glium::{index, Surface};
 pub use glium::backend::glutin_backend::GlutinFacade;
 
-#[derive(Copy, Clone)]
-pub struct Vertex {
-    pub position: [f32; 3]
-}
-implement_vertex!(Vertex, position);
-
-#[derive(Copy, Clone)]
-pub struct Instance {
-    pub instance_position: [f32; 3],
-    pub instance_direction: [f32; 2],
-    pub instance_color: [f32; 3]
-}
-implement_vertex!(Instance, instance_position, instance_direction, instance_color);
-
-pub struct Eye {
-    pub position: P3,
-    pub target: P3,
-    pub up: V3,
-    pub field_of_view: f32
-}
-
-#[derive(Compact)]
-pub struct Thing {
-    vertices: CVec<Vertex>,
-    indices: CVec<u16>
-}
-
-impl Thing {
-    pub fn new(vertices: Vec<Vertex>, indices: Vec<u16>) -> Thing {
-        Thing{vertices: vertices.into(), indices: indices.into()}
-    }
-}
-
-impl Clone for Thing {
-    fn clone(&self) -> Thing {
-        Thing {
-            vertices: self.vertices.to_vec().into(),
-            indices: self.indices.to_vec().into()
-        }
-    }
-}
-
-pub struct Batch {
-    prototype: Thing,
-    pub instances: Vec<Instance>
-}
-
-impl Batch {
-    pub fn new(prototype: Thing, instances: Vec<Instance>) -> Batch {
-        Batch{prototype: prototype, instances: instances}
-    }
-}
-
-pub struct Scene {
-    pub eye: Eye,
-    pub batches: HashMap<usize, Batch>,
-    pub things: HashMap<usize, (Thing, Instance)>,
-    pub renderables: Vec<ID>,
-    pub debug_text: String
-}
-
-impl Scene {
-    pub fn new() -> Scene {
-        Scene{
-            eye: Eye{
-                position: P3::new(-5.0, -5.0, 5.0),
-                target: P3::new(0.0, 0.0, 0.0),
-                up: V3::new(0.0, 0.0, 1.0),
-                field_of_view: 0.3 * ::std::f32::consts::PI
-            },
-            batches: HashMap::new(),
-            things: HashMap::new(),
-            renderables: Vec::new(),
-            debug_text: String::new()
-        }
-    }
-}
-
-impl Default for Scene {
-    fn default() -> Self {Self::new()}
-}
-
 pub struct Renderer {
     pub scenes: HashMap<usize, Scene>,
     pub render_context: RenderContext
 }
 
+impl Renderer {
+    pub fn new (window: GlutinFacade) -> Renderer {
+        Renderer {
+            scenes: HashMap::new(),
+            render_context: RenderContext::new(window)
+        }
+    }
+}
+
 impl Individual for Renderer {}
 
 #[derive(Copy, Clone)]
-pub enum Control {
-    Setup,
-    Render,
-    Submit
-}
+pub enum Control {Setup, Render, Submit}
 
 #[derive(Copy, Clone)]
-pub struct SetupInScene {
-    pub renderer_id: ID,
-    pub scene_id: usize
-}
-#[derive(Copy, Clone)]
-pub struct RenderToScene {
-    pub renderer_id: ID,
-    pub scene_id: usize
-}
+pub struct SetupInScene {pub renderer_id: ID, pub scene_id: usize}
 
 #[derive(Copy, Clone)]
-pub struct MoveEye {
-    pub scene_id: usize,
-    pub delta: V3
-}
-
-#[derive(Compact)]
-pub struct AddBatch {scene_id: usize, batch_id: usize, thing: Thing}
-
-impl AddBatch {
-    pub fn new(scene_id: usize, batch_id: usize, thing: Thing) -> AddBatch {
-        AddBatch{scene_id: scene_id, batch_id: batch_id, thing: thing}
-    }
-}
-
-#[derive(Compact)]
-pub struct UpdateThing {scene_id: usize, thing_id: usize, thing: Thing, instance: Instance}
-
-impl UpdateThing {
-    pub fn new(scene_id: usize, thing_id: usize, thing: Thing, instance: Instance) -> UpdateThing {
-        UpdateThing{scene_id: scene_id, thing_id: thing_id, thing: thing, instance: instance}
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct AddInstance {
-    pub scene_id: usize,
-    pub batch_id: usize,
-    pub position: Instance
-}
-
-#[derive(Copy, Clone)]
-pub struct Project2dTo3d {
-    pub scene_id: usize,
-    pub position_2d: P2,
-    pub requester: ID
-}
-
-#[derive(Copy, Clone)]
-pub struct Projected3d{
-    pub position_3d: P3
-}
+pub struct RenderToScene {pub renderer_id: ID, pub scene_id: usize}
 
 impl Recipient<Control> for Renderer {
     fn react_to(&mut self, msg: &Control, world: &mut World, self_id: ID) {match *msg {
@@ -195,29 +70,8 @@ impl Recipient<Control> for Renderer {
     }}
 }
 
-impl Recipient<AddBatch> for Renderer {
-    fn receive(&mut self, msg: &AddBatch) {match *msg {
-        AddBatch{scene_id, batch_id, ref thing} => {
-            self.scenes.get_mut(&scene_id).unwrap().batches.insert(batch_id, Batch::new(thing.clone(), Vec::new()));
-        }
-    }}
-}
-
-impl Recipient<AddInstance> for Renderer {
-    fn receive(&mut self, msg: &AddInstance) {match *msg {
-        AddInstance{scene_id, batch_id, position} => {
-            self.scenes.get_mut(&scene_id).unwrap().batches.get_mut(&batch_id).unwrap().instances.push(position);
-        }
-    }}
-}
-
-impl Recipient<UpdateThing> for Renderer {
-    fn receive(&mut self, msg: &UpdateThing) {match *msg {
-        UpdateThing{scene_id, thing_id, ref thing, instance} => {
-            self.scenes.get_mut(&scene_id).unwrap().things.insert(thing_id, (thing.clone(), instance));
-        }
-    }}
-}
+#[derive(Copy, Clone)]
+pub struct MoveEye {pub scene_id: usize, pub delta: V3}
 
 impl Recipient<MoveEye> for Renderer {
     fn receive(&mut self, msg: &MoveEye) {match *msg{
@@ -232,6 +86,45 @@ impl Recipient<MoveEye> for Renderer {
         }
     }}
 }
+
+#[derive(Compact)]
+pub struct AddBatch {pub scene_id: usize, pub batch_id: usize, pub thing: Thing}
+
+impl Recipient<AddBatch> for Renderer {
+    fn receive(&mut self, msg: &AddBatch) {match *msg {
+        AddBatch{scene_id, batch_id, ref thing} => {
+            self.scenes.get_mut(&scene_id).unwrap().batches.insert(batch_id, Batch::new(thing.clone(), Vec::new()));
+        }
+    }}
+}
+
+#[derive(Compact)]
+pub struct UpdateThing {pub scene_id: usize, pub thing_id: usize, pub thing: Thing, pub instance: Instance}
+
+impl Recipient<UpdateThing> for Renderer {
+    fn receive(&mut self, msg: &UpdateThing) {match *msg {
+        UpdateThing{scene_id, thing_id, ref thing, instance} => {
+            self.scenes.get_mut(&scene_id).unwrap().things.insert(thing_id, (thing.clone(), instance));
+        }
+    }}
+}
+
+#[derive(Copy, Clone)]
+pub struct AddInstance {pub scene_id: usize, pub batch_id: usize, pub position: Instance}
+
+impl Recipient<AddInstance> for Renderer {
+    fn receive(&mut self, msg: &AddInstance) {match *msg {
+        AddInstance{scene_id, batch_id, position} => {
+            self.scenes.get_mut(&scene_id).unwrap().batches.get_mut(&batch_id).unwrap().instances.push(position);
+        }
+    }}
+}
+
+#[derive(Copy, Clone)]
+pub struct Project2dTo3d {pub scene_id: usize, pub position_2d: P2, pub requester: ID}
+
+#[derive(Copy, Clone)]
+pub struct Projected3d{pub position_3d: P3}
 
 impl Recipient<Project2dTo3d> for Renderer {
     fn react_to(&mut self, msg: &Project2dTo3d, world: &mut World, _self_id: ID) {match *msg{
@@ -276,15 +169,6 @@ impl Recipient<Project2dTo3d> for Renderer {
     }}
 }
 
-impl Renderer {
-    pub fn new (window: GlutinFacade) -> Renderer {
-        Renderer {
-            scenes: HashMap::new(),
-            render_context: RenderContext::new(window)
-        }
-    }
-}
-
 pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
     system.add_individual(renderer);
     system.add_individual_inbox::<Control, Renderer>();
@@ -296,6 +180,88 @@ pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
 
     system.world().send_to_individual::<Renderer, _>(Control::Setup);
 }
+
+pub struct Scene {
+    pub eye: Eye,
+    pub batches: HashMap<usize, Batch>,
+    pub things: HashMap<usize, (Thing, Instance)>,
+    pub renderables: Vec<ID>,
+    pub debug_text: String
+}
+
+impl Scene {
+    pub fn new() -> Scene {
+        Scene{
+            eye: Eye{
+                position: P3::new(-5.0, -5.0, 5.0),
+                target: P3::new(0.0, 0.0, 0.0),
+                up: V3::new(0.0, 0.0, 1.0),
+                field_of_view: 0.3 * ::std::f32::consts::PI
+            },
+            batches: HashMap::new(),
+            things: HashMap::new(),
+            renderables: Vec::new(),
+            debug_text: String::new()
+        }
+    }
+}
+
+impl Default for Scene {
+    fn default() -> Self {Self::new()}
+}
+
+pub struct Eye {
+    pub position: P3,
+    pub target: P3,
+    pub up: V3,
+    pub field_of_view: f32
+}
+
+#[derive(Compact)]
+pub struct Thing {
+    vertices: CVec<Vertex>,
+    indices: CVec<u16>
+}
+
+impl Thing {
+    pub fn new(vertices: Vec<Vertex>, indices: Vec<u16>) -> Thing {
+        Thing{vertices: vertices.into(), indices: indices.into()}
+    }
+}
+
+impl Clone for Thing {
+    fn clone(&self) -> Thing {
+        Thing {
+            vertices: self.vertices.to_vec().into(),
+            indices: self.indices.to_vec().into()
+        }
+    }
+}
+
+pub struct Batch {
+    prototype: Thing,
+    pub instances: Vec<Instance>
+}
+
+impl Batch {
+    pub fn new(prototype: Thing, instances: Vec<Instance>) -> Batch {
+        Batch{prototype: prototype, instances: instances}
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct Vertex {
+    pub position: [f32; 3]
+}
+implement_vertex!(Vertex, position);
+
+#[derive(Copy, Clone)]
+pub struct Instance {
+    pub instance_position: [f32; 3],
+    pub instance_direction: [f32; 2],
+    pub instance_color: [f32; 3]
+}
+implement_vertex!(Instance, instance_position, instance_direction, instance_color);
 
 pub struct RenderContext {
     pub window: GlutinFacade,

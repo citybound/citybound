@@ -1,19 +1,34 @@
 use descartes::{FiniteCurve, WithUniqueOrthogonal, Norm};
 use kay::{ID, Recipient, RecipientAsSwarm, World, ActorSystem, Swarm};
-use monet::{Instance, RenderToScene, SetupInScene, AddBatch, AddInstance, UpdateThing};
+use monet::{Instance};
 use core::geometry::path_to_band;
 use super::{Lane, TransferLane, InteractionKind};
 
 #[path = "./resources/car.rs"]
 mod car;
 
+use ::monet::SetupInScene;
+use ::monet::AddBatch;
+
 impl RecipientAsSwarm<SetupInScene> for Lane {
     fn react_to(_swarm: &mut Swarm<Lane>, msg: &SetupInScene, world: &mut World, _self_id: ID) {match *msg {
         SetupInScene{renderer_id, scene_id} => {
-            world.send(renderer_id, AddBatch::new(scene_id, 0, car::create()));
+            world.send(renderer_id, AddBatch{scene_id: scene_id, batch_id: 0, thing: car::create()});
         }
     }}
 }
+
+impl RecipientAsSwarm<SetupInScene> for TransferLane {
+    fn react_to(_swarm: &mut Swarm<TransferLane>, msg: &SetupInScene, world: &mut World, _self_id: ID) {match *msg{
+        SetupInScene{renderer_id, scene_id} => {
+            world.send(renderer_id, AddBatch{scene_id: scene_id, batch_id: 1, thing: car::create()});
+        }
+    }}
+}
+
+use ::monet::RenderToScene;
+use ::monet::AddInstance;
+use ::monet::UpdateThing;
 
 impl Recipient<RenderToScene> for Lane {
     fn react_to(&mut self, msg: &RenderToScene, world: &mut World, self_id: ID) {match *msg {
@@ -32,30 +47,32 @@ impl Recipient<RenderToScene> for Lane {
                 });
             }
 
-            world.send(renderer_id, UpdateThing::new(scene_id, self_id.instance_id as usize, path_to_band(&self.path, 3.0, 0.0), Instance{
-                instance_position: [0.0, 0.0, 0.0],
-                instance_direction: [1.0, 0.0],
-                instance_color: [0.7, 0.7, 0.7]
-            }));
-            self.interactions.iter().find(|inter| match inter.kind {
-                InteractionKind::Overlap{start, end, ..} => {
-                    world.send(renderer_id, UpdateThing::new(scene_id, 100 + self_id.instance_id as usize, path_to_band(&self.path.subsection(start, end), 1.0, 0.1), Instance{
+            world.send(renderer_id, UpdateThing{
+                    scene_id: scene_id,
+                    thing_id: self_id.instance_id as usize,
+                    thing: path_to_band(&self.path, 3.0, 0.0),
+                    instance: Instance{
                         instance_position: [0.0, 0.0, 0.0],
                         instance_direction: [1.0, 0.0],
-                        instance_color: [1.0, 0.7, 0.7]
-                    }));
+                        instance_color: [0.7, 0.7, 0.7]
+                    }
+            });
+            self.interactions.iter().find(|inter| match inter.kind {
+                InteractionKind::Overlap{start, end, ..} => {
+                    world.send(renderer_id, UpdateThing{
+                        scene_id: scene_id,
+                        thing_id: 100 + self_id.instance_id as usize,
+                        thing: path_to_band(&self.path.subsection(start, end), 1.0, 0.1),
+                        instance: Instance{
+                            instance_position: [0.0, 0.0, 0.0],
+                            instance_direction: [1.0, 0.0],
+                            instance_color: [1.0, 0.7, 0.7]
+                        }
+                    });
                     true
                 },
                 _ => false
             });
-        }
-    }}
-}
-
-impl RecipientAsSwarm<SetupInScene> for TransferLane {
-    fn react_to(_swarm: &mut Swarm<TransferLane>, msg: &SetupInScene, world: &mut World, _self_id: ID) {match *msg{
-        SetupInScene{renderer_id, scene_id} => {
-            world.send(renderer_id, AddBatch::new(scene_id, 1, car::create()));
         }
     }}
 }
@@ -79,11 +96,16 @@ impl Recipient<RenderToScene> for TransferLane {
                 });
             }
 
-            world.send(renderer_id, UpdateThing::new(scene_id, 200 + self_id.instance_id as usize, path_to_band(&self.path, 3.0, 0.1), Instance{
-                instance_position: [0.0, 0.0, 0.0],
-                instance_direction: [1.0, 0.0],
-                instance_color: [1.0, 1.0, 0.5]
-            }));
+            world.send(renderer_id, UpdateThing{
+                scene_id: scene_id,
+                thing_id: 200 + self_id.instance_id as usize,
+                thing: path_to_band(&self.path, 3.0, 0.1),
+                instance: Instance{
+                    instance_position: [0.0, 0.0, 0.0],
+                    instance_direction: [1.0, 0.0],
+                    instance_color: [1.0, 1.0, 0.5]
+                }
+            });
         }
     }}
 }
