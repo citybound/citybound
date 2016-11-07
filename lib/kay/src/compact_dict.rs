@@ -55,3 +55,11 @@ impl <K: Copy, V: Copy, A: Allocator> Compact for CompactDict<K, V, A> {
         self.pairs.compact_from(&source.pairs, new_dynamic_part);
     }
 }
+
+impl <K: Copy, V: Copy, A: Allocator> Clone for CompactDict<K, V, A> {
+    fn clone(&self) -> Self {
+        CompactDict{
+            pairs: self.pairs.clone()
+        }
+    }
+}

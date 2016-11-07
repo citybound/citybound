@@ -1,8 +1,8 @@
 use super::compact::{Compact};
 use super::chunked::{MemChunker, SizedChunkedArena, MultiSized};
 use super::slot_map::{SlotIndices, SlotMap};
-use super::messaging::{Actor, Recipient, Message};
-use super::actor_system::{LivingActor, ID, World};
+use super::messaging::{Actor, Individual, Recipient, Message, Packet, Fate};
+use super::actor_system::{ID};
 use ::std::marker::PhantomData;
 
 pub struct Swarm<Actor> {
@@ -23,40 +23,39 @@ impl<A: Actor> Swarm<A> {
         }
     }
 
-    pub fn allocate_instance_id(&mut self) -> u32 {
-        self.slot_map.allocate_id() as u32
+    fn allocate_instance_id(&mut self) -> (usize, usize) {
+        self.slot_map.allocate_id()
     }
 
-    fn at_index(&self, index: SlotIndices) -> &LivingActor<A> {
-        unsafe {&*(self.actors.collections[index.collection()].at(index.slot()) as *const LivingActor<A>)}
+    fn at_index(&self, index: SlotIndices) -> &A {
+        unsafe {&*(self.actors.collections[index.collection()].at(index.slot()) as *const A)}
     }
 
-    fn at_index_mut(&mut self, index: SlotIndices) -> &mut LivingActor<A> {
-        unsafe {&mut *(self.actors.collections[index.collection()].at_mut(index.slot()) as *mut LivingActor<A>)}
+    fn at_index_mut(&mut self, index: SlotIndices) -> &mut A {
+        unsafe {&mut *(self.actors.collections[index.collection()].at_mut(index.slot()) as *mut A)}
     }
 
-    pub fn at(&self, id: usize) -> &LivingActor<A> {
-        self.at_index(*self.slot_map.indices_of(id))
-    }
-
-    pub fn at_mut(&mut self, id: usize) -> &mut LivingActor<A> {
+    fn at_mut(&mut self, id: usize) -> &mut A {
         let index = *self.slot_map.indices_of(id);
         self.at_index_mut(index)
     }
 
-    pub fn add(&mut self, actor: &LivingActor<A>) {
-        let size = actor.total_size_bytes();
+    fn add(&mut self, initial_state: &A) -> ID {
+        let id = unsafe{(*super::actor_system::THE_SYSTEM).instance_id::<A>(self.allocate_instance_id())};
+        let size = initial_state.total_size_bytes();
         let collection_index = self.actors.size_to_index(size);
         let collection = &mut self.actors.sized_for_mut(size);
         let (ptr, index) = collection.push();
 
-        self.slot_map.associate(actor.id.instance_id as usize, SlotIndices::new(collection_index, index));
-        assert!(self.slot_map.indices_of(actor.id.instance_id as usize).collection()== collection_index);
+        self.slot_map.associate(id.instance_id as usize, SlotIndices::new(collection_index, index));
+        assert!(self.slot_map.indices_of(id.instance_id as usize).collection() == collection_index);
 
         unsafe {
-            let actor_in_slot = &mut *(ptr as *mut LivingActor<A>);
-            actor_in_slot.compact_behind_from(actor);
+            let actor_in_slot = &mut *(ptr as *mut A);
+            actor_in_slot.compact_behind_from(initial_state);
+            actor_in_slot.set_id(id)
         }
+        id
     }
 
     fn swap_remove(&mut self, indices: SlotIndices) -> bool {
@@ -64,8 +63,8 @@ impl<A: Actor> Swarm<A> {
             let collection = &mut self.actors.collections[indices.collection()];
             match collection.swap_remove(indices.slot()) {
                 Some(ptr) => {
-                    let swapped_actor = &*(ptr as *mut LivingActor<A>);
-                    self.slot_map.associate(swapped_actor.id.instance_id as usize, indices);
+                    let swapped_actor = &*(ptr as *mut A);
+                    self.slot_map.associate(swapped_actor.id().instance_id as usize, indices);
                     true
                 },
                 None => false
@@ -74,41 +73,50 @@ impl<A: Actor> Swarm<A> {
         }
     }
 
-    pub fn remove(&mut self, id: usize) {
-        let i = *self.slot_map.indices_of(id);
-        self.swap_remove(i);
-        self.slot_map.free(id);
+    fn remove(&mut self, id: ID) {
+        let i = *self.slot_map.indices_of(id.instance_id as usize);
+        self.remove_at_index(i, id);
     }
 
-    pub fn resize(&mut self, id: usize) -> bool {
+    fn remove_at_index(&mut self, i: SlotIndices, id: ID) {
+        self.swap_remove(i);
+        self.slot_map.free(id.instance_id as usize, id.version as usize);
+    }
+
+    fn resize(&mut self, id: usize) -> bool {
         let index = *self.slot_map.indices_of(id);
         self.resize_at_index(index)
     }
 
     fn resize_at_index(&mut self, old_i: SlotIndices) -> bool {
-        let old_actor_ptr = self.at_index(old_i) as *const LivingActor<A>;
+        let old_actor_ptr = self.at_index(old_i) as *const A;
         self.add(unsafe{&*old_actor_ptr});
         self.swap_remove(old_i)
     }
 
-    pub fn react_to_instance<M: Message>(&mut self, message: &M, system: &mut World, id: ID) where A: Recipient<M> {
-        let is_still_compact = {
-            let actor = self.at_mut(id.instance_id as usize);
-            actor.react_to(message, system, id);
-            actor.is_still_compact()
+    fn receive_instance<M: Message>(&mut self, packet: &Packet<M>) where A: Recipient<M> {
+        let (fate, is_still_compact) = {
+            let actor = self.at_mut(packet.recipient_id.instance_id as usize);
+            let fate = actor.receive_packet(packet);
+            (fate, actor.is_still_compact())
         };
 
-        if !is_still_compact {
-            self.resize(id.instance_id as usize);
+        match fate {
+            Fate::Live => {
+                if !is_still_compact {
+                    self.resize(packet.recipient_id.instance_id as usize);
+                }
+            },
+            Fate::Die | Fate::Explode(..) => self.remove(packet.recipient_id)
         }
     }
 
-    pub fn react_to_broadcast<M: Message>(&mut self, message: &M, system: &mut World) where A: Recipient<M> {
-        // this function has to deal with the fact that during the iteration, react_tors of the broadcast can be resized
+    fn receive_broadcast<M: Message>(&mut self, packet: &Packet<M>) where A: Recipient<M> {
+        // this function has to deal with the fact that during the iteration, receivers of the broadcast can be resized
         // and thus removed from a collection, swapping in either
-        //    - other react_tors that didn't react_to the broadcast yet
-        //    - resized and added react_tors that alredy react_tod the broadcast
-        //    - actors that were created during one of the broadcast react_to handlers, that shouldn't react_to this broadcast
+        //    - other receivers that didn't receive the broadcast yet
+        //    - resized and added receivers that alredy received the broadcast
+        //    - actors that were created during one of the broadcast receive handlers, that shouldn't receive this broadcast
         // the only assumption is that no actors are immediately completely deleted
 
         let recipients_todo_per_collection : Vec<usize> = {
@@ -123,24 +131,36 @@ impl<A: Actor> Swarm<A> {
 
             for _ in 0..*recipients_todo {
                 let index = SlotIndices::new(c, slot);
-                let is_still_compact = {
+                let (fate, is_still_compact, id) = {
                     let actor = self.at_index_mut(index);
-                    let actor_id = actor.id;
-                    actor.react_to(message, system, actor_id);
-                    actor.is_still_compact()
+                    let fate = actor.receive_packet(packet);
+                    (fate, actor.is_still_compact(), actor.id())
                 };
 
-                let repeat_slot = if is_still_compact {
-                    false
-                } else {
-                    self.resize_at_index(index);
-                    // this should also work in the case where the "resized" actor itself is added to the same collection again
-                    let swapped_in_another_react_tor = self.actors.collections[c].len() < index_after_last_recipient;
-                    if swapped_in_another_react_tor {
-                        index_after_last_recipient -= 1;
-                        true
-                    } else {
-                        false
+                let repeat_slot = match fate {
+                    Fate::Live => if is_still_compact {
+                            false
+                        } else {
+                            self.resize_at_index(index);
+                            // this should also work in the case where the "resized" actor itself is added to the same collection again
+                            let swapped_in_another_receiver = self.actors.collections[c].len() < index_after_last_recipient;
+                            if swapped_in_another_receiver {
+                                index_after_last_recipient -= 1;
+                                true
+                            } else {
+                                false
+                            }
+                        },
+                    Fate::Die | Fate::Explode(..) => {
+                        self.remove_at_index(index, id);
+                        // this should also work in the case where the "resized" actor itself is added to the same collection again
+                        let swapped_in_another_receiver = self.actors.collections[c].len() < index_after_last_recipient;
+                        if swapped_in_another_receiver {
+                            index_after_last_recipient -= 1;
+                            true
+                        } else {
+                            false
+                        }
                     }
                 };
 
@@ -150,34 +170,87 @@ impl<A: Actor> Swarm<A> {
             }
         }
     }
+
+    pub fn all() -> ID where Self: Sized {
+        unsafe{(*super::actor_system::THE_SYSTEM).broadcast_id::<A>()}
+    }
 }
+
+impl <A: Actor> Individual for Swarm<A> {}
 
 pub trait RecipientAsSwarm<M: Message> : Sized {
-    fn react_to(swarm: &mut Swarm<Self>, message: &M, world: &mut World, swarm_id: ID);
+    fn receive_packet(swarm: &mut Swarm<Self>, packet: &Packet<M>) -> Fate {
+        Self::receive(swarm, &packet.message)
+    }
+    fn receive(_swarm: &mut Swarm<Self>, _message: &M) -> Fate {unimplemented!()}
 }
-
-// impl <M: Message, A: Actor + Recipient<M>> Recipient<M> for Swarm<A> {
-//     fn react_to(&mut self, message: &M, world: &mut World, recipient_id: ID) {
-//         if recipient_id.is_broadcast() {
-//             self.react_to_broadcast(message, world);
-//         } else {
-//             self.react_to_instance(message, world, recipient_id);
-//         }
-//     }
-// }
 
 impl <M: Message, A: Actor + RecipientAsSwarm<M>> Recipient<M> for Swarm<A> {
-    fn react_to(&mut self, message: &M, world: &mut World, recipient_id: ID) {
-        A::react_to(self, message, world, recipient_id);
+    fn receive_packet(&mut self, packet: &Packet<M>) -> Fate {
+        A::receive_packet(self, packet)
     }
 }
 
-impl <M: Message, A: Recipient<M> + Actor> RecipientAsSwarm<M> for A {
-    fn react_to(swarm: &mut Swarm<A>, message: &M, world: &mut World, recipient_id: ID) {
-        if recipient_id.is_broadcast() {
-            swarm.react_to_broadcast(message, world);
+impl <M: Message + NotACreateMessage, A: Actor + Recipient<M>> RecipientAsSwarm<M> for A {
+    fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<M>) -> Fate {
+        if packet.recipient_id.is_broadcast() {
+            swarm.receive_broadcast(packet);
         } else {
-            swarm.react_to_instance(message, world, recipient_id);
+            swarm.receive_instance(packet);
         }
+        Fate::Live
     }
+}
+
+#[derive(Clone)]
+pub struct Create<A: Actor>(pub A);
+
+impl<A: Actor> Compact for Create<A> {
+    fn is_still_compact(&self) -> bool {self.0.is_still_compact()}
+    fn dynamic_size_bytes(&self) -> usize {self.0.dynamic_size_bytes()}
+    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
+        self.0.compact_from(&source.0, new_dynamic_part);
+    }
+}
+
+pub trait NotACreateMessage {}
+
+impl NotACreateMessage for .. {}
+
+impl <A: Actor> !NotACreateMessage for Create<A> {}
+impl <A: Actor, M: Message> !NotACreateMessage for CreateWith<A, M> {}
+
+impl <A: Actor> RecipientAsSwarm<Create<A>> for A {
+    fn receive(swarm: &mut Swarm<A>, msg: &Create<A>) -> Fate {match *msg{
+        Create(ref initial_state) => {
+            swarm.add(initial_state);
+            Fate::Live
+        }
+    }}
+}
+
+#[derive(Clone)]
+pub struct CreateWith<A: Actor, M: Message>(pub A, pub M);
+
+impl<A: Actor, M: Message> Compact for CreateWith<A, M> {
+    fn is_still_compact(&self) -> bool {self.0.is_still_compact() && self.1.is_still_compact()}
+    fn dynamic_size_bytes(&self) -> usize {self.0.dynamic_size_bytes() + self.1.dynamic_size_bytes()}
+    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
+        self.0.compact_from(&source.0, new_dynamic_part);
+        self.1.compact_from(&source.1, new_dynamic_part.offset(self.0.dynamic_size_bytes() as isize))
+    }
+}
+
+impl <M: Message, A: Actor + Recipient<M>> RecipientAsSwarm<CreateWith<A, M>> for A {
+    fn receive(swarm: &mut Swarm<A>, msg: &CreateWith<A, M>) -> Fate {match *msg{
+        CreateWith(ref initial_state, ref initial_message) => {
+            let id = swarm.add(initial_state);
+            let initial_packet = Packet{
+                recipient_id: id,
+                message: (*initial_message).clone()
+            };
+            swarm.receive_instance(&initial_packet);
+            Fate::Live
+        }
+    }}
 }

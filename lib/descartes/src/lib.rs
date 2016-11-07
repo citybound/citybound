@@ -24,9 +24,11 @@ const ROUGH_TOLERANCE: N = 0.0000001;
 mod primitives;
 mod path;
 mod intersect;
+mod shapes;
 
 pub use self::primitives::*;
 pub use self::path::{Path};
+pub use self::shapes::*;
 
 fn angle_to(a: V2, b: V2) -> N {
     let theta: N = a.dot(&b) / (a.norm() * b.norm());
@@ -104,7 +106,9 @@ impl RoughlyComparable for N {
 
 pub trait Curve {
     fn project(&self, point: P2) -> Option<N>;
-    fn includes(&self, point: P2) -> bool;
+    fn includes(&self, point: P2) -> bool {
+        self.distance_to(point) < THICKNESS/2.0
+    }
     fn distance_to(&self, point: P2) -> N;
 }
 
@@ -119,4 +123,8 @@ pub trait FiniteCurve : Curve {
         self.direction_along(self.length())
     }
     fn subsection(&self, start: N, end: N) -> Self;
+}
+
+pub trait Shape {
+    fn contains(&self, point: P2) -> bool;
 }

@@ -32,22 +32,22 @@ impl SlotIndices {
 
 pub struct SlotMap {
     entries: ChunkedVec<SlotIndices>,
-    free_ids: ChunkedVec<usize>
+    free_ids_with_versions: ChunkedVec<(usize, usize)>
 }
 
 impl SlotMap {
     pub fn new(chunker: Box<Chunker>) -> Self {
         SlotMap {
             entries: ChunkedVec::new(chunker.child("_entries")),
-            free_ids: ChunkedVec::new(chunker.child("_free_ids"))
+            free_ids_with_versions: ChunkedVec::new(chunker.child("_free_ids_with_versions"))
         }
     }
 
-    pub fn allocate_id(&mut self) -> usize {
-        match self.free_ids.pop() {
+    pub fn allocate_id(&mut self) -> (usize, usize) {
+        match self.free_ids_with_versions.pop() {
             None => {
                 self.entries.push(SlotIndices::invalid());
-                self.entries.len() - 1
+                (self.entries.len() - 1, 0)
             },
             Some(free_id) => free_id
         }
@@ -62,7 +62,7 @@ impl SlotMap {
         self.entries.at(id)
     }
 
-    pub fn free(&mut self, id: usize) {
-        self.free_ids.push(id);
+    pub fn free(&mut self, id: usize, version: usize) {
+        self.free_ids_with_versions.push((id, version + 1));
     }
 }

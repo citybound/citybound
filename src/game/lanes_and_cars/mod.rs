@@ -1,16 +1,18 @@
 pub mod ui;
+pub mod planning;
 mod intelligent_acceleration;
 use self::intelligent_acceleration::{intelligent_acceleration, COMFORTABLE_BREAKING_DECELERATION};
 use core::geometry::CPath;
-use kay::{ID, CVec, Recipient, World, ActorSystem};
-use descartes::{FiniteCurve, Path, Segment, P2, V2};
+use kay::{ID, CVec, Swarm, Recipient, ActorSystem, Fate};
+use descartes::{FiniteCurve};
 use ordered_float::OrderedFloat;
 use itertools::Itertools;
 use ::std::f32::INFINITY;
 use ::std::ops::{Deref, DerefMut};
 
-#[derive(Compact)]
+#[derive(Compact, Actor, Clone)]
 pub struct Lane {
+    _id: ID,
     length: f32,
     path: CPath,
     interactions: CVec<Interaction>,
@@ -21,6 +23,7 @@ pub struct Lane {
 impl Lane {
     fn new(path: CPath) -> Self {
         Lane {
+            _id: ID::invalid(),
             length: path.length(),
             path: path,
             interactions: CVec::new(),
@@ -44,8 +47,9 @@ impl Lane {
     } 
 }
 
-#[derive(Compact)]
+#[derive(Compact, Actor, Clone)]
 pub struct TransferLane {
+    _id: ID,
     length: f32,
     path: CPath,
     left: ID,
@@ -59,6 +63,7 @@ pub struct TransferLane {
 impl TransferLane {
     fn new(path: CPath, left: ID, left_start: f32, right: ID, right_start: f32) -> TransferLane {
         TransferLane{
+            _id: ID::invalid(),
             length: path.length(),
             path: path,
             left: left,
@@ -78,20 +83,22 @@ enum Add{
 }
 
 impl Recipient<Add> for Lane {
-    fn receive(&mut self, msg: &Add) {match *msg{
+    fn receive(&mut self, msg: &Add) -> Fate {match *msg{
         Add::Car(car) => {
             // TODO: optimize using BinaryHeap?
             self.cars.push(car);
             self.cars.sort_by_key(|car| car.as_obstacle.position);
+            Fate::Live
         },
         Add::InteractionObstacle(obstacle) => {
             self.interaction_obstacles.push(obstacle);
+            Fate::Live
         }
     }}
 }
 
 impl Recipient<Add> for TransferLane {
-    fn receive(&mut self, msg: &Add) {match *msg{
+    fn receive(&mut self, msg: &Add) -> Fate {match *msg{
         Add::Car(car) => {
             self.cars.push(TransferringLaneCar{
                 as_lane_car: car,
@@ -100,10 +107,12 @@ impl Recipient<Add> for TransferLane {
                 transfer_acceleration: 0.1
             });
             // TODO: optimize using BinaryHeap?
-            self.cars.sort_by_key(|car| car.as_obstacle.position);  
+            self.cars.sort_by_key(|car| car.as_obstacle.position);
+            Fate::Live
         },
         Add::InteractionObstacle(obstacle) => {
             self.interaction_obstacles.push(obstacle);
+            Fate::Live
         },
     }}
 }
@@ -111,7 +120,7 @@ impl Recipient<Add> for TransferLane {
 use core::simulation::Tick;
 
 impl Recipient<Tick> for Lane {
-    fn react_to(&mut self, msg: &Tick, world: &mut World, _self_id: ID) {match *msg{
+    fn receive(&mut self, msg: &Tick) -> Fate {match *msg{
         Tick{dt} => {
             // TODO: optimize using BinaryHeap?
             self.interaction_obstacles.sort_by_key(|obstacle| obstacle.position);
@@ -137,7 +146,7 @@ impl Recipient<Tick> for Lane {
             loop {
                 let should_pop = self.cars.iter().rev().find(|car| *car.position > self.length).map(|car_over_end| {
                     if let Some(next_overlap) = self.interactions.iter().find(|overlap| match overlap.kind {Next{..} => true, _ => false}) {
-                        world.send(next_overlap.partner_lane, Add::Car(car_over_end.offset_by(-self.length)));
+                        next_overlap.partner_lane << Add::Car(car_over_end.offset_by(-self.length));
                     };
                     car_over_end
                 }).is_some();
@@ -146,7 +155,7 @@ impl Recipient<Tick> for Lane {
 
             for interaction in self.interactions.iter() {
                 let mut cars = self.cars.iter();
-                let mut send_obstacle = |obstacle: Obstacle| world.send(interaction.partner_lane, Add::InteractionObstacle(obstacle));
+                let send_obstacle = |obstacle: Obstacle| interaction.partner_lane << Add::InteractionObstacle(obstacle);
                 
                 match interaction.kind {
                     Overlap{start, end, partner_start, kind, ..} => {
@@ -170,12 +179,13 @@ impl Recipient<Tick> for Lane {
             }
 
             self.interaction_obstacles.clear();
+            Fate::Live
         }
     }}
 }
 
 impl Recipient<Tick> for TransferLane {
-    fn react_to(&mut self, msg: &Tick, world: &mut World, _self_id: ID) {match *msg{
+    fn receive(&mut self, msg: &Tick) -> Fate {match *msg{
         Tick{dt} => {
             self.interaction_obstacles.sort_by_key(|obstacle| obstacle.position);
 
@@ -240,10 +250,10 @@ impl Recipient<Tick> for TransferLane {
             loop {
                 let (should_remove, done) = if let Some(car) = self.cars.get(i) {
                     if car.transfer_position < -1.0 {
-                        world.send(self.left, Add::Car(car.as_lane_car.offset_by(self.left_start)));
+                        self.left << Add::Car(car.as_lane_car.offset_by(self.left_start));
                         (true, false)
                     } else if car.transfer_position > 1.0 {
-                        world.send(self.right, Add::Car(car.as_lane_car.offset_by(self.right_start)));
+                        self.right << Add::Car(car.as_lane_car.offset_by(self.right_start));
                         (true, false)
                     } else {
                         i += 1;
@@ -258,28 +268,29 @@ impl Recipient<Tick> for TransferLane {
 
             for car in &self.cars {
                 if car.transfer_position < 0.3 || car.transfer_velocity < 0.0 {
-                    world.send(self.left, Add::InteractionObstacle(car.as_obstacle.offset_by(self.left_start)));
+                    self.left << Add::InteractionObstacle(car.as_obstacle.offset_by(self.left_start));
                 }
                 if car.transfer_position > -0.3 || car.transfer_velocity > 0.0 {
-                    world.send(self.right, Add::InteractionObstacle(car.as_obstacle.offset_by(self.right_start)));
+                    self.right << Add::InteractionObstacle(car.as_obstacle.offset_by(self.right_start));
                 }
             }
 
             self.interaction_obstacles.clear();
+            Fate::Live
         }
     }}
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add_swarm::<Lane>();
-    system.add_inbox::<Add, Lane>();
-    system.add_inbox::<Tick, Lane>();
+    system.add_individual(Swarm::<Lane>::new());
+    system.add_inbox::<Add, Swarm<Lane>>();
+    system.add_inbox::<Tick, Swarm<Lane>>();
 
-    system.add_swarm::<TransferLane>();
-    system.add_inbox::<Add, TransferLane>();
-    system.add_inbox::<Tick, TransferLane>();
+    system.add_individual(Swarm::<TransferLane>::new());
+    system.add_inbox::<Add, Swarm<TransferLane>>();
+    system.add_inbox::<Tick, Swarm<TransferLane>>();
 
-    setup_scenario(system);
+    //setup_scenario(system);
 }
 
 #[derive(Copy, Clone)]
@@ -377,173 +388,173 @@ use self::InteractionKind::{Overlap, Next, Previous};
 enum OverlapKind{Parallel, Conflicting}
 use self::OverlapKind::{Parallel, Conflicting};
 
-fn setup_scenario(system: &mut ActorSystem) {
-    let mut world = system.world();
+// fn setup_scenario(system: &mut ActorSystem) {
+//     let mut world = system.world();
 
-    let mut lane1 = world.create(Lane::new(
-        CPath::new(vec![
-            Segment::line(P2::new(0.0, 0.0), P2::new(300.0, 0.0)),
-            Segment::arc_with_direction(P2::new(300.0, 0.0), V2::new(1.0, 0.0), P2::new(300.0, 100.0))
-        ])
-    ));
+//     let mut lane1 = world.create(Lane::new(
+//         CPath::new(vec![
+//             Segment::line(P2::new(0.0, 0.0), P2::new(300.0, 0.0)),
+//             Segment::arc_with_direction(P2::new(300.0, 0.0), V2::new(1.0, 0.0), P2::new(300.0, 100.0))
+//         ])
+//     ));
 
-    let mut lane3 = world.create(Lane::new(
-        CPath::new(vec![
-            Segment::arc_with_direction(P2::new(0.0, 100.0), V2::new(-1.0, 0.0), P2::new(0.0, 0.0))
-        ])
-    ));
+//     let mut lane3 = world.create(Lane::new(
+//         CPath::new(vec![
+//             Segment::arc_with_direction(P2::new(0.0, 100.0), V2::new(-1.0, 0.0), P2::new(0.0, 0.0))
+//         ])
+//     ));
 
-    let mut lane2 = world.create(Lane::new(
-        CPath::new(vec![
-            Segment::line(P2::new(300.0, 100.0), P2::new(0.0, 100.0))
-        ])
-    ));
+//     let mut lane2 = world.create(Lane::new(
+//         CPath::new(vec![
+//             Segment::line(P2::new(300.0, 100.0), P2::new(0.0, 100.0))
+//         ])
+//     ));
 
-    let mut overlapping_lane = world.create(Lane::new(
-        CPath::new(vec![
-            Segment::line(P2::new(300.0, 10.0), P2::new(0.0, -10.0))
-        ])
-    ));
+//     let mut overlapping_lane = world.create(Lane::new(
+//         CPath::new(vec![
+//             Segment::line(P2::new(300.0, 10.0), P2::new(0.0, -10.0))
+//         ])
+//     ));
 
-    lane1.add_next_lane(lane2.id); lane2.add_previous_lane(lane1.id, lane1.length);
-    lane2.add_next_lane(lane3.id); lane3.add_previous_lane(lane2.id, lane2.length);
-    lane3.add_next_lane(lane1.id); lane1.add_previous_lane(lane3.id, lane3.length);
+//     lane1.add_next_lane(lane2.id); lane2.add_previous_lane(lane1.id, lane1.length);
+//     lane2.add_next_lane(lane3.id); lane3.add_previous_lane(lane2.id, lane2.length);
+//     lane3.add_next_lane(lane1.id); lane1.add_previous_lane(lane3.id, lane3.length);
 
-    lane1.interactions.push(Interaction{
-        partner_lane: overlapping_lane.id,
-        kind: Overlap{
-            kind: Conflicting,
-            start: 100.0,
-            end: 200.0,
-            partner_start: 100.0,
-            partner_end: 200.0
-        }
-    });
+//     lane1.interactions.push(Interaction{
+//         partner_lane: overlapping_lane.id,
+//         kind: Overlap{
+//             kind: Conflicting,
+//             start: 100.0,
+//             end: 200.0,
+//             partner_start: 100.0,
+//             partner_end: 200.0
+//         }
+//     });
 
-    overlapping_lane.interactions.push(Interaction{
-        partner_lane: lane1.id,
-        kind: Overlap{
-            kind: Conflicting,
-            start: 100.0,
-            end: 200.0,
-            partner_start: 100.0,
-            partner_end: 200.0
-        }
-    });
+//     overlapping_lane.interactions.push(Interaction{
+//         partner_lane: lane1.id,
+//         kind: Overlap{
+//             kind: Conflicting,
+//             start: 100.0,
+//             end: 200.0,
+//             partner_start: 100.0,
+//             partner_end: 200.0
+//         }
+//     });
 
-    let mut double_lane_1 = world.create(Lane::new(
-        CPath::new(vec![
-            Segment::line(P2::new(-200.0, -30.0), P2::new(200.0, -30.0))
-        ])
-    ));
-    let mut double_lane_2 = world.create(Lane::new(
-        CPath::new(vec![
-            Segment::line(P2::new(-200.0, -36.0), P2::new(200.0, -36.0))
-        ])
-    ));
-    let transfer_lane = world.create(TransferLane::new(
-        CPath::new(vec![
-            Segment::line(P2::new(-100.0, -33.0), P2::new(200.0, -33.0))
-        ]),
-        double_lane_1.id, 100.0,
-        double_lane_2.id, 100.0
-    ));
-    double_lane_1.interactions.push(Interaction{
-        partner_lane: transfer_lane.id,
-        kind: Overlap{
-            kind: Parallel,
-            start: 100.0,
-            end: 400.0,
-            partner_start: 0.0,
-            partner_end: 300.0
-        }
-    });
-    double_lane_2.interactions.push(Interaction{
-        partner_lane: transfer_lane.id,
-        kind: Overlap{
-            kind: Parallel,
-            start: 100.0,
-            end: 400.0,
-            partner_start: 0.0,
-            partner_end: 300.0
-        }
-    });
+//     let mut double_lane_1 = world.create(Lane::new(
+//         CPath::new(vec![
+//             Segment::line(P2::new(-200.0, -30.0), P2::new(200.0, -30.0))
+//         ])
+//     ));
+//     let mut double_lane_2 = world.create(Lane::new(
+//         CPath::new(vec![
+//             Segment::line(P2::new(-200.0, -36.0), P2::new(200.0, -36.0))
+//         ])
+//     ));
+//     let transfer_lane = world.create(TransferLane::new(
+//         CPath::new(vec![
+//             Segment::line(P2::new(-100.0, -33.0), P2::new(200.0, -33.0))
+//         ]),
+//         double_lane_1.id, 100.0,
+//         double_lane_2.id, 100.0
+//     ));
+//     double_lane_1.interactions.push(Interaction{
+//         partner_lane: transfer_lane.id,
+//         kind: Overlap{
+//             kind: Parallel,
+//             start: 100.0,
+//             end: 400.0,
+//             partner_start: 0.0,
+//             partner_end: 300.0
+//         }
+//     });
+//     double_lane_2.interactions.push(Interaction{
+//         partner_lane: transfer_lane.id,
+//         kind: Overlap{
+//             kind: Parallel,
+//             start: 100.0,
+//             end: 400.0,
+//             partner_start: 0.0,
+//             partner_end: 300.0
+//         }
+//     });
 
-    let lane1_id = lane1.id;
-    let lane2_id = lane2.id;
-    let overlapping_lane_id = overlapping_lane.id;
-    let double_lane_1_id = double_lane_1.id;
-    let double_lane_2_id = double_lane_2.id;
-    let transfer_lane_id = transfer_lane.id;
+//     let lane1_id = lane1.id;
+//     let lane2_id = lane2.id;
+//     let overlapping_lane_id = overlapping_lane.id;
+//     let double_lane_1_id = double_lane_1.id;
+//     let double_lane_2_id = double_lane_2.id;
+//     let transfer_lane_id = transfer_lane.id;
 
-    world.start(lane1);
-    world.start(lane2);
-    world.start(lane3);
-    world.start(overlapping_lane);
-    world.start(double_lane_1);
-    world.start(double_lane_2);
-    world.start(transfer_lane);
+//     world.start(lane1);
+//     world.start(lane2);
+//     world.start(lane3);
+//     world.start(overlapping_lane);
+//     world.start(double_lane_1);
+//     world.start(double_lane_2);
+//     world.start(transfer_lane);
 
-    let n_cars = 10;
-    for i in 0..n_cars {
-        world.send(lane1_id, Add::Car(LaneCar{
-            as_obstacle: Obstacle {
-                position: OrderedFloat(n_cars as f32 * 5.0 - (i as f32 * 5.0)),
-                velocity: 0.0,
-                max_velocity: 22.0
-            },
-            trip: ID::invalid(),
-            acceleration: 1.0
-        }));
+//     let n_cars = 10;
+//     for i in 0..n_cars {
+//         world.send(lane1_id, Add::Car(LaneCar{
+//             as_obstacle: Obstacle {
+//                 position: OrderedFloat(n_cars as f32 * 5.0 - (i as f32 * 5.0)),
+//                 velocity: 0.0,
+//                 max_velocity: 22.0
+//             },
+//             trip: ID::invalid(),
+//             acceleration: 1.0
+//         }));
 
-        world.send(double_lane_1_id, Add::Car(LaneCar{
-            as_obstacle: Obstacle {
-                position: OrderedFloat(n_cars as f32 * 20.0 - (i as f32 * 20.0)),
-                velocity: 0.0,
-                max_velocity: 22.0
-            },
-            trip: ID::invalid(),
-            acceleration: 1.0
-        }));
+//         world.send(double_lane_1_id, Add::Car(LaneCar{
+//             as_obstacle: Obstacle {
+//                 position: OrderedFloat(n_cars as f32 * 20.0 - (i as f32 * 20.0)),
+//                 velocity: 0.0,
+//                 max_velocity: 22.0
+//             },
+//             trip: ID::invalid(),
+//             acceleration: 1.0
+//         }));
 
-        world.send(double_lane_2_id, Add::Car(LaneCar{
-            as_obstacle: Obstacle {
-                position: OrderedFloat(n_cars as f32 * 20.0 - (i as f32 * 20.0)),
-                velocity: 0.0,
-                max_velocity: 22.0
-            },
-            trip: ID::invalid(),
-            acceleration: 1.0
-        }));
+//         world.send(double_lane_2_id, Add::Car(LaneCar{
+//             as_obstacle: Obstacle {
+//                 position: OrderedFloat(n_cars as f32 * 20.0 - (i as f32 * 20.0)),
+//                 velocity: 0.0,
+//                 max_velocity: 22.0
+//             },
+//             trip: ID::invalid(),
+//             acceleration: 1.0
+//         }));
 
-        world.send(transfer_lane_id, Add::Car(LaneCar{
-            as_obstacle: Obstacle {
-                position: OrderedFloat(7.0 + n_cars as f32 * 20.0 - (i as f32 * 20.0)),
-                velocity: 0.0,
-                max_velocity: 22.0
-            },
-            trip: ID::invalid(),
-            acceleration: 1.0
-        }));
-    }
+//         world.send(transfer_lane_id, Add::Car(LaneCar{
+//             as_obstacle: Obstacle {
+//                 position: OrderedFloat(7.0 + n_cars as f32 * 20.0 - (i as f32 * 20.0)),
+//                 velocity: 0.0,
+//                 max_velocity: 22.0
+//             },
+//             trip: ID::invalid(),
+//             acceleration: 1.0
+//         }));
+//     }
 
-    world.send(lane2_id, Add::Car(LaneCar{
-        as_obstacle: Obstacle {
-            position: OrderedFloat(5.0),
-            velocity: 0.0,
-            max_velocity: 0.0
-        },
-        trip: ID::invalid(),
-        acceleration: 1.0
-    }));
+//     world.send(lane2_id, Add::Car(LaneCar{
+//         as_obstacle: Obstacle {
+//             position: OrderedFloat(5.0),
+//             velocity: 0.0,
+//             max_velocity: 0.0
+//         },
+//         trip: ID::invalid(),
+//         acceleration: 1.0
+//     }));
 
-    world.send(overlapping_lane_id, Add::Car(LaneCar{
-        as_obstacle: Obstacle {
-            position: OrderedFloat(60.0),
-            velocity: 0.0,
-            max_velocity: 10.0
-        },
-        trip: ID::invalid(),
-        acceleration: 1.0
-    }));
-}
+//     world.send(overlapping_lane_id, Add::Car(LaneCar{
+//         as_obstacle: Obstacle {
+//             position: OrderedFloat(60.0),
+//             velocity: 0.0,
+//             max_velocity: 10.0
+//         },
+//         trip: ID::invalid(),
+//         acceleration: 1.0
+//     }));
+// }

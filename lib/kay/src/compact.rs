@@ -1,7 +1,7 @@
 use std::mem;
 use std::mem::transmute;
 
-pub trait Compact : Sized {
+pub trait Compact : Sized + Clone {
     fn is_still_compact(&self) -> bool;
     fn dynamic_size_bytes(&self) -> usize;
     fn total_size_bytes(&self) -> usize {

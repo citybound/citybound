@@ -1,5 +1,6 @@
 #![feature(plugin)]
 #![plugin(clippy)]
+#![allow(no_effect, unnecessary_operation)]
 #![feature(proc_macro)]
 extern crate descartes;
 #[macro_use]
@@ -10,7 +11,7 @@ extern crate kay_macros;
 extern crate glium_text;
 
 pub use ::descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d, WithUniqueOrthogonal, Inverse, Rotate};
-use ::kay::{ID, World, Recipient, CVec, ActorSystem, Individual};
+use ::kay::{ID, Recipient, CVec, ActorSystem, Individual, Fate};
 use std::collections::HashMap;
 
 use glium::{index, Surface};
@@ -42,13 +43,14 @@ pub struct SetupInScene {pub renderer_id: ID, pub scene_id: usize}
 pub struct RenderToScene {pub renderer_id: ID, pub scene_id: usize}
 
 impl Recipient<Control> for Renderer {
-    fn react_to(&mut self, msg: &Control, world: &mut World, self_id: ID) {match *msg {
+    fn receive(&mut self, msg: &Control) -> Fate {match *msg {
         Control::Setup => {
             for (scene_id, scene) in &self.scenes {
                 for renderable in &scene.renderables {
-                    world.send(*renderable, SetupInScene{renderer_id: self_id, scene_id: *scene_id});
+                    *renderable << SetupInScene{renderer_id: Self::id(), scene_id: *scene_id};
                 }
             }
+            Fate::Live
         },
 
         Control::Render => {
@@ -57,15 +59,17 @@ impl Recipient<Control> for Renderer {
                     batch.instances.clear();
                 }
                 for renderable in &scene.renderables {
-                    world.send(*renderable, RenderToScene{renderer_id: self_id, scene_id: *scene_id});
+                    *renderable << RenderToScene{renderer_id: Self::id(), scene_id: *scene_id};
                 }
             }
+            Fate::Live
         }
 
         Control::Submit => {
             for scene in self.scenes.values() {
                 self.render_context.submit(scene);
             }
+            Fate::Live
         }
     }}
 }
@@ -74,7 +78,7 @@ impl Recipient<Control> for Renderer {
 pub struct MoveEye {pub scene_id: usize, pub delta: V3}
 
 impl Recipient<MoveEye> for Renderer {
-    fn receive(&mut self, msg: &MoveEye) {match *msg{
+    fn receive(&mut self, msg: &MoveEye) -> Fate {match *msg{
         MoveEye{scene_id, delta} => {
             let eye = &mut self.scenes.get_mut(&scene_id).unwrap().eye;
             let eye_direction_2d = (eye.target - eye.position).into_2d().normalize();
@@ -83,28 +87,31 @@ impl Recipient<MoveEye> for Renderer {
                 + V3::new(0.0, 0.0, delta.z);
             eye.position += absolute_delta;
             eye.target += absolute_delta;
+            Fate::Live
         }
     }}
 }
 
-#[derive(Compact)]
+#[derive(Compact, Clone)]
 pub struct AddBatch {pub scene_id: usize, pub batch_id: usize, pub thing: Thing}
 
 impl Recipient<AddBatch> for Renderer {
-    fn receive(&mut self, msg: &AddBatch) {match *msg {
+    fn receive(&mut self, msg: &AddBatch) -> Fate {match *msg {
         AddBatch{scene_id, batch_id, ref thing} => {
             self.scenes.get_mut(&scene_id).unwrap().batches.insert(batch_id, Batch::new(thing.clone(), Vec::new()));
+            Fate::Live
         }
     }}
 }
 
-#[derive(Compact)]
+#[derive(Compact, Clone)]
 pub struct UpdateThing {pub scene_id: usize, pub thing_id: usize, pub thing: Thing, pub instance: Instance}
 
 impl Recipient<UpdateThing> for Renderer {
-    fn receive(&mut self, msg: &UpdateThing) {match *msg {
+    fn receive(&mut self, msg: &UpdateThing) -> Fate {match *msg {
         UpdateThing{scene_id, thing_id, ref thing, instance} => {
             self.scenes.get_mut(&scene_id).unwrap().things.insert(thing_id, (thing.clone(), instance));
+            Fate::Live
         }
     }}
 }
@@ -113,9 +120,10 @@ impl Recipient<UpdateThing> for Renderer {
 pub struct AddInstance {pub scene_id: usize, pub batch_id: usize, pub position: Instance}
 
 impl Recipient<AddInstance> for Renderer {
-    fn receive(&mut self, msg: &AddInstance) {match *msg {
+    fn receive(&mut self, msg: &AddInstance) -> Fate {match *msg {
         AddInstance{scene_id, batch_id, position} => {
             self.scenes.get_mut(&scene_id).unwrap().batches.get_mut(&batch_id).unwrap().instances.push(position);
+            Fate::Live
         }
     }}
 }
@@ -127,7 +135,7 @@ pub struct Project2dTo3d {pub scene_id: usize, pub position_2d: P2, pub requeste
 pub struct Projected3d{pub position_3d: P3}
 
 impl Recipient<Project2dTo3d> for Renderer {
-    fn react_to(&mut self, msg: &Project2dTo3d, world: &mut World, _self_id: ID) {match *msg{
+    fn receive(&mut self, msg: &Project2dTo3d) -> Fate {match *msg{
         Project2dTo3d{scene_id, position_2d, requester} => {
             let eye = &self.scenes.get_mut(&scene_id).unwrap().eye;
             let frame_size = self.render_context.window.get_framebuffer_dimensions();
@@ -164,21 +172,22 @@ impl Recipient<Project2dTo3d> for Renderer {
             let distance =  -eye.position.z / direction_into_world_3d.z;
             let position_in_world = eye.position + distance * direction_into_world_3d;
 
-            world.send(requester, Projected3d{position_3d: position_in_world});
+            requester << Projected3d{position_3d: position_in_world};
+            Fate::Live
         }
     }}
 }
 
 pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
     system.add_individual(renderer);
-    system.add_individual_inbox::<Control, Renderer>();
-    system.add_individual_inbox::<AddBatch, Renderer>();
-    system.add_individual_inbox::<AddInstance, Renderer>();
-    system.add_individual_inbox::<UpdateThing, Renderer>();
-    system.add_individual_inbox::<MoveEye, Renderer>();
-    system.add_individual_inbox::<Project2dTo3d, Renderer>();
+    system.add_inbox::<Control, Renderer>();
+    system.add_inbox::<AddBatch, Renderer>();
+    system.add_inbox::<AddInstance, Renderer>();
+    system.add_inbox::<UpdateThing, Renderer>();
+    system.add_inbox::<MoveEye, Renderer>();
+    system.add_inbox::<Project2dTo3d, Renderer>();
 
-    system.world().send_to_individual::<Renderer, _>(Control::Setup);
+    Renderer::id() << Control::Setup;
 }
 
 pub struct Scene {

@@ -1,7 +1,7 @@
 use super::compact::{Compact};
 use super::chunked::{MemChunker, MultiSized, SizedChunkedQueue};
 use ::std::marker::PhantomData;
-use super::messaging::{MessagePacket, Message};
+use super::messaging::{Packet, Message};
 
 pub struct Inbox<M: Message> {
     queues: MultiSized<SizedChunkedQueue>,
@@ -19,11 +19,11 @@ impl <M: Message> Inbox<M> {
         }
     }
 
-    pub fn put(&mut self, package: MessagePacket<M>) {
+    pub fn put(&mut self, package: Packet<M>) {
         let required_size = package.total_size_bytes();
         unsafe {
             let raw_ptr = self.queues.sized_for_mut(required_size).enqueue();
-            let message_in_slot = &mut *(raw_ptr as *mut MessagePacket<M>);
+            let message_in_slot = &mut *(raw_ptr as *mut Packet<M>);
             message_in_slot.compact_behind_from(&package);
         }
     }
@@ -50,9 +50,9 @@ pub struct InboxIterator<'a, M: Message> where M: 'a {
 }
 
 impl<'a, M: Message> Iterator for InboxIterator<'a, M> {
-    type Item = &'a MessagePacket<M>;
+    type Item = &'a Packet<M>;
 
-    fn next(&mut self) -> Option<&'a MessagePacket<M>> {
+    fn next(&mut self) -> Option<&'a Packet<M>> {
         if self.messages_in_sized_queue_left == 0 {
             if self.current_sized_queue_index == 0 {
                 None
@@ -67,7 +67,7 @@ impl<'a, M: Message> Iterator for InboxIterator<'a, M> {
         } else {
             unsafe {
                 let raw_ptr = self.queues[self.current_sized_queue_index].dequeue().unwrap();
-                let message_ref = &*(raw_ptr as *const MessagePacket<M>);
+                let message_ref = &*(raw_ptr as *const Packet<M>);
                 self.messages_in_sized_queue_left -= 1;
                 Some(message_ref)
             }

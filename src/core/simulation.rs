@@ -1,4 +1,4 @@
-use ::kay::{ActorSystem, Recipient, ID, World, Individual};
+use ::kay::{ActorSystem, Recipient, ID, Individual, Fate};
 
 #[derive(Copy, Clone)]
 pub struct Tick{pub dt: f32}
@@ -10,16 +10,17 @@ pub struct Simulation{
 impl Individual for Simulation {}
 
 impl Recipient<Tick> for Simulation {
-    fn react_to(&mut self, msg: &Tick, world: &mut World, _self_id: ID) {match *msg{
+    fn receive(&mut self, msg: &Tick) -> Fate {match *msg{
         Tick{dt} => {
             for simulatable in &self.simulatables {
-                world.send(*simulatable, Tick{dt: dt});
+                *simulatable << Tick{dt: dt};
             }
+            Fate::Live
         }
     }}
 }
 
 pub fn setup(system: &mut ActorSystem, simulatables: Vec<ID>) {
     system.add_individual(Simulation{simulatables: simulatables});
-    system.add_individual_inbox::<Tick, Simulation>();
+    system.add_inbox::<Tick, Simulation>();
 }

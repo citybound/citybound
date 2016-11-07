@@ -1,12 +1,12 @@
-use super::compact::Compact;
 use super::swarm::Swarm;
-use super::messaging::{Message, Actor, Individual, MessagePacket, Recipient};
+use super::messaging::{Message, Actor, Individual, Packet, Recipient};
 use super::inbox::Inbox;
 use super::type_registry::TypeRegistry;
-use std::ops::{Deref, DerefMut};
 use std::intrinsics::{type_id, type_name};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub static mut THE_SYSTEM: *mut ActorSystem = 0 as *mut ActorSystem;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ID {
     pub type_id: u16,
     pub version: u8,
@@ -24,6 +24,10 @@ impl ID {
         ID {type_id: type_id as u16, version: 0, instance_id: u32::max_value()}
     }
 
+    pub fn instance(type_id: usize, instance_id_and_version: (usize, usize)) -> ID {
+        ID {type_id: type_id as u16, version: instance_id_and_version.1 as u8, instance_id: instance_id_and_version.0 as u32}
+    }
+
     pub fn is_broadcast(&self) -> bool {
         self.instance_id == u32::max_value()
     }
@@ -37,30 +41,14 @@ impl ID {
     }
 }
 
-pub struct LivingActor<A: Actor> {
-    pub id: ID,
-    pub state: A
-}
+impl<M: Message> ::std::ops::Shl<M> for ID {
+    type Output = ();
 
-impl<A: Actor> Compact for LivingActor<A> {
-    fn is_still_compact(&self) -> bool {self.state.is_still_compact()}
-    fn dynamic_size_bytes(&self) -> usize {self.state.dynamic_size_bytes()}
-    unsafe fn compact_from(&mut self, other: &Self, new_dynamic_part: *mut u8) {
-        self.id = other.id;
-        self.state.compact_from(&other.state, new_dynamic_part);
+    fn shl(self, rhs: M) {
+        unsafe {(*THE_SYSTEM).send(self, rhs);}
     }
 }
 
-impl<A: Actor> Deref for LivingActor<A> {
-    type Target = A;
-    fn deref(&self) -> &A {&self.state}
-}
-
-impl<A: Actor> DerefMut for LivingActor<A> {
-    fn deref_mut(&mut self) -> &mut A {&mut self.state}
-}
-
-const MAX_MESSAGE_TYPES : usize = 1024;
 const MAX_RECIPIENT_TYPES : usize = 1024;
 const MAX_MESSAGE_TYPES_PER_RECIPIENT: usize = 32;
 
@@ -97,7 +85,6 @@ impl InboxMap {
 pub struct ActorSystem {
     routing: [Option<InboxMap>; MAX_RECIPIENT_TYPES],
     recipient_registry: TypeRegistry,
-    swarms: [Option<*mut u8>; MAX_RECIPIENT_TYPES],
     individuals: [Option<*mut u8>; MAX_RECIPIENT_TYPES],
     update_callbacks: Vec<Box<Fn()>>,
 }
@@ -117,36 +104,9 @@ impl ActorSystem {
         ActorSystem {
             routing: unsafe{make_array!(MAX_RECIPIENT_TYPES, |_| None)},
             recipient_registry: TypeRegistry::new(),
-            swarms: [None; MAX_RECIPIENT_TYPES],
             individuals: [None; MAX_RECIPIENT_TYPES],
             update_callbacks: Vec::new()
         }
-    }
-
-    pub fn add_swarm<A: Actor> (&mut self) {
-        let swarm = Swarm::<A>::new();
-        let recipient_id = self.recipient_registry.register_new::<A>();
-        assert!(self.routing[recipient_id].is_none());
-        self.routing[recipient_id] = Some(InboxMap::new());
-        // TODO: deallocate swarm at the end of times
-        self.swarms[recipient_id] = Some(Box::into_raw(Box::new(swarm)) as *mut u8);
-    }
-
-    pub fn add_inbox<M: Message, A: Actor> (&mut self) where Swarm<A>: Recipient<M> {
-        let inbox = Inbox::<M>::new();
-        let recipient_id = self.recipient_registry.get::<A>();
-        let inbox_ptr = self.store_inbox(inbox, recipient_id);
-        let swarm_ptr = self.swarms[recipient_id].unwrap() as *mut Swarm<A>;
-        let self_ptr = self as *mut Self;
-        self.update_callbacks.push(Box::new(move || {
-            unsafe {
-                for packet in (*inbox_ptr).empty() {
-                    let swarm = &mut *(swarm_ptr);
-                    let world = &mut World{system: self_ptr};
-                    swarm.react_to(&packet.message, world, packet.recipient_id);
-                }
-            }
-        }))
     }
 
     pub fn add_individual<I: Individual>(&mut self, individual: I) {
@@ -156,36 +116,18 @@ impl ActorSystem {
         self.individuals[recipient_id] = Some(Box::into_raw(Box::new(individual)) as *mut u8);
     }
 
-    pub fn add_individual_inbox<M: Message, I: Individual + Recipient<M>> (&mut self) {
+    pub fn add_inbox<M: Message, I: Individual + Recipient<M>> (&mut self) {
         let inbox = Inbox::<M>::new();
         let recipient_id = self.recipient_registry.get::<I>();
         let inbox_ptr = self.store_inbox(inbox, recipient_id);
         let individual_ptr = self.individuals[recipient_id].unwrap() as *mut I;
-        let self_ptr = self as *mut Self;
         self.update_callbacks.push(Box::new(move || {
             unsafe {
                 for packet in (*inbox_ptr).empty() {
-                    (*individual_ptr)
-                        .react_to(
-                            &packet.message,
-                            &mut World{system: self_ptr},
-                            packet.recipient_id
-                        );
+                    (*individual_ptr).receive_packet(packet);
                 }
             }
         }))
-    }
-
-    pub fn get_individual<I: Individual>(&self) -> &I {
-        unsafe {
-            &*(self.individuals[self.recipient_registry.get::<I>()].unwrap() as *const I)
-        }
-    }
-
-    pub fn get_individual_mut<I: Individual>(&mut self) -> &mut I {
-        unsafe {
-            &mut *(self.individuals[self.recipient_registry.get::<I>()].unwrap() as *mut I)
-        }
     }
 
     pub fn individual_id<I: Individual>(&mut self) -> ID {
@@ -193,7 +135,11 @@ impl ActorSystem {
     }
 
     pub fn broadcast_id<A: Actor>(&mut self) -> ID {
-        ID::broadcast(self.recipient_registry.get::<A>())
+        ID::broadcast(self.recipient_registry.get::<Swarm<A>>())
+    }
+
+    pub fn instance_id<A: Actor>(&mut self, instance_id_and_version: (usize, usize)) -> ID {
+        ID::instance(self.recipient_registry.get::<Swarm<A>>(), instance_id_and_version)
     }
 
     fn store_inbox<M: Message>(&mut self, inbox: Inbox<M>, recipient_type_id: usize) -> *mut Inbox<M> {
@@ -203,26 +149,7 @@ impl ActorSystem {
         inbox_ptr
     }
 
-    pub fn create<A: Actor>(&mut self, initial_state: A) -> LivingActor<A> {
-        let recipient_id = self.recipient_registry.get::<A>();
-        let swarm = unsafe {&mut *(self.swarms[recipient_id].unwrap() as *mut Swarm<A>)};
-        LivingActor{
-            state: initial_state,
-            id: ID{
-                type_id: recipient_id as u16,
-                version: 0,
-                instance_id: swarm.allocate_instance_id()
-            }
-        }
-    }
-
-    pub fn start<A: Actor>(&mut self, living_actor: LivingActor<A>) {
-        let recipient_id = self.recipient_registry.get::<A>();
-        let swarm = unsafe {&mut *(self.swarms[recipient_id].unwrap() as *mut Swarm<A>)};
-        swarm.add(&living_actor);
-    }
-
-    pub fn inbox_for<M: Message>(&mut self, packet: &MessagePacket<M>) -> &mut Inbox<M> {
+    pub fn inbox_for<M: Message>(&mut self, packet: &Packet<M>) -> &mut Inbox<M> {
         let inbox_ptr = self.routing[packet.recipient_id.type_id as usize].as_ref()
             .expect("Recipient not found")
             .get::<M>()
@@ -231,7 +158,7 @@ impl ActorSystem {
     }
 
     fn send<M: Message>(&mut self, recipient: ID, message: M) {
-        let packet = MessagePacket{
+        let packet = Packet{
             recipient_id: recipient,
             message: message
         };
@@ -249,41 +176,10 @@ impl ActorSystem {
             self.process_messages();
         }
     }
-
-    pub fn world(&mut self) -> World {
-        World{
-            system: self
-        }
-    }
 }
 
 impl Default for ActorSystem {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct World {
-    system: *mut ActorSystem
-}
-
-impl World {
-    pub fn send<M: Message>(&mut self, recipient: ID, message: M) {
-        unsafe {(*self.system).send(recipient, message)};
-    }
-    pub fn send_to_individual<I: Individual, M: Message>(&mut self, message: M) {
-        unsafe {
-            self.send((*self.system).individual_id::<I>(), message);
-        }
-    }
-    // pub fn broadcast<Recipient, M: Message>(&mut self, message: M) {
-    //     self.send(ID::broadcast::<Recipient>(), message);
-    // }
-    pub fn create<A: Actor>(&mut self, initial_state: A) -> LivingActor<A> {
-        unsafe {(*self.system).create(initial_state)}
-    }
-    pub fn start<A: Actor>(&mut self, living_actor: LivingActor<A>) {
-        unsafe {(*self.system).start(living_actor)};
     }
 }

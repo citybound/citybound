@@ -26,19 +26,6 @@ impl TypeRegistry {
         short_id
     }
 
-    pub fn get_or_register<T: 'static>(&mut self) -> usize {
-        let long_id = unsafe{type_id::<T>()};
-        if let Some(existing_short_id) = self.long_to_short_ids.get(&long_id) {
-            return *existing_short_id;
-        }
-
-        let short_id = self.next_short_id;
-        self.long_to_short_ids.insert(long_id, short_id);
-        self.short_ids_to_names.insert(short_id, unsafe{type_name::<T>()}.into());
-        self.next_short_id += 1;
-        short_id
-    }
-
     pub fn get<T: 'static>(&self) -> usize {
         *self.long_to_short_ids.get(&unsafe{type_id::<T>()}).expect((format!("{:?} not known.", &unsafe{type_name::<T>()})).as_str())
     }

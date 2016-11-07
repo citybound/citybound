@@ -68,7 +68,6 @@ impl Chunker for MemChunker {
 }
 
 pub struct ValueInChunk<T> {
-    chunker: Box<Chunker>,
     ptr: *mut u8,
     _marker: PhantomData<T>
 }
@@ -81,7 +80,6 @@ impl<T> ValueInChunk<T> {
             *(ptr as *mut T) = default;
         }
         ValueInChunk{
-            chunker: chunker,
             ptr: ptr,
             _marker: PhantomData
         }

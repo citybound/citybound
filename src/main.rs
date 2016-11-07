@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 #![feature(plugin)]
 #![plugin(clippy)]
+#![allow(no_effect, unnecessary_operation)]
 extern crate ordered_float;
 extern crate itertools;
 
@@ -17,11 +18,16 @@ mod game;
 use monet::{Renderer, Control};
 use core::simulation::{Simulation, Tick};
 use game::lanes_and_cars::{Lane, TransferLane};
+use game::lanes_and_cars::planning::{Plan, RoadStrokeNodeInteractable};
+use kay::Individual;
 
 const SECONDS_PER_TICK : f32 = 1.0 / 20.0;
 
 fn main() {    
     let mut system = kay::ActorSystem::new();
+    unsafe {
+        kay::THE_SYSTEM = &mut system as *mut kay::ActorSystem;
+    }
 
     game::setup(&mut system);
     game::setup_ui(&mut system);
@@ -34,25 +40,27 @@ fn main() {
 
     let renderables = vec![
         system.broadcast_id::<Lane>(),
-        system.broadcast_id::<TransferLane>()
+        system.broadcast_id::<TransferLane>(),
+        system.individual_id::<Plan>(),
+        system.broadcast_id::<RoadStrokeNodeInteractable>()
     ];
     let window = core::ui::setup_window_and_renderer(&mut system, renderables);
 
     system.process_all_messages();
 
     loop {
-        if !core::ui::process_events(&window, &mut system.world()) {return}
+        if !core::ui::process_events(&window) {return}
 
         system.process_all_messages();
 
-        system.world().send_to_individual::<Simulation, _>(Tick{dt: SECONDS_PER_TICK});
+        Simulation::id() << Tick{dt: SECONDS_PER_TICK};
 
         system.process_all_messages();
 
-        system.world().send_to_individual::<Renderer, _>(Control::Render);
+        Renderer::id() << Control::Render;
 
         system.process_all_messages();
 
-        system.world().send_to_individual::<Renderer, _>(Control::Submit);
+        Renderer::id() << Control::Submit;
     }
 }

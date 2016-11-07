@@ -19,12 +19,8 @@ impl Curve for Circle {
             (point - self.center) * self.radius))
     }
 
-    fn includes(&self, point: P2) -> bool {
-        (point - self.center).norm() <= self.radius + THICKNESS
-    }
-
-    fn distance_to(&self, _point: P2) -> N {
-        unimplemented!()
+    fn distance_to(&self, point: P2) -> N {
+        ((point - self.center).norm() - self.radius).abs()
     }
 }
 
@@ -37,10 +33,6 @@ pub struct Line {
 impl Curve for Line {
     fn project(&self, point: P2) -> Option<N> {
         Some((point - self.start).dot(&self.direction))
-    }
-
-    fn includes(&self, point: P2) -> bool {
-        self.distance_to(point) < THICKNESS
     }
 
     fn distance_to(&self, point: P2) -> N {
