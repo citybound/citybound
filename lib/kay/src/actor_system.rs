@@ -41,6 +41,12 @@ impl ID {
     }
 }
 
+impl Default for ID {
+    fn default() -> Self {
+        ID::invalid()
+    }
+}
+
 impl<M: Message> ::std::ops::Shl<M> for ID {
     type Output = ();
 

@@ -228,8 +228,8 @@ pub struct Eye {
 
 #[derive(Compact)]
 pub struct Thing {
-    vertices: CVec<Vertex>,
-    indices: CVec<u16>
+    pub vertices: CVec<Vertex>,
+    pub indices: CVec<u16>
 }
 
 impl Thing {
@@ -244,6 +244,45 @@ impl Clone for Thing {
             vertices: self.vertices.to_vec().into(),
             indices: self.indices.to_vec().into()
         }
+    }
+}
+
+impl ::std::ops::Add for Thing {
+    type Output = Thing;
+
+    fn add(self, rhs: Thing) -> Thing {
+        let self_n_vertices = self.vertices.len();
+        Thing::new(
+            self.vertices.iter().chain(rhs.vertices.iter()).cloned().collect(),
+            self.indices.iter().cloned().chain(rhs.indices.iter().map(|i| *i + self_n_vertices as u16)).collect()
+        )
+    }
+}
+
+impl ::std::ops::AddAssign for Thing {
+    fn add_assign(&mut self, rhs: Thing) {
+        let self_n_vertices = self.vertices.len();
+        for vertex in rhs.vertices.iter().cloned() {
+            self.vertices.push(vertex);
+        }
+        for index in rhs.indices.iter() {
+            self.indices.push(index + self_n_vertices as u16)
+        }
+    }
+}
+
+impl ::std::iter::Sum for Thing {
+    fn sum<I: Iterator<Item=Self>>(iter: I) -> Thing {
+        let mut summed_thing = Thing{vertices: CVec::new(), indices: CVec::new()};
+        for thing in iter {
+            {
+                let vertices : &[Vertex] = &*thing.vertices;
+                let indices : &[u16] = &*thing.indices; 
+                let bla = 5;
+            }
+            summed_thing += thing;
+        }
+        summed_thing
     }
 }
 

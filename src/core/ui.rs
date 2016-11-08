@@ -7,8 +7,8 @@ use core::geometry::AnyShape;
 use ::std::collections::HashMap;
 
 pub struct UserInterface {
-    interactables_2d: HashMap<ID, AnyShape>,
-    interactables_3d: HashMap<ID, AnyShape>,
+    interactables_2d: HashMap<ID, (AnyShape, usize)>,
+    interactables_3d: HashMap<ID, (AnyShape, usize)>,
     cursor_2d: P2,
     cursor_3d: P3,
     drag_start_2d: Option<P2>,
@@ -34,13 +34,13 @@ impl UserInterface{
 }
 
 #[derive(Compact, Clone)]
-pub enum Add{Interactable2d(ID, AnyShape), Interactable3d(ID, AnyShape)}
+pub enum Add{Interactable2d(ID, AnyShape, usize), Interactable3d(ID, AnyShape, usize)}
 
 impl Recipient<Add> for UserInterface {
     fn receive(&mut self, msg: &Add) -> Fate {match *msg{
-        Add::Interactable2d(_id, ref _shape) => unimplemented!(),
-        Add::Interactable3d(id, ref shape) => {
-            self.interactables_3d.insert(id, shape.clone());
+        Add::Interactable2d(_id, ref _shape, _z_index) => unimplemented!(),
+        Add::Interactable3d(id, ref shape, z_index) => {
+            self.interactables_3d.insert(id, (shape.clone(), z_index));
             Fate::Live
         }
     }}
@@ -65,7 +65,14 @@ enum Mouse{Moved(P2), Down, Up}
 use ::monet::Project2dTo3d;
 
 #[derive(Copy, Clone)]
-pub enum Dragging3d{Ongoing{from: P3, to: P3}, Finished, Aborted}
+pub enum Event3d{
+    DragStarted{at: P3},
+    DragOngoing{from: P3, to: P3},
+    DragFinished{from: P3, to: P3},
+    DragAborted,
+    HoverStarted{at: P3},
+    HoverStopped
+}
 
 impl Recipient<Mouse> for UserInterface {
     fn receive(&mut self, msg: &Mouse) -> Fate {match *msg{
@@ -82,14 +89,20 @@ impl Recipient<Mouse> for UserInterface {
             self.drag_start_2d = Some(self.cursor_2d);
             self.drag_start_3d = Some(self.cursor_3d);
             self.active_interactable = self.hovered_interactable;
+            if let Some(active_interactable) = self.active_interactable{
+                active_interactable << Event3d::DragStarted{at: self.cursor_3d};
+            }
             Fate::Live
         },
         Mouse::Up => {
+            if let Some(active_interactable) = self.active_interactable {
+                active_interactable << Event3d::DragFinished{
+                    from: self.drag_start_3d.expect("active interactable but no drag start"),
+                    to: self.cursor_3d
+                };
+            }
             self.drag_start_2d = None;
             self.drag_start_3d = None;
-            if let Some(active_interactable) = self.active_interactable {
-                active_interactable << Dragging3d::Finished;
-            }
             self.active_interactable = None;
             Fate::Live
         }
@@ -103,14 +116,26 @@ impl Recipient<Projected3d> for UserInterface {
         Projected3d{position_3d} => {
             self.cursor_3d = position_3d;
             if let Some(active_interactable) = self.active_interactable {
-                active_interactable << Dragging3d::Ongoing{
+                active_interactable << Event3d::DragOngoing{
                     from: self.drag_start_3d.expect("active interactable but no drag start"),
                     to: position_3d
                 };
             } else {
-                self.hovered_interactable = self.interactables_3d.iter().find(|&(_id, shape)|
+                let new_hovered_interactable = self.interactables_3d.iter().filter(|&(_id, &(ref shape, _z_index))|
                     shape.contains(position_3d.into_2d())
+                ).max_by_key(|&(_id, &(ref _shape, z_index))|
+                    z_index
                 ).map(|(id, _shape)| *id);
+
+                if self.hovered_interactable != new_hovered_interactable {
+                    if let Some(previous) = self.hovered_interactable {
+                        previous << Event3d::HoverStopped;
+                    }
+                    if let Some(next) = new_hovered_interactable {
+                        next << Event3d::HoverStarted{at: self.cursor_3d};
+                    }
+                }
+                self.hovered_interactable = new_hovered_interactable;
             }
             Fate::Live
         }

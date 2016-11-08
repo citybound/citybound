@@ -22,14 +22,16 @@ impl Path for CPath {
 #[derive(Clone)]
 pub enum AnyShape{
     Circle(::descartes::Circle),
-    Band(::descartes::Band<CPath>)
+    Band(::descartes::Band<CPath>),
+    Everywhere
 }
 
 impl ::descartes::Shape for AnyShape {
     fn contains(&self, point: P2) -> bool {
         match *self {
             AnyShape::Circle(circle) => circle.contains(point),
-            AnyShape::Band(ref band) => band.contains(point)
+            AnyShape::Band(ref band) => band.contains(point),
+            AnyShape::Everywhere => true
         }
     }
 }

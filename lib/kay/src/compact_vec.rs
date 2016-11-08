@@ -54,15 +54,6 @@ impl<T, A: Allocator> CompactVec<T, A> {
         vec
     }
 
-    fn maybe_drop(&mut self) {
-        if !self.ptr.is_compact() {
-            unsafe {
-                ptr::drop_in_place(&mut self[..]);
-                A::deallocate(self.ptr.mut_ptr(), self.cap);
-            }
-        }
-    }
-
     fn double_buf(&mut self) {
         let new_cap = if self.cap == 0 {1} else {self.cap * 2};
         let new_ptr = A::allocate::<T>(new_cap);
@@ -70,7 +61,10 @@ impl<T, A: Allocator> CompactVec<T, A> {
         unsafe {
             ptr::copy_nonoverlapping(self.ptr.ptr(), new_ptr, self.len);
         }
-        self.maybe_drop();
+        // items shouldn't be dropped here, they live on in the new backing store!
+        if !self.ptr.is_compact() {
+            unsafe {A::deallocate(self.ptr.mut_ptr(), self.cap);}
+        }
         self.ptr.set_to_free(new_ptr);
         self.cap = new_cap;
     }
@@ -160,7 +154,10 @@ impl<T, A: Allocator> From<Vec<T>> for CompactVec<T, A> {
 
 impl<T, A: Allocator> Drop for CompactVec<T, A> {
     fn drop(&mut self) {
-        self.maybe_drop();
+        unsafe {ptr::drop_in_place(&mut self[..])};
+        if !self.ptr.is_compact() {
+            unsafe {A::deallocate(self.ptr.mut_ptr(), self.cap);}
+        }
     }
 }
 
@@ -201,7 +198,7 @@ impl<'a, T, A: Allocator> IntoIterator for &'a mut CompactVec<T, A> {
 }
 
 // TODO: Check if for Copy types all the compact-loops are actually optimized away
-impl<T: Compact, A: Allocator> Compact for CompactVec<T, A> {
+impl<T: Compact + Clone, A: Allocator> Compact for CompactVec<T, A> {
     fn is_still_compact(&self) -> bool {
         self.ptr.is_compact() && self.iter().all(|elem| elem.is_still_compact())
     }
@@ -211,26 +208,21 @@ impl<T: Compact, A: Allocator> Compact for CompactVec<T, A> {
     }
 
     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
-        self.len = source.len;
         self.cap = source.cap;
+        self.len = source.len;
         self.ptr.set_to_compact(new_dynamic_part as *mut T);
-        ptr::copy_nonoverlapping(source.ptr.ptr(), self.ptr.mut_ptr(), self.len);
         
         let mut offset = self.cap * ::std::mem::size_of::<T>();
-        for (ref mut elem, source_elem) in self.iter().zip(source.iter()) {
-            elem.compact_from(&source_elem, new_dynamic_part.offset(offset as isize));
-            offset += elem.dynamic_size_bytes();
+        for i in 0..self.len {
+            self[i].compact_from(&source[i], new_dynamic_part.offset(offset as isize));
+            offset += self[i].dynamic_size_bytes();
         }
     }
 }
 
 impl<T: Clone, A: Allocator> Clone for CompactVec<T, A> {
     default fn clone(&self) -> CompactVec<T, A> {
-        let mut new_vec = Self::with_capacity(self.cap);
-        for elem in self {
-            new_vec.push(elem.clone())
-        }
-        new_vec
+        self.iter().cloned().collect::<Vec<_>>().into()
     }
 }
 
