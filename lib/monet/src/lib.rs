@@ -275,11 +275,6 @@ impl ::std::iter::Sum for Thing {
     fn sum<I: Iterator<Item=Self>>(iter: I) -> Thing {
         let mut summed_thing = Thing{vertices: CVec::new(), indices: CVec::new()};
         for thing in iter {
-            {
-                let vertices : &[Vertex] = &*thing.vertices;
-                let indices : &[u16] = &*thing.indices; 
-                let bla = 5;
-            }
             summed_thing += thing;
         }
         summed_thing
