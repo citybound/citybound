@@ -52,12 +52,24 @@ impl<T: Path> FiniteCurve for T {
         }
     }
 
+    fn start(&self) -> P2 {
+        self.segments()[0].start()
+    }
+
     fn start_direction(&self) -> V2 {
         self.segments()[0].start_direction()
     }
 
+    fn end(&self) -> P2 {
+        self.segments().last().unwrap().end()
+    }
+
     fn end_direction(&self) -> V2 {
         self.segments().last().unwrap().end_direction()
+    }
+
+    fn reverse(&self) -> Self {
+        Self::new(self.segments().iter().rev().map(Segment::reverse).collect())
     }
 
     fn subsection(&self, start: N, end: N) -> T {
@@ -70,6 +82,10 @@ impl<T: Path> FiniteCurve for T {
                 Some(segment.subsection(start - start_offset, end - start_offset))
             }
         }).collect())
+    }
+
+    fn shift_orthogonally(&self, shift_to_right: N) -> Self {
+        Self::new(self.segments().iter().map(|segment| segment.shift_orthogonally(shift_to_right)).collect())
     }
 }
 
@@ -95,4 +111,13 @@ impl<T: Path> Curve for T {
             if min.is_some() && distance < min.unwrap() {Some(distance)} else {min}
         }).unwrap()
     }
+}
+
+use ncollide_transformation::convex_hull2_idx;
+
+pub fn convex_hull<P: Path>(points: &[P2]) -> P {
+    let mut hull_indices = convex_hull2_idx(points);
+    let first_index = hull_indices[0];
+    hull_indices.push(first_index);
+    P::new(hull_indices.windows(2).map(|idx_window| Segment::line(points[idx_window[0]], points[idx_window[1]])).collect())
 }

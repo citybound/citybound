@@ -1,7 +1,7 @@
 #![feature(plugin)]
 #![plugin(clippy)]
 extern crate nalgebra;
-extern crate smallvec;
+extern crate ncollide_transformation;
 
 use nalgebra::{Vector2, Point2, Vector3, Vector4, Point3, Isometry3, Perspective3, Matrix4};
 pub use nalgebra::{Dot, ToHomogeneous, Norm, Inverse, Rotate};
@@ -27,7 +27,8 @@ mod intersect;
 mod shapes;
 
 pub use self::primitives::*;
-pub use self::path::{Path};
+pub use self::path::{Path, convex_hull};
+pub use self::intersect::*;
 pub use self::shapes::*;
 
 fn angle_to(a: V2, b: V2) -> N {
@@ -116,13 +117,17 @@ pub trait FiniteCurve : Curve {
     fn length(&self) -> N;
     fn along(&self, distance: N) -> P2;
     fn direction_along(&self, distance: N) -> V2;
+    fn start(&self) -> P2;
     fn start_direction(&self) -> V2 {
         self.direction_along(0.0)
     }
+    fn end(&self) -> P2;
     fn end_direction(&self) -> V2 {
         self.direction_along(self.length())
     }
+    fn reverse(&self) -> Self;
     fn subsection(&self, start: N, end: N) -> Self;
+    fn shift_orthogonally(&self, shift_to_right: N) -> Self;
 }
 
 pub trait Shape {

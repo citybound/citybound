@@ -94,7 +94,7 @@ impl Segment {
         self.signed_radius == 0.0
     }
 
-    fn center(&self) -> P2 {
+    pub fn center(&self) -> P2 {
         *self.center_or_direction.as_point()
     }
 
@@ -140,6 +140,8 @@ impl FiniteCurve for Segment {
         }
     }
 
+    fn start(&self) -> P2 {self.start}
+
     fn start_direction(&self) -> V2 {
         if self.is_linear() {
             self.center_or_direction
@@ -149,12 +151,22 @@ impl FiniteCurve for Segment {
         }
     }
 
+    fn end(&self) -> P2 {self.end}
+
     fn end_direction(&self) -> V2 {
         if self.is_linear() {
             self.center_or_direction
         } else {
             let center_to_end = self.end - self.center();
             center_to_end.normalize().orthogonal() * self.signed_radius.signum()
+        }
+    }
+
+    fn reverse(&self) -> Segment {
+        if self.is_linear() {
+            Segment::line(self.end, self.start)
+        } else {
+            Segment::arc(self.end, self.center(), self.end)
         }
     }
 
@@ -166,6 +178,17 @@ impl FiniteCurve for Segment {
             Segment::line(self.along(true_start), self.along(true_end))
         } else {
             Segment::arc(self.along(true_start), self.center(), self.along(true_end))
+        }
+    }
+
+    fn shift_orthogonally(&self, shift_to_right: N) -> Segment {
+        if self.is_linear() {
+            let offset = self.start_direction().orthogonal() * shift_to_right;
+            Segment::line(self.start + offset, self.end + offset)
+        } else {
+            let start_offset = self.start_direction().orthogonal() * shift_to_right;
+            let end_offset = self.end_direction().orthogonal() * shift_to_right;
+            Segment::arc(self.start + start_offset, self.center(), self.end + end_offset)
         }
     }
 }
@@ -194,6 +217,7 @@ impl Curve for Segment {
         }
     }
 
+    // TODO: optimize this
     fn includes(&self, point: P2) -> bool {
         let primitive_includes_point = if self.is_linear() {
             Line{start: self.start, direction: self.center_or_direction}.includes(point)

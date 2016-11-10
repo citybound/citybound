@@ -1,4 +1,4 @@
-use descartes::{P2, V2, Path, Segment, Band};
+use descartes::{P2, V2, Path, Segment, Band, Intersect, convex_hull};
 use kay::{CVec, Swarm, Recipient, CreateWith, ActorSystem, Individual, Fate};
 use monet::{Instance, Thing, Norm};
 use core::geometry::{CPath, band_to_thing};
@@ -15,6 +15,8 @@ pub struct PlanRef(usize, usize);
 #[derive(Compact, Clone)]
 pub struct Plan {
     strokes: CVec<RoadStroke>,
+    strokes_after_cutting: CVec<RoadStroke>,
+    intersections: CVec<Intersection>,
     ui_state: PlanUIState
 }
 impl Individual for Plan{}
@@ -25,6 +27,34 @@ impl Plan{
         for (i, stroke) in self.strokes.iter().enumerate() {
             stroke.create_interactables(PlanRef(i, 0));
         }
+    }
+
+    fn find_intersections(&self) -> CVec<Intersection> {
+        let mut intersections = Vec::new();
+        
+        for i in 0..self.strokes.len() {
+            let stroke1 = &self.strokes[i];
+            if stroke1.nodes.len() > 1 {
+                let band1 = Band::new(stroke1.path(), 3.0).outline();
+                for j in (i + 1)..self.strokes.len() {
+                    let stroke2 = &self.strokes[j];
+                    if stroke2.nodes.len() > 2 {
+                        let band2 = Band::new(stroke2.path(), 3.0).outline();
+
+                        let intersection_points = (&band1, &band2).intersect();
+
+                        if intersection_points.len() >= 2 {
+                            intersections.push(Intersection{
+                                shape: convex_hull(&*intersection_points.iter().map(|i| i.position).collect::<Vec<_>>()),
+                                connecting_strokes: CVec::new()
+                            });
+                        } 
+                    }
+                }
+            }
+        }
+
+        intersections.into()
     }
 }
 
@@ -62,11 +92,13 @@ impl Recipient<PlanControl> for Plan {
             }
 
             self.ui_state.dirty = true;
+            self.intersections = self.find_intersections();
             Fate::Live
         },
         PlanControl::MoveRoadStrokeNodeTo(PlanRef(stroke, node), position) => {
             self.strokes[stroke].nodes[node].position = position;
             self.ui_state.dirty = true;
+            self.intersections = self.find_intersections();
             Fate::Live
         }
     }}
@@ -101,7 +133,10 @@ impl Recipient<RenderToScene> for Plan {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg{
         RenderToScene{renderer_id, scene_id} => {
             if self.ui_state.dirty {
-                let thing : Thing = self.strokes.iter().map(RoadStroke::preview_thing).sum();
+                let thing : Thing = self.strokes.iter()
+                    .filter(|stroke| stroke.nodes.len() > 1)
+                    .map(RoadStroke::preview_thing)
+                    .sum();
                 renderer_id << UpdateThing{
                     scene_id: scene_id,
                     thing_id: 13,
@@ -110,6 +145,20 @@ impl Recipient<RenderToScene> for Plan {
                         instance_position: [0.0, 0.0, 0.0],
                         instance_direction: [1.0, 0.0],
                         instance_color: [0.5, 0.5, 0.5]
+                    }
+                };
+                let intersections_thing : Thing = self.intersections.iter()
+                    .filter(|i| i.shape.segments().len() > 0)
+                    .map(|i| band_to_thing(&Band::new(i.shape.clone(), 0.2), 0.0))
+                    .sum();
+                renderer_id << UpdateThing{
+                    scene_id: scene_id,
+                    thing_id: 14,
+                    thing: intersections_thing,
+                    instance: Instance{
+                        instance_position: [0.0, 0.0, 0.0],
+                        instance_direction: [1.0, 0.0],
+                        instance_color: [0.0, 0.0, 1.0]
                     }
                 };
                 self.ui_state.dirty = false;
@@ -132,7 +181,7 @@ impl RoadStroke {
     }
 
     fn preview_thing(&self) -> Thing {
-        band_to_thing(&Band::new(self.path(), 3.0), 0.0)
+        band_to_thing(&Band::new(Band::new(self.path(), 3.0).outline(), 0.2), 0.0)
     }
 
     fn create_interactables(&self, self_ref: PlanRef) {
@@ -163,6 +212,12 @@ impl RoadStrokeNode {
 }
 
 #[derive(Compact, Clone)]
+struct Intersection{
+    shape: CPath,
+    connecting_strokes: CVec<RoadStroke>
+}
+
+#[derive(Compact, Clone)]
 struct PlanUIState{
     current_node: Option<PlanRef>,
     dirty: bool
@@ -186,6 +241,8 @@ pub fn setup(system: &mut ActorSystem) {
                 ].into()
             },
         ].into(),
+        strokes_after_cutting: CVec::new(),
+        intersections: CVec::new(),
         ui_state: PlanUIState{
             current_node: None,
             dirty: true
