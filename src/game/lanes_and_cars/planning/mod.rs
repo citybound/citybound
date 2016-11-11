@@ -30,7 +30,7 @@ impl Plan{
         }
     }
 
-    fn find_intersections(&self) -> CVec<Intersection> {
+    fn create_intersections(&mut self) {
         let mut all_intersection_points = Vec::new();
         
         for i in 0..self.strokes.len() {
@@ -91,17 +91,19 @@ impl Plan{
             }
         }
 
-        intersection_point_groups.iter().filter_map(|group|
+        self.intersections = intersection_point_groups.iter().filter_map(|group|
             if group.len() >= 2 {
                 Some(Intersection{
                     shape: convex_hull::<CPath>(group),
+                    incoming: CVec::new(),
+                    outgoing: CVec::new(),
                     connecting_strokes: CVec::new()
                 })
             } else {None}
         ).collect()
     }
 
-    fn cut_strokes_at_intersections(&self) -> CVec<RoadStroke> {
+    fn cut_strokes_at_intersections(&mut self) {
         let mut strokes_todo : Vec<_> = self.strokes.iter().cloned().collect();
 
         let mut cutting_ongoing = true;
@@ -113,13 +115,19 @@ impl Plan{
             for stroke in &strokes_todo {
                 let mut was_cut = false;
 
-                for intersection in self.intersections.iter() {
+                for intersection in self.intersections.iter_mut() {
                     let intersection_points = (&stroke.path(), &intersection.shape).intersect();
                     if intersection_points.len() >= 2 {
                         let entry_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).min().unwrap();
                         let exit_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).max().unwrap();
-                        new_strokes.push(stroke.cut_before(*entry_distance - 1.0));
-                        new_strokes.push(stroke.cut_after(*exit_distance + 1.0));
+                        let before_intersection = stroke.cut_before(*entry_distance - 1.0);
+                        let after_intersection = stroke.cut_after(*exit_distance + 1.0);  
+
+                        intersection.incoming.push(*before_intersection.nodes.last().unwrap());
+                        intersection.outgoing.push(after_intersection.nodes[0]);
+                        new_strokes.push(before_intersection);
+                        new_strokes.push(after_intersection);
+
                         cutting_ongoing = true;
                         was_cut = true;
                         break;
@@ -136,7 +144,22 @@ impl Plan{
             }
         }
 
-        strokes_todo.into()
+        self.strokes_after_cutting = strokes_todo.into();
+    }
+
+    fn create_connecting_strokes_on_intersections(&mut self) {
+        for intersection in self.intersections.iter_mut() {
+            let mut connecting_strokes = CVec::new();
+            for incoming in intersection.incoming.iter() {
+                for outgoing in intersection.outgoing.iter() {
+                    connecting_strokes.push(RoadStroke{
+                        nodes: vec![*incoming, *outgoing].into()
+                    });
+                }
+            }
+            intersection.connecting_strokes = connecting_strokes;
+        }
+
     }
 }
 
@@ -174,15 +197,17 @@ impl Recipient<PlanControl> for Plan {
             }
 
             self.ui_state.dirty = true;
-            self.intersections = self.find_intersections();
-            self.strokes_after_cutting = self.cut_strokes_at_intersections();
+            self.create_intersections();
+            self.cut_strokes_at_intersections();
+            self.create_connecting_strokes_on_intersections();
             Fate::Live
         },
         PlanControl::MoveRoadStrokeNodeTo(PlanRef(stroke, node), position) => {
             self.strokes[stroke].nodes[node].position = position;
             self.ui_state.dirty = true;
-            self.intersections = self.find_intersections();
-            self.strokes_after_cutting = self.cut_strokes_at_intersections();
+            self.create_intersections();
+            self.cut_strokes_at_intersections();
+            self.create_connecting_strokes_on_intersections();
             Fate::Live
         }
     }}
@@ -228,7 +253,7 @@ impl Recipient<RenderToScene> for Plan {
                     instance: Instance{
                         instance_position: [0.0, 0.0, 0.0],
                         instance_direction: [1.0, 0.0],
-                        instance_color: [0.5, 0.5, 0.5]
+                        instance_color: [0.3, 0.3, 0.5]
                     }
                 };
                 let intersections_thing : Thing = self.intersections.iter()
@@ -243,6 +268,20 @@ impl Recipient<RenderToScene> for Plan {
                         instance_position: [0.0, 0.0, 0.0],
                         instance_direction: [1.0, 0.0],
                         instance_color: [0.0, 0.0, 1.0]
+                    }
+                };
+                let connecting_strokes_thing : Thing = self.intersections.iter()
+                    .filter(|i| !i.connecting_strokes.is_empty())
+                    .map(|i| i.connecting_strokes.iter().map(RoadStroke::preview_thing).sum())
+                    .sum();
+                renderer_id << UpdateThing{
+                    scene_id: scene_id,
+                    thing_id: 15,
+                    thing: connecting_strokes_thing,
+                    instance: Instance{
+                        instance_position: [0.0, 0.0, 0.0],
+                        instance_direction: [1.0, 0.0],
+                        instance_color: [0.5, 0.5, 1.0]
                     }
                 };
                 self.ui_state.dirty = false;
@@ -265,7 +304,7 @@ impl RoadStroke {
     }
 
     fn preview_thing(&self) -> Thing {
-        band_to_thing(&Band::new(self.path(), 3.0), 0.0)
+        band_to_thing(&Band::new(Band::new(self.path(), 3.0).outline(), 0.3), 0.0)
     }
 
     fn create_interactables(&self, self_ref: PlanRef) {
@@ -323,6 +362,8 @@ impl RoadStrokeNode {
 #[derive(Compact, Clone)]
 struct Intersection{
     shape: CPath,
+    incoming: CVec<RoadStrokeNode>,
+    outgoing: CVec<RoadStrokeNode>,
     connecting_strokes: CVec<RoadStroke>
 }
 
