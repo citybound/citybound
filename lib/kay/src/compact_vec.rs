@@ -4,6 +4,7 @@ use super::compact::Compact;
 use ::std::marker::PhantomData;
 use ::std::ptr;
 use ::std::ops::{Deref, DerefMut};
+use ::std::iter::FromIterator;
 
 pub struct CompactVec <T, A: Allocator = DefaultHeap> {
     ptr: PointerToMaybeCompact<T>,
@@ -234,5 +235,15 @@ impl<T: Copy, A: Allocator> Clone for CompactVec<T, A> {
         }
         new_vec.len = self.len;
         new_vec
+    }
+}
+
+impl<T: Compact + Clone, A: Allocator> FromIterator<T> for CompactVec<T, A> {
+    fn from_iter<I: IntoIterator<Item=T>>(iter: I) -> Self {
+        let mut vec = CompactVec::new();
+        for item in iter {
+            vec.push(item);
+        }
+        vec
     }
 }

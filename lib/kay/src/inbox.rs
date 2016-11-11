@@ -8,7 +8,7 @@ pub struct Inbox<M: Message> {
     message_marker: PhantomData<[M]>
 }
 
-const CHUNK_SIZE : usize = 4096;
+const CHUNK_SIZE : usize = 4096 * 128;
 
 impl <M: Message> Inbox<M> {
     pub fn new() -> Self {

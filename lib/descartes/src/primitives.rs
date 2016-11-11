@@ -197,7 +197,7 @@ impl Curve for Segment {
     fn project(&self, point: P2) -> Option<N> {
         if self.is_linear() {
             let direction = self.center_or_direction;
-            let line_offset = direction.dot(&(point - self.end));
+            let line_offset = direction.dot(&(point - self.start));
             if line_offset > -THICKNESS && line_offset < self.length + THICKNESS {
                 Some(line_offset)
             } else {None}
@@ -228,7 +228,14 @@ impl Curve for Segment {
         primitive_includes_point && self.project(point).is_some()
     }
 
-    fn distance_to(&self, _point: P2) -> N {
-        unimplemented!()
+    fn distance_to(&self, point: P2) -> N {
+        match self.project(point) {
+            Some(_offset) => if self.is_linear() {
+                    Line{start: self.start, direction: self.center_or_direction}.distance_to(point)
+                } else {
+                    Circle{center: self.center(), radius: self.radius()}.distance_to(point)
+                },
+            None => (self.start - point).norm().min((self.end - point).norm())
+        }
     }
 }

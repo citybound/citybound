@@ -2,6 +2,7 @@
 #![plugin(clippy)]
 extern crate nalgebra;
 extern crate ncollide_transformation;
+extern crate ordered_float;
 
 use nalgebra::{Vector2, Point2, Vector3, Vector4, Point3, Isometry3, Perspective3, Matrix4};
 pub use nalgebra::{Dot, ToHomogeneous, Norm, Inverse, Rotate};
@@ -95,17 +96,31 @@ impl Into3d for P2 {
     }
 }
 
-trait RoughlyComparable {
-    fn is_roughly(&self, other: Self) -> bool;
+pub trait RoughlyComparable : Sized {
+    fn is_roughly(&self, other: Self) -> bool {
+        self.is_roughly_within(other, ROUGH_TOLERANCE)
+    }
+    fn is_roughly_within(&self, other: Self, tolerance: N) -> bool;
 }
 
 impl RoughlyComparable for N {
-    fn is_roughly(&self, other: N) -> bool {
-        (self - other).abs() <= ROUGH_TOLERANCE
+    fn is_roughly_within(&self, other: N, tolerance: N) -> bool {
+        (self - other).abs() <= tolerance
+    }
+}
+
+impl RoughlyComparable for P2 {
+    fn is_roughly_within(&self, other: P2, tolerance: N) -> bool {
+        (*self - other).norm() <= tolerance
     }
 }
 
 pub trait Curve {
+    fn project_with_max_distance(&self, point: P2, max_distance: N) -> Option<N> {
+        self.project(point).and_then(|offset|
+            if self.distance_to(point) < max_distance {Some(offset)} else {None}
+        )
+    }
     fn project(&self, point: P2) -> Option<N>;
     fn includes(&self, point: P2) -> bool {
         self.distance_to(point) < THICKNESS/2.0

@@ -1,7 +1,8 @@
-use descartes::{P2, V2, Path, Segment, Band, Intersect, convex_hull};
+use descartes::{P2, V2, Path, Segment, Band, Intersect, convex_hull, FiniteCurve, N, RoughlyComparable};
 use kay::{CVec, Swarm, Recipient, CreateWith, ActorSystem, Individual, Fate};
 use monet::{Instance, Thing, Norm};
 use core::geometry::{CPath, band_to_thing};
+use ordered_float::OrderedFloat;
 
 mod road_stroke_node_interactable;
 mod road_stroke_canvas;
@@ -15,8 +16,8 @@ pub struct PlanRef(usize, usize);
 #[derive(Compact, Clone)]
 pub struct Plan {
     strokes: CVec<RoadStroke>,
-    strokes_after_cutting: CVec<RoadStroke>,
     intersections: CVec<Intersection>,
+    strokes_after_cutting: CVec<RoadStroke>,
     ui_state: PlanUIState
 }
 impl Individual for Plan{}
@@ -30,31 +31,112 @@ impl Plan{
     }
 
     fn find_intersections(&self) -> CVec<Intersection> {
-        let mut intersections = Vec::new();
+        let mut all_intersection_points = Vec::new();
         
         for i in 0..self.strokes.len() {
             let stroke1 = &self.strokes[i];
             if stroke1.nodes.len() > 1 {
-                let band1 = Band::new(stroke1.path(), 3.0).outline();
+                let band1 = Band::new(stroke1.path(), 8.0).outline();
                 for j in (i + 1)..self.strokes.len() {
                     let stroke2 = &self.strokes[j];
-                    if stroke2.nodes.len() > 2 {
-                        let band2 = Band::new(stroke2.path(), 3.0).outline();
+                    if stroke2.nodes.len() > 1 {
+                        let band2 = Band::new(stroke2.path(), 8.0).outline();
 
-                        let intersection_points = (&band1, &band2).intersect();
-
-                        if intersection_points.len() >= 2 {
-                            intersections.push(Intersection{
-                                shape: convex_hull(&*intersection_points.iter().map(|i| i.position).collect::<Vec<_>>()),
-                                connecting_strokes: CVec::new()
-                            });
-                        } 
+                        let intersections = (&band1, &band2).intersect();
+                        all_intersection_points.extend(intersections.iter().map(|i| i.position));
                     }
                 }
             }
         }
 
-        intersections.into()
+        let mut intersection_point_groups = Vec::<Vec<P2>>::new();
+
+        const INTERSECTION_GROUPING_RADIUS : f32 = 20.0;
+
+        for point in all_intersection_points.drain(..) {
+            let create_new_group = match intersection_point_groups.iter_mut().find(|group| {
+                let max_distance = group.iter().map(|other_point| OrderedFloat((*other_point - point).norm())).max().unwrap();
+                *max_distance < INTERSECTION_GROUPING_RADIUS
+            }) {
+                Some(exisiting_group) => {exisiting_group.push(point); false},
+                None => true
+            };
+
+            if create_new_group {
+                intersection_point_groups.push(vec![point]);
+            }
+        }
+
+        let mut merging_ongoing = true;
+
+        while merging_ongoing {
+            merging_ongoing = false;
+            #[allow(needless_range_loop)]
+            for i in 0..intersection_point_groups.len() {
+                for j in ((i + 1)..intersection_point_groups.len()).rev() {
+                    let merge_groups = {
+                        let group_i = &intersection_point_groups[i];
+                        let group_j = &intersection_point_groups[j];
+                        group_i.iter().any(|point_i|
+                            group_j.iter().any(|point_j| (*point_i - *point_j).norm() < INTERSECTION_GROUPING_RADIUS)
+                        )
+                    };
+                    if merge_groups {
+                        let group_to_be_merged = intersection_point_groups[j].clone();
+                        intersection_point_groups[i].extend_from_slice(&group_to_be_merged);
+                        intersection_point_groups[j].clear();
+                        merging_ongoing = true;
+                    }
+                }
+            }
+        }
+
+        intersection_point_groups.iter().filter_map(|group|
+            if group.len() >= 2 {
+                Some(Intersection{
+                    shape: convex_hull::<CPath>(group),
+                    connecting_strokes: CVec::new()
+                })
+            } else {None}
+        ).collect()
+    }
+
+    fn cut_strokes_at_intersections(&self) -> CVec<RoadStroke> {
+        let mut strokes_todo : Vec<_> = self.strokes.iter().cloned().collect();
+
+        let mut cutting_ongoing = true;
+        let mut iters = 0;
+        while cutting_ongoing {
+            cutting_ongoing = false;
+            let mut new_strokes = Vec::new();
+
+            for stroke in &strokes_todo {
+                let mut was_cut = false;
+
+                for intersection in self.intersections.iter() {
+                    let intersection_points = (&stroke.path(), &intersection.shape).intersect();
+                    if intersection_points.len() >= 2 {
+                        let entry_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).min().unwrap();
+                        let exit_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).max().unwrap();
+                        new_strokes.push(stroke.cut_before(*entry_distance - 1.0));
+                        new_strokes.push(stroke.cut_after(*exit_distance + 1.0));
+                        cutting_ongoing = true;
+                        was_cut = true;
+                        break;
+                    }
+                }
+
+                if !was_cut {new_strokes.push(stroke.clone())};
+            }
+
+            strokes_todo = new_strokes;
+            iters += 1;
+            if iters > 30 {
+                panic!("STuck!!!")
+            }
+        }
+
+        strokes_todo.into()
     }
 }
 
@@ -93,12 +175,14 @@ impl Recipient<PlanControl> for Plan {
 
             self.ui_state.dirty = true;
             self.intersections = self.find_intersections();
+            self.strokes_after_cutting = self.cut_strokes_at_intersections();
             Fate::Live
         },
         PlanControl::MoveRoadStrokeNodeTo(PlanRef(stroke, node), position) => {
             self.strokes[stroke].nodes[node].position = position;
             self.ui_state.dirty = true;
             self.intersections = self.find_intersections();
+            self.strokes_after_cutting = self.cut_strokes_at_intersections();
             Fate::Live
         }
     }}
@@ -133,7 +217,7 @@ impl Recipient<RenderToScene> for Plan {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg{
         RenderToScene{renderer_id, scene_id} => {
             if self.ui_state.dirty {
-                let thing : Thing = self.strokes.iter()
+                let thing : Thing = self.strokes_after_cutting.iter()
                     .filter(|stroke| stroke.nodes.len() > 1)
                     .map(RoadStroke::preview_thing)
                     .sum();
@@ -149,7 +233,7 @@ impl Recipient<RenderToScene> for Plan {
                 };
                 let intersections_thing : Thing = self.intersections.iter()
                     .filter(|i| i.shape.segments().len() > 0)
-                    .map(|i| band_to_thing(&Band::new(i.shape.clone(), 0.2), 0.0))
+                    .map(|i| band_to_thing(&Band::new(i.shape.clone(), 0.4), 0.5))
                     .sum();
                 renderer_id << UpdateThing{
                     scene_id: scene_id,
@@ -181,7 +265,7 @@ impl RoadStroke {
     }
 
     fn preview_thing(&self) -> Thing {
-        band_to_thing(&Band::new(Band::new(self.path(), 3.0).outline(), 0.2), 0.0)
+        band_to_thing(&Band::new(self.path(), 3.0), 0.0)
     }
 
     fn create_interactables(&self, self_ref: PlanRef) {
@@ -192,6 +276,31 @@ impl RoadStroke {
             node.create_interactables(child_ref);
         }
     } 
+
+    // TODO: this is really ugly
+    fn cut_before(&self, offset: N) -> Self {
+        let path = self.path();
+        let cut_path = path.subsection(0.0, offset);
+        RoadStroke{nodes: self.nodes.iter().filter(|node|
+            cut_path.segments().iter().any(|segment|
+                segment.start().is_roughly_within(node.position, 0.1) || segment.end().is_roughly_within(node.position, 0.1)
+            )
+        ).chain(&[RoadStrokeNode{
+            position: path.along(offset), direction: None
+        }]).cloned().collect()}
+    }
+
+    fn cut_after(&self, offset: N) -> Self {
+        let path = self.path();
+        let cut_path = path.subsection(offset, path.length());
+        RoadStroke{nodes: (&[RoadStrokeNode{
+            position: path.along(offset), direction: None
+        }]).iter().chain(self.nodes.iter().filter(|node|
+            cut_path.segments().iter().any(|segment|
+                segment.start().is_roughly_within(node.position, 0.1) || segment.end().is_roughly_within(node.position, 0.1)
+            )
+        )).cloned().collect()}
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -225,22 +334,7 @@ struct PlanUIState{
 
 pub fn setup(system: &mut ActorSystem) {
     let plan = Plan{
-        strokes: vec![
-            RoadStroke{
-                nodes: vec![
-                    RoadStrokeNode{position: P2::new(0.0, 0.0), direction: None},
-                    RoadStrokeNode{position: P2::new(100.0, 0.0), direction: None},
-                    RoadStrokeNode{position: P2::new(150.0, 50.0), direction: None}
-                ].into()
-            },
-            RoadStroke{
-                nodes: vec![
-                    RoadStrokeNode{position: P2::new(0.0, 100.0), direction: None},
-                    RoadStrokeNode{position: P2::new(100.0, 100.0), direction: None},
-                    RoadStrokeNode{position: P2::new(150.0, 150.0), direction: None}
-                ].into()
-            },
-        ].into(),
+        strokes: CVec::new(),
         strokes_after_cutting: CVec::new(),
         intersections: CVec::new(),
         ui_state: PlanUIState{

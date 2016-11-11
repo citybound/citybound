@@ -11,7 +11,7 @@ pub struct Swarm<Actor> {
     _marker: PhantomData<[Actor]>
 }
 
-const CHUNK_SIZE : usize = 4096;
+const CHUNK_SIZE : usize = 4096 * 128;
 
 impl<A: Actor> Swarm<A> {
     pub fn new() -> Self {

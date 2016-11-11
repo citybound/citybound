@@ -1,5 +1,6 @@
-use super::{N, P2, V2, Curve, FiniteCurve};
+use super::{N, P2, V2, Norm, Curve, FiniteCurve};
 use super::primitives::Segment;
+use ordered_float::OrderedFloat;
 
 type ScannerFn<'a> = fn(&mut StartOffsetState, &'a Segment) -> Option<(&'a Segment, N)>;
 type ScanIter<'a> = ::std::iter::Scan<::std::slice::Iter<'a, Segment>, StartOffsetState, ScannerFn<'a>>;
@@ -90,15 +91,12 @@ impl<T: Path> FiniteCurve for T {
 }
 
 impl<T: Path> Curve for T {
+    // TODO: this can be really buggy/unexpected
     fn project(&self, point: P2) -> Option<N> {
         self.segments_with_start_offsets().filter_map(|pair: (&Segment, N)| {
             let (segment, start_offset) = pair;
-            let offset_on_segment = segment.project(point);
-            match offset_on_segment {
-                Some(offset) => Some(start_offset + offset),
-                None => None
-            }
-        }).next()
+            segment.project(point).map(|offset| offset + start_offset)
+        }).min_by_key(|offset| OrderedFloat((self.along(*offset) - point).norm()))
     }
 
     fn includes(&self, point: P2) -> bool {
@@ -106,10 +104,7 @@ impl<T: Path> Curve for T {
     }
 
     fn distance_to(&self, point: P2) -> N {
-        self.segments().into_iter().fold(None, |min, segment| {
-            let distance = segment.distance_to(point);
-            if min.is_some() && distance < min.unwrap() {Some(distance)} else {min}
-        }).unwrap()
+        self.segments().iter().map(|segment| OrderedFloat(segment.distance_to(point))).min().map(|ord_f| *ord_f).unwrap()
     }
 }
 

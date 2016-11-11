@@ -174,10 +174,14 @@ impl<'a, P: Path> Intersect for (&'a P, &'a P) {
     fn intersect(&self) -> Vec<Intersection> {
         let (a, b) = *self;
         let mut intersection_list = Vec::new();
-        for segment_a in a.segments() {
-            for segment_b in b.segments() {
+        for (segment_a, offset_a) in a.segments_with_start_offsets() {
+            for (segment_b, offset_b) in b.segments_with_start_offsets() {
                 for intersection in (segment_a, segment_b).intersect() {
-                    intersection_list.push(intersection);
+                    intersection_list.push(Intersection{
+                        along_a: intersection.along_a + offset_a,
+                        along_b: intersection.along_b + offset_b,
+                        position: intersection.position
+                    });
                 }
             }
         }
