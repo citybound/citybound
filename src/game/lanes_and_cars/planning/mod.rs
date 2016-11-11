@@ -22,6 +22,134 @@ pub struct Plan {
 }
 impl Individual for Plan{}
 
+#[derive(Copy, Clone)]
+enum PlanControl{
+    AddRoadStrokeNode(P2),
+    MoveRoadStrokeNodeTo(PlanRef, P2)
+}
+
+impl Recipient<PlanControl> for Plan {
+    fn receive(&mut self, msg: &PlanControl) -> Fate {match *msg{
+        PlanControl::AddRoadStrokeNode(at) => {
+            let new_node = RoadStrokeNode{position: at, direction: None};
+            
+            if let Some(PlanRef(stroke_idx, node_idx)) = self.ui_state.current_node {
+                let stroke = &mut self.strokes[stroke_idx];
+                let current_node = stroke.nodes[node_idx];
+
+                if (current_node.position - new_node.position).norm() < 5.0 {
+                    // finish stroke
+                    self.ui_state.current_node = None;
+                } else if node_idx == stroke.nodes.len() - 1 {
+                    // append
+                    stroke.nodes.push(new_node);
+                    self.ui_state.current_node = Some(PlanRef(stroke_idx, stroke.nodes.len() - 1));
+                } else if node_idx == 0 {
+                    // prepend
+                    stroke.nodes.insert(0, new_node);
+                } else {unreachable!()}
+            } else {
+                self.strokes.push(RoadStroke{
+                    nodes: vec![new_node].into()
+                });
+                self.ui_state.current_node = Some(PlanRef(self.strokes.len() - 1, 0))
+            }
+
+            self.ui_state.dirty = true;
+            self.create_intersections();
+            self.cut_strokes_at_intersections();
+            self.create_connecting_strokes_on_intersections();
+            Fate::Live
+        },
+        PlanControl::MoveRoadStrokeNodeTo(PlanRef(stroke, node), position) => {
+            self.strokes[stroke].nodes[node].position = position;
+            self.ui_state.dirty = true;
+            self.create_intersections();
+            self.cut_strokes_at_intersections();
+            self.create_connecting_strokes_on_intersections();
+            Fate::Live
+        }
+    }}
+}
+
+#[derive(Copy, Clone)]
+struct RecreateInteractables;
+#[derive(Copy, Clone)]
+struct ClearAll;
+
+impl Recipient<RecreateInteractables> for Plan {
+    fn receive(&mut self, _msg: &RecreateInteractables) -> Fate {
+        Swarm::<RoadStrokeNodeInteractable>::all() << ClearAll;
+        self.create_interactables();
+        Fate::Live
+    }
+}
+
+use monet::SetupInScene;
+
+impl Recipient<SetupInScene> for Plan {
+    fn receive(&mut self, _msg: &SetupInScene) -> Fate {
+        self.create_interactables();
+        Fate::Live
+    }
+}
+
+use monet::RenderToScene;
+use monet::UpdateThing;
+
+impl Recipient<RenderToScene> for Plan {
+    fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg{
+        RenderToScene{renderer_id, scene_id} => {
+            if self.ui_state.dirty {
+                let thing : Thing = self.strokes_after_cutting.iter()
+                    .filter(|stroke| stroke.nodes.len() > 1)
+                    .map(RoadStroke::preview_thing)
+                    .sum();
+                renderer_id << UpdateThing{
+                    scene_id: scene_id,
+                    thing_id: 13,
+                    thing: thing,
+                    instance: Instance{
+                        instance_position: [0.0, 0.0, 0.0],
+                        instance_direction: [1.0, 0.0],
+                        instance_color: [0.3, 0.3, 0.5]
+                    }
+                };
+                let intersections_thing : Thing = self.intersections.iter()
+                    .filter(|i| i.shape.segments().len() > 0)
+                    .map(|i| band_to_thing(&Band::new(i.shape.clone(), 0.4), 0.5))
+                    .sum();
+                renderer_id << UpdateThing{
+                    scene_id: scene_id,
+                    thing_id: 14,
+                    thing: intersections_thing,
+                    instance: Instance{
+                        instance_position: [0.0, 0.0, 0.0],
+                        instance_direction: [1.0, 0.0],
+                        instance_color: [0.0, 0.0, 1.0]
+                    }
+                };
+                let connecting_strokes_thing : Thing = self.intersections.iter()
+                    .filter(|i| !i.connecting_strokes.is_empty())
+                    .map(|i| i.connecting_strokes.iter().map(RoadStroke::preview_thing).sum())
+                    .sum();
+                renderer_id << UpdateThing{
+                    scene_id: scene_id,
+                    thing_id: 15,
+                    thing: connecting_strokes_thing,
+                    instance: Instance{
+                        instance_position: [0.0, 0.0, 0.0],
+                        instance_direction: [1.0, 0.0],
+                        instance_color: [0.5, 0.5, 1.0]
+                    }
+                };
+                self.ui_state.dirty = false;
+            }
+            Fate::Live
+        }
+    }}
+}
+
 impl Plan{
     fn create_interactables(&self) {
         Swarm::<RoadStrokeCanvas>::all() << CreateWith(RoadStrokeCanvas::new(), AddToUI);
@@ -161,134 +289,6 @@ impl Plan{
         }
 
     }
-}
-
-#[derive(Copy, Clone)]
-enum PlanControl{
-    AddRoadStrokeNode(P2),
-    MoveRoadStrokeNodeTo(PlanRef, P2)
-}
-
-impl Recipient<PlanControl> for Plan {
-    fn receive(&mut self, msg: &PlanControl) -> Fate {match *msg{
-        PlanControl::AddRoadStrokeNode(at) => {
-            let new_node = RoadStrokeNode{position: at, direction: None};
-            
-            if let Some(PlanRef(stroke_idx, node_idx)) = self.ui_state.current_node {
-                let stroke = &mut self.strokes[stroke_idx];
-                let current_node = stroke.nodes[node_idx];
-
-                if (current_node.position - new_node.position).norm() < 5.0 {
-                    // finish stroke
-                    self.ui_state.current_node = None;
-                } else if node_idx == stroke.nodes.len() - 1 {
-                    // append
-                    stroke.nodes.push(new_node);
-                    self.ui_state.current_node = Some(PlanRef(stroke_idx, stroke.nodes.len() - 1));
-                } else if node_idx == 0 {
-                    // prepend
-                    stroke.nodes.insert(0, new_node);
-                } else {unreachable!()}
-            } else {
-                self.strokes.push(RoadStroke{
-                    nodes: vec![new_node].into()
-                });
-                self.ui_state.current_node = Some(PlanRef(self.strokes.len() - 1, 0))
-            }
-
-            self.ui_state.dirty = true;
-            self.create_intersections();
-            self.cut_strokes_at_intersections();
-            self.create_connecting_strokes_on_intersections();
-            Fate::Live
-        },
-        PlanControl::MoveRoadStrokeNodeTo(PlanRef(stroke, node), position) => {
-            self.strokes[stroke].nodes[node].position = position;
-            self.ui_state.dirty = true;
-            self.create_intersections();
-            self.cut_strokes_at_intersections();
-            self.create_connecting_strokes_on_intersections();
-            Fate::Live
-        }
-    }}
-}
-
-#[derive(Copy, Clone)]
-struct RecreateInteractables;
-#[derive(Copy, Clone)]
-struct ClearAll;
-
-impl Recipient<RecreateInteractables> for Plan {
-    fn receive(&mut self, _msg: &RecreateInteractables) -> Fate {
-        Swarm::<RoadStrokeNodeInteractable>::all() << ClearAll;
-        self.create_interactables();
-        Fate::Live
-    }
-}
-
-use monet::SetupInScene;
-
-impl Recipient<SetupInScene> for Plan {
-    fn receive(&mut self, _msg: &SetupInScene) -> Fate {
-        self.create_interactables();
-        Fate::Live
-    }
-}
-
-use monet::RenderToScene;
-use monet::UpdateThing;
-
-impl Recipient<RenderToScene> for Plan {
-    fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg{
-        RenderToScene{renderer_id, scene_id} => {
-            if self.ui_state.dirty {
-                let thing : Thing = self.strokes_after_cutting.iter()
-                    .filter(|stroke| stroke.nodes.len() > 1)
-                    .map(RoadStroke::preview_thing)
-                    .sum();
-                renderer_id << UpdateThing{
-                    scene_id: scene_id,
-                    thing_id: 13,
-                    thing: thing,
-                    instance: Instance{
-                        instance_position: [0.0, 0.0, 0.0],
-                        instance_direction: [1.0, 0.0],
-                        instance_color: [0.3, 0.3, 0.5]
-                    }
-                };
-                let intersections_thing : Thing = self.intersections.iter()
-                    .filter(|i| i.shape.segments().len() > 0)
-                    .map(|i| band_to_thing(&Band::new(i.shape.clone(), 0.4), 0.5))
-                    .sum();
-                renderer_id << UpdateThing{
-                    scene_id: scene_id,
-                    thing_id: 14,
-                    thing: intersections_thing,
-                    instance: Instance{
-                        instance_position: [0.0, 0.0, 0.0],
-                        instance_direction: [1.0, 0.0],
-                        instance_color: [0.0, 0.0, 1.0]
-                    }
-                };
-                let connecting_strokes_thing : Thing = self.intersections.iter()
-                    .filter(|i| !i.connecting_strokes.is_empty())
-                    .map(|i| i.connecting_strokes.iter().map(RoadStroke::preview_thing).sum())
-                    .sum();
-                renderer_id << UpdateThing{
-                    scene_id: scene_id,
-                    thing_id: 15,
-                    thing: connecting_strokes_thing,
-                    instance: Instance{
-                        instance_position: [0.0, 0.0, 0.0],
-                        instance_direction: [1.0, 0.0],
-                        instance_color: [0.5, 0.5, 1.0]
-                    }
-                };
-                self.ui_state.dirty = false;
-            }
-            Fate::Live
-        }
-    }}
 }
 
 #[derive(Compact, Clone)]
