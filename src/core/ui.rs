@@ -3,6 +3,7 @@ use kay::{ActorSystem, ID, Individual, Recipient, Fate};
 use descartes::{N, P2, P3, V3, Into2d, Shape};
 use ::monet::{Renderer, Scene, GlutinFacade, MoveEye};
 use ::monet::glium::glutin::{Event, MouseScrollDelta, ElementState, MouseButton};
+pub use ::monet::glium::glutin::{VirtualKeyCode};
 use core::geometry::AnyShape;
 use ::std::collections::HashMap;
 
@@ -14,7 +15,8 @@ pub struct UserInterface {
     drag_start_2d: Option<P2>,
     drag_start_3d: Option<P3>,
     hovered_interactable: Option<ID>,
-    active_interactable: Option<ID>
+    active_interactable: Option<ID>,
+    focused_interactable: Option<ID>
 }
 impl Individual for UserInterface{}
 
@@ -28,7 +30,8 @@ impl UserInterface{
             drag_start_2d: None,
             drag_start_3d: None,
             hovered_interactable: None,
-            active_interactable: None
+            active_interactable: None,
+            focused_interactable: None
         }
     }
 }
@@ -60,6 +63,18 @@ impl Recipient<Remove> for UserInterface {
 }
 
 #[derive(Copy, Clone)]
+pub struct Focus(pub ID);
+
+impl Recipient<Focus> for UserInterface {
+    fn receive(&mut self, msg: &Focus) -> Fate {match *msg{
+        Focus(id) => {
+            self.focused_interactable = Some(id);
+            Fate::Live
+        }
+    }}
+}
+
+#[derive(Copy, Clone)]
 enum Mouse{Moved(P2), Down, Up}
 
 use ::monet::Project2dTo3d;
@@ -71,7 +86,9 @@ pub enum Event3d{
     DragFinished{from: P3, to: P3},
     DragAborted,
     HoverStarted{at: P3},
-    HoverStopped
+    HoverStopped,
+    KeyDown(VirtualKeyCode),
+    KeyUp(VirtualKeyCode)
 }
 
 impl Recipient<Mouse> for UserInterface {
@@ -104,6 +121,26 @@ impl Recipient<Mouse> for UserInterface {
             self.drag_start_2d = None;
             self.drag_start_3d = None;
             self.active_interactable = None;
+            Fate::Live
+        }
+    }}
+}
+
+#[derive(Copy, Clone)]
+enum Key{Up(VirtualKeyCode), Down(VirtualKeyCode)}
+
+impl Recipient<Key> for UserInterface {
+    fn receive(&mut self, msg: &Key) -> Fate {match *msg {
+        Key::Down(key_code) => {
+            self.focused_interactable.map(|interactable|
+                interactable << Event3d::KeyDown(key_code)
+            );
+            Fate::Live
+        },
+        Key::Up(key_code) => {
+            self.focused_interactable.map(|interactable|
+                interactable << Event3d::KeyUp(key_code)
+            );
             Fate::Live
         }
     }}
@@ -154,7 +191,9 @@ pub fn setup_window_and_renderer(system: &mut ActorSystem, renderables: Vec<ID>)
     system.add_individual(ui);
     system.add_inbox::<Add, UserInterface>();
     system.add_inbox::<Remove, UserInterface>();
+    system.add_inbox::<Focus, UserInterface>();
     system.add_inbox::<Mouse, UserInterface>();
+    system.add_inbox::<Key, UserInterface>();
     system.add_inbox::<Projected3d, UserInterface>();
 
     let mut renderer = Renderer::new(window.clone());
@@ -180,6 +219,10 @@ pub fn process_events(window: &GlutinFacade) -> bool {
                 UserInterface::id() << Mouse::Down,
             Event::MouseInput(ElementState::Released, MouseButton::Left) =>
                 UserInterface::id() << Mouse::Up,
+            Event::KeyboardInput(ElementState::Pressed, _, Some(key_code)) =>
+                UserInterface::id() << Key::Down(key_code),
+            Event::KeyboardInput(ElementState::Released, _, Some(key_code)) =>
+                UserInterface::id() << Key::Up(key_code),
             _ => {}
         }
     }

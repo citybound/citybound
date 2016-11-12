@@ -3,6 +3,7 @@ use kay::{CVec, Swarm, Recipient, CreateWith, ActorSystem, Individual, Fate};
 use monet::{Instance, Thing, Norm};
 use core::geometry::{CPath, band_to_thing};
 use ordered_float::OrderedFloat;
+use super::Lane;
 
 mod road_stroke_node_interactable;
 mod road_stroke_canvas;
@@ -25,8 +26,11 @@ impl Individual for Plan{}
 #[derive(Copy, Clone)]
 enum PlanControl{
     AddRoadStrokeNode(P2),
-    MoveRoadStrokeNodeTo(PlanRef, P2)
+    MoveRoadStrokeNodeTo(PlanRef, P2),
+    Materialize
 }
+
+use ::game::lanes_and_cars::AdvertiseForConnection;
 
 impl Recipient<PlanControl> for Plan {
     fn receive(&mut self, msg: &PlanControl) -> Fate {match *msg{
@@ -68,6 +72,27 @@ impl Recipient<PlanControl> for Plan {
             self.cut_strokes_at_intersections();
             self.create_connecting_strokes_on_intersections();
             Fate::Live
+        },
+        PlanControl::Materialize => {
+            for cut_stroke in self.strokes_after_cutting.iter().filter(|stroke|
+                stroke.nodes.len() >= 2
+            ) {
+                Swarm::<Lane>::all() << CreateWith(
+                    Lane::new(cut_stroke.path()),
+                    AdvertiseForConnection
+                );
+            }
+            for intersection in self.intersections.iter() {
+                for connecting_stroke in intersection.connecting_strokes.iter().filter(|stroke|
+                    stroke.nodes.len() >= 2
+                ) {
+                    Swarm::<Lane>::all() << CreateWith(
+                        Lane::new(connecting_stroke.path()),
+                        AdvertiseForConnection
+                    );
+                }
+            }
+            Fate::Live
         }
     }}
 }
@@ -80,6 +105,7 @@ struct ClearAll;
 impl Recipient<RecreateInteractables> for Plan {
     fn receive(&mut self, _msg: &RecreateInteractables) -> Fate {
         Swarm::<RoadStrokeNodeInteractable>::all() << ClearAll;
+        Swarm::<RoadStrokeCanvas>::all() << ClearAll;
         self.create_interactables();
         Fate::Live
     }

@@ -1,7 +1,7 @@
 use kay::{Actor, Swarm, ID, Recipient, CreateWith, ActorSystem, Individual, Fate};
 use descartes::{Into2d};
 use core::geometry::AnyShape;
-use core::ui::UserInterface;
+use core::ui::{UserInterface, VirtualKeyCode};
 use super::{Plan};
 
 #[derive(Copy, Clone, Actor, Default)]
@@ -13,10 +13,12 @@ impl RoadStrokeCanvas{
 
 use super::AddToUI;
 use core::ui::Add;
+use core::ui::Focus;
 
 impl Recipient<AddToUI> for RoadStrokeCanvas {
     fn receive(&mut self, _msg: &AddToUI) -> Fate {
         UserInterface::id() << Add::Interactable3d(self.id(), AnyShape::Everywhere, 0);
+        UserInterface::id() << Focus(self.id());
         Fate::Live
     }
 }
@@ -32,8 +34,10 @@ impl Recipient<ClearAll> for RoadStrokeCanvas {
 }
 
 use core::ui::Event3d;
-use super::PlanControl::AddRoadStrokeNode;
+use super::PlanControl::{AddRoadStrokeNode, Materialize};
 use super::RecreateInteractables;
+use game::lanes_and_cars::{Lane, LaneCar, Obstacle};
+use ordered_float::OrderedFloat;
 
 impl Recipient<Event3d> for RoadStrokeCanvas {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg {
@@ -45,6 +49,22 @@ impl Recipient<Event3d> for RoadStrokeCanvas {
             Plan::id() << RecreateInteractables;
             Fate::Live
         },
+        Event3d::KeyDown(VirtualKeyCode::Return) => {
+            Plan::id() << Materialize;
+            Fate::Live
+        },
+        Event3d::KeyDown(VirtualKeyCode::C) => {
+            Swarm::<Lane>::all() << ::game::lanes_and_cars::Add::Car(LaneCar{
+                trip: ID::invalid(),
+                as_obstacle: Obstacle{
+                    position: OrderedFloat(0.0),
+                    velocity: 0.0,
+                    max_velocity: 20.0
+                },
+                acceleration: 0.0
+            });
+            Fate::Live
+        }
         _ => Fate::Live
     }}
 }

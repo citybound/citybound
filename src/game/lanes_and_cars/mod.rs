@@ -3,8 +3,8 @@ pub mod planning;
 mod intelligent_acceleration;
 use self::intelligent_acceleration::{intelligent_acceleration, COMFORTABLE_BREAKING_DECELERATION};
 use core::geometry::CPath;
-use kay::{ID, CVec, Swarm, Recipient, ActorSystem, Fate};
-use descartes::{FiniteCurve};
+use kay::{ID, Actor, CVec, Swarm, CreateWith, Recipient, ActorSystem, Fate};
+use descartes::{FiniteCurve, RoughlyComparable};
 use ordered_float::OrderedFloat;
 use itertools::Itertools;
 use ::std::f32::INFINITY;
@@ -21,7 +21,7 @@ pub struct Lane {
 }
 
 impl Lane {
-    fn new(path: CPath) -> Self {
+    pub fn new(path: CPath) -> Self {
         Lane {
             _id: ID::invalid(),
             length: path.length(),
@@ -281,10 +281,50 @@ impl Recipient<Tick> for TransferLane {
     }}
 }
 
+#[derive(Copy, Clone)]
+pub struct AdvertiseForConnection;
+
+#[derive(Compact, Clone)]
+pub struct Connect{other_id: ID, other_path: CPath}
+
+impl Recipient<AdvertiseForConnection> for Lane {
+    fn receive(&mut self, _msg: &AdvertiseForConnection) -> Fate {
+        Swarm::<Lane>::all() << Connect{other_id: self.id(), other_path: self.path.clone()};
+        Fate::Live
+    }
+}
+
+impl Recipient<Connect> for Lane {
+    fn receive(&mut self, msg: &Connect) -> Fate {match *msg{
+        Connect{other_id, ref other_path} => {
+            if other_path.start().is_roughly(self.path.end()) {
+                self.interactions.push(Interaction{
+                    partner_lane: other_id,
+                    kind: InteractionKind::Next{
+                        partner_start: 0.0
+                    }
+                })
+            }
+            if other_path.end().is_roughly(self.path.start()) {
+                self.interactions.push(Interaction{
+                    partner_lane: other_id,
+                    kind: InteractionKind::Previous{
+                        start: 0.0,
+                        partner_length: other_path.length()
+                    }
+                })
+            }
+            Fate::Live
+        }
+    }}
+}
+
 pub fn setup(system: &mut ActorSystem) {
     system.add_individual(Swarm::<Lane>::new());
+    system.add_inbox::<CreateWith<Lane, AdvertiseForConnection>, Swarm<Lane>>();
     system.add_inbox::<Add, Swarm<Lane>>();
     system.add_inbox::<Tick, Swarm<Lane>>();
+    system.add_inbox::<Connect, Swarm<Lane>>();
 
     system.add_individual(Swarm::<TransferLane>::new());
     system.add_inbox::<Add, Swarm<TransferLane>>();
