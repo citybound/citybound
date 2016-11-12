@@ -103,11 +103,7 @@ impl Recipient<RenderToScene> for TransferLane {
                 scene_id: scene_id,
                 thing_id: 200 + self.id().instance_id as usize,
                 thing: band_to_thing(&Band::new(self.path.clone(), 3.0), 0.1),
-                instance: Instance{
-                    instance_position: [0.0, 0.0, 0.0],
-                    instance_direction: [1.0, 0.0],
-                    instance_color: [1.0, 1.0, 0.5]
-                }
+                instance: Instance::with_color([1.0, 1.0, 0.5])
             };
             Fate::Live
         }

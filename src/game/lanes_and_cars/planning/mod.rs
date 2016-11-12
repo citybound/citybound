@@ -1,13 +1,15 @@
-use descartes::{P2, V2, Path, Segment, Band, Intersect, convex_hull, FiniteCurve, N, RoughlyComparable};
+use descartes::{P2, Path, Band, Intersect, convex_hull};
 use kay::{CVec, Swarm, Recipient, CreateWith, ActorSystem, Individual, Fate};
 use monet::{Instance, Thing, Norm};
 use core::geometry::{CPath, band_to_thing};
 use ordered_float::OrderedFloat;
 use super::Lane;
 
+mod road_stroke;
 mod road_stroke_node_interactable;
 mod road_stroke_canvas;
 
+use self::road_stroke::{RoadStroke, RoadStrokeNode};
 pub use self::road_stroke_node_interactable::RoadStrokeNodeInteractable;
 pub use self::road_stroke_canvas::RoadStrokeCanvas;
 
@@ -135,11 +137,7 @@ impl Recipient<RenderToScene> for Plan {
                     scene_id: scene_id,
                     thing_id: 13,
                     thing: thing,
-                    instance: Instance{
-                        instance_position: [0.0, 0.0, 0.0],
-                        instance_direction: [1.0, 0.0],
-                        instance_color: [0.3, 0.3, 0.5]
-                    }
+                    instance: Instance::with_color([0.3, 0.3, 0.5])
                 };
                 let intersections_thing : Thing = self.intersections.iter()
                     .filter(|i| i.shape.segments().len() > 0)
@@ -149,11 +147,7 @@ impl Recipient<RenderToScene> for Plan {
                     scene_id: scene_id,
                     thing_id: 14,
                     thing: intersections_thing,
-                    instance: Instance{
-                        instance_position: [0.0, 0.0, 0.0],
-                        instance_direction: [1.0, 0.0],
-                        instance_color: [0.0, 0.0, 1.0]
-                    }
+                    instance: Instance::with_color([0.0, 0.0, 1.0])
                 };
                 let connecting_strokes_thing : Thing = self.intersections.iter()
                     .filter(|i| !i.connecting_strokes.is_empty())
@@ -163,11 +157,7 @@ impl Recipient<RenderToScene> for Plan {
                     scene_id: scene_id,
                     thing_id: 15,
                     thing: connecting_strokes_thing,
-                    instance: Instance{
-                        instance_position: [0.0, 0.0, 0.0],
-                        instance_direction: [1.0, 0.0],
-                        instance_color: [0.5, 0.5, 1.0]
-                    }
+                    instance: Instance::with_color([0.5, 0.5, 1.0])
                 };
                 self.ui_state.dirty = false;
             }
@@ -318,74 +308,6 @@ impl Plan{
 }
 
 #[derive(Compact, Clone)]
-struct RoadStroke{
-    nodes: CVec<RoadStrokeNode>
-}
-
-impl RoadStroke {
-    fn path(&self) -> CPath {
-        CPath::new(self.nodes.windows(2).map(|window|
-            Segment::line(window[0].position, window[1].position)
-        ).collect::<Vec<_>>())
-    }
-
-    fn preview_thing(&self) -> Thing {
-        band_to_thing(&Band::new(Band::new(self.path(), 3.0).outline(), 0.3), 0.0)
-    }
-
-    fn create_interactables(&self, self_ref: PlanRef) {
-        for (i, node) in self.nodes.iter().enumerate() {
-            let child_ref = match self_ref {
-                PlanRef(stroke_idx, _) => PlanRef(stroke_idx, i)
-            };
-            node.create_interactables(child_ref);
-        }
-    } 
-
-    // TODO: this is really ugly
-    fn cut_before(&self, offset: N) -> Self {
-        let path = self.path();
-        let cut_path = path.subsection(0.0, offset);
-        RoadStroke{nodes: self.nodes.iter().filter(|node|
-            cut_path.segments().iter().any(|segment|
-                segment.start().is_roughly_within(node.position, 0.1) || segment.end().is_roughly_within(node.position, 0.1)
-            )
-        ).chain(&[RoadStrokeNode{
-            position: path.along(offset), direction: None
-        }]).cloned().collect()}
-    }
-
-    fn cut_after(&self, offset: N) -> Self {
-        let path = self.path();
-        let cut_path = path.subsection(offset, path.length());
-        RoadStroke{nodes: (&[RoadStrokeNode{
-            position: path.along(offset), direction: None
-        }]).iter().chain(self.nodes.iter().filter(|node|
-            cut_path.segments().iter().any(|segment|
-                segment.start().is_roughly_within(node.position, 0.1) || segment.end().is_roughly_within(node.position, 0.1)
-            )
-        )).cloned().collect()}
-    }
-}
-
-#[derive(Copy, Clone)]
-struct RoadStrokeNode {
-    position: P2,
-    direction: Option<V2>
-}
-#[derive(Copy, Clone)]
-struct AddToUI;
-
-impl RoadStrokeNode {
-    fn create_interactables(&self, self_ref: PlanRef) {
-        Swarm::<RoadStrokeNodeInteractable>::all() << CreateWith(
-            RoadStrokeNodeInteractable::new(self.position, self_ref),
-            AddToUI
-        );
-    }
-}
-
-#[derive(Compact, Clone)]
 struct Intersection{
     shape: CPath,
     incoming: CVec<RoadStrokeNode>,
@@ -398,6 +320,9 @@ struct PlanUIState{
     current_node: Option<PlanRef>,
     dirty: bool
 }
+
+#[derive(Copy, Clone)]
+struct AddToUI;
 
 pub fn setup(system: &mut ActorSystem) {
     let plan = Plan{

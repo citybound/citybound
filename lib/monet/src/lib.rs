@@ -306,6 +306,16 @@ pub struct Instance {
 }
 implement_vertex!(Instance, instance_position, instance_direction, instance_color);
 
+impl Instance {
+    pub fn with_color(color: [f32; 3]) -> Instance {
+        Instance{
+            instance_position: [0.0, 0.0, 0.0],
+            instance_direction: [1.0, 0.0],
+            instance_color: color
+        }
+    } 
+}
+
 pub struct RenderContext {
     pub window: GlutinFacade,
     batch_program: glium::Program,
