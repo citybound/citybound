@@ -42,6 +42,11 @@ impl<A: Actor> Swarm<A> {
 
     fn add(&mut self, initial_state: &A) -> ID {
         let id = unsafe{(*super::actor_system::THE_SYSTEM).instance_id::<A>(self.allocate_instance_id())};
+        self.add_with_id(initial_state, id);
+        id
+    }
+
+    fn add_with_id(&mut self, initial_state: &A, id: ID) {
         let size = initial_state.total_size_bytes();
         let collection_index = self.actors.size_to_index(size);
         let collection = &mut self.actors.sized_for_mut(size);
@@ -55,7 +60,6 @@ impl<A: Actor> Swarm<A> {
             actor_in_slot.compact_behind_from(initial_state);
             actor_in_slot.set_id(id)
         }
-        id
     }
 
     fn swap_remove(&mut self, indices: SlotIndices) -> bool {
@@ -90,7 +94,8 @@ impl<A: Actor> Swarm<A> {
 
     fn resize_at_index(&mut self, old_i: SlotIndices) -> bool {
         let old_actor_ptr = self.at_index(old_i) as *const A;
-        self.add(unsafe{&*old_actor_ptr});
+        let old_actor = unsafe{&*old_actor_ptr};
+        self.add_with_id(old_actor, old_actor.id());
         self.swap_remove(old_i)
     }
 
