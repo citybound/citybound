@@ -12,10 +12,16 @@ mod materialized_plan;
 pub use self::road_stroke::{RoadStroke, RoadStrokeNode};
 pub use self::road_stroke_node_interactable::RoadStrokeNodeInteractable;
 pub use self::road_stroke_canvas::RoadStrokeCanvas;
-pub use self::materialized_plan::MaterializedPlan;
+pub use self::materialized_plan::{MaterializedPlan, ReportLaneBuilt};
 
-#[derive(Copy, Clone)]
-pub struct PlanRef(usize, usize);
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum PlanRef{
+    StrokeNode(usize, usize),
+    Stroke(usize),
+    CutStroke(usize),
+    Intersection(usize),
+    IntersectionStroke(usize, usize)
+}
 
 #[derive(Compact, Clone)]
 pub struct Plan {
@@ -27,8 +33,6 @@ pub struct Plan {
 #[derive(Compact, Clone)]
 pub struct CurrentPlan {
     plan: Plan,
-    intersection_points: CVec<P2>,
-    replaced_intersections_indices: CVec<(ID, usize)>,
     calculation_state: CalculcationState,
     ui_state: PlanUIState
 }
@@ -42,13 +46,14 @@ enum PlanControl{
 }
 
 use self::materialized_plan::Build;
+use self::materialized_plan::Unbuild;
 
 impl Recipient<PlanControl> for CurrentPlan {
     fn receive(&mut self, msg: &PlanControl) -> Fate {match *msg{
         PlanControl::AddRoadStrokeNode(at) => {
             let new_node = RoadStrokeNode{position: at, direction: None};
             
-            if let Some(PlanRef(stroke_idx, node_idx)) = self.ui_state.current_node {
+            if let Some(PlanRef::StrokeNode(stroke_idx, node_idx)) = self.ui_state.current_node {
                 let stroke = &mut self.plan.strokes[stroke_idx];
                 let current_node = stroke.nodes[node_idx];
 
@@ -58,7 +63,7 @@ impl Recipient<PlanControl> for CurrentPlan {
                 } else if node_idx == stroke.nodes.len() - 1 {
                     // append
                     stroke.nodes.push(new_node);
-                    self.ui_state.current_node = Some(PlanRef(stroke_idx, stroke.nodes.len() - 1));
+                    self.ui_state.current_node = Some(PlanRef::StrokeNode(stroke_idx, stroke.nodes.len() - 1));
                 } else if node_idx == 0 {
                     // prepend
                     stroke.nodes.insert(0, new_node);
@@ -67,22 +72,28 @@ impl Recipient<PlanControl> for CurrentPlan {
                 self.plan.strokes.push(RoadStroke{
                     nodes: vec![new_node].into()
                 });
-                self.ui_state.current_node = Some(PlanRef(self.plan.strokes.len() - 1, 0))
+                self.ui_state.current_node = Some(PlanRef::StrokeNode(self.plan.strokes.len() - 1, 0))
             }
 
             self.recalculate();
             Fate::Live
         },
-        PlanControl::MoveRoadStrokeNodeTo(PlanRef(stroke, node), position) => {
-            self.plan.strokes[stroke].nodes[node].position = position;
-            self.recalculate();
-            Fate::Live
+        PlanControl::MoveRoadStrokeNodeTo(plan_ref, position) => match plan_ref {
+            PlanRef::StrokeNode(stroke, node) => {
+                self.plan.strokes[stroke].nodes[node].position = position;
+                self.recalculate();
+                Fate::Live
+            },
+            _ => unreachable!()
         },
         PlanControl::Materialize => {
-            Swarm::<MaterializedPlan>::all() << CreateWith(MaterializedPlan{
-                _id: ID::invalid(),
-                plan: self.plan.clone()
-            }, Build);
+            for &(affected_plan_id, replaced_intersection) in self.calculation_state.replaced_intersections.iter() {
+                affected_plan_id << Unbuild(replaced_intersection);
+            }
+            for &(affected_plan_id, stroke_to_unbuild) in self.calculation_state.cut_strokes_to_debuild.iter() {
+                affected_plan_id << Unbuild(stroke_to_unbuild);
+            }
+            Swarm::<MaterializedPlan>::all() << CreateWith(MaterializedPlan::new(self.plan.clone()), Build);
             *self = CurrentPlan::default();
             CurrentPlan::id() << RecreateInteractables;
             Fate::Live
@@ -142,7 +153,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
                 };
                 let connecting_strokes_thing : Thing = self.plan.intersections.iter()
                     .filter(|i| !i.connecting_strokes.is_empty())
-                    .map(|i| i.connecting_strokes.iter().map(RoadStroke::preview_thing).sum())
+                    .map(|i| -> Thing {i.connecting_strokes.iter().map(RoadStroke::preview_thing).sum()})
                     .sum();
                 renderer_id << UpdateThing{
                     scene_id: scene_id,
@@ -165,13 +176,16 @@ impl CurrentPlan{
     fn create_interactables(&self) {
         Swarm::<RoadStrokeCanvas>::all() << CreateWith(RoadStrokeCanvas::new(), AddToUI);
         for (i, stroke) in self.plan.strokes.iter().enumerate() {
-            stroke.create_interactables(PlanRef(i, 0));
+            stroke.create_interactables(PlanRef::Stroke(i));
         }
     }
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Compact, Clone, Default)]
 struct CalculcationState {
+    intersection_points: CVec<P2>,
+    replaced_intersections: CVec<(ID, PlanRef)>,
+    cut_strokes_to_debuild: CVec<(ID, PlanRef)>,
     n_received_intersection_point_messages: usize,
     n_expected_intersection_point_messages: Option<usize>,
     n_received_intersection_messages: usize,
@@ -188,7 +202,7 @@ impl CurrentPlan {
             message: CollectIntersectionPoints{
                 requester: CurrentPlan::id(),
                 other_strokes: self.plan.strokes.clone(),
-                other_points: self.intersection_points.clone()
+                other_points: self.calculation_state.intersection_points.clone()
             }
         };
     }
@@ -199,11 +213,11 @@ use self::materialized_plan::IntersectWith;
 
 impl Recipient<ChangesAndIntersectionPoints> for CurrentPlan {
     fn receive(&mut self, msg: &ChangesAndIntersectionPoints) -> Fate {match *msg{
-        ChangesAndIntersectionPoints{affected_plan_id, ref replaced_intersection_indices, ref points} => {
-            self.intersection_points.extend(points.iter().cloned());
-            self.replaced_intersections_indices.extend(replaced_intersection_indices.iter().map(|index|
-                (affected_plan_id, *index)
-            ));
+        ChangesAndIntersectionPoints{affected_plan_id, ref replaced_intersections, ref points} => {
+            self.calculation_state.intersection_points.extend(points.iter().cloned());
+            self.calculation_state.replaced_intersections.extend(
+                replaced_intersections.iter().map(|index| (affected_plan_id, *index))
+            );
             self.calculation_state.n_received_intersection_point_messages += 1;
             if let Some(n_expected_messages) = self.calculation_state.n_expected_intersection_point_messages {
                 if n_expected_messages == self.calculation_state.n_received_intersection_point_messages {
@@ -238,7 +252,7 @@ impl CurrentPlan {
             message: IntersectWith{
                 requester: CurrentPlan::id(),
                 new_intersections: self.plan.intersections.clone(),
-                replaced_intersections_indices: self.replaced_intersections_indices.clone()
+                replaced_intersections: self.calculation_state.replaced_intersections.clone()
             }
         };
     }
@@ -248,13 +262,17 @@ use self::materialized_plan::ChangesAfterIntersecting;
 
 impl Recipient<ChangesAfterIntersecting> for CurrentPlan {
     fn receive(&mut self, msg: &ChangesAfterIntersecting) -> Fate {match *msg{
-        ChangesAfterIntersecting{ref updated_intersections, ref new_cut_strokes, ..} => {
+        ChangesAfterIntersecting{affected_plan_id, ref updated_intersections, ref new_cut_strokes, ref cut_strokes_to_debuild} => {
             for (i, updated_intersection) in updated_intersections.iter().enumerate() {
                 self.plan.intersections[i].incoming.extend(updated_intersection.incoming.iter().cloned());
                 self.plan.intersections[i].outgoing.extend(updated_intersection.outgoing.iter().cloned());
             }
 
             self.plan.strokes_after_cutting.extend(new_cut_strokes.iter().cloned());
+            self.calculation_state.cut_strokes_to_debuild.extend(
+                cut_strokes_to_debuild.iter().map(|plan_ref| (affected_plan_id, *plan_ref))
+            );
+
             self.calculation_state.n_received_intersection_messages += 1;
             if let Some(n_expected_messages) = self.calculation_state.n_expected_intersection_messages {
                 if self.calculation_state.n_received_intersection_messages == n_expected_messages {
@@ -287,7 +305,6 @@ impl CurrentPlan {
 
 impl CurrentPlan {
     fn collect_intersection_points(&mut self) {
-        self.replaced_intersections_indices.clear();
         let mut all_intersection_points = Vec::new();
         
         for i in 0..self.plan.strokes.len() {
@@ -306,14 +323,14 @@ impl CurrentPlan {
             }
         }
 
-        self.intersection_points = all_intersection_points.into();
+        self.calculation_state.intersection_points = all_intersection_points.into();
         
     }
 
     fn create_intersections(&mut self) {
         let mut intersection_point_groups = Vec::<Vec<P2>>::new();
 
-        for point in self.intersection_points.iter() {
+        for point in self.calculation_state.intersection_points.iter() {
             let create_new_group = match intersection_point_groups.iter_mut().find(|group| {
                 let max_distance = group.iter().map(|other_point| OrderedFloat((*other_point - *point).norm())).max().unwrap();
                 *max_distance < INTERSECTION_GROUPING_RADIUS
@@ -437,8 +454,6 @@ impl Default for CurrentPlan {
                 strokes_after_cutting: CVec::new(),
                 intersections: CVec::new()
             },
-            intersection_points: CVec::new(),
-            replaced_intersections_indices: CVec::new(),
             calculation_state: CalculcationState::default(),
             ui_state: PlanUIState{
                 current_node: None,

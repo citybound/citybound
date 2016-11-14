@@ -255,3 +255,9 @@ impl<T: Compact + Clone, A: Allocator> Extend<T> for CompactVec<T, A> {
         }
     }
 }
+
+impl<T: Compact, A: Allocator> Default for CompactVec<T, A> {
+    fn default() -> CompactVec<T, A> {
+        CompactVec::new()
+    }
+}

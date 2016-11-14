@@ -18,6 +18,7 @@ mod game;
 use monet::{Renderer, Control};
 use core::simulation::{Simulation, Tick};
 use game::lanes_and_cars::{Lane, TransferLane};
+use game::lanes_and_cars::lane_thing_collector::LaneThingCollector;
 use game::lanes_and_cars::planning::{CurrentPlan, RoadStrokeNodeInteractable};
 use kay::Individual;
 
@@ -41,6 +42,7 @@ fn main() {
     let renderables = vec![
         system.broadcast_id::<Lane>(),
         system.broadcast_id::<TransferLane>(),
+        system.individual_id::<LaneThingCollector>(),
         system.individual_id::<CurrentPlan>(),
         system.broadcast_id::<RoadStrokeNodeInteractable>()
     ];

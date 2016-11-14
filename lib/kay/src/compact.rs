@@ -25,3 +25,17 @@ impl<T: Copy> Compact for T {
         *self = *source;
     }
 }
+
+// TODO: figure out why this doesn't work
+// impl<A: Compact, B: Compact> Compact for (A, B) {
+//     fn is_still_compact(&self) -> bool {
+//         self.0.is_still_compact() && self.1.is_still_compact()
+//     }
+//     fn dynamic_size_bytes(&self) -> usize {
+//         self.0.dynamic_size_bytes() + self.1.dynamic_size_bytes()
+//     }
+//     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
+//         self.0.compact_from(&source.0, new_dynamic_part);
+//         self.1.compact_from(&source.1, new_dynamic_part);
+//     }
+// }

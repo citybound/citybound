@@ -2,64 +2,82 @@ use super::allocators::{Allocator, DefaultHeap};
 use super::compact::Compact;
 use super::compact_vec::CompactVec;
 
-pub struct CompactDict <K, V, A: Allocator = DefaultHeap> {
-    pub pairs: CompactVec<(K, V), A>
+pub struct CompactDict <K: Copy, V: Compact + Clone, A: Allocator = DefaultHeap> {
+    keys: CompactVec<K, A>,
+    values: CompactVec<V, A>
 }
 
-type KeysIter<'a, K, V> = ::std::iter::Map<::std::slice::Iter<'a, (K, V)>, fn(&(K, V)) -> K >;
-
-impl <K: Eq + Copy, V: Copy, A: Allocator> CompactDict<K, V, A> {
+impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
     pub fn new() -> Self {
         CompactDict{
-            pairs: CompactVec::new()
+            keys: CompactVec::new(),
+            values: CompactVec::new()
         }
     }
 
     pub fn get(&self, query: K) -> Option<&V> {
-        for &(ref key, ref value) in self.pairs.iter() {
-            if query == *key {return Some(value)};
+        for i in 0..self.keys.len() {
+            if self.keys[i] == query {
+                return Some(&self.values[i])
+            }
         }
         None
     }
-
 
     pub fn insert(&mut self, query: K, new_value: V) -> Option<V> {
-        for &mut (ref mut key, ref mut value) in &mut self.pairs.iter_mut() {
-            if query == *key {
-                let old_val = *value;
-                *value = new_value;
+        for i in 0..self.keys.len() {
+            if self.keys[i] == query {
+                let old_val = self.values[i].clone();
+                self.values[i] = new_value;
                 return Some(old_val);
-            };
+            }
         }
-        self.pairs.push((query, new_value));
+        self.keys.push(query);
+        self.values.push(new_value);
         None
     }
 
-    fn get_key(pair: &(K, V)) -> K {pair.0}
+    pub fn remove(&mut self, query: K) -> Option<V> {
+        for i in 0..self.keys.len() {
+            if self.keys[i] == query {
+                let old_val = self.values[i].clone();
+                self.keys.remove(i);
+                self.values.remove(i);
+                return Some(old_val);
+            }
+        }
+        None
+    }
 
-    pub fn keys(&self) -> KeysIter<K, V> {
-        self.pairs.iter().map(Self::get_key)
+    pub fn keys(&self) -> ::std::slice::Iter<K> {
+        self.keys.iter()
+    }
+
+    pub fn values(&self) -> ::std::slice::Iter<V> {
+        self.values.iter()
     }
 }
 
-impl <K: Copy, V: Copy, A: Allocator> Compact for CompactDict<K, V, A> {
+impl <K: Copy, V: Compact + Clone, A: Allocator> Compact for CompactDict<K, V, A> {
     fn is_still_compact(&self) -> bool {
-        self.pairs.is_still_compact()
+        self.keys.is_still_compact() && self.values.is_still_compact()
     }
 
     fn dynamic_size_bytes(&self) -> usize {
-        self.pairs.dynamic_size_bytes()
+        self.keys.dynamic_size_bytes() + self.values.dynamic_size_bytes()
     }
 
     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
-        self.pairs.compact_from(&source.pairs, new_dynamic_part);
+        self.keys.compact_from(&source.keys, new_dynamic_part);
+        self.values.compact_from(&source.values, new_dynamic_part.offset(self.keys.dynamic_size_bytes() as isize));
     }
 }
 
-impl <K: Copy, V: Copy, A: Allocator> Clone for CompactDict<K, V, A> {
+impl <K: Copy, V: Compact + Clone, A: Allocator> Clone for CompactDict<K, V, A> {
     fn clone(&self) -> Self {
         CompactDict{
-            pairs: self.pairs.clone()
+            keys: self.keys.clone(),
+            values: self.values.clone()
         }
     }
 }

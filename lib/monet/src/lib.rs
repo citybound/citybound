@@ -272,7 +272,29 @@ impl ::std::ops::AddAssign for Thing {
 }
 
 impl ::std::iter::Sum for Thing {
-    fn sum<I: Iterator<Item=Self>>(iter: I) -> Thing {
+    fn sum<I: Iterator<Item=Thing>>(iter: I) -> Thing {
+        let mut summed_thing = Thing{vertices: CVec::new(), indices: CVec::new()};
+        for thing in iter {
+            summed_thing += thing;
+        }
+        summed_thing
+    }
+}
+
+impl<'a> ::std::ops::AddAssign<&'a Thing> for Thing {
+    fn add_assign(&mut self, rhs: &'a Thing) {
+        let self_n_vertices = self.vertices.len();
+        for vertex in rhs.vertices.iter().cloned() {
+            self.vertices.push(vertex);
+        }
+        for index in rhs.indices.iter() {
+            self.indices.push(index + self_n_vertices as u16)
+        }
+    }
+}
+
+impl<'a> ::std::iter::Sum<&'a Thing> for Thing {
+    fn sum<I: Iterator<Item=&'a Thing>>(iter: I) -> Thing {
         let mut summed_thing = Thing{vertices: CVec::new(), indices: CVec::new()};
         for thing in iter {
             summed_thing += thing;

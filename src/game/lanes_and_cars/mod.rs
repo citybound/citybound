@@ -1,4 +1,5 @@
 pub mod ui;
+pub mod lane_thing_collector;
 pub mod planning;
 mod intelligent_acceleration;
 use self::intelligent_acceleration::{intelligent_acceleration, COMFORTABLE_BREAKING_DECELERATION};
@@ -17,7 +18,8 @@ pub struct Lane {
     path: CPath,
     interactions: CVec<Interaction>,
     interaction_obstacles: CVec<Obstacle>,
-    cars: CVec<LaneCar>
+    cars: CVec<LaneCar>,
+    in_construction: f32
 }
 
 impl Lane {
@@ -28,7 +30,8 @@ impl Lane {
             path: path,
             interactions: CVec::new(),
             interaction_obstacles: CVec::new(),
-            cars: CVec::new()
+            cars: CVec::new(),
+            in_construction: 0.0
         }
     }
 
@@ -122,6 +125,8 @@ use core::simulation::Tick;
 impl Recipient<Tick> for Lane {
     fn receive(&mut self, msg: &Tick) -> Fate {match *msg{
         Tick{dt} => {
+            self.in_construction += dt * 40.0;
+
             // TODO: optimize using BinaryHeap?
             self.interaction_obstacles.sort_by_key(|obstacle| obstacle.position);
 
@@ -281,22 +286,35 @@ impl Recipient<Tick> for TransferLane {
     }}
 }
 
+use self::planning::PlanRef;
+
 #[derive(Copy, Clone)]
-pub struct AdvertiseForConnection;
+pub struct AdvertiseForConnectionAndReport(ID, PlanRef);
 
 #[derive(Compact, Clone)]
-pub struct Connect{other_id: ID, other_path: CPath}
+pub struct Connect{other_id: ID, other_path: CPath, reply_needed: bool}
 
-impl Recipient<AdvertiseForConnection> for Lane {
-    fn receive(&mut self, _msg: &AdvertiseForConnection) -> Fate {
-        Swarm::<Lane>::all() << Connect{other_id: self.id(), other_path: self.path.clone()};
-        Fate::Live
-    }
+use self::planning::ReportLaneBuilt;
+
+impl Recipient<AdvertiseForConnectionAndReport> for Lane {
+    fn receive(&mut self, msg: &AdvertiseForConnectionAndReport) -> Fate {match *msg{
+        AdvertiseForConnectionAndReport(report_to, report_as) => {
+            Swarm::<Lane>::all() << Connect{
+                other_id: self.id(),
+                other_path: self.path.clone(),
+                reply_needed: true
+            };
+            report_to << ReportLaneBuilt(self.id(), report_as);
+            Fate::Live
+        }
+    }}
 }
 
 impl Recipient<Connect> for Lane {
     fn receive(&mut self, msg: &Connect) -> Fate {match *msg{
-        Connect{other_id, ref other_path} => {
+        Connect{other_id, ref other_path, reply_needed} => {
+            if other_id == self.id() {return Fate::Live};
+
             if other_path.start().is_roughly(self.path.end()) {
                 self.interactions.push(Interaction{
                     partner_lane: other_id,
@@ -314,17 +332,52 @@ impl Recipient<Connect> for Lane {
                     }
                 })
             }
+            if reply_needed {
+                other_id << Connect{
+                    other_id: self.id(),
+                    other_path: self.path.clone(),
+                    reply_needed: false
+                };
+            }
             Fate::Live
         }
     }}
 }
 
+#[derive(Copy, Clone)]
+pub struct Disconnect{other_id: ID}
+
+impl Recipient<Disconnect> for Lane {
+    fn receive(&mut self, msg: &Disconnect) -> Fate {match *msg{
+        Disconnect{other_id} => {
+            // TODO: use retain
+            self.interactions = self.interactions.iter().filter(|interaction|
+                interaction.partner_lane != other_id
+            ).cloned().collect();
+            Fate::Live
+        }
+    }}
+}
+
+#[derive(Copy, Clone)]
+pub struct Unbuild;
+
+impl Recipient<Unbuild> for Lane{
+    fn receive(&mut self, _msg: &Unbuild) -> Fate {
+        Swarm::<Lane>::all() << Disconnect{other_id: self.id()}; 
+        self::ui::on_unbuild(self);
+        Fate::Die
+    }
+}
+
 pub fn setup(system: &mut ActorSystem) {
     system.add_individual(Swarm::<Lane>::new());
-    system.add_inbox::<CreateWith<Lane, AdvertiseForConnection>, Swarm<Lane>>();
+    system.add_inbox::<CreateWith<Lane, AdvertiseForConnectionAndReport>, Swarm<Lane>>();
     system.add_inbox::<Add, Swarm<Lane>>();
     system.add_inbox::<Tick, Swarm<Lane>>();
     system.add_inbox::<Connect, Swarm<Lane>>();
+    system.add_inbox::<Disconnect, Swarm<Lane>>();
+    system.add_inbox::<Unbuild, Swarm<Lane>>();
 
     system.add_individual(Swarm::<TransferLane>::new());
     system.add_inbox::<Add, Swarm<TransferLane>>();

@@ -1,8 +1,9 @@
 use descartes::{P2, V2, Path, Segment, Band, FiniteCurve, N, RoughlyComparable};
-use kay::{CVec, Swarm, CreateWith};
+use kay::{ID, CVec, Swarm, CreateWith};
 use monet::{Thing};
 use core::geometry::{CPath, band_to_thing};
 use super::{PlanRef, RoadStrokeNodeInteractable};
+use super::super::{Lane, AdvertiseForConnectionAndReport};
 
 #[derive(Compact, Clone)]
 pub struct RoadStroke{
@@ -23,7 +24,8 @@ impl RoadStroke {
     pub fn create_interactables(&self, self_ref: PlanRef) {
         for (i, node) in self.nodes.iter().enumerate() {
             let child_ref = match self_ref {
-                PlanRef(stroke_idx, _) => PlanRef(stroke_idx, i)
+                PlanRef::Stroke(stroke_idx) => PlanRef::StrokeNode(stroke_idx, i),
+                _ => unreachable!()
             };
             node.create_interactables(child_ref);
         }
@@ -52,6 +54,13 @@ impl RoadStroke {
                 segment.start().is_roughly_within(node.position, 0.1) || segment.end().is_roughly_within(node.position, 0.1)
             )
         )).cloned().collect()}
+    }
+
+    pub fn build(&self, report_to: ID, report_as: PlanRef) {
+        Swarm::<Lane>::all() << CreateWith(
+            Lane::new(self.path()),
+            AdvertiseForConnectionAndReport(report_to, report_as)
+        );
     }
 }
 
