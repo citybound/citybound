@@ -247,3 +247,11 @@ impl<T: Compact + Clone, A: Allocator> FromIterator<T> for CompactVec<T, A> {
         vec
     }
 }
+
+impl<T: Compact + Clone, A: Allocator> Extend<T> for CompactVec<T, A> {
+    fn extend<I: IntoIterator<Item=T>>(&mut self, iter: I) {
+        for item in iter {
+            self.push(item);
+        }
+    }
+}

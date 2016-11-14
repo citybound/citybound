@@ -73,7 +73,7 @@ pub struct ValueInChunk<T> {
 }
 
 impl<T> ValueInChunk<T> {
-    fn new(chunker: Box<Chunker>, default: T) -> ValueInChunk<T> {
+    pub fn new(chunker: Box<Chunker>, default: T) -> ValueInChunk<T> {
         let mut chunker = chunker.with_chunk_size(mem::size_of::<T>());
         let ptr = chunker.create_chunk();
         unsafe {

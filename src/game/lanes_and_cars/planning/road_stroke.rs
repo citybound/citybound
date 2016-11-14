@@ -55,6 +55,15 @@ impl RoadStroke {
     }
 }
 
+impl<'a> RoughlyComparable for &'a RoadStroke {
+    fn is_roughly_within(&self, other: &RoadStroke, tolerance: N) -> bool {
+        self.nodes.len() == other.nodes.len()
+        && self.nodes.iter().zip(other.nodes.iter()).all(|(n1, n2)|
+            n1.is_roughly_within(n2, tolerance)
+        )
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct RoadStrokeNode {
     pub position: P2,
@@ -69,5 +78,15 @@ impl RoadStrokeNode {
             RoadStrokeNodeInteractable::new(self.position, self_ref),
             AddToUI
         );
+    }
+}
+
+impl<'a> RoughlyComparable for &'a RoadStrokeNode {
+    fn is_roughly_within(&self, other: &RoadStrokeNode, tolerance: N) -> bool {
+        self.position.is_roughly_within(other.position, tolerance)
+        // && (
+        //     (self.direction.is_none() && other.direction.is_none())
+        //     || (self.direction.is_some() && other.direction.is_some()
+        //         && self.direction.unwrap().is_roughly_within(other.direction.unwrap(), tolerance)))
     }
 }

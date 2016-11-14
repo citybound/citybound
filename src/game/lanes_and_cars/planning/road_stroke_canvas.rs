@@ -2,7 +2,7 @@ use kay::{Actor, Swarm, ID, Recipient, CreateWith, ActorSystem, Individual, Fate
 use descartes::{Into2d};
 use core::geometry::AnyShape;
 use core::ui::{UserInterface, VirtualKeyCode};
-use super::{Plan};
+use super::{CurrentPlan};
 
 #[derive(Copy, Clone, Actor, Default)]
 pub struct RoadStrokeCanvas {_id: ID}
@@ -42,15 +42,15 @@ use ordered_float::OrderedFloat;
 impl Recipient<Event3d> for RoadStrokeCanvas {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg {
         Event3d::DragStarted{at} => {
-            Plan::id() << AddRoadStrokeNode(at.into_2d());
+            CurrentPlan::id() << AddRoadStrokeNode(at.into_2d());
             Fate::Live
         },
         Event3d::DragFinished{..} => {
-            Plan::id() << RecreateInteractables;
+            CurrentPlan::id() << RecreateInteractables;
             Fate::Live
         },
         Event3d::KeyDown(VirtualKeyCode::Return) => {
-            Plan::id() << Materialize;
+            CurrentPlan::id() << Materialize;
             Fate::Live
         },
         Event3d::KeyDown(VirtualKeyCode::C) => {

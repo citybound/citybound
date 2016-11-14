@@ -1,5 +1,5 @@
 use super::compact::{Compact};
-use super::chunked::{MemChunker, SizedChunkedArena, MultiSized};
+use super::chunked::{MemChunker, ValueInChunk, SizedChunkedArena, MultiSized};
 use super::slot_map::{SlotIndices, SlotMap};
 use super::messaging::{Actor, Individual, Recipient, Message, Packet, Fate};
 use super::actor_system::{ID};
@@ -8,6 +8,7 @@ use ::std::marker::PhantomData;
 pub struct Swarm<Actor> {
     actors: MultiSized<SizedChunkedArena>,
     slot_map: SlotMap,
+    n_actors: ValueInChunk<usize>,
     _marker: PhantomData<[Actor]>
 }
 
@@ -18,6 +19,7 @@ impl<A: Actor> Swarm<A> {
         let chunker = MemChunker::new("", CHUNK_SIZE);
         Swarm{
             actors: MultiSized::new(chunker.child("_actors"), A::typical_size()),
+            n_actors: ValueInChunk::new(chunker.child("_n_actors"), 0),
             slot_map: SlotMap::new(chunker.child("_slot_map")),
             _marker: PhantomData
         }
@@ -43,6 +45,7 @@ impl<A: Actor> Swarm<A> {
     fn add(&mut self, initial_state: &A) -> ID {
         let id = unsafe{(*super::actor_system::THE_SYSTEM).instance_id::<A>(self.allocate_instance_id())};
         self.add_with_id(initial_state, id);
+        *self.n_actors += 1;
         id
     }
 
@@ -85,6 +88,7 @@ impl<A: Actor> Swarm<A> {
     fn remove_at_index(&mut self, i: SlotIndices, id: ID) {
         self.swap_remove(i);
         self.slot_map.free(id.instance_id as usize, id.version as usize);
+        *self.n_actors -= 1;
     }
 
     fn resize(&mut self, id: usize) -> bool {
@@ -196,7 +200,7 @@ impl <M: Message, A: Actor + RecipientAsSwarm<M>> Recipient<M> for Swarm<A> {
     }
 }
 
-impl <M: Message + NotACreateMessage, A: Actor + Recipient<M>> RecipientAsSwarm<M> for A {
+impl <M: Message + NotACreateMessage + NotARequestConfirmationMessage, A: Actor + Recipient<M>> RecipientAsSwarm<M> for A {
     fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<M>) -> Fate {
         if packet.recipient_id.is_broadcast() {
             swarm.receive_broadcast(packet);
@@ -204,6 +208,54 @@ impl <M: Message + NotACreateMessage, A: Actor + Recipient<M>> RecipientAsSwarm<
             swarm.receive_instance(packet);
         }
         Fate::Live
+    }
+}
+
+#[derive(Clone)]
+pub struct RequestConfirmation<M: Message> {
+    pub requester: ID,
+    pub message: M
+}
+
+impl<M: Message> Compact for RequestConfirmation<M> {
+    fn is_still_compact(&self) -> bool {self.message.is_still_compact()}
+    fn dynamic_size_bytes(&self) -> usize {self.message.dynamic_size_bytes()}
+    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
+        self.requester = source.requester;
+        self.message.compact_from(&source.message, new_dynamic_part);
+    }
+}
+
+pub trait NotARequestConfirmationMessage {}
+
+impl NotARequestConfirmationMessage for .. {}
+
+impl <M: Message> !NotARequestConfirmationMessage for RequestConfirmation<M> {}
+
+#[derive(Clone)]
+pub struct Confirmation<M: Message>{
+    pub n_recipients: usize,
+    _marker: PhantomData<*const M>
+}
+
+impl<M: Message> Copy for Confirmation<M> { }
+
+impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<RequestConfirmation<M>> for A {
+    fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<RequestConfirmation<M>>) -> Fate {
+        let n_recipients = if packet.recipient_id.is_broadcast() {
+            *swarm.n_actors
+        } else {
+            1
+        };
+        let fate = A::receive_packet(swarm, &Packet{
+            recipient_id: packet.recipient_id,
+            message: packet.message.message.clone()
+        });
+        packet.message.requester << Confirmation::<M>{
+            n_recipients: n_recipients,
+            _marker: PhantomData
+        };
+        fate
     }
 }
 

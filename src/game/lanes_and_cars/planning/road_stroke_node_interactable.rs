@@ -3,7 +3,7 @@ use descartes::{Circle, P2, Into2d};
 use core::geometry::AnyShape;
 use core::ui::UserInterface;
 use monet::{Vertex, Thing, Instance};
-use super::{Plan, PlanRef};
+use super::{CurrentPlan, PlanRef};
 
 #[derive(Compact, Actor, Clone)]
 pub struct RoadStrokeNodeInteractable {
@@ -61,11 +61,11 @@ impl Recipient<Event3d> for RoadStrokeNodeInteractable {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg{
         Event3d::DragOngoing{from, to} => {
             self.position = self.original_position + (to.into_2d() - from.into_2d());
-            Plan::id() << MoveRoadStrokeNodeTo(self.node_ref, self.position);
+            CurrentPlan::id() << MoveRoadStrokeNodeTo(self.node_ref, self.position);
             Fate::Live
         },
         Event3d::DragFinished{..} => {
-            Plan::id() << RecreateInteractables;
+            CurrentPlan::id() << RecreateInteractables;
             Fate::Live
         },
         Event3d::HoverStarted{..} => {

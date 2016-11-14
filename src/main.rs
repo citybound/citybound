@@ -18,7 +18,7 @@ mod game;
 use monet::{Renderer, Control};
 use core::simulation::{Simulation, Tick};
 use game::lanes_and_cars::{Lane, TransferLane};
-use game::lanes_and_cars::planning::{Plan, RoadStrokeNodeInteractable};
+use game::lanes_and_cars::planning::{CurrentPlan, RoadStrokeNodeInteractable};
 use kay::Individual;
 
 const SECONDS_PER_TICK : f32 = 1.0 / 20.0;
@@ -41,7 +41,7 @@ fn main() {
     let renderables = vec![
         system.broadcast_id::<Lane>(),
         system.broadcast_id::<TransferLane>(),
-        system.individual_id::<Plan>(),
+        system.individual_id::<CurrentPlan>(),
         system.broadcast_id::<RoadStrokeNodeInteractable>()
     ];
     let window = core::ui::setup_window_and_renderer(&mut system, renderables);

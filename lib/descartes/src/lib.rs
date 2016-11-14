@@ -115,6 +115,12 @@ impl RoughlyComparable for P2 {
     }
 }
 
+impl RoughlyComparable for V2 {
+    fn is_roughly_within(&self, other: V2, tolerance: N) -> bool {
+        (*self - other).norm() <= tolerance
+    }
+}
+
 pub trait Curve {
     fn project_with_max_distance(&self, point: P2, max_distance: N) -> Option<N> {
         self.project(point).and_then(|offset|

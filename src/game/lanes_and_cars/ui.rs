@@ -54,9 +54,9 @@ impl Recipient<RenderToScene> for Lane {
                     thing_id: self.id().instance_id as usize,
                     thing: band_to_thing(&Band::new(self.path.clone(), 3.0), 0.0),
                     instance: Instance{
-                        instance_position: [0.0, 0.0, 0.0],
+                        instance_position: [0.0, 0.0, -0.1],
                         instance_direction: [1.0, 0.0],
-                        instance_color: [0.7, 0.7, 0.7]
+                        instance_color: [0.9, 0.9, 0.9]
                     }
             };
             self.interactions.iter().find(|inter| match inter.kind {
