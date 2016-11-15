@@ -52,4 +52,10 @@ impl<M: Message> Compact for Packet<M> {
         self.recipient_id = source.recipient_id;
         self.message.compact_from(&source.message, new_dynamic_part);
     }
+    unsafe fn decompact(&self) -> Packet<M> {
+        Packet{
+            recipient_id: self.recipient_id,
+            message: self.message.decompact()
+        }
+    }
 }

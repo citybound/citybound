@@ -1,6 +1,7 @@
 #![feature(proc_macro)]
 #![allow(dead_code)]
 #![feature(plugin)]
+#![feature(conservative_impl_trait)]
 #![plugin(clippy)]
 #![allow(no_effect, unnecessary_operation)]
 extern crate ordered_float;

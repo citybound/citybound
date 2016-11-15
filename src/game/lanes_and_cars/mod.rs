@@ -366,6 +366,7 @@ impl Recipient<Unbuild> for Lane{
     fn receive(&mut self, _msg: &Unbuild) -> Fate {
         Swarm::<Lane>::all() << Disconnect{other_id: self.id()}; 
         self::ui::on_unbuild(self);
+        println!("{:?}: Told to unbuild!", self.id());
         Fate::Die
     }
 }

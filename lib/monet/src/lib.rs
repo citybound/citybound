@@ -226,7 +226,7 @@ pub struct Eye {
     pub field_of_view: f32
 }
 
-#[derive(Compact)]
+#[derive(Compact, Debug)]
 pub struct Thing {
     pub vertices: CVec<Vertex>,
     pub indices: CVec<u16>
@@ -314,7 +314,7 @@ impl Batch {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Vertex {
     pub position: [f32; 3]
 }

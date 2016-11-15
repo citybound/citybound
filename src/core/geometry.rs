@@ -55,6 +55,12 @@ impl Compact for AnyShape {
             } else {unreachable!()}
         }
     }
+
+    unsafe fn decompact(&self) -> AnyShape {match *self {
+        AnyShape::Band(Band{ref path, width}) => AnyShape::Band(Band{path: path.decompact(), width: width}),
+        AnyShape::Circle(circle) => AnyShape::Circle(circle),
+        AnyShape::Everywhere => AnyShape::Everywhere
+    }}
 }
 
 fn to_vertex(point: P2, z: N) -> Vertex {

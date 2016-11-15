@@ -16,6 +16,8 @@ pub trait Compact : Sized + Clone {
         let behind_self = Self::behind(self);
         self.compact_from(source, behind_self)
     }
+    // caller has to make sure that self will not be dropped!
+    unsafe fn decompact(&self) -> Self;
 }
 
 impl<T: Copy> Compact for T {
@@ -23,6 +25,9 @@ impl<T: Copy> Compact for T {
     fn dynamic_size_bytes(&self) -> usize {0}
     unsafe fn compact_from(&mut self, source: &Self, _new_dynamic_part: *mut u8) {
         *self = *source;
+    }
+    unsafe fn decompact(&self) -> Self {
+        *self
     }
 }
 

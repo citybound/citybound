@@ -103,8 +103,9 @@ impl<T: Path> Curve for T {
         self.segments().into_iter().any(|segment| segment.includes(point))
     }
 
-    fn distance_to(&self, point: P2) -> N {
-        self.segments().iter().map(|segment| OrderedFloat(segment.distance_to(point))).min().map(|ord_f| *ord_f).unwrap()
+    fn distance_to(&self, _point: P2) -> N {
+        panic!("Don't trust this shit!");
+        //self.segments().iter().map(|segment| OrderedFloat(segment.distance_to(point))).min().map(|ord_f| *ord_f).unwrap()
     }
 }
 

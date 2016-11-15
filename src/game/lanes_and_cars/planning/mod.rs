@@ -14,7 +14,7 @@ pub use self::road_stroke_node_interactable::RoadStrokeNodeInteractable;
 pub use self::road_stroke_canvas::RoadStrokeCanvas;
 pub use self::materialized_plan::{MaterializedPlan, ReportLaneBuilt};
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum PlanRef{
     StrokeNode(usize, usize),
     Stroke(usize),

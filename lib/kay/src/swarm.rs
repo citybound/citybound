@@ -224,6 +224,12 @@ impl<M: Message> Compact for RequestConfirmation<M> {
         self.requester = source.requester;
         self.message.compact_from(&source.message, new_dynamic_part);
     }
+    unsafe fn decompact(&self) -> RequestConfirmation<M> {
+        RequestConfirmation{
+            requester: self.requester,
+            message: self.message.decompact()
+        }
+    }
 }
 
 pub trait NotARequestConfirmationMessage {}
@@ -268,6 +274,9 @@ impl<A: Actor> Compact for Create<A> {
     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
         self.0.compact_from(&source.0, new_dynamic_part);
     }
+    unsafe fn decompact(&self) -> Create<A> {
+        Create(self.0.decompact())
+    }
 }
 
 pub trait NotACreateMessage {}
@@ -295,6 +304,9 @@ impl<A: Actor, M: Message> Compact for CreateWith<A, M> {
     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
         self.0.compact_from(&source.0, new_dynamic_part);
         self.1.compact_from(&source.1, new_dynamic_part.offset(self.0.dynamic_size_bytes() as isize))
+    }
+    unsafe fn decompact(&self) -> CreateWith<A, M> {
+        CreateWith(self.0.decompact(), self.1.decompact())
     }
 }
 

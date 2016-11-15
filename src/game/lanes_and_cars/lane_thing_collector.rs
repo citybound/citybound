@@ -60,7 +60,9 @@ impl Recipient<Control> for LaneThingCollector{
         },
         Control::Remove(id) => {
             self.living_things.remove(id);
-            self.frozen_things.remove(id);
+            if let Some(_) = self.frozen_things.remove(id) {
+                self.cached_frozen_thing_dirty = true;
+            };
             Fate::Live
         }
     }}

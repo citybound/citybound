@@ -92,6 +92,14 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                             offset += source_field.dynamic_size_bytes() as isize;
                         )*
                     }
+
+                    unsafe fn decompact(&self) -> Self {
+                        #name{
+                            #(
+                                #fields_ref: self.#fields_ref2.decompact()
+                            ),*
+                        }
+                    }
                 }
             }
         }
@@ -145,6 +153,19 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                 } else {panic!("Only tuple enum variants supported so far");}
             }).collect();
 
+            let variants_decompact : &Vec<_> = &data.iter().map(|variant| {
+                if let syn::VariantData::Tuple(ref fields) = variant.data {
+                    let ident = &variant.ident;
+                    let fields : Vec<syn::Ident> = fields.iter().enumerate().map(|(i, _f)| format!("f{}", i).into()).collect();
+                    let fields_ref = &fields;
+                    quote! {
+                        #name::#ident(#(ref #fields_ref),*) => {
+                            #name::#ident(#(#fields_ref.decompact()),*)
+                        }
+                    }
+                } else {panic!("Only tuple enum variants supported so far");}
+            }).collect();
+
             quote! {
                 // generated
                 impl #impl_generics ::kay::Compact for #name #ty_generics #where_clause {
@@ -164,6 +185,12 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
                         match *source {
                             #(#variants_compact_from),*
+                        }
+                    }
+
+                    unsafe fn decompact(&self) -> Self {
+                        match *self {
+                            #(#variants_decompact),*
                         }
                     }
                 }

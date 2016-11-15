@@ -1,15 +1,12 @@
-use kay::{ID, CVec, Actor, Swarm, Recipient, RequestConfirmation, RecipientAsSwarm, CreateWith, ActorSystem, Fate};
-use descartes::{P2, Band, Intersect, RoughlyComparable, Curve};
+use kay::{ID, CVec, CDict, Actor, Swarm, Recipient, RequestConfirmation, RecipientAsSwarm, CreateWith, ActorSystem, Fate};
+use descartes::{P2, Band, Intersect, RoughlyComparable, Norm};
 use super::{Plan, PlanRef, RoadStroke, Intersection};
-
-#[derive(Copy, Clone)]
-enum LaneStatus{Built, Unbuilt}
 
 #[derive(Compact, Clone, Actor)]
 pub struct MaterializedPlan {
     _id: ID,
     plan: Plan,
-    built_lanes: CVec<(ID, PlanRef, LaneStatus)>
+    built_lanes: CDict<PlanRef, CVec<ID>>
 }
 
 impl MaterializedPlan{
@@ -17,7 +14,7 @@ impl MaterializedPlan{
         MaterializedPlan {
             _id: ID::invalid(),
             plan: plan,
-            built_lanes: CVec::new()
+            built_lanes: CDict::new()
         }
     }
 }
@@ -31,8 +28,8 @@ impl Recipient<Build> for MaterializedPlan {
             |(s, stroke)| (stroke, PlanRef::CutStroke(s))
         ).chain(
             self.plan.intersections.iter().enumerate().flat_map(
-                |(i, intersection)| intersection.connecting_strokes.iter().enumerate().map(
-                    move |(s, connecting_stroke)| (connecting_stroke, PlanRef::IntersectionStroke(i, s))
+                |(i, intersection)| intersection.connecting_strokes.iter().map(
+                    move |connecting_stroke| (connecting_stroke, PlanRef::Intersection(i))
                 )
             )
         ).filter(|&(stroke, _plan_ref)| stroke.nodes.len() >= 2) {
@@ -50,11 +47,11 @@ use super::super::Unbuild as UnbuildLane;
 impl Recipient<Unbuild> for MaterializedPlan {
     fn receive(&mut self, msg: &Unbuild) -> Fate {match *msg{
         Unbuild(plan_ref_to_unbuild) => {
-            for &mut (lane_id, plan_ref, ref mut status) in self.built_lanes.iter_mut() {
-                if plan_ref == plan_ref_to_unbuild {
-                    lane_id << UnbuildLane;
-                    *status = LaneStatus::Unbuilt;
-                }
+            println!("{:?} Unbuilding....", self.id());
+            println!("trying: {:?} {:?}", plan_ref_to_unbuild, &**self.built_lanes.get(plan_ref_to_unbuild).unwrap());
+            for lane_to_unbuild in self.built_lanes.remove(plan_ref_to_unbuild).unwrap().iter() {
+                println!("removed! {:?} {:?}", *lane_to_unbuild, plan_ref_to_unbuild);
+                *lane_to_unbuild << UnbuildLane;
             }
             Fate::Live
         }
@@ -80,7 +77,7 @@ impl Recipient<CollectIntersectionPoints> for MaterializedPlan {
         CollectIntersectionPoints{requester, ref other_strokes, ref other_points} => {
             let mut all_intersection_points = Vec::new();
         
-            for stroke1 in self.plan.strokes.iter() {
+            for stroke1 in self.built_cut_strokes() {
                 if stroke1.nodes.len() > 1 {
                     let band1 = Band::new(stroke1.path(), 8.0).outline();
                     for stroke2 in other_strokes.iter() {
@@ -98,7 +95,7 @@ impl Recipient<CollectIntersectionPoints> for MaterializedPlan {
 
             for (index, intersection) in self.plan.intersections.iter().enumerate() {
                 let close_to_shape = |point: &P2| {
-                    intersection.shape.distance_to(*point) < super::INTERSECTION_GROUPING_RADIUS
+                    intersection.points.iter().any(|other_point: &P2| (*point - *other_point).norm() < super::INTERSECTION_GROUPING_RADIUS)
                 };
 
                 let stroke_intersects = |stroke: &RoadStroke| {
@@ -165,7 +162,7 @@ impl Recipient<IntersectWith> for MaterializedPlan {
                 )
             ).cloned().collect();
 
-            let cut_strokes_to_debuild = self.plan.strokes_after_cutting.iter().enumerate().filter_map(|(i, stroke1)|
+            let cut_strokes_to_debuild = self.built_cut_strokes().enumerate().filter_map(|(i, stroke1)|
                 if stroke1.nodes.len() > 1 {
                     let band1 = Band::new(stroke1.path(), 3.0).outline();
                     let conflicts_with_changed = only_changed_strokes.iter().any(|stroke2|
@@ -199,7 +196,8 @@ pub struct ReportLaneBuilt(pub ID, pub PlanRef);
 impl Recipient<ReportLaneBuilt> for MaterializedPlan {
     fn receive(&mut self, msg: &ReportLaneBuilt) -> Fate {match *msg{
         ReportLaneBuilt(lane_id, plan_ref) => {
-            self.built_lanes.push((lane_id, plan_ref, LaneStatus::Built));
+            println!("{:?}: {:?} built as {:?}", self.id(), lane_id, plan_ref);
+            self.built_lanes.push_or_create_at(plan_ref, lane_id);
             Fate::Live
         }
     }}
@@ -210,6 +208,17 @@ use monet::SetupInScene;
 impl RecipientAsSwarm<SetupInScene> for MaterializedPlan {
     fn receive(_swarm: &mut Swarm<MaterializedPlan>, _msg: &SetupInScene) -> Fate {
         Fate::Live
+    }
+}
+
+impl MaterializedPlan{
+    #[allow(needless_lifetimes)]
+    fn built_cut_strokes<'a>(&'a self) -> impl Iterator<Item=&'a RoadStroke> + 'a {
+        self.built_lanes.keys().filter_map(move |plan_ref|
+            if let PlanRef::CutStroke(index) = *plan_ref {
+                Some(&self.plan.strokes_after_cutting[index])
+            } else {None}
+        )
     }
 }
 

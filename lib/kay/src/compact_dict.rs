@@ -7,7 +7,7 @@ pub struct CompactDict <K: Copy, V: Compact + Clone, A: Allocator = DefaultHeap>
     values: CompactVec<V, A>
 }
 
-impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
+impl <K: Eq + Copy, V: Compact + Clone + ::std::fmt::Debug, A: Allocator> CompactDict<K, V, A> {
     pub fn new() -> Self {
         CompactDict{
             keys: CompactVec::new(),
@@ -58,6 +58,21 @@ impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
     }
 }
 
+impl <K: Eq + Copy, I: Compact + ::std::fmt::Debug, A: Allocator> CompactDict<K, CompactVec<I>, A> {
+    pub fn push_or_create_at(&mut self, query: K, item: I) {
+        for i in 0..self.keys.len() {
+            if self.keys[i] == query {
+                self.values[i].push(item);
+                return;
+            }
+        }
+        self.keys.push(query);
+        let mut vec = CompactVec::new();
+        vec.push(item);
+        self.values.push(vec);
+    }
+} 
+
 impl <K: Copy, V: Compact + Clone, A: Allocator> Compact for CompactDict<K, V, A> {
     fn is_still_compact(&self) -> bool {
         self.keys.is_still_compact() && self.values.is_still_compact()
@@ -70,6 +85,13 @@ impl <K: Copy, V: Compact + Clone, A: Allocator> Compact for CompactDict<K, V, A
     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
         self.keys.compact_from(&source.keys, new_dynamic_part);
         self.values.compact_from(&source.values, new_dynamic_part.offset(self.keys.dynamic_size_bytes() as isize));
+    }
+
+    unsafe fn decompact(&self) -> CompactDict<K, V, A> {
+        CompactDict{
+            keys: self.keys.decompact(),
+            values: self.values.decompact()
+        }
     }
 }
 

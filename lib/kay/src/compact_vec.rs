@@ -13,7 +13,7 @@ pub struct CompactVec <T, A: Allocator = DefaultHeap> {
     _alloc: PhantomData<A>
 }
 
-impl<T, A: Allocator> CompactVec<T, A> {
+impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
     pub fn len(&self) -> usize {
         self.len
     }
@@ -43,25 +43,16 @@ impl<T, A: Allocator> CompactVec<T, A> {
         vec
     }
 
-    pub fn from_backing(ptr: *mut T, len: usize, cap: usize) -> CompactVec<T, A> {
-        let mut vec = CompactVec {
-            ptr: PointerToMaybeCompact::default(),
-            len: len,
-            cap: cap,
-            _alloc: PhantomData
-        };
-
-        vec.ptr.set_to_compact(ptr);
-        vec
-    }
-
     fn double_buf(&mut self) {
         let new_cap = if self.cap == 0 {1} else {self.cap * 2};
         let new_ptr = A::allocate::<T>(new_cap);
 
-        unsafe {
-            ptr::copy_nonoverlapping(self.ptr.ptr(), new_ptr, self.len);
+        // items should be decompacted, else internal relative pointers get messed up!
+        #[allow(needless_range_loop)]
+        for i in 0..self.len() {
+            unsafe {ptr::write(new_ptr.offset(i as isize), self[i].decompact())};
         }
+
         // items shouldn't be dropped here, they live on in the new backing store!
         if !self.ptr.is_compact() {
             unsafe {A::deallocate(self.ptr.mut_ptr(), self.cap);}
@@ -101,9 +92,13 @@ impl<T, A: Allocator> CompactVec<T, A> {
         unsafe {
             // infallible
             {
-                let p = self.as_mut_ptr().offset(index as isize);
-                ptr::copy(p, p.offset(1), self.len - index);
-                ptr::write(p, value);
+                let ptr = self.as_mut_ptr().offset(index as isize);
+                // items should be decompacted, else internal relative pointers get messed up!
+                for i in (0..self.len - index).rev() {
+                    ptr::write(ptr.offset((i + 1) as isize), self[index + i].decompact());
+                }
+                //ptr::copy(p, p.offset(1), self.len - index);
+                ptr::write(ptr, value);
             }
             self.len += 1;
         }
@@ -123,7 +118,12 @@ impl<T, A: Allocator> CompactVec<T, A> {
                 ret = ptr::read(ptr);
 
                 // Shift everything down to fill in that spot.
-                ptr::copy(ptr.offset(1), ptr, len - index - 1);
+                // items should be decompacted, else internal relative pointers get messed up!
+                #[allow(needless_range_loop)]
+                for i in 0..len - index - 1 {
+                    ptr::write(ptr.offset(i as isize), self[index + i + 1].decompact())
+                }
+                //ptr::copy(ptr.offset(1), ptr, len - index - 1);
             }
             self.len -= 1;
             ret
@@ -219,6 +219,20 @@ impl<T: Compact + Clone, A: Allocator> Compact for CompactVec<T, A> {
             offset += self[i].dynamic_size_bytes();
         }
     }
+
+    unsafe fn decompact(&self) -> Self {
+        if self.ptr.is_compact() {
+            self.clone()
+        } else {
+            CompactVec{
+                ptr: ptr::read(&self.ptr as *const PointerToMaybeCompact<T>),
+                len: self.len,
+                cap: self.cap,
+                _alloc: self._alloc
+            }
+            // caller has to make sure that self will not be dropped!
+        }
+    }
 }
 
 impl<T: Clone, A: Allocator> Clone for CompactVec<T, A> {
@@ -259,5 +273,11 @@ impl<T: Compact + Clone, A: Allocator> Extend<T> for CompactVec<T, A> {
 impl<T: Compact, A: Allocator> Default for CompactVec<T, A> {
     fn default() -> CompactVec<T, A> {
         CompactVec::new()
+    }
+}
+
+impl<T: Compact + ::std::fmt::Debug, A: Allocator> ::std::fmt::Debug for CompactVec<T, A> {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        (self.deref()).fmt(f)
     }
 }

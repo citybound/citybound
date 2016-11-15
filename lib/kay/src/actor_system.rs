@@ -6,7 +6,7 @@ use std::intrinsics::{type_id, type_name};
 
 pub static mut THE_SYSTEM: *mut ActorSystem = 0 as *mut ActorSystem;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ID {
     pub type_id: u16,
     pub version: u8,
@@ -44,6 +44,12 @@ impl ID {
 impl Default for ID {
     fn default() -> Self {
         ID::invalid()
+    }
+}
+
+impl ::std::fmt::Debug for ID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "ID {}_{}_{}", self.type_id, self.version, self.instance_id)
     }
 }
 
