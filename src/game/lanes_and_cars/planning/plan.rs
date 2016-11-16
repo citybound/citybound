@@ -63,50 +63,50 @@ pub struct InbetweenStrokeRef(pub usize);
 
 #[derive(Compact, Clone, Default)]
 pub struct PlanResult{
-    pub intersections: CVec<Intersection>,
-    pub inbetween_strokes: CVec<RoadStroke>
+    pub intersections: CDict<IntersectionRef, Intersection>,
+    pub inbetween_strokes: CDict<InbetweenStrokeRef, RoadStroke>
 }
 
 const RESULT_DELTA_TOLERANCE : N = 0.1;
 
 impl PlanResult{
     pub fn delta(&self, old: &Self) -> PlanResultDelta{
-        let intersection_pairs = self.intersections.iter().enumerate().cartesian_product(old.intersections.iter().enumerate());
+        let intersection_pairs = self.intersections.pairs().cartesian_product(old.intersections.pairs());
         let old_to_new_intersection_map = intersection_pairs.filter_map(|pair| match pair {
-            ((new_i, new), (old_i, old)) => if (&new).is_roughly_within(old, RESULT_DELTA_TOLERANCE) {
-                Some((IntersectionRef(old_i), IntersectionRef(new_i)))
+            ((new_ref, new), (old_ref, old)) => if (&new).is_roughly_within(old, RESULT_DELTA_TOLERANCE) {
+                Some((*old_ref, *new_ref))
             } else {None}
         }).collect::<CDict<_, _>>();
 
-        let new_intersections = self.intersections.iter().enumerate().filter_map(|(new_i, new)|
-            if old_to_new_intersection_map.values().any(|not_really_new_ref| *not_really_new_ref == IntersectionRef(new_i)) {
+        let new_intersections = self.intersections.pairs().filter_map(|(new_ref, new)|
+            if old_to_new_intersection_map.values().any(|not_really_new_ref| not_really_new_ref == new_ref) {
                 None
-            } else {Some((IntersectionRef(new_i), new.clone()))}
+            } else {Some((*new_ref, new.clone()))}
         ).collect();
 
-        let intersections_to_destroy = old.intersections.iter().enumerate().filter_map(|(old_, old)|
-            if old_to_new_intersection_map.keys().any(|old_ref| *old_ref == IntersectionRef(old_)) {
+        let intersections_to_destroy = old.intersections.pairs().filter_map(|(old_ref, old)|
+            if old_to_new_intersection_map.keys().any(|revived_old_ref| revived_old_ref == old_ref) {
                 None
-            } else {Some((IntersectionRef(old_), old.clone()))}
+            } else {Some((*old_ref, old.clone()))}
         ).collect();
 
-        let stroke_pairs = self.inbetween_strokes.iter().enumerate().cartesian_product(old.inbetween_strokes.iter().enumerate());
+        let stroke_pairs = self.inbetween_strokes.pairs().cartesian_product(old.inbetween_strokes.pairs());
         let old_to_new_stroke_map = stroke_pairs.filter_map(|pair| match pair {
-            ((new_i, new), (old_i, old)) => if (&new).is_roughly_within(old, RESULT_DELTA_TOLERANCE) {
-                Some((InbetweenStrokeRef(old_i), InbetweenStrokeRef(new_i)))
+            ((new_ref, new), (old_ref, old)) => if (&new).is_roughly_within(old, RESULT_DELTA_TOLERANCE) {
+                Some((*old_ref, *new_ref))
             } else {None}
         }).collect::<CDict<_, _>>();
 
-        let new_inbetween_strokes = self.inbetween_strokes.iter().enumerate().filter_map(|(new_i, new)|
-            if old_to_new_stroke_map.values().any(|not_really_new_ref| *not_really_new_ref == InbetweenStrokeRef(new_i)) {
+        let new_inbetween_strokes = self.inbetween_strokes.pairs().filter_map(|(new_ref, new)|
+            if old_to_new_stroke_map.values().any(|not_really_new_ref| not_really_new_ref == new_ref) {
                 None
-            } else {Some((InbetweenStrokeRef(new_i), new.clone()))}
+            } else {Some((*new_ref, new.clone()))}
         ).collect();
 
-        let inbetween_strokes_to_destroy = self.inbetween_strokes.iter().enumerate().filter_map(|(old_i, old)|
-            if old_to_new_stroke_map.keys().any(|old_ref| *old_ref == InbetweenStrokeRef(old_i)) {
+        let inbetween_strokes_to_destroy = old.inbetween_strokes.pairs().filter_map(|(old_ref, old)|
+            if old_to_new_stroke_map.keys().any(|revived_old_ref| revived_old_ref == old_ref) {
                 None
-            } else {Some((InbetweenStrokeRef(old_i), old.clone()))}
+            } else {Some((*old_ref, old.clone()))}
         ).collect();
 
         PlanResultDelta{
@@ -146,17 +146,27 @@ impl Default for PlanResultDelta{
 const STROKE_INTERSECTION_WIDTH : N = 8.0;
 const INTERSECTION_GROUPING_RADIUS : N = 30.0;
 
+#[derive(Compact, Clone)]
+pub struct RemainingOldStrokes{
+    pub mapping: CDict<RoadStrokeRef, RoadStroke>
+}
+
+impl Default for RemainingOldStrokes{
+    fn default() -> Self {RemainingOldStrokes{mapping: CDict::new()}}
+}
+
 impl Plan{
-    pub fn with_delta(&self, delta: &PlanDelta) -> Plan{
-        Plan{
-            strokes: self.strokes.iter().enumerate().filter_map(|(i, stroke)|
-                if delta.strokes_to_destroy.contains_key(RoadStrokeRef(i)) {
-                    None
-                } else {
-                    Some(stroke)
-                }
-            ).chain(delta.new_strokes.iter()).cloned().collect()
-        }
+    pub fn with_delta(&self, delta: &PlanDelta) -> (Plan, RemainingOldStrokes) {
+        let remaining_old_refs_and_strokes = self.strokes.iter().enumerate().filter_map(|(i, stroke)|
+            if delta.strokes_to_destroy.contains_key(RoadStrokeRef(i)) {
+                None
+            } else {
+                Some((RoadStrokeRef(i), stroke.clone()))
+            }
+        ).collect::<CDict<_, _>>();
+        let new_plan = Plan {strokes: remaining_old_refs_and_strokes.values()
+            .chain(delta.new_strokes.iter()).cloned().collect()};
+        (new_plan, RemainingOldStrokes{mapping: remaining_old_refs_and_strokes})
     }
 
     pub fn get_result(&self) -> PlanResult {
@@ -267,7 +277,7 @@ impl Plan{
             if iters > 30 {panic!("Stuck!!!")}
         }
 
-        let inbetween_strokes = strokes_todo.into();
+        let inbetween_strokes = strokes_todo;
 
         // Create connecting strokes on intersections
 
@@ -280,8 +290,8 @@ impl Plan{
         }
 
         PlanResult{
-            intersections: intersections,
-            inbetween_strokes: inbetween_strokes
+            intersections: intersections.into_iter().enumerate().map(|(i, intersection)| (IntersectionRef(i), intersection)).collect(),
+            inbetween_strokes: inbetween_strokes.into_iter().enumerate().map(|(i, stroke)| (InbetweenStrokeRef(i), stroke)).collect()
         }
     }
 }

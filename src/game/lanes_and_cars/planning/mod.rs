@@ -9,7 +9,7 @@ mod road_stroke_canvas;
 pub mod materialized_reality;
 pub mod current_plan_rendering;
 
-pub use self::plan::{Plan, RoadStrokeRef, IntersectionRef, InbetweenStrokeRef, PlanDelta, PlanResult, PlanResultDelta};
+pub use self::plan::{Plan, RoadStrokeRef, IntersectionRef, InbetweenStrokeRef, PlanDelta, PlanResult, PlanResultDelta, RemainingOldStrokes};
 pub use self::road_stroke::{RoadStroke, RoadStrokeNode, RoadStrokeNodeRef};
 pub use self::road_stroke_node_interactable::RoadStrokeNodeInteractable;
 pub use self::road_stroke_canvas::RoadStrokeCanvas;
@@ -18,6 +18,7 @@ use self::materialized_reality::MaterializedReality;
 #[derive(Compact, Clone, Default)]
 pub struct CurrentPlan {
     delta: PlanDelta,
+    pub current_remaining_old_strokes: RemainingOldStrokes,
     pub current_plan_result: PlanResult,
     pub current_plan_result_delta: PlanResultDelta,
     ui_state: PlanUIState
@@ -28,6 +29,7 @@ impl Individual for CurrentPlan{}
 enum PlanControl{
     AddRoadStrokeNode(P2),
     MoveRoadStrokeNodeTo(RoadStrokeNodeRef, P2),
+    ModifyRemainingOld(RoadStrokeRef),
     Materialize
 }
 
@@ -61,18 +63,24 @@ impl Recipient<PlanControl> for CurrentPlan {
                 self.ui_state.current_node = Some(RoadStrokeNodeRef(self.delta.new_strokes.len() - 1, 0))
             }
 
-            MaterializedReality::id() << Simulate{requester: CurrentPlan::id(), delta: self.delta.clone()};
+            MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone(), fresh: false};
             Fate::Live
         },
         PlanControl::MoveRoadStrokeNodeTo(RoadStrokeNodeRef(stroke, node), position) =>  {
             self.delta.new_strokes[stroke].nodes[node].position = position;
-            MaterializedReality::id() << Simulate{requester: CurrentPlan::id(), delta: self.delta.clone()};
+            MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone(), fresh: false};
             Fate::Live
         },
+        PlanControl::ModifyRemainingOld(old_ref) => {
+            let old_stroke = self.current_remaining_old_strokes.mapping.get(old_ref).unwrap();
+            self.delta.strokes_to_destroy.insert(old_ref, old_stroke.clone());
+            self.delta.new_strokes.push(old_stroke.clone());
+            MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone(), fresh: false};
+            Fate::Live
+        }
         PlanControl::Materialize => {
-            MaterializedReality::id() << Apply{delta: self.delta.clone()};
+            MaterializedReality::id() << Apply{requester: Self::id(), delta: self.delta.clone()};
             *self = CurrentPlan::default();
-            Self::id() << RecreateInteractables;
             Fate::Live
         }
     }}
@@ -82,10 +90,12 @@ use self::materialized_reality::SimulationResult;
 
 impl Recipient<SimulationResult> for CurrentPlan{
     fn receive(&mut self, msg: &SimulationResult) -> Fate {match *msg{
-        SimulationResult{ref result, ref result_delta} => {
+        SimulationResult{ref remaining_old_strokes, ref result, ref result_delta, fresh} => {
+            self.current_remaining_old_strokes = remaining_old_strokes.clone();
             self.current_plan_result = result.clone();
             self.current_plan_result_delta = result_delta.clone();
             self.ui_state.dirty = true;
+            if fresh {Self::id() << RecreateInteractables}
             Fate::Live
         }
     }}
@@ -105,11 +115,22 @@ impl Recipient<RecreateInteractables> for CurrentPlan {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum InteractableParent{
+    New,
+    RemainingOldStroke{new_ref_to_become: RoadStrokeRef},
+}
+
 impl CurrentPlan{
     fn create_interactables(&self) {
         Swarm::<RoadStrokeCanvas>::all() << CreateWith(RoadStrokeCanvas::new(), AddToUI);
         for (i, stroke) in self.delta.new_strokes.iter().enumerate() {
-            stroke.create_interactables(RoadStrokeRef(i));
+            stroke.create_interactables(RoadStrokeRef(i), InteractableParent::New);
+        }
+        for (old_ref, stroke) in self.current_remaining_old_strokes.mapping.pairs() {
+            stroke.create_interactables(*old_ref, InteractableParent::RemainingOldStroke{
+                new_ref_to_become: RoadStrokeRef(self.delta.new_strokes.len())
+            });
         }
     }
 }

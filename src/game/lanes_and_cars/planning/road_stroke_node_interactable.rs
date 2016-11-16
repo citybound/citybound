@@ -3,7 +3,7 @@ use descartes::{Circle, P2, Into2d};
 use core::geometry::AnyShape;
 use core::ui::UserInterface;
 use monet::{Vertex, Thing, Instance};
-use super::{CurrentPlan, RoadStrokeNodeRef};
+use super::{CurrentPlan, RoadStrokeRef, RoadStrokeNodeRef, InteractableParent};
 
 #[derive(Compact, Actor, Clone)]
 pub struct RoadStrokeNodeInteractable {
@@ -11,16 +11,18 @@ pub struct RoadStrokeNodeInteractable {
     original_position: P2,
     position: P2,
     node_ref: RoadStrokeNodeRef,
+    parent: InteractableParent,
     hovered: bool
 }
 
 impl RoadStrokeNodeInteractable {
-    pub fn new(original_position: P2, node_ref: RoadStrokeNodeRef) -> Self {
+    pub fn new(original_position: P2, node_ref: RoadStrokeNodeRef, parent: InteractableParent) -> Self {
         RoadStrokeNodeInteractable{
             _id: ID::invalid(),
             original_position: original_position,
             position: original_position,
             node_ref: node_ref,
+            parent: parent,
             hovered: false
         }
     }
@@ -54,14 +56,24 @@ impl Recipient<ClearAll> for RoadStrokeNodeInteractable {
 }
 
 use core::ui::Event3d;
-use super::PlanControl::MoveRoadStrokeNodeTo;
+use super::PlanControl::{ModifyRemainingOld, MoveRoadStrokeNodeTo};
 use super::RecreateInteractables;
 
 impl Recipient<Event3d> for RoadStrokeNodeInteractable {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg{
+        Event3d::DragStarted{..} => {
+            if let InteractableParent::RemainingOldStroke{new_ref_to_become} = self.parent {
+                CurrentPlan::id() << ModifyRemainingOld(RoadStrokeRef(self.node_ref.0));
+                self.node_ref = RoadStrokeNodeRef(new_ref_to_become.0, self.node_ref.1);
+                self.parent = InteractableParent::New;
+            };
+            Fate::Live
+        },
         Event3d::DragOngoing{from, to} => {
-            self.position = self.original_position + (to.into_2d() - from.into_2d());
-            CurrentPlan::id() << MoveRoadStrokeNodeTo(self.node_ref, self.position);
+            if let InteractableParent::New = self.parent {
+                self.position = self.original_position + (to.into_2d() - from.into_2d());
+                CurrentPlan::id() << MoveRoadStrokeNodeTo(self.node_ref, self.position);
+            };
             Fate::Live
         },
         Event3d::DragFinished{..} => {
@@ -112,7 +124,7 @@ impl Recipient<RenderToScene> for RoadStrokeNodeInteractable {
             renderer_id << AddInstance{scene_id: scene_id, batch_id: 4982939, position: Instance{
                 instance_position: [self.position.x, self.position.y, 0.0],
                 instance_direction: [1.0, 0.0],
-                instance_color: if self.hovered {[1.0, 0.0, 0.0]} else {[0.0, 0.0, 1.0]}
+                instance_color: if self.hovered {[1.0, 0.0, 0.0]} else if self.parent == InteractableParent::New {[0.0, 0.0, 1.0]} else {[0.3, 0.3, 0.3]}
             }};
             Fate::Live
         }

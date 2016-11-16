@@ -2,7 +2,7 @@ use descartes::{P2, V2, Path, Segment, Band, FiniteCurve, N, RoughlyComparable};
 use kay::{ID, CVec, Swarm, CreateWith};
 use monet::{Thing};
 use core::geometry::{CPath, band_to_thing};
-use super::{RoadStrokeRef, RoadStrokeNodeInteractable};
+use super::{RoadStrokeRef, RoadStrokeNodeInteractable, InteractableParent};
 use super::materialized_reality::BuildableRef;
 use super::super::{Lane, AdvertiseForConnectionAndReport};
 
@@ -11,7 +11,7 @@ pub struct RoadStroke{
     pub nodes: CVec<RoadStrokeNode>
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct RoadStrokeNodeRef(pub usize, pub usize);
 
 impl RoadStroke {
@@ -29,12 +29,12 @@ impl RoadStroke {
         band_to_thing(&Band::new(Band::new(self.path(), 3.0).outline(), 0.3), 0.0)
     }
 
-    pub fn create_interactables(&self, self_ref: RoadStrokeRef) {
+    pub fn create_interactables(&self, self_ref: RoadStrokeRef, class: InteractableParent) {
         for (i, node) in self.nodes.iter().enumerate() {
             let child_ref = match self_ref {
                 RoadStrokeRef(stroke_idx) => RoadStrokeNodeRef(stroke_idx, i),
             };
-            node.create_interactables(child_ref);
+            node.create_interactables(child_ref, class);
         }
     } 
 
@@ -89,9 +89,9 @@ pub struct RoadStrokeNode {
 use super::AddToUI;
 
 impl RoadStrokeNode {
-    pub fn create_interactables(&self, self_ref: RoadStrokeNodeRef) {
+    pub fn create_interactables(&self, self_ref: RoadStrokeNodeRef, class: InteractableParent) {
         Swarm::<RoadStrokeNodeInteractable>::all() << CreateWith(
-            RoadStrokeNodeInteractable::new(self.position, self_ref),
+            RoadStrokeNodeInteractable::new(self.position, self_ref, class),
             AddToUI
         );
     }

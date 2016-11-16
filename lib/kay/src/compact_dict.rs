@@ -62,7 +62,7 @@ impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
     }
 
     #[allow(needless_lifetimes)]
-    pub fn pairs<'a>(&'a self) -> impl Iterator<Item=(&'a K, &'a V)> + 'a {
+    pub fn pairs<'a>(&'a self) -> impl Iterator<Item=(&'a K, &'a V)> + Clone + 'a {
         self.keys().zip(self.values())
     }
 }

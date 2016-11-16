@@ -1,5 +1,5 @@
 use kay::{ID, ActorSystem, Recipient, Fate, Individual, CDict, CVec};
-use super::{Plan, PlanResult, PlanDelta, PlanResultDelta, IntersectionRef, InbetweenStrokeRef};
+use super::{Plan, PlanResult, PlanDelta, PlanResultDelta, IntersectionRef, InbetweenStrokeRef, RemainingOldStrokes};
 
 pub struct MaterializedReality{
     current_plan: Plan,
@@ -10,32 +10,43 @@ pub struct MaterializedReality{
 impl Individual for MaterializedReality{}
 
 #[derive(Compact, Clone)]
-pub struct Simulate{pub requester: ID, pub delta: PlanDelta}
+pub struct Simulate{pub requester: ID, pub delta: PlanDelta, pub fresh: bool}
 
 #[derive(Compact, Clone)]
-pub struct SimulationResult{pub result: PlanResult, pub result_delta: PlanResultDelta}
+pub struct SimulationResult{
+    pub remaining_old_strokes: RemainingOldStrokes,
+    pub result: PlanResult,
+    pub result_delta: PlanResultDelta,
+    pub fresh: bool
+}
 
 impl Recipient<Simulate> for MaterializedReality {
     fn receive(&mut self, msg: &Simulate) -> Fate {match *msg{
-        Simulate{requester, ref delta} => {
-            let result = self.current_plan.with_delta(delta).get_result();
+        Simulate{requester, ref delta, fresh} => {
+            let (new_plan, remaining_old_strokes) = self.current_plan.with_delta(delta);
+            let result = new_plan.get_result();
             let result_delta = result.delta(&self.current_result);
-            requester << SimulationResult{result: result, result_delta: result_delta};
+            requester << SimulationResult{
+                remaining_old_strokes: remaining_old_strokes,
+                result: result,
+                result_delta: result_delta,
+                fresh: fresh
+            };
             Fate::Live
         }
     }}
 }
 
 #[derive(Compact, Clone)]
-pub struct Apply{pub delta: PlanDelta}
+pub struct Apply{pub requester: ID, pub delta: PlanDelta}
 
 use super::super::Unbuild;
 
 impl Recipient<Apply> for MaterializedReality {
     fn receive(&mut self, msg: &Apply) -> Fate {match *msg{
-        Apply{ref delta} => {
-            let with_delta = self.current_plan.with_delta(delta);
-            let new_result = with_delta.get_result();
+        Apply{requester, ref delta} => {
+            let (new_plan, _) = self.current_plan.with_delta(delta);
+            let new_result = new_plan.get_result();
             let result_delta = new_result.delta(&self.current_result);
 
             for old_ref in result_delta.intersections_to_destroy.keys() {
@@ -61,21 +72,23 @@ impl Recipient<Apply> for MaterializedReality {
             }
 
             let new_built_intersection_lanes = self.built_intersection_lanes.pairs().map(|(old_ref, ids)| {
-                let new_ref = result_delta.old_to_new_intersection_map.get(*old_ref).unwrap();
+                let new_ref = result_delta.old_to_new_intersection_map.get(*old_ref).expect("attempted to resurrect a destroyed intersection");
                 (*new_ref, ids.clone())
             }).collect();
 
             let new_built_inbetween_lanes = self.built_inbetween_lanes.pairs().map(|(old_ref, ids)| {
-                let new_ref = result_delta.old_to_new_stroke_map.get(*old_ref).unwrap();
+                let new_ref = result_delta.old_to_new_stroke_map.get(*old_ref).expect("attempted to resurrect a destroyed inbetween stroke");
                 (*new_ref, ids.clone())
             }).collect();
 
             *self = MaterializedReality{
-                current_plan: with_delta,
+                current_plan: new_plan,
                 current_result: new_result,
                 built_intersection_lanes: new_built_intersection_lanes,
                 built_inbetween_lanes: new_built_inbetween_lanes
             };
+
+            Self::id() << Simulate{requester: requester, delta: PlanDelta::default(), fresh: true};
 
             Fate::Live
         }
