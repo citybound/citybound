@@ -305,17 +305,20 @@ impl Recipient<AdvertiseForConnectionAndReport> for Lane {
                 reply_needed: true
             };
             report_to << ReportLaneBuilt(self.id(), report_as);
+            self::lane_rendering::on_build(self);
             Fate::Live
         }
     }}
 }
+
+const CONNECTION_TOLERANCE: f32 = 0.1;
 
 impl Recipient<Connect> for Lane {
     fn receive(&mut self, msg: &Connect) -> Fate {match *msg{
         Connect{other_id, ref other_path, reply_needed} => {
             if other_id == self.id() {return Fate::Live};
 
-            if other_path.start().is_roughly(self.path.end()) {
+            if other_path.start().is_roughly_within(self.path.end(), CONNECTION_TOLERANCE) {
                 self.interactions.push(Interaction{
                     partner_lane: other_id,
                     kind: InteractionKind::Next{
@@ -323,7 +326,7 @@ impl Recipient<Connect> for Lane {
                     }
                 })
             }
-            if other_path.end().is_roughly(self.path.start()) {
+            if other_path.end().is_roughly_within(self.path.start(), CONNECTION_TOLERANCE) {
                 self.interactions.push(Interaction{
                     partner_lane: other_id,
                     kind: InteractionKind::Previous{

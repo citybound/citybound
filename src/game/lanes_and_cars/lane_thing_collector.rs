@@ -71,9 +71,17 @@ impl Recipient<Control> for LaneThingCollector{
 use ::monet::RenderToScene;
 use ::monet::UpdateThing;
 
+#[derive(Copy, Clone)]
+pub struct RenderToCollector(pub ID);
+
 impl Recipient<RenderToScene> for LaneThingCollector{
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg{
         RenderToScene{renderer_id, scene_id} => {
+            // TODO: this introduces 1 frame delay
+            for id in self.living_things.keys() {
+                *id << RenderToCollector(LaneThingCollector::id());
+            }
+
             let living_thing = self.living_things.values().sum();
 
             renderer_id << UpdateThing{

@@ -1,6 +1,6 @@
 use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Norm};
 use kay::{Actor, Individual, Recipient, RecipientAsSwarm, ActorSystem, Swarm, Fate};
-use monet::{Instance};
+use monet::{Instance, Thing, Vertex};
 use core::geometry::band_to_thing;
 use super::{Lane, TransferLane, InteractionKind};
 
@@ -16,6 +16,20 @@ impl RecipientAsSwarm<SetupInScene> for Lane {
     fn receive(_swarm: &mut Swarm<Self>, msg: &SetupInScene) -> Fate {match *msg {
         SetupInScene{renderer_id, scene_id} => {
             renderer_id << AddBatch{scene_id: scene_id, batch_id: 0, thing: car::create()};
+
+            renderer_id << AddBatch{scene_id: scene_id, batch_id: 222666222662, thing: Thing::new(
+                vec![
+                    Vertex{position: [-1.0, -1.0, 0.0]},
+                    Vertex{position: [1.0, -1.0, 0.0]},
+                    Vertex{position: [1.0, 1.0, 0.0]},
+                    Vertex{position: [-1.0, 1.0, 0.0]}
+                ],
+                vec![
+                    0, 1, 2,
+                    2, 3, 0
+                ]
+            )};
+
             Fate::Live
         }
     }}
@@ -30,12 +44,33 @@ impl RecipientAsSwarm<SetupInScene> for TransferLane {
     }}
 }
 
-use ::monet::RenderToScene;
-use ::monet::AddInstance;
-use ::monet::UpdateThing;
+use super::lane_thing_collector::RenderToCollector;
 use super::lane_thing_collector::Control::{Update, Freeze};
 
 const CONSTRUCTION_ANIMATION_DELAY : f32 = 80.0;
+
+impl Recipient<RenderToCollector> for Lane {
+    fn receive(&mut self, msg: &RenderToCollector) -> Fate {match *msg {
+        RenderToCollector(collector_id) => {
+            let path = if self.in_construction - CONSTRUCTION_ANIMATION_DELAY < self.length {
+                self.path.subsection(0.0, (self.in_construction - CONSTRUCTION_ANIMATION_DELAY).max(0.0))
+            } else {
+                self.path.clone()
+            };
+
+            collector_id << Update(self.id(), band_to_thing(&Band::new(path, 3.0), 0.0));
+            if self.in_construction - CONSTRUCTION_ANIMATION_DELAY > self.length {
+                collector_id << Freeze(self.id())
+            }
+
+            Fate::Live
+        }
+    }}
+}
+
+use ::monet::RenderToScene;
+use ::monet::AddInstance;
+use ::monet::UpdateThing;
 
 impl Recipient<RenderToScene> for Lane {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg {
@@ -54,17 +89,6 @@ impl Recipient<RenderToScene> for Lane {
                 };
             }
 
-            let path = if self.in_construction - CONSTRUCTION_ANIMATION_DELAY < self.length {
-                self.path.subsection(0.0, (self.in_construction - CONSTRUCTION_ANIMATION_DELAY).max(0.0))
-            } else {
-                self.path.clone()
-            };
-
-            LaneThingCollector::id() << Update(self.id(), band_to_thing(&Band::new(path, 3.0), 0.0));
-            if self.in_construction - CONSTRUCTION_ANIMATION_DELAY > self.length {
-                LaneThingCollector::id() << Freeze(self.id())
-            }
-
             self.interactions.iter().find(|inter| match inter.kind {
                 InteractionKind::Overlap{start, end, ..} => {
                     renderer_id << UpdateThing{
@@ -81,6 +105,22 @@ impl Recipient<RenderToScene> for Lane {
                 },
                 _ => false
             });
+
+            if ! self.interactions.iter().any(|inter| match inter.kind {InteractionKind::Next{..} => true, _ => false}) {
+                renderer_id << AddInstance{scene_id: scene_id, batch_id: 222666222662, position: Instance{
+                    instance_position: [self.path.end().x, self.path.end().y, 0.0],
+                    instance_direction: [1.0, 0.0],
+                    instance_color: [1.0, 0.0, 0.0]
+                }};
+            }
+
+            if ! self.interactions.iter().any(|inter| match inter.kind {InteractionKind::Previous{..} => true, _ => false}) {
+                renderer_id << AddInstance{scene_id: scene_id, batch_id: 222666222662, position: Instance{
+                    instance_position: [self.path.start().x, self.path.start().y, 0.0],
+                    instance_direction: [1.0, 0.0],
+                    instance_color: [0.0, 1.0, 0.0]
+                }};
+            }
             Fate::Live
         }
     }}
@@ -118,12 +158,17 @@ impl Recipient<RenderToScene> for TransferLane {
 
 use super::lane_thing_collector::Control::Remove;
 
+pub fn on_build(lane: &Lane) {
+    lane.id() << RenderToCollector(LaneThingCollector::id());
+}
+
 pub fn on_unbuild(lane: &Lane) {
     LaneThingCollector::id() << Remove(lane.id());
 }
 
 pub fn setup(system: &mut ActorSystem) {
     system.add_inbox::<SetupInScene, Swarm<Lane>>();
+    system.add_inbox::<RenderToCollector, Swarm<Lane>>();
     system.add_inbox::<RenderToScene, Swarm<Lane>>();
     system.add_inbox::<SetupInScene, Swarm<TransferLane>>();
     system.add_inbox::<RenderToScene, Swarm<TransferLane>>();
