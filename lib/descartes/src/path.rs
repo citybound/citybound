@@ -1,11 +1,12 @@
-use super::{N, P2, V2, Norm, Curve, FiniteCurve};
+use super::{N, P2, V2, Norm, Curve, FiniteCurve, RoughlyComparable};
 use super::primitives::Segment;
+use super::intersect::Intersect;
 use ordered_float::OrderedFloat;
 
 type ScannerFn<'a> = fn(&mut StartOffsetState, &'a Segment) -> Option<(&'a Segment, N)>;
 type ScanIter<'a> = ::std::iter::Scan<::std::slice::Iter<'a, Segment>, StartOffsetState, ScannerFn<'a>>;
 
-pub trait Path {
+pub trait Path : Sized {
     fn segments(&self) -> &[Segment];
     fn new(vec: Vec<Segment>) -> Self;
 
@@ -29,6 +30,12 @@ pub trait Path {
             distance_covered = new_distance_covered;
         }
         None
+    }
+
+    // TODO: move this to shape
+    fn contains(&self, point: P2) -> bool {
+        let ray = Segment::line(point, P2::new(point.x + 10000000000.0, point.y));
+        (self, &Self::new(vec![ray].into())).intersect().len() % 2 == 1
     }
 }
 
@@ -106,6 +113,15 @@ impl<T: Path> Curve for T {
     fn distance_to(&self, _point: P2) -> N {
         panic!("Don't trust this shit!");
         //self.segments().iter().map(|segment| OrderedFloat(segment.distance_to(point))).min().map(|ord_f| *ord_f).unwrap()
+    }
+}
+
+impl<'a, T: Path> RoughlyComparable for &'a T {
+    fn is_roughly_within(&self, other: &T, tolerance: N) -> bool {
+        self.segments().len() == other.segments().len()
+        && self.segments().iter().zip(other.segments().iter()).all(
+            |(segment_1, segment_2)| segment_1.is_roughly_within(segment_2, tolerance)
+        )
     }
 }
 

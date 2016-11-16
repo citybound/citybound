@@ -3,6 +3,7 @@
 #![feature(core_intrinsics)]
 #![feature(optin_builtin_traits)]
 #![feature(specialization)]
+#![feature(conservative_impl_trait)]
 #![allow(no_effect)]
 mod pointer_to_maybe_compact;
 mod allocators;

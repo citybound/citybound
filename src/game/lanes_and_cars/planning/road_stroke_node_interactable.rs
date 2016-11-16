@@ -3,19 +3,19 @@ use descartes::{Circle, P2, Into2d};
 use core::geometry::AnyShape;
 use core::ui::UserInterface;
 use monet::{Vertex, Thing, Instance};
-use super::{CurrentPlan, PlanRef};
+use super::{CurrentPlan, RoadStrokeNodeRef};
 
 #[derive(Compact, Actor, Clone)]
 pub struct RoadStrokeNodeInteractable {
     _id: ID,
     original_position: P2,
     position: P2,
-    node_ref: PlanRef,
+    node_ref: RoadStrokeNodeRef,
     hovered: bool
 }
 
 impl RoadStrokeNodeInteractable {
-    pub fn new(original_position: P2, node_ref: PlanRef) -> Self {
+    pub fn new(original_position: P2, node_ref: RoadStrokeNodeRef) -> Self {
         RoadStrokeNodeInteractable{
             _id: ID::invalid(),
             original_position: original_position,

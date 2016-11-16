@@ -2,7 +2,8 @@ use descartes::{P2, V2, Path, Segment, Band, FiniteCurve, N, RoughlyComparable};
 use kay::{ID, CVec, Swarm, CreateWith};
 use monet::{Thing};
 use core::geometry::{CPath, band_to_thing};
-use super::{PlanRef, RoadStrokeNodeInteractable};
+use super::{RoadStrokeRef, RoadStrokeNodeInteractable};
+use super::materialized_reality::BuildableRef;
 use super::super::{Lane, AdvertiseForConnectionAndReport};
 
 #[derive(Compact, Clone)]
@@ -10,22 +11,28 @@ pub struct RoadStroke{
     pub nodes: CVec<RoadStrokeNode>
 }
 
+#[derive(Copy, Clone)]
+pub struct RoadStrokeNodeRef(pub usize, pub usize);
+
 impl RoadStroke {
     pub fn path(&self) -> CPath {
-        CPath::new(self.nodes.windows(2).map(|window|
-            Segment::line(window[0].position, window[1].position)
-        ).collect::<Vec<_>>())
+        if self.nodes.len() == 1 {
+            CPath::new(vec![Segment::line(self.nodes[0].position, self.nodes[0].position)])
+        } else {
+            CPath::new(self.nodes.windows(2).map(|window|
+                Segment::line(window[0].position, window[1].position)
+            ).collect::<Vec<_>>())
+        }
     }
 
     pub fn preview_thing(&self) -> Thing {
         band_to_thing(&Band::new(Band::new(self.path(), 3.0).outline(), 0.3), 0.0)
     }
 
-    pub fn create_interactables(&self, self_ref: PlanRef) {
+    pub fn create_interactables(&self, self_ref: RoadStrokeRef) {
         for (i, node) in self.nodes.iter().enumerate() {
             let child_ref = match self_ref {
-                PlanRef::Stroke(stroke_idx) => PlanRef::StrokeNode(stroke_idx, i),
-                _ => unreachable!()
+                RoadStrokeRef(stroke_idx) => RoadStrokeNodeRef(stroke_idx, i),
             };
             node.create_interactables(child_ref);
         }
@@ -56,7 +63,7 @@ impl RoadStroke {
         )).cloned().collect()}
     }
 
-    pub fn build(&self, report_to: ID, report_as: PlanRef) {
+    pub fn build(&self, report_to: ID, report_as: BuildableRef) {
         Swarm::<Lane>::all() << CreateWith(
             Lane::new(self.path()),
             AdvertiseForConnectionAndReport(report_to, report_as)
@@ -82,7 +89,7 @@ pub struct RoadStrokeNode {
 use super::AddToUI;
 
 impl RoadStrokeNode {
-    pub fn create_interactables(&self, self_ref: PlanRef) {
+    pub fn create_interactables(&self, self_ref: RoadStrokeNodeRef) {
         Swarm::<RoadStrokeNodeInteractable>::all() << CreateWith(
             RoadStrokeNodeInteractable::new(self.position, self_ref),
             AddToUI

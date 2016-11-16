@@ -1,7 +1,8 @@
 use super::{
     N, P2, V2, THICKNESS,
     Curve, FiniteCurve,
-    WithUniqueOrthogonal, angle_along_to
+    WithUniqueOrthogonal, angle_along_to,
+    RoughlyComparable
 };
 use ::nalgebra::{Dot, Norm, rotate, Vector1, Rotation2};
 
@@ -237,5 +238,15 @@ impl Curve for Segment {
                 },
             None => (self.start - point).norm().min((self.end - point).norm())
         }
+    }
+}
+
+impl<'a> RoughlyComparable for &'a Segment {
+    fn is_roughly_within(&self, other: &Segment, tolerance: N) -> bool {
+        self.start.is_roughly_within(other.start, tolerance)
+        && self.end.is_roughly_within(other.end, tolerance)
+        // much stricter tolerance here!
+        && self.start_direction().is_roughly(other.start_direction())
+        && self.end_direction().is_roughly(other.end_direction())
     }
 }

@@ -1,4 +1,4 @@
-pub mod ui;
+pub mod lane_rendering;
 pub mod lane_thing_collector;
 pub mod planning;
 mod intelligent_acceleration;
@@ -286,15 +286,15 @@ impl Recipient<Tick> for TransferLane {
     }}
 }
 
-use self::planning::PlanRef;
+use self::planning::materialized_reality::BuildableRef;
 
 #[derive(Copy, Clone)]
-pub struct AdvertiseForConnectionAndReport(ID, PlanRef);
+pub struct AdvertiseForConnectionAndReport(ID, BuildableRef);
 
 #[derive(Compact, Clone)]
 pub struct Connect{other_id: ID, other_path: CPath, reply_needed: bool}
 
-use self::planning::ReportLaneBuilt;
+use self::planning::materialized_reality::ReportLaneBuilt;
 
 impl Recipient<AdvertiseForConnectionAndReport> for Lane {
     fn receive(&mut self, msg: &AdvertiseForConnectionAndReport) -> Fate {match *msg{
@@ -365,8 +365,7 @@ pub struct Unbuild;
 impl Recipient<Unbuild> for Lane{
     fn receive(&mut self, _msg: &Unbuild) -> Fate {
         Swarm::<Lane>::all() << Disconnect{other_id: self.id()}; 
-        self::ui::on_unbuild(self);
-        println!("{:?}: Told to unbuild!", self.id());
+        self::lane_rendering::on_unbuild(self);
         Fate::Die
     }
 }

@@ -10,7 +10,7 @@ pub struct CompactVec <T, A: Allocator = DefaultHeap> {
     ptr: PointerToMaybeCompact<T>,
     len: usize,
     cap: usize,
-    _alloc: PhantomData<A>
+    _alloc: PhantomData<*const A>
 }
 
 impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
@@ -180,22 +180,67 @@ impl<T, A: Allocator> DerefMut for CompactVec<T, A> {
     }
 }
 
+pub struct IntoIter<T, A: Allocator> {
+    ptr: PointerToMaybeCompact<T>,
+    len: usize,
+    cap: usize,
+    index: usize,
+    _alloc: PhantomData<*const A>
+}
+
+impl<T, A: Allocator> Iterator for IntoIter<T, A>{
+    type Item=T;
+
+    fn next(&mut self) -> Option<T> {
+        if self.index < self.len {
+            let item = unsafe{ptr::read(self.ptr.ptr().offset(self.index as isize))};
+            self.index += 1;
+            Some(item)
+        } else {None}
+    }
+}
+
+impl<T, A: Allocator> Drop for IntoIter<T, A> {
+    fn drop(&mut self) {
+        // drop all remaining elements
+        unsafe {ptr::drop_in_place(&mut ::std::slice::from_raw_parts(
+            self.ptr.ptr().offset(self.index as isize), self.len
+        ))};
+        if !self.ptr.is_compact() {
+            unsafe {A::deallocate(self.ptr.mut_ptr(), self.cap);}
+        }
+    }
+}
+
+impl<T, A: Allocator> IntoIterator for CompactVec<T, A> {
+    type Item = T;
+    type IntoIter = IntoIter<T, A>;
+    
+    fn into_iter(self) -> Self::IntoIter {
+        let iter = IntoIter{
+            ptr: unsafe{ptr::read(&self.ptr)},
+            len: self.len,
+            cap: self.cap,
+            index: 0,
+            _alloc: PhantomData
+        };
+        ::std::mem::forget(self);
+        iter
+    }
+}
+
 impl<'a, T, A: Allocator> IntoIterator for &'a CompactVec<T, A> {
     type Item = &'a T;
     type IntoIter = ::std::slice::Iter<'a, T>;
-    
-    fn into_iter(self) -> Self::IntoIter {
-        self.deref().into_iter()
-    }
+
+    fn into_iter(self) -> Self::IntoIter {self.iter()}
 }
 
 impl<'a, T, A: Allocator> IntoIterator for &'a mut CompactVec<T, A> {
     type Item = &'a mut T;
     type IntoIter = ::std::slice::IterMut<'a, T>;
-    
-    fn into_iter(self) -> Self::IntoIter {
-        self.deref_mut().into_iter()
-    }
+
+    fn into_iter(self) -> Self::IntoIter {self.iter_mut()}
 }
 
 // TODO: Check if for Copy types all the compact-loops are actually optimized away

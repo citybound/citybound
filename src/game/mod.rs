@@ -7,5 +7,6 @@ pub fn setup(system: &mut ActorSystem) {
 }
 
 pub fn setup_ui(system: &mut ActorSystem) {
-    lanes_and_cars::ui::setup(system);
+    lanes_and_cars::lane_rendering::setup(system);
+    lanes_and_cars::planning::current_plan_rendering::setup(system);
 }

@@ -177,11 +177,16 @@ impl<'a, P: Path> Intersect for (&'a P, &'a P) {
         for (segment_a, offset_a) in a.segments_with_start_offsets() {
             for (segment_b, offset_b) in b.segments_with_start_offsets() {
                 for intersection in (segment_a, segment_b).intersect() {
-                    intersection_list.push(Intersection{
-                        along_a: intersection.along_a + offset_a,
-                        along_b: intersection.along_b + offset_b,
-                        position: intersection.position
-                    });
+                    let identical_to_previous = if let Some(previous_intersection) = intersection_list.last() {
+                        (previous_intersection as &Intersection).position.is_roughly_within(intersection.position, THICKNESS)
+                    } else {false};
+                    if !identical_to_previous {
+                        intersection_list.push(Intersection{
+                            along_a: intersection.along_a + offset_a,
+                            along_b: intersection.along_b + offset_b,
+                            position: intersection.position
+                        });
+                    }
                 }
             }
         }
