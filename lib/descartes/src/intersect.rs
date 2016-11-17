@@ -44,9 +44,9 @@ impl<'a> Intersect for (&'a Line, &'a Line) {
     }
 }
 
-impl<'a> Intersect for (&'a Circle, &'a Line) {
+impl<'a> Intersect for (&'a Line, &'a Circle) {
     fn intersect(&self) -> Vec<Intersection> {
-        let (c, l) = *self;
+        let (l, c) = *self;
 
         let delta = l.start - c.center;
         let direction_dot_delta = l.direction.dot(&delta);
@@ -81,10 +81,10 @@ impl<'a> Intersect for (&'a Circle, &'a Line) {
     }
 }
 
-impl<'a> Intersect for (&'a Line, &'a Circle) {
+impl<'a> Intersect for (&'a Circle, &'a Line) {
     fn intersect(&self) -> Vec<Intersection> {
-        let (l, c) = *self;
-        (c, l).intersect().iter().map(Intersection::swapped).collect()
+        let (c, l) = *self;
+        (l, c).intersect().iter().map(Intersection::swapped).collect()
     }
 }
 

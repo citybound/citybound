@@ -2,7 +2,7 @@ use super::{
     N, P2, V2, THICKNESS,
     Curve, FiniteCurve,
     WithUniqueOrthogonal, angle_along_to,
-    RoughlyComparable
+    RoughlyComparable, Intersect, Intersection
 };
 use ::nalgebra::{Dot, Norm, rotate, Vector1, Rotation2};
 
@@ -14,10 +14,11 @@ pub struct Circle {
 
 impl Curve for Circle {
     fn project(&self, point: P2) -> Option<N> {
-        Some(angle_along_to(
+        Some(self.radius * angle_along_to(
             V2::new(1.0, 0.0),
             V2::new(0.0, 1.0),
-            (point - self.center) * self.radius))
+            (point - self.center)
+        ))
     }
 
     fn distance_to(&self, point: P2) -> N {
@@ -50,6 +51,8 @@ pub struct Segment {
     signed_radius: N
 }
 
+const DIRECTION_TOLERANCE : f32 = 0.01;
+
 impl Segment {
     pub fn line(start: P2, end: P2) -> Segment {
         Segment{
@@ -63,7 +66,7 @@ impl Segment {
 
     pub fn arc(start: P2, center: P2, end: P2) -> Segment {
         let start_to_center = center - start;
-        let signed_radius = (start_to_center).norm() * start_to_center.dot(&(end - start)).signum();
+        let signed_radius = (start_to_center).norm() * start_to_center.orthogonal().dot(&(start - end)).signum();
         let direction = start_to_center.normalize().orthogonal() * -signed_radius.signum();
         let angle_span = angle_along_to(start - center, direction, end - center);
         Segment{
@@ -76,18 +79,89 @@ impl Segment {
     }
 
     pub fn arc_with_direction(start: P2, direction: V2, end: P2) -> Segment {
-        let signed_radius = {
-            let half_chord = (end - start) / 2.0;
-            half_chord.norm_squared() / direction.orthogonal().dot(&half_chord)
-        };
-        let center = start + signed_radius * direction.orthogonal();
-        let angle_span = angle_along_to(start - center, direction, end - center);
-        Segment{
-            start: start,
-            center_or_direction: center.to_vector(),
-            end: end,
-            length: angle_span * signed_radius.abs(),
-            signed_radius: signed_radius
+        if direction.is_roughly_within((end - start).normalize(), DIRECTION_TOLERANCE) {
+            Segment::line(start, end)
+        } else {
+            let signed_radius = {
+                let half_chord = (end - start) / 2.0;
+                half_chord.norm_squared() / direction.orthogonal().dot(&half_chord)
+            };
+            let center = start + signed_radius * direction.orthogonal();
+            let angle_span = angle_along_to(start - center, direction, end - center);
+            Segment{
+                start: start,
+                center_or_direction: center.to_vector(),
+                end: end,
+                length: angle_span * signed_radius.abs(),
+                signed_radius: signed_radius
+            }
+        }
+    }
+
+    pub fn biarc(start: P2, start_direction: V2, end: P2, end_direction: V2) -> Vec<Segment> {
+        let simple_curve = Segment::arc_with_direction(start, start_direction, end);
+        if simple_curve.end_direction().is_roughly_within(end_direction, DIRECTION_TOLERANCE) {
+            vec![simple_curve]
+        } else {
+            let maybe_linear_intersection = (
+                &Line{start: start, direction: start_direction},
+                &Line{start: end, direction: -end_direction}
+            ).intersect().into_iter().next().and_then(|intersection|
+                if intersection.along_a > 0.0 && intersection.along_b > 0.0 {
+                    Some(intersection)
+                } else {None}
+            );
+
+            let (connection_position, connection_direction) =
+                if let Some(Intersection{position, ..}) = maybe_linear_intersection {
+                    let start_to_intersection_distance = (start - position).norm();
+                    let end_to_intersection_distance = (end - position).norm();
+
+                    if start_to_intersection_distance < end_to_intersection_distance {
+                        // arc then line
+                        (position + start_to_intersection_distance * end_direction, end_direction)
+                    } else {
+                        // line then arc
+                        (position + end_to_intersection_distance * -start_direction, start_direction)
+                    }
+                } else {
+                    // http://www.ryanjuckett.com/programming/biarc-interpolation/
+                    let v = end - start;
+                    let t = start_direction + end_direction;
+                    let same_direction = start_direction.is_roughly_within(end_direction, DIRECTION_TOLERANCE);
+                    let end_orthogonal_of_start = v.dot(&end_direction).is_roughly(0.0);
+
+                    if same_direction && end_orthogonal_of_start {
+                        //    __
+                        //   /  \
+                        //  ^    v    ^
+                        //        \__/
+                        (((start.to_vector() + end.to_vector()) / 2.0).to_point(), -start_direction)
+                    } else {
+                        let d = if end_orthogonal_of_start {
+                            v.dot(&v) / (4.0 * v.dot(&end_direction))
+                        } else {
+                            // magic - I'm pretty sure this can be simplified
+                            let v_dot_t = v.dot(&t);
+                            (-v_dot_t + (
+                                    v_dot_t * v_dot_t + 2.0 * (1.0 - start_direction.dot(&end_direction)) * v.dot(&v)
+                                ).sqrt()
+                            ) / (2.0 * (1.0 - start_direction.dot(&end_direction)))
+                        };
+
+                        let start_offset_point = start + d * start_direction;
+                        let end_offset_point = end - d * end_direction;
+                        let connection_direction = (end_offset_point - start_offset_point).normalize();
+
+                        (start_offset_point + d * connection_direction, connection_direction)
+                    }
+
+                };
+
+            vec![
+                Segment::arc_with_direction(start, start_direction, connection_position),
+                Segment::arc_with_direction(connection_position, connection_direction, end)
+            ]
         }
     }
 
@@ -101,16 +175,6 @@ impl Segment {
 
     pub fn radius(&self) -> N {
         self.signed_radius.abs()
-    }
-
-    fn start_direction_of_arc(&self) -> V2 {
-        let start_to_center = self.center() - self.start;
-        start_to_center.normalize().orthogonal() * -self.signed_radius.signum()
-    }
-
-    fn end_direction_of_arc(&self) -> V2 {
-        let end_to_center = self.center() - self.end;
-        end_to_center.normalize().orthogonal() * -self.signed_radius.signum()
     }
 }
 
@@ -167,7 +231,7 @@ impl FiniteCurve for Segment {
         if self.is_linear() {
             Segment::line(self.end, self.start)
         } else {
-            Segment::arc(self.end, self.center(), self.end)
+            Segment::arc(self.end, self.center(), self.start)
         }
     }
 
@@ -204,9 +268,9 @@ impl Curve for Segment {
             } else {None}
         } else {
             let angle_start_to_point = angle_along_to(
-                self.start - self.center(), self.start_direction_of_arc(), point - self.center());
+                self.start - self.center(), self.start_direction(), point - self.center());
             let angle_end_to_point = angle_along_to(
-                self.end - self.center(), -self.end_direction_of_arc(), point - self.center());
+                self.end - self.center(), -self.end_direction(), point - self.center());
 
             let tolerance = THICKNESS / self.radius();
             let angle_span = self.length / self.radius();

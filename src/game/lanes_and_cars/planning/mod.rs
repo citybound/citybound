@@ -1,6 +1,5 @@
-use descartes::{P2};
-use kay::{Swarm, Recipient, CreateWith, ActorSystem, Individual, Fate};
-use monet::{Norm};
+use descartes::{P2, Norm, Segment, FiniteCurve};
+use kay::{Swarm, CVec, Recipient, CreateWith, ActorSystem, Individual, Fate};
 
 mod plan;
 mod road_stroke;
@@ -33,41 +32,80 @@ enum PlanControl{
     Materialize
 }
 
+const FINISH_STROKE_TOLERANCE : f32 = 5.0;
+
 use self::materialized_reality::Simulate;
 use self::materialized_reality::Apply;
 
 impl Recipient<PlanControl> for CurrentPlan {
     fn receive(&mut self, msg: &PlanControl) -> Fate {match *msg{
-        PlanControl::AddRoadStrokeNode(at) => {
-            let new_node = RoadStrokeNode{position: at, direction: None};
+        PlanControl::AddRoadStrokeNode(position) => {
+            self.ui_state.drawing_status = match self.ui_state.drawing_status.clone() {
+                DrawingStatus::Nothing(_) => {
+                    DrawingStatus::WithStartPoint(position)
+                },
+                DrawingStatus::WithStartPoint(start) => {
+                    if (position - start).norm() < FINISH_STROKE_TOLERANCE {
+                        DrawingStatus::Nothing(())
+                    } else {
+                        self.delta.new_strokes.push(RoadStroke{
+                            nodes: vec![
+                                RoadStrokeNode{position: start, direction: (position - start).normalize()},
+                                RoadStrokeNode{position: position, direction: (position - start).normalize()}
+                            ].into()
+                        });
+                        DrawingStatus::WithCurrentNodes(
+                            vec![RoadStrokeNodeRef(self.delta.new_strokes.len() - 1, 1)].into(),
+                            position
+                        )
+                    }
+                },
+                DrawingStatus::WithCurrentNodes(current_nodes, previous_add) => {
+                    if (position - previous_add).norm() < FINISH_STROKE_TOLERANCE {
+                        DrawingStatus::Nothing(())
+                    } else {
+                        let new_current_nodes = current_nodes.clone().iter().map(|&RoadStrokeNodeRef(stroke_idx, node_idx)| {
+                            let stroke = &mut self.delta.new_strokes[stroke_idx];
+
+                            if node_idx == stroke.nodes.len() - 1 {
+                                // append
+                                let previous_node = stroke.nodes[node_idx];
+                                stroke.nodes.push(RoadStrokeNode{
+                                    position: position,
+                                    direction: Segment::arc_with_direction(previous_node.position, previous_node.direction, position).end_direction()
+                                });
+                                RoadStrokeNodeRef(stroke_idx, stroke.nodes.len() - 1)
+                            } else if node_idx == 0 {
+                                // prepend
+                                let next_node = stroke.nodes[1];
+                                stroke.nodes.insert(0, RoadStrokeNode{
+                                    position: position,
+                                    direction: -Segment::arc_with_direction(next_node.position, -next_node.direction, position).end_direction()
+                                });
+                                RoadStrokeNodeRef(stroke_idx, 0)
+                            } else {unreachable!()}
+                        }).collect();
+
+                        DrawingStatus::WithCurrentNodes(new_current_nodes, position)
+                    }
+                }
+            };
             
-            if let Some(RoadStrokeNodeRef(stroke_idx, node_idx)) = self.ui_state.current_node {
-                let stroke = &mut self.delta.new_strokes[stroke_idx];
-                let current_node = stroke.nodes[node_idx];
-
-                if (current_node.position - new_node.position).norm() < 5.0 {
-                    // finish stroke
-                    self.ui_state.current_node = None;
-                } else if node_idx == stroke.nodes.len() - 1 {
-                    // append
-                    stroke.nodes.push(new_node);
-                    self.ui_state.current_node = Some(RoadStrokeNodeRef(stroke_idx, stroke.nodes.len() - 1));
-                } else if node_idx == 0 {
-                    // prepend
-                    stroke.nodes.insert(0, new_node);
-                } else {unreachable!()}
-            } else {
-                self.delta.new_strokes.push(RoadStroke{
-                    nodes: vec![new_node].into()
-                });
-                self.ui_state.current_node = Some(RoadStrokeNodeRef(self.delta.new_strokes.len() - 1, 0))
-            }
-
             MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone(), fresh: false};
             Fate::Live
         },
-        PlanControl::MoveRoadStrokeNodeTo(RoadStrokeNodeRef(stroke, node), position) =>  {
-            self.delta.new_strokes[stroke].nodes[node].position = position;
+        PlanControl::MoveRoadStrokeNodeTo(RoadStrokeNodeRef(stroke_idx, node_idx), position) =>  {
+            {
+                let stroke = &mut self.delta.new_strokes[stroke_idx];
+                stroke.nodes[node_idx].position = position;
+                if node_idx == stroke.nodes.len() - 1 {
+                    let previous_node = stroke.nodes[node_idx - 1];
+                    stroke.nodes[node_idx].direction = Segment::arc_with_direction(previous_node.position, previous_node.direction, position).end_direction();
+                } else if node_idx == 0 {
+                    let next_node = stroke.nodes[1];
+                    stroke.nodes[node_idx].direction = -Segment::arc_with_direction(next_node.position, -next_node.direction, position).end_direction();
+                }
+            }
             MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone(), fresh: false};
             Fate::Live
         },
@@ -136,14 +174,26 @@ impl CurrentPlan{
 }
 
 #[derive(Compact, Clone)]
+pub enum DrawingStatus{
+    Nothing(()),
+    WithStartPoint(P2),
+    WithCurrentNodes(CVec<RoadStrokeNodeRef>, P2)
+}
+
+#[derive(Compact, Clone)]
 struct PlanUIState{
-    current_node: Option<RoadStrokeNodeRef>,
+    create_both_sides: bool,
+    drawing_status: DrawingStatus,
     dirty: bool
 }
 
 impl Default for PlanUIState{
     fn default() -> PlanUIState{
-        PlanUIState{current_node: None, dirty: true}
+        PlanUIState{
+            create_both_sides: true,
+            drawing_status: DrawingStatus::Nothing(()),
+            dirty: true
+        }
     }
 }
 

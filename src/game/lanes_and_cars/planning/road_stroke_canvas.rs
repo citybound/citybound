@@ -1,11 +1,11 @@
 use kay::{Actor, Swarm, ID, Recipient, CreateWith, ActorSystem, Individual, Fate};
-use descartes::{Into2d};
+use descartes::{Into2d, P2};
 use core::geometry::AnyShape;
 use core::ui::{UserInterface, VirtualKeyCode};
 use super::{CurrentPlan};
 
 #[derive(Copy, Clone, Actor, Default)]
-pub struct RoadStrokeCanvas {_id: ID}
+pub struct RoadStrokeCanvas {_id: ID, last_click: Option<P2>}
 
 impl RoadStrokeCanvas{
     pub fn new() -> Self {Self::default()}

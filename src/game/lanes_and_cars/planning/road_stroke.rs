@@ -19,8 +19,8 @@ impl RoadStroke {
         if self.nodes.len() == 1 {
             CPath::new(vec![Segment::line(self.nodes[0].position, self.nodes[0].position)])
         } else {
-            CPath::new(self.nodes.windows(2).map(|window|
-                Segment::line(window[0].position, window[1].position)
+            CPath::new(self.nodes.windows(2).flat_map(|window|
+                Segment::biarc(window[0].position, window[0].direction, window[1].position, window[1].direction)
             ).collect::<Vec<_>>())
         }
     }
@@ -47,7 +47,7 @@ impl RoadStroke {
                 segment.start().is_roughly_within(node.position, 0.1) || segment.end().is_roughly_within(node.position, 0.1)
             )
         ).chain(&[RoadStrokeNode{
-            position: path.along(offset), direction: None
+            position: path.along(offset), direction: path.direction_along(offset)
         }]).cloned().collect()}
     }
 
@@ -55,7 +55,7 @@ impl RoadStroke {
         let path = self.path();
         let cut_path = path.subsection(offset, path.length());
         RoadStroke{nodes: (&[RoadStrokeNode{
-            position: path.along(offset), direction: None
+            position: path.along(offset), direction: path.direction_along(offset)
         }]).iter().chain(self.nodes.iter().filter(|node|
             cut_path.segments().iter().any(|segment|
                 segment.start().is_roughly_within(node.position, 0.1) || segment.end().is_roughly_within(node.position, 0.1)
@@ -83,7 +83,7 @@ impl<'a> RoughlyComparable for &'a RoadStroke {
 #[derive(Copy, Clone)]
 pub struct RoadStrokeNode {
     pub position: P2,
-    pub direction: Option<V2>
+    pub direction: V2
 }
 
 use super::AddToUI;
