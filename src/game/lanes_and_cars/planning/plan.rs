@@ -3,7 +3,7 @@ use kay::{CVec, CDict};
 use core::geometry::{CPath};
 use ordered_float::OrderedFloat;
 use itertools::{Itertools};
-use super::{RoadStroke, RoadStrokeNode};
+use super::{RoadStroke, RoadStrokeNode, MIN_NODE_DISTANCE};
 
 #[derive(Clone, Compact)]
 pub struct Plan{
@@ -243,22 +243,29 @@ impl Plan{
                     if intersection_points.len() >= 2 {
                         let entry_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).min().unwrap();
                         let exit_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).max().unwrap();
-                        let before_intersection = stroke.cut_before(*entry_distance - 1.0);
-                        let after_intersection = stroke.cut_after(*exit_distance + 1.0);
-                        intersection.incoming.push(*before_intersection.nodes.last().unwrap());
-                        intersection.outgoing.push(after_intersection.nodes[0]);
-                        Some(vec![before_intersection, after_intersection])
+                        let mut cut_strokes = Vec::with_capacity(2);
+                        if let Some(before_intersection) = stroke.cut_before(*entry_distance - 1.0) {
+                            intersection.incoming.push(*before_intersection.nodes.last().unwrap());
+                            cut_strokes.push(before_intersection);
+                        }
+                        if let Some(after_intersection) = stroke.cut_after(*exit_distance + 1.0) {
+                            intersection.outgoing.push(after_intersection.nodes[0]);
+                            cut_strokes.push(after_intersection)
+                        }
+                        if cut_strokes.is_empty() {None} else {Some(cut_strokes)}
                     } else if intersection_points.len() == 1 {
                         if intersection.shape.contains(stroke.nodes[0].position) {
                             let exit_distance = intersection_points[0].along_a;
-                            let after_intersection = stroke.cut_after(exit_distance + 1.0);
-                            intersection.outgoing.push(after_intersection.nodes[0]);
-                            Some(vec![after_intersection])
+                            if let Some(after_intersection) = stroke.cut_after(exit_distance + 1.0) {
+                                intersection.outgoing.push(after_intersection.nodes[0]);
+                                Some(vec![after_intersection])
+                            } else {None}
                         } else if intersection.shape.contains(stroke.nodes.last().unwrap().position) {
                             let entry_distance = intersection_points[0].along_a;
-                            let before_intersection = stroke.cut_before(entry_distance - 1.0);
-                            intersection.incoming.push(*before_intersection.nodes.last().unwrap());
-                            Some(vec![before_intersection])
+                            if let Some(before_intersection) = stroke.cut_before(entry_distance - 1.0) {
+                                intersection.incoming.push(*before_intersection.nodes.last().unwrap());
+                                Some(vec![before_intersection])
+                            } else {None}
                         } else {None}
                     } else {None}
                 });
@@ -274,7 +281,9 @@ impl Plan{
 
             strokes_todo = new_strokes;
             iters += 1;
-            if iters > 30 {panic!("Stuck!!!")}
+            if iters > 10 {
+                panic!("Stuck!!!")
+            }
         }
 
         let inbetween_strokes = strokes_todo;
@@ -283,8 +292,10 @@ impl Plan{
 
         for intersection in intersections.iter_mut() {
             intersection.strokes = intersection.incoming.iter().flat_map(|incoming|
-                intersection.outgoing.iter().map(|outgoing|
-                    RoadStroke{nodes: vec![*incoming, *outgoing].into()}
+                intersection.outgoing.iter().filter_map(|outgoing|
+                    if (incoming.position - outgoing.position).norm() > MIN_NODE_DISTANCE {
+                        Some(RoadStroke::new(vec![*incoming, *outgoing].into()))
+                    } else {None}
                 ).collect::<Vec<_>>()
             ).collect::<CVec<_>>()
         }

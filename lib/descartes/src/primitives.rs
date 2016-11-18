@@ -52,9 +52,14 @@ pub struct Segment {
 }
 
 const DIRECTION_TOLERANCE : f32 = 0.01;
+const MIN_START_TO_END : f32 = 0.01;
+const MAX_SIMPLE_LINE_LENGTH : f32 = 0.5;
 
 impl Segment {
     pub fn line(start: P2, end: P2) -> Segment {
+        if start.is_roughly_within(end, MIN_START_TO_END) {
+            panic!("invalid segment!");
+        }
         Segment{
             start: start,
             center_or_direction: (end - start).normalize(),
@@ -64,21 +69,10 @@ impl Segment {
         }
     }
 
-    pub fn arc(start: P2, center: P2, end: P2) -> Segment {
-        let start_to_center = center - start;
-        let signed_radius = (start_to_center).norm() * start_to_center.orthogonal().dot(&(start - end)).signum();
-        let direction = start_to_center.normalize().orthogonal() * -signed_radius.signum();
-        let angle_span = angle_along_to(start - center, direction, end - center);
-        Segment{
-            start: start,
-            center_or_direction: center.to_vector(),
-            end: end,
-            length: angle_span * signed_radius.abs(),
-            signed_radius: signed_radius
-        }
-    }
-
     pub fn arc_with_direction(start: P2, direction: V2, end: P2) -> Segment {
+        if start.is_roughly_within(end, MIN_START_TO_END) {
+            panic!("invalid segment!");
+        }
         if direction.is_roughly_within((end - start).normalize(), DIRECTION_TOLERANCE) {
             Segment::line(start, end)
         } else {
@@ -99,9 +93,14 @@ impl Segment {
     }
 
     pub fn biarc(start: P2, start_direction: V2, end: P2, end_direction: V2) -> Vec<Segment> {
+        if start.is_roughly_within(end, MIN_START_TO_END) {
+            panic!("invalid biarc! {:?}, {:?} -> {:?}, {:?}", start, start_direction, end, end_direction);
+        }
         let simple_curve = Segment::arc_with_direction(start, start_direction, end);
         if simple_curve.end_direction().is_roughly_within(end_direction, DIRECTION_TOLERANCE) {
             vec![simple_curve]
+        } else if (end - start).norm() < MAX_SIMPLE_LINE_LENGTH {
+            vec![Segment::line(start, end)]
         } else {
             let maybe_linear_intersection = (
                 &Line{start: start, direction: start_direction},
@@ -138,7 +137,7 @@ impl Segment {
                         //        \__/
                         (((start.to_vector() + end.to_vector()) / 2.0).to_point(), -start_direction)
                     } else {
-                        let d = if end_orthogonal_of_start {
+                        let d = if same_direction {
                             v.dot(&v) / (4.0 * v.dot(&end_direction))
                         } else {
                             // magic - I'm pretty sure this can be simplified
@@ -158,10 +157,16 @@ impl Segment {
 
                 };
 
-            vec![
-                Segment::arc_with_direction(start, start_direction, connection_position),
-                Segment::arc_with_direction(connection_position, connection_direction, end)
-            ]
+            if start.is_roughly_within(connection_position, MIN_START_TO_END) {
+                vec![Segment::arc_with_direction(connection_position, connection_direction, end)]
+            } else if end.is_roughly_within(connection_position, MIN_START_TO_END) {
+                vec![Segment::arc_with_direction(start, start_direction, connection_position)]
+            } else {
+                vec![
+                    Segment::arc_with_direction(start, start_direction, connection_position),
+                    Segment::arc_with_direction(connection_position, connection_direction, end)
+                ]
+            }
         }
     }
 
@@ -231,29 +236,35 @@ impl FiniteCurve for Segment {
         if self.is_linear() {
             Segment::line(self.end, self.start)
         } else {
-            Segment::arc(self.end, self.center(), self.start)
+            Segment::arc_with_direction(self.end, -self.end_direction(), self.start)
         }
     }
 
-    fn subsection(&self, start: N, end: N) -> Segment {
+    fn subsection(&self, start: N, end: N) -> Option<Segment> {
         let true_start = start.max(0.0);
         let true_end = end.min(self.length);
 
-        if self.is_linear() {
-            Segment::line(self.along(true_start), self.along(true_end))
+        if true_end - true_start < MIN_START_TO_END {
+            None
+        } else if self.is_linear() || true_end.is_roughly(0.0) || true_start.is_roughly(self.length) {
+            Some(Segment::line(self.along(true_start), self.along(true_end)))
         } else {
-            Segment::arc(self.along(true_start), self.center(), self.along(true_end))
+            Some(Segment::arc_with_direction(self.along(true_start), self.direction_along(true_start), self.along(true_end)))
         }
     }
 
-    fn shift_orthogonally(&self, shift_to_right: N) -> Segment {
+    fn shift_orthogonally(&self, shift_to_right: N) -> Option<Segment> {
         if self.is_linear() {
             let offset = self.start_direction().orthogonal() * shift_to_right;
-            Segment::line(self.start + offset, self.end + offset)
+            Some(Segment::line(self.start + offset, self.end + offset))
         } else {
-            let start_offset = self.start_direction().orthogonal() * shift_to_right;
-            let end_offset = self.end_direction().orthogonal() * shift_to_right;
-            Segment::arc(self.start + start_offset, self.center(), self.end + end_offset)
+            let start = self.start + self.start_direction().orthogonal() * shift_to_right;
+            let end = self.end + self.end_direction().orthogonal() * shift_to_right;
+            if start.is_roughly_within(end, MIN_START_TO_END) {
+                None
+            } else {
+                Some(Segment::arc_with_direction(start, self.start_direction(), end))
+            }
         }
     }
 }

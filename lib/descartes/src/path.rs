@@ -6,7 +6,7 @@ use ordered_float::OrderedFloat;
 type ScannerFn<'a> = fn(&mut StartOffsetState, &'a Segment) -> Option<(&'a Segment, N)>;
 type ScanIter<'a> = ::std::iter::Scan<::std::slice::Iter<'a, Segment>, StartOffsetState, ScannerFn<'a>>;
 
-pub trait Path : Sized {
+pub trait Path : Sized + Clone {
     fn segments(&self) -> &[Segment];
     fn new(vec: Vec<Segment>) -> Self;
 
@@ -80,20 +80,32 @@ impl<T: Path> FiniteCurve for T {
         Self::new(self.segments().iter().rev().map(Segment::reverse).collect())
     }
 
-    fn subsection(&self, start: N, end: N) -> T {
-        T::new(self.segments_with_start_offsets().filter_map(|pair: (&Segment, N)| {
+    fn subsection(&self, start: N, end: N) -> Option<T> {
+        let segments = self.segments_with_start_offsets().filter_map(|pair: (&Segment, N)| {
             let (segment, start_offset) = pair;
             let end_offset = start_offset + segment.length;
             if start_offset > end || end_offset < start {
                 None
             } else {
-                Some(segment.subsection(start - start_offset, end - start_offset))
+                segment.subsection(start - start_offset, end - start_offset)
             }
-        }).collect())
+        }).collect::<Vec<_>>();
+        if segments.is_empty() {
+            None
+        } else {
+            Some(T::new(segments))
+        }
     }
 
-    fn shift_orthogonally(&self, shift_to_right: N) -> Self {
-        Self::new(self.segments().iter().map(|segment| segment.shift_orthogonally(shift_to_right)).collect())
+    fn shift_orthogonally(&self, shift_to_right: N) -> Option<Self> {
+        let segments = self.segments().iter().flat_map(
+            |segment| segment.shift_orthogonally(shift_to_right)
+        ).collect::<Vec<_>>();
+        if segments.is_empty() {
+            None
+        } else {
+            Some(Self::new(segments))
+        }
     }
 }
 
@@ -131,5 +143,12 @@ pub fn convex_hull<P: Path>(points: &[P2]) -> P {
     let mut hull_indices = convex_hull2_idx(points);
     let first_index = hull_indices[0];
     hull_indices.push(first_index);
-    P::new(hull_indices.windows(2).map(|idx_window| Segment::line(points[idx_window[0]], points[idx_window[1]])).collect())
+    P::new(hull_indices.windows(2).filter_map(|idx_window| {
+        let (point_1, point_2) = (points[idx_window[0]], points[idx_window[1]]);
+        if point_1.is_roughly(point_2) {
+            None
+        } else {
+            Some(Segment::line(point_1, point_2))
+        }
+    }).collect())
 }

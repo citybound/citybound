@@ -52,13 +52,15 @@ const CONSTRUCTION_ANIMATION_DELAY : f32 = 80.0;
 impl Recipient<RenderToCollector> for Lane {
     fn receive(&mut self, msg: &RenderToCollector) -> Fate {match *msg {
         RenderToCollector(collector_id) => {
-            let path = if self.in_construction - CONSTRUCTION_ANIMATION_DELAY < self.length {
+            let maybe_path = if self.in_construction - CONSTRUCTION_ANIMATION_DELAY < self.length {
                 self.path.subsection(0.0, (self.in_construction - CONSTRUCTION_ANIMATION_DELAY).max(0.0))
             } else {
-                self.path.clone()
+                Some(self.path.clone())
             };
 
-            collector_id << Update(self.id(), band_to_thing(&Band::new(path, 3.0), 0.0));
+            collector_id << Update(self.id(), maybe_path
+                .map(|path| band_to_thing(&Band::new(path, 3.0), 0.0))
+                .unwrap_or_else(|| Thing::new(vec![], vec![])));
             if self.in_construction - CONSTRUCTION_ANIMATION_DELAY > self.length {
                 collector_id << Freeze(self.id())
             }
@@ -91,16 +93,18 @@ impl Recipient<RenderToScene> for Lane {
 
             self.interactions.iter().find(|inter| match inter.kind {
                 InteractionKind::Overlap{start, end, ..} => {
-                    renderer_id << UpdateThing{
-                        scene_id: scene_id,
-                        thing_id: 100 + self.id().instance_id as usize,
-                        thing: band_to_thing(&Band::new(self.path.subsection(start, end), 1.0), 0.1),
-                        instance: Instance{
-                            instance_position: [0.0, 0.0, 0.0],
-                            instance_direction: [1.0, 0.0],
-                            instance_color: [1.0, 0.7, 0.7]
-                        }
-                    };
+                    if let Some(overlap_path) = self.path.subsection(start, end) {
+                        renderer_id << UpdateThing{
+                            scene_id: scene_id,
+                            thing_id: 100 + self.id().instance_id as usize,
+                            thing: band_to_thing(&Band::new(overlap_path, 1.0), 0.1),
+                            instance: Instance{
+                                instance_position: [0.0, 0.0, 0.0],
+                                instance_direction: [1.0, 0.0],
+                                instance_color: [1.0, 0.7, 0.7]
+                            }
+                        };
+                    }
                     true
                 },
                 _ => false

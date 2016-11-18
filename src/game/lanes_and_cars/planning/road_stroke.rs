@@ -14,15 +14,23 @@ pub struct RoadStroke{
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct RoadStrokeNodeRef(pub usize, pub usize);
 
+pub const MIN_NODE_DISTANCE : f32 = 1.0;
+
 impl RoadStroke {
-    pub fn path(&self) -> CPath {
-        if self.nodes.len() == 1 {
-            CPath::new(vec![Segment::line(self.nodes[0].position, self.nodes[0].position)])
-        } else {
-            CPath::new(self.nodes.windows(2).flat_map(|window|
-                Segment::biarc(window[0].position, window[0].direction, window[1].position, window[1].direction)
-            ).collect::<Vec<_>>())
+    pub fn new(nodes: CVec<RoadStrokeNode>) -> Self {
+        if nodes.windows(2).any(|window| window[0].position.is_roughly_within(window[1].position, MIN_NODE_DISTANCE)) {
+            panic!("close points in stroke")
         }
+        if nodes.len() <= 1 {
+            panic!("Invalid stroke")
+        }
+        RoadStroke{nodes: nodes}
+    }
+
+    pub fn path(&self) -> CPath {
+        Path::new(self.nodes.windows(2).flat_map(|window|
+            Segment::biarc(window[0].position, window[0].direction, window[1].position, window[1].direction)
+        ).collect::<Vec<_>>())
     }
 
     pub fn preview_thing(&self) -> Thing {
@@ -39,28 +47,56 @@ impl RoadStroke {
     } 
 
     // TODO: this is really ugly
-    pub fn cut_before(&self, offset: N) -> Self {
+    pub fn cut_before(&self, offset: N) -> Option<Self> {
         let path = self.path();
-        let cut_path = path.subsection(0.0, offset);
-        RoadStroke{nodes: self.nodes.iter().filter(|node|
-            cut_path.segments().iter().any(|segment|
-                segment.start().is_roughly_within(node.position, 0.1) || segment.end().is_roughly_within(node.position, 0.1)
-            )
-        ).chain(&[RoadStrokeNode{
-            position: path.along(offset), direction: path.direction_along(offset)
-        }]).cloned().collect()}
+        if let Some(cut_path) = path.subsection(0.0, offset) {
+            let mut new_nodes = self.nodes.iter().filter(|node|
+                cut_path.segments().iter().any(|segment|
+                    segment.start().is_roughly_within(node.position, 0.1) || segment.end().is_roughly_within(node.position, 0.1)
+                )
+            ).cloned().collect::<CVec<_>>();
+
+            if new_nodes.is_empty() {
+                None
+            } else {
+                let new_position = path.along(offset);
+                if new_nodes.last().unwrap().position.is_roughly_within(new_position, MIN_NODE_DISTANCE) {
+                    if new_nodes.len() == 1 {None}
+                    else {Some(RoadStroke::new(new_nodes))}
+                } else {
+                    new_nodes.push(RoadStrokeNode{
+                        position: new_position, direction: path.direction_along(offset)
+                    });
+                    Some(RoadStroke::new(new_nodes))
+                }
+            }
+        } else {None}
     }
 
-    pub fn cut_after(&self, offset: N) -> Self {
+    pub fn cut_after(&self, offset: N) -> Option<Self> {
         let path = self.path();
-        let cut_path = path.subsection(offset, path.length());
-        RoadStroke{nodes: (&[RoadStrokeNode{
-            position: path.along(offset), direction: path.direction_along(offset)
-        }]).iter().chain(self.nodes.iter().filter(|node|
-            cut_path.segments().iter().any(|segment|
-                segment.start().is_roughly_within(node.position, 0.1) || segment.end().is_roughly_within(node.position, 0.1)
-            )
-        )).cloned().collect()}
+        if let Some(cut_path) = path.subsection(offset, path.length()) {
+            let mut new_nodes = self.nodes.iter().filter(|node|
+                cut_path.segments().iter().any(|segment|
+                    segment.start().is_roughly_within(node.position, 0.1) || segment.end().is_roughly_within(node.position, 0.1)
+                )
+            ).cloned().collect::<CVec<_>>();
+
+            if new_nodes.is_empty() {
+                None
+            } else {
+                let new_position = path.along(offset);
+                if new_nodes[0].position.is_roughly_within(new_position, MIN_NODE_DISTANCE) {
+                    if new_nodes.len() == 1 {None}
+                    else {Some(RoadStroke::new(new_nodes))}
+                } else {
+                    new_nodes.insert(0, RoadStrokeNode{
+                        position: new_position, direction: path.direction_along(offset)
+                    });
+                    Some(RoadStroke::new(new_nodes))
+                }
+            }
+        } else {None}
     }
 
     pub fn build(&self, report_to: ID, report_as: BuildableRef) {

@@ -121,7 +121,7 @@ impl RoughlyComparable for V2 {
     }
 }
 
-pub trait Curve {
+pub trait Curve : Sized {
     fn project_with_max_distance(&self, point: P2, max_distance: N) -> Option<N> {
         self.project(point).and_then(|offset|
             if self.distance_to(point) < max_distance {Some(offset)} else {None}
@@ -147,8 +147,8 @@ pub trait FiniteCurve : Curve {
         self.direction_along(self.length())
     }
     fn reverse(&self) -> Self;
-    fn subsection(&self, start: N, end: N) -> Self;
-    fn shift_orthogonally(&self, shift_to_right: N) -> Self;
+    fn subsection(&self, start: N, end: N) -> Option<Self>;
+    fn shift_orthogonally(&self, shift_to_right: N) -> Option<Self>;
 }
 
 pub trait Shape {

@@ -13,6 +13,7 @@ pub use self::road_stroke::{RoadStroke, RoadStrokeNode, RoadStrokeNodeRef};
 pub use self::road_stroke_node_interactable::RoadStrokeNodeInteractable;
 pub use self::road_stroke_canvas::RoadStrokeCanvas;
 use self::materialized_reality::MaterializedReality;
+pub use self::road_stroke::MIN_NODE_DISTANCE;
 
 #[derive(Compact, Clone, Default)]
 pub struct CurrentPlan {
@@ -48,12 +49,10 @@ impl Recipient<PlanControl> for CurrentPlan {
                     if (position - start).norm() < FINISH_STROKE_TOLERANCE {
                         DrawingStatus::Nothing(())
                     } else {
-                        self.delta.new_strokes.push(RoadStroke{
-                            nodes: vec![
-                                RoadStrokeNode{position: start, direction: (position - start).normalize()},
-                                RoadStrokeNode{position: position, direction: (position - start).normalize()}
-                            ].into()
-                        });
+                        self.delta.new_strokes.push(RoadStroke::new(vec![
+                            RoadStrokeNode{position: start, direction: (position - start).normalize()},
+                            RoadStrokeNode{position: position, direction: (position - start).normalize()}
+                        ].into()));
                         DrawingStatus::WithCurrentNodes(
                             vec![RoadStrokeNodeRef(self.delta.new_strokes.len() - 1, 1)].into(),
                             position
@@ -97,13 +96,25 @@ impl Recipient<PlanControl> for CurrentPlan {
         PlanControl::MoveRoadStrokeNodeTo(RoadStrokeNodeRef(stroke_idx, node_idx), position) =>  {
             {
                 let stroke = &mut self.delta.new_strokes[stroke_idx];
-                stroke.nodes[node_idx].position = position;
                 if node_idx == stroke.nodes.len() - 1 {
                     let previous_node = stroke.nodes[node_idx - 1];
-                    stroke.nodes[node_idx].direction = Segment::arc_with_direction(previous_node.position, previous_node.direction, position).end_direction();
+                    if (previous_node.position - position).norm() > MIN_NODE_DISTANCE {
+                        stroke.nodes[node_idx].position = position;
+                        stroke.nodes[node_idx].direction = Segment::arc_with_direction(previous_node.position, previous_node.direction, position).end_direction();
+                    }
                 } else if node_idx == 0 {
                     let next_node = stroke.nodes[1];
-                    stroke.nodes[node_idx].direction = -Segment::arc_with_direction(next_node.position, -next_node.direction, position).end_direction();
+                    if (next_node.position - position).norm() > MIN_NODE_DISTANCE {
+                        stroke.nodes[node_idx].position = position;
+                        stroke.nodes[node_idx].direction = -Segment::arc_with_direction(next_node.position, -next_node.direction, position).end_direction();
+                    }
+                } else {
+                    let previous_node = stroke.nodes[node_idx - 1];
+                    let next_node = stroke.nodes[node_idx + 1];
+                    if (previous_node.position - position).norm() > MIN_NODE_DISTANCE
+                    && (next_node.position - position).norm() > MIN_NODE_DISTANCE {
+                        stroke.nodes[node_idx].position = position;
+                    }
                 }
             }
             MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone(), fresh: false};
