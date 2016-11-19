@@ -51,32 +51,28 @@ impl Recipient<PlanControl> for CurrentPlan {
                 DrawingStatus::WithStartPoint(start) => {
                     if (position - start).norm() < FINISH_STROKE_TOLERANCE {
                         DrawingStatus::Nothing(())
-                    } else if self.ui_state.create_both_sides {
-                        let offset = (position - start).normalize().orthogonal() * 5.0;
-                        self.delta.new_strokes.push(RoadStroke::new(vec![
-                            RoadStrokeNode{position: start + offset, direction: (position - start).normalize()},
-                            RoadStrokeNode{position: position + offset, direction: (position - start).normalize()}
-                        ].into()));
-                        self.delta.new_strokes.push(RoadStroke::new(vec![
-                            RoadStrokeNode{position: position - offset, direction: (start - position).normalize()},
-                            RoadStrokeNode{position: start - offset, direction: (start - position).normalize()},
-                        ].into()));
-                        DrawingStatus::WithCurrentNodes(
-                            vec![
-                                RoadStrokeNodeRef(self.delta.new_strokes.len() - 2, 1),
-                                RoadStrokeNodeRef(self.delta.new_strokes.len() - 1, 0)
-                            ].into(),
-                            position
-                        )
                     } else {
-                        self.delta.new_strokes.push(RoadStroke::new(vec![
-                            RoadStrokeNode{position: start, direction: (position - start).normalize()},
-                            RoadStrokeNode{position: position, direction: (position - start).normalize()}
-                        ].into()));
-                        DrawingStatus::WithCurrentNodes(
-                            vec![RoadStrokeNodeRef(self.delta.new_strokes.len() - 1, 1)].into(),
-                            position
-                        )
+                        let new_node_refs = (0..self.ui_state.n_lanes_per_side).into_iter().flat_map(|lane_idx| {
+                            let offset = (position - start).normalize().orthogonal() * (5.0 + 10.0 * lane_idx as N);
+
+                            self.delta.new_strokes.push(RoadStroke::new(vec![
+                                RoadStrokeNode{position: start + offset, direction: (position - start).normalize()},
+                                RoadStrokeNode{position: position + offset, direction: (position - start).normalize()}
+                            ].into()));
+                            let right_lane_node_ref = RoadStrokeNodeRef(self.delta.new_strokes.len() - 1, 1);
+                            
+                            if self.ui_state.create_both_sides {
+                                self.delta.new_strokes.push(RoadStroke::new(vec![
+                                    RoadStrokeNode{position: position - offset, direction: (start - position).normalize()},
+                                    RoadStrokeNode{position: start - offset, direction: (start - position).normalize()},
+                                ].into()));
+                                let left_lane_node_ref = RoadStrokeNodeRef(self.delta.new_strokes.len() - 1, 0);
+                                vec![right_lane_node_ref, left_lane_node_ref]
+                            } else {
+                                vec![right_lane_node_ref]
+                            }
+                        });
+                        DrawingStatus::WithCurrentNodes(new_node_refs.collect(), position)
                     }
                 },
                 DrawingStatus::WithCurrentNodes(current_nodes, previous_add) => {
@@ -276,6 +272,7 @@ pub enum DrawingStatus{
 #[derive(Compact, Clone)]
 struct PlanUIState{
     create_both_sides: bool,
+    n_lanes_per_side: usize,
     drawing_status: DrawingStatus,
     dirty: bool
 }
@@ -284,6 +281,7 @@ impl Default for PlanUIState{
     fn default() -> PlanUIState{
         PlanUIState{
             create_both_sides: true,
+            n_lanes_per_side: 2,
             drawing_status: DrawingStatus::Nothing(()),
             dirty: true
         }
