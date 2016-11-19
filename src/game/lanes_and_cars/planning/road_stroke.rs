@@ -37,13 +37,15 @@ impl RoadStroke {
         band_to_thing(&Band::new(Band::new(self.path(), 3.0).outline(), 0.3), 0.0)
     }
 
-    pub fn create_interactables(&self, self_ref: RoadStrokeRef, class: InteractableParent) {
-        for (i, node) in self.nodes.iter().enumerate() {
+    #[allow(needless_lifetimes)]
+    pub fn create_interactables<'a>(&'a self, self_ref: RoadStrokeRef, class: InteractableParent)
+    -> impl Iterator<Item=RoadStrokeNodeInteractable> + 'a {
+        self.nodes.iter().enumerate().map(move |(i, node)| {
             let child_ref = match self_ref {
                 RoadStrokeRef(stroke_idx) => RoadStrokeNodeRef(stroke_idx, i),
             };
-            node.create_interactables(child_ref, class);
-        }
+            node.create_interactable(child_ref, class.clone())
+        })
     } 
 
     // TODO: this is really ugly
@@ -122,14 +124,9 @@ pub struct RoadStrokeNode {
     pub direction: V2
 }
 
-use super::AddToUI;
-
 impl RoadStrokeNode {
-    pub fn create_interactables(&self, self_ref: RoadStrokeNodeRef, class: InteractableParent) {
-        Swarm::<RoadStrokeNodeInteractable>::all() << CreateWith(
-            RoadStrokeNodeInteractable::new(self.position, self_ref, class),
-            AddToUI
-        );
+    pub fn create_interactable(&self, self_ref: RoadStrokeNodeRef, class: InteractableParent) -> RoadStrokeNodeInteractable{
+        RoadStrokeNodeInteractable::new(self.position, self.direction, vec![self_ref], class)
     }
 }
 

@@ -58,6 +58,24 @@ impl WithUniqueOrthogonal for V2 {
     }
 }
 
+pub trait RelativeToBasis {
+    fn to_basis(self, basis_x: Self) -> Self;
+    fn from_basis(self, basis_x: Self) -> Self;
+}
+
+impl RelativeToBasis for V2 {
+    fn to_basis(self, basis_x: V2) -> V2 {
+        V2::new(
+            basis_x.dot(&self),
+            basis_x.orthogonal().dot(&self)
+        )
+    }
+
+    fn from_basis(self, basis_x: V2) -> V2 {
+        self.x * basis_x +self.y * basis_x.orthogonal()
+    }
+}
+
 pub trait Into2d {
     type Target;
     fn into_2d(self) -> Self::Target;

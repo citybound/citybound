@@ -50,7 +50,7 @@ impl Recipient<Event3d> for RoadStrokeCanvas {
             Fate::Live
         },
         Event3d::KeyDown(VirtualKeyCode::Return) => {
-            CurrentPlan::id() << Materialize;
+            CurrentPlan::id() << Materialize(());
             Fate::Live
         },
         Event3d::KeyDown(VirtualKeyCode::C) => {

@@ -1,6 +1,7 @@
 use descartes::{N, Path, Norm, Band, Intersect, convex_hull, Curve, FiniteCurve, RoughlyComparable};
 use kay::{CVec, CDict};
 use core::geometry::{CPath};
+use core::merge_groups::MergeGroups;
 use ordered_float::OrderedFloat;
 use itertools::{Itertools};
 use super::{RoadStroke, RoadStrokeNode, MIN_NODE_DISTANCE};
@@ -196,24 +197,28 @@ impl Plan{
 
         // Merge intersection point groups
 
-        let mut merging_ongoing = true;
+        // let mut merging_ongoing = true;
 
-        while merging_ongoing {
-            merging_ongoing = false;
-            #[allow(needless_range_loop)]
-            for i in 0..point_groups.len() {
-                for j in ((i + 1)..point_groups.len()).rev() {
-                    let merge_groups = point_groups[i].iter().cartesian_product(point_groups[j].iter())
-                        .any(|(point_i, point_j)| (*point_i - *point_j).norm() < INTERSECTION_GROUPING_RADIUS);
-                    if merge_groups {
-                        let group_to_be_merged = point_groups[j].clone();
-                        point_groups[i].extend_from_slice(&group_to_be_merged);
-                        point_groups[j].clear();
-                        merging_ongoing = true;
-                    }
-                }
-            }
-        }
+        // while merging_ongoing {
+        //     merging_ongoing = false;
+        //     #[allow(needless_range_loop)]
+        //     for i in 0..point_groups.len() {
+        //         for j in ((i + 1)..point_groups.len()).rev() {
+        //             let merge_groups = point_groups[i].iter().cartesian_product(point_groups[j].iter())
+        //                 .any(|(point_i, point_j)| (*point_i - *point_j).norm() < INTERSECTION_GROUPING_RADIUS);
+        //             if merge_groups {
+        //                 let group_to_be_merged = point_groups[j].clone();
+        //                 point_groups[i].extend_from_slice(&group_to_be_merged);
+        //                 point_groups[j].clear();
+        //                 merging_ongoing = true;
+        //             }
+        //         }
+        //     }
+        // }
+        point_groups.merge_groups(|group_1, group_2|
+            group_1.iter().cartesian_product(group_2.iter())
+                .any(|(point_i, point_j)|
+                    (*point_i - *point_j).norm() < INTERSECTION_GROUPING_RADIUS));
 
         // Create intersections from point groups
 

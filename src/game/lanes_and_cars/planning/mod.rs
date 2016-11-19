@@ -1,5 +1,7 @@
-use descartes::{P2, Norm, Segment, FiniteCurve};
+use descartes::{N, V2, P2, Norm, Segment, FiniteCurve, WithUniqueOrthogonal, RelativeToBasis, RoughlyComparable};
 use kay::{Swarm, CVec, Recipient, CreateWith, ActorSystem, Individual, Fate};
+use core::merge_groups::MergeGroups;
+use itertools::Itertools;
 
 mod plan;
 mod road_stroke;
@@ -25,12 +27,13 @@ pub struct CurrentPlan {
 }
 impl Individual for CurrentPlan{}
 
-#[derive(Copy, Clone)]
+#[derive(Compact, Clone)]
 enum PlanControl{
     AddRoadStrokeNode(P2),
-    MoveRoadStrokeNodeTo(RoadStrokeNodeRef, P2),
-    ModifyRemainingOld(RoadStrokeRef),
-    Materialize
+    MoveRoadStrokeNodesTo(CVec<RoadStrokeNodeRef>, P2, P2),
+    MaybeMakeCurrent(CVec<RoadStrokeNodeRef>, P2),
+    ModifyRemainingOld(CVec<RoadStrokeRef>),
+    Materialize(())
 }
 
 const FINISH_STROKE_TOLERANCE : f32 = 5.0;
@@ -48,6 +51,23 @@ impl Recipient<PlanControl> for CurrentPlan {
                 DrawingStatus::WithStartPoint(start) => {
                     if (position - start).norm() < FINISH_STROKE_TOLERANCE {
                         DrawingStatus::Nothing(())
+                    } else if self.ui_state.create_both_sides {
+                        let offset = (position - start).normalize().orthogonal() * 5.0;
+                        self.delta.new_strokes.push(RoadStroke::new(vec![
+                            RoadStrokeNode{position: start + offset, direction: (position - start).normalize()},
+                            RoadStrokeNode{position: position + offset, direction: (position - start).normalize()}
+                        ].into()));
+                        self.delta.new_strokes.push(RoadStroke::new(vec![
+                            RoadStrokeNode{position: position - offset, direction: (start - position).normalize()},
+                            RoadStrokeNode{position: start - offset, direction: (start - position).normalize()},
+                        ].into()));
+                        DrawingStatus::WithCurrentNodes(
+                            vec![
+                                RoadStrokeNodeRef(self.delta.new_strokes.len() - 2, 1),
+                                RoadStrokeNodeRef(self.delta.new_strokes.len() - 1, 0)
+                            ].into(),
+                            position
+                        )
                     } else {
                         self.delta.new_strokes.push(RoadStroke::new(vec![
                             RoadStrokeNode{position: start, direction: (position - start).normalize()},
@@ -65,21 +85,23 @@ impl Recipient<PlanControl> for CurrentPlan {
                     } else {
                         let new_current_nodes = current_nodes.clone().iter().map(|&RoadStrokeNodeRef(stroke_idx, node_idx)| {
                             let stroke = &mut self.delta.new_strokes[stroke_idx];
+                            let node = stroke.nodes[node_idx];
+                            let relative_position_in_basis = (node.position - previous_add).to_basis(node.direction);
 
                             if node_idx == stroke.nodes.len() - 1 {
                                 // append
-                                let previous_node = stroke.nodes[node_idx];
+                                let new_direction = Segment::arc_with_direction(previous_add, node.direction, position).end_direction();
                                 stroke.nodes.push(RoadStrokeNode{
-                                    position: position,
-                                    direction: Segment::arc_with_direction(previous_node.position, previous_node.direction, position).end_direction()
+                                    position: position + relative_position_in_basis.from_basis(new_direction),
+                                    direction: new_direction
                                 });
                                 RoadStrokeNodeRef(stroke_idx, stroke.nodes.len() - 1)
                             } else if node_idx == 0 {
                                 // prepend
-                                let next_node = stroke.nodes[1];
+                                let new_direction = -Segment::arc_with_direction(previous_add, -node.direction, position).end_direction();
                                 stroke.nodes.insert(0, RoadStrokeNode{
-                                    position: position,
-                                    direction: -Segment::arc_with_direction(next_node.position, -next_node.direction, position).end_direction()
+                                    position: position + relative_position_in_basis.from_basis(new_direction),
+                                    direction: new_direction
                                 });
                                 RoadStrokeNodeRef(stroke_idx, 0)
                             } else {unreachable!()}
@@ -93,41 +115,67 @@ impl Recipient<PlanControl> for CurrentPlan {
             MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone(), fresh: false};
             Fate::Live
         },
-        PlanControl::MoveRoadStrokeNodeTo(RoadStrokeNodeRef(stroke_idx, node_idx), position) =>  {
-            {
+        PlanControl::MoveRoadStrokeNodesTo(ref node_refs, handle_from, handle_to) =>  {
+            for &RoadStrokeNodeRef(stroke_idx, node_idx) in node_refs {
                 let stroke = &mut self.delta.new_strokes[stroke_idx];
+                let node = stroke.nodes[node_idx];
                 if node_idx == stroke.nodes.len() - 1 {
                     let previous_node = stroke.nodes[node_idx - 1];
-                    if (previous_node.position - position).norm() > MIN_NODE_DISTANCE {
-                        stroke.nodes[node_idx].position = position;
-                        stroke.nodes[node_idx].direction = Segment::arc_with_direction(previous_node.position, previous_node.direction, position).end_direction();
+                    let relative_position_in_basis = (node.position - handle_from).to_basis(node.direction);
+                    let previous_node_relative_position = relative_position_in_basis.from_basis(previous_node.direction);
+                    let imaginary_previous_add = previous_node.position - previous_node_relative_position;
+                    let new_direction = Segment::arc_with_direction(imaginary_previous_add, previous_node.direction, handle_to).end_direction();
+                    let new_position = handle_to + relative_position_in_basis.from_basis(new_direction);
+                    if (previous_node.position - new_position).norm() > MIN_NODE_DISTANCE {
+                        stroke.nodes[node_idx].position = new_position;
+                        stroke.nodes[node_idx].direction = new_direction
                     }
                 } else if node_idx == 0 {
-                    let next_node = stroke.nodes[1];
-                    if (next_node.position - position).norm() > MIN_NODE_DISTANCE {
-                        stroke.nodes[node_idx].position = position;
-                        stroke.nodes[node_idx].direction = -Segment::arc_with_direction(next_node.position, -next_node.direction, position).end_direction();
+                    let next_node = stroke.nodes[node_idx + 1];
+                    let relative_position_in_basis = (node.position - handle_from).to_basis(node.direction);
+                    let next_node_relative_position = relative_position_in_basis.from_basis(next_node.direction);
+                    let imaginary_next_add = next_node.position - next_node_relative_position;
+                    let new_direction = -Segment::arc_with_direction(imaginary_next_add, -next_node.direction, handle_to).end_direction();
+                    let new_position = handle_to + relative_position_in_basis.from_basis(new_direction);
+                    if (next_node.position - new_position).norm() > MIN_NODE_DISTANCE {
+                        stroke.nodes[node_idx].position = new_position;
+                        stroke.nodes[node_idx].direction = new_direction
                     }
                 } else {
                     let previous_node = stroke.nodes[node_idx - 1];
                     let next_node = stroke.nodes[node_idx + 1];
-                    if (previous_node.position - position).norm() > MIN_NODE_DISTANCE
-                    && (next_node.position - position).norm() > MIN_NODE_DISTANCE {
-                        stroke.nodes[node_idx].position = position;
+                    let new_position = node.position + (handle_to - handle_from);
+                    if (previous_node.position - new_position).norm() > MIN_NODE_DISTANCE
+                    && (next_node.position - new_position).norm() > MIN_NODE_DISTANCE {
+                        stroke.nodes[node_idx].position = new_position;
                     }
                 }
             }
+
             MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone(), fresh: false};
             Fate::Live
         },
-        PlanControl::ModifyRemainingOld(old_ref) => {
-            let old_stroke = self.current_remaining_old_strokes.mapping.get(old_ref).unwrap();
-            self.delta.strokes_to_destroy.insert(old_ref, old_stroke.clone());
-            self.delta.new_strokes.push(old_stroke.clone());
+        PlanControl::MaybeMakeCurrent(ref node_refs, handle_position) => {
+            let strokes = &mut self.delta.new_strokes;
+            let is_first_or_last = |&RoadStrokeNodeRef(stroke_idx, node_idx)| {
+                node_idx == 0 || node_idx == strokes[stroke_idx].nodes.len() - 1
+            };
+
+            if node_refs.iter().all(is_first_or_last) {
+                self.ui_state.drawing_status = DrawingStatus::WithCurrentNodes(node_refs.clone(), handle_position);
+            }
+            Fate::Live
+        }
+        PlanControl::ModifyRemainingOld(ref old_refs) => {
+            for old_ref in old_refs {
+                let old_stroke = self.current_remaining_old_strokes.mapping.get(*old_ref).unwrap();
+                self.delta.strokes_to_destroy.insert(*old_ref, old_stroke.clone());
+                self.delta.new_strokes.push(old_stroke.clone());
+            }
             MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone(), fresh: false};
             Fate::Live
         }
-        PlanControl::Materialize => {
+        PlanControl::Materialize(()) => {
             MaterializedReality::id() << Apply{requester: Self::id(), delta: self.delta.clone()};
             *self = CurrentPlan::default();
             Fate::Live
@@ -164,23 +212,57 @@ impl Recipient<RecreateInteractables> for CurrentPlan {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Compact, Clone)]
 pub enum InteractableParent{
-    New,
-    RemainingOldStroke{new_ref_to_become: RoadStrokeRef},
+    New(()),
+    WillBecomeNew(CVec<RoadStrokeRef>),
 }
 
 impl CurrentPlan{
     fn create_interactables(&self) {
         Swarm::<RoadStrokeCanvas>::all() << CreateWith(RoadStrokeCanvas::new(), AddToUI);
-        for (i, stroke) in self.delta.new_strokes.iter().enumerate() {
-            stroke.create_interactables(RoadStrokeRef(i), InteractableParent::New);
+        let new_interactables = self.delta.new_strokes.iter().enumerate().flat_map(|(i, stroke)| {
+            stroke.create_interactables(RoadStrokeRef(i), InteractableParent::New(()))
+        }).collect::<Vec<_>>();
+        let old_interactables = self.current_remaining_old_strokes.mapping.pairs().flat_map(|(old_ref, stroke)| {
+            stroke.create_interactables(*old_ref, InteractableParent::WillBecomeNew(
+                vec![RoadStrokeRef(self.delta.new_strokes.len())].into()
+            ))
+        });
+
+        let mut interactable_groups = new_interactables.clone().into_iter().map(
+            |interactable| vec![interactable]).collect::<Vec<_>>();
+        interactable_groups.merge_groups(|group_1, group_2|
+                group_1.iter().cartesian_product(group_2.iter()).any(|(interactable_1, interactable_2)|
+                    (interactable_1.position - interactable_2.position).norm() < 20.0
+                    && (interactable_1.direction.is_roughly_within(interactable_2.direction, 0.1)
+                        || interactable_1.direction.is_roughly_within(-interactable_2.direction, 0.1))
+                )
+        );
+
+        for interactable in new_interactables.into_iter().chain(old_interactables) {
+            Swarm::<RoadStrokeNodeInteractable>::all() << CreateWith(interactable, AddToUI);
         }
-        for (old_ref, stroke) in self.current_remaining_old_strokes.mapping.pairs() {
-            stroke.create_interactables(*old_ref, InteractableParent::RemainingOldStroke{
-                new_ref_to_become: RoadStrokeRef(self.delta.new_strokes.len())
-            });
+
+        for interactable_group in interactable_groups {
+            if interactable_group.len() > 1 {
+                let position = (interactable_group.iter().fold(V2::new(0.0, 0.0),
+                    |sum, interactable| sum + interactable.position.to_vector()
+                ) / (interactable_group.len() as N)).to_point();
+
+                let direction = interactable_group[0].direction;
+                let node_refs = interactable_group.iter().flat_map(
+                    |interactable| interactable.node_refs.clone()).collect();
+                let group_interactable = RoadStrokeNodeInteractable::new(
+                    position,
+                    direction,
+                    node_refs,
+                    InteractableParent::New(())
+                );
+                Swarm::<RoadStrokeNodeInteractable>::all() << CreateWith(group_interactable, AddToUI);
+            }
         }
+
     }
 }
 
