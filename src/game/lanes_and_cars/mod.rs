@@ -75,8 +75,11 @@ impl Recipient<Add> for Lane {
     fn receive(&mut self, msg: &Add) -> Fate {match *msg{
         Add::Car(car) => {
             // TODO: optimize using BinaryHeap?
-            self.cars.push(car);
-            self.cars.sort_by_key(|car| car.as_obstacle.position);
+            let maybe_next_car_position = self.cars.iter().position(|other_car| other_car.as_obstacle.position > car.as_obstacle.position);
+            match maybe_next_car_position {
+                Some(next_car_position) => self.cars.insert(next_car_position, car),
+                None => self.cars.push(car)
+            }
             Fate::Live
         },
         Add::InteractionObstacle(obstacle) => {
