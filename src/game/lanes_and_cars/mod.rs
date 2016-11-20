@@ -116,17 +116,29 @@ impl Recipient<Tick> for Lane {
             // TODO: optimize using BinaryHeap?
             self.interaction_obstacles.sort_by_key(|obstacle| obstacle.position);
 
-            for c in 0..self.cars.len() {
-                let next_obstacle = self.cars.get(c + 1).map_or(Obstacle::far_ahead(), |car| car.as_obstacle);
-                let car = &mut self.cars[c];
-                let next_obstacle_acceleration = intelligent_acceleration(car, &next_obstacle);
+            {
+                let mut overlap_obstacles = self.interaction_obstacles.iter();
+                let mut maybe_next_overlap_obstacle = overlap_obstacles.next();
 
-                // TODO: optimize, avoid nested loop
-                let next_overlap_obstacle_acceleration = self.interaction_obstacles.iter()
-                    .find(|obstacle| obstacle.position > car.position)
-                    .map(|obstacle| intelligent_acceleration(car, obstacle));
+                for c in 0..self.cars.len() {
+                    let next_obstacle = self.cars.get(c + 1).map_or(Obstacle::far_ahead(), |car| car.as_obstacle);
+                    let car = &mut self.cars[c];
+                    let next_obstacle_acceleration = intelligent_acceleration(car, &next_obstacle);
+                    
+                    maybe_next_overlap_obstacle = maybe_next_overlap_obstacle.and_then(|obstacle| {
+                        let mut following_obstacle = Some(obstacle);
+                        while following_obstacle.is_some() && following_obstacle.unwrap().position < car.position {
+                            following_obstacle = overlap_obstacles.next();
+                        }
+                        following_obstacle
+                    });
+                    
+                    let next_overlap_obstacle_acceleration = if let Some(next_overlap_obstacle) = maybe_next_overlap_obstacle {
+                        intelligent_acceleration(car, next_overlap_obstacle)
+                    } else {INFINITY};
 
-                car.acceleration = next_obstacle_acceleration.min(next_overlap_obstacle_acceleration.unwrap_or(INFINITY));
+                    car.acceleration = next_obstacle_acceleration.min(next_overlap_obstacle_acceleration);
+                }
             }
 
             for car in &mut self.cars {

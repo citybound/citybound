@@ -174,7 +174,7 @@ impl Recipient<PlanControl> for CurrentPlan {
             Fate::Live
         },
         PlanControl::CreateGrid(()) => {
-            let grid_size = 3u32;
+            let grid_size = 6u32;
             let grid_spacing = 200.0;
 
             for x in 0..grid_size {
