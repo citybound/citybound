@@ -15,6 +15,14 @@ impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.keys.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.keys.is_empty()
+    }
+
     pub fn get(&self, query: K) -> Option<&V> {
         for i in 0..self.keys.len() {
             if self.keys[i] == query {

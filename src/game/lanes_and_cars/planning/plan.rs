@@ -1,4 +1,4 @@
-use descartes::{N, Path, Norm, Band, Intersect, convex_hull, Curve, FiniteCurve, RoughlyComparable};
+use descartes::{N, Path, Norm, Band, Intersect, convex_hull, Curve, FiniteCurve, RoughlyComparable, Dot, WithUniqueOrthogonal};
 use kay::{CVec, CDict};
 use core::geometry::{CPath};
 use core::merge_groups::MergeGroups;
@@ -33,8 +33,8 @@ impl Default for PlanDelta{
 #[derive(Compact, Clone)]
 pub struct Intersection{
     pub shape: CPath,
-    incoming: CVec<RoadStrokeNode>,
-    outgoing: CVec<RoadStrokeNode>,
+    incoming: CDict<RoadStrokeRef, RoadStrokeNode>,
+    outgoing: CDict<RoadStrokeRef, RoadStrokeNode>,
     pub strokes: CVec<RoadStroke>
 }
 
@@ -42,11 +42,11 @@ impl<'a> RoughlyComparable for &'a Intersection{
     fn is_roughly_within(&self, other: &Intersection, tolerance: N) -> bool {
         (&self.shape).is_roughly_within(&other.shape, tolerance) &&
         self.incoming.len() == other.incoming.len() &&
-            self.incoming.iter().all(|self_incoming| other.incoming.iter().any(|other_incoming|
+            self.incoming.values().all(|self_incoming| other.incoming.values().any(|other_incoming|
                 self_incoming.is_roughly_within(other_incoming, tolerance)
             )) &&
         self.outgoing.len() == other.outgoing.len() &&
-            self.outgoing.iter().all(|self_outgoing| other.outgoing.iter().any(|other_outgoing|
+            self.outgoing.values().all(|self_outgoing| other.outgoing.values().any(|other_outgoing|
                 self_outgoing.is_roughly_within(other_outgoing, tolerance)
             )) &&
         self.strokes.len() == other.strokes.len() &&
@@ -208,8 +208,8 @@ impl Plan{
             if group.len() >= 2 {
                 Some(Intersection{
                     shape: convex_hull::<CPath>(group),
-                    incoming: CVec::new(),
-                    outgoing: CVec::new(),
+                    incoming: CDict::new(),
+                    outgoing: CDict::new(),
                     strokes: CVec::new()
                 })
             } else {None}
@@ -217,41 +217,40 @@ impl Plan{
 
         // Cut strokes at intersections
 
-        let mut strokes_todo = self.strokes.iter().cloned().collect::<Vec<_>>();
+        let mut strokes_todo = self.strokes.iter().cloned().enumerate().map(|(i, stroke)| (RoadStrokeRef(i), stroke)).collect::<CDict<_,_>>();
         let mut cutting_ongoing = true;
         let mut iters = 0;
 
         while cutting_ongoing {
             cutting_ongoing = false;
-            let new_strokes = strokes_todo.iter().flat_map(|stroke| {
+            let new_strokes = strokes_todo.pairs().map(|(stroke_ref, stroke)| {
                 let stroke_path = stroke.path();
                 let mut maybe_cut_strokes = intersections.iter_mut().filter_map(|intersection| {
                     let intersection_points = (&stroke_path, &intersection.shape).intersect();
                     if intersection_points.len() >= 2 {
                         let entry_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).min().unwrap();
                         let exit_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).max().unwrap();
-                        let mut cut_strokes = Vec::with_capacity(2);
-                        if let Some(before_intersection) = stroke.cut_before(*entry_distance - 1.0) {
-                            intersection.incoming.push(*before_intersection.nodes.last().unwrap());
-                            cut_strokes.push(before_intersection);
-                        }
-                        if let Some(after_intersection) = stroke.cut_after(*exit_distance + 1.0) {
-                            intersection.outgoing.push(after_intersection.nodes[0]);
-                            cut_strokes.push(after_intersection)
-                        }
-                        if cut_strokes.is_empty() {None} else {Some(cut_strokes)}
+                        intersection.incoming.insert(*stroke_ref, RoadStrokeNode{
+                            position: stroke_path.along(*entry_distance),
+                            direction: stroke_path.direction_along(*entry_distance)
+                        });
+                        intersection.outgoing.insert(*stroke_ref, RoadStrokeNode{
+                            position: stroke_path.along(*exit_distance),
+                            direction: stroke_path.direction_along(*exit_distance)
+                        });
+                        None
                     } else if intersection_points.len() == 1 {
                         if intersection.shape.contains(stroke.nodes[0].position) {
                             let exit_distance = intersection_points[0].along_a;
                             if let Some(after_intersection) = stroke.cut_after(exit_distance + 1.0) {
-                                intersection.outgoing.push(after_intersection.nodes[0]);
-                                Some(vec![after_intersection])
+                                intersection.outgoing.insert(*stroke_ref, after_intersection.nodes[0]);
+                                Some(after_intersection)
                             } else {None}
                         } else if intersection.shape.contains(stroke.nodes.last().unwrap().position) {
                             let entry_distance = intersection_points[0].along_a;
                             if let Some(before_intersection) = stroke.cut_before(entry_distance - 1.0) {
-                                intersection.incoming.push(*before_intersection.nodes.last().unwrap());
-                                Some(vec![before_intersection])
+                                intersection.incoming.insert(*stroke_ref, *before_intersection.nodes.last().unwrap());
+                                Some(before_intersection)
                             } else {None}
                         } else {None}
                     } else {None}
@@ -260,11 +259,11 @@ impl Plan{
                 match maybe_cut_strokes.next() {
                     Some(cut_strokes) => {
                         cutting_ongoing = true;
-                        cut_strokes
+                        (*stroke_ref, cut_strokes)
                     },
-                    None => vec![stroke.clone()]
+                    None => (*stroke_ref, stroke.clone())
                 }
-            }).collect::<Vec<_>>();
+            }).collect::<CDict<_, _>>();
 
             strokes_todo = new_strokes;
             iters += 1;
@@ -278,18 +277,60 @@ impl Plan{
         // Create connecting strokes on intersections
 
         for intersection in intersections.iter_mut() {
-            intersection.strokes = intersection.incoming.iter().flat_map(|incoming|
-                intersection.outgoing.iter().filter_map(|outgoing|
-                    if (incoming.position - outgoing.position).norm() > MIN_NODE_DISTANCE {
-                        Some(RoadStroke::new(vec![*incoming, *outgoing].into()))
-                    } else {None}
-                ).collect::<Vec<_>>()
-            ).collect::<CVec<_>>()
+            let mut incoming_groups = intersection.incoming.pairs().map(
+                |(incoming_ref, incoming)| vec![(*incoming_ref, *incoming)]).collect::<Vec<_>>();
+            incoming_groups.merge_groups(merge_incoming_or_outgoing_group);
+            for incoming_group in &mut incoming_groups {
+                let base_position = incoming_group[0].1.position;
+                let direction_right = -incoming_group[0].1.direction.orthogonal();
+                incoming_group.sort_by_key(|group| OrderedFloat((group.1.position - base_position).dot(&direction_right)));
+            }
+
+            let mut outgoing_groups = intersection.outgoing.pairs().map(
+                |(outgoing_ref, outgoing)| vec![(*outgoing_ref, *outgoing)]).collect::<Vec<_>>();
+            outgoing_groups.merge_groups(merge_incoming_or_outgoing_group);
+            for outgoing_group in &mut outgoing_groups {
+                let base_position = outgoing_group[0].1.position;
+                let direction_right = -outgoing_group[0].1.direction.orthogonal();
+                outgoing_group.sort_by_key(|group| OrderedFloat((group.1.position - base_position).dot(&direction_right)));
+            }
+
+            intersection.strokes = incoming_groups.iter().flat_map(|incoming_group| {
+                outgoing_groups.iter().filter_map(|outgoing_group| {
+                    if groups_already_connected(incoming_group, outgoing_group) {
+                        None
+                    } else {
+                        incoming_group.iter().zip(outgoing_group.iter()).filter_map(|(&(_, incoming), &(_, outgoing))|
+                            if (incoming.position - outgoing.position).norm() > MIN_NODE_DISTANCE {
+                                Some(RoadStroke::new(vec![incoming, outgoing].into()))
+                            } else {None}
+                        ).min_by_key(|stroke| OrderedFloat(stroke.path().length()))
+                    }
+                }).collect::<Vec<_>>()
+            }).collect::<CVec<_>>();
         }
 
         PlanResult{
             intersections: intersections.into_iter().enumerate().map(|(i, intersection)| (IntersectionRef(i), intersection)).collect(),
-            inbetween_strokes: inbetween_strokes.into_iter().enumerate().map(|(i, stroke)| (InbetweenStrokeRef(i), stroke)).collect()
+            inbetween_strokes: inbetween_strokes.values().cloned().enumerate().map(|(i, stroke)| (InbetweenStrokeRef(i), stroke)).collect()
         }
     }
+}
+
+const MAX_PARALLEL_INTERSECTION_NODES_OFFSET : f32 = 10.0;
+
+type InOrOutGroup = Vec<(RoadStrokeRef, RoadStrokeNode)>;
+#[allow(ptr_arg)]
+fn merge_incoming_or_outgoing_group(group_1: &InOrOutGroup, group_2: &InOrOutGroup) -> bool {
+    let any_incoming_1 = group_1[0].1;
+    let any_incoming_2 = group_2[0].1;
+    any_incoming_1.direction.is_roughly(any_incoming_2.direction)
+        && (any_incoming_1.position - any_incoming_2.position).dot(&any_incoming_1.direction).is_roughly_within(0.0, MAX_PARALLEL_INTERSECTION_NODES_OFFSET)
+}
+
+#[allow(ptr_arg)]
+fn groups_already_connected(incoming_group: &InOrOutGroup, outgoing_group: &InOrOutGroup) -> bool {
+    incoming_group.iter().all(|&(incoming_ref, _)|
+        outgoing_group.iter().any(|&(outgoing_ref, _)| incoming_ref == outgoing_ref)
+    )
 }

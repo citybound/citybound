@@ -5,7 +5,7 @@ mod intelligent_acceleration;
 use self::intelligent_acceleration::{intelligent_acceleration, COMFORTABLE_BREAKING_DECELERATION};
 use core::geometry::CPath;
 use kay::{ID, Actor, CVec, Swarm, CreateWith, Recipient, ActorSystem, Fate};
-use descartes::{FiniteCurve, RoughlyComparable, Band, Intersect};
+use descartes::{FiniteCurve, RoughlyComparable, Band, Intersect, Curve};
 use ordered_float::OrderedFloat;
 use itertools::Itertools;
 use ::std::f32::INFINITY;
@@ -34,20 +34,6 @@ impl Lane {
             in_construction: 0.0
         }
     }
-
-    fn add_next_lane(&mut self, next_lane: ID) {
-        self.interactions.push(Interaction{
-            partner_lane: next_lane,
-            kind: Next{partner_start: 0.0}
-        });
-    }
-
-    fn add_previous_lane(&mut self, previous_lane: ID, previous_lane_length: f32) {
-        self.interactions.push(Interaction{
-            partner_lane: previous_lane,
-            kind: Previous{start: 0.0, partner_length: previous_lane_length}
-        });
-    } 
 }
 
 #[derive(Compact, Actor, Clone)]
@@ -150,8 +136,9 @@ impl Recipient<Tick> for Lane {
             
             loop {
                 let should_pop = self.cars.iter().rev().find(|car| *car.position > self.length).map(|car_over_end| {
-                    if let Some(next_overlap) = self.interactions.iter().find(|overlap| match overlap.kind {Next{..} => true, _ => false}) {
-                        next_overlap.partner_lane << Add::Car(car_over_end.offset_by(-self.length));
+                    let first_next_interaction = self.interactions.iter().find(|interaction| match interaction.kind {Next{..} => true, _ => false});
+                    if let Some(&Interaction{partner_lane, kind: Next{partner_start}, ..}) = first_next_interaction {
+                        partner_lane << Add::Car(car_over_end.offset_by(-self.length + partner_start));
                     };
                     car_over_end
                 }).is_some();
@@ -325,7 +312,17 @@ impl Recipient<Connect> for Lane {
                         partner_start: 0.0
                     }
                 })
+            } else if let Some(self_end_on_other) = other_path.project(self.path.end()) {
+                if other_path.along(self_end_on_other).is_roughly_within(self.path.end(), CONNECTION_TOLERANCE) {
+                    self.interactions.push(Interaction{
+                        partner_lane: other_id,
+                        kind: InteractionKind::Next{
+                            partner_start: self_end_on_other
+                        }
+                    })
+                }
             }
+
             if other_path.end().is_roughly_within(self.path.start(), CONNECTION_TOLERANCE) {
                 self.interactions.push(Interaction{
                     partner_lane: other_id,
@@ -334,7 +331,18 @@ impl Recipient<Connect> for Lane {
                         partner_length: other_path.length()
                     }
                 })
+            } else if let Some(other_end_on_self) = self.path.project(other_path.end()) {
+                if self.path.along(other_end_on_self).is_roughly_within(other_path.end(), CONNECTION_TOLERANCE) {
+                    self.interactions.push(Interaction{
+                        partner_lane: other_id,
+                        kind: InteractionKind::Previous{
+                            start: other_end_on_self,
+                            partner_length: other_path.length()
+                        }
+                    })
+                }
             }
+
             let self_band = Band::new(self.path.clone(), 5.0);
             let other_band = Band::new(other_path.clone(), 5.0);
             let intersections = (&self_band.outline(), &other_band.outline()).intersect();

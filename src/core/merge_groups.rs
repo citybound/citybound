@@ -8,10 +8,7 @@ pub trait MergeGroupsVecLike<T: Sized> : Index<usize, Output=T> + IndexMut<usize
 }
 
 pub trait MergeGroups<T, C1: MergeGroupsVecLike<T> + Clone> : MergeGroupsVecLike<C1> {
-    fn merge_groups<F: Fn(
-        &MergeGroupsVecLike<T, Output=T, Target=[T]>,
-        &MergeGroupsVecLike<T, Output=T, Target=[T]>
-    ) -> bool>(&mut self, merge_f: F) {
+    fn merge_groups<F: Fn(&C1, &C1) -> bool>(&mut self, merge_f: F) {
         let mut old_len = 0;
         while self.len() != old_len {
             old_len = self.len();
