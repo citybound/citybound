@@ -164,9 +164,10 @@ impl Recipient<Tick> for Lane {
                 match interaction.kind {
                     Overlap{start, end, partner_start, kind, ..} => {
                         match kind {
-                            Parallel => cars.filter(|car: &&LaneCar| *car.position > start && *car.position < end).map(|car|
-                                car.as_obstacle.offset_by(-start + partner_start)
-                            ).foreach(send_obstacle),
+                            Parallel => cars.skip_while(|car: &&LaneCar| *car.position < start)
+                                            .take_while(|car: &&LaneCar| *car.position < end)
+                                            .map(|car| car.as_obstacle.offset_by(-start + partner_start)
+                                        ).foreach(send_obstacle),
                             Conflicting => if cars.any(|car: &LaneCar| *car.position > start && *car.position < end) {
                                 (send_obstacle)(Obstacle{position: OrderedFloat(partner_start), velocity: 0.0, max_velocity: 0.0})
                             }
