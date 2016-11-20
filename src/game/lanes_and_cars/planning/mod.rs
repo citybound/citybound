@@ -29,10 +29,11 @@ impl Individual for CurrentPlan{}
 
 #[derive(Compact, Clone)]
 enum PlanControl{
-    AddRoadStrokeNode(P2),
+    AddRoadStrokeNode(P2, bool),
     MoveRoadStrokeNodesTo(CVec<RoadStrokeNodeRef>, P2, P2),
     MaybeMakeCurrent(CVec<RoadStrokeNodeRef>, P2),
     ModifyRemainingOld(CVec<RoadStrokeRef>),
+    CreateGrid(()),
     Materialize(())
 }
 
@@ -43,7 +44,7 @@ use self::materialized_reality::Apply;
 
 impl Recipient<PlanControl> for CurrentPlan {
     fn receive(&mut self, msg: &PlanControl) -> Fate {match *msg{
-        PlanControl::AddRoadStrokeNode(position) => {
+        PlanControl::AddRoadStrokeNode(position, update_preview) => {
             self.ui_state.drawing_status = match self.ui_state.drawing_status.clone() {
                 DrawingStatus::Nothing(_) => {
                     DrawingStatus::WithStartPoint(position)
@@ -53,7 +54,7 @@ impl Recipient<PlanControl> for CurrentPlan {
                         DrawingStatus::Nothing(())
                     } else {
                         let new_node_refs = (0..self.ui_state.n_lanes_per_side).into_iter().flat_map(|lane_idx| {
-                            let offset = (position - start).normalize().orthogonal() * (10.0 + 20.0 * lane_idx as N);
+                            let offset = (position - start).normalize().orthogonal() * (5.0 + 10.0 * lane_idx as N);
 
                             self.delta.new_strokes.push(RoadStroke::new(vec![
                                 RoadStrokeNode{position: start + offset, direction: (position - start).normalize()},
@@ -107,8 +108,9 @@ impl Recipient<PlanControl> for CurrentPlan {
                     }
                 }
             };
-            
-            MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone(), fresh: false};
+            if update_preview {
+                MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone(), fresh: false};
+            }
             Fate::Live
         },
         PlanControl::MoveRoadStrokeNodesTo(ref node_refs, handle_from, handle_to) =>  {
@@ -170,7 +172,25 @@ impl Recipient<PlanControl> for CurrentPlan {
             }
             MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone(), fresh: false};
             Fate::Live
-        }
+        },
+        PlanControl::CreateGrid(()) => {
+            let grid_size = 3u32;
+            let grid_spacing = 200.0;
+
+            for x in 0..grid_size {
+                self.receive(&PlanControl::AddRoadStrokeNode(P2::new((x as f32 + 0.5) * grid_spacing, 0.0), false));
+                self.receive(&PlanControl::AddRoadStrokeNode(P2::new((x as f32 + 0.5) * grid_spacing, grid_size as f32 * grid_spacing), false));
+                self.receive(&PlanControl::AddRoadStrokeNode(P2::new((x as f32 + 0.5) * grid_spacing, grid_size as f32 * grid_spacing), false));
+            }
+            for y in 0..grid_size {
+                self.receive(&PlanControl::AddRoadStrokeNode(P2::new(0.0, (y as f32 + 0.5) * grid_spacing), false));
+                self.receive(&PlanControl::AddRoadStrokeNode(P2::new(grid_size as f32 * grid_spacing, (y as f32 + 0.5) * grid_spacing), false));
+                self.receive(&PlanControl::AddRoadStrokeNode(P2::new(grid_size as f32 * grid_spacing, (y as f32 + 0.5) * grid_spacing), false));
+            }
+            MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone(), fresh: true};
+            self.ui_state.dirty = true;
+            Fate::Live
+        },
         PlanControl::Materialize(()) => {
             MaterializedReality::id() << Apply{requester: Self::id(), delta: self.delta.clone()};
             *self = CurrentPlan::default();

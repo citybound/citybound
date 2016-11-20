@@ -131,37 +131,41 @@ impl ActorSystem {
     }
 
     pub fn add_inbox<M: Message, I: Individual + Recipient<M>> (&mut self) {
-        let inbox = Inbox::<M>::new();
-        let recipient_id = self.recipient_registry.get::<I>();
-        let inbox_ptr = self.store_inbox(inbox, recipient_id);
-        let individual_ptr = self.individuals[recipient_id].unwrap() as *mut I;
-        self.update_callbacks.push(Box::new(move || {
-            unsafe {
-                for packet in (*inbox_ptr).empty() {
-                    (*individual_ptr).receive_packet(packet);
-                }
-            }
-        }));
-        self.clear_callbacks.push(Box::new(move || {
-            unsafe {
-                for _packet in (*inbox_ptr).empty() {
-                }
-            }
-        }));
+        self.add_inbox_helper::<M, I>(true);
     }
 
     pub fn add_unclearable_inbox<M: Message, I: Individual + Recipient<M>> (&mut self) {
+        self.add_inbox_helper::<M, I>(false);
+    }
+
+    fn add_inbox_helper<M: Message, I: Individual + Recipient<M>> (&mut self, clearable: bool) {
         let inbox = Inbox::<M>::new();
         let recipient_id = self.recipient_registry.get::<I>();
         let inbox_ptr = self.store_inbox(inbox, recipient_id);
         let individual_ptr = self.individuals[recipient_id].unwrap() as *mut I;
         self.update_callbacks.push(Box::new(move || {
             unsafe {
+                let mut n_packets = 0;
                 for packet in (*inbox_ptr).empty() {
                     (*individual_ptr).receive_packet(packet);
+                    n_packets += 1;
+                }
+                if n_packets > 100 {
+                    println!("Processed {} {} Messages for {}",
+                        n_packets,
+                        type_name::<M>(),
+                        type_name::<I>());
                 }
             }
-        }))
+        }));
+        if clearable {
+            self.clear_callbacks.push(Box::new(move || {
+                unsafe {
+                    for _packet in (*inbox_ptr).empty() {
+                    }
+                }
+            }));
+        }
     }
 
     pub fn individual_id<I: Individual>(&mut self) -> ID {
@@ -184,11 +188,15 @@ impl ActorSystem {
     }
 
     pub fn inbox_for<M: Message>(&mut self, packet: &Packet<M>) -> &mut Inbox<M> {
-        let inbox_ptr = self.routing[packet.recipient_id.type_id as usize].as_ref()
+        if let Some(inbox_ptr) = self.routing[packet.recipient_id.type_id as usize].as_ref()
             .expect("Recipient not found")
-            .get::<M>()
-            .expect(format!("Inbox for {} not found for {}", unsafe{type_name::<M>()}, self.recipient_registry.get_name(packet.recipient_id.type_id as usize)).as_str());
-        unsafe{&mut *inbox_ptr}
+            .get::<M>() {
+                unsafe{&mut *inbox_ptr}
+        } else {
+            panic!("Inbox for {} not found for {}",
+                unsafe{type_name::<M>()},
+                self.recipient_registry.get_name(packet.recipient_id.type_id as usize))
+        }
     }
 
     fn send<M: Message>(&mut self, recipient: ID, message: M) {

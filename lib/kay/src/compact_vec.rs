@@ -243,17 +243,16 @@ impl<'a, T, A: Allocator> IntoIterator for &'a mut CompactVec<T, A> {
     fn into_iter(self) -> Self::IntoIter {self.iter_mut()}
 }
 
-// TODO: Check if for Copy types all the compact-loops are actually optimized away
 impl<T: Compact + Clone, A: Allocator> Compact for CompactVec<T, A> {
-    fn is_still_compact(&self) -> bool {
+    default fn is_still_compact(&self) -> bool {
         self.ptr.is_compact() && self.iter().all(|elem| elem.is_still_compact())
     }
 
-    fn dynamic_size_bytes(&self) -> usize {
+    default fn dynamic_size_bytes(&self) -> usize {
         self.cap * ::std::mem::size_of::<T>() + self.iter().map(|elem| elem.dynamic_size_bytes()).sum::<usize>()
     }
 
-    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
+    default unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
         self.cap = source.cap;
         self.len = source.len;
         self.ptr.set_to_compact(new_dynamic_part as *mut T);
@@ -265,7 +264,7 @@ impl<T: Compact + Clone, A: Allocator> Compact for CompactVec<T, A> {
         }
     }
 
-    unsafe fn decompact(&self) -> Self {
+    default unsafe fn decompact(&self) -> Self {
         if self.ptr.is_compact() {
             self.clone()
         } else {
@@ -277,6 +276,23 @@ impl<T: Compact + Clone, A: Allocator> Compact for CompactVec<T, A> {
             }
             // caller has to make sure that self will not be dropped!
         }
+    }
+}
+
+impl<T: Copy, A: Allocator> Compact for CompactVec<T, A> {
+    fn is_still_compact(&self) -> bool {
+        self.ptr.is_compact()
+    }
+
+    fn dynamic_size_bytes(&self) -> usize {
+        self.cap * ::std::mem::size_of::<T>()
+    }
+
+    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
+        self.cap = source.cap;
+        self.len = source.len;
+        self.ptr.set_to_compact(new_dynamic_part as *mut T);
+        ptr::copy_nonoverlapping(source.ptr.ptr(), self.ptr.mut_ptr(), self.len);
     }
 }
 

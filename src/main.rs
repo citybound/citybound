@@ -50,10 +50,13 @@ fn main() {
     let window = core::ui::setup_window_and_renderer(&mut system, renderables);
 
     let mut simulation_panicked = false;
+    let mut last_frame = std::time::Instant::now();
 
     system.process_all_messages();
 
     loop {
+        println!("----\n FRAME: {} ms", last_frame.elapsed().subsec_nanos() as f32 / 10.0E6);
+        last_frame = std::time::Instant::now();
         if !core::ui::process_events(&window) {return}
 
         if simulation_panicked {

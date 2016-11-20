@@ -34,7 +34,7 @@ impl Recipient<ClearAll> for RoadStrokeCanvas {
 }
 
 use core::ui::Event3d;
-use super::PlanControl::{AddRoadStrokeNode, Materialize};
+use super::PlanControl::{AddRoadStrokeNode, Materialize, CreateGrid};
 use super::RecreateInteractables;
 use game::lanes_and_cars::{Lane, LaneCar, Obstacle};
 use ordered_float::OrderedFloat;
@@ -42,7 +42,7 @@ use ordered_float::OrderedFloat;
 impl Recipient<Event3d> for RoadStrokeCanvas {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg {
         Event3d::DragStarted{at} => {
-            CurrentPlan::id() << AddRoadStrokeNode(at.into_2d());
+            CurrentPlan::id() << AddRoadStrokeNode(at.into_2d(), true);
             Fate::Live
         },
         Event3d::DragFinished{..} => {
@@ -63,6 +63,10 @@ impl Recipient<Event3d> for RoadStrokeCanvas {
                 },
                 acceleration: 0.0
             });
+            Fate::Live
+        },
+        Event3d::KeyDown(VirtualKeyCode::G) => {
+            CurrentPlan::id() << CreateGrid(());
             Fate::Live
         }
         _ => Fate::Live
