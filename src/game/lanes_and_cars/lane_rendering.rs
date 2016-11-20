@@ -17,7 +17,7 @@ impl RecipientAsSwarm<SetupInScene> for Lane {
         SetupInScene{renderer_id, scene_id} => {
             renderer_id << AddBatch{scene_id: scene_id, batch_id: 0, thing: car::create()};
 
-            renderer_id << AddBatch{scene_id: scene_id, batch_id: 222666222662, thing: Thing::new(
+            renderer_id << AddBatch{scene_id: scene_id, batch_id: 1333, thing: Thing::new(
                 vec![
                     Vertex{position: [-1.0, -1.0, 0.0]},
                     Vertex{position: [1.0, -1.0, 0.0]},
@@ -92,7 +92,7 @@ impl Recipient<RenderToScene> for Lane {
             }
 
             if ! self.interactions.iter().any(|inter| match inter.kind {InteractionKind::Next{..} => true, _ => false}) {
-                renderer_id << AddInstance{scene_id: scene_id, batch_id: 222666222662, position: Instance{
+                renderer_id << AddInstance{scene_id: scene_id, batch_id: 1333, position: Instance{
                     instance_position: [self.path.end().x, self.path.end().y, 0.0],
                     instance_direction: [1.0, 0.0],
                     instance_color: [1.0, 0.0, 0.0]
@@ -100,7 +100,7 @@ impl Recipient<RenderToScene> for Lane {
             }
 
             if ! self.interactions.iter().any(|inter| match inter.kind {InteractionKind::Previous{..} => true, _ => false}) {
-                renderer_id << AddInstance{scene_id: scene_id, batch_id: 222666222662, position: Instance{
+                renderer_id << AddInstance{scene_id: scene_id, batch_id: 1333, position: Instance{
                     instance_position: [self.path.start().x, self.path.start().y, 0.0],
                     instance_direction: [1.0, 0.0],
                     instance_color: [0.0, 1.0, 0.0]
@@ -132,7 +132,7 @@ impl Recipient<RenderToScene> for TransferLane {
 
             renderer_id << UpdateThing{
                 scene_id: scene_id,
-                thing_id: 200 + self.id().instance_id as usize,
+                thing_id: 200 + self.id().instance_id as u16,
                 thing: band_to_thing(&Band::new(self.path.clone(), 3.0), 0.1),
                 instance: Instance::with_color([1.0, 1.0, 0.5])
             };

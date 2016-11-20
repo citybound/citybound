@@ -7,6 +7,7 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 glium = "*"
 glium_text = "*"
 clippy = "*"
+fnv = "1.0.3"
 
 [dependencies.kay]
 path = "../kay"

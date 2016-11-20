@@ -86,7 +86,7 @@ impl Recipient<RenderToScene> for LaneThingCollector{
 
             renderer_id << UpdateThing{
                 scene_id: scene_id,
-                thing_id: 3498547908345,
+                thing_id: 2000,
                 thing: living_thing,
                 instance: Instance{
                     instance_position: [0.0, 0.0, -0.1],
@@ -101,7 +101,7 @@ impl Recipient<RenderToScene> for LaneThingCollector{
 
                 renderer_id << UpdateThing{
                     scene_id: scene_id,
-                    thing_id: 9384598345983,
+                    thing_id: 2001,
                     thing: self.cached_frozen_thing.clone(),
                     instance: Instance{
                         instance_position: [0.0, 0.0, -0.1],

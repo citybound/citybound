@@ -112,12 +112,12 @@ pub fn band_to_thing<P: Path>(band: &Band<P>, z: N) -> Thing {
     Thing::new(vertices, indices)
 }
 
-static mut LAST_DEBUG_THING: usize = 0;
+static mut LAST_DEBUG_THING: u16 = 0;
 
 pub fn add_debug_path(path: CPath, color: [f32; 3], z: f32) {
     Renderer::id() << UpdateThing{
         scene_id: 0,
-        thing_id: 3498539847 + unsafe{LAST_DEBUG_THING},
+        thing_id: 4000 + unsafe{LAST_DEBUG_THING},
         thing: band_to_thing(&Band::new(path, 0.2), z),
         instance: Instance::with_color(color)
     };
@@ -127,7 +127,7 @@ pub fn add_debug_path(path: CPath, color: [f32; 3], z: f32) {
 pub fn add_debug_point(point: P2, color: [f32; 3], z: f32) {
     Renderer::id() << UpdateThing{
         scene_id: 0,
-        thing_id: 3498539847 + unsafe{LAST_DEBUG_THING},
+        thing_id: 4000 + unsafe{LAST_DEBUG_THING},
         thing: Thing::new(
                 vec![
                     Vertex{position: [point.x + -0.5, point.y + -0.5, z]},

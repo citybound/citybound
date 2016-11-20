@@ -26,7 +26,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
                     .sum();
                 renderer_id << UpdateThing{
                     scene_id: scene_id,
-                    thing_id: 3834747834,
+                    thing_id: 500,
                     thing: thing,
                     instance: Instance::with_color([0.3, 0.3, 0.5])
                 };
@@ -36,7 +36,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
                     .sum();
                 renderer_id << UpdateThing{
                     scene_id: scene_id,
-                    thing_id: 3834747835,
+                    thing_id: 501,
                     thing: intersections_thing,
                     instance: Instance::with_color([0.0, 0.0, 1.0])
                 };
@@ -46,7 +46,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
                     .sum();
                 renderer_id << UpdateThing{
                     scene_id: scene_id,
-                    thing_id: 3834747836,
+                    thing_id: 502,
                     thing: connecting_strokes_thing,
                     instance: Instance::with_color([0.5, 0.5, 1.0])
                 };

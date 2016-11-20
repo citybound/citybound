@@ -9,23 +9,24 @@ extern crate kay;
 #[macro_use]
 extern crate kay_macros;
 extern crate glium_text;
+extern crate fnv;
 
 pub use ::descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d, WithUniqueOrthogonal, Inverse, Rotate};
 use ::kay::{ID, Recipient, CVec, ActorSystem, Individual, Fate};
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 
 use glium::{index, Surface};
 pub use glium::backend::glutin_backend::GlutinFacade;
 
 pub struct Renderer {
-    pub scenes: HashMap<usize, Scene>,
+    pub scenes: Vec<Scene>,
     pub render_context: RenderContext
 }
 
 impl Renderer {
     pub fn new (window: GlutinFacade) -> Renderer {
         Renderer {
-            scenes: HashMap::new(),
+            scenes: Vec::new(),
             render_context: RenderContext::new(window)
         }
     }
@@ -45,28 +46,28 @@ pub struct RenderToScene {pub renderer_id: ID, pub scene_id: usize}
 impl Recipient<Control> for Renderer {
     fn receive(&mut self, msg: &Control) -> Fate {match *msg {
         Control::Setup => {
-            for (scene_id, scene) in &self.scenes {
+            for (scene_id, scene) in self.scenes.iter().enumerate() {
                 for renderable in &scene.renderables {
-                    *renderable << SetupInScene{renderer_id: Self::id(), scene_id: *scene_id};
+                    *renderable << SetupInScene{renderer_id: Self::id(), scene_id: scene_id};
                 }
             }
             Fate::Live
         },
 
         Control::Render => {
-            for (scene_id, mut scene) in &mut self.scenes {
+            for (scene_id, mut scene) in self.scenes.iter_mut().enumerate() {
                 for batch in (&mut scene).batches.values_mut() {
                     batch.instances.clear();
                 }
                 for renderable in &scene.renderables {
-                    *renderable << RenderToScene{renderer_id: Self::id(), scene_id: *scene_id};
+                    *renderable << RenderToScene{renderer_id: Self::id(), scene_id: scene_id};
                 }
             }
             Fate::Live
         }
 
         Control::Submit => {
-            for scene in self.scenes.values() {
+            for scene in &self.scenes {
                 self.render_context.submit(scene);
             }
             Fate::Live
@@ -80,7 +81,7 @@ pub struct MoveEye {pub scene_id: usize, pub delta: V3}
 impl Recipient<MoveEye> for Renderer {
     fn receive(&mut self, msg: &MoveEye) -> Fate {match *msg{
         MoveEye{scene_id, delta} => {
-            let eye = &mut self.scenes.get_mut(&scene_id).unwrap().eye;
+            let eye = &mut self.scenes[scene_id].eye;
             let eye_direction_2d = (eye.target - eye.position).into_2d().normalize();
             let absolute_delta = delta.x * eye_direction_2d.into_3d()
                 + delta.y * eye_direction_2d.orthogonal().into_3d()
@@ -93,36 +94,36 @@ impl Recipient<MoveEye> for Renderer {
 }
 
 #[derive(Compact, Clone)]
-pub struct AddBatch {pub scene_id: usize, pub batch_id: usize, pub thing: Thing}
+pub struct AddBatch {pub scene_id: usize, pub batch_id: u16, pub thing: Thing}
 
 impl Recipient<AddBatch> for Renderer {
     fn receive(&mut self, msg: &AddBatch) -> Fate {match *msg {
         AddBatch{scene_id, batch_id, ref thing} => {
-            self.scenes.get_mut(&scene_id).unwrap().batches.insert(batch_id, Batch::new(thing.clone(), Vec::new()));
+            self.scenes[scene_id].batches.insert(batch_id, Batch::new(thing.clone(), Vec::new()));
             Fate::Live
         }
     }}
 }
 
 #[derive(Compact, Clone)]
-pub struct UpdateThing {pub scene_id: usize, pub thing_id: usize, pub thing: Thing, pub instance: Instance}
+pub struct UpdateThing {pub scene_id: usize, pub thing_id: u16, pub thing: Thing, pub instance: Instance}
 
 impl Recipient<UpdateThing> for Renderer {
     fn receive(&mut self, msg: &UpdateThing) -> Fate {match *msg {
         UpdateThing{scene_id, thing_id, ref thing, instance} => {
-            self.scenes.get_mut(&scene_id).unwrap().things.insert(thing_id, (thing.clone(), instance));
+            self.scenes[scene_id].things.insert(thing_id, (thing.clone(), instance));
             Fate::Live
         }
     }}
 }
 
 #[derive(Copy, Clone)]
-pub struct AddInstance {pub scene_id: usize, pub batch_id: usize, pub position: Instance}
+pub struct AddInstance {pub scene_id: usize, pub batch_id: u16, pub position: Instance}
 
 impl Recipient<AddInstance> for Renderer {
     fn receive(&mut self, msg: &AddInstance) -> Fate {match *msg {
         AddInstance{scene_id, batch_id, position} => {
-            self.scenes.get_mut(&scene_id).unwrap().batches.get_mut(&batch_id).unwrap().instances.push(position);
+            self.scenes[scene_id].batches.get_mut(&batch_id).unwrap().instances.push(position);
             Fate::Live
         }
     }}
@@ -137,7 +138,7 @@ pub struct Projected3d{pub position_3d: P3}
 impl Recipient<Project2dTo3d> for Renderer {
     fn receive(&mut self, msg: &Project2dTo3d) -> Fate {match *msg{
         Project2dTo3d{scene_id, position_2d, requester} => {
-            let eye = &self.scenes.get_mut(&scene_id).unwrap().eye;
+            let eye = &self.scenes[scene_id].eye;
             let frame_size = self.render_context.window.get_framebuffer_dimensions();
 
             // mouse is on the close plane of the frustum
@@ -192,8 +193,8 @@ pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
 
 pub struct Scene {
     pub eye: Eye,
-    pub batches: HashMap<usize, Batch>,
-    pub things: HashMap<usize, (Thing, Instance)>,
+    pub batches: FnvHashMap<u16, Batch>,
+    pub things: FnvHashMap<u16, (Thing, Instance)>,
     pub renderables: Vec<ID>,
     pub debug_text: String
 }
@@ -207,8 +208,8 @@ impl Scene {
                 up: V3::new(0.0, 0.0, 1.0),
                 field_of_view: 0.3 * ::std::f32::consts::PI
             },
-            batches: HashMap::new(),
-            things: HashMap::new(),
+            batches: FnvHashMap::default(),
+            things: FnvHashMap::default(),
             renderables: Vec::new(),
             debug_text: String::new()
         }
