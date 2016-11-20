@@ -66,7 +66,7 @@ fn main() {
             let simulation_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 system.process_all_messages();
                 
-                Simulation::id() << Tick{dt: SECONDS_PER_TICK};
+                Simulation::id() << Tick{dt: SECONDS_PER_TICK, current_tick: 0};
 
                 system.process_all_messages();
 

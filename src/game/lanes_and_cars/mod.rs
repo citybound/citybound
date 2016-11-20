@@ -108,15 +108,19 @@ impl Recipient<Add> for TransferLane {
 
 use core::simulation::Tick;
 
+const TRAFFIC_LOGIC_THROTTLING : usize = 60;
+
 impl Recipient<Tick> for Lane {
     fn receive(&mut self, msg: &Tick) -> Fate {match *msg{
-        Tick{dt} => {
+        Tick{dt, current_tick} => {
             self.in_construction += dt * 40.0;
 
-            // TODO: optimize using BinaryHeap?
-            self.interaction_obstacles.sort_by_key(|obstacle| obstacle.position);
+            let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING == self.id().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
-            {
+            if do_traffic {
+                // TODO: optimize using BinaryHeap?
+                self.interaction_obstacles.sort_by_key(|obstacle| obstacle.position);
+
                 let mut overlap_obstacles = self.interaction_obstacles.iter();
                 let mut maybe_next_overlap_obstacle = overlap_obstacles.next();
 
@@ -140,6 +144,9 @@ impl Recipient<Tick> for Lane {
                     car.acceleration = next_obstacle_acceleration.min(next_overlap_obstacle_acceleration);
                 }
             }
+            if do_traffic {
+                self.interaction_obstacles.clear();
+            }
 
             for car in &mut self.cars {
                 *car.position += dt * car.velocity;
@@ -161,29 +168,30 @@ impl Recipient<Tick> for Lane {
                 let mut cars = self.cars.iter();
                 let send_obstacle = |obstacle: Obstacle| interaction.partner_lane << Add::InteractionObstacle(obstacle);
                 
-                match interaction.kind {
-                    Overlap{start, end, partner_start, kind, ..} => {
-                        match kind {
-                            Parallel => cars.skip_while(|car: &&LaneCar| *car.position < start)
-                                            .take_while(|car: &&LaneCar| *car.position < end)
-                                            .map(|car| car.as_obstacle.offset_by(-start + partner_start)
-                                        ).foreach(send_obstacle),
-                            Conflicting => if cars.any(|car: &LaneCar| *car.position > start && *car.position < end) {
-                                (send_obstacle)(Obstacle{position: OrderedFloat(partner_start), velocity: 0.0, max_velocity: 0.0})
+                if current_tick % TRAFFIC_LOGIC_THROTTLING == interaction.partner_lane.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
+
+                    match interaction.kind {
+                        Overlap{start, end, partner_start, kind, ..} => {
+                            match kind {
+                                Parallel => cars.skip_while(|car: &&LaneCar| *car.position < start)
+                                                .take_while(|car: &&LaneCar| *car.position < end)
+                                                .map(|car| car.as_obstacle.offset_by(-start + partner_start)
+                                            ).foreach(send_obstacle),
+                                Conflicting => if cars.any(|car: &LaneCar| *car.position > start && *car.position < end) {
+                                    (send_obstacle)(Obstacle{position: OrderedFloat(partner_start), velocity: 0.0, max_velocity: 0.0})
+                                }
                             }
                         }
-                    }
-                    Previous{start, partner_length} =>
-                        if let Some(next_car) = cars.find(|car| *car.position > start) {
-                            (send_obstacle)(next_car.as_obstacle.offset_by(-start + partner_length))
-                        },
-                    Next{..} => {
-                        //TODO: for looking backwards for merging lanes?
-                    }
-                };
+                        Previous{start, partner_length} =>
+                            if let Some(next_car) = cars.find(|car| *car.position > start) {
+                                (send_obstacle)(next_car.as_obstacle.offset_by(-start + partner_length))
+                            },
+                        Next{..} => {
+                            //TODO: for looking backwards for merging lanes?
+                        }
+                    };
+                }
             }
-
-            self.interaction_obstacles.clear();
             Fate::Live
         }
     }}
@@ -191,7 +199,7 @@ impl Recipient<Tick> for Lane {
 
 impl Recipient<Tick> for TransferLane {
     fn receive(&mut self, msg: &Tick) -> Fate {match *msg{
-        Tick{dt} => {
+        Tick{dt, ..} => {
             self.interaction_obstacles.sort_by_key(|obstacle| obstacle.position);
 
             for c in 0..self.cars.len() {
