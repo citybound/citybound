@@ -53,7 +53,7 @@ impl Recipient<PlanControl> for CurrentPlan {
                         DrawingStatus::Nothing(())
                     } else {
                         let new_node_refs = (0..self.ui_state.n_lanes_per_side).into_iter().flat_map(|lane_idx| {
-                            let offset = (position - start).normalize().orthogonal() * (5.0 + 10.0 * lane_idx as N);
+                            let offset = (position - start).normalize().orthogonal() * (10.0 + 20.0 * lane_idx as N);
 
                             self.delta.new_strokes.push(RoadStroke::new(vec![
                                 RoadStrokeNode{position: start + offset, direction: (position - start).normalize()},

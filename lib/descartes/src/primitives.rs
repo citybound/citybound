@@ -42,7 +42,7 @@ impl Curve for Line {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Segment {
     pub start: P2,
     pub center_or_direction: V2,
@@ -269,27 +269,33 @@ impl FiniteCurve for Segment {
     }
 }
 
+const MIN_TOLERANCE_ANGLE : N = 0.005;
+
 impl Curve for Segment {
     fn project(&self, point: P2) -> Option<N> {
         if self.is_linear() {
             let direction = self.center_or_direction;
             let line_offset = direction.dot(&(point - self.start));
             if line_offset > -THICKNESS && line_offset < self.length + THICKNESS {
-                Some(line_offset)
-            } else {None}
+                Some(line_offset.max(0.0).min(self.length))
+            } else {
+                None
+            }
         } else {
             let angle_start_to_point = angle_along_to(
                 self.start - self.center(), self.start_direction(), point - self.center());
-            let angle_end_to_point = angle_along_to(
-                self.end - self.center(), -self.end_direction(), point - self.center());
 
-            let tolerance = THICKNESS / self.radius();
+            let tolerance = (THICKNESS / self.radius()).max(MIN_TOLERANCE_ANGLE);
             let angle_span = self.length / self.radius();
 
-            if angle_start_to_point <= angle_span + tolerance &&
-                angle_end_to_point <= angle_span + tolerance {
-                Some(angle_start_to_point.max(0.0).min(angle_span) * self.radius())
-            } else {None}
+
+            if angle_start_to_point <= angle_span + tolerance {
+                Some((angle_start_to_point * self.radius()).min(self.length))
+            } else if angle_start_to_point >= 2.0 * ::std::f32::consts::PI - tolerance {
+                Some(0.0)
+            } else {
+                None
+            }
         }
     }
 

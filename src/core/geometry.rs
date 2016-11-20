@@ -1,6 +1,6 @@
 use descartes::{Path, Band, Segment, P2, N, FiniteCurve, WithUniqueOrthogonal};
-use kay::{CVec, Compact};
-use monet::{Thing, Vertex};
+use kay::{CVec, Compact, Individual};
+use monet::{Thing, Vertex, Renderer, UpdateThing, Instance};
 
 #[derive(Compact, Clone)]
 pub struct CPath {
@@ -110,4 +110,37 @@ pub fn band_to_thing<P: Path>(band: &Band<P>, z: N) -> Thing {
     }
 
     Thing::new(vertices, indices)
+}
+
+static mut LAST_DEBUG_THING: usize = 0;
+
+pub fn add_debug_path(path: CPath, color: [f32; 3], z: f32) {
+    Renderer::id() << UpdateThing{
+        scene_id: 0,
+        thing_id: 3498539847 + unsafe{LAST_DEBUG_THING},
+        thing: band_to_thing(&Band::new(path, 0.2), z),
+        instance: Instance::with_color(color)
+    };
+    unsafe{LAST_DEBUG_THING += 1}
+}
+
+pub fn add_debug_point(point: P2, color: [f32; 3], z: f32) {
+    Renderer::id() << UpdateThing{
+        scene_id: 0,
+        thing_id: 3498539847 + unsafe{LAST_DEBUG_THING},
+        thing: Thing::new(
+                vec![
+                    Vertex{position: [point.x + -0.5, point.y + -0.5, z]},
+                    Vertex{position: [point.x + 0.5, point.y + -0.5, z]},
+                    Vertex{position: [point.x + 0.5, point.y + 0.5, z]},
+                    Vertex{position: [point.x + -0.5, point.y + 0.5, z]}
+                ],
+                vec![
+                    0, 1, 2,
+                    2, 3, 0
+                ]
+            ),
+        instance: Instance::with_color(color)
+    };
+    unsafe{LAST_DEBUG_THING += 1}
 }

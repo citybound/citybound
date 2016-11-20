@@ -99,6 +99,7 @@ pub struct ActorSystem {
     recipient_registry: TypeRegistry,
     individuals: [Option<*mut u8>; MAX_RECIPIENT_TYPES],
     update_callbacks: Vec<Box<Fn()>>,
+    clear_callbacks: Vec<Box<Fn()>>,
 }
 
 macro_rules! make_array {
@@ -117,7 +118,8 @@ impl ActorSystem {
             routing: unsafe{make_array!(MAX_RECIPIENT_TYPES, |_| None)},
             recipient_registry: TypeRegistry::new(),
             individuals: [None; MAX_RECIPIENT_TYPES],
-            update_callbacks: Vec::new()
+            update_callbacks: Vec::new(),
+            clear_callbacks: Vec::new()
         }
     }
 
@@ -129,6 +131,26 @@ impl ActorSystem {
     }
 
     pub fn add_inbox<M: Message, I: Individual + Recipient<M>> (&mut self) {
+        let inbox = Inbox::<M>::new();
+        let recipient_id = self.recipient_registry.get::<I>();
+        let inbox_ptr = self.store_inbox(inbox, recipient_id);
+        let individual_ptr = self.individuals[recipient_id].unwrap() as *mut I;
+        self.update_callbacks.push(Box::new(move || {
+            unsafe {
+                for packet in (*inbox_ptr).empty() {
+                    (*individual_ptr).receive_packet(packet);
+                }
+            }
+        }));
+        self.clear_callbacks.push(Box::new(move || {
+            unsafe {
+                for _packet in (*inbox_ptr).empty() {
+                }
+            }
+        }));
+    }
+
+    pub fn add_unclearable_inbox<M: Message, I: Individual + Recipient<M>> (&mut self) {
         let inbox = Inbox::<M>::new();
         let recipient_id = self.recipient_registry.get::<I>();
         let inbox_ptr = self.store_inbox(inbox, recipient_id);
@@ -179,6 +201,12 @@ impl ActorSystem {
 
     pub fn process_messages(&mut self) {
         for callback in &self.update_callbacks {
+            callback();
+        }
+    }
+
+    pub fn clear_all_clearable_messages(&mut self) {
+        for callback in &self.clear_callbacks {
             callback();
         }
     }

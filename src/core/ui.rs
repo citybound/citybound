@@ -192,9 +192,9 @@ pub fn setup_window_and_renderer(system: &mut ActorSystem, renderables: Vec<ID>)
     system.add_inbox::<Add, UserInterface>();
     system.add_inbox::<Remove, UserInterface>();
     system.add_inbox::<Focus, UserInterface>();
-    system.add_inbox::<Mouse, UserInterface>();
-    system.add_inbox::<Key, UserInterface>();
-    system.add_inbox::<Projected3d, UserInterface>();
+    system.add_unclearable_inbox::<Mouse, UserInterface>();
+    system.add_unclearable_inbox::<Key, UserInterface>();
+    system.add_unclearable_inbox::<Projected3d, UserInterface>();
 
     let mut renderer = Renderer::new(window.clone());
     let mut scene = Scene::new();

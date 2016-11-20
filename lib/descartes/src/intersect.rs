@@ -3,7 +3,7 @@ use super::primitives::{Line, Circle, Segment};
 use super::nalgebra::{Dot, Norm};
 use super::path::Path;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Intersection {
     pub along_a: N,
     pub along_b: N,

@@ -180,12 +180,12 @@ impl Recipient<Project2dTo3d> for Renderer {
 
 pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
     system.add_individual(renderer);
-    system.add_inbox::<Control, Renderer>();
-    system.add_inbox::<AddBatch, Renderer>();
-    system.add_inbox::<AddInstance, Renderer>();
-    system.add_inbox::<UpdateThing, Renderer>();
-    system.add_inbox::<MoveEye, Renderer>();
-    system.add_inbox::<Project2dTo3d, Renderer>();
+    system.add_unclearable_inbox::<Control, Renderer>();
+    system.add_unclearable_inbox::<AddBatch, Renderer>();
+    system.add_unclearable_inbox::<AddInstance, Renderer>();
+    system.add_unclearable_inbox::<UpdateThing, Renderer>();
+    system.add_unclearable_inbox::<MoveEye, Renderer>();
+    system.add_unclearable_inbox::<Project2dTo3d, Renderer>();
 
     Renderer::id() << Control::Setup;
 }

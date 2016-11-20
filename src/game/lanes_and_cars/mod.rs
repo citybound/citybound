@@ -5,7 +5,7 @@ mod intelligent_acceleration;
 use self::intelligent_acceleration::{intelligent_acceleration, COMFORTABLE_BREAKING_DECELERATION};
 use core::geometry::CPath;
 use kay::{ID, Actor, CVec, Swarm, CreateWith, Recipient, ActorSystem, Fate};
-use descartes::{FiniteCurve, RoughlyComparable};
+use descartes::{FiniteCurve, RoughlyComparable, Band, Intersect};
 use ordered_float::OrderedFloat;
 use itertools::Itertools;
 use ::std::f32::INFINITY;
@@ -335,6 +335,47 @@ impl Recipient<Connect> for Lane {
                     }
                 })
             }
+            let self_band = Band::new(self.path.clone(), 5.0);
+            let other_band = Band::new(other_path.clone(), 5.0);
+            let intersections = (&self_band.outline(), &other_band.outline()).intersect();
+            if intersections.len() >= 2 {
+                let (entry_intersection, entry_distance) = intersections.iter().map(
+                    |intersection| (intersection, self_band.outline_distance_to_path_distance(intersection.along_a))
+                ).min_by_key(
+                    |&(_, distance)| OrderedFloat(distance)
+                ).expect("entry should exist");
+
+                let (exit_intersection, exit_distance) = intersections.iter().map(
+                    |intersection| (intersection, self_band.outline_distance_to_path_distance(intersection.along_a))
+                ).max_by_key(
+                    |&(_, distance)| OrderedFloat(distance)
+                ).expect("exit should exist");
+
+                let other_entry_distance = other_band.outline_distance_to_path_distance(entry_intersection.along_b);
+                let other_exit_distance = other_band.outline_distance_to_path_distance(exit_intersection.along_b);
+
+                self.interactions.push(Interaction{
+                    partner_lane: other_id,
+                    kind: if other_entry_distance < other_exit_distance {
+                        InteractionKind::Overlap{
+                            start: entry_distance,
+                            end: exit_distance,
+                            partner_start: other_entry_distance,
+                            partner_end: other_exit_distance,
+                            kind: OverlapKind::Parallel
+                        }
+                    } else {
+                        InteractionKind::Overlap{
+                            start: entry_distance,
+                            end: exit_distance,
+                            partner_start: other_exit_distance,
+                            partner_end: other_entry_distance,
+                            kind: OverlapKind::Conflicting
+                        }
+                    }
+                });
+            }
+
             if reply_needed {
                 other_id << Connect{
                     other_id: self.id(),

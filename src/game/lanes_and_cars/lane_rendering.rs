@@ -91,25 +91,6 @@ impl Recipient<RenderToScene> for Lane {
                 };
             }
 
-            self.interactions.iter().find(|inter| match inter.kind {
-                InteractionKind::Overlap{start, end, ..} => {
-                    if let Some(overlap_path) = self.path.subsection(start, end) {
-                        renderer_id << UpdateThing{
-                            scene_id: scene_id,
-                            thing_id: 100 + self.id().instance_id as usize,
-                            thing: band_to_thing(&Band::new(overlap_path, 1.0), 0.1),
-                            instance: Instance{
-                                instance_position: [0.0, 0.0, 0.0],
-                                instance_direction: [1.0, 0.0],
-                                instance_color: [1.0, 0.7, 0.7]
-                            }
-                        };
-                    }
-                    true
-                },
-                _ => false
-            });
-
             if ! self.interactions.iter().any(|inter| match inter.kind {InteractionKind::Next{..} => true, _ => false}) {
                 renderer_id << AddInstance{scene_id: scene_id, batch_id: 222666222662, position: Instance{
                     instance_position: [self.path.end().x, self.path.end().y, 0.0],

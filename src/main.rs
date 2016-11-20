@@ -49,21 +49,44 @@ fn main() {
     ];
     let window = core::ui::setup_window_and_renderer(&mut system, renderables);
 
+    let mut simulation_panicked = false;
+
     system.process_all_messages();
 
     loop {
         if !core::ui::process_events(&window) {return}
 
-        system.process_all_messages();
+        if simulation_panicked {
+            system.clear_all_clearable_messages();
+            system.process_all_messages();
+        } else {
+            let simulation_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                system.process_all_messages();
+                
+                Simulation::id() << Tick{dt: SECONDS_PER_TICK};
 
-        Simulation::id() << Tick{dt: SECONDS_PER_TICK};
+                system.process_all_messages();
 
-        system.process_all_messages();
+                Renderer::id() << Control::Render;
 
-        Renderer::id() << Control::Render;
-
-        system.process_all_messages();
+                system.process_all_messages();
+            }));
+            simulation_panicked = simulation_result.is_err();
+            if simulation_panicked {
+                system.clear_all_clearable_messages();
+                let msg = match simulation_result.unwrap_err().downcast::<String>() {
+                    Ok(string) => (*string),
+                    Err(any) => match any.downcast::<&'static str>() {
+                        Ok(static_str) => (*static_str).to_string(),
+                        Err(_) => "Weird error type".to_string()
+                    }
+                };
+                println!("Simulation Panic!\n{:?}", msg);
+            }
+        }
 
         Renderer::id() << Control::Submit;
+
+        system.process_all_messages();
     }
 }

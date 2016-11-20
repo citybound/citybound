@@ -35,6 +35,27 @@ impl<P: Path> Band<P> {
             )
         } else {self.path.clone()}
     }
+
+    pub fn outline_distance_to_path_distance(&self, distance: N) -> N {
+        if let (Some(left_path_length), Some(right_path_length)) = (
+            self.path.shift_orthogonally(-self.width/2.0).map(|p| p.length()),
+            self.path.shift_orthogonally(self.width/2.0).map(|p| p.length())
+        ) {
+            if distance > left_path_length + self.width + right_path_length {
+                // on connector2
+                0.0
+            } else if distance > left_path_length + self.width {
+                // on right side
+                (1.0 - (distance - left_path_length - self.width) / right_path_length) * self.path.length()
+            } else if distance > left_path_length {
+                // on connector1
+                self.path.length()
+            } else {
+                // on left side
+                (distance / left_path_length) * self.path.length()
+            }
+        } else {distance}
+    }
 }
 
 impl<P: Path> Shape for Band<P> {
