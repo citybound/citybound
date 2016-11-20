@@ -129,6 +129,18 @@ impl Recipient<AddInstance> for Renderer {
     }}
 }
 
+#[derive(Compact, Clone)]
+pub struct AddSeveralInstances {pub scene_id: usize, pub batch_id: u16, pub positions: CVec<Instance>}
+
+impl Recipient<AddSeveralInstances> for Renderer {
+    fn receive(&mut self, msg: &AddSeveralInstances) -> Fate {match *msg {
+        AddSeveralInstances{scene_id, batch_id, ref positions} => {
+            self.scenes[scene_id].batches.get_mut(&batch_id).unwrap().instances.extend_from_slice(positions);
+            Fate::Live
+        }
+    }}
+}
+
 #[derive(Copy, Clone)]
 pub struct Project2dTo3d {pub scene_id: usize, pub position_2d: P2, pub requester: ID}
 
@@ -184,6 +196,7 @@ pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
     system.add_unclearable_inbox::<Control, Renderer>();
     system.add_unclearable_inbox::<AddBatch, Renderer>();
     system.add_unclearable_inbox::<AddInstance, Renderer>();
+    system.add_unclearable_inbox::<AddSeveralInstances, Renderer>();
     system.add_unclearable_inbox::<UpdateThing, Renderer>();
     system.add_unclearable_inbox::<MoveEye, Renderer>();
     system.add_unclearable_inbox::<Project2dTo3d, Renderer>();
@@ -402,6 +415,7 @@ impl RenderContext {
             let vertices = glium::VertexBuffer::new(&self.window, &batch.prototype.vertices).unwrap();
             let indices = glium::IndexBuffer::new(&self.window, index::PrimitiveType::TrianglesList, &batch.prototype.indices).unwrap();
             let instances = glium::VertexBuffer::dynamic(&self.window, batch.instances.as_slice()).unwrap();
+            println!("rendering batch with {} instances", instances.len());
             target.draw((&vertices, instances.per_instance().unwrap()), &indices, &self.batch_program, &uniforms, &params).unwrap();
         }
 

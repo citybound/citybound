@@ -1,5 +1,5 @@
 use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Norm};
-use kay::{Actor, Individual, Recipient, RecipientAsSwarm, ActorSystem, Swarm, Fate};
+use kay::{Actor, CVec, Individual, Recipient, RecipientAsSwarm, ActorSystem, Swarm, Fate};
 use monet::{Instance, Thing, Vertex};
 use core::geometry::band_to_thing;
 use super::{Lane, TransferLane, InteractionKind};
@@ -72,24 +72,27 @@ impl Recipient<RenderToCollector> for Lane {
 
 use ::monet::RenderToScene;
 use ::monet::AddInstance;
+use ::monet::AddSeveralInstances;
 use ::monet::UpdateThing;
 
 impl Recipient<RenderToScene> for Lane {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg {
         RenderToScene{renderer_id, scene_id} => {
-            for car in &self.cars {
+            let car_instances = self.cars.iter().map(|car| {
                 let position2d = self.path.along(*car.position);
                 let direction = self.path.direction_along(*car.position);
-                renderer_id << AddInstance{
-                    scene_id: scene_id,
-                    batch_id: 0,
-                    position: Instance{
-                        instance_position: [position2d.x, position2d.y, 0.0],
-                        instance_direction: [direction.x, direction.y],
-                        instance_color: [0.5, 0.5, 0.5]
-                    }
-                };
-            }
+                Instance{
+                    instance_position: [position2d.x, position2d.y, 0.0],
+                    instance_direction: [direction.x, direction.y],
+                    instance_color: [0.5, 0.5, 0.5]
+                }
+            }).collect::<CVec<_>>();
+
+            renderer_id << AddSeveralInstances{
+                scene_id: scene_id,
+                batch_id: 0,
+                positions: car_instances
+            };
 
             if ! self.interactions.iter().any(|inter| match inter.kind {InteractionKind::Next{..} => true, _ => false}) {
                 renderer_id << AddInstance{scene_id: scene_id, batch_id: 1333, position: Instance{

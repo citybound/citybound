@@ -113,7 +113,7 @@ const TRAFFIC_LOGIC_THROTTLING : usize = 60;
 impl Recipient<Tick> for Lane {
     fn receive(&mut self, msg: &Tick) -> Fate {match *msg{
         Tick{dt, current_tick} => {
-            self.in_construction += dt * 40.0;
+            self.in_construction += dt * 400.0;
 
             let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING == self.id().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
