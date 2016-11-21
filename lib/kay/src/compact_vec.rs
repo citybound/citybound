@@ -315,8 +315,9 @@ impl<T: Copy, A: Allocator> Clone for CompactVec<T, A> {
 
 impl<T: Compact + Clone, A: Allocator> FromIterator<T> for CompactVec<T, A> {
     fn from_iter<I: IntoIterator<Item=T>>(iter: I) -> Self {
-        let mut vec = CompactVec::new();
-        for item in iter {
+        let into_iter = iter.into_iter();
+        let mut vec = CompactVec::with_capacity(into_iter.size_hint().0);
+        for item in into_iter {
             vec.push(item);
         }
         vec
