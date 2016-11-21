@@ -19,3 +19,6 @@ path = "./lib/descartes/"
 
 [dependencies.monet]
 path = "./lib/monet/"
+
+[profile.release]
+debug = true

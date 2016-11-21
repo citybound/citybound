@@ -54,15 +54,17 @@ impl Recipient<Event3d> for RoadStrokeCanvas {
             Fate::Live
         },
         Event3d::KeyDown(VirtualKeyCode::C) => {
-            Swarm::<Lane>::all() << ::game::lanes_and_cars::Add::Car(LaneCar{
-                trip: ID::invalid(),
-                as_obstacle: Obstacle{
-                    position: OrderedFloat(0.0),
-                    velocity: 0.0,
-                    max_velocity: 20.0
-                },
-                acceleration: 0.0
-            });
+            for _i in 0..100 {
+                Swarm::<Lane>::all() << ::game::lanes_and_cars::Add::Car(LaneCar{
+                    trip: ID::invalid(),
+                    as_obstacle: Obstacle{
+                        position: OrderedFloat(0.0),
+                        velocity: 0.0,
+                        max_velocity: 20.0
+                    },
+                    acceleration: 0.0
+                });
+            }
             Fate::Live
         },
         Event3d::KeyDown(VirtualKeyCode::G) => {

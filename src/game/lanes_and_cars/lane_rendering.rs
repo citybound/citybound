@@ -1,8 +1,9 @@
-use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Norm};
+use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Norm, Path};
 use kay::{Actor, CVec, Individual, Recipient, RecipientAsSwarm, ActorSystem, Swarm, Fate};
 use monet::{Instance, Thing, Vertex};
 use core::geometry::band_to_thing;
 use super::{Lane, TransferLane, InteractionKind};
+use itertools::Itertools;
 
 #[path = "./resources/car.rs"]
 mod car;
@@ -78,15 +79,21 @@ use ::monet::UpdateThing;
 impl Recipient<RenderToScene> for Lane {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg {
         RenderToScene{renderer_id, scene_id} => {
-            let car_instances = self.cars.iter().map(|car| {
-                let position2d = self.path.along(*car.position);
-                let direction = self.path.direction_along(*car.position);
-                Instance{
-                    instance_position: [position2d.x, position2d.y, 0.0],
-                    instance_direction: [direction.x, direction.y],
-                    instance_color: [0.5, 0.5, 0.5]
+            let mut cars_iter = self.cars.iter();
+            let mut current_offset = 0.0;
+            let mut car_instances = CVec::with_capacity(self.cars.len());
+            for segment in self.path.segments().iter() {
+                for car in cars_iter.take_while_ref(|car| *car.position - current_offset < segment.length()) {
+                    let position2d = segment.along(*car.position - current_offset);
+                    let direction = segment.direction_along(*car.position - current_offset);
+                    car_instances.push(Instance{
+                        instance_position: [position2d.x, position2d.y, 0.0],
+                        instance_direction: [direction.x, direction.y],
+                        instance_color: [0.5, 0.5, 0.5]
+                    })
                 }
-            }).collect::<CVec<_>>();
+                current_offset += segment.length;
+            }
 
             renderer_id << AddSeveralInstances{
                 scene_id: scene_id,
