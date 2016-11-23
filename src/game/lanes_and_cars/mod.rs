@@ -111,7 +111,7 @@ impl Recipient<Add> for TransferLane {
 
 use core::simulation::Tick;
 
-const TRAFFIC_LOGIC_THROTTLING : usize = 60;
+const TRAFFIC_LOGIC_THROTTLING : usize = 30;
 
 impl Recipient<Tick> for Lane {
     fn receive(&mut self, msg: &Tick) -> Fate {match *msg{
@@ -147,13 +147,16 @@ impl Recipient<Tick> for Lane {
                     car.acceleration = next_obstacle_acceleration.min(next_overlap_obstacle_acceleration);
                 }
             }
-            if do_traffic {
-                self.interaction_obstacles.clear();
-            }
 
             for car in &mut self.cars {
                 *car.position += dt * car.velocity;
                 car.velocity = (car.velocity + dt * car.acceleration).min(car.max_velocity).max(0.0);
+            }
+
+            if self.cars.len() > 1 {
+                for i in (0..self.cars.len() - 1).rev() {
+                    self.cars[i].position = OrderedFloat((*self.cars[i].position).min(*self.cars[i + 1].position));
+                }
             }
             
             loop {
@@ -171,16 +174,15 @@ impl Recipient<Tick> for Lane {
                 let mut cars = self.cars.iter();
                 let send_obstacle = |obstacle: Obstacle| interaction.partner_lane << Add::InteractionObstacle(obstacle);
                 
-                if current_tick % TRAFFIC_LOGIC_THROTTLING == interaction.partner_lane.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
-
+                if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING == interaction.partner_lane.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
                     match interaction.kind {
                         Overlap{start, end, partner_start, kind, ..} => {
                             match kind {
-                                Parallel => cars.skip_while(|car: &&LaneCar| *car.position < start)
+                                Parallel => cars.skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
                                                 .take_while(|car: &&LaneCar| *car.position < end)
                                                 .map(|car| car.as_obstacle.offset_by(-start + partner_start)
                                             ).foreach(send_obstacle),
-                                Conflicting => if cars.any(|car: &LaneCar| *car.position > start && *car.position < end) {
+                                Conflicting => if cars.any(|car: &LaneCar| *car.position + 2.0 * car.velocity > start && *car.position - 2.0 < end) {
                                     (send_obstacle)(Obstacle{position: OrderedFloat(partner_start), velocity: 0.0, max_velocity: 0.0})
                                 }
                             }
@@ -195,6 +197,11 @@ impl Recipient<Tick> for Lane {
                     };
                 }
             }
+
+            if do_traffic {
+                self.interaction_obstacles.clear();
+            }
+
             Fate::Live
         }
     }}
@@ -367,46 +374,51 @@ impl Recipient<Connect> for Lane {
                 }
             }
 
-            let self_band = Band::new(self.path.clone(), 5.0);
-            let other_band = Band::new(other_path.clone(), 5.0);
+            let self_band = Band::new(self.path.clone(), 4.0);
+            let other_band = Band::new(other_path.clone(), 4.0);
             let intersections = (&self_band.outline(), &other_band.outline()).intersect();
             if intersections.len() >= 2 {
-                let (entry_intersection, entry_distance) = intersections.iter().map(
+                if let ::itertools::MinMaxResult::MinMax(
+                    (entry_intersection, entry_distance),
+                    (exit_intersection, exit_distance)
+                ) = intersections.iter().map(
                     |intersection| (intersection, self_band.outline_distance_to_path_distance(intersection.along_a))
-                ).min_by_key(
-                    |&(_, distance)| OrderedFloat(distance)
-                ).expect("entry should exist");
+                ).minmax_by_key(|&(_, distance)| OrderedFloat(distance)) {
+                    let other_entry_distance = other_band.outline_distance_to_path_distance(entry_intersection.along_b);
+                    let other_exit_distance = other_band.outline_distance_to_path_distance(exit_intersection.along_b);
 
-                let (exit_intersection, exit_distance) = intersections.iter().map(
-                    |intersection| (intersection, self_band.outline_distance_to_path_distance(intersection.along_a))
-                ).max_by_key(
-                    |&(_, distance)| OrderedFloat(distance)
-                ).expect("exit should exist");
+                    let overlap_kind = if other_path.direction_along(other_entry_distance)
+                        .is_roughly_within(self.path.direction_along(entry_distance), 0.1)
+                    || other_path.direction_along(other_exit_distance)
+                        .is_roughly_within(self.path.direction_along(exit_distance), 0.1) {
+                            OverlapKind::Parallel
+                        } else {
+                            OverlapKind::Conflicting
+                        };
 
-                let other_entry_distance = other_band.outline_distance_to_path_distance(entry_intersection.along_b);
-                let other_exit_distance = other_band.outline_distance_to_path_distance(exit_intersection.along_b);
-
-                self.interactions.push(Interaction{
-                    partner_lane: other_id,
-                    kind: if other_entry_distance < other_exit_distance {
-                        InteractionKind::Overlap{
-                            start: entry_distance,
-                            end: exit_distance,
-                            partner_start: other_entry_distance,
-                            partner_end: other_exit_distance,
-                            kind: OverlapKind::Parallel
+                    self.interactions.push(Interaction{
+                        partner_lane: other_id,
+                        kind: if other_entry_distance < other_exit_distance {
+                            InteractionKind::Overlap{
+                                start: entry_distance,
+                                end: exit_distance,
+                                partner_start: other_entry_distance,
+                                partner_end: other_exit_distance,
+                                kind: overlap_kind
+                            }
+                        } else {
+                            InteractionKind::Overlap{
+                                start: entry_distance,
+                                end: exit_distance,
+                                partner_start: other_exit_distance,
+                                partner_end: other_entry_distance,
+                                kind: overlap_kind
+                            }
                         }
-                    } else {
-                        InteractionKind::Overlap{
-                            start: entry_distance,
-                            end: exit_distance,
-                            partner_start: other_exit_distance,
-                            partner_end: other_entry_distance,
-                            kind: OverlapKind::Conflicting
-                        }
-                    }
-                });
+                    });
+                } else {panic!("both entry and exit should exist")}
             }
+
 
             if reply_needed {
                 other_id << Connect{
