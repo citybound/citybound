@@ -61,6 +61,7 @@ impl Chunker for MemChunker {
     }
 
     fn destroy_chunk(&mut self, ptr: *mut u8) {
+        // TODO: remove file?
         unsafe {
             DefaultHeap::deallocate(ptr, self.chunk_size);
         }
@@ -325,6 +326,7 @@ pub struct SizedChunkedQueue {
     pub read_index: ValueInChunk<usize>,
     pub write_index: ValueInChunk<usize>,
     end_index: ValueInChunk<usize>,
+    chunks_to_drop: Vec<*mut u8>,
     n_dropped_chunks: ValueInChunk<usize>
 }
 
@@ -357,11 +359,16 @@ impl SizedChunkedQueue {
             let ptr = self.chunks[0].offset(offset);
             *self.read_index += 1;
             if *self.read_index >= (*self.n_dropped_chunks + 1) * self.items_per_chunk() {
-                let useless_chunk = self.chunks.remove(0); // TODO: remove file?
-                self.chunker.destroy_chunk(useless_chunk);
+                self.chunks_to_drop.push(self.chunks.remove(0));
                 *self.n_dropped_chunks += 1;
             }
             Some(ptr)
+        }
+    }
+
+    pub unsafe fn drop_old_chunks(&mut self) {
+        for chunk in self.chunks_to_drop.drain(..) {
+            self.chunker.destroy_chunk(chunk);
         }
     }
 }
@@ -378,6 +385,7 @@ impl SizedChunkedCollection for SizedChunkedQueue {
             n_dropped_chunks: ValueInChunk::new(chunker.child("_end"), 0),
             chunker: chunker,
             chunks: Vec::new(),
+            chunks_to_drop: Vec::new(),
             item_size: item_size,
         };
 

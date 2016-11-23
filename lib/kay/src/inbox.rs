@@ -8,7 +8,7 @@ pub struct Inbox<M: Message> {
     message_marker: PhantomData<[M]>
 }
 
-const CHUNK_SIZE : usize = 4096 * 1024;
+const CHUNK_SIZE : usize = 4096 * 4096;
 
 impl <M: Message> Inbox<M> {
     pub fn new() -> Self {
@@ -49,6 +49,8 @@ pub struct InboxIterator<'a, M: Message> where M: 'a {
     message_marker: PhantomData<[M]>
 }
 
+const MAX_MESSAGES_AT_ONCE : usize = 500;
+
 impl<'a, M: Message> Iterator for InboxIterator<'a, M> {
     type Item = &'a Packet<M>;
 
@@ -61,6 +63,9 @@ impl<'a, M: Message> Iterator for InboxIterator<'a, M> {
                 {
                     let next_queue = &self.queues[self.current_sized_queue_index];
                     self.messages_in_sized_queue_left = *next_queue.write_index - *next_queue.read_index;
+                    if self.messages_in_sized_queue_left > MAX_MESSAGES_AT_ONCE {
+                        self.messages_in_sized_queue_left = MAX_MESSAGES_AT_ONCE;
+                    }
                 }
                 self.next()
             }
@@ -71,6 +76,14 @@ impl<'a, M: Message> Iterator for InboxIterator<'a, M> {
                 self.messages_in_sized_queue_left -= 1;
                 Some(message_ref)
             }
+        }
+    }
+}
+
+impl<'a, M: Message> Drop for InboxIterator<'a, M> {
+    fn drop(&mut self) {
+        for queue in self.queues.iter_mut() {
+            unsafe{queue.drop_old_chunks()};
         }
     }
 }
