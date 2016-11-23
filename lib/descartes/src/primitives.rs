@@ -52,7 +52,7 @@ pub struct Segment {
 }
 
 const DIRECTION_TOLERANCE : f32 = 0.01;
-const MIN_START_TO_END : f32 = 0.01;
+pub const MIN_START_TO_END : f32 = 0.01;
 const MAX_SIMPLE_LINE_LENGTH : f32 = 0.5;
 
 impl Segment {
@@ -287,7 +287,6 @@ impl Curve for Segment {
 
             let tolerance = (THICKNESS / self.radius()).max(MIN_TOLERANCE_ANGLE);
             let angle_span = self.length / self.radius();
-
 
             if angle_start_to_point <= angle_span + tolerance {
                 Some((angle_start_to_point * self.radius()).min(self.length))

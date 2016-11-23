@@ -145,7 +145,7 @@ pub fn convex_hull<P: Path>(points: &[P2]) -> P {
     hull_indices.push(first_index);
     P::new(hull_indices.windows(2).filter_map(|idx_window| {
         let (point_1, point_2) = (points[idx_window[0]], points[idx_window[1]]);
-        if point_1.is_roughly(point_2) {
+        if point_1.is_roughly_within(point_2, ::primitives::MIN_START_TO_END) {
             None
         } else {
             Some(Segment::line(point_1, point_2))

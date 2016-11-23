@@ -143,7 +143,7 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
             (true, false) => (
                     &Line{start: a.start(), direction: a.start_direction()},
                     &Circle{center: b.center(), radius: b.radius()}
-                ).intersect().iter().filter(|intersection|
+                 ).intersect().iter().filter(|intersection|
                     intersection.along_a >= 0.0 && intersection.along_a <= a.length() &&
                     b.includes(intersection.position)
                 ).map(|intersection|
@@ -177,9 +177,9 @@ impl<'a, P: Path> Intersect for (&'a P, &'a P) {
         for (segment_a, offset_a) in a.segments_with_start_offsets() {
             for (segment_b, offset_b) in b.segments_with_start_offsets() {
                 for intersection in (segment_a, segment_b).intersect() {
-                    let identical_to_previous = if let Some(previous_intersection) = intersection_list.last() {
+                    let identical_to_previous = intersection_list.iter().any(|previous_intersection|
                         (previous_intersection as &Intersection).position.is_roughly_within(intersection.position, THICKNESS)
-                    } else {false};
+                    );
                     if !identical_to_previous {
                         intersection_list.push(Intersection{
                             along_a: intersection.along_a + offset_a,

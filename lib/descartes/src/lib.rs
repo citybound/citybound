@@ -19,7 +19,7 @@ pub type Iso3 = Isometry3<N>;
 pub type Persp3 = Perspective3<N>;
 
 // Thickness radius
-const THICKNESS: N = 0.0001;
+const THICKNESS: N = 0.001;
 const ROUGH_TOLERANCE: N = 0.0000001;
 
 mod primitives;
