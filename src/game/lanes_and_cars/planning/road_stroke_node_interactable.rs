@@ -133,7 +133,7 @@ use monet::AddInstance;
 impl Recipient<RenderToScene> for RoadStrokeNodeInteractable {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg {
         RenderToScene{renderer_id, scene_id} => {
-            renderer_id << AddInstance{scene_id: scene_id, batch_id: 2400, position: Instance{
+            renderer_id << AddInstance{scene_id: scene_id, batch_id: 2400, instance: Instance{
                 instance_position: [self.position.x, self.position.y, 0.0],
                 instance_direction: [1.0, 0.0],
                 instance_color: if self.hovered {[1.0, 0.0, 0.0]} else {match self.parent {

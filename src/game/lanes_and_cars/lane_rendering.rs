@@ -98,11 +98,11 @@ impl Recipient<RenderToScene> for Lane {
             renderer_id << AddSeveralInstances{
                 scene_id: scene_id,
                 batch_id: 0,
-                positions: car_instances
+                instances: car_instances
             };
 
             if ! self.interactions.iter().any(|inter| match inter.kind {InteractionKind::Next{..} => true, _ => false}) {
-                renderer_id << AddInstance{scene_id: scene_id, batch_id: 1333, position: Instance{
+                renderer_id << AddInstance{scene_id: scene_id, batch_id: 1333, instance: Instance{
                     instance_position: [self.path.end().x, self.path.end().y, 0.0],
                     instance_direction: [1.0, 0.0],
                     instance_color: [1.0, 0.0, 0.0]
@@ -110,7 +110,7 @@ impl Recipient<RenderToScene> for Lane {
             }
 
             if ! self.interactions.iter().any(|inter| match inter.kind {InteractionKind::Previous{..} => true, _ => false}) {
-                renderer_id << AddInstance{scene_id: scene_id, batch_id: 1333, position: Instance{
+                renderer_id << AddInstance{scene_id: scene_id, batch_id: 1333, instance: Instance{
                     instance_position: [self.path.start().x, self.path.start().y, 0.0],
                     instance_direction: [1.0, 0.0],
                     instance_color: [0.0, 1.0, 0.0]
@@ -132,7 +132,7 @@ impl Recipient<RenderToScene> for TransferLane {
                 renderer_id << AddInstance{
                     scene_id: scene_id,
                     batch_id: 1,
-                    position: Instance{
+                    instance: Instance{
                         instance_position: [shifted_position2d.x, shifted_position2d.y, 0.0],
                         instance_direction: [rotated_direction.x, rotated_direction.y],
                         instance_color: [0.3, 0.3, 0.0]

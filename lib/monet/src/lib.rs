@@ -56,8 +56,8 @@ impl Recipient<Control> for Renderer {
 
         Control::Render => {
             for (scene_id, mut scene) in self.scenes.iter_mut().enumerate() {
-                for batch in (&mut scene).batches.values_mut() {
-                    batch.instances.clear();
+                for batch_to_clear in (&mut scene).batches.values_mut().filter(|batch| batch.clear_every_frame) {
+                    batch_to_clear.instances.clear();
                 }
                 for renderable in &scene.renderables {
                     *renderable << RenderToScene{renderer_id: Self::id(), scene_id: scene_id};
@@ -99,7 +99,8 @@ pub struct AddBatch {pub scene_id: usize, pub batch_id: u16, pub thing: Thing}
 impl Recipient<AddBatch> for Renderer {
     fn receive(&mut self, msg: &AddBatch) -> Fate {match *msg {
         AddBatch{scene_id, batch_id, ref thing} => {
-            self.scenes[scene_id].batches.insert(batch_id, Batch::new(thing.clone(), Vec::new()));
+            let window = &self.render_context.window;
+            self.scenes[scene_id].batches.insert(batch_id, Batch::new(thing.clone(), window));
             Fate::Live
         }
     }}
@@ -111,31 +112,31 @@ pub struct UpdateThing {pub scene_id: usize, pub thing_id: u16, pub thing: Thing
 impl Recipient<UpdateThing> for Renderer {
     fn receive(&mut self, msg: &UpdateThing) -> Fate {match *msg {
         UpdateThing{scene_id, thing_id, ref thing, instance} => {
-            self.scenes[scene_id].things.insert(thing_id, (thing.clone(), instance));
+            self.scenes[scene_id].batches.insert(thing_id, Batch::new_thing(thing.clone(), instance, &self.render_context.window));
             Fate::Live
         }
     }}
 }
 
 #[derive(Copy, Clone)]
-pub struct AddInstance {pub scene_id: usize, pub batch_id: u16, pub position: Instance}
+pub struct AddInstance {pub scene_id: usize, pub batch_id: u16, pub instance: Instance}
 
 impl Recipient<AddInstance> for Renderer {
     fn receive(&mut self, msg: &AddInstance) -> Fate {match *msg {
-        AddInstance{scene_id, batch_id, position} => {
-            self.scenes[scene_id].batches.get_mut(&batch_id).unwrap().instances.push(position);
+        AddInstance{scene_id, batch_id, instance} => {
+            self.scenes[scene_id].batches.get_mut(&batch_id).unwrap().instances.push(instance);
             Fate::Live
         }
     }}
 }
 
 #[derive(Compact, Clone)]
-pub struct AddSeveralInstances {pub scene_id: usize, pub batch_id: u16, pub positions: CVec<Instance>}
+pub struct AddSeveralInstances {pub scene_id: usize, pub batch_id: u16, pub instances: CVec<Instance>}
 
 impl Recipient<AddSeveralInstances> for Renderer {
     fn receive(&mut self, msg: &AddSeveralInstances) -> Fate {match *msg {
-        AddSeveralInstances{scene_id, batch_id, ref positions} => {
-            self.scenes[scene_id].batches.get_mut(&batch_id).unwrap().instances.extend_from_slice(positions);
+        AddSeveralInstances{scene_id, batch_id, ref instances} => {
+            self.scenes[scene_id].batches.get_mut(&batch_id).unwrap().instances.extend_from_slice(instances);
             Fate::Live
         }
     }}
@@ -207,7 +208,6 @@ pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
 pub struct Scene {
     pub eye: Eye,
     pub batches: FnvHashMap<u16, Batch>,
-    pub things: FnvHashMap<u16, (Thing, Instance)>,
     pub renderables: Vec<ID>,
     pub debug_text: String
 }
@@ -222,7 +222,6 @@ impl Scene {
                 field_of_view: 0.3 * ::std::f32::consts::PI
             },
             batches: FnvHashMap::default(),
-            things: FnvHashMap::default(),
             renderables: Vec::new(),
             debug_text: String::new()
         }
@@ -318,13 +317,29 @@ impl<'a> ::std::iter::Sum<&'a Thing> for Thing {
 }
 
 pub struct Batch {
-    prototype: Thing,
-    pub instances: Vec<Instance>
+    vertices: glium::VertexBuffer<Vertex>,
+    indices: glium::IndexBuffer<u16>,
+    instances: Vec<Instance>,
+    clear_every_frame: bool
 }
 
 impl Batch {
-    pub fn new(prototype: Thing, instances: Vec<Instance>) -> Batch {
-        Batch{prototype: prototype, instances: instances}
+    pub fn new(prototype: Thing, window: &GlutinFacade) -> Batch {
+        Batch{
+            vertices: glium::VertexBuffer::new(window, &prototype.vertices).unwrap(),
+            indices: glium::IndexBuffer::new(window, index::PrimitiveType::TrianglesList, &prototype.indices).unwrap(),
+            instances: Vec::new(),
+            clear_every_frame: true
+        }
+    }
+
+    pub fn new_thing(thing: Thing, instance: Instance, window: &GlutinFacade) -> Batch {
+        Batch{
+            vertices: glium::VertexBuffer::new(window, &thing.vertices).unwrap(),
+            indices: glium::IndexBuffer::new(window, index::PrimitiveType::TrianglesList, &thing.indices).unwrap(),
+            instances: vec![instance],
+            clear_every_frame: false
+        }
     }
 }
 
@@ -411,19 +426,16 @@ impl RenderContext {
         // draw a frame
         target.clear_color_and_depth((1.0, 1.0, 1.0, 1.0), 1.0);
 
-        for batch in scene.batches.values() {
-            let vertices = glium::VertexBuffer::new(&self.window, &batch.prototype.vertices).unwrap();
-            let indices = glium::IndexBuffer::new(&self.window, index::PrimitiveType::TrianglesList, &batch.prototype.indices).unwrap();
-            let instances = glium::VertexBuffer::dynamic(&self.window, batch.instances.as_slice()).unwrap();
+        for &Batch{ref vertices, ref indices, ref instances, ..} in scene.batches.values() {
             println!("rendering batch with {} instances", instances.len());
-            target.draw((&vertices, instances.per_instance().unwrap()), &indices, &self.batch_program, &uniforms, &params).unwrap();
-        }
-
-        for &(ref thing, instance) in scene.things.values() {
-            let vertices = glium::VertexBuffer::new(&self.window, &thing.vertices).unwrap();
-            let indices = glium::IndexBuffer::new(&self.window, index::PrimitiveType::TrianglesList, &thing.indices).unwrap();
-            let instances = glium::VertexBuffer::new(&self.window, &[instance]).unwrap();
-            target.draw((&vertices, instances.per_instance().unwrap()), &indices, &self.batch_program, &uniforms, &params).unwrap();
+            let instance_buffer = glium::VertexBuffer::new(&self.window, instances).unwrap();
+            target.draw(
+                (vertices, instance_buffer.per_instance().unwrap()),
+                indices,
+                &self.batch_program,
+                &uniforms,
+                &params
+            ).unwrap();
         }
 
         let text = glium_text::TextDisplay::new(&self.text_system, &self.font, scene.debug_text.as_str());
