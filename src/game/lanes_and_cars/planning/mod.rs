@@ -174,8 +174,8 @@ impl Recipient<PlanControl> for CurrentPlan {
             Fate::Live
         },
         PlanControl::CreateGrid(()) => {
-            let grid_size = 6u32;
-            let grid_spacing = 200.0;
+            let grid_size = 12u32;
+            let grid_spacing = 300.0;
 
             for x in 0..grid_size {
                 self.receive(&PlanControl::AddRoadStrokeNode(P2::new((x as f32 + 0.5) * grid_spacing, 0.0), false));
@@ -301,7 +301,7 @@ impl Default for PlanUIState{
     fn default() -> PlanUIState{
         PlanUIState{
             create_both_sides: true,
-            n_lanes_per_side: 2,
+            n_lanes_per_side: 3,
             drawing_status: DrawingStatus::Nothing(()),
             dirty: true
         }
