@@ -406,7 +406,7 @@ impl RenderContext {
             target.get_dimensions().0 as f32 / target.get_dimensions().1 as f32,
             scene.eye.field_of_view,
             0.1,
-            1000.0
+            50000.0
         ).to_matrix().as_ref();
         
         let uniforms = uniform! {
