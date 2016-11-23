@@ -357,7 +357,8 @@ impl SizedChunkedQueue {
             let ptr = self.chunks[0].offset(offset);
             *self.read_index += 1;
             if *self.read_index >= (*self.n_dropped_chunks + 1) * self.items_per_chunk() {
-                self.chunks.remove(0); // TODO: remove file?
+                let useless_chunk = self.chunks.remove(0); // TODO: remove file?
+                self.chunker.destroy_chunk(useless_chunk);
                 *self.n_dropped_chunks += 1;
             }
             Some(ptr)

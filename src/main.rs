@@ -4,6 +4,10 @@
 #![feature(conservative_impl_trait)]
 #![plugin(clippy)]
 #![allow(no_effect, unnecessary_operation)]
+// Enable this for memory tracking with Instruments/MacOS
+// #![feature(alloc_system)]
+// extern crate alloc_system;
+
 extern crate ordered_float;
 extern crate itertools;
 
