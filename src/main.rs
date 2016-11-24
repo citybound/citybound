@@ -20,7 +20,7 @@ extern crate descartes;
 mod core;
 mod game;
 
-use monet::{Renderer, Control};
+use monet::{Renderer, Control, AddDebugText};
 use core::simulation::{Simulation, Tick};
 use game::lanes_and_cars::{Lane, TransferLane};
 use game::lanes_and_cars::lane_thing_collector::LaneThingCollector;
@@ -59,7 +59,11 @@ fn main() {
     system.process_all_messages();
 
     loop {
-        println!("----\n FRAME: {} ms", last_frame.elapsed().subsec_nanos() as f32 / 10.0E6);
+        Renderer::id() << AddDebugText{
+            scene_id: 0,
+            key: "Frame".chars().collect(),
+            value: format!("{} ms", last_frame.elapsed().subsec_nanos() as f32 / 10.0E6).as_str().chars().collect()
+        };
         last_frame = std::time::Instant::now();
         if !core::ui::process_events(&window) {return}
 

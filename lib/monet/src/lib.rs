@@ -8,12 +8,14 @@ pub extern crate glium;
 extern crate kay;
 #[macro_use]
 extern crate kay_macros;
-extern crate glium_text;
+extern crate rusttype;
 extern crate fnv;
+extern crate unicode_normalization;
 
 pub use ::descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d, WithUniqueOrthogonal, Inverse, Rotate};
 use ::kay::{ID, Recipient, CVec, ActorSystem, Individual, Fate};
 use fnv::FnvHashMap;
+use std::borrow::Cow;
 
 use glium::{index, Surface};
 pub use glium::backend::glutin_backend::GlutinFacade;
@@ -67,8 +69,9 @@ impl Recipient<Control> for Renderer {
         }
 
         Control::Submit => {
-            for scene in &self.scenes {
+            for scene in &mut self.scenes {
                 self.render_context.submit(scene);
+                scene.debug_text.clear();
             }
             Fate::Live
         }
@@ -142,6 +145,21 @@ impl Recipient<AddSeveralInstances> for Renderer {
     }}
 }
 
+#[derive(Compact, Clone)]
+pub struct AddDebugText {pub scene_id: usize, pub key: CVec<char>, pub value: CVec<char>}
+
+impl Recipient<AddDebugText> for Renderer {
+    fn receive(&mut self, msg: &AddDebugText) -> Fate {match *msg {
+        AddDebugText{scene_id, ref key, ref value} => {
+            self.scenes[scene_id].debug_text.insert(
+                key.iter().cloned().collect(),
+                value.iter().cloned().collect()
+            );
+            Fate::Live
+        }
+    }}
+}
+
 #[derive(Copy, Clone)]
 pub struct Project2dTo3d {pub scene_id: usize, pub position_2d: P2, pub requester: ID}
 
@@ -198,8 +216,9 @@ pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
     system.add_unclearable_inbox::<AddBatch, Renderer>();
     system.add_unclearable_inbox::<AddInstance, Renderer>();
     system.add_unclearable_inbox::<AddSeveralInstances, Renderer>();
-    system.add_unclearable_inbox::<UpdateThing, Renderer>();
     system.add_unclearable_inbox::<MoveEye, Renderer>();
+    system.add_unclearable_inbox::<AddDebugText, Renderer>();
+    system.add_unclearable_inbox::<UpdateThing, Renderer>();
     system.add_unclearable_inbox::<Project2dTo3d, Renderer>();
 
     Renderer::id() << Control::Setup;
@@ -209,7 +228,7 @@ pub struct Scene {
     pub eye: Eye,
     pub batches: FnvHashMap<u16, Batch>,
     pub renderables: Vec<ID>,
-    pub debug_text: String
+    pub debug_text: std::collections::BTreeMap<String, String>
 }
 
 impl Scene {
@@ -223,7 +242,7 @@ impl Scene {
             },
             batches: FnvHashMap::default(),
             renderables: Vec::new(),
-            debug_text: String::new()
+            debug_text: std::collections::BTreeMap::new()
         }
     }
 }
@@ -370,31 +389,46 @@ impl Instance {
 pub struct RenderContext {
     pub window: GlutinFacade,
     batch_program: glium::Program,
-    text_system: glium_text::TextSystem,
-    font: glium_text::FontTexture
+    text_program: glium::Program,
+    text_cache_tex: glium::Texture2d,
+    text_font: rusttype::Font<'static>,
+    text_cache: rusttype::gpu_cache::Cache
 }
 
 impl RenderContext {
     #[allow(redundant_closure)]
     pub fn new (window: GlutinFacade) -> RenderContext {
+        let dpi_factor = window.get_window().unwrap().hidpi_factor();
+        let (text_cache_width, text_cache_height) = (512 * dpi_factor as u32, 512 * dpi_factor as u32);
+
         RenderContext{
-            batch_program: program!(&window,
-                140 => {
-                    vertex: include_str!("shader/solid_140.glslv"),
-                    fragment: include_str!("shader/solid_140.glslf")
-                }
-            ).unwrap(),
-            text_system: glium_text::TextSystem::new(&window),
-            font: glium_text::FontTexture::new(
+            batch_program: program!(&window, 140 => {
+                vertex: include_str!("shader/solid_140.glslv"),
+                fragment: include_str!("shader/solid_140.glslf")
+            }).unwrap(),
+            text_program: program!(&window, 140 => {
+                vertex: include_str!("shader/text_140.glslv"),
+                fragment: include_str!("shader/text_140.glslf")
+            }).unwrap(),
+            text_cache_tex: glium::Texture2d::with_format(
                 &window,
-                ::std::fs::File::open(&::std::path::Path::new("fonts/ClearSans-Regular.ttf")).unwrap(),
-                64
+                glium::texture::RawImage2d{
+                    data: Cow::Owned(vec![128u8; text_cache_width as usize * text_cache_height as usize]),
+                    width: text_cache_width, height: text_cache_height,
+                    format: glium::texture::ClientFormat::U8
+                },
+                glium::texture::UncompressedFloatFormat::U8,
+                glium::texture::MipmapsOption::NoMipmap
             ).unwrap(),
+            text_font: rusttype::FontCollection::from_bytes(
+                include_bytes!("../../../fonts/ClearSans-Regular.ttf") as &[u8]
+            ).into_font().unwrap(),
+            text_cache: rusttype::gpu_cache::Cache::new(text_cache_width, text_cache_height, 0.1, 0.1),
             window: window,
         }
     }
 
-    pub fn submit (&self, scene: &Scene) {
+    pub fn submit (&mut self, scene: &Scene) {
         let mut target = self.window.draw();
 
         let view : [[f32; 4]; 4] = *Iso3::look_at_rh(
@@ -426,8 +460,10 @@ impl RenderContext {
         // draw a frame
         target.clear_color_and_depth((1.0, 1.0, 1.0, 1.0), 1.0);
 
-        for &Batch{ref vertices, ref indices, ref instances, ..} in scene.batches.values() {
-            println!("rendering batch with {} instances", instances.len());
+        let mut render_debug_text = String::from("Renderer:\n");
+
+        for (i, &Batch{ref vertices, ref indices, ref instances, ..}) in scene.batches.values().enumerate() {
+            render_debug_text.push_str(format!("batch{}: {} instances\n", i, instances.len()).as_str());
             let instance_buffer = glium::VertexBuffer::new(&self.window, instances).unwrap();
             target.draw(
                 (vertices, instance_buffer.per_instance().unwrap()),
@@ -438,16 +474,156 @@ impl RenderContext {
             ).unwrap();
         }
 
-        let text = glium_text::TextDisplay::new(&self.text_system, &self.font, scene.debug_text.as_str());
-        let text_matrix = [
-            [0.05, 0.0, 0.0, 0.0],
-            [0.0, 0.05, 0.0, 0.0],
-            [0.0, 0.0, 0.05, 0.0],
-            [-0.9, 0.8, 0.0, 1.0f32]
-        ];
+        let (width, dpi_factor) = {
+            let window = self.window.get_window().unwrap();
+            (window.get_inner_size_pixels().unwrap().0, window.hidpi_factor())
+        };
+        let glyphs = layout_paragraph(
+            &self.text_font,
+            rusttype::Scale::uniform(14.0 * dpi_factor),
+            width,
+            (scene.debug_text.iter().map(|(key, value)|
+                format!("{}:\n{}\n", key, value)
+            ).collect::<String>() + render_debug_text.as_str()).as_str()
+        );
+        
+        for glyph in &glyphs {
+            self.text_cache.queue_glyph(0, glyph.clone());
+        }
+        {
+            let text_cache_tex = &mut self.text_cache_tex;
+            self.text_cache.cache_queued(|rect, data| {
+                text_cache_tex.main_level().write(glium::Rect {
+                    left: rect.min.x,
+                    bottom: rect.min.y,
+                    width: rect.width(),
+                    height: rect.height()
+                }, glium::texture::RawImage2d {
+                    data: Cow::Borrowed(data),
+                    width: rect.width(),
+                    height: rect.height(),
+                    format: glium::texture::ClientFormat::U8
+                });
+            }).unwrap();
+        }
 
-        glium_text::draw(&text, &self.text_system, &mut target, text_matrix, (0.0, 0.0, 0.0, 1.0));
+        let text_uniforms = uniform! {
+            tex: self.text_cache_tex.sampled().magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest)
+        };
+
+        let text_vertex_buffer = {
+            #[derive(Copy, Clone)]
+            struct TextVertex {
+                position: [f32; 2],
+                tex_coords: [f32; 2],
+                color: [f32; 4]
+            }
+
+            implement_vertex!(TextVertex, position, tex_coords, color);
+            let color = [0.0, 0.0, 0.0, 1.0];
+            let (screen_width, screen_height) = {
+                let (w, h) = self.window.get_framebuffer_dimensions();
+                (w as f32, h as f32)
+            };
+            let origin = rusttype::point(0.0, 0.0);
+            let vertices: Vec<TextVertex> = glyphs.iter().flat_map(|g| {
+                if let Ok(Some((uv_rect, screen_rect))) = self.text_cache.rect_for(0, g) {
+                    let gl_rect = rusttype::Rect {
+                        min: origin
+                            + (rusttype::vector(screen_rect.min.x as f32 / screen_width - 0.5,
+                                      1.0 - screen_rect.min.y as f32 / screen_height - 0.5)) * 2.0,
+                        max: origin
+                            + (rusttype::vector(screen_rect.max.x as f32 / screen_width - 0.5,
+                                      1.0 - screen_rect.max.y as f32 / screen_height - 0.5)) * 2.0
+                    };
+                    vec![
+                        TextVertex {
+                            position: [gl_rect.min.x, gl_rect.max.y],
+                            tex_coords: [uv_rect.min.x, uv_rect.max.y],
+                            color: color
+                        },
+                        TextVertex {
+                            position: [gl_rect.min.x,  gl_rect.min.y],
+                            tex_coords: [uv_rect.min.x, uv_rect.min.y],
+                            color: color
+                        },
+                        TextVertex {
+                            position: [gl_rect.max.x,  gl_rect.min.y],
+                            tex_coords: [uv_rect.max.x, uv_rect.min.y],
+                            color: color
+                        },
+                        TextVertex {
+                            position: [gl_rect.max.x,  gl_rect.min.y],
+                            tex_coords: [uv_rect.max.x, uv_rect.min.y],
+                            color: color },
+                        TextVertex {
+                            position: [gl_rect.max.x, gl_rect.max.y],
+                            tex_coords: [uv_rect.max.x, uv_rect.max.y],
+                            color: color
+                        },
+                        TextVertex {
+                            position: [gl_rect.min.x, gl_rect.max.y],
+                            tex_coords: [uv_rect.min.x, uv_rect.max.y],
+                            color: color
+                        }]
+                } else {
+                    vec![]
+                }
+            }).collect();
+
+            glium::VertexBuffer::new(
+                &self.window,
+                &vertices).unwrap()
+        };
+
+        target.draw(&text_vertex_buffer,
+                    glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList),
+                    &self.text_program, &text_uniforms,
+                    &glium::DrawParameters {
+                        blend: glium::Blend::alpha_blending(),
+                        ..Default::default()
+                    }).unwrap();
 
         target.finish().unwrap();
     }
+}
+
+fn layout_paragraph<'a>(font: &'a rusttype::Font,
+                        scale: rusttype::Scale,
+                        width: u32,
+                        text: &str) -> Vec<rusttype::PositionedGlyph<'a>> {
+    use unicode_normalization::UnicodeNormalization;
+    let mut result = Vec::new();
+    let v_metrics = font.v_metrics(scale);
+    let advance_height = v_metrics.ascent - v_metrics.descent + v_metrics.line_gap;
+    let mut caret = rusttype::point(0.0, v_metrics.ascent);
+    let mut last_glyph_id = None;
+    for c in text.nfc() {
+        if c.is_control() {
+            if c == '\n' {
+                caret = rusttype::point(0.0, caret.y + advance_height);
+            }
+            continue;
+        }
+        let base_glyph = if let Some(glyph) = font.glyph(c) {
+            glyph
+        } else {
+            continue;
+        };
+        if let Some(id) = last_glyph_id.take() {
+            caret.x += font.pair_kerning(scale, id, base_glyph.id());
+        }
+        last_glyph_id = Some(base_glyph.id());
+        let mut glyph = base_glyph.scaled(scale).positioned(caret);
+        if let Some(bb) = glyph.pixel_bounding_box() {
+            if bb.max.x > width as i32 {
+                caret = rusttype::point(0.0, caret.y + advance_height);
+                glyph = glyph.into_unpositioned().positioned(caret);
+                last_glyph_id = None;
+            }
+        }
+        caret.x += glyph.unpositioned().h_metrics().advance_width;
+        result.push(glyph);
+    }
+    result
 }

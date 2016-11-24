@@ -5,7 +5,8 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
 glium = "*"
-glium_text = "*"
+rusttype = "0.2.1"
+unicode-normalization = "*"
 clippy = "*"
 fnv = "1.0.3"
 
