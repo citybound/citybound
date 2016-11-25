@@ -1,10 +1,8 @@
-use descartes::{N, Path, Norm, Band, Intersect, convex_hull, Curve, FiniteCurve, RoughlyComparable, Dot, WithUniqueOrthogonal};
+use descartes::{N, RoughlyComparable,};
 use kay::{CVec, CDict};
 use core::geometry::{CPath};
-use core::merge_groups::MergeGroups;
-use ordered_float::OrderedFloat;
 use itertools::{Itertools};
-use super::{RoadStroke, RoadStrokeNode, MIN_NODE_DISTANCE};
+use super::{RoadStroke, RoadStrokeNode};
 
 #[derive(Clone, Compact)]
 pub struct Plan{
@@ -33,8 +31,8 @@ impl Default for PlanDelta{
 #[derive(Compact, Clone)]
 pub struct Intersection{
     pub shape: CPath,
-    incoming: CDict<RoadStrokeRef, RoadStrokeNode>,
-    outgoing: CDict<RoadStrokeRef, RoadStrokeNode>,
+    pub incoming: CDict<RoadStrokeRef, RoadStrokeNode>,
+    pub outgoing: CDict<RoadStrokeRef, RoadStrokeNode>,
     pub strokes: CVec<RoadStroke>
 }
 
@@ -60,92 +58,98 @@ impl<'a> RoughlyComparable for &'a Intersection{
 pub struct IntersectionRef(pub usize);
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub struct InbetweenStrokeRef(pub usize);
+pub struct TrimmedStrokeRef(pub usize);
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub struct TransferStrokeRef(pub usize);
 
 #[derive(Compact, Clone, Default)]
 pub struct PlanResult{
     pub intersections: CDict<IntersectionRef, Intersection>,
-    pub inbetween_strokes: CDict<InbetweenStrokeRef, RoadStroke>
+    pub trimmed_strokes: CDict<TrimmedStrokeRef, RoadStroke>,
+    pub transfer_strokes: CDict<TransferStrokeRef, RoadStroke>
 }
 
 const RESULT_DELTA_TOLERANCE : N = 0.1;
 
 impl PlanResult{
     pub fn delta(&self, old: &Self) -> PlanResultDelta{
-        let intersection_pairs = self.intersections.pairs().cartesian_product(old.intersections.pairs());
-        let old_to_new_intersection_map = intersection_pairs.filter_map(|pair| match pair {
-            ((new_ref, new), (old_ref, old)) => if (&new).is_roughly_within(old, RESULT_DELTA_TOLERANCE) {
-                Some((*old_ref, *new_ref))
-            } else {None}
-        }).collect::<CDict<_, _>>();
-
-        let new_intersections = self.intersections.pairs().filter_map(|(new_ref, new)|
-            if old_to_new_intersection_map.values().any(|not_really_new_ref| not_really_new_ref == new_ref) {
-                None
-            } else {Some((*new_ref, new.clone()))}
-        ).collect();
-
-        let intersections_to_destroy = old.intersections.pairs().filter_map(|(old_ref, old)|
-            if old_to_new_intersection_map.keys().any(|revived_old_ref| revived_old_ref == old_ref) {
-                None
-            } else {Some((*old_ref, old.clone()))}
-        ).collect();
-
-        let stroke_pairs = self.inbetween_strokes.pairs().cartesian_product(old.inbetween_strokes.pairs());
-        let old_to_new_stroke_map = stroke_pairs.filter_map(|pair| match pair {
-            ((new_ref, new), (old_ref, old)) => if (&new).is_roughly_within(old, RESULT_DELTA_TOLERANCE) {
-                Some((*old_ref, *new_ref))
-            } else {None}
-        }).collect::<CDict<_, _>>();
-
-        let new_inbetween_strokes = self.inbetween_strokes.pairs().filter_map(|(new_ref, new)|
-            if old_to_new_stroke_map.values().any(|not_really_new_ref| not_really_new_ref == new_ref) {
-                None
-            } else {Some((*new_ref, new.clone()))}
-        ).collect();
-
-        let inbetween_strokes_to_destroy = old.inbetween_strokes.pairs().filter_map(|(old_ref, old)|
-            if old_to_new_stroke_map.keys().any(|revived_old_ref| revived_old_ref == old_ref) {
-                None
-            } else {Some((*old_ref, old.clone()))}
-        ).collect();
-
         PlanResultDelta{
-            new_intersections: new_intersections,
-            intersections_to_destroy: intersections_to_destroy,
-            old_to_new_intersection_map: old_to_new_intersection_map,
-            new_inbetween_strokes: new_inbetween_strokes,
-            inbetween_strokes_to_destroy: inbetween_strokes_to_destroy,
-            old_to_new_stroke_map: old_to_new_stroke_map
+            intersections: ReferencedDelta::compare_roughly(&self.intersections, &old.intersections, RESULT_DELTA_TOLERANCE),
+            trimmed_strokes: ReferencedDelta::compare_roughly(&self.trimmed_strokes, &old.trimmed_strokes, RESULT_DELTA_TOLERANCE),
+            transfer_strokes: ReferencedDelta::compare_roughly(&self.transfer_strokes, &old.transfer_strokes, RESULT_DELTA_TOLERANCE)
         }
     }
 }
 
 #[derive(Compact, Clone)]
 pub struct PlanResultDelta{
-    pub new_intersections: CDict<IntersectionRef, Intersection>,
-    pub intersections_to_destroy: CDict<IntersectionRef, Intersection>,
-    pub old_to_new_intersection_map: CDict<IntersectionRef, IntersectionRef>,
-    pub new_inbetween_strokes: CDict<InbetweenStrokeRef, RoadStroke>,
-    pub inbetween_strokes_to_destroy: CDict<InbetweenStrokeRef, RoadStroke>,
-    pub old_to_new_stroke_map: CDict<InbetweenStrokeRef, InbetweenStrokeRef>,
+    pub intersections: ReferencedDelta<IntersectionRef, Intersection>,
+    pub trimmed_strokes: ReferencedDelta<TrimmedStrokeRef, RoadStroke>,
+    pub transfer_strokes: ReferencedDelta<TransferStrokeRef, RoadStroke>
+}
+
+#[derive(Compact, Clone)]
+pub struct ReferencedDelta<Ref: Copy + Eq, T: ::kay::Compact + Clone> {
+    pub to_create: CDict<Ref, T>,
+    pub to_destroy: CDict<Ref, T>,
+    pub old_to_new: CDict<Ref, Ref>
+}
+
+impl<Ref: Copy + Eq, T: ::kay::Compact + Clone> ReferencedDelta<Ref, T> {
+    pub fn compare<'a, F: Fn(&'a T, &'a T) -> bool>(new: &'a CDict<Ref, T>, old: &'a CDict<Ref, T>, equivalent: F) -> Self {
+        let pairs = new.pairs().cartesian_product(old.pairs());
+        let old_to_new = pairs.filter_map(|pair| match pair {
+            ((new_ref, new), (old_ref, old)) => if equivalent(new, old) {
+                Some((*old_ref, *new_ref))
+            } else {None}
+        }).collect::<CDict<_, _>>();
+
+        let to_create = new.pairs().filter_map(|(new_ref, new)|
+            if old_to_new.values().any(|not_really_new_ref| not_really_new_ref == new_ref) {
+                None
+            } else {Some((*new_ref, new.clone()))}
+        ).collect();
+
+        let to_destroy = old.pairs().filter_map(|(old_ref, old)|
+            if old_to_new.keys().any(|revived_old_ref| revived_old_ref == old_ref) {
+                None
+            } else {Some((*old_ref, old.clone()))}
+        ).collect();
+
+        ReferencedDelta{
+            to_create: to_create,
+            to_destroy: to_destroy,
+            old_to_new: old_to_new
+        }
+    }
+
+    pub fn compare_roughly<'a>(new: &'a CDict<Ref, T>, old: &'a CDict<Ref, T>, tolerance: N) -> Self where &'a T: RoughlyComparable + 'a {
+        Self::compare(new, old, |new_item, old_item| {
+            new_item.is_roughly_within(old_item, tolerance)
+        })
+    }
+}
+
+impl<Ref: Copy + Eq, T: ::kay::Compact + Clone> Default for ReferencedDelta<Ref, T> {
+    fn default() -> Self {
+        ReferencedDelta{
+            to_create: CDict::new(),
+            to_destroy: CDict::new(),
+            old_to_new: CDict::new()
+        }
+    }
 }
 
 impl Default for PlanResultDelta{
     fn default() -> PlanResultDelta{
         PlanResultDelta{
-            new_intersections: CDict::new(),
-            intersections_to_destroy: CDict::new(),
-            old_to_new_intersection_map: CDict::new(),
-            new_inbetween_strokes: CDict::new(),
-            inbetween_strokes_to_destroy: CDict::new(),
-            old_to_new_stroke_map: CDict::new()
+            intersections: ReferencedDelta::default(),
+            trimmed_strokes: ReferencedDelta::default(),
+            transfer_strokes: ReferencedDelta::default()
         }
     }
 }
-
-const STROKE_INTERSECTION_WIDTH : N = 8.0;
-const INTERSECTION_GROUPING_RADIUS : N = 30.0;
 
 #[derive(Compact, Clone)]
 pub struct RemainingOldStrokes{
@@ -155,6 +159,9 @@ pub struct RemainingOldStrokes{
 impl Default for RemainingOldStrokes{
     fn default() -> Self {RemainingOldStrokes{mapping: CDict::new()}}
 }
+
+use super::plan_result_steps::{find_intersections, trim_strokes_and_add_incoming_outgoing,
+                        create_connecting_strokes, find_transfer_strokes, cut_transfer_strokes};
 
 impl Plan{
     pub fn with_delta(&self, delta: &PlanDelta) -> (Plan, RemainingOldStrokes) {
@@ -171,166 +178,16 @@ impl Plan{
     }
 
     pub fn get_result(&self) -> PlanResult {
-
-        // Find intersection points
-
-        let mut point_groups = self.strokes.iter().enumerate().flat_map(|(i, stroke_1)| {
-            let path_1 = stroke_1.path();
-            let band_1 = Band::new(path_1.clone(), STROKE_INTERSECTION_WIDTH).outline();
-            self.strokes[i+1..].iter().flat_map(|stroke_2| {
-                let path_2 = stroke_2.path();
-                let band_2 = Band::new(path_2.clone(), STROKE_INTERSECTION_WIDTH).outline();
-                (&band_1, &band_2).intersect().iter().flat_map(|intersection| {
-                    let point_1_distance = path_1.project(intersection.position);
-                    let mirrored_point_1 = point_1_distance.map(|distance|
-                        path_1.along(distance) + (path_1.along(distance) - intersection.position)
-                    );
-                    let point_2_distance = path_2.project(intersection.position);
-                    let mirrored_point_2 = point_2_distance.map(|distance|
-                        path_2.along(distance) + (path_2.along(distance) - intersection.position)
-                    );
-                    vec![intersection.position].into_iter()
-                        .chain(mirrored_point_1.into_iter()).chain(mirrored_point_2.into_iter())
-                }).collect::<Vec<_>>()
-            }).collect::<Vec<_>>()
-        }).map(|point| vec![point]).collect::<Vec<_>>();
-
-        // Merge intersection point groups
-
-        point_groups.merge_groups(|group_1, group_2|
-            group_1.iter().cartesian_product(group_2.iter())
-                .any(|(point_i, point_j)|
-                    (*point_i - *point_j).norm() < INTERSECTION_GROUPING_RADIUS));
-
-        // Create intersections from point groups
-
-        let mut intersections = point_groups.iter().filter_map(|group|
-            if group.len() >= 2 {
-                Some(Intersection{
-                    shape: convex_hull::<CPath>(group),
-                    incoming: CDict::new(),
-                    outgoing: CDict::new(),
-                    strokes: CVec::new()
-                })
-            } else {None}
-        ).collect::<CVec<_>>();
-
-        // Cut strokes at intersections
-
-        let mut strokes_todo = self.strokes.iter().cloned().enumerate().map(|(i, stroke)| (RoadStrokeRef(i), stroke)).collect::<CDict<_,_>>();
-        let mut cutting_ongoing = true;
-        let mut iters = 0;
-
-        while cutting_ongoing {
-            cutting_ongoing = false;
-            let new_strokes = strokes_todo.pairs().map(|(stroke_ref, stroke)| {
-                let stroke_path = stroke.path();
-                let mut maybe_cut_strokes = intersections.iter_mut().filter_map(|intersection| {
-                    let intersection_points = (&stroke_path, &intersection.shape).intersect();
-                    if intersection_points.len() >= 2 {
-                        let entry_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).min().unwrap();
-                        let exit_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).max().unwrap();
-                        intersection.incoming.insert(*stroke_ref, RoadStrokeNode{
-                            position: stroke_path.along(*entry_distance),
-                            direction: stroke_path.direction_along(*entry_distance)
-                        });
-                        intersection.outgoing.insert(*stroke_ref, RoadStrokeNode{
-                            position: stroke_path.along(*exit_distance),
-                            direction: stroke_path.direction_along(*exit_distance)
-                        });
-                        None
-                    } else if intersection_points.len() == 1 {
-                        if intersection.shape.contains(stroke.nodes[0].position) {
-                            let exit_distance = intersection_points[0].along_a;
-                            if let Some(after_intersection) = stroke.cut_after(exit_distance + 1.0) {
-                                intersection.outgoing.insert(*stroke_ref, after_intersection.nodes[0]);
-                                Some(after_intersection)
-                            } else {None}
-                        } else if intersection.shape.contains(stroke.nodes.last().unwrap().position) {
-                            let entry_distance = intersection_points[0].along_a;
-                            if let Some(before_intersection) = stroke.cut_before(entry_distance - 1.0) {
-                                intersection.incoming.insert(*stroke_ref, *before_intersection.nodes.last().unwrap());
-                                Some(before_intersection)
-                            } else {None}
-                        } else {None}
-                    } else {None}
-                });
-
-                match maybe_cut_strokes.next() {
-                    Some(cut_strokes) => {
-                        cutting_ongoing = true;
-                        (*stroke_ref, cut_strokes)
-                    },
-                    None => (*stroke_ref, stroke.clone())
-                }
-            }).collect::<CDict<_, _>>();
-
-            strokes_todo = new_strokes;
-            iters += 1;
-            if iters > 20 {
-                panic!("Stuck!!!")
-            }
-        }
-
-        let inbetween_strokes = strokes_todo;
-
-        // Create connecting strokes on intersections
-
-        for intersection in intersections.iter_mut() {
-            let mut incoming_groups = intersection.incoming.pairs().map(
-                |(incoming_ref, incoming)| vec![(*incoming_ref, *incoming)]).collect::<Vec<_>>();
-            incoming_groups.merge_groups(merge_incoming_or_outgoing_group);
-            for incoming_group in &mut incoming_groups {
-                let base_position = incoming_group[0].1.position;
-                let direction_right = -incoming_group[0].1.direction.orthogonal();
-                incoming_group.sort_by_key(|group| OrderedFloat((group.1.position - base_position).dot(&direction_right)));
-            }
-
-            let mut outgoing_groups = intersection.outgoing.pairs().map(
-                |(outgoing_ref, outgoing)| vec![(*outgoing_ref, *outgoing)]).collect::<Vec<_>>();
-            outgoing_groups.merge_groups(merge_incoming_or_outgoing_group);
-            for outgoing_group in &mut outgoing_groups {
-                let base_position = outgoing_group[0].1.position;
-                let direction_right = -outgoing_group[0].1.direction.orthogonal();
-                outgoing_group.sort_by_key(|group| OrderedFloat((group.1.position - base_position).dot(&direction_right)));
-            }
-
-            intersection.strokes = incoming_groups.iter().flat_map(|incoming_group| {
-                outgoing_groups.iter().filter_map(|outgoing_group| {
-                    if groups_already_connected(incoming_group, outgoing_group) {
-                        None
-                    } else {
-                        incoming_group.iter().zip(outgoing_group.iter()).filter_map(|(&(_, incoming), &(_, outgoing))|
-                            if (incoming.position - outgoing.position).norm() > MIN_NODE_DISTANCE {
-                                Some(RoadStroke::new(vec![incoming, outgoing].into()))
-                            } else {None}
-                        ).min_by_key(|stroke| OrderedFloat(stroke.path().length()))
-                    }
-                }).collect::<Vec<_>>()
-            }).collect::<CVec<_>>();
-        }
+        let mut intersections = find_intersections(&self.strokes);
+        let trimmed_strokes = trim_strokes_and_add_incoming_outgoing(&self.strokes, &mut intersections);
+        create_connecting_strokes(&mut intersections);        
+        let rough_transfer_strokes = find_transfer_strokes(&trimmed_strokes);
+        let transfer_strokes = cut_transfer_strokes(rough_transfer_strokes, &intersections);
 
         PlanResult{
             intersections: intersections.into_iter().enumerate().map(|(i, intersection)| (IntersectionRef(i), intersection)).collect(),
-            inbetween_strokes: inbetween_strokes.values().cloned().enumerate().map(|(i, stroke)| (InbetweenStrokeRef(i), stroke)).collect()
+            trimmed_strokes: trimmed_strokes.values().cloned().enumerate().map(|(i, stroke)| (TrimmedStrokeRef(i), stroke)).collect(),
+            transfer_strokes: transfer_strokes.into_iter().enumerate().map(|(i, transfer_stroke)| (TransferStrokeRef(i), transfer_stroke)).collect()
         }
     }
-}
-
-const MAX_PARALLEL_INTERSECTION_NODES_OFFSET : f32 = 10.0;
-
-type InOrOutGroup = Vec<(RoadStrokeRef, RoadStrokeNode)>;
-#[allow(ptr_arg)]
-fn merge_incoming_or_outgoing_group(group_1: &InOrOutGroup, group_2: &InOrOutGroup) -> bool {
-    let any_incoming_1 = group_1[0].1;
-    let any_incoming_2 = group_2[0].1;
-    any_incoming_1.direction.is_roughly(any_incoming_2.direction)
-        && (any_incoming_1.position - any_incoming_2.position).dot(&any_incoming_1.direction).is_roughly_within(0.0, MAX_PARALLEL_INTERSECTION_NODES_OFFSET)
-}
-
-#[allow(ptr_arg)]
-fn groups_already_connected(incoming_group: &InOrOutGroup, outgoing_group: &InOrOutGroup) -> bool {
-    incoming_group.iter().all(|&(incoming_ref, _)|
-        outgoing_group.iter().any(|&(outgoing_ref, _)| incoming_ref == outgoing_ref)
-    )
 }

@@ -20,7 +20,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg{
         RenderToScene{renderer_id, scene_id} => {
             if self.ui_state.dirty {
-                let thing : Thing = self.current_plan_result_delta.new_inbetween_strokes.values()
+                let thing : Thing = self.current_plan_result_delta.trimmed_strokes.to_create.values()
                     .filter(|stroke| stroke.nodes.len() > 1)
                     .map(RoadStroke::preview_thing)
                     .sum();
@@ -30,7 +30,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
                     thing: thing,
                     instance: Instance::with_color([0.3, 0.3, 0.5])
                 };
-                let intersections_thing : Thing = self.current_plan_result_delta.new_intersections.values()
+                let intersections_thing : Thing = self.current_plan_result_delta.intersections.to_create.values()
                     .filter(|i| i.shape.segments().len() > 0)
                     .map(|i| band_to_thing(&Band::new(i.shape.clone(), 0.4), 0.5))
                     .sum();
@@ -40,7 +40,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
                     thing: intersections_thing,
                     instance: Instance::with_color([0.0, 0.0, 1.0])
                 };
-                let connecting_strokes_thing : Thing = self.current_plan_result_delta.new_intersections.values()
+                let connecting_strokes_thing : Thing = self.current_plan_result_delta.intersections.to_create.values()
                     .filter(|i| !i.strokes.is_empty())
                     .map(|i| -> Thing {i.strokes.iter().map(RoadStroke::preview_thing).sum()})
                     .sum();
@@ -49,6 +49,15 @@ impl Recipient<RenderToScene> for CurrentPlan {
                     thing_id: 502,
                     thing: connecting_strokes_thing,
                     instance: Instance::with_color([0.5, 0.5, 1.0])
+                };
+                let transfer_strokes_thing : Thing = self.current_plan_result_delta.transfer_strokes.to_create.values()
+                    .map(RoadStroke::preview_thing)
+                    .sum();
+                renderer_id << UpdateThing{
+                    scene_id: scene_id,
+                    thing_id: 503,
+                    thing: transfer_strokes_thing,
+                    instance: Instance::with_color([1.0, 0.5, 0.0])
                 };
                 self.ui_state.dirty = false;
             }

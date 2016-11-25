@@ -5,7 +5,7 @@ mod intelligent_acceleration;
 use self::intelligent_acceleration::{intelligent_acceleration, COMFORTABLE_BREAKING_DECELERATION};
 use core::geometry::CPath;
 use kay::{ID, Actor, CVec, Swarm, CreateWith, Recipient, ActorSystem, Fate};
-use descartes::{FiniteCurve, RoughlyComparable, Band, Intersect, Curve};
+use descartes::{FiniteCurve, RoughlyComparable, Band, Intersect, Curve, Path, Dot, WithUniqueOrthogonal};
 use ordered_float::OrderedFloat;
 use itertools::Itertools;
 use ::std::f32::INFINITY;
@@ -19,11 +19,12 @@ pub struct Lane {
     interactions: CVec<Interaction>,
     interaction_obstacles: CVec<Obstacle>,
     cars: CVec<LaneCar>,
-    in_construction: f32
+    in_construction: f32,
+    on_intersection: bool
 }
 
 impl Lane {
-    pub fn new(path: CPath) -> Self {
+    pub fn new(path: CPath, on_intersection: bool) -> Self {
         Lane {
             _id: ID::invalid(),
             length: path.length(),
@@ -31,7 +32,8 @@ impl Lane {
             interactions: CVec::new(),
             interaction_obstacles: CVec::new(),
             cars: CVec::new(),
-            in_construction: 0.0
+            in_construction: 0.0,
+            on_intersection: on_intersection
         }
     }
 }
@@ -41,26 +43,24 @@ pub struct TransferLane {
     _id: ID,
     length: f32,
     path: CPath,
-    left: ID,
-    left_start: f32,
-    right: ID,
-    right_start: f32,
+    left: Option<(ID, f32)>,
+    right: Option<(ID, f32)>,
     interaction_obstacles: CVec<Obstacle>,
-    cars: CVec<TransferringLaneCar>
+    cars: CVec<TransferringLaneCar>,
+    in_construction: f32
 }
 
 impl TransferLane {
-    fn new(path: CPath, left: ID, left_start: f32, right: ID, right_start: f32) -> TransferLane {
+    fn new(path: CPath) -> TransferLane {
         TransferLane{
             _id: ID::invalid(),
             length: path.length(),
             path: path,
-            left: left,
-            left_start: left_start,
-            right: right,
-            right_start: right_start,
+            left: None,
+            right: None,
             interaction_obstacles: CVec::new(),
-            cars: CVec::new()
+            cars: CVec::new(),
+            in_construction: 0.0
         }
     }
 }
@@ -209,53 +209,58 @@ impl Recipient<Tick> for Lane {
 
 impl Recipient<Tick> for TransferLane {
     fn receive(&mut self, msg: &Tick) -> Fate {match *msg{
-        Tick{dt, ..} => {
-            self.interaction_obstacles.sort_by_key(|obstacle| obstacle.position);
+        Tick{dt, current_tick} => {
+            self.in_construction += dt * 400.0;
 
-            for c in 0..self.cars.len() {
-                let (acceleration, is_dangerous) = {
-                    let car = &self.cars[c];
-                    
-                    let next_obstacle = self.cars.get(c + 1).map_or(Obstacle::far_ahead(), |car| car.as_obstacle);
-                    let previous_obstacle = if c > 0 {self.cars[c - 1].as_obstacle} else {Obstacle::far_behind()};
+            let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING == self.id().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
-                    let next_interaction_obstacle_index = self.interaction_obstacles.iter().position(
-                        |obstacle| obstacle.position > car.position
-                    );
-                    let next_interaction_obstacle = next_interaction_obstacle_index
-                        .map(|idx| self.interaction_obstacles[idx]).unwrap_or_else(Obstacle::far_ahead);
-                    let previous_interaction_obstacle = next_interaction_obstacle_index
-                        .and_then(|idx| self.interaction_obstacles.get(idx - 1)).cloned().unwrap_or_else(Obstacle::far_behind);
+            if do_traffic {
 
-                    let next_obstacle_acceleration = intelligent_acceleration(car, &next_obstacle)
-                        .min(intelligent_acceleration(car, &next_interaction_obstacle));
-                    let previous_obstacle_acceleration = intelligent_acceleration(&previous_obstacle, &car.as_obstacle)
-                        .min(intelligent_acceleration(&previous_interaction_obstacle, &car.as_obstacle));
+                self.interaction_obstacles.sort_by_key(|obstacle| obstacle.position);
+                let mut overlap_obstacles = self.interaction_obstacles.iter();
+                let mut maybe_next_overlap_obstacle = overlap_obstacles.next();
+                let mut maybe_previous_overlap_obstacle = None;
 
-                    let politeness_factor = 0.3;
+                for c in 0..self.cars.len() {
+                    let (acceleration, is_dangerous) = {
+                        let car = &self.cars[c];
+                        
+                        let next_obstacle = self.cars.get(c + 1).map_or(Obstacle::far_ahead(), |car| car.as_obstacle);
+                        let previous_obstacle = if c > 0 {self.cars[c - 1].as_obstacle} else {Obstacle::far_behind()};
 
-                    let acceleration = if previous_obstacle_acceleration < 0.0 {
-                        (1.0 - politeness_factor) * next_obstacle_acceleration + politeness_factor * previous_obstacle_acceleration
-                    } else {
-                        next_obstacle_acceleration
+                        maybe_next_overlap_obstacle = maybe_next_overlap_obstacle.and_then(|obstacle| {
+                            let mut following_obstacle = Some(obstacle);
+                            while following_obstacle.is_some() && following_obstacle.unwrap().position < car.position {
+                                maybe_previous_overlap_obstacle = Some(following_obstacle.unwrap());
+                                following_obstacle = overlap_obstacles.next();
+                            }
+                            following_obstacle
+                        });
+
+                        let next_obstacle_acceleration = intelligent_acceleration(car, &next_obstacle)
+                            .min(intelligent_acceleration(car, maybe_next_overlap_obstacle.unwrap_or(&Obstacle::far_ahead())));
+                        let previous_obstacle_acceleration = intelligent_acceleration(&previous_obstacle, &car.as_obstacle)
+                            .min(intelligent_acceleration(maybe_previous_overlap_obstacle.unwrap_or(&Obstacle::far_behind()), &car.as_obstacle));
+
+                        let politeness_factor = 0.3;
+
+                        let acceleration = if previous_obstacle_acceleration < 0.0 {
+                            (1.0 - politeness_factor) * next_obstacle_acceleration + politeness_factor * previous_obstacle_acceleration
+                        } else {
+                            next_obstacle_acceleration
+                        };
+
+                        let is_dangerous = next_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION
+                            || previous_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION;
+
+                        (acceleration, is_dangerous)
                     };
 
-                    let is_dangerous = next_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION
-                        || previous_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION;
-
-                    (acceleration, is_dangerous)
-                };
-
-                let car = &mut self.cars[c];
-                car.acceleration = acceleration;
-                if is_dangerous {
-                    car.transfer_acceleration = if car.transfer_position >= 0.0 {0.3} else {-0.3}
-                }
-                // smooth out arrival on other lane
-                #[allow(float_cmp)]
-                let arriving_soon = car.transfer_velocity.abs() > 0.1 && car.transfer_position.abs() > 0.5 && car.transfer_position.signum() == car.transfer_velocity.signum();
-                if arriving_soon {
-                    car.transfer_acceleration = -0.9 * car.transfer_velocity;
+                    let car = &mut self.cars[c];
+                    car.acceleration = acceleration;
+                    if is_dangerous {
+                        car.transfer_acceleration = if car.transfer_position >= 0.0 {0.3} else {-0.3}
+                    }
                 }
             }
 
@@ -267,38 +272,56 @@ impl Recipient<Tick> for TransferLane {
                 if car.transfer_velocity.abs() > car.velocity/12.0 {
                     car.transfer_velocity = car.velocity/12.0 * car.transfer_velocity.signum();
                 }
+                // smooth out arrival on other lane
+                #[allow(float_cmp)]
+                let arriving_soon = car.transfer_velocity.abs() > 0.1 && car.transfer_position.abs() > 0.5 && car.transfer_position.signum() == car.transfer_velocity.signum();
+                if arriving_soon {
+                    car.transfer_acceleration = -0.9 * car.transfer_velocity;
+                }
             }
 
-            let mut i = 0;
-            loop {
-                let (should_remove, done) = if let Some(car) = self.cars.get(i) {
-                    if car.transfer_position < -1.0 {
-                        self.left << Add::Car(car.as_lane_car.offset_by(self.left_start));
-                        (true, false)
-                    } else if car.transfer_position > 1.0 {
-                        self.right << Add::Car(car.as_lane_car.offset_by(self.right_start));
-                        (true, false)
+            if let (Some((left, left_start)), Some((right, right_start))) = (self.left, self.right) {
+                let mut i = 0;
+                loop {
+                    let (should_remove, done) = if let Some(car) = self.cars.get(i) {
+                        if car.transfer_position < -1.0 {
+                            left << Add::Car(car.as_lane_car.offset_by(left_start));
+                            (true, false)
+                        } else if car.transfer_position > 1.0 {
+                            right << Add::Car(car.as_lane_car.offset_by(right_start));
+                            (true, false)
+                        } else {
+                            i += 1;
+                            (false, false)
+                        }
                     } else {
-                        i += 1;
-                        (false, false)
+                        (false, true)
+                    };
+                    if done {break;}
+                    if should_remove {self.cars.remove(i);}
+                }
+
+                if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING == left.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
+                    for car in &self.cars {
+                        if car.transfer_position < 0.3 || car.transfer_velocity < 0.0 {
+                            left << Add::InteractionObstacle(car.as_obstacle.offset_by(left_start));
+                        }
                     }
-                } else {
-                    (false, true)
-                };
-                if done {break;}
-                if should_remove {self.cars.remove(i);}
-            }
-
-            for car in &self.cars {
-                if car.transfer_position < 0.3 || car.transfer_velocity < 0.0 {
-                    self.left << Add::InteractionObstacle(car.as_obstacle.offset_by(self.left_start));
                 }
-                if car.transfer_position > -0.3 || car.transfer_velocity > 0.0 {
-                    self.right << Add::InteractionObstacle(car.as_obstacle.offset_by(self.right_start));
+
+                if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING == right.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
+                    for car in &self.cars {
+                        if car.transfer_position < 0.3 || car.transfer_velocity < 0.0 {
+                            right << Add::InteractionObstacle(car.as_obstacle.offset_by(right_start));
+                        }
+                    }
                 }
             }
 
-            self.interaction_obstacles.clear();
+            if do_traffic {
+                self.interaction_obstacles.clear();
+            }
+
             Fate::Live
         }
     }}
@@ -324,6 +347,21 @@ impl Recipient<AdvertiseForConnectionAndReport> for Lane {
             };
             report_to << ReportLaneBuilt(self.id(), report_as);
             self::lane_rendering::on_build(self);
+            Fate::Live
+        }
+    }}
+}
+
+impl Recipient<AdvertiseForConnectionAndReport> for TransferLane {
+    fn receive(&mut self, msg: &AdvertiseForConnectionAndReport) -> Fate {match *msg{
+        AdvertiseForConnectionAndReport(report_to, report_as) => {
+            Swarm::<Lane>::all() << Connect{
+                other_id: self.id(),
+                other_path: self.path.clone(),
+                reply_needed: true
+            };
+            report_to << ReportLaneBuilt(self.id(), report_as);
+            self::lane_rendering::on_build_transfer(self);
             Fate::Live
         }
     }}
@@ -432,6 +470,44 @@ impl Recipient<Connect> for Lane {
     }}
 }
 
+impl Recipient<Connect> for TransferLane {
+    fn receive(&mut self, msg: &Connect) -> Fate {match *msg{
+        Connect{other_id, ref other_path, reply_needed} => {
+            if self.path.segments().iter().all(|segment|
+                other_path.segments().iter().any(|other_segment|
+                    segment.start().is_roughly_within(other_segment.start(), 6.0)
+                    && segment.start_direction().is_roughly_within(other_segment.start_direction(), 0.1)
+                    && segment.end().is_roughly_within(other_segment.end(), 6.0)
+                    && segment.end_direction().is_roughly_within(other_segment.end_direction(), 0.1)
+                )
+            ) {
+                let self_start_on_other_distance = other_path.project(self.path.start())
+                    .expect("start should be on neighboring lane");
+                let self_start_on_other = other_path.along(self_start_on_other_distance);
+                let is_right_of = (self.path.start() - self_start_on_other)
+                    .dot(&self.path.start_direction().orthogonal()) > 0.0;
+
+                if is_right_of {
+                    assert!(self.right.is_none(), "Already has a right lane");
+                    self.right = Some((other_id, self_start_on_other_distance));
+                } else {
+                    assert!(self.left.is_none(), "Already has a left lane");
+                    self.left = Some((other_id, self_start_on_other_distance));
+                }
+            }
+
+            if reply_needed {
+                other_id << Connect{
+                    other_id: self.id(),
+                    other_path: self.path.clone(),
+                    reply_needed: false
+                };
+            }
+            Fate::Live
+        }
+    }}
+}
+
 #[derive(Copy, Clone)]
 pub struct Disconnect{other_id: ID}
 
@@ -442,6 +518,28 @@ impl Recipient<Disconnect> for Lane {
             self.interactions = self.interactions.iter().filter(|interaction|
                 interaction.partner_lane != other_id
             ).cloned().collect();
+            Fate::Live
+        }
+    }}
+}
+
+impl Recipient<Disconnect> for TransferLane {
+    fn receive(&mut self, msg: &Disconnect) -> Fate {match *msg{
+        Disconnect{other_id} => {
+            let mut something_changed = false;
+            self.left = self.left.and_then(|(left_id, left_start)|
+                if left_id == other_id {
+                    something_changed = true;
+                    None
+                } else {Some((left_id, left_start))}
+            );
+            self.right = self.right.and_then(|(right_id, right_start)|
+                if right_id == other_id {
+                    something_changed = true;
+                    None
+                } else {Some((right_id, right_start))}
+            );
+            if !something_changed {panic!("Tried to disconnect a non-connected lane")}
             Fate::Live
         }
     }}
@@ -458,6 +556,19 @@ impl Recipient<Unbuild> for Lane{
     }
 }
 
+impl Recipient<Unbuild> for TransferLane{
+    fn receive(&mut self, _msg: &Unbuild) -> Fate {
+        if let Some((left_id, _)) = self.left {
+            left_id << Disconnect{other_id: self.id()}; 
+        }
+        if let Some((right_id, _)) = self.right {
+            right_id << Disconnect{other_id: self.id()}; 
+        }
+        self::lane_rendering::on_unbuild_transfer(self);
+        Fate::Die
+    }
+}
+
 pub fn setup(system: &mut ActorSystem) {
     system.add_individual(Swarm::<Lane>::new());
     system.add_inbox::<CreateWith<Lane, AdvertiseForConnectionAndReport>, Swarm<Lane>>();
@@ -468,8 +579,12 @@ pub fn setup(system: &mut ActorSystem) {
     system.add_inbox::<Unbuild, Swarm<Lane>>();
 
     system.add_individual(Swarm::<TransferLane>::new());
+    system.add_inbox::<CreateWith<TransferLane, AdvertiseForConnectionAndReport>, Swarm<TransferLane>>();
     system.add_inbox::<Add, Swarm<TransferLane>>();
     system.add_inbox::<Tick, Swarm<TransferLane>>();
+    system.add_inbox::<Connect, Swarm<TransferLane>>();
+    system.add_inbox::<Disconnect, Swarm<TransferLane>>();
+    system.add_inbox::<Unbuild, Swarm<TransferLane>>();
 }
 
 #[derive(Copy, Clone)]

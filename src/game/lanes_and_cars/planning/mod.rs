@@ -3,14 +3,17 @@ use kay::{Swarm, CVec, Recipient, CreateWith, ActorSystem, Individual, Fate};
 use core::merge_groups::MergeGroups;
 use itertools::Itertools;
 
+//TODO: Clean up this whole mess with more submodules
+
 mod plan;
 mod road_stroke;
 mod road_stroke_node_interactable;
 mod road_stroke_canvas;
+pub mod plan_result_steps;
 pub mod materialized_reality;
 pub mod current_plan_rendering;
 
-pub use self::plan::{Plan, RoadStrokeRef, IntersectionRef, InbetweenStrokeRef, PlanDelta, PlanResult, PlanResultDelta, RemainingOldStrokes};
+pub use self::plan::{Plan, RoadStrokeRef, Intersection, IntersectionRef, TrimmedStrokeRef, TransferStrokeRef, PlanDelta, PlanResult, PlanResultDelta, RemainingOldStrokes};
 pub use self::road_stroke::{RoadStroke, RoadStrokeNode, RoadStrokeNodeRef};
 pub use self::road_stroke_node_interactable::RoadStrokeNodeInteractable;
 pub use self::road_stroke_canvas::RoadStrokeCanvas;
@@ -54,7 +57,7 @@ impl Recipient<PlanControl> for CurrentPlan {
                         DrawingStatus::Nothing(())
                     } else {
                         let new_node_refs = (0..self.ui_state.n_lanes_per_side).into_iter().flat_map(|lane_idx| {
-                            let offset = (position - start).normalize().orthogonal() * (5.0 + 10.0 * lane_idx as N);
+                            let offset = (position - start).normalize().orthogonal() * (3.0 + 5.0 * lane_idx as N);
 
                             self.delta.new_strokes.push(RoadStroke::new(vec![
                                 RoadStrokeNode{position: start + offset, direction: (position - start).normalize()},

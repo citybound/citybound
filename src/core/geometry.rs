@@ -67,7 +67,7 @@ fn to_vertex(point: P2, z: N) -> Vertex {
     Vertex{position: [point.x, point.y, z]}
 }
 
-const CURVE_LINEARIZATION_MAX_ANGLE : f32 = 0.1;
+const CURVE_LINEARIZATION_MAX_ANGLE : f32 = 0.03;
 
 pub fn band_to_thing<P: Path>(band: &Band<P>, z: N) -> Thing {
     let mut vertices = Vec::<Vertex>::new();
@@ -110,6 +110,28 @@ pub fn band_to_thing<P: Path>(band: &Band<P>, z: N) -> Thing {
     }
 
     Thing::new(vertices, indices)
+}
+
+pub fn dash_path<P: Path>(path: P, dash_length: f32, gap_length: f32) -> Vec<P> {
+    let mut on_dash = true;
+    let mut position = 0.0;
+    let mut dashes = Vec::new();
+
+    while position < path.length() {
+        let old_position = position;
+        if on_dash {
+            position += dash_length;
+            if let Some(dash) = path.subsection(old_position, position) {
+                dashes.push(dash)
+            }
+        } else {
+            position += gap_length;
+        }
+
+        on_dash = !on_dash;
+    }
+
+    dashes
 }
 
 static mut LAST_DEBUG_THING: u16 = 0;
