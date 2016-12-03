@@ -4,8 +4,7 @@ use ::std::mem::size_of;
 
 pub enum Fate{
     Live,
-    Die,
-    Explode(String)
+    Die
 }
 
 pub trait Recipient<M: Message> {

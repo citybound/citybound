@@ -12,7 +12,7 @@ pub struct Swarm<Actor> {
     _marker: PhantomData<[Actor]>
 }
 
-const CHUNK_SIZE : usize = 4096 * 4096;
+const CHUNK_SIZE : usize = 4096 * 4096 * 4;
 
 impl<A: Actor> Swarm<A> {
     pub fn new() -> Self {
@@ -116,7 +116,7 @@ impl<A: Actor> Swarm<A> {
                     self.resize(packet.recipient_id.instance_id as usize);
                 }
             },
-            Fate::Die | Fate::Explode(..) => self.remove(packet.recipient_id)
+            Fate::Die => self.remove(packet.recipient_id)
         }
     }
 
@@ -160,7 +160,7 @@ impl<A: Actor> Swarm<A> {
                                 false
                             }
                         },
-                    Fate::Die | Fate::Explode(..) => {
+                    Fate::Die => {
                         self.remove_at_index(index, id);
                         // this should also work in the case where the "resized" actor itself is added to the same collection again
                         let swapped_in_another_receiver = self.actors.collections[c].len() < index_after_last_recipient;
