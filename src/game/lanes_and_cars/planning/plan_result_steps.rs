@@ -55,7 +55,7 @@ pub fn trim_strokes_and_add_incoming_outgoing(strokes: &CVec<RoadStroke>, inters
         let new_strokes = strokes_todo.iter().flat_map(|&(stroke_ref, ref stroke)| {
             let stroke_path = stroke.path();
             let mut maybe_trimmed_strokes = intersections.iter_mut().filter_map(|intersection| {
-                let intersection_points = (&stroke_path, &intersection.shape).intersect();
+                let intersection_points = (stroke_path, &intersection.shape).intersect();
                 if intersection_points.len() >= 2 {
                     let entry_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).min().unwrap();
                     let exit_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).max().unwrap();
@@ -77,16 +77,16 @@ pub fn trim_strokes_and_add_incoming_outgoing(strokes: &CVec<RoadStroke>, inters
                         (None, None) => None
                     }
                 } else if intersection_points.len() == 1 {
-                    if intersection.shape.contains(stroke.nodes[0].position) {
+                    if intersection.shape.contains(stroke.nodes()[0].position) {
                         let exit_distance = intersection_points[0].along_a;
                         if let Some(after_intersection) = stroke.cut_after(exit_distance + 0.05) {
-                            intersection.outgoing.insert(stroke_ref, after_intersection.nodes[0]);
+                            intersection.outgoing.insert(stroke_ref, after_intersection.nodes()[0]);
                             Some(vec![(stroke_ref, after_intersection)])
                         } else {None}
-                    } else if intersection.shape.contains(stroke.nodes.last().unwrap().position) {
+                    } else if intersection.shape.contains(stroke.nodes().last().unwrap().position) {
                         let entry_distance = intersection_points[0].along_a;
                         if let Some(before_intersection) = stroke.cut_before(entry_distance - 0.05) {
-                            intersection.incoming.insert(stroke_ref, *before_intersection.nodes.last().unwrap());
+                            intersection.incoming.insert(stroke_ref, *before_intersection.nodes().last().unwrap());
                             Some(vec![(stroke_ref, before_intersection)])
                         } else {None}
                     } else {None}
@@ -186,12 +186,11 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<RoadStroke>) -> Vec<RoadStro
                 }
             );
             // TODO: connect consecutive aligned segments
-            aligned_paths.map(|segment| RoadStroke{
-                nodes: vec![
+            aligned_paths.map(|segment| RoadStroke::new(vec![
                     RoadStrokeNode{position: segment.start(), direction: segment.start_direction()},
                     RoadStrokeNode{position: segment.end(), direction: segment.end_direction()},
                 ].into()
-            }).collect::<Vec<_>>()
+            )).collect::<Vec<_>>()
         }).collect::<Vec<_>>()
     }).collect::<Vec<_>>()
 }

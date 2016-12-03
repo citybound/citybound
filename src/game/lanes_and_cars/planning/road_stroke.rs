@@ -8,7 +8,8 @@ use super::super::{Lane, TransferLane, AdvertiseForConnectionAndReport};
 
 #[derive(Compact, Clone)]
 pub struct RoadStroke{
-    pub nodes: CVec<RoadStrokeNode>
+    nodes: CVec<RoadStrokeNode>,
+    _memoized_path: CPath
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -24,17 +25,32 @@ impl RoadStroke {
         if nodes.len() <= 1 {
             panic!("Invalid stroke")
         }
-        RoadStroke{nodes: nodes}
+        RoadStroke{nodes: nodes, _memoized_path: CPath::new(vec![])}
     }
 
-    pub fn path(&self) -> CPath {
-        Path::new(self.nodes.windows(2).flat_map(|window|
-            Segment::biarc(window[0].position, window[0].direction, window[1].position, window[1].direction)
-        ).collect::<Vec<_>>())
+    pub fn nodes(&self) -> &CVec<RoadStrokeNode> {
+        &self.nodes
+    }
+
+    pub fn nodes_mut(&mut self) -> &mut CVec<RoadStrokeNode> {
+        &mut self.nodes
+    }
+
+    pub fn path(&self) -> &CPath {
+        // TODO: replace by proper Option
+        if self._memoized_path.segments().len() == 0 {
+            // TODO: maybe there is something less damn dangerous
+            #[allow(mutable_transmutes)]
+            let unsafe_memoized_path : &mut CPath = unsafe{::std::mem::transmute(&self._memoized_path)};
+            *unsafe_memoized_path = Path::new(self.nodes.windows(2).flat_map(|window|
+                Segment::biarc(window[0].position, window[0].direction, window[1].position, window[1].direction)
+            ).collect::<Vec<_>>())
+        }
+        &self._memoized_path
     }
 
     pub fn preview_thing(&self) -> Thing {
-        band_to_thing(&Band::new(Band::new(self.path(), 3.0).outline(), 0.3), 0.0)
+        band_to_thing(&Band::new(Band::new(self.path().clone(), 3.0).outline(), 0.3), 0.0)
     }
 
     #[allow(needless_lifetimes)]
@@ -103,7 +119,7 @@ impl RoadStroke {
 
     pub fn build(&self, report_to: ID, report_as: BuildableRef) {
         Swarm::<Lane>::all() << CreateWith(
-            Lane::new(self.path(), match report_as {
+            Lane::new(self.path().clone(), match report_as {
                 BuildableRef::Intersection(_) => true,
                 _ => false,
             }),
@@ -113,7 +129,7 @@ impl RoadStroke {
 
     pub fn build_transfer(&self, report_to: ID, report_as: BuildableRef) {
         Swarm::<TransferLane>::all() << CreateWith(
-            TransferLane::new(self.path()),
+            TransferLane::new(self.path().clone()),
             AdvertiseForConnectionAndReport(report_to, report_as)
         );
     }

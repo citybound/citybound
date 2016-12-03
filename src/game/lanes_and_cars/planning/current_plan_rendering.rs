@@ -21,7 +21,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
         RenderToScene{renderer_id, scene_id} => {
             if self.ui_state.dirty {
                 let thing : Thing = self.current_plan_result_delta.trimmed_strokes.to_create.values()
-                    .filter(|stroke| stroke.nodes.len() > 1)
+                    .filter(|stroke| stroke.nodes().len() > 1)
                     .map(RoadStroke::preview_thing)
                     .sum();
                 renderer_id << UpdateThing{

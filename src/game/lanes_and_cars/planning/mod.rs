@@ -84,21 +84,21 @@ impl Recipient<PlanControl> for CurrentPlan {
                     } else {
                         let new_current_nodes = current_nodes.clone().iter().map(|&RoadStrokeNodeRef(stroke_idx, node_idx)| {
                             let stroke = &mut self.delta.new_strokes[stroke_idx];
-                            let node = stroke.nodes[node_idx];
+                            let node = stroke.nodes()[node_idx];
                             let relative_position_in_basis = (node.position - previous_add).to_basis(node.direction);
 
-                            if node_idx == stroke.nodes.len() - 1 {
+                            if node_idx == stroke.nodes().len() - 1 {
                                 // append
                                 let new_direction = Segment::arc_with_direction(previous_add, node.direction, position).end_direction();
-                                stroke.nodes.push(RoadStrokeNode{
+                                stroke.nodes_mut().push(RoadStrokeNode{
                                     position: position + relative_position_in_basis.from_basis(new_direction),
                                     direction: new_direction
                                 });
-                                RoadStrokeNodeRef(stroke_idx, stroke.nodes.len() - 1)
+                                RoadStrokeNodeRef(stroke_idx, stroke.nodes().len() - 1)
                             } else if node_idx == 0 {
                                 // prepend
                                 let new_direction = -Segment::arc_with_direction(previous_add, -node.direction, position).end_direction();
-                                stroke.nodes.insert(0, RoadStrokeNode{
+                                stroke.nodes_mut().insert(0, RoadStrokeNode{
                                     position: position + relative_position_in_basis.from_basis(new_direction),
                                     direction: new_direction
                                 });
@@ -118,36 +118,36 @@ impl Recipient<PlanControl> for CurrentPlan {
         PlanControl::MoveRoadStrokeNodesTo(ref node_refs, handle_from, handle_to) =>  {
             for &RoadStrokeNodeRef(stroke_idx, node_idx) in node_refs {
                 let stroke = &mut self.delta.new_strokes[stroke_idx];
-                let node = stroke.nodes[node_idx];
-                if node_idx == stroke.nodes.len() - 1 {
-                    let previous_node = stroke.nodes[node_idx - 1];
+                let node = stroke.nodes()[node_idx];
+                if node_idx == stroke.nodes().len() - 1 {
+                    let previous_node = stroke.nodes()[node_idx - 1];
                     let relative_position_in_basis = (node.position - handle_from).to_basis(node.direction);
                     let previous_node_relative_position = relative_position_in_basis.from_basis(previous_node.direction);
                     let imaginary_previous_add = previous_node.position - previous_node_relative_position;
                     let new_direction = Segment::arc_with_direction(imaginary_previous_add, previous_node.direction, handle_to).end_direction();
                     let new_position = handle_to + relative_position_in_basis.from_basis(new_direction);
                     if (previous_node.position - new_position).norm() > MIN_NODE_DISTANCE {
-                        stroke.nodes[node_idx].position = new_position;
-                        stroke.nodes[node_idx].direction = new_direction
+                        stroke.nodes_mut()[node_idx].position = new_position;
+                        stroke.nodes_mut()[node_idx].direction = new_direction
                     }
                 } else if node_idx == 0 {
-                    let next_node = stroke.nodes[node_idx + 1];
+                    let next_node = stroke.nodes()[node_idx + 1];
                     let relative_position_in_basis = (node.position - handle_from).to_basis(node.direction);
                     let next_node_relative_position = relative_position_in_basis.from_basis(next_node.direction);
                     let imaginary_next_add = next_node.position - next_node_relative_position;
                     let new_direction = -Segment::arc_with_direction(imaginary_next_add, -next_node.direction, handle_to).end_direction();
                     let new_position = handle_to + relative_position_in_basis.from_basis(new_direction);
                     if (next_node.position - new_position).norm() > MIN_NODE_DISTANCE {
-                        stroke.nodes[node_idx].position = new_position;
-                        stroke.nodes[node_idx].direction = new_direction
+                        stroke.nodes_mut()[node_idx].position = new_position;
+                        stroke.nodes_mut()[node_idx].direction = new_direction
                     }
                 } else {
-                    let previous_node = stroke.nodes[node_idx - 1];
-                    let next_node = stroke.nodes[node_idx + 1];
+                    let previous_node = stroke.nodes()[node_idx - 1];
+                    let next_node = stroke.nodes()[node_idx + 1];
                     let new_position = node.position + (handle_to - handle_from);
                     if (previous_node.position - new_position).norm() > MIN_NODE_DISTANCE
                     && (next_node.position - new_position).norm() > MIN_NODE_DISTANCE {
-                        stroke.nodes[node_idx].position = new_position;
+                        stroke.nodes_mut()[node_idx].position = new_position;
                     }
                 }
             }
@@ -158,7 +158,7 @@ impl Recipient<PlanControl> for CurrentPlan {
         PlanControl::MaybeMakeCurrent(ref node_refs, handle_position) => {
             let strokes = &mut self.delta.new_strokes;
             let is_first_or_last = |&RoadStrokeNodeRef(stroke_idx, node_idx)| {
-                node_idx == 0 || node_idx == strokes[stroke_idx].nodes.len() - 1
+                node_idx == 0 || node_idx == strokes[stroke_idx].nodes().len() - 1
             };
 
             if node_refs.iter().all(is_first_or_last) {
