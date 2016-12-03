@@ -1,9 +1,10 @@
 pub mod lane_rendering;
 pub mod lane_thing_collector;
 pub mod planning;
+pub mod pathfinding;
 mod intelligent_acceleration;
 use self::intelligent_acceleration::{intelligent_acceleration, COMFORTABLE_BREAKING_DECELERATION};
-use core::geometry::CPath;
+use core::geometry::{CPath, add_debug_path};
 use kay::{ID, Actor, CVec, Swarm, CreateWith, Recipient, ActorSystem, Fate};
 use descartes::{FiniteCurve, RoughlyComparable, Band, Intersect, Curve, Path, Dot, WithUniqueOrthogonal};
 use ordered_float::OrderedFloat;
@@ -20,7 +21,8 @@ pub struct Lane {
     interaction_obstacles: CVec<Obstacle>,
     cars: CVec<LaneCar>,
     in_construction: f32,
-    on_intersection: bool
+    on_intersection: bool,
+    pathfinding_info: pathfinding::PathfindingInfo
 }
 
 impl Lane {
@@ -33,7 +35,8 @@ impl Lane {
             interaction_obstacles: CVec::new(),
             cars: CVec::new(),
             in_construction: 0.0,
-            on_intersection: on_intersection
+            on_intersection: on_intersection,
+            pathfinding_info: pathfinding::PathfindingInfo::default()
         }
     }
 }
@@ -67,18 +70,34 @@ impl TransferLane {
 
 #[derive(Copy, Clone)]
 enum Add{
-    Car(LaneCar),
+    Car(LaneCar, Option<ID>),
     InteractionObstacle(Obstacle)
 }
 
+use self::pathfinding::RoutingInfo;
+
 impl Recipient<Add> for Lane {
     fn receive(&mut self, msg: &Add) -> Fate {match *msg{
-        Add::Car(car) => {
+        Add::Car(car, _from) => {
+            let next_hop_interaction = self.pathfinding_info.routes.get(car.destination).map(|&RoutingInfo{outgoing_idx, ..}|
+                Some(outgoing_idx as usize)
+            ).unwrap_or_else(|| {
+                println!("NO ROUTE! Routes: {:#?}", self.pathfinding_info.routes.pairs().collect::<Vec<_>>());
+                self.interactions.iter().position(|interaction| match interaction.kind {Next{..} => true, _ => false})
+            }).expect("the car should be able to go somewhere!");
+
+            println!("next hop idx will be {:?}", next_hop_interaction);
+
+            let routed_car = LaneCar{
+                next_hop_interaction: next_hop_interaction as u8,
+                .. car
+            };
+
             // TODO: optimize using BinaryHeap?
             let maybe_next_car_position = self.cars.iter().position(|other_car| other_car.as_obstacle.position > car.as_obstacle.position);
             match maybe_next_car_position {
-                Some(next_car_position) => self.cars.insert(next_car_position, car),
-                None => self.cars.push(car)
+                Some(next_car_position) => self.cars.insert(next_car_position, routed_car),
+                None => self.cars.push(routed_car)
             }
             Fate::Live
         },
@@ -91,17 +110,19 @@ impl Recipient<Add> for Lane {
 
 impl Recipient<Add> for TransferLane {
     fn receive(&mut self, msg: &Add) -> Fate {match *msg{
-        Add::Car(car) => {
+        Add::Car(car, Some(from)) => {
+            let side_multiplier = if from == self.left.expect("should have a left lane").0 {1.0} else {-1.0};
             self.cars.push(TransferringLaneCar{
                 as_lane_car: car,
-                transfer_position: -1.0,
+                transfer_position: 1.0 * side_multiplier,
                 transfer_velocity: 0.0,
-                transfer_acceleration: 0.1
+                transfer_acceleration: 0.3 * -side_multiplier
             });
             // TODO: optimize using BinaryHeap?
             self.cars.sort_by_key(|car| car.as_obstacle.position);
             Fate::Live
         },
+        Add::Car(_, None) => panic!("car has to come from somewhere on a transfer lane"),
         Add::InteractionObstacle(obstacle) => {
             self.interaction_obstacles.push(obstacle);
             Fate::Live
@@ -112,11 +133,16 @@ impl Recipient<Add> for TransferLane {
 use core::simulation::Tick;
 
 const TRAFFIC_LOGIC_THROTTLING : usize = 30;
+const PATHFINDING_THROTTLING : usize = 3;
 
 impl Recipient<Tick> for Lane {
     fn receive(&mut self, msg: &Tick) -> Fate {match *msg{
         Tick{dt, current_tick} => {
             self.in_construction += dt * 400.0;
+
+            if current_tick % PATHFINDING_THROTTLING == self.id().instance_id as usize % PATHFINDING_THROTTLING {
+                self::pathfinding::tick(self);
+            }
 
             let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING == self.id().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
@@ -158,27 +184,52 @@ impl Recipient<Tick> for Lane {
                     self.cars[i].position = OrderedFloat((*self.cars[i].position).min(*self.cars[i + 1].position));
                 }
             }
-            
+
             loop {
-                let should_pop = self.cars.iter().rev().find(|car| *car.position > self.length).map(|car_over_end| {
-                    let first_next_interaction = self.interactions.iter().find(|interaction| match interaction.kind {Next{..} => true, _ => false});
-                    if let Some(&Interaction{partner_lane, kind: Next{partner_start}, ..}) = first_next_interaction {
-                        partner_lane << Add::Car(car_over_end.offset_by(-self.length + partner_start));
-                    };
-                    car_over_end
-                }).is_some();
-                if should_pop {self.cars.pop();} else {break;}
+                let maybe_switch_car = self.cars.iter().enumerate().rev().filter_map(|(i, &car)| {
+                    let interaction = self.interactions[car.next_hop_interaction as usize];
+                    
+                    if *car.position > interaction.start {
+                        println!("interaction for switching: {:?} (idx {:?})", interaction, car.next_hop_interaction);
+                        Some((i, interaction.partner_lane, interaction.start, interaction.partner_start))
+                    } else {None}
+                }).next();
+
+                if let Some((idx_to_remove, next_lane, start, partner_start)) = maybe_switch_car {
+                    let car = self.cars.remove(idx_to_remove);
+                    println!("{:?} -> {:?}", self.id(), car.destination.node);
+                    if self.id() == car.destination.node {
+                        add_debug_path(self.path.clone(), [0.0, 1.0, 0.0], 0.4);
+                    } else {
+                        next_lane << Add::Car(car.offset_by(partner_start - start), Some(self.id()));
+                        println!("switched car from {:?} to {:?}", self.id(), next_lane);
+                        add_debug_path(self.path.clone(), [0.0, 0.0, 1.0], 0.4);
+                    }
+                } else {
+                    break;
+                }
             }
+            
+            // loop {
+            //     let should_pop = self.cars.iter().rev().find(|car| *car.position > self.length).map(|car_over_end| {
+            //         let first_next_interaction = self.interactions.iter().find(|interaction| match interaction.kind {Next{..} => true, _ => false});
+            //         if let Some(&Interaction{partner_lane, kind: Next{partner_start}, ..}) = first_next_interaction {
+            //             partner_lane << Add::Car(car_over_end.offset_by(-self.length + partner_start), Some(self.id()));
+            //         };
+            //         car_over_end
+            //     }).is_some();
+            //     if should_pop {self.cars.pop();} else {break;}
+            // }
 
             for interaction in self.interactions.iter() {
                 let mut cars = self.cars.iter();
                 let send_obstacle = |obstacle: Obstacle| interaction.partner_lane << Add::InteractionObstacle(obstacle);
                 
                 if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING == interaction.partner_lane.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
-                    match interaction.kind {
-                        Overlap{start, end, partner_start, kind, ..} => {
+                    match *interaction {
+                        Interaction{start, partner_start, kind: Overlap{end, kind, ..}, ..} => {
                             match kind {
-                                Parallel => cars.skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
+                                Parallel | Transfer => cars.skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
                                                 .take_while(|car: &&LaneCar| *car.position < end)
                                                 .map(|car| car.as_obstacle.offset_by(-start + partner_start)
                                             ).foreach(send_obstacle),
@@ -187,11 +238,11 @@ impl Recipient<Tick> for Lane {
                                 }
                             }
                         }
-                        Previous{start, partner_length} =>
+                        Interaction{start, partner_start, kind: Previous, ..} =>
                             if let Some(next_car) = cars.find(|car| *car.position > start) {
-                                (send_obstacle)(next_car.as_obstacle.offset_by(-start + partner_length))
+                                (send_obstacle)(next_car.as_obstacle.offset_by(-start + partner_start))
                             },
-                        Next{..} => {
+                        Interaction{kind: Next{..}, ..} => {
                             //TODO: for looking backwards for merging lanes?
                         }
                     };
@@ -285,10 +336,10 @@ impl Recipient<Tick> for TransferLane {
                 loop {
                     let (should_remove, done) = if let Some(car) = self.cars.get(i) {
                         if car.transfer_position < -1.0 {
-                            left << Add::Car(car.as_lane_car.offset_by(left_start));
+                            right << Add::Car(car.as_lane_car.offset_by(left_start), Some(self.id()));
                             (true, false)
                         } else if car.transfer_position > 1.0 {
-                            right << Add::Car(car.as_lane_car.offset_by(right_start));
+                            left << Add::Car(car.as_lane_car.offset_by(right_start), Some(self.id()));
                             (true, false)
                         } else {
                             i += 1;
@@ -303,7 +354,7 @@ impl Recipient<Tick> for TransferLane {
 
                 if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING == left.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
                     for car in &self.cars {
-                        if car.transfer_position < 0.3 || car.transfer_velocity < 0.0 {
+                        if car.transfer_position < 0.3 || car.transfer_velocity > 0.0 {
                             left << Add::InteractionObstacle(car.as_obstacle.offset_by(left_start));
                         }
                     }
@@ -311,7 +362,7 @@ impl Recipient<Tick> for TransferLane {
 
                 if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING == right.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
                     for car in &self.cars {
-                        if car.transfer_position < 0.3 || car.transfer_velocity < 0.0 {
+                        if car.transfer_position > -0.3 || car.transfer_velocity < 0.0 {
                             right << Add::InteractionObstacle(car.as_obstacle.offset_by(right_start));
                         }
                     }
@@ -333,7 +384,7 @@ use self::planning::materialized_reality::BuildableRef;
 pub struct AdvertiseForConnectionAndReport(ID, BuildableRef);
 
 #[derive(Compact, Clone)]
-pub struct Connect{other_id: ID, other_path: CPath, reply_needed: bool}
+pub struct Connect{other_id: ID, other_path: CPath, reply_needed: bool, to_transfer: bool}
 
 use self::planning::materialized_reality::ReportLaneBuilt;
 
@@ -343,10 +394,18 @@ impl Recipient<AdvertiseForConnectionAndReport> for Lane {
             Swarm::<Lane>::all() << Connect{
                 other_id: self.id(),
                 other_path: self.path.clone(),
-                reply_needed: true
+                reply_needed: true,
+                to_transfer: false
+            };
+            Swarm::<TransferLane>::all() << Connect{
+                other_id: self.id(),
+                other_path: self.path.clone(),
+                reply_needed: true,
+                to_transfer: false
             };
             report_to << ReportLaneBuilt(self.id(), report_as);
             self::lane_rendering::on_build(self);
+            self::pathfinding::on_build(self);
             Fate::Live
         }
     }}
@@ -358,7 +417,8 @@ impl Recipient<AdvertiseForConnectionAndReport> for TransferLane {
             Swarm::<Lane>::all() << Connect{
                 other_id: self.id(),
                 other_path: self.path.clone(),
-                reply_needed: true
+                reply_needed: true,
+                to_transfer: true
             };
             report_to << ReportLaneBuilt(self.id(), report_as);
             self::lane_rendering::on_build_transfer(self);
@@ -371,45 +431,36 @@ const CONNECTION_TOLERANCE: f32 = 0.1;
 
 impl Recipient<Connect> for Lane {
     fn receive(&mut self, msg: &Connect) -> Fate {match *msg{
-        Connect{other_id, ref other_path, reply_needed} => {
+        Connect{other_id, ref other_path, reply_needed, to_transfer} => {
             if other_id == self.id() {return Fate::Live};
+
+            if to_transfer {
+                assert!(reply_needed, "transfer lanes should just want lane info on connect");
+                other_id << Connect{
+                    other_id: self.id(),
+                    other_path: self.path.clone(),
+                    reply_needed: false,
+                    to_transfer: false
+                };
+                return Fate::Live;
+            }
 
             if other_path.start().is_roughly_within(self.path.end(), CONNECTION_TOLERANCE) {
                 self.interactions.push(Interaction{
                     partner_lane: other_id,
-                    kind: InteractionKind::Next{
-                        partner_start: 0.0
-                    }
+                    start: self.length,
+                    partner_start: 0.0,
+                    kind: InteractionKind::Next
                 })
-            } else if let Some(self_end_on_other) = other_path.project(self.path.end()) {
-                if other_path.along(self_end_on_other).is_roughly_within(self.path.end(), CONNECTION_TOLERANCE) {
-                    self.interactions.push(Interaction{
-                        partner_lane: other_id,
-                        kind: InteractionKind::Next{
-                            partner_start: self_end_on_other
-                        }
-                    })
-                }
             }
 
             if other_path.end().is_roughly_within(self.path.start(), CONNECTION_TOLERANCE) {
                 self.interactions.push(Interaction{
                     partner_lane: other_id,
-                    kind: InteractionKind::Previous{
-                        start: 0.0,
-                        partner_length: other_path.length()
-                    }
+                    start: 0.0,
+                    partner_start: other_path.length(),
+                    kind: InteractionKind::Previous
                 })
-            } else if let Some(other_end_on_self) = self.path.project(other_path.end()) {
-                if self.path.along(other_end_on_self).is_roughly_within(other_path.end(), CONNECTION_TOLERANCE) {
-                    self.interactions.push(Interaction{
-                        partner_lane: other_id,
-                        kind: InteractionKind::Previous{
-                            start: other_end_on_self,
-                            partner_length: other_path.length()
-                        }
-                    })
-                }
             }
 
             let self_band = Band::new(self.path.clone(), 4.0);
@@ -436,22 +487,12 @@ impl Recipient<Connect> for Lane {
 
                     self.interactions.push(Interaction{
                         partner_lane: other_id,
-                        kind: if other_entry_distance < other_exit_distance {
-                            InteractionKind::Overlap{
-                                start: entry_distance,
-                                end: exit_distance,
-                                partner_start: other_entry_distance,
-                                partner_end: other_exit_distance,
-                                kind: overlap_kind
-                            }
-                        } else {
-                            InteractionKind::Overlap{
-                                start: entry_distance,
-                                end: exit_distance,
-                                partner_start: other_exit_distance,
-                                partner_end: other_entry_distance,
-                                kind: overlap_kind
-                            }
+                        start: entry_distance,
+                        partner_start: other_entry_distance.min(other_exit_distance),
+                        kind: InteractionKind::Overlap{
+                            end: exit_distance,
+                            partner_end: other_exit_distance.max(other_entry_distance),
+                            kind: overlap_kind
                         }
                     });
                 } else {panic!("both entry and exit should exist")}
@@ -462,7 +503,8 @@ impl Recipient<Connect> for Lane {
                 other_id << Connect{
                     other_id: self.id(),
                     other_path: self.path.clone(),
-                    reply_needed: false
+                    reply_needed: false,
+                    to_transfer: false
                 };
             }
             Fate::Live
@@ -472,7 +514,7 @@ impl Recipient<Connect> for Lane {
 
 impl Recipient<Connect> for TransferLane {
     fn receive(&mut self, msg: &Connect) -> Fate {match *msg{
-        Connect{other_id, ref other_path, reply_needed} => {
+        Connect{other_id, ref other_path, ..} => {
             if self.path.segments().iter().all(|segment|
                 other_path.segments().iter().any(|other_segment|
                     segment.start().is_roughly_within(other_segment.start(), 6.0)
@@ -488,20 +530,44 @@ impl Recipient<Connect> for TransferLane {
                     .dot(&self.path.start_direction().orthogonal()) > 0.0;
 
                 if is_right_of {
-                    assert!(self.right.is_none(), "Already has a right lane");
                     self.right = Some((other_id, self_start_on_other_distance));
+                    other_id << AddTransferLaneInteraction(Interaction{
+                        partner_lane: self.id(),
+                        start: self_start_on_other_distance,
+                        partner_start: 0.0,
+                        kind: InteractionKind::Overlap{
+                            end: self_start_on_other_distance + self.length,
+                            partner_end: self.length,
+                            kind: OverlapKind::Transfer
+                        }
+                    })
                 } else {
-                    assert!(self.left.is_none(), "Already has a left lane");
                     self.left = Some((other_id, self_start_on_other_distance));
+                    other_id << AddTransferLaneInteraction(Interaction{
+                        partner_lane: self.id(),
+                        start: self_start_on_other_distance,
+                        partner_start: 0.0,
+                        kind: InteractionKind::Overlap{
+                            end: self_start_on_other_distance + self.length,
+                            partner_end: self.length,
+                            kind: OverlapKind::Transfer
+                        }
+                    })
                 }
             }
+            Fate::Live
+        }
+    }}
+}
 
-            if reply_needed {
-                other_id << Connect{
-                    other_id: self.id(),
-                    other_path: self.path.clone(),
-                    reply_needed: false
-                };
+#[derive(Copy, Clone)]
+pub struct AddTransferLaneInteraction(Interaction);
+
+impl Recipient<AddTransferLaneInteraction> for Lane {
+    fn receive(&mut self, msg: &AddTransferLaneInteraction) -> Fate {match *msg{
+        AddTransferLaneInteraction(interaction) => {
+            if !self.interactions.iter().any(|existing| existing.partner_lane == interaction.partner_lane) {
+                self.interactions.push(interaction);
             }
             Fate::Live
         }
@@ -575,6 +641,7 @@ pub fn setup(system: &mut ActorSystem) {
     system.add_inbox::<Add, Swarm<Lane>>();
     system.add_inbox::<Tick, Swarm<Lane>>();
     system.add_inbox::<Connect, Swarm<Lane>>();
+    system.add_inbox::<AddTransferLaneInteraction, Swarm<Lane>>();
     system.add_inbox::<Disconnect, Swarm<Lane>>();
     system.add_inbox::<Unbuild, Swarm<Lane>>();
 
@@ -585,6 +652,8 @@ pub fn setup(system: &mut ActorSystem) {
     system.add_inbox::<Connect, Swarm<TransferLane>>();
     system.add_inbox::<Disconnect, Swarm<TransferLane>>();
     system.add_inbox::<Unbuild, Swarm<TransferLane>>();
+
+    self::pathfinding::setup(system);
 }
 
 #[derive(Copy, Clone)]
@@ -609,7 +678,9 @@ impl Obstacle {
 pub struct LaneCar {
     trip: ID,
     as_obstacle: Obstacle,
-    acceleration: f32
+    acceleration: f32,
+    destination: pathfinding::Destination,
+    next_hop_interaction: u8
 }
 
 impl LaneCar {
@@ -653,31 +724,26 @@ impl DerefMut for TransferringLaneCar {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 struct Interaction {
     partner_lane: ID,
+    start: f32,
+    partner_start: f32,
     kind: InteractionKind
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 enum InteractionKind{
     Overlap{
-        start: f32,
         end: f32,
-        partner_start: f32,
         partner_end: f32,
         kind: OverlapKind
     },
-    Next{
-        partner_start: f32
-    },
-    Previous{
-        start: f32,
-        partner_length: f32
-    }
+    Next,
+    Previous
 }
 use self::InteractionKind::{Overlap, Next, Previous};
 
-#[derive(Copy, Clone)]
-enum OverlapKind{Parallel, Conflicting}
-use self::OverlapKind::{Parallel, Conflicting};
+#[derive(Copy, Clone, Debug)]
+enum OverlapKind{Parallel, Transfer, Conflicting}
+use self::OverlapKind::{Parallel, Transfer, Conflicting};

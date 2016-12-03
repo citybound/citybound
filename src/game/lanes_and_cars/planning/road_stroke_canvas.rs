@@ -36,8 +36,6 @@ impl Recipient<ClearAll> for RoadStrokeCanvas {
 use core::ui::Event3d;
 use super::PlanControl::{AddRoadStrokeNode, Materialize, CreateGrid};
 use super::RecreateInteractables;
-use game::lanes_and_cars::{Lane, LaneCar, Obstacle};
-use ordered_float::OrderedFloat;
 
 impl Recipient<Event3d> for RoadStrokeCanvas {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg {
@@ -54,17 +52,20 @@ impl Recipient<Event3d> for RoadStrokeCanvas {
             Fate::Live
         },
         Event3d::KeyDown(VirtualKeyCode::C) => {
-            for _i in 0..1 {
-                Swarm::<Lane>::all() << ::game::lanes_and_cars::Add::Car(LaneCar{
-                    trip: ID::invalid(),
-                    as_obstacle: Obstacle{
-                        position: OrderedFloat(0.0),
-                        velocity: 0.0,
-                        max_velocity: 20.0
-                    },
-                    acceleration: 0.0
-                });
-            }
+            // TODO: adapt for pathfinding
+            // use game::lanes_and_cars::{Lane, LaneCar, Obstacle};
+            // use ordered_float::OrderedFloat;
+            // for _i in 0..1 {
+            //     Swarm::<Lane>::all() << ::game::lanes_and_cars::Add::Car(LaneCar{
+            //         trip: ID::invalid(),
+            //         as_obstacle: Obstacle{
+            //             position: OrderedFloat(0.0),
+            //             velocity: 0.0,
+            //             max_velocity: 20.0
+            //         },
+            //         acceleration: 0.0
+            //     }, None);
+            // }
             Fate::Live
         },
         Event3d::KeyDown(VirtualKeyCode::G) => {

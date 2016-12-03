@@ -5,11 +5,13 @@
 #![plugin(clippy)]
 #![allow(no_effect, unnecessary_operation)]
 // Enable this for memory tracking with Instruments/MacOS
+// and for much better stacktraces for memory issues
 // #![feature(alloc_system)]
 // extern crate alloc_system;
 
 extern crate ordered_float;
 extern crate itertools;
+extern crate random;
 
 extern crate kay;
 #[macro_use]

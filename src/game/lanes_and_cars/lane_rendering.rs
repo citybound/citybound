@@ -1,6 +1,6 @@
 use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Norm, Path};
 use kay::{Actor, CVec, Individual, Recipient, RecipientAsSwarm, ActorSystem, Swarm, Fate};
-use monet::{Instance, Thing, Vertex};
+use monet::{Instance, Thing, Vertex, UpdateThing};
 use core::geometry::{band_to_thing, dash_path};
 use super::{Lane, TransferLane, InteractionKind};
 use itertools::Itertools;
@@ -113,6 +113,8 @@ use ::monet::RenderToScene;
 use ::monet::AddInstance;
 use ::monet::AddSeveralInstances;
 
+const DEBUG_VIEW_LANDMARKS : bool = false;
+
 impl Recipient<RenderToScene> for Lane {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg {
         RenderToScene{renderer_id, scene_id} => {
@@ -152,6 +154,26 @@ impl Recipient<RenderToScene> for Lane {
                     instance_direction: [1.0, 0.0],
                     instance_color: [0.0, 1.0, 0.0]
                 }};
+            }
+
+            if DEBUG_VIEW_LANDMARKS {
+                use random::Source;
+                let (random_color, is_landmark) = if let Some(as_destination) = self.pathfinding_info.as_destination {
+                    let mut source = ::random::default().seed([as_destination.landmark.instance_id as u64, 287]);
+                    let random_color : [f32; 3] = ::core::geometry::RANDOM_COLORS[
+                        source.read::<usize>() % ::core::geometry::RANDOM_COLORS.len()
+                    ];
+                    (random_color, as_destination.landmark == as_destination.node)
+                } else {
+                    ([0.0, 0.0, 0.0], false)
+                };
+
+                renderer_id << UpdateThing{
+                    scene_id: scene_id,
+                    thing_id: 4000 + self.id().instance_id as u16,
+                    thing: band_to_thing(&Band::new(self.path.clone(), if is_landmark {2.5} else {1.0}), 0.4),
+                    instance: Instance::with_color(random_color)
+                };
             }
             Fate::Live
         }
@@ -198,6 +220,16 @@ pub fn on_unbuild(lane: &Lane) {
     ThingCollector::<LaneAsphalt>::id() << Remove(lane.id());
     if !lane.on_intersection {
         ThingCollector::<LaneMarker>::id() << Remove(lane.id());
+    }
+
+    if DEBUG_VIEW_LANDMARKS {
+        // TODO: ugly
+        ::monet::Renderer::id() << UpdateThing{
+            scene_id: 0,
+            thing_id: 4000 + lane.id().instance_id as u16,
+            thing: Thing::new(vec![], vec![]),
+            instance: Instance::with_color([0.0, 0.0, 0.0])
+        };
     }
 }
 

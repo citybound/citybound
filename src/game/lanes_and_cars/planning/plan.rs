@@ -161,7 +161,7 @@ impl Default for RemainingOldStrokes{
 }
 
 use super::plan_result_steps::{find_intersections, trim_strokes_and_add_incoming_outgoing,
-                        create_connecting_strokes, find_transfer_strokes, cut_transfer_strokes};
+                        create_connecting_strokes, find_transfer_strokes};
 
 impl Plan{
     pub fn with_delta(&self, delta: &PlanDelta) -> (Plan, RemainingOldStrokes) {
@@ -181,12 +181,12 @@ impl Plan{
         let mut intersections = find_intersections(&self.strokes);
         let trimmed_strokes = trim_strokes_and_add_incoming_outgoing(&self.strokes, &mut intersections);
         create_connecting_strokes(&mut intersections);        
-        let rough_transfer_strokes = find_transfer_strokes(&trimmed_strokes);
-        let transfer_strokes = cut_transfer_strokes(rough_transfer_strokes, &intersections);
+        let transfer_strokes = find_transfer_strokes(&trimmed_strokes);
+        //let transfer_strokes = cut_transfer_strokes(rough_transfer_strokes, &intersections);
 
         PlanResult{
             intersections: intersections.into_iter().enumerate().map(|(i, intersection)| (IntersectionRef(i), intersection)).collect(),
-            trimmed_strokes: trimmed_strokes.values().cloned().enumerate().map(|(i, stroke)| (TrimmedStrokeRef(i), stroke)).collect(),
+            trimmed_strokes: trimmed_strokes.into_iter().enumerate().map(|(i, stroke)| (TrimmedStrokeRef(i), stroke)).collect(),
             transfer_strokes: transfer_strokes.into_iter().enumerate().map(|(i, transfer_stroke)| (TransferStrokeRef(i), transfer_stroke)).collect()
         }
     }
