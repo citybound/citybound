@@ -145,16 +145,8 @@ impl ActorSystem {
         let individual_ptr = self.individuals[recipient_id].unwrap() as *mut I;
         self.update_callbacks.push(Box::new(move || {
             unsafe {
-                let mut n_packets = 0;
                 for packet in (*inbox_ptr).empty() {
                     (*individual_ptr).receive_packet(packet);
-                    n_packets += 1;
-                }
-                if n_packets > 100 {
-                    println!("Processed {} {} Messages for {}",
-                        n_packets,
-                        type_name::<M>(),
-                        type_name::<I>());
                 }
             }
         }));
