@@ -1,7 +1,6 @@
 use descartes::{N, V2, P2, Norm, Segment, FiniteCurve, WithUniqueOrthogonal, RelativeToBasis, RoughlyComparable};
 use kay::{Swarm, CVec, Recipient, CreateWith, ActorSystem, Individual, Fate};
-use core::merge_groups::MergeGroups;
-use itertools::Itertools;
+use core::disjoint_sets::DisjointSets;
 
 //TODO: Clean up this whole mess with more submodules
 
@@ -249,21 +248,18 @@ impl CurrentPlan{
             ))
         });
 
-        let mut interactable_groups = new_interactables.clone().into_iter().map(
-            |interactable| vec![interactable]).collect::<Vec<_>>();
-        interactable_groups.merge_groups(|group_1, group_2|
-                group_1.iter().cartesian_product(group_2.iter()).any(|(interactable_1, interactable_2)|
-                    (interactable_1.position - interactable_2.position).norm() < 20.0
-                    && (interactable_1.direction.is_roughly_within(interactable_2.direction, 0.1)
-                        || interactable_1.direction.is_roughly_within(-interactable_2.direction, 0.1))
-                )
+        let mut interactable_groups = DisjointSets::from_individuals(new_interactables.clone());
+        interactable_groups.union_all_with(|interactable_1, interactable_2|
+            (interactable_1.position - interactable_2.position).norm() < 20.0
+            && (interactable_1.direction.is_roughly_within(interactable_2.direction, 0.1)
+                || interactable_1.direction.is_roughly_within(-interactable_2.direction, 0.1))
         );
 
         for interactable in new_interactables.into_iter().chain(old_interactables) {
             Swarm::<RoadStrokeNodeInteractable>::all() << CreateWith(interactable, AddToUI);
         }
 
-        for interactable_group in interactable_groups {
+        for interactable_group in interactable_groups.sets() {
             if interactable_group.len() > 1 {
                 let position = (interactable_group.iter().fold(V2::new(0.0, 0.0),
                     |sum, interactable| sum + interactable.position.to_vector()
