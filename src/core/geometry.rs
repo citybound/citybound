@@ -48,7 +48,7 @@ impl Compact for AnyShape {
     }}
 
     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
-        *self = source.clone();
+        ::std::ptr::copy_nonoverlapping(source, self, 1);
         if let AnyShape::Band(Band{ref mut path, ..}) = *self {
             if let AnyShape::Band(Band{path: ref source_path, ..}) = *source {
                 path.compact_from(source_path, new_dynamic_part);
