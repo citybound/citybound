@@ -4,6 +4,7 @@
 #![feature(optin_builtin_traits)]
 #![feature(specialization)]
 #![feature(conservative_impl_trait)]
+#![feature(box_syntax)]
 #![allow(no_effect)]
 mod pointer_to_maybe_compact;
 mod allocators;

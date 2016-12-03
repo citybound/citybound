@@ -26,10 +26,10 @@ pub struct MemChunker {
 
 impl MemChunker {
     pub fn new(name: &str, chunk_size: usize) -> Box<Chunker> {
-        Box::new(MemChunker {
+        box MemChunker{
             name: String::from(name),
             chunk_size: chunk_size
-        })
+        }
     }
 }
 
@@ -40,20 +40,20 @@ impl Chunker for MemChunker {
     fn with_chunk_size(&self, size: usize) -> Box<Chunker> {
         let mut new = self.clone();
         new.chunk_size = size;
-        Box::new(new)
+        box new
     }
 
     fn with_name(&self, name: &str) -> Box<Chunker> {
         let mut new = self.clone();
         new.name = String::from(name);
-        Box::new(new)
+        box new
     }
 
     fn child(&self, suffix: &str) -> Box<Chunker> {
-        Box::new(MemChunker {
+        box MemChunker{
             name: self.name.clone() + suffix,
             chunk_size: self.chunk_size
-        })
+        }
     }
 
     fn create_chunk(&mut self) -> *mut u8 {
@@ -70,6 +70,7 @@ impl Chunker for MemChunker {
 
 pub struct ValueInChunk<T> {
     ptr: *mut u8,
+    chunker: Box<Chunker>,
     _marker: PhantomData<T>
 }
 
@@ -82,6 +83,7 @@ impl<T> ValueInChunk<T> {
         }
         ValueInChunk{
             ptr: ptr,
+            chunker: chunker,
             _marker: PhantomData
         }
     }
@@ -102,6 +104,13 @@ impl<T> DerefMut for ValueInChunk<T> {
         unsafe {
             (self.ptr as *mut T).as_mut().unwrap()
         }
+    }
+}
+
+impl<T> Drop for ValueInChunk<T> {
+    fn drop(&mut self) {
+        unsafe{::std::ptr::drop_in_place(self.ptr)};
+        self.chunker.destroy_chunk(self.ptr);
     }
 }
 
@@ -382,7 +391,7 @@ impl SizedChunkedCollection for SizedChunkedQueue {
             read_index: ValueInChunk::new(chunker.child("_read"), 0),
             write_index: ValueInChunk::new(chunker.child("_write"), 0),
             end_index: ValueInChunk::new(chunker.child("_end"), 0),
-            n_dropped_chunks: ValueInChunk::new(chunker.child("_end"), 0),
+            n_dropped_chunks: ValueInChunk::new(chunker.child("_n_dropped"), 0),
             chunker: chunker,
             chunks: Vec::new(),
             chunks_to_drop: Vec::new(),
