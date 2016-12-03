@@ -2,7 +2,8 @@ use super::{
     N, P2, V2, THICKNESS,
     Curve, FiniteCurve,
     WithUniqueOrthogonal, angle_along_to,
-    RoughlyComparable, Intersect, Intersection
+    RoughlyComparable, Intersect, Intersection,
+    HasBoundingBox, BoundingBox
 };
 use ::nalgebra::{Dot, Norm, rotate, Vector1, Rotation2};
 
@@ -328,5 +329,22 @@ impl<'a> RoughlyComparable for &'a Segment {
         // much stricter tolerance here!
         && self.start_direction().is_roughly(other.start_direction())
         && self.end_direction().is_roughly(other.end_direction())
+    }
+}
+
+impl HasBoundingBox for Segment {
+    fn bounding_box(&self) -> BoundingBox {
+        if self.is_linear() {
+            BoundingBox{
+                min: P2::new(self.start.x.min(self.end.x), self.start.y.min(self.end.y)),
+                max: P2::new(self.start.x.max(self.end.x), self.start.y.max(self.end.y)),
+            }
+        } else {
+            let half_diagonal = V2::new(self.radius(), self.radius());
+            BoundingBox{
+                min: self.center() - half_diagonal,
+                max: self.center() + half_diagonal
+            }
+        }
     }
 }

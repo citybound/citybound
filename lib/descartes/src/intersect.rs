@@ -1,4 +1,4 @@
-use super::{N, V2, P2, RoughlyComparable, Curve, FiniteCurve, THICKNESS, WithUniqueOrthogonal};
+use super::{N, P2, RoughlyComparable, Curve, FiniteCurve, THICKNESS, WithUniqueOrthogonal, HasBoundingBox};
 use super::primitives::{Line, Circle, Segment};
 use super::nalgebra::{Dot, Norm};
 use super::path::Path;
@@ -123,39 +123,6 @@ impl<'a> Intersect for (&'a Circle, &'a Circle) {
                     position: solution_2_position
                 };
                 vec![solution_1, solution_2]
-            }
-        }
-    }
-}
-
-struct BoundingBox {
-    min: P2,
-    max: P2
-}
-
-impl BoundingBox{
-    fn overlaps(&self, other: &BoundingBox) -> bool {
-        self.max.x >= other.min.x && other.max.x >= self.min.x
-        && self.max.y >= other.min.y && other.max.y >= self.min.y
-    }
-}
-
-trait HasBoundingBox {
-    fn bounding_box(&self) -> BoundingBox;
-}
-
-impl HasBoundingBox for Segment {
-    fn bounding_box(&self) -> BoundingBox {
-        if self.is_linear() {
-            BoundingBox{
-                min: P2::new(self.start.x.min(self.end.x), self.start.y.min(self.end.y)),
-                max: P2::new(self.start.x.max(self.end.x), self.start.y.max(self.end.y)),
-            }
-        } else {
-            let half_diagonal = V2::new(self.radius(), self.radius());
-            BoundingBox{
-                min: self.center() - half_diagonal,
-                max: self.center() + half_diagonal
             }
         }
     }

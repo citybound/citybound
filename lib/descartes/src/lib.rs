@@ -172,3 +172,46 @@ pub trait FiniteCurve : Curve {
 pub trait Shape {
     fn contains(&self, point: P2) -> bool;
 }
+
+#[derive(Copy, Clone)]
+pub struct BoundingBox {
+    min: P2,
+    max: P2
+}
+
+impl BoundingBox{
+    pub fn infinite() -> Self {
+        BoundingBox{
+            min: P2::new(std::f32::INFINITY, std::f32::INFINITY),
+            max: P2::new(std::f32::INFINITY, std::f32::INFINITY),
+        }
+    }
+
+    pub fn overlaps(&self, other: &BoundingBox) -> bool {
+        self.max.x >= other.min.x && other.max.x >= self.min.x
+        && self.max.y >= other.min.y && other.max.y >= self.min.y
+    }
+}
+
+impl ::std::iter::Sum<BoundingBox> for BoundingBox {
+    fn sum<I: IntoIterator<Item=BoundingBox>>(iter: I) -> Self {
+        let mut bb = BoundingBox::infinite();
+
+        for other_bb in iter {
+            bb.min = P2::new(
+                bb.min.x.min(other_bb.min.x),
+                bb.min.y.min(other_bb.min.y),
+            );
+            bb.max = P2::new(
+                bb.max.x.max(other_bb.max.x),
+                bb.max.y.max(other_bb.max.y),
+            );
+        }
+
+        bb
+    }
+}
+
+pub trait HasBoundingBox {
+    fn bounding_box(&self) -> BoundingBox;
+}
