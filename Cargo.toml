@@ -8,6 +8,7 @@ ordered-float = "*"
 itertools = "*"
 clippy = "*"
 random = "*"
+fnv = "1.0.3"
 
 [dependencies.kay]
 path = "./lib/kay/"

@@ -12,6 +12,7 @@ extern crate alloc_system;
 extern crate ordered_float;
 extern crate itertools;
 extern crate random;
+extern crate fnv;
 
 extern crate kay;
 #[macro_use]

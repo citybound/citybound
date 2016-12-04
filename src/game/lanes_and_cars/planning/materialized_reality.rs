@@ -44,6 +44,7 @@ pub struct Apply{pub requester: ID, pub delta: PlanDelta}
 use super::super::Unbuild;
 
 impl Recipient<Apply> for MaterializedReality {
+    #[inline(never)]
     fn receive(&mut self, msg: &Apply) -> Fate {match *msg{
         Apply{requester, ref delta} => {
             let (new_plan, _) = self.current_plan.with_delta(delta);
