@@ -46,70 +46,49 @@ fn find_intersection_points(strokes: &CVec<RoadStroke>) -> Vec<P2> {
 
 #[inline(never)]
 pub fn trim_strokes_and_add_incoming_outgoing(strokes: &CVec<RoadStroke>, intersections: &mut CVec<Intersection>) -> CVec<RoadStroke> {
-    let mut strokes_todo = strokes.iter().cloned().enumerate().map(|(i, stroke)| (RoadStrokeRef(i), stroke)).collect::<Vec<_>>();
-    let mut trimming_ongoing = true;
-    let mut iters = 0;
+    let strokes = strokes.iter().cloned().enumerate().map(|(i, stroke)| (RoadStrokeRef(i), stroke)).collect::<Vec<_>>();
 
-    while trimming_ongoing {
-        trimming_ongoing = false;
-        let new_strokes = strokes_todo.iter().flat_map(|&(stroke_ref, ref stroke)| {
-            let stroke_path = stroke.path();
-            let mut maybe_trimmed_strokes = intersections.iter_mut().filter_map(|intersection| {
-                let intersection_points = (stroke_path, &intersection.shape).intersect();
-                if intersection_points.len() >= 2 {
-                    let entry_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).min().unwrap();
-                    let exit_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).max().unwrap();
-                    intersection.incoming.insert(stroke_ref, RoadStrokeNode{
-                        position: stroke_path.along(*entry_distance),
-                        direction: stroke_path.direction_along(*entry_distance)
-                    });
-                    intersection.outgoing.insert(stroke_ref, RoadStrokeNode{
-                        position: stroke_path.along(*exit_distance),
-                        direction: stroke_path.direction_along(*exit_distance)
-                    });
-                    match (stroke.cut_before(*entry_distance - 0.05), stroke.cut_after(*exit_distance + 0.05)) {
-                        (Some(before_intersection), Some(after_intersection)) =>
-                            Some(vec![(stroke_ref, before_intersection), (stroke_ref, after_intersection)]),
-                        (Some(before_intersection), None) =>
-                            Some(vec![(stroke_ref, before_intersection)]),
-                        (None, Some(after_intersection)) =>
-                            Some(vec![(stroke_ref, after_intersection)]),
-                        (None, None) => None
-                    }
-                } else if intersection_points.len() == 1 {
-                    if intersection.shape.contains(stroke.nodes()[0].position) {
-                        let exit_distance = intersection_points[0].along_a;
-                        if let Some(after_intersection) = stroke.cut_after(exit_distance + 0.05) {
-                            intersection.outgoing.insert(stroke_ref, after_intersection.nodes()[0]);
-                            Some(vec![(stroke_ref, after_intersection)])
-                        } else {None}
-                    } else if intersection.shape.contains(stroke.nodes().last().unwrap().position) {
-                        let entry_distance = intersection_points[0].along_a;
-                        if let Some(before_intersection) = stroke.cut_before(entry_distance - 0.05) {
-                            intersection.incoming.insert(stroke_ref, *before_intersection.nodes().last().unwrap());
-                            Some(vec![(stroke_ref, before_intersection)])
-                        } else {None}
-                    } else {None}
-                } else {None}
-            });
+    strokes.iter().flat_map(|&(stroke_ref, ref stroke)| {
+        let path = stroke.path();
+        let mut start_trim = 0.0f32;
+        let mut end_trim = path.length();
+        let mut cuts = Vec::new();
 
-            match maybe_trimmed_strokes.next() {
-                Some(trimmed_strokes) => {
-                    trimming_ongoing = true;
-                    trimmed_strokes
-                },
-                None => vec![(stroke_ref, stroke.clone())]
+        for ref mut intersection in intersections.iter_mut() {
+            let intersection_points = (path, &intersection.shape).intersect();
+            if intersection_points.len() >= 2 {
+                let entry_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).min().unwrap();
+                let exit_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).max().unwrap();
+                intersection.incoming.insert(stroke_ref, RoadStrokeNode{
+                    position: path.along(*entry_distance),
+                    direction: path.direction_along(*entry_distance)
+                });
+                intersection.outgoing.insert(stroke_ref, RoadStrokeNode{
+                    position: path.along(*exit_distance),
+                    direction: path.direction_along(*exit_distance)
+                });
+                cuts.push((*entry_distance, *exit_distance));
+            } else if intersection_points.len() == 1 {
+                if intersection.shape.contains(stroke.nodes()[0].position) {
+                    let exit_distance = intersection_points[0].along_a;
+                    start_trim = start_trim.max(exit_distance);
+                } else if intersection.shape.contains(stroke.nodes().last().unwrap().position) {
+                    let entry_distance = intersection_points[0].along_a;
+                    end_trim = end_trim.min(entry_distance);
+                }
             }
-        }).collect::<Vec<_>>();
-
-        strokes_todo = new_strokes;
-        iters += 1;
-        if iters > 20 {
-            panic!("Stuck!!!")
         }
-    }
 
-    strokes_todo.into_iter().map(|(_, stroke)| stroke).collect()
+        cuts.sort_by(|a, b| OrderedFloat(a.0).cmp(&OrderedFloat(b.0)));
+
+        cuts.insert(0, (-1.0, start_trim));
+        cuts.push((end_trim, path.length() + 1.0));
+
+        cuts.windows(2).filter_map(|two_cuts| {
+            let ((_, exit_distance), (entry_distance, _)) = (two_cuts[0], two_cuts[1]);
+            stroke.subsection(exit_distance, entry_distance)
+        }).collect::<Vec<_>>()
+    }).collect()
 }
 
 #[inline(never)]
