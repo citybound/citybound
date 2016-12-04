@@ -118,28 +118,29 @@ const IDEAL_LANDMARK_RADIUS : u8 = 6;
 impl Recipient<JoinLandmark> for Lane {
      fn receive(&mut self, msg: &JoinLandmark) -> Fate {match *msg{
          JoinLandmark{join_as, hops_from_landmark, from} => {
-            let from_interaction_idx = self.interactions.iter().position(|interaction| interaction.partner_lane == from).expect(
-                format!("{:?} not in {:#?}", from, self.interactions.iter().map(|i| i.partner_lane).collect::<Vec<_>>()).as_str()
-            );
-            let join = if let Some(as_destination) = self.pathfinding_info.as_destination {
-                if as_destination.landmark == as_destination.node {
-                    join_as.landmark.instance_id > self.id().instance_id
-                } else if join_as.landmark == as_destination.landmark {
-                    hops_from_landmark < self.pathfinding_info.hops_from_landmark
+            if let Some(from_interaction_idx) = self.interactions.iter().position(|interaction| interaction.partner_lane == from) {
+                let join = if let Some(as_destination) = self.pathfinding_info.as_destination {
+                    if as_destination.landmark == as_destination.node {
+                        join_as.landmark.instance_id > self.id().instance_id
+                    } else if join_as.landmark == as_destination.landmark {
+                        hops_from_landmark < self.pathfinding_info.hops_from_landmark
+                    } else {
+                        from_interaction_idx == self.pathfinding_info.incoming_idx_from_landmark as usize
+                        && join_as != as_destination
+                    }
                 } else {
-                    from_interaction_idx == self.pathfinding_info.incoming_idx_from_landmark as usize
-                    && join_as != as_destination
+                    true
+                };
+                if join {
+                    self.pathfinding_info = PathfindingInfo{
+                        as_destination: Some(join_as),
+                        hops_from_landmark: hops_from_landmark,
+                        incoming_idx_from_landmark: from_interaction_idx as u8,
+                        routes: CDict::new()
+                    };
                 }
             } else {
-                true
-            };
-            if join {
-                self.pathfinding_info = PathfindingInfo{
-                    as_destination: Some(join_as),
-                    hops_from_landmark: hops_from_landmark,
-                    incoming_idx_from_landmark: from_interaction_idx as u8,
-                    routes: CDict::new()
-                };
+                println!("{:?} not yet connected to {:?}", self.id(), from);
             }
             Fate::Live
          }
@@ -195,25 +196,21 @@ pub struct ShareRoutes{
 impl Recipient<ShareRoutes> for Lane {
     fn receive(&mut self, msg: &ShareRoutes) -> Fate {match *msg{
         ShareRoutes{ref new_routes, from} => {
-            let from_interaction_idx = self.interactions.iter().position(|interaction| interaction.partner_lane == from).expect(
-                format!("{:?} not in {:#?}", from, self.interactions.iter().map(|i| i.partner_lane).collect::<Vec<_>>()).as_str()
-            );
-
-            for (&destination, &new_distance) in new_routes.pairs() {
-                let insert = self.pathfinding_info.routes.get(destination).map(
-                    |&RoutingInfo{distance, ..}| new_distance < distance
-                ).unwrap_or(true);
-                if insert {
-                    self.pathfinding_info.routes.insert(destination, RoutingInfo{
-                        distance: new_distance,
-                        outgoing_idx: from_interaction_idx as u8
-                    });
+            if let Some(from_interaction_idx) = self.interactions.iter().position(|interaction| interaction.partner_lane == from) {
+                for (&destination, &new_distance) in new_routes.pairs() {
+                    let insert = self.pathfinding_info.routes.get(destination).map(
+                        |&RoutingInfo{distance, ..}| new_distance < distance
+                    ).unwrap_or(true);
+                    if insert {
+                        self.pathfinding_info.routes.insert(destination, RoutingInfo{
+                            distance: new_distance,
+                            outgoing_idx: from_interaction_idx as u8
+                        });
+                    }
                 }
+            } else {
+                println!("{:?} not yet connected to {:?}", self.id(), from);
             }
-
-            // println!("{:?} received routes from {:?} {:#?} => new own routes: {:#?}",
-            //     self.id(), from, new_routes.pairs().collect::<Vec<_>>(), self.pathfinding_info.routes.pairs().collect::<Vec<_>>());
-
             Fate::Live
         }
     }}

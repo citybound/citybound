@@ -4,7 +4,7 @@ use monet::{Thing};
 use core::geometry::{CPath, band_to_thing};
 use super::{RoadStrokeRef, RoadStrokeNodeInteractable, InteractableParent};
 use super::materialized_reality::BuildableRef;
-use super::super::{Lane, TransferLane, AdvertiseForConnectionAndReport};
+use super::super::{Lane, TransferLane, AdvertiseToTransferAndReport};
 
 #[derive(Compact, Clone)]
 pub struct RoadStroke{
@@ -89,14 +89,14 @@ impl RoadStroke {
                 BuildableRef::Intersection(_) => true,
                 _ => false,
             }),
-            AdvertiseForConnectionAndReport(report_to, report_as)
+            AdvertiseToTransferAndReport(report_to, report_as)
         );
     }
 
     pub fn build_transfer(&self, report_to: ID, report_as: BuildableRef) {
         Swarm::<TransferLane>::all() << CreateWith(
             TransferLane::new(self.path().clone()),
-            AdvertiseForConnectionAndReport(report_to, report_as)
+            AdvertiseToTransferAndReport(report_to, report_as)
         );
     }
 }

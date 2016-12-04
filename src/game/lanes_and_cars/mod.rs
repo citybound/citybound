@@ -6,7 +6,7 @@ mod intelligent_acceleration;
 use self::intelligent_acceleration::{intelligent_acceleration, COMFORTABLE_BREAKING_DECELERATION};
 use core::geometry::{CPath, add_debug_path};
 use kay::{ID, Actor, CVec, Swarm, CreateWith, Recipient, ActorSystem, Fate};
-use descartes::{FiniteCurve, RoughlyComparable, Band, Intersect, Curve, Path, Dot, WithUniqueOrthogonal};
+use descartes::{N, P2, FiniteCurve, RoughlyComparable, Band, Intersect, Curve, Path, Dot, WithUniqueOrthogonal};
 use ordered_float::OrderedFloat;
 use itertools::Itertools;
 use ::std::f32::INFINITY;
@@ -381,27 +381,23 @@ impl Recipient<Tick> for TransferLane {
 use self::planning::materialized_reality::BuildableRef;
 
 #[derive(Copy, Clone)]
-pub struct AdvertiseForConnectionAndReport(ID, BuildableRef);
-
-#[derive(Compact, Clone)]
-pub struct Connect{other_id: ID, other_path: CPath, reply_needed: bool, to_transfer: bool}
+pub struct AdvertiseToTransferAndReport(ID, BuildableRef);
 
 use self::planning::materialized_reality::ReportLaneBuilt;
 
-impl Recipient<AdvertiseForConnectionAndReport> for Lane {
-    fn receive(&mut self, msg: &AdvertiseForConnectionAndReport) -> Fate {match *msg{
-        AdvertiseForConnectionAndReport(report_to, report_as) => {
+impl Recipient<AdvertiseToTransferAndReport> for Lane {
+    fn receive(&mut self, msg: &AdvertiseToTransferAndReport) -> Fate {match *msg{
+        AdvertiseToTransferAndReport(report_to, report_as) => {
             Swarm::<Lane>::all() << Connect{
                 other_id: self.id(),
-                other_path: self.path.clone(),
-                reply_needed: true,
-                to_transfer: false
+                other_start: self.path.start(),
+                other_end: self.path.end(),
+                other_length: self.path.length(),
+                reply_needed: true
             };
-            Swarm::<TransferLane>::all() << Connect{
+            Swarm::<TransferLane>::all() << ConnectTransferToNormal{
                 other_id: self.id(),
-                other_path: self.path.clone(),
-                reply_needed: true,
-                to_transfer: false
+                other_path: self.path.clone()
             };
             report_to << ReportLaneBuilt(self.id(), report_as);
             self::lane_rendering::on_build(self);
@@ -411,14 +407,11 @@ impl Recipient<AdvertiseForConnectionAndReport> for Lane {
     }}
 }
 
-impl Recipient<AdvertiseForConnectionAndReport> for TransferLane {
-    fn receive(&mut self, msg: &AdvertiseForConnectionAndReport) -> Fate {match *msg{
-        AdvertiseForConnectionAndReport(report_to, report_as) => {
-            Swarm::<Lane>::all() << Connect{
-                other_id: self.id(),
-                other_path: self.path.clone(),
-                reply_needed: true,
-                to_transfer: true
+impl Recipient<AdvertiseToTransferAndReport> for TransferLane {
+    fn receive(&mut self, msg: &AdvertiseToTransferAndReport) -> Fate {match *msg{
+        AdvertiseToTransferAndReport(report_to, report_as) => {
+            Swarm::<Lane>::all() << ConnectToTransfer{
+                other_id: self.id()
             };
             report_to << ReportLaneBuilt(self.id(), report_as);
             self::lane_rendering::on_build_transfer(self);
@@ -427,32 +420,36 @@ impl Recipient<AdvertiseForConnectionAndReport> for TransferLane {
     }}
 }
 
+#[derive(Compact, Clone)]
+pub struct AdvertiseForOverlaps{lanes: CVec<ID>}
+
+impl Recipient<AdvertiseForOverlaps> for Lane {
+    fn receive(&mut self, msg: &AdvertiseForOverlaps) -> Fate {match *msg{
+        AdvertiseForOverlaps{ref lanes} => {
+            for &lane in lanes.iter() {
+                lane << ConnectOverlaps{
+                    other_id: self.id(),
+                    other_path: self.path.clone(),
+                    reply_needed: true
+                };
+            }
+            Fate::Live
+        }
+    }}
+}
+
 const CONNECTION_TOLERANCE: f32 = 0.1;
 
-use fnv::FnvHashMap;
-use ::std::cell::UnsafeCell;
-thread_local! (
-    static MEMOIZED_BANDS_OUTLINES: UnsafeCell<FnvHashMap<ID, (Band<CPath>, CPath)>> = UnsafeCell::new(FnvHashMap::default());
-);
+#[derive(Copy, Clone)]
+pub struct Connect{other_id: ID, other_start: P2, other_end: P2, other_length: N, reply_needed: bool}
 
 impl Recipient<Connect> for Lane {
     #[inline(never)]
     fn receive(&mut self, msg: &Connect) -> Fate {match *msg{
-        Connect{other_id, ref other_path, reply_needed, to_transfer} => {
+        Connect{other_id, other_start, other_end, other_length, reply_needed} => {
             if other_id == self.id() {return Fate::Live};
 
-            if to_transfer {
-                assert!(reply_needed, "transfer lanes should just want lane info on connect");
-                other_id << Connect{
-                    other_id: self.id(),
-                    other_path: self.path.clone(),
-                    reply_needed: false,
-                    to_transfer: false
-                };
-                return Fate::Live;
-            }
-
-            if other_path.start().is_roughly_within(self.path.end(), CONNECTION_TOLERANCE) {
+            if other_start.is_roughly_within(self.path.end(), CONNECTION_TOLERANCE) {
                 self.interactions.push(Interaction{
                     partner_lane: other_id,
                     start: self.length,
@@ -461,15 +458,42 @@ impl Recipient<Connect> for Lane {
                 })
             }
 
-            if other_path.end().is_roughly_within(self.path.start(), CONNECTION_TOLERANCE) {
+            if other_end.is_roughly_within(self.path.start(), CONNECTION_TOLERANCE) {
                 self.interactions.push(Interaction{
                     partner_lane: other_id,
                     start: 0.0,
-                    partner_start: other_path.length(),
+                    partner_start: other_length,
                     kind: InteractionKind::Previous
                 })
             }
 
+            if reply_needed {
+                other_id << Connect{
+                    other_id: self.id(),
+                    other_start: self.path.start(),
+                    other_end: self.path.end(),
+                    other_length: self.path.length(),
+                    reply_needed: false
+                };
+            }
+
+            Fate::Live
+        }
+    }}
+}
+
+use fnv::FnvHashMap;
+use ::std::cell::UnsafeCell;
+thread_local! (
+    static MEMOIZED_BANDS_OUTLINES: UnsafeCell<FnvHashMap<ID, (Band<CPath>, CPath)>> = UnsafeCell::new(FnvHashMap::default());
+);
+
+#[derive(Compact, Clone)]
+pub struct ConnectOverlaps{other_id: ID, other_path: CPath, reply_needed: bool}
+
+impl Recipient<ConnectOverlaps> for Lane {
+    fn receive(&mut self, msg: &ConnectOverlaps) -> Fate {match *msg{
+        ConnectOverlaps{other_id, ref other_path, reply_needed} => {
             MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
                 let memoized_bands_outlines = unsafe{&mut *memoized_bands_outlines_cell.get()};
                 let &(ref self_band, ref self_outline) = memoized_bands_outlines.entry(self.id()).or_insert_with(|| {
@@ -520,11 +544,10 @@ impl Recipient<Connect> for Lane {
 
 
                 if reply_needed {
-                    other_id << Connect{
+                    other_id << ConnectOverlaps{
                         other_id: self.id(),
                         other_path: self.path.clone(),
-                        reply_needed: false,
-                        to_transfer: false
+                        reply_needed: false
                     };
                 }
                 Fate::Live
@@ -533,10 +556,28 @@ impl Recipient<Connect> for Lane {
     }}
 }
 
-impl Recipient<Connect> for TransferLane {
+#[derive(Compact, Clone)]
+pub struct ConnectToTransfer{other_id: ID}
+
+impl Recipient<ConnectToTransfer> for Lane {
+    fn receive(&mut self, msg: &ConnectToTransfer) -> Fate {match *msg{
+        ConnectToTransfer{other_id} => {
+            other_id << ConnectTransferToNormal{
+                other_id: self.id(),
+                other_path: self.path.clone(),
+            };
+            Fate::Live
+        }
+    }}
+}
+
+#[derive(Compact, Clone)]
+pub struct ConnectTransferToNormal{other_id: ID, other_path: CPath}
+
+impl Recipient<ConnectTransferToNormal> for TransferLane {
     #[inline(never)]
-    fn receive(&mut self, msg: &Connect) -> Fate {match *msg{
-        Connect{other_id, ref other_path, ..} => {
+    fn receive(&mut self, msg: &ConnectTransferToNormal) -> Fate {match *msg{
+        ConnectTransferToNormal{other_id, ref other_path} => {
             if self.path.segments().iter().all(|segment|
                 other_path.segments().iter().any(|other_segment|
                     segment.start().is_roughly_within(other_segment.start(), 6.0)
@@ -663,19 +704,22 @@ impl Recipient<Unbuild> for TransferLane{
 
 pub fn setup(system: &mut ActorSystem) {
     system.add_individual(Swarm::<Lane>::new());
-    system.add_inbox::<CreateWith<Lane, AdvertiseForConnectionAndReport>, Swarm<Lane>>();
+    system.add_inbox::<CreateWith<Lane, AdvertiseToTransferAndReport>, Swarm<Lane>>();
+    system.add_inbox::<AdvertiseForOverlaps, Swarm<Lane>>();
     system.add_inbox::<Add, Swarm<Lane>>();
     system.add_inbox::<Tick, Swarm<Lane>>();
     system.add_inbox::<Connect, Swarm<Lane>>();
+    system.add_inbox::<ConnectToTransfer, Swarm<Lane>>();
+    system.add_inbox::<ConnectOverlaps, Swarm<Lane>>();
     system.add_inbox::<AddTransferLaneInteraction, Swarm<Lane>>();
     system.add_inbox::<Disconnect, Swarm<Lane>>();
     system.add_inbox::<Unbuild, Swarm<Lane>>();
 
     system.add_individual(Swarm::<TransferLane>::new());
-    system.add_inbox::<CreateWith<TransferLane, AdvertiseForConnectionAndReport>, Swarm<TransferLane>>();
+    system.add_inbox::<CreateWith<TransferLane, AdvertiseToTransferAndReport>, Swarm<TransferLane>>();
     system.add_inbox::<Add, Swarm<TransferLane>>();
     system.add_inbox::<Tick, Swarm<TransferLane>>();
-    system.add_inbox::<Connect, Swarm<TransferLane>>();
+    system.add_inbox::<ConnectTransferToNormal, Swarm<TransferLane>>();
     system.add_inbox::<Disconnect, Swarm<TransferLane>>();
     system.add_inbox::<Unbuild, Swarm<TransferLane>>();
 

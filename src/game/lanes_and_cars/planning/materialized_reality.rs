@@ -120,12 +120,18 @@ pub enum BuildableRef{
 
 #[derive(Copy, Clone)]
 pub struct ReportLaneBuilt(pub ID, pub BuildableRef);
+use super::super::AdvertiseForOverlaps;
 
 impl Recipient<ReportLaneBuilt> for MaterializedReality {
     fn receive(&mut self, msg: &ReportLaneBuilt) -> Fate {match *msg{
         ReportLaneBuilt(id, buildable_ref) => {
             match buildable_ref {
-                BuildableRef::Intersection(index) => {self.built_intersection_lanes.push_at(IntersectionRef(index), id);},
+                BuildableRef::Intersection(index) => {
+                    if let Some(other_intersection_lanes) = self.built_intersection_lanes.get(IntersectionRef(index)) {
+                        id << AdvertiseForOverlaps{lanes: other_intersection_lanes.clone()};
+                    }
+                    self.built_intersection_lanes.push_at(IntersectionRef(index), id);
+                },
                 BuildableRef::TrimmedStroke(index) => {self.built_trimmed_lanes.insert(TrimmedStrokeRef(index), id);},
                 BuildableRef::TransferStroke(index) => {self.built_transfer_lanes.insert(TransferStrokeRef(index), id);}
             }
