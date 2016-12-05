@@ -463,7 +463,9 @@ impl RenderContext {
         let mut render_debug_text = String::from("Renderer:\n");
 
         for (i, &Batch{ref vertices, ref indices, ref instances, ..}) in scene.batches.values().enumerate() {
-            render_debug_text.push_str(format!("batch{}: {} instances\n", i, instances.len()).as_str());
+            if instances.len() > 1 {
+                render_debug_text.push_str(format!("batch{}: {} instances\n", i, instances.len()).as_str());
+            }
             let instance_buffer = glium::VertexBuffer::new(&self.window, instances).unwrap();
             target.draw(
                 (vertices, instance_buffer.per_instance().unwrap()),

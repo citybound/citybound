@@ -128,7 +128,11 @@ impl Recipient<RenderToScene> for Lane {
                     car_instances.push(Instance{
                         instance_position: [position2d.x, position2d.y, 0.0],
                         instance_direction: [direction.x, direction.y],
-                        instance_color: [0.5, 0.5, 0.5]
+                        instance_color: if DEBUG_VIEW_LANDMARKS {
+                            ::core::geometry::RANDOM_COLORS[
+                                car.destination.landmark.instance_id as usize % ::core::geometry::RANDOM_COLORS.len()
+                            ]
+                        } else {[0.5, 0.5, 0.5]}
                     })
                 }
                 current_offset += segment.length;
@@ -157,23 +161,24 @@ impl Recipient<RenderToScene> for Lane {
             }
 
             if DEBUG_VIEW_LANDMARKS {
-                use random::Source;
-                let (random_color, is_landmark) = if let Some(as_destination) = self.pathfinding_info.as_destination {
-                    let mut source = ::random::default().seed([as_destination.landmark.instance_id as u64, 287]);
-                    let random_color : [f32; 3] = ::core::geometry::RANDOM_COLORS[
-                        source.read::<usize>() % ::core::geometry::RANDOM_COLORS.len()
-                    ];
-                    (random_color, as_destination.landmark == as_destination.node)
-                } else {
-                    ([0.0, 0.0, 0.0], false)
-                };
+                if self.pathfinding_info.routes_changed {
+                    let (random_color, is_landmark) = if let Some(as_destination) = self.pathfinding_info.as_destination {
+                        let random_color : [f32; 3] = ::core::geometry::RANDOM_COLORS[
+                            as_destination.landmark.instance_id as usize % ::core::geometry::RANDOM_COLORS.len()
+                        ];
+                        let weaker_random_color = [(random_color[0] + 1.0) / 2.0, (random_color[1] + 1.0) / 2.0, (random_color[2] + 1.0) / 2.0];
+                        (weaker_random_color, as_destination.is_landmark())
+                    } else {
+                        ([0.0, 0.0, 0.0], false)
+                    };
 
-                renderer_id << UpdateThing{
-                    scene_id: scene_id,
-                    thing_id: 4000 + self.id().instance_id as u16,
-                    thing: band_to_thing(&Band::new(self.path.clone(), if is_landmark {2.5} else {1.0}), 0.4),
-                    instance: Instance::with_color(random_color)
-                };
+                    renderer_id << UpdateThing{
+                        scene_id: scene_id,
+                        thing_id: 4000 + self.id().instance_id as u16,
+                        thing: band_to_thing(&Band::new(self.path.clone(), if is_landmark {2.5} else {1.0}), 0.4),
+                        instance: Instance::with_color(random_color)
+                    };
+                }
             }
             Fate::Live
         }
@@ -184,8 +189,8 @@ impl Recipient<RenderToScene> for TransferLane {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg{
         RenderToScene{renderer_id, scene_id} => {
             for car in &self.cars {
-                let position2d = self.path.along(*car.position);
-                let direction = self.path.direction_along(*car.position);
+                let position2d = self.path.along((*car.position).min(self.length));
+                let direction = self.path.direction_along((*car.position).min(self.length));
                 let rotated_direction = (direction + 0.4 * car.transfer_velocity * direction.orthogonal()).normalize();
                 let shifted_position2d = position2d + 3.0 * direction.orthogonal() * car.transfer_position;
                 renderer_id << AddInstance{
@@ -194,7 +199,11 @@ impl Recipient<RenderToScene> for TransferLane {
                     instance: Instance{
                         instance_position: [shifted_position2d.x, shifted_position2d.y, 0.0],
                         instance_direction: [rotated_direction.x, rotated_direction.y],
-                        instance_color: [0.3, 0.3, 0.0]
+                        instance_color: if DEBUG_VIEW_LANDMARKS {
+                            ::core::geometry::RANDOM_COLORS[
+                                car.destination.landmark.instance_id as usize % ::core::geometry::RANDOM_COLORS.len()
+                            ]
+                        } else {[0.5, 0.5, 0.5]}
                     }
                 };
             }

@@ -68,7 +68,7 @@ fn main() {
         Renderer::id() << AddDebugText{
             scene_id: 0,
             key: "Frame".chars().collect(),
-            value: format!("{} ms", last_frame.elapsed().subsec_nanos() as f32 / 10.0E6).as_str().chars().collect()
+            value: format!("{:.2} ms", last_frame.elapsed().as_secs() as f32 * 1000.0 + last_frame.elapsed().subsec_nanos() as f32 / 10.0E5).as_str().chars().collect()
         };
         last_frame = std::time::Instant::now();
         if !core::ui::process_events(&window) {return}

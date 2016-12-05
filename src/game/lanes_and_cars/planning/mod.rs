@@ -176,8 +176,8 @@ impl Recipient<PlanControl> for CurrentPlan {
             Fate::Live
         },
         PlanControl::CreateGrid(()) => {
-            let grid_size = 12u32;
-            let grid_spacing = 300.0;
+            let grid_size = 18u32;
+            let grid_spacing = 400.0;
 
             for x in 0..grid_size {
                 self.receive(&PlanControl::AddRoadStrokeNode(P2::new((x as f32 + 0.5) * grid_spacing, 0.0), false));

@@ -301,7 +301,7 @@ impl Recipient<Tick> for TransferLane {
                         let previous_obstacle_acceleration = intelligent_acceleration(&previous_obstacle, &car.as_obstacle)
                             .min(intelligent_acceleration(maybe_previous_overlap_obstacle.unwrap_or(&Obstacle::far_behind()), &car.as_obstacle));
 
-                        let politeness_factor = 0.3;
+                        let politeness_factor = 0.1;
 
                         let acceleration = if previous_obstacle_acceleration < 0.0 {
                             (1.0 - politeness_factor) * next_obstacle_acceleration + politeness_factor * previous_obstacle_acceleration
@@ -309,8 +309,8 @@ impl Recipient<Tick> for TransferLane {
                             next_obstacle_acceleration
                         };
 
-                        let is_dangerous = next_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION
-                            || previous_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION;
+                        let is_dangerous = false; /*next_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION
+                            || previous_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION;*/
 
                         (acceleration, is_dangerous)
                     };
@@ -336,6 +336,12 @@ impl Recipient<Tick> for TransferLane {
                 let arriving_soon = car.transfer_velocity.abs() > 0.1 && car.transfer_position.abs() > 0.5 && car.transfer_position.signum() == car.transfer_velocity.signum();
                 if arriving_soon {
                     car.transfer_acceleration = -0.9 * car.transfer_velocity;
+                }
+            }
+
+            if self.cars.len() > 1 {
+                for i in (0..self.cars.len() - 1).rev() {
+                    self.cars[i].position = OrderedFloat((*self.cars[i].position).min(*self.cars[i + 1].position));
                 }
             }
 
