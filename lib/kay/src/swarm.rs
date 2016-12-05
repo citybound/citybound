@@ -200,7 +200,7 @@ impl <M: Message, A: Actor + RecipientAsSwarm<M>> Recipient<M> for Swarm<A> {
     }
 }
 
-impl <M: Message + NotACreateMessage + NotARequestConfirmationMessage, A: Actor + Recipient<M>> RecipientAsSwarm<M> for A {
+impl <M: Message + NotACreateMessage + NotARequestConfirmationMessage + NotAToRandomMessage, A: Actor + Recipient<M>> RecipientAsSwarm<M> for A {
     fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<M>) -> Fate {
         if packet.recipient_id.is_broadcast() {
             swarm.receive_broadcast(packet);
@@ -233,9 +233,7 @@ impl<M: Message> Compact for RequestConfirmation<M> {
 }
 
 pub trait NotARequestConfirmationMessage {}
-
 impl NotARequestConfirmationMessage for .. {}
-
 impl <M: Message> !NotARequestConfirmationMessage for RequestConfirmation<M> {}
 
 #[derive(Clone)]
@@ -262,6 +260,49 @@ impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<RequestConfirm
             _marker: PhantomData
         };
         fate
+    }
+}
+
+#[derive(Clone)]
+pub struct ToRandom<M: Message> {
+    pub message: M,
+    pub n_recipients: usize
+}
+
+impl<M: Message> Compact for ToRandom<M> {
+    fn is_still_compact(&self) -> bool {self.message.is_still_compact()}
+    fn dynamic_size_bytes(&self) -> usize {self.message.dynamic_size_bytes()}
+    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
+        self.n_recipients = source.n_recipients;
+        self.message.compact_from(&source.message, new_dynamic_part);
+    }
+    unsafe fn decompact(&self) -> ToRandom<M> {
+        ToRandom{
+            message: self.message.decompact(),
+            n_recipients: self.n_recipients
+        }
+    }
+}
+
+pub trait NotAToRandomMessage {}
+impl NotAToRandomMessage for .. {}
+impl <M: Message> !NotAToRandomMessage for ToRandom<M> {}
+
+impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<ToRandom<M>> for A {
+    fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<ToRandom<M>>) -> Fate {
+        let mut new_packet = Packet{
+            recipient_id: ID::invalid(),
+            message: packet.message.message.clone()
+        };
+        for _i in 0..packet.message.n_recipients {
+            let random_id = ID::instance(
+                packet.recipient_id.type_id as usize,
+                (swarm.slot_map.random_used(), 0)
+            );
+            new_packet.recipient_id = random_id;
+            swarm.receive_packet(&new_packet);
+        }
+        Fate::Live
     }
 }
 

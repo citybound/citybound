@@ -1,5 +1,5 @@
-use kay::{Actor, Swarm, ID, Recipient, CreateWith, ActorSystem, Individual, Fate};
-use descartes::{Into2d, P2};
+use kay::{Actor, Swarm, ToRandom, ID, Recipient, CreateWith, ActorSystem, Individual, Fate};
+use descartes::{Into2d, P2, P3};
 use core::geometry::AnyShape;
 use core::ui::{UserInterface, VirtualKeyCode};
 use super::{CurrentPlan};
@@ -52,20 +52,10 @@ impl Recipient<Event3d> for RoadStrokeCanvas {
             Fate::Live
         },
         Event3d::KeyDown(VirtualKeyCode::C) => {
-            // TODO: adapt for pathfinding
-            // use game::lanes_and_cars::{Lane, LaneCar, Obstacle};
-            // use ordered_float::OrderedFloat;
-            // for _i in 0..1 {
-            //     Swarm::<Lane>::all() << ::game::lanes_and_cars::Add::Car(LaneCar{
-            //         trip: ID::invalid(),
-            //         as_obstacle: Obstacle{
-            //             position: OrderedFloat(0.0),
-            //             velocity: 0.0,
-            //             max_velocity: 20.0
-            //         },
-            //         acceleration: 0.0
-            //     }, None);
-            // }
+            Swarm::<::game::lanes_and_cars::Lane>::all() << ToRandom{
+                n_recipients: 5000,
+                message: Event3d::DragFinished{from: P3::new(0.0, 0.0, 0.0), to: P3::new(0.0, 0.0, 0.0)
+            }};
             Fate::Live
         },
         Event3d::KeyDown(VirtualKeyCode::G) => {

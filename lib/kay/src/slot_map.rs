@@ -35,6 +35,8 @@ pub struct SlotMap {
     free_ids_with_versions: ChunkedVec<(usize, usize)>
 }
 
+use random::Source;
+
 impl SlotMap {
     pub fn new(chunker: Box<Chunker>) -> Self {
         SlotMap {
@@ -64,5 +66,18 @@ impl SlotMap {
 
     pub fn free(&mut self, id: usize, version: usize) {
         self.free_ids_with_versions.push((id, version + 1));
+    }
+
+    pub fn random_used(&self) -> usize {
+        loop {
+            let random_id = ::random::default().read::<usize>() % self.entries.len();
+            let mut is_free = false;
+            for i in 0..self.free_ids_with_versions.len() {
+                if self.free_ids_with_versions.at(i).0 == random_id {
+                    is_free = true
+                }
+            }
+            if !is_free {return random_id}
+        }
     }
 }

@@ -32,7 +32,7 @@ impl Recipient<TellAsDestination> for Trip {
             self.source << Add::Car(LaneCar{
                 trip: self.id(),
                 as_obstacle: Obstacle{
-                    position: OrderedFloat(0.0),
+                    position: OrderedFloat(-1.0),
                     velocity: 0.0,
                     max_velocity: 20.0
                 },
@@ -102,7 +102,9 @@ use ::core::ui::Event3d;
 impl Recipient<Event3d> for Lane {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg{
         Event3d::DragFinished{..} => {
-            TripCreator::id() << AddLaneForTrip(self.id());
+            if !self.on_intersection {
+                TripCreator::id() << AddLaneForTrip(self.id());
+            }
             Fate::Live
         },
         _ => Fate::Live

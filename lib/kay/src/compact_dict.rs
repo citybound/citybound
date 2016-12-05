@@ -32,6 +32,17 @@ impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
         None
     }
 
+    pub fn get_mru(&mut self, query: K) -> Option<&V> {
+        for i in 0..self.keys.len() {
+            if self.keys[i] == query {
+                self.keys.swap(0, i);
+                self.values.swap(0, i);
+                return Some(&self.values[0]);
+            }
+        }
+        None
+    }
+
     pub fn contains_key(&self, query: K) -> bool {
         self.keys.contains(&query)
     }
@@ -67,6 +78,10 @@ impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
 
     pub fn values(&self) -> ::std::slice::Iter<V> {
         self.values.iter()
+    }
+
+    pub fn values_mut(&mut self) -> ::std::slice::IterMut<V> {
+        self.values.iter_mut()
     }
 
     #[allow(needless_lifetimes)]

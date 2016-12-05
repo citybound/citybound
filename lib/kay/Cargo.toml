@@ -5,3 +5,4 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
 clippy = "*"
+random = "*"

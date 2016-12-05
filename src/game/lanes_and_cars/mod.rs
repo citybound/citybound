@@ -4,7 +4,7 @@ pub mod planning;
 pub mod pathfinding;
 mod intelligent_acceleration;
 use self::intelligent_acceleration::{intelligent_acceleration, COMFORTABLE_BREAKING_DECELERATION};
-use core::geometry::{CPath, add_debug_path};
+use core::geometry::{CPath};
 use kay::{ID, Actor, CVec, Swarm, CreateWith, Recipient, ActorSystem, Fate};
 use descartes::{N, P2, FiniteCurve, RoughlyComparable, Band, Intersect, Curve, Path, Dot, WithUniqueOrthogonal};
 use ordered_float::OrderedFloat;
@@ -66,6 +66,14 @@ impl TransferLane {
             in_construction: 0.0
         }
     }
+
+    fn other_side(&self, side: ID) -> ID {
+        if side == self.left.expect("should have a left lane").0 {
+            self.right.expect("should have a right lane").0
+        } else {
+            self.left.expect("should have a left lane").0
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -75,29 +83,41 @@ enum Add{
 }
 
 use self::pathfinding::RoutingInfo;
+use random::Source;
 
 impl Recipient<Add> for Lane {
     fn receive(&mut self, msg: &Add) -> Fate {match *msg{
         Add::Car(car, _from) => {
-            let next_hop_interaction = self.pathfinding_info.routes.get(car.destination).map(|&RoutingInfo{outgoing_idx, ..}|
-                Some(outgoing_idx as usize)
-            ).unwrap_or_else(|| {
-                println!("NO ROUTE! Routes: {:#?}", self.pathfinding_info.routes.pairs().collect::<Vec<_>>());
-                self.interactions.iter().position(|interaction| match interaction.kind {Next{..} => true, _ => false})
-            }).expect("the car should be able to go somewhere!");
+            //println!("{:?} -> {:?}", self.pathfinding_info.as_destination, car.destination);
+            let maybe_next_hop_interaction = self.pathfinding_info.routes.get(car.destination)
+            .or(self.pathfinding_info.routes.get(car.destination.landmark_destination()))
+            .map(|&RoutingInfo{outgoing_idx, /*distance,*/ ..}| {
+                //println!("distance {:?}", distance);
+                outgoing_idx as usize
+            });
 
-            println!("next hop idx will be {:?}", next_hop_interaction);
+            if let Some(next_hop_interaction) = maybe_next_hop_interaction {
+                //println!("next hop idx will be {:?}", next_hop_interaction);
 
-            let routed_car = LaneCar{
-                next_hop_interaction: next_hop_interaction as u8,
-                .. car
-            };
+                let routed_car = LaneCar{
+                    next_hop_interaction: next_hop_interaction as u8,
+                    as_obstacle: if *car.as_obstacle.position < 0.0 {
+                        car.as_obstacle.offset_by(-*car.as_obstacle.position).offset_by(
+                            (::random::default().read::<usize>() % 1000) as f32 * self.length / 2000.0
+                        )
+                    } else {car.as_obstacle},
+                    .. car
+                };
 
-            // TODO: optimize using BinaryHeap?
-            let maybe_next_car_position = self.cars.iter().position(|other_car| other_car.as_obstacle.position > car.as_obstacle.position);
-            match maybe_next_car_position {
-                Some(next_car_position) => self.cars.insert(next_car_position, routed_car),
-                None => self.cars.push(routed_car)
+                // TODO: optimize using BinaryHeap?
+                let maybe_next_car_position = self.cars.iter().position(|other_car| other_car.as_obstacle.position > car.as_obstacle.position);
+                match maybe_next_car_position {
+                    Some(next_car_position) => self.cars.insert(next_car_position, routed_car),
+                    None => self.cars.push(routed_car)
+                }
+            } else {
+                println!("NO ROUTE!");
+                //println!("NO ROUTE! Routes: {:?}", self.pathfinding_info.routes.pairs().collect::<Vec<_>>());
             }
             Fate::Live
         },
@@ -133,7 +153,7 @@ impl Recipient<Add> for TransferLane {
 use core::simulation::Tick;
 
 const TRAFFIC_LOGIC_THROTTLING : usize = 30;
-const PATHFINDING_THROTTLING : usize = 3;
+const PATHFINDING_THROTTLING : usize = 10;
 
 impl Recipient<Tick> for Lane {
     fn receive(&mut self, msg: &Tick) -> Fate {match *msg{
@@ -190,36 +210,24 @@ impl Recipient<Tick> for Lane {
                     let interaction = self.interactions[car.next_hop_interaction as usize];
                     
                     if *car.position > interaction.start {
-                        println!("interaction for switching: {:?} (idx {:?})", interaction, car.next_hop_interaction);
+                        //println!("interaction for switching: {:?} (idx {:?})", interaction, car.next_hop_interaction);
                         Some((i, interaction.partner_lane, interaction.start, interaction.partner_start))
                     } else {None}
                 }).next();
 
                 if let Some((idx_to_remove, next_lane, start, partner_start)) = maybe_switch_car {
                     let car = self.cars.remove(idx_to_remove);
-                    println!("{:?} -> {:?}", self.id(), car.destination.node);
                     if self.id() == car.destination.node {
-                        add_debug_path(self.path.clone(), [0.0, 1.0, 0.0], 0.4);
+                        //::core::geometry::add_debug_path(self.path.clone(), [0.0, 1.0, 0.0], 0.4);
                     } else {
                         next_lane << Add::Car(car.offset_by(partner_start - start), Some(self.id()));
-                        println!("switched car from {:?} to {:?}", self.id(), next_lane);
-                        add_debug_path(self.path.clone(), [0.0, 0.0, 1.0], 0.4);
+                        //println!("switched car from {:?} to {:?}", self.id(), next_lane);
+                        //::core::geometry::add_debug_path(self.path.clone(), [0.0, 0.0, 1.0], 0.4);
                     }
                 } else {
                     break;
                 }
             }
-            
-            // loop {
-            //     let should_pop = self.cars.iter().rev().find(|car| *car.position > self.length).map(|car_over_end| {
-            //         let first_next_interaction = self.interactions.iter().find(|interaction| match interaction.kind {Next{..} => true, _ => false});
-            //         if let Some(&Interaction{partner_lane, kind: Next{partner_start}, ..}) = first_next_interaction {
-            //             partner_lane << Add::Car(car_over_end.offset_by(-self.length + partner_start), Some(self.id()));
-            //         };
-            //         car_over_end
-            //     }).is_some();
-            //     if should_pop {self.cars.pop();} else {break;}
-            // }
 
             for interaction in self.interactions.iter() {
                 let mut cars = self.cars.iter();
