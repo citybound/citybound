@@ -46,7 +46,7 @@ pub fn on_build(lane: &mut Lane) {
 }
 
 const MIN_LANDMARK_INCOMING : usize = 3;
-const ROUTING_TIMEOUT_AFTER_CHANGE : u16 = 100;
+const ROUTING_TIMEOUT_AFTER_CHANGE : u16 = 20;
 
 pub fn tick(lane: &mut Lane) {
     if let Some(as_destination) = lane.pathfinding_info.as_destination {
@@ -98,7 +98,7 @@ pub fn tick(lane: &mut Lane) {
                 let self_cost = if is_transfer {0.0} else {lane.length};
                 predecessor << ShareRoutes{
                     new_routes: lane.pathfinding_info.routes.pairs().filter_map(
-                        |(&destination, &RoutingInfo{distance, distance_hops, fresh, ..})|
+                        |(&destination, &RoutingInfo{distance, distance_hops, ..})|
                         if true /*fresh*/ {Some((destination, (distance + self_cost, distance_hops + 1)))} else {None}
                     ).chain(lane.pathfinding_info.as_destination.map(|destination|
                         (destination, (self_cost, 0))

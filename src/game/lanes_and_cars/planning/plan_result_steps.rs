@@ -6,7 +6,7 @@ use ordered_float::OrderedFloat;
 use itertools::{Itertools};
 use super::{RoadStroke, RoadStrokeNode, MIN_NODE_DISTANCE, Intersection, RoadStrokeRef};
 
-const STROKE_INTERSECTION_WIDTH : N = 4.0;
+const STROKE_INTERSECTION_WIDTH : N = 6.0;
 const INTERSECTION_GROUPING_RADIUS : N = 30.0;
 
 #[inline(never)]

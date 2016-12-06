@@ -130,9 +130,39 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         }
     }
 
+    pub fn retain<F: FnMut(&T) -> bool>(&mut self, mut keep: F) {
+        let mut del = 0;
+        let len = self.len();
+        {
+            let v = &mut **self;
+
+            #[allow(needless_range_loop)]
+            for i in 0..len {
+                if !keep(&v[i]) {
+                    del += 1;
+                } else {
+                    v.swap(i - del, i);
+                }
+            }
+        }
+
+        if del > 0 {
+            self.truncate(len - del);
+        }
+    }
+
+    pub fn truncate(&mut self, desired_len: usize) {
+        unsafe {
+            while desired_len < self.len {
+                self.len -= 1;
+                let len = self.len;
+                ptr::drop_in_place(self.get_unchecked_mut(len));
+            }
+        }
+    }
+
     pub fn clear(&mut self) {
-        // TODO: Drop?
-        self.len = 0;
+        self.truncate(0);
     }
 }
 

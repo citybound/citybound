@@ -23,23 +23,26 @@ impl Recipient<Start> for Trip {
 }
 
 use super::TellAsDestination;
-use super::super::{Add, LaneCar, Obstacle};
+use super::super::{AddCar, LaneCar, Obstacle};
 
 impl Recipient<TellAsDestination> for Trip {
     fn receive(&mut self, msg: &TellAsDestination) -> Fate {match *msg{
         TellAsDestination{as_destination: Some(as_destination), ..} => {
             self.destination = Some(as_destination);
-            self.source << Add::Car(LaneCar{
-                trip: self.id(),
-                as_obstacle: Obstacle{
-                    position: OrderedFloat(-1.0),
-                    velocity: 0.0,
-                    max_velocity: 20.0
+            self.source << AddCar{
+                car: LaneCar{
+                    trip: self.id(),
+                    as_obstacle: Obstacle{
+                        position: OrderedFloat(-1.0),
+                        velocity: 0.0,
+                        max_velocity: 15.0
+                    },
+                    acceleration: 0.0,
+                    destination: as_destination,
+                    next_hop_interaction: 0,
                 },
-                acceleration: 0.0,
-                destination: as_destination,
-                next_hop_interaction: 0,
-            }, None);
+                from: None
+            };
             Fate::Live
         },
         TellAsDestination{id, as_destination: None} => {
@@ -101,6 +104,14 @@ use ::core::ui::Event3d;
 
 impl Recipient<Event3d> for Lane {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg{
+        Event3d::HoverStarted{..} => {
+            self.hovered = true;
+            Fate::Live
+        },
+        Event3d::HoverStopped{..} => {
+            self.hovered = false;
+            Fate::Live
+        },
         Event3d::DragFinished{..} => {
             if !self.on_intersection {
                 TripCreator::id() << AddLaneForTrip(self.id());
