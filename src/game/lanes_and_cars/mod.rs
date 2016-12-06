@@ -6,7 +6,7 @@ mod intelligent_acceleration;
 use self::intelligent_acceleration::{intelligent_acceleration, COMFORTABLE_BREAKING_DECELERATION};
 use core::geometry::{CPath};
 use kay::{ID, Actor, CVec, Swarm, CreateWith, Recipient, ActorSystem, Fate};
-use descartes::{N, P2, FiniteCurve, RoughlyComparable, Band, Intersect, Curve, Path, Dot, WithUniqueOrthogonal};
+use descartes::{N, P2, FiniteCurve, RoughlyComparable, Band, Norm, Intersect, Curve, Dot, WithUniqueOrthogonal};
 use ordered_float::OrderedFloat;
 use itertools::Itertools;
 use ::std::f32::INFINITY;
@@ -592,44 +592,35 @@ impl Recipient<ConnectTransferToNormal> for TransferLane {
     #[inline(never)]
     fn receive(&mut self, msg: &ConnectTransferToNormal) -> Fate {match *msg{
         ConnectTransferToNormal{other_id, ref other_path} => {
-            if self.path.segments().iter().all(|segment|
-                other_path.segments().iter().any(|other_segment|
-                    segment.start().is_roughly_within(other_segment.start(), 6.0)
-                    && segment.start_direction().is_roughly_within(other_segment.start_direction(), 0.1)
-                    && segment.end().is_roughly_within(other_segment.end(), 6.0)
-                    && segment.end_direction().is_roughly_within(other_segment.end_direction(), 0.1)
-                )
-            ) {
-                let self_start_on_other_distance = other_path.project(self.path.start())
-                    .expect("start should be on neighboring lane");
-                let self_start_on_other = other_path.along(self_start_on_other_distance);
-                let is_right_of = (self.path.start() - self_start_on_other)
-                    .dot(&self.path.start_direction().orthogonal()) > 0.0;
+            let projections = (other_path.project(self.path.start()), other_path.project(self.path.end()));
+            if let (Some(self_start_on_other_distance), Some(self_end_on_other_distance)) = projections {
+                if self_start_on_other_distance < self_end_on_other_distance
+                && self_end_on_other_distance - self_start_on_other_distance > 6.0 {
+                    let self_start_on_other = other_path.along(self_start_on_other_distance);
+                    let self_end_on_other = other_path.along(self_end_on_other_distance);
 
-                if is_right_of {
-                    self.right = Some((other_id, self_start_on_other_distance));
-                    other_id << AddTransferLaneInteraction(Interaction{
-                        partner_lane: self.id(),
-                        start: self_start_on_other_distance,
-                        partner_start: 0.0,
-                        kind: InteractionKind::Overlap{
-                            end: self_start_on_other_distance + self.length,
-                            partner_end: self.length,
-                            kind: OverlapKind::Transfer
+                    if self_start_on_other.is_roughly_within(self.path.start(), 3.0)
+                    && self_end_on_other.is_roughly_within(self.path.end(), 3.0) {
+                        other_id << AddTransferLaneInteraction(Interaction{
+                            partner_lane: self.id(),
+                            start: self_start_on_other_distance,
+                            partner_start: 0.0,
+                            kind: InteractionKind::Overlap{
+                                end: self_start_on_other_distance + self.length,
+                                partner_end: self.length,
+                                kind: OverlapKind::Transfer
+                            }
+                        });
+                        
+                        let is_right_of = (self.path.start() - self_start_on_other)
+                            .dot(&self.path.start_direction().orthogonal()) > 0.0;
+
+                        if is_right_of {
+                            self.right = Some((other_id, self_start_on_other_distance));
+                        } else {
+                            self.left = Some((other_id, self_start_on_other_distance));
                         }
-                    })
-                } else {
-                    self.left = Some((other_id, self_start_on_other_distance));
-                    other_id << AddTransferLaneInteraction(Interaction{
-                        partner_lane: self.id(),
-                        start: self_start_on_other_distance,
-                        partner_start: 0.0,
-                        kind: InteractionKind::Overlap{
-                            end: self_start_on_other_distance + self.length,
-                            partner_end: self.length,
-                            kind: OverlapKind::Transfer
-                        }
-                    })
+                    }
                 }
             }
             Fate::Live

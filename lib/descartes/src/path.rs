@@ -49,7 +49,7 @@ impl<T: Path> FiniteCurve for T {
     fn along(&self, distance: N) -> P2 {
         match self.find_on_segment(distance) {
             Some((segment, distance_on_segment)) => segment.along(distance_on_segment),
-            None => self.segments()[0].start
+            None => if distance < 0.0 {self.segments()[0].start} else {self.segments().last().unwrap().end}
         }
     }
 

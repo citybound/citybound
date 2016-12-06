@@ -207,6 +207,22 @@ impl Recipient<RenderToScene> for TransferLane {
                     }
                 };
             }
+            if self.left.is_none() {
+                let position = self.path.along(self.length / 2.0) + self.path.direction_along(self.length / 2.0).orthogonal();
+                renderer_id << AddInstance{scene_id: scene_id, batch_id: 1333, instance: Instance{
+                    instance_position: [position.x, position.y, 0.0],
+                    instance_direction: [1.0, 0.0],
+                    instance_color: [1.0, 0.0, 0.0]
+                }};
+            }
+            if self.right.is_none() {
+                let position = self.path.along(self.length / 2.0) - self.path.direction_along(self.length / 2.0).orthogonal();
+                renderer_id << AddInstance{scene_id: scene_id, batch_id: 1333, instance: Instance{
+                    instance_position: [position.x, position.y, 0.0],
+                    instance_direction: [1.0, 0.0],
+                    instance_color: [1.0, 0.0, 0.0]
+                }};
+            }
             Fate::Live
         }
     }}
