@@ -51,7 +51,8 @@ impl Recipient<RenderToScene> for CurrentPlan {
                     instance: Instance::with_color([0.5, 0.5, 1.0])
                 };
                 let transfer_strokes_thing : Thing = self.current_plan_result_delta.transfer_strokes.to_create.values()
-                    .map(RoadStroke::preview_thing)
+                    .map(|road_stroke|
+                        band_to_thing(&Band::new(road_stroke.path().clone(), 0.3), 0.1))
                     .sum();
                 renderer_id << UpdateThing{
                     scene_id: scene_id,
