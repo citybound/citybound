@@ -5,9 +5,9 @@ use core::ui::{UserInterface, VirtualKeyCode};
 use super::{CurrentPlan};
 
 #[derive(Copy, Clone, Actor, Default)]
-pub struct RoadStrokeCanvas {_id: ID, last_click: Option<P2>}
+pub struct LaneStrokeCanvas {_id: ID, last_click: Option<P2>}
 
-impl RoadStrokeCanvas{
+impl LaneStrokeCanvas{
     pub fn new() -> Self {Self::default()}
 }
 
@@ -15,7 +15,7 @@ use super::AddToUI;
 use core::ui::Add;
 use core::ui::Focus;
 
-impl Recipient<AddToUI> for RoadStrokeCanvas {
+impl Recipient<AddToUI> for LaneStrokeCanvas {
     fn receive(&mut self, _msg: &AddToUI) -> Fate {
         UserInterface::id() << Add::Interactable3d(self.id(), AnyShape::Everywhere, 0);
         UserInterface::id() << Focus(self.id());
@@ -26,7 +26,7 @@ impl Recipient<AddToUI> for RoadStrokeCanvas {
 use super::ClearAll;
 use core::ui::Remove;
 
-impl Recipient<ClearAll> for RoadStrokeCanvas {
+impl Recipient<ClearAll> for LaneStrokeCanvas {
     fn receive(&mut self, _msg: &ClearAll) -> Fate {
         UserInterface::id() << Remove::Interactable3d(self.id());
         Fate::Die
@@ -34,13 +34,13 @@ impl Recipient<ClearAll> for RoadStrokeCanvas {
 }
 
 use core::ui::Event3d;
-use super::PlanControl::{AddRoadStrokeNode, Materialize, CreateGrid};
+use super::PlanControl::{AddLaneStrokeNode, Materialize, CreateGrid};
 use super::RecreateInteractables;
 
-impl Recipient<Event3d> for RoadStrokeCanvas {
+impl Recipient<Event3d> for LaneStrokeCanvas {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg {
         Event3d::DragStarted{at} => {
-            CurrentPlan::id() << AddRoadStrokeNode(at.into_2d(), true);
+            CurrentPlan::id() << AddLaneStrokeNode(at.into_2d(), true);
             Fate::Live
         },
         Event3d::DragFinished{..} => {
@@ -67,8 +67,8 @@ impl Recipient<Event3d> for RoadStrokeCanvas {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add_individual(Swarm::<RoadStrokeCanvas>::new());
-    system.add_inbox::<ClearAll, Swarm<RoadStrokeCanvas>>();
-    system.add_inbox::<Event3d, Swarm<RoadStrokeCanvas>>();
-    system.add_inbox::<CreateWith<RoadStrokeCanvas, AddToUI>, Swarm<RoadStrokeCanvas>>();
+    system.add_individual(Swarm::<LaneStrokeCanvas>::new());
+    system.add_inbox::<ClearAll, Swarm<LaneStrokeCanvas>>();
+    system.add_inbox::<Event3d, Swarm<LaneStrokeCanvas>>();
+    system.add_inbox::<CreateWith<LaneStrokeCanvas, AddToUI>, Swarm<LaneStrokeCanvas>>();
 }

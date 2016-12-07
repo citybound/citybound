@@ -4,13 +4,13 @@ use core::geometry::{CPath};
 use core::disjoint_sets::DisjointSets;
 use ordered_float::OrderedFloat;
 use itertools::{Itertools};
-use super::{RoadStroke, RoadStrokeNode, MIN_NODE_DISTANCE, Intersection, RoadStrokeRef};
+use super::{LaneStroke, LaneStrokeNode, MIN_NODE_DISTANCE, Intersection, LaneStrokeRef};
 
 const STROKE_INTERSECTION_WIDTH : N = 4.0;
 const INTERSECTION_GROUPING_RADIUS : N = 30.0;
 
 #[inline(never)]
-pub fn find_intersections(strokes: &CVec<RoadStroke>) -> CVec<Intersection> {
+pub fn find_intersections(strokes: &CVec<LaneStroke>) -> CVec<Intersection> {
     let mut intersection_point_groups = DisjointSets::from_individuals(find_intersection_points(strokes));
 
     intersection_point_groups.union_all_with(|point_i, point_j|
@@ -32,7 +32,7 @@ pub fn find_intersections(strokes: &CVec<RoadStroke>) -> CVec<Intersection> {
 }
 
 #[inline(never)]
-fn find_intersection_points(strokes: &CVec<RoadStroke>) -> Vec<P2> {
+fn find_intersection_points(strokes: &CVec<LaneStroke>) -> Vec<P2> {
     strokes.iter().enumerate().flat_map(|(i, stroke_1)| {
         let path_1 = stroke_1.path();
         let band_1 = Band::new(path_1.clone(), STROKE_INTERSECTION_WIDTH).outline();
@@ -45,8 +45,8 @@ fn find_intersection_points(strokes: &CVec<RoadStroke>) -> Vec<P2> {
 }
 
 #[inline(never)]
-pub fn trim_strokes_and_add_incoming_outgoing(strokes: &CVec<RoadStroke>, intersections: &mut CVec<Intersection>) -> CVec<RoadStroke> {
-    let strokes = strokes.iter().cloned().enumerate().map(|(i, stroke)| (RoadStrokeRef(i), stroke)).collect::<Vec<_>>();
+pub fn trim_strokes_and_add_incoming_outgoing(strokes: &CVec<LaneStroke>, intersections: &mut CVec<Intersection>) -> CVec<LaneStroke> {
+    let strokes = strokes.iter().cloned().enumerate().map(|(i, stroke)| (LaneStrokeRef(i), stroke)).collect::<Vec<_>>();
 
     strokes.iter().flat_map(|&(stroke_ref, ref stroke)| {
         let path = stroke.path();
@@ -59,11 +59,11 @@ pub fn trim_strokes_and_add_incoming_outgoing(strokes: &CVec<RoadStroke>, inters
             if intersection_points.len() >= 2 {
                 let entry_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).min().unwrap();
                 let exit_distance = intersection_points.iter().map(|p| OrderedFloat(p.along_a)).max().unwrap();
-                intersection.incoming.insert(stroke_ref, RoadStrokeNode{
+                intersection.incoming.insert(stroke_ref, LaneStrokeNode{
                     position: path.along(*entry_distance),
                     direction: path.direction_along(*entry_distance)
                 });
-                intersection.outgoing.insert(stroke_ref, RoadStrokeNode{
+                intersection.outgoing.insert(stroke_ref, LaneStrokeNode{
                     position: path.along(*exit_distance),
                     direction: path.direction_along(*exit_distance)
                 });
@@ -71,14 +71,14 @@ pub fn trim_strokes_and_add_incoming_outgoing(strokes: &CVec<RoadStroke>, inters
             } else if intersection_points.len() == 1 {
                 if intersection.shape.contains(stroke.nodes()[0].position) {
                     let exit_distance = intersection_points[0].along_a;
-                    intersection.outgoing.insert(stroke_ref, RoadStrokeNode{
+                    intersection.outgoing.insert(stroke_ref, LaneStrokeNode{
                         position: path.along(exit_distance),
                         direction: path.direction_along(exit_distance)
                     });
                     start_trim = start_trim.max(exit_distance);
                 } else if intersection.shape.contains(stroke.nodes().last().unwrap().position) {
                     let entry_distance = intersection_points[0].along_a;
-                    intersection.incoming.insert(stroke_ref, RoadStrokeNode{
+                    intersection.incoming.insert(stroke_ref, LaneStrokeNode{
                         position: path.along(entry_distance),
                         direction: path.direction_along(entry_distance)
                     });
@@ -100,7 +100,7 @@ pub fn trim_strokes_and_add_incoming_outgoing(strokes: &CVec<RoadStroke>, inters
 }
 
 #[inline(never)]
-pub fn find_transfer_strokes(trimmed_strokes: &CVec<RoadStroke>) -> Vec<RoadStroke> {
+pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStroke> {
     trimmed_strokes.iter().enumerate().flat_map(|(i, stroke_1)| {
         let path_1 = stroke_1.path();
         trimmed_strokes.iter().skip(i + 1).flat_map(|stroke_2| {
@@ -193,11 +193,11 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<RoadStroke>) -> Vec<RoadStro
                 sorted_segments
             });
 
-            aligned_paths.map(|segments| RoadStroke::new(
+            aligned_paths.map(|segments| LaneStroke::new(
                 segments.iter().map(|segment|
-                    RoadStrokeNode{position: segment.start(), direction: segment.start_direction()}
+                    LaneStrokeNode{position: segment.start(), direction: segment.start_direction()}
                 ).chain(Some(
-                    RoadStrokeNode{position: segments.last().unwrap().end(), direction: segments.last().unwrap().end_direction()}
+                    LaneStrokeNode{position: segments.last().unwrap().end(), direction: segments.last().unwrap().end_direction()}
                 ).into_iter()).collect()
             )).collect::<Vec<_>>()
         }).collect::<Vec<_>>()
@@ -240,13 +240,13 @@ pub fn create_connecting_strokes(intersections: &mut CVec<Intersection>) {
                         incoming_group.iter().cartesian_product(outgoing_group.iter()).filter_map(
                             |(&(incoming_ref, incoming), &(outgoing_ref, outgoing))|
                             if incoming_ref == outgoing_ref {
-                                Some(RoadStroke::new(vec![*incoming, *outgoing].into()))
+                                Some(LaneStroke::new(vec![*incoming, *outgoing].into()))
                             } else {None}
                         ).into_iter().collect::<Vec<_>>()
                     } else {
                         incoming_group.iter().zip(outgoing_group.iter()).filter_map(|(&(_, incoming), &(_, outgoing))|
                             if (incoming.position - outgoing.position).norm() > MIN_NODE_DISTANCE {
-                                Some(RoadStroke::new(vec![*incoming, *outgoing].into()))
+                                Some(LaneStroke::new(vec![*incoming, *outgoing].into()))
                             } else {None}
                         ).min_by_key(|stroke| OrderedFloat(stroke.path().length())).into_iter().collect::<Vec<_>>()
                     }
@@ -256,7 +256,7 @@ pub fn create_connecting_strokes(intersections: &mut CVec<Intersection>) {
 }
 
 #[allow(ptr_arg)]
-fn groups_correspond(incoming_group: &Vec<(&RoadStrokeRef, &RoadStrokeNode)>, outgoing_group: &Vec<(&RoadStrokeRef, &RoadStrokeNode)>) -> bool {
+fn groups_correspond(incoming_group: &Vec<(&LaneStrokeRef, &LaneStrokeNode)>, outgoing_group: &Vec<(&LaneStrokeRef, &LaneStrokeNode)>) -> bool {
     incoming_group.iter().all(|&(incoming_ref, _)|
         outgoing_group.iter().any(|&(outgoing_ref, _)| incoming_ref == outgoing_ref)
     )

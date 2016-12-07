@@ -2,7 +2,7 @@ use kay::{Recipient, Fate, ActorSystem};
 use descartes::{Band, Path};
 use monet::{Thing, Instance};
 use ::core::geometry::band_to_thing;
-use super::{CurrentPlan, RoadStroke};
+use super::{CurrentPlan, LaneStroke};
 
 use monet::SetupInScene;
 
@@ -22,7 +22,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
             if self.ui_state.dirty {
                 let thing : Thing = self.current_plan_result_delta.trimmed_strokes.to_create.values()
                     .filter(|stroke| stroke.nodes().len() > 1)
-                    .map(RoadStroke::preview_thing)
+                    .map(LaneStroke::preview_thing)
                     .sum();
                 renderer_id << UpdateThing{
                     scene_id: scene_id,
@@ -42,7 +42,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
                 };
                 let connecting_strokes_thing : Thing = self.current_plan_result_delta.intersections.to_create.values()
                     .filter(|i| !i.strokes.is_empty())
-                    .map(|i| -> Thing {i.strokes.iter().map(RoadStroke::preview_thing).sum()})
+                    .map(|i| -> Thing {i.strokes.iter().map(LaneStroke::preview_thing).sum()})
                     .sum();
                 renderer_id << UpdateThing{
                     scene_id: scene_id,
@@ -51,8 +51,8 @@ impl Recipient<RenderToScene> for CurrentPlan {
                     instance: Instance::with_color([0.5, 0.5, 1.0])
                 };
                 let transfer_strokes_thing : Thing = self.current_plan_result_delta.transfer_strokes.to_create.values()
-                    .map(|road_stroke|
-                        band_to_thing(&Band::new(road_stroke.path().clone(), 0.3), 0.1))
+                    .map(|lane_stroke|
+                        band_to_thing(&Band::new(lane_stroke.path().clone(), 0.3), 0.1))
                     .sum();
                 renderer_id << UpdateThing{
                     scene_id: scene_id,

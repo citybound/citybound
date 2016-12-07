@@ -2,37 +2,37 @@ use descartes::{P2, V2, Path, Segment, Band, FiniteCurve, N, RoughlyComparable};
 use kay::{ID, CVec, Swarm, CreateWith};
 use monet::{Thing};
 use core::geometry::{CPath, band_to_thing};
-use super::{RoadStrokeRef, RoadStrokeNodeInteractable, InteractableParent};
+use super::{LaneStrokeRef, LaneStrokeNodeInteractable, InteractableParent};
 use super::materialized_reality::BuildableRef;
 use super::super::{Lane, TransferLane, AdvertiseToTransferAndReport};
 
 #[derive(Compact, Clone)]
-pub struct RoadStroke{
-    nodes: CVec<RoadStrokeNode>,
+pub struct LaneStroke{
+    nodes: CVec<LaneStrokeNode>,
     _memoized_path: CPath
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub struct RoadStrokeNodeRef(pub usize, pub usize);
+pub struct LaneStrokeNodeRef(pub usize, pub usize);
 
 pub const MIN_NODE_DISTANCE : f32 = 1.0;
 
-impl RoadStroke {
-    pub fn new(nodes: CVec<RoadStrokeNode>) -> Self {
+impl LaneStroke {
+    pub fn new(nodes: CVec<LaneStrokeNode>) -> Self {
         if nodes.windows(2).any(|window| window[0].position.is_roughly_within(window[1].position, MIN_NODE_DISTANCE)) {
             panic!("close points in stroke")
         }
         if nodes.len() <= 1 {
             panic!("Invalid stroke")
         }
-        RoadStroke{nodes: nodes, _memoized_path: CPath::new(vec![])}
+        LaneStroke{nodes: nodes, _memoized_path: CPath::new(vec![])}
     }
 
-    pub fn nodes(&self) -> &CVec<RoadStrokeNode> {
+    pub fn nodes(&self) -> &CVec<LaneStrokeNode> {
         &self.nodes
     }
 
-    pub fn nodes_mut(&mut self) -> &mut CVec<RoadStrokeNode> {
+    pub fn nodes_mut(&mut self) -> &mut CVec<LaneStrokeNode> {
         &mut self.nodes
     }
 
@@ -54,11 +54,11 @@ impl RoadStroke {
     }
 
     #[allow(needless_lifetimes)]
-    pub fn create_interactables<'a>(&'a self, self_ref: RoadStrokeRef, class: InteractableParent)
-    -> impl Iterator<Item=RoadStrokeNodeInteractable> + 'a {
+    pub fn create_interactables<'a>(&'a self, self_ref: LaneStrokeRef, class: InteractableParent)
+    -> impl Iterator<Item=LaneStrokeNodeInteractable> + 'a {
         self.nodes.iter().enumerate().map(move |(i, node)| {
             let child_ref = match self_ref {
-                RoadStrokeRef(stroke_idx) => RoadStrokeNodeRef(stroke_idx, i),
+                LaneStrokeRef(stroke_idx) => LaneStrokeNodeRef(stroke_idx, i),
             };
             node.create_interactable(child_ref, class.clone())
         })
@@ -69,17 +69,17 @@ impl RoadStroke {
         let path = self.path();
         if let Some(cut_path) = path.subsection(start, end) {
             let nodes = cut_path.segments().iter().map(|segment|
-                RoadStrokeNode{
+                LaneStrokeNode{
                     position: segment.start(),
                     direction: segment.start_direction()
                 }
             ).chain(cut_path.segments().last().map(|last_segment|
-                RoadStrokeNode{
+                LaneStrokeNode{
                     position: last_segment.end(),
                     direction: last_segment.end_direction()
                 }
             ).into_iter()).collect();
-            Some(RoadStroke::new(nodes))
+            Some(LaneStroke::new(nodes))
         } else {None}
     }
 
@@ -101,8 +101,8 @@ impl RoadStroke {
     }
 }
 
-impl<'a> RoughlyComparable for &'a RoadStroke {
-    fn is_roughly_within(&self, other: &RoadStroke, tolerance: N) -> bool {
+impl<'a> RoughlyComparable for &'a LaneStroke {
+    fn is_roughly_within(&self, other: &LaneStroke, tolerance: N) -> bool {
         self.nodes.len() == other.nodes.len()
         && self.nodes.iter().zip(other.nodes.iter()).all(|(n1, n2)|
             n1.is_roughly_within(n2, tolerance)
@@ -111,19 +111,19 @@ impl<'a> RoughlyComparable for &'a RoadStroke {
 }
 
 #[derive(Copy, Clone)]
-pub struct RoadStrokeNode {
+pub struct LaneStrokeNode {
     pub position: P2,
     pub direction: V2
 }
 
-impl RoadStrokeNode {
-    pub fn create_interactable(&self, self_ref: RoadStrokeNodeRef, class: InteractableParent) -> RoadStrokeNodeInteractable{
-        RoadStrokeNodeInteractable::new(self.position, self.direction, vec![self_ref], class)
+impl LaneStrokeNode {
+    pub fn create_interactable(&self, self_ref: LaneStrokeNodeRef, class: InteractableParent) -> LaneStrokeNodeInteractable{
+        LaneStrokeNodeInteractable::new(self.position, self.direction, vec![self_ref], class)
     }
 }
 
-impl<'a> RoughlyComparable for &'a RoadStrokeNode {
-    fn is_roughly_within(&self, other: &RoadStrokeNode, tolerance: N) -> bool {
+impl<'a> RoughlyComparable for &'a LaneStrokeNode {
+    fn is_roughly_within(&self, other: &LaneStrokeNode, tolerance: N) -> bool {
         self.position.is_roughly_within(other.position, tolerance)
         // && (
         //     (self.direction.is_none() && other.direction.is_none())

@@ -28,7 +28,7 @@ use core::simulation::{Simulation, Tick};
 use game::lanes_and_cars::{Lane, TransferLane};
 use game::lanes_and_cars::lane_rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use game::lanes_and_cars::lane_thing_collector::ThingCollector;
-use game::lanes_and_cars::planning::{CurrentPlan, RoadStrokeNodeInteractable};
+use game::lanes_and_cars::planning::{CurrentPlan, LaneStrokeNodeInteractable};
 use kay::Individual;
 
 const SECONDS_PER_TICK : f32 = 1.0 / 20.0;
@@ -55,7 +55,7 @@ fn main() {
         system.individual_id::<ThingCollector<LaneMarker>>(),
         system.individual_id::<ThingCollector<TransferLaneMarkerGaps>>(),
         system.individual_id::<CurrentPlan>(),
-        system.broadcast_id::<RoadStrokeNodeInteractable>()
+        system.broadcast_id::<LaneStrokeNodeInteractable>()
     ];
     let window = core::ui::setup_window_and_renderer(&mut system, renderables);
 

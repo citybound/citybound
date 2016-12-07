@@ -2,11 +2,11 @@ use descartes::{N, RoughlyComparable,};
 use kay::{CVec, CDict};
 use core::geometry::{CPath};
 use itertools::{Itertools};
-use super::{RoadStroke, RoadStrokeNode};
+use super::{LaneStroke, LaneStrokeNode};
 
 #[derive(Clone, Compact)]
 pub struct Plan{
-    strokes: CVec<RoadStroke>
+    strokes: CVec<LaneStroke>
 }
 
 impl Default for Plan{
@@ -14,12 +14,12 @@ impl Default for Plan{
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub struct RoadStrokeRef(pub usize);
+pub struct LaneStrokeRef(pub usize);
 
 #[derive(Compact, Clone)]
 pub struct PlanDelta{
-    pub new_strokes: CVec<RoadStroke>,
-    pub strokes_to_destroy: CDict<RoadStrokeRef, RoadStroke>
+    pub new_strokes: CVec<LaneStroke>,
+    pub strokes_to_destroy: CDict<LaneStrokeRef, LaneStroke>
 }
 
 impl Default for PlanDelta{
@@ -31,9 +31,9 @@ impl Default for PlanDelta{
 #[derive(Compact, Clone)]
 pub struct Intersection{
     pub shape: CPath,
-    pub incoming: CDict<RoadStrokeRef, RoadStrokeNode>,
-    pub outgoing: CDict<RoadStrokeRef, RoadStrokeNode>,
-    pub strokes: CVec<RoadStroke>
+    pub incoming: CDict<LaneStrokeRef, LaneStrokeNode>,
+    pub outgoing: CDict<LaneStrokeRef, LaneStrokeNode>,
+    pub strokes: CVec<LaneStroke>
 }
 
 impl<'a> RoughlyComparable for &'a Intersection{
@@ -66,8 +66,8 @@ pub struct TransferStrokeRef(pub usize);
 #[derive(Compact, Clone, Default)]
 pub struct PlanResult{
     pub intersections: CDict<IntersectionRef, Intersection>,
-    pub trimmed_strokes: CDict<TrimmedStrokeRef, RoadStroke>,
-    pub transfer_strokes: CDict<TransferStrokeRef, RoadStroke>
+    pub trimmed_strokes: CDict<TrimmedStrokeRef, LaneStroke>,
+    pub transfer_strokes: CDict<TransferStrokeRef, LaneStroke>
 }
 
 const RESULT_DELTA_TOLERANCE : N = 0.1;
@@ -85,8 +85,8 @@ impl PlanResult{
 #[derive(Compact, Clone)]
 pub struct PlanResultDelta{
     pub intersections: ReferencedDelta<IntersectionRef, Intersection>,
-    pub trimmed_strokes: ReferencedDelta<TrimmedStrokeRef, RoadStroke>,
-    pub transfer_strokes: ReferencedDelta<TransferStrokeRef, RoadStroke>
+    pub trimmed_strokes: ReferencedDelta<TrimmedStrokeRef, LaneStroke>,
+    pub transfer_strokes: ReferencedDelta<TransferStrokeRef, LaneStroke>
 }
 
 #[derive(Compact, Clone)]
@@ -153,7 +153,7 @@ impl Default for PlanResultDelta{
 
 #[derive(Compact, Clone)]
 pub struct RemainingOldStrokes{
-    pub mapping: CDict<RoadStrokeRef, RoadStroke>
+    pub mapping: CDict<LaneStrokeRef, LaneStroke>
 }
 
 impl Default for RemainingOldStrokes{
@@ -166,10 +166,10 @@ use super::plan_result_steps::{find_intersections, trim_strokes_and_add_incoming
 impl Plan{
     pub fn with_delta(&self, delta: &PlanDelta) -> (Plan, RemainingOldStrokes) {
         let remaining_old_refs_and_strokes = self.strokes.iter().enumerate().filter_map(|(i, stroke)|
-            if delta.strokes_to_destroy.contains_key(RoadStrokeRef(i)) {
+            if delta.strokes_to_destroy.contains_key(LaneStrokeRef(i)) {
                 None
             } else {
-                Some((RoadStrokeRef(i), stroke.clone()))
+                Some((LaneStrokeRef(i), stroke.clone()))
             }
         ).collect::<CDict<_, _>>();
         let new_plan = Plan {strokes: remaining_old_refs_and_strokes.values()
