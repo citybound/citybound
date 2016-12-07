@@ -71,9 +71,17 @@ pub fn trim_strokes_and_add_incoming_outgoing(strokes: &CVec<RoadStroke>, inters
             } else if intersection_points.len() == 1 {
                 if intersection.shape.contains(stroke.nodes()[0].position) {
                     let exit_distance = intersection_points[0].along_a;
+                    intersection.outgoing.insert(stroke_ref, RoadStrokeNode{
+                        position: path.along(exit_distance),
+                        direction: path.direction_along(exit_distance)
+                    });
                     start_trim = start_trim.max(exit_distance);
                 } else if intersection.shape.contains(stroke.nodes().last().unwrap().position) {
                     let entry_distance = intersection_points[0].along_a;
+                    intersection.incoming.insert(stroke_ref, RoadStrokeNode{
+                        position: path.along(entry_distance),
+                        direction: path.direction_along(entry_distance)
+                    });
                     end_trim = end_trim.min(entry_distance);
                 }
             }

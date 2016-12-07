@@ -42,7 +42,7 @@ impl Recipient<AddToUI> for RoadStrokeNodeInteractable {
             UserInterface::id() << Add::Interactable3d(self.id(), AnyShape::Circle(Circle{
                 center: self.position,
                 radius: 10.0
-            }), 1);
+            }), if self.node_refs.len() > 1 {2} else {1});
             Fate::Live
         }
     }}
