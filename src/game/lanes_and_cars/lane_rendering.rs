@@ -167,7 +167,7 @@ impl Recipient<RenderToScene> for Lane {
 
             if ! self.interactions.iter().any(|inter| match inter.kind {InteractionKind::Next{..} => true, _ => false}) {
                 renderer_id << AddInstance{scene_id: scene_id, batch_id: 1333, instance: Instance{
-                    instance_position: [self.path.end().x, self.path.end().y, 0.0],
+                    instance_position: [self.path.end().x, self.path.end().y, 0.5],
                     instance_direction: [1.0, 0.0],
                     instance_color: [1.0, 0.0, 0.0]
                 }};
@@ -175,7 +175,7 @@ impl Recipient<RenderToScene> for Lane {
 
             if ! self.interactions.iter().any(|inter| match inter.kind {InteractionKind::Previous{..} => true, _ => false}) {
                 renderer_id << AddInstance{scene_id: scene_id, batch_id: 1333, instance: Instance{
-                    instance_position: [self.path.start().x, self.path.start().y, 0.0],
+                    instance_position: [self.path.start().x, self.path.start().y, 0.5],
                     instance_direction: [1.0, 0.0],
                     instance_color: [0.0, 1.0, 0.0]
                 }};
@@ -210,8 +210,8 @@ impl Recipient<RenderToScene> for TransferLane {
             for car in &self.cars {
                 let position2d = self.path.along((*car.position).min(self.length));
                 let direction = self.path.direction_along((*car.position).min(self.length));
-                let rotated_direction = (direction + 0.4 * car.transfer_velocity * direction.orthogonal()).normalize();
-                let shifted_position2d = position2d + 3.0 * direction.orthogonal() * car.transfer_position;
+                let rotated_direction = (direction + 0.3 * car.transfer_velocity * direction.orthogonal()).normalize();
+                let shifted_position2d = position2d + 2.5 * direction.orthogonal() * car.transfer_position;
                 renderer_id << AddInstance{
                     scene_id: scene_id,
                     batch_id: 1,

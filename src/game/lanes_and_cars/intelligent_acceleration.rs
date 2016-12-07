@@ -1,17 +1,16 @@
 use super::{Obstacle};
 
-pub const COMFORTABLE_BREAKING_DECELERATION : f32 = 3.0;
+pub const COMFORTABLE_BREAKING_DECELERATION : f32 = 1.0;
 
-pub fn intelligent_acceleration(car: &Obstacle, obstacle: &Obstacle) -> f32 {
+pub fn intelligent_acceleration(car: &Obstacle, obstacle: &Obstacle, safe_time_headway: f32) -> f32 {
     // http://en.wikipedia.org/wiki/Intelligent_driver_model
 
     let car_length = 4.0;
     let acceleration = 2.0;
 	let max_deceleration : f32 = 8.0;
 	let desired_velocity = car.max_velocity;
-	let safe_time_headway = 5.0;
 	let acceleration_exponent = 4.0;
-	let minimum_spacing = 3.0;
+	let minimum_spacing = 4.0;
 
 	let net_distance = *obstacle.position - *car.position - car_length;
 	let velocity_difference = car.velocity - obstacle.velocity;

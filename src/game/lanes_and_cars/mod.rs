@@ -3,7 +3,7 @@ pub mod lane_thing_collector;
 pub mod planning;
 pub mod pathfinding;
 mod intelligent_acceleration;
-use self::intelligent_acceleration::{intelligent_acceleration, COMFORTABLE_BREAKING_DECELERATION};
+use self::intelligent_acceleration::{intelligent_acceleration};
 use core::geometry::{CPath};
 use kay::{ID, Actor, CVec, Swarm, CreateWith, Recipient, ActorSystem, Fate};
 use descartes::{N, P2, FiniteCurve, RoughlyComparable, Band, Intersect, Curve, Dot, WithUniqueOrthogonal};
@@ -190,7 +190,7 @@ impl Recipient<Tick> for Lane {
                 for c in 0..self.cars.len() {
                     let next_obstacle = self.cars.get(c + 1).map_or(Obstacle::far_ahead(), |car| car.as_obstacle);
                     let car = &mut self.cars[c];
-                    let next_car_acceleration = intelligent_acceleration(car, &next_obstacle);
+                    let next_car_acceleration = intelligent_acceleration(car, &next_obstacle, 2.0);
                     
                     maybe_next_obstacle = maybe_next_obstacle.and_then(|obstacle| {
                         let mut following_obstacle = Some(obstacle);
@@ -201,7 +201,7 @@ impl Recipient<Tick> for Lane {
                     });
                     
                     let next_obstacle_acceleration = if let Some(next_obstacle) = maybe_next_obstacle {
-                        intelligent_acceleration(car, next_obstacle)
+                        intelligent_acceleration(car, next_obstacle, 4.0)
                     } else {INFINITY};
 
                     car.acceleration = next_car_acceleration.min(next_obstacle_acceleration);
@@ -249,12 +249,21 @@ impl Recipient<Tick> for Lane {
                 
                 if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING == interaction.partner_lane.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
                     let maybe_obstacles : Option<CVec<_>> = match *interaction {
-                        Interaction{start, partner_start, kind: Overlap{end, kind, ..}, ..} =>
+                        Interaction{partner_lane, start, partner_start, kind: Overlap{end, kind, ..}, ..} =>
                             Some(match kind {
-                                Parallel | Transfer =>
+                                Parallel =>
                                     cars.skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
                                         .take_while(|car: &&LaneCar| *car.position < end)
                                         .map(|car| car.as_obstacle.offset_by(-start + partner_start))
+                                        .collect(),
+                                Transfer =>
+                                    cars.skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
+                                        .map(|car| car.as_obstacle.offset_by(-start + partner_start))
+                                        .chain(self.obstacles.iter().filter_map(|&(obstacle, id)|
+                                            if id != partner_lane && *obstacle.position + 2.0 * obstacle.velocity > start {
+                                                Some(obstacle.offset_by(-start + partner_start))
+                                            } else {None}
+                                        ))
                                         .collect(),
                                 Conflicting =>
                                     if cars.any(|car: &LaneCar|
@@ -268,7 +277,7 @@ impl Recipient<Tick> for Lane {
                         Interaction{start, partner_start, kind: Previous, ..} =>
                             Some(cars.map(|car| &car.as_obstacle)
                                 .chain(self.obstacles.iter().map(|&(ref obstacle, _id)| obstacle))
-                                .find(|car| *car.position >= start)
+                                .find(|car| *car.position >= start - 2.0)
                                 .map(|first_car| first_car.offset_by(-start + partner_start))
                                 .into_iter().collect()),
                         Interaction{kind: Next{..}, ..} => {
@@ -318,21 +327,24 @@ impl Recipient<Tick> for TransferLane {
                             following_obstacle
                         });
 
-                        let next_obstacle_acceleration = intelligent_acceleration(car, &next_car)
-                            .min(intelligent_acceleration(car, maybe_next_obstacle.unwrap_or(&Obstacle::far_ahead())));
-                        let previous_obstacle_acceleration = intelligent_acceleration(&previous_car, &car.as_obstacle)
-                            .min(intelligent_acceleration(maybe_previous_obstacle.unwrap_or(&Obstacle::far_behind()), &car.as_obstacle));
+                        let next_obstacle_acceleration = intelligent_acceleration(car, &next_car, 0.5)
+                            .min(intelligent_acceleration(car, maybe_next_obstacle.unwrap_or(&Obstacle::far_ahead()), 0.5));
+                        let previous_obstacle_acceleration = intelligent_acceleration(&previous_car, &car.as_obstacle, 0.5)
+                            .min(intelligent_acceleration(maybe_previous_obstacle.unwrap_or(&Obstacle::far_behind()), &car.as_obstacle, 0.5));
 
                         let politeness_factor = 0.1;
 
-                        let acceleration = if previous_obstacle_acceleration < 0.0 {
+                        let transfer_before_end_velocity = (self.length + 1.0 - *car.position) / 1.5;
+                        let transfer_before_end_acceleration = transfer_before_end_velocity - car.velocity;
+
+                        let acceleration = (if previous_obstacle_acceleration < 0.0 {
                             (1.0 - politeness_factor) * next_obstacle_acceleration + politeness_factor * previous_obstacle_acceleration
                         } else {
                             next_obstacle_acceleration
-                        };
+                        }).min(transfer_before_end_acceleration);
 
-                        let is_dangerous = next_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION
-                            || previous_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION;
+                        let is_dangerous = false; /*next_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION
+                            || previous_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION;*/
 
                         (acceleration, is_dangerous)
                     };
@@ -353,12 +365,6 @@ impl Recipient<Tick> for TransferLane {
                 if car.transfer_velocity.abs() > car.velocity/12.0 {
                     car.transfer_velocity = car.velocity/12.0 * car.transfer_velocity.signum();
                 }
-                // smooth out arrival on other lane
-                #[allow(float_cmp)]
-                let arriving_soon = car.transfer_velocity.abs() > 0.1 && car.transfer_position.abs() > 0.5 && car.transfer_position.signum() == car.transfer_velocity.signum();
-                if arriving_soon {
-                    car.transfer_acceleration = -0.9 * car.transfer_velocity;
-                }
             }
 
             if self.cars.len() > 1 {
@@ -371,10 +377,10 @@ impl Recipient<Tick> for TransferLane {
                 let mut i = 0;
                 loop {
                     let (should_remove, done) = if let Some(car) = self.cars.get(i) {
-                        if car.transfer_position < -1.0 {
+                        if car.transfer_position < -1.0 || (*car.position > self.length && car.transfer_velocity < 0.0) {
                             right << AddCar{car: car.as_lane_car.offset_by(left_start), from: Some(self.id())};
                             (true, false)
-                        } else if car.transfer_position > 1.0 {
+                        } else if car.transfer_position > 1.0 || (*car.position > self.length && car.transfer_velocity >= 0.0)  {
                             left << AddCar{car: car.as_lane_car.offset_by(right_start), from: Some(self.id())};
                             (true, false)
                         } else {
