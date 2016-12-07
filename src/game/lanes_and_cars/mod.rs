@@ -531,14 +531,14 @@ impl Recipient<ConnectOverlaps> for Lane {
             MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
                 let memoized_bands_outlines = unsafe{&mut *memoized_bands_outlines_cell.get()};
                 let &(ref self_band, ref self_outline) = memoized_bands_outlines.entry(self.id()).or_insert_with(|| {
-                    let band = Band::new(self.path.clone(), 4.0);
+                    let band = Band::new(self.path.clone(), 4.5);
                     let outline = band.outline();
                     (band, outline)
                 }) as &(Band<CPath>, CPath);
 
                 let memoized_bands_outlines = unsafe{&mut *memoized_bands_outlines_cell.get()};
                 let &(ref other_band, ref other_outline) = memoized_bands_outlines.entry(other_id).or_insert_with(|| {
-                    let band = Band::new(other_path.clone(), 4.0);
+                    let band = Band::new(other_path.clone(), 4.5);
                     let outline = band.outline();
                     (band, outline)
                 }) as &(Band<CPath>, CPath);

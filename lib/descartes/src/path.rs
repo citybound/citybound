@@ -98,13 +98,30 @@ impl<T: Path> FiniteCurve for T {
     }
 
     fn shift_orthogonally(&self, shift_to_right: N) -> Option<Self> {
-        let segments = self.segments().iter().flat_map(
+        let segments = self.segments().iter().filter_map(
             |segment| segment.shift_orthogonally(shift_to_right)
         ).collect::<Vec<_>>();
-        if segments.is_empty() {
+        let mut glued_segments = Vec::new();
+        let mut window_segments_iter = segments.iter().peekable();
+        while let Some(segment) = window_segments_iter.next() {
+            glued_segments.push(*segment);
+            match window_segments_iter.peek() {
+                Some(next_segment) => if !segment.end().is_roughly_within(next_segment.start(), 0.1) {
+                    glued_segments.push(Segment::line(segment.end(), next_segment.start()));
+                },
+                None => break
+            }
+        }
+        if glued_segments.is_empty() {
             None
         } else {
-            Some(Self::new(segments))
+            let was_closed = self.end().is_roughly_within(self.start(), 0.1);
+            let new_end = glued_segments.last().unwrap().end();
+            let new_start = glued_segments[0].start();
+            if was_closed && !new_end.is_roughly_within(new_start, 0.1) {
+                glued_segments.push(Segment::line(new_end, new_start));
+            }
+            Some(Self::new(glued_segments))
         }
     }
 }

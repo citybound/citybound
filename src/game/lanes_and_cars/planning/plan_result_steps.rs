@@ -6,7 +6,7 @@ use ordered_float::OrderedFloat;
 use itertools::{Itertools};
 use super::{RoadStroke, RoadStrokeNode, MIN_NODE_DISTANCE, Intersection, RoadStrokeRef};
 
-const STROKE_INTERSECTION_WIDTH : N = 6.0;
+const STROKE_INTERSECTION_WIDTH : N = 4.0;
 const INTERSECTION_GROUPING_RADIUS : N = 30.0;
 
 #[inline(never)]
@@ -22,7 +22,7 @@ pub fn find_intersections(strokes: &CVec<RoadStroke>) -> CVec<Intersection> {
     intersection_point_groups.sets().filter_map(|group|
         if group.len() >= 2 {
             Some(Intersection{
-                shape: convex_hull::<CPath>(group),
+                shape: convex_hull::<CPath>(group).shift_orthogonally(-5.0).unwrap(),
                 incoming: CDict::new(),
                 outgoing: CDict::new(),
                 strokes: CVec::new()
@@ -97,7 +97,7 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<RoadStroke>) -> Vec<RoadStro
         let path_1 = stroke_1.path();
         trimmed_strokes.iter().skip(i + 1).flat_map(|stroke_2| {
             let path_2 = stroke_2.path();
-            let aligned_paths = path_1.segments().iter().cartesian_product(path_2.segments().iter()).filter_map(|(segment_1, segment_2)|
+            let aligned_segments = path_1.segments().iter().cartesian_product(path_2.segments().iter()).filter_map(|(segment_1, segment_2)|
                 // TODO: would you look at that horrible mess!
                 match (
                     segment_2.project(segment_1.start()), segment_2.project(segment_1.end()),
@@ -163,12 +163,34 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<RoadStroke>) -> Vec<RoadStro
                     }
                     _ => None
                 }
+            ).collect();
+
+            let mut aligned_segment_sets = DisjointSets::from_individuals(aligned_segments);
+            aligned_segment_sets.union_all_with(|segment_1, segment_2|
+                segment_1.start().is_roughly_within(segment_2.end(), 0.1)
+                || segment_1.end().is_roughly_within(segment_2.start(), 0.1)
             );
-            // TODO: connect consecutive aligned segments
-            aligned_paths.map(|segment| RoadStroke::new(vec![
-                    RoadStrokeNode{position: segment.start(), direction: segment.start_direction()},
-                    RoadStrokeNode{position: segment.end(), direction: segment.end_direction()},
-                ].into()
+
+            let aligned_paths = aligned_segment_sets.sets().map(|set| {
+                let mut sorted_segments = set.to_vec();
+                sorted_segments.sort_by(|segment_1, segment_2|
+                    if segment_1.start().is_roughly_within(segment_2.end(), 0.1) {
+                        ::std::cmp::Ordering::Greater
+                    } else if segment_1.end().is_roughly_within(segment_2.start(), 0.1) {
+                        ::std::cmp::Ordering::Less
+                    } else {
+                        ::std::cmp::Ordering::Equal
+                    }
+                );
+                sorted_segments
+            });
+
+            aligned_paths.map(|segments| RoadStroke::new(
+                segments.iter().map(|segment|
+                    RoadStrokeNode{position: segment.start(), direction: segment.start_direction()}
+                ).chain(Some(
+                    RoadStrokeNode{position: segments.last().unwrap().end(), direction: segments.last().unwrap().end_direction()}
+                ).into_iter()).collect()
             )).collect::<Vec<_>>()
         }).collect::<Vec<_>>()
     }).collect::<Vec<_>>()
