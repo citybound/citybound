@@ -22,6 +22,10 @@ path = "./lib/descartes/"
 [dependencies.monet]
 path = "./lib/monet/"
 
+[profile.dev]
+opt-level = 1
+codegen-units = 4
+
 [profile.release]
 debug = true
 codegen-units = 4

@@ -1,8 +1,8 @@
 use kay::{Recipient, Fate, ActorSystem};
-use descartes::{Band, Path};
+use descartes::{Band, Path, FiniteCurve};
 use monet::{Thing, Instance};
 use ::core::geometry::band_to_thing;
-use super::{CurrentPlan, LaneStroke};
+use super::{CurrentPlan, LaneStroke, DrawingStatus, SelectableStrokeRef};
 
 use monet::SetupInScene;
 
@@ -60,6 +60,24 @@ impl Recipient<RenderToScene> for CurrentPlan {
                     instance: Instance::with_color([1.0, 0.5, 0.0])
                 };
                 self.ui_state.dirty = false;
+            }
+            if let DrawingStatus::WithSelection(SelectableStrokeRef::New(stroke_idx), start, end) = self.ui_state.drawing_status {
+                if let Some(subsection) = self.delta.new_strokes[stroke_idx].path().subsection(start, end) {
+                    let selection_thing : Thing = band_to_thing(&Band::new(subsection, 2.5), 0.1);
+                    renderer_id << UpdateThing{
+                        scene_id: scene_id,
+                        thing_id: 504,
+                        thing: selection_thing,
+                        instance: Instance::with_color([0.0, 0.0, 1.0])
+                    };
+                }
+            } else {
+                renderer_id << UpdateThing{
+                    scene_id: scene_id,
+                    thing_id: 504,
+                    thing: Thing::new(vec![], vec![]),
+                    instance: Instance::with_color([0.0, 0.0, 1.0])
+                };
             }
             Fate::Live
         }

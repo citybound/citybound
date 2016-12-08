@@ -1,11 +1,13 @@
-use descartes::{N, P2, Norm, Segment, FiniteCurve, WithUniqueOrthogonal, RelativeToBasis};
-use kay::{CVec, Recipient, ActorSystem, Individual, Fate};
+use descartes::{N, P2, V2, Norm, Segment, FiniteCurve, WithUniqueOrthogonal, RelativeToBasis};
+use kay::{CVec, Recipient, Swarm, ActorSystem, Individual, Fate, CreateWith};
 
 //TODO: Clean up this whole mess with more submodules
 
 mod plan;
 mod lane_stroke;
 mod lane_stroke_canvas;
+mod lane_stroke_selectable;
+mod lane_stroke_draggable;
 pub mod plan_result_steps;
 pub mod materialized_reality;
 pub mod current_plan_rendering;
@@ -13,6 +15,8 @@ pub mod current_plan_rendering;
 pub use self::plan::{Plan, LaneStrokeRef, Intersection, IntersectionRef, TrimmedStrokeRef, TransferStrokeRef, PlanDelta, PlanResult, PlanResultDelta, RemainingOldStrokes};
 pub use self::lane_stroke::{LaneStroke, LaneStrokeNode, LaneStrokeNodeRef};
 pub use self::lane_stroke_canvas::LaneStrokeCanvas;
+use self::lane_stroke_selectable::LaneStrokeSelectable;
+use self::lane_stroke_draggable::LaneStrokeDraggable;
 use self::materialized_reality::MaterializedReality;
 pub use self::lane_stroke::MIN_NODE_DISTANCE;
 
@@ -20,7 +24,6 @@ pub use self::lane_stroke::MIN_NODE_DISTANCE;
 pub struct CurrentPlan {
     delta: PlanDelta,
     pub current_remaining_old_strokes: RemainingOldStrokes,
-    pub current_plan_result: PlanResult,
     pub current_plan_result_delta: PlanResultDelta,
     ui_state: PlanUIState
 }
@@ -29,6 +32,8 @@ impl Individual for CurrentPlan{}
 #[derive(Compact, Clone)]
 enum PlanControl{
     AddLaneStrokeNode(P2, bool),
+    Select(SelectableStrokeRef, N, N),
+    MoveSelection(SelectableStrokeRef, V2),
     ModifyRemainingOld(CVec<LaneStrokeRef>),
     CreateGrid(()),
     Materialize(())
@@ -44,10 +49,12 @@ impl Recipient<PlanControl> for CurrentPlan {
         PlanControl::AddLaneStrokeNode(position, update_preview) => {
             self.ui_state.drawing_status = match self.ui_state.drawing_status.clone() {
                 DrawingStatus::Nothing(_) => {
+                    self.clear_selectables();
                     DrawingStatus::WithStartPoint(position)
                 },
                 DrawingStatus::WithStartPoint(start) => {
                     if (position - start).norm() < FINISH_STROKE_TOLERANCE {
+                        self.create_selectables();
                         DrawingStatus::Nothing(())
                     } else {
                         let new_node_refs = (0..self.ui_state.n_lanes_per_side).into_iter().flat_map(|lane_idx| {
@@ -70,11 +77,12 @@ impl Recipient<PlanControl> for CurrentPlan {
                                 vec![right_lane_node_ref]
                             }
                         });
-                        DrawingStatus::WithCurrentNodes(new_node_refs.collect(), position)
+                        DrawingStatus::ContinuingFrom(new_node_refs.collect(), position)
                     }
                 },
-                DrawingStatus::WithCurrentNodes(current_nodes, previous_add) => {
+                DrawingStatus::ContinuingFrom(current_nodes, previous_add) => {
                     if (position - previous_add).norm() < FINISH_STROKE_TOLERANCE {
+                        self.create_selectables();
                         DrawingStatus::Nothing(())
                     } else {
                         let new_current_nodes = current_nodes.clone().iter().map(|&LaneStrokeNodeRef(stroke_idx, node_idx)| {
@@ -101,8 +109,12 @@ impl Recipient<PlanControl> for CurrentPlan {
                             } else {unreachable!()}
                         }).collect();
 
-                        DrawingStatus::WithCurrentNodes(new_current_nodes, position)
+                        DrawingStatus::ContinuingFrom(new_current_nodes, position)
                     }
+                },
+                DrawingStatus::WithSelection(_, _, _) => {
+                    self.create_selectables();
+                    DrawingStatus::Nothing(())
                 }
             };
             if update_preview {
@@ -110,6 +122,33 @@ impl Recipient<PlanControl> for CurrentPlan {
             }
             Fate::Live
         },
+        PlanControl::Select(stroke_ref, start, end) => {
+            self.ui_state.drawing_status = DrawingStatus::WithSelection(stroke_ref, start, end);
+            self.create_draggables();
+            Fate::Live
+        },
+        PlanControl::MoveSelection(_, delta) => {
+            if let DrawingStatus::WithSelection(stroke_ref, start, end) = self.ui_state.drawing_status {
+                match stroke_ref {
+                    SelectableStrokeRef::New(stroke_idx) => {
+                        {
+                            let stroke = &mut self.delta.new_strokes[stroke_idx];
+                            if let Some(changed_stroke) = stroke.with_subsection_moved(start, end, delta) {
+                                *stroke = changed_stroke;
+                            }
+                        }
+                        MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone()};
+                        self.ui_state.drawing_status = DrawingStatus::Nothing(());
+                        self.ui_state.dirty = true;
+                        self.clear_selectables();
+                        self.clear_draggables();
+                        self.create_selectables();
+                    },
+                    SelectableStrokeRef::RemainingOld(_) => unimplemented!()
+                }
+            } else {unreachable!()}
+            Fate::Live
+        }
         PlanControl::ModifyRemainingOld(ref old_refs) => {
             for old_ref in old_refs {
                 let old_stroke = self.current_remaining_old_strokes.mapping.get(*old_ref).unwrap();
@@ -140,6 +179,7 @@ impl Recipient<PlanControl> for CurrentPlan {
         PlanControl::Materialize(()) => {
             MaterializedReality::id() << Apply{requester: Self::id(), delta: self.delta.clone()};
             *self = CurrentPlan::default();
+            self.clear_selectables();
             Fate::Live
         }
     }}
@@ -149,9 +189,8 @@ use self::materialized_reality::SimulationResult;
 
 impl Recipient<SimulationResult> for CurrentPlan{
     fn receive(&mut self, msg: &SimulationResult) -> Fate {match *msg{
-        SimulationResult{ref remaining_old_strokes, ref result, ref result_delta} => {
+        SimulationResult{ref remaining_old_strokes, ref result_delta} => {
             self.current_remaining_old_strokes = remaining_old_strokes.clone();
-            self.current_plan_result = result.clone();
             self.current_plan_result_delta = result_delta.clone();
             self.ui_state.dirty = true;
             Fate::Live
@@ -159,17 +198,53 @@ impl Recipient<SimulationResult> for CurrentPlan{
     }}
 }
 
-#[derive(Compact, Clone)]
-pub enum InteractableParent{
-    New(()),
-    WillBecomeNew(CVec<LaneStrokeRef>),
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum SelectableStrokeRef{
+    New(usize),
+    RemainingOld(usize)
 }
+
+impl CurrentPlan {
+    fn create_selectables(&mut self) {
+        for (stroke_idx, stroke) in self.delta.new_strokes.iter().enumerate() {
+            Swarm::<LaneStrokeSelectable>::all() << CreateWith(
+                LaneStrokeSelectable::new(SelectableStrokeRef::New(stroke_idx), stroke.path().clone()
+            ), AddToUI);
+        }
+    }
+
+    fn create_draggables(&mut self) {
+        if let DrawingStatus::WithSelection(stroke_ref, start, end) = self.ui_state.drawing_status {
+            match stroke_ref {
+                SelectableStrokeRef::New(stroke_idx) => {
+                    Swarm::<LaneStrokeDraggable>::all() << CreateWith(
+                        LaneStrokeDraggable::new(stroke_ref,
+                            self.delta.new_strokes[stroke_idx].path().subsection(start, end)
+                                .expect("should already be valid for sure!")
+                        ),
+                    AddToUI);
+                },
+                SelectableStrokeRef::RemainingOld(_) => unimplemented!()
+            }
+        } else {unreachable!()}
+    }
+
+    fn clear_selectables(&mut self) {
+        Swarm::<LaneStrokeSelectable>::all() << ClearSelectables::All(());
+    }
+
+    fn clear_draggables(&mut self) {
+        Swarm::<LaneStrokeDraggable>::all() << ClearDraggables::All(());
+    }
+}
+
     
 #[derive(Compact, Clone)]
 pub enum DrawingStatus{
     Nothing(()),
     WithStartPoint(P2),
-    WithCurrentNodes(CVec<LaneStrokeNodeRef>, P2)
+    ContinuingFrom(CVec<LaneStrokeNodeRef>, P2),
+    WithSelection(SelectableStrokeRef, N, N)
 }
 
 #[derive(Compact, Clone)]
@@ -194,10 +269,24 @@ impl Default for PlanUIState{
 #[derive(Copy, Clone)]
 struct AddToUI;
 
+#[derive(Copy, Clone)]
+enum ClearSelectables{
+    One(SelectableStrokeRef),
+    All(())
+}
+
+#[derive(Copy, Clone)]
+enum ClearDraggables{
+    One(SelectableStrokeRef),
+    All(())
+}
+
 pub fn setup(system: &mut ActorSystem) {
     system.add_individual(CurrentPlan::default());
     system.add_inbox::<PlanControl, CurrentPlan>();
     system.add_inbox::<SimulationResult, CurrentPlan>();
     self::materialized_reality::setup(system);
     self::lane_stroke_canvas::setup(system);
+    self::lane_stroke_selectable::setup(system);
+    self::lane_stroke_draggable::setup(system);
 }

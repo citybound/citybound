@@ -1,0 +1,77 @@
+use kay::{ID, Recipient, Actor, Individual, Swarm, ActorSystem, Fate, CreateWith};
+use descartes::{Band, Into2d};
+use ::core::geometry::{CPath, AnyShape};
+
+use super::{SelectableStrokeRef, CurrentPlan, PlanControl};
+
+#[derive(Actor, Compact, Clone)]
+pub struct LaneStrokeDraggable{
+    _id: ID,
+    stroke_ref: SelectableStrokeRef,
+    path: CPath
+}
+
+impl LaneStrokeDraggable{
+    pub fn new(stroke_ref: SelectableStrokeRef, path: CPath) -> Self {
+        LaneStrokeDraggable{
+            _id: ID::invalid(),
+            stroke_ref: stroke_ref,
+            path: path
+        }
+    }
+}
+
+use super::AddToUI;
+use ::core::ui::Add;
+
+impl Recipient<AddToUI> for LaneStrokeDraggable {
+    fn receive(&mut self, msg: &AddToUI) -> Fate {match *msg{
+        AddToUI => {
+            ::core::ui::UserInterface::id() << Add::Interactable3d(
+                self.id(),
+                AnyShape::Band(Band::new(self.path.clone(), 2.5)),
+                2
+            );
+            Fate::Live
+        }
+    }}
+}
+
+use super::ClearDraggables;
+use ::core::ui::Remove;
+
+impl Recipient<ClearDraggables> for LaneStrokeDraggable {
+    fn receive(&mut self, msg: &ClearDraggables) -> Fate {match *msg{
+        ClearDraggables::One(stroke_ref_to_clear) => {
+            if self.stroke_ref == stroke_ref_to_clear {
+                ::core::ui::UserInterface::id() << Remove::Interactable3d(self.id());
+                Fate::Die
+            } else {
+                Fate::Live
+            }
+        },
+        ClearDraggables::All(()) => {
+            ::core::ui::UserInterface::id() << Remove::Interactable3d(self.id());
+            Fate::Die
+        }
+    }}
+}
+
+use ::core::ui::Event3d;
+
+impl Recipient<Event3d> for LaneStrokeDraggable {
+    fn receive(&mut self, msg: &Event3d) -> Fate {match *msg{
+        Event3d::DragFinished{from, to} => {
+            CurrentPlan::id() << PlanControl::MoveSelection(self.stroke_ref, to.into_2d() - from.into_2d());
+            Fate::Live
+        },
+        _ => Fate::Live
+    }}
+}
+
+pub fn setup(system: &mut ActorSystem) {
+    system.add_individual(Swarm::<LaneStrokeDraggable>::new());
+    system.add_inbox::<CreateWith<LaneStrokeDraggable, AddToUI>, Swarm<LaneStrokeDraggable>>();
+    system.add_inbox::<ClearDraggables, Swarm<LaneStrokeDraggable>>();
+    system.add_inbox::<Event3d, Swarm<LaneStrokeDraggable>>();
+}

@@ -16,7 +16,6 @@ pub struct Simulate{pub requester: ID, pub delta: PlanDelta}
 #[derive(Compact, Clone)]
 pub struct SimulationResult{
     pub remaining_old_strokes: RemainingOldStrokes,
-    pub result: PlanResult,
     pub result_delta: PlanResultDelta
 }
 
@@ -28,7 +27,6 @@ impl Recipient<Simulate> for MaterializedReality {
             let result_delta = result.delta(&self.current_result);
             requester << SimulationResult{
                 remaining_old_strokes: remaining_old_strokes,
-                result: result,
                 result_delta: result_delta,
             };
             Fate::Live

@@ -1,4 +1,4 @@
-use descartes::{P2, V2, Path, Segment, Band, FiniteCurve, N, RoughlyComparable};
+use descartes::{P2, V2, Path, Segment, Band, Curve, FiniteCurve, N, RoughlyComparable};
 use kay::{ID, CVec, Swarm, CreateWith};
 use monet::{Thing};
 use core::geometry::{CPath, band_to_thing};
@@ -49,7 +49,7 @@ impl LaneStroke {
     }
 
     pub fn preview_thing(&self) -> Thing {
-        band_to_thing(&Band::new(Band::new(self.path().clone(), 3.0).outline(), 0.3), 0.0)
+        band_to_thing(&Band::new(Band::new(self.path().clone(), 5.0).outline(), 0.3), 0.0)
     }
 
     // TODO: this is slightly ugly
@@ -70,6 +70,33 @@ impl LaneStroke {
             Some(LaneStroke::new(nodes))
         } else {None}
     }
+
+    pub fn with_subsection_moved(&self, start: N, end: N, delta: V2) -> Option<Self> {
+        let nodes_before = self.nodes.iter().take_while(|node|
+            self.path().project(node.position).unwrap() < start
+        );
+
+        let new_subsection = self.subsection(start, end).into_iter()
+            .flat_map(|subsection| subsection.nodes)
+            .map(|node| LaneStrokeNode{
+                position: node.position + delta,
+                direction: node.direction
+            });
+
+        let nodes_after = self.nodes.iter().skip_while(|node|
+            self.path().project(node.position).unwrap() < end
+        );
+
+        let new_segments = nodes_before.cloned()
+            .chain(new_subsection)
+            .chain(nodes_after.cloned()).collect::<CVec<_>>();
+
+        if new_segments.is_empty() {
+            None
+        } else {
+            Some(LaneStroke::new(new_segments))
+        }
+     }
 
     pub fn build(&self, report_to: ID, report_as: BuildableRef) {
         Swarm::<Lane>::all() << CreateWith(
