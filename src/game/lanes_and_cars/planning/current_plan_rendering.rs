@@ -8,7 +8,6 @@ use monet::SetupInScene;
 
 impl Recipient<SetupInScene> for CurrentPlan {
     fn receive(&mut self, _msg: &SetupInScene) -> Fate {
-        self.create_interactables();
         Fate::Live
     }
 }

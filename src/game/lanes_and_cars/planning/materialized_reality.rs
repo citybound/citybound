@@ -11,19 +11,18 @@ pub struct MaterializedReality{
 impl Individual for MaterializedReality{}
 
 #[derive(Compact, Clone)]
-pub struct Simulate{pub requester: ID, pub delta: PlanDelta, pub fresh: bool}
+pub struct Simulate{pub requester: ID, pub delta: PlanDelta}
 
 #[derive(Compact, Clone)]
 pub struct SimulationResult{
     pub remaining_old_strokes: RemainingOldStrokes,
     pub result: PlanResult,
-    pub result_delta: PlanResultDelta,
-    pub fresh: bool
+    pub result_delta: PlanResultDelta
 }
 
 impl Recipient<Simulate> for MaterializedReality {
     fn receive(&mut self, msg: &Simulate) -> Fate {match *msg{
-        Simulate{requester, ref delta, fresh} => {
+        Simulate{requester, ref delta} => {
             let (new_plan, remaining_old_strokes) = self.current_plan.with_delta(delta);
             let result = new_plan.get_result();
             let result_delta = result.delta(&self.current_result);
@@ -31,7 +30,6 @@ impl Recipient<Simulate> for MaterializedReality {
                 remaining_old_strokes: remaining_old_strokes,
                 result: result,
                 result_delta: result_delta,
-                fresh: fresh
             };
             Fate::Live
         }
@@ -104,7 +102,7 @@ impl Recipient<Apply> for MaterializedReality {
                 built_transfer_lanes: new_built_transfer_lanes
             };
 
-            Self::id() << Simulate{requester: requester, delta: PlanDelta::default(), fresh: true};
+            Self::id() << Simulate{requester: requester, delta: PlanDelta::default()};
 
             Fate::Live
         }

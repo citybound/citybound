@@ -2,7 +2,6 @@ use descartes::{P2, V2, Path, Segment, Band, FiniteCurve, N, RoughlyComparable};
 use kay::{ID, CVec, Swarm, CreateWith};
 use monet::{Thing};
 use core::geometry::{CPath, band_to_thing};
-use super::{LaneStrokeRef, LaneStrokeNodeInteractable, InteractableParent};
 use super::materialized_reality::BuildableRef;
 use super::super::{Lane, TransferLane, AdvertiseToTransferAndReport};
 
@@ -52,17 +51,6 @@ impl LaneStroke {
     pub fn preview_thing(&self) -> Thing {
         band_to_thing(&Band::new(Band::new(self.path().clone(), 3.0).outline(), 0.3), 0.0)
     }
-
-    #[allow(needless_lifetimes)]
-    pub fn create_interactables<'a>(&'a self, self_ref: LaneStrokeRef, class: InteractableParent)
-    -> impl Iterator<Item=LaneStrokeNodeInteractable> + 'a {
-        self.nodes.iter().enumerate().map(move |(i, node)| {
-            let child_ref = match self_ref {
-                LaneStrokeRef(stroke_idx) => LaneStrokeNodeRef(stroke_idx, i),
-            };
-            node.create_interactable(child_ref, class.clone())
-        })
-    } 
 
     // TODO: this is slightly ugly
     pub fn subsection(&self, start: N, end: N) -> Option<Self> {
@@ -114,12 +102,6 @@ impl<'a> RoughlyComparable for &'a LaneStroke {
 pub struct LaneStrokeNode {
     pub position: P2,
     pub direction: V2
-}
-
-impl LaneStrokeNode {
-    pub fn create_interactable(&self, self_ref: LaneStrokeNodeRef, class: InteractableParent) -> LaneStrokeNodeInteractable{
-        LaneStrokeNodeInteractable::new(self.position, self.direction, vec![self_ref], class)
-    }
 }
 
 impl<'a> RoughlyComparable for &'a LaneStrokeNode {
