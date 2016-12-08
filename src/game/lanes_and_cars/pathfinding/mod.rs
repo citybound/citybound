@@ -39,10 +39,13 @@ pub struct RoutingInfo{
 }
 
 use ::core::ui::Add;
+const DEBUG_CARS_ON_LANES : bool  = false;
 
 pub fn on_build(lane: &mut Lane) {
     lane.pathfinding_info.as_destination = None;
-    ::core::ui::UserInterface::id() << Add::Interactable3d(lane.id(), AnyShape::Band(Band::new(lane.path.clone(), 3.0)), 5);
+    if DEBUG_CARS_ON_LANES {
+        ::core::ui::UserInterface::id() << Add::Interactable3d(lane.id(), AnyShape::Band(Band::new(lane.path.clone(), 3.0)), 5);
+    }
 }
 
 const MIN_LANDMARK_INCOMING : usize = 3;
