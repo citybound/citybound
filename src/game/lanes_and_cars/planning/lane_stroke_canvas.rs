@@ -10,7 +10,7 @@ pub struct LaneStrokeCanvas;
 impl Individual for LaneStrokeCanvas{}
 
 use core::ui::Event3d;
-use super::PlanControl::{AddLaneStrokeNode, Materialize, CreateGrid};
+use super::PlanControl::{AddLaneStrokeNode, Materialize, CreateGrid, DeleteSelection};
 
 impl Recipient<Event3d> for LaneStrokeCanvas {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg {
@@ -34,6 +34,10 @@ impl Recipient<Event3d> for LaneStrokeCanvas {
         },
         Event3d::KeyDown(VirtualKeyCode::G) => {
             CurrentPlan::id() << CreateGrid(());
+            Fate::Live
+        },
+        Event3d::KeyDown(VirtualKeyCode::Back) => {
+            CurrentPlan::id() << DeleteSelection(());
             Fate::Live
         }
         _ => Fate::Live

@@ -34,6 +34,7 @@ enum PlanControl{
     AddLaneStrokeNode(P2, bool),
     Select(SelectableStrokeRef, N, N),
     MoveSelection(SelectableStrokeRef, V2),
+    DeleteSelection(()),
     ModifyRemainingOld(CVec<LaneStrokeRef>),
     CreateGrid(()),
     Materialize(())
@@ -154,6 +155,33 @@ impl Recipient<PlanControl> for CurrentPlan {
                     }
                 }
             } else {unreachable!()}
+            Fate::Live
+        },
+        PlanControl::DeleteSelection(()) => {
+            if let DrawingStatus::WithSelection(selection_ref, start, end) = self.ui_state.drawing_status {
+                let stroke = match selection_ref {
+                    SelectableStrokeRef::New(node_idx) => {
+                        self.delta.new_strokes.remove(node_idx)
+                    },
+                    SelectableStrokeRef::RemainingOld(old_ref) => {
+                        let old_stroke = self.current_remaining_old_strokes.mapping.get(old_ref).unwrap();
+                        self.delta.strokes_to_destroy.insert(old_ref, old_stroke.clone());
+                        old_stroke.clone()
+                    }
+                };
+                if let Some(before) = stroke.subsection(0.0, start) {
+                    self.delta.new_strokes.push(before);
+                }
+                if let Some(after) = stroke.subsection(end, stroke.path().length()) {
+                    self.delta.new_strokes.push(after);
+                }
+                MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone()};
+                self.ui_state.drawing_status = DrawingStatus::Nothing(());
+                self.ui_state.dirty = true;
+                self.ui_state.recreate_selectables = true;
+                self.clear_selectables();
+                self.clear_draggables();
+            }
             Fate::Live
         }
         PlanControl::ModifyRemainingOld(ref old_refs) => {
