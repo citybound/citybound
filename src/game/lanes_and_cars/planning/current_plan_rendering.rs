@@ -61,20 +61,22 @@ impl Recipient<RenderToScene> for CurrentPlan {
                 };
                 self.ui_state.dirty = false;
             }
-            if let DrawingStatus::WithSelection(stroke_ref, start, end) = self.ui_state.drawing_status {
-                let stroke = match stroke_ref {
-                    SelectableStrokeRef::New(stroke_idx) => &self.delta.new_strokes[stroke_idx],
-                    SelectableStrokeRef::RemainingOld(old_stroke_ref) => self.current_remaining_old_strokes.mapping.get(old_stroke_ref).unwrap()
-                };
-                if let Some(subsection) = stroke.path().subsection(start, end) {
-                    let selection_thing : Thing = band_to_thing(&Band::new(subsection, 2.5), 0.1);
-                    renderer_id << UpdateThing{
-                        scene_id: scene_id,
-                        thing_id: 504,
-                        thing: selection_thing,
-                        instance: Instance::with_color([0.0, 0.0, 1.0])
+            if let DrawingStatus::WithSelections(ref selections) = self.ui_state.drawing_status {
+                let selection_thing = selections.pairs().filter_map(|(&selection_ref, &(start, end))| {
+                    let stroke = match selection_ref {
+                        SelectableStrokeRef::New(stroke_idx) => &self.delta.new_strokes[stroke_idx],
+                        SelectableStrokeRef::RemainingOld(old_stroke_ref) => self.current_remaining_old_strokes.mapping.get(old_stroke_ref).unwrap()
                     };
-                }
+                    stroke.path().subsection(start, end).map(|subsection|
+                        band_to_thing(&Band::new(subsection, 2.5), 0.1)
+                    )
+                }).sum();
+                renderer_id << UpdateThing{
+                    scene_id: scene_id,
+                    thing_id: 504,
+                    thing: selection_thing,
+                    instance: Instance::with_color([0.0, 0.0, 1.0])
+                };
             } else {
                 renderer_id << UpdateThing{
                     scene_id: scene_id,
