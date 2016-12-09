@@ -21,6 +21,18 @@ impl LaneStrokeDraggable{
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct Become(SelectableStrokeRef);
+
+impl Recipient<Become> for LaneStrokeDraggable {
+    fn receive(&mut self, msg: &Become) -> Fate {match *msg{
+        Become(stroke_ref) => {
+            self.stroke_ref = stroke_ref;
+            Fate::Live
+        }
+    }}
+}
+
 use super::AddToUI;
 use ::core::ui::Add;
 
@@ -42,15 +54,7 @@ use ::core::ui::Remove;
 
 impl Recipient<ClearDraggables> for LaneStrokeDraggable {
     fn receive(&mut self, msg: &ClearDraggables) -> Fate {match *msg{
-        ClearDraggables::One(stroke_ref_to_clear) => {
-            if self.stroke_ref == stroke_ref_to_clear {
-                ::core::ui::UserInterface::id() << Remove::Interactable3d(self.id());
-                Fate::Die
-            } else {
-                Fate::Live
-            }
-        },
-        ClearDraggables::All(()) => {
+        ClearDraggables => {
             ::core::ui::UserInterface::id() << Remove::Interactable3d(self.id());
             Fate::Die
         }
@@ -72,6 +76,7 @@ impl Recipient<Event3d> for LaneStrokeDraggable {
 pub fn setup(system: &mut ActorSystem) {
     system.add_individual(Swarm::<LaneStrokeDraggable>::new());
     system.add_inbox::<CreateWith<LaneStrokeDraggable, AddToUI>, Swarm<LaneStrokeDraggable>>();
+    system.add_inbox::<Become, Swarm<LaneStrokeDraggable>>();
     system.add_inbox::<ClearDraggables, Swarm<LaneStrokeDraggable>>();
     system.add_inbox::<Event3d, Swarm<LaneStrokeDraggable>>();
 }

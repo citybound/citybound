@@ -58,7 +58,7 @@ fn main() {
     ];
     let window = core::ui::setup_window_and_renderer(&mut system, renderables);
 
-    let mut simulation_panicked = false;
+    let mut simulation_panicked : Option<String> = None;
     let mut last_frame = std::time::Instant::now();
 
     system.process_all_messages();
@@ -72,9 +72,14 @@ fn main() {
         last_frame = std::time::Instant::now();
         if !core::ui::process_events(&window) {return}
 
-        if simulation_panicked {
+        if let Some(error) = simulation_panicked.clone() {
             system.clear_all_clearable_messages();
             system.process_all_messages();
+            Renderer::id() << AddDebugText{
+                scene_id: 0,
+                key: "SIMULATION PANIC".chars().collect(),
+                value: error.as_str().chars().collect()
+            };
         } else {
             let simulation_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 system.process_all_messages();
@@ -87,8 +92,7 @@ fn main() {
 
                 system.process_all_messages();
             }));
-            simulation_panicked = simulation_result.is_err();
-            if simulation_panicked {
+            if simulation_result.is_err() {
                 system.clear_all_clearable_messages();
                 let msg = match simulation_result.unwrap_err().downcast::<String>() {
                     Ok(string) => (*string),
@@ -98,6 +102,7 @@ fn main() {
                     }
                 };
                 println!("Simulation Panic!\n{:?}", msg);
+                simulation_panicked = Some(msg);
             }
         }
 

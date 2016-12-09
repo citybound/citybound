@@ -122,14 +122,14 @@ impl Recipient<PlanControl> for CurrentPlan {
             }
             Fate::Live
         },
-        PlanControl::Select(stroke_ref, start, end) => {
-            self.ui_state.drawing_status = DrawingStatus::WithSelection(stroke_ref, start, end);
+        PlanControl::Select(selection_ref, start, end) => {
+            self.ui_state.drawing_status = DrawingStatus::WithSelection(selection_ref, start, end);
             self.create_draggables();
             Fate::Live
         },
         PlanControl::MoveSelection(_, delta) => {
-            if let DrawingStatus::WithSelection(stroke_ref, start, end) = self.ui_state.drawing_status {
-                match stroke_ref {
+            if let DrawingStatus::WithSelection(selection_ref, start, end) = self.ui_state.drawing_status {
+                match selection_ref {
                     SelectableStrokeRef::New(stroke_idx) => {
                         {
                             let stroke = &mut self.delta.new_strokes[stroke_idx];
@@ -140,11 +140,18 @@ impl Recipient<PlanControl> for CurrentPlan {
                         MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone()};
                         self.ui_state.drawing_status = DrawingStatus::Nothing(());
                         self.ui_state.dirty = true;
+                        self.ui_state.recreate_selectables = true;
                         self.clear_selectables();
                         self.clear_draggables();
-                        self.create_selectables();
                     },
-                    SelectableStrokeRef::RemainingOld(_) => unimplemented!()
+                    SelectableStrokeRef::RemainingOld(old_ref) => {
+                        let old_stroke = self.current_remaining_old_strokes.mapping.get(old_ref).unwrap();
+                        self.delta.strokes_to_destroy.insert(old_ref, old_stroke.clone());
+                        self.delta.new_strokes.push(old_stroke.clone());
+                        let new_ref = SelectableStrokeRef::New(self.delta.new_strokes.len() - 1);
+                        self.ui_state.drawing_status = DrawingStatus::WithSelection(new_ref, start, end);
+                        Self::id() << PlanControl::MoveSelection(new_ref, delta);
+                    }
                 }
             } else {unreachable!()}
             Fate::Live
@@ -180,6 +187,7 @@ impl Recipient<PlanControl> for CurrentPlan {
             MaterializedReality::id() << Apply{requester: Self::id(), delta: self.delta.clone()};
             *self = CurrentPlan::default();
             self.clear_selectables();
+            self.ui_state.recreate_selectables = true;
             Fate::Live
         }
     }}
@@ -193,15 +201,19 @@ impl Recipient<SimulationResult> for CurrentPlan{
             self.current_remaining_old_strokes = remaining_old_strokes.clone();
             self.current_plan_result_delta = result_delta.clone();
             self.ui_state.dirty = true;
+            if self.ui_state.recreate_selectables {
+                self.ui_state.recreate_selectables = false;
+                self.create_selectables();
+            }
             Fate::Live
         }
     }}
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum SelectableStrokeRef{
     New(usize),
-    RemainingOld(usize)
+    RemainingOld(LaneStrokeRef)
 }
 
 impl CurrentPlan {
@@ -211,34 +223,38 @@ impl CurrentPlan {
                 LaneStrokeSelectable::new(SelectableStrokeRef::New(stroke_idx), stroke.path().clone()
             ), AddToUI);
         }
+        for (old_ref, stroke) in self.current_remaining_old_strokes.mapping.pairs() {
+            Swarm::<LaneStrokeSelectable>::all() << CreateWith(
+                LaneStrokeSelectable::new(SelectableStrokeRef::RemainingOld(*old_ref), stroke.path().clone()
+            ), AddToUI);
+        }
     }
 
     fn create_draggables(&mut self) {
         if let DrawingStatus::WithSelection(stroke_ref, start, end) = self.ui_state.drawing_status {
-            match stroke_ref {
-                SelectableStrokeRef::New(stroke_idx) => {
-                    Swarm::<LaneStrokeDraggable>::all() << CreateWith(
-                        LaneStrokeDraggable::new(stroke_ref,
-                            self.delta.new_strokes[stroke_idx].path().subsection(start, end)
-                                .expect("should already be valid for sure!")
-                        ),
-                    AddToUI);
-                },
-                SelectableStrokeRef::RemainingOld(_) => unimplemented!()
-            }
+            let stroke = match stroke_ref {
+                SelectableStrokeRef::New(stroke_idx) => &self.delta.new_strokes[stroke_idx],
+                SelectableStrokeRef::RemainingOld(old_stroke_ref) => self.current_remaining_old_strokes.mapping.get(old_stroke_ref).unwrap()
+            };
+            Swarm::<LaneStrokeDraggable>::all() << CreateWith(
+                LaneStrokeDraggable::new(stroke_ref,
+                    stroke.path().subsection(start, end)
+                        .expect("should already be valid for sure!")
+                ),
+                AddToUI
+            );
         } else {unreachable!()}
     }
 
     fn clear_selectables(&mut self) {
-        Swarm::<LaneStrokeSelectable>::all() << ClearSelectables::All(());
+        Swarm::<LaneStrokeSelectable>::all() << ClearSelectables;
     }
 
     fn clear_draggables(&mut self) {
-        Swarm::<LaneStrokeDraggable>::all() << ClearDraggables::All(());
+        Swarm::<LaneStrokeDraggable>::all() << ClearDraggables;
     }
 }
 
-    
 #[derive(Compact, Clone)]
 pub enum DrawingStatus{
     Nothing(()),
@@ -252,7 +268,8 @@ struct PlanUIState{
     create_both_sides: bool,
     n_lanes_per_side: usize,
     drawing_status: DrawingStatus,
-    dirty: bool
+    dirty: bool,
+    recreate_selectables: bool
 }
 
 impl Default for PlanUIState{
@@ -261,7 +278,8 @@ impl Default for PlanUIState{
             create_both_sides: true,
             n_lanes_per_side: 3,
             drawing_status: DrawingStatus::Nothing(()),
-            dirty: true
+            dirty: true,
+            recreate_selectables: true
         }
     }
 }
@@ -270,16 +288,10 @@ impl Default for PlanUIState{
 struct AddToUI;
 
 #[derive(Copy, Clone)]
-enum ClearSelectables{
-    One(SelectableStrokeRef),
-    All(())
-}
+struct ClearSelectables;
 
 #[derive(Copy, Clone)]
-enum ClearDraggables{
-    One(SelectableStrokeRef),
-    All(())
-}
+struct ClearDraggables;
 
 pub fn setup(system: &mut ActorSystem) {
     system.add_individual(CurrentPlan::default());

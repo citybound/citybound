@@ -42,15 +42,7 @@ use ::core::ui::Remove;
 
 impl Recipient<ClearSelectables> for LaneStrokeSelectable {
     fn receive(&mut self, msg: &ClearSelectables) -> Fate {match *msg{
-        ClearSelectables::One(stroke_ref_to_clear) => {
-            if self.stroke_ref == stroke_ref_to_clear {
-                ::core::ui::UserInterface::id() << Remove::Interactable3d(self.id());
-                Fate::Die
-            } else {
-                Fate::Live
-            }
-        },
-        ClearSelectables::All(()) => {
+        ClearSelectables => {
             ::core::ui::UserInterface::id() << Remove::Interactable3d(self.id());
             Fate::Die
         }
