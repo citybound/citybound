@@ -56,7 +56,11 @@ impl Recipient<Event3d> for LaneStrokeSelectable {
         Event3d::DragOngoing{from, to} => {
             if let (Some(selection_start), Some(selection_end)) =
             (self.path.project(from.into_2d()), self.path.project(to.into_2d())) {
-                CurrentPlan::id() << PlanControl::Select(self.stroke_ref, selection_start, selection_end);
+                CurrentPlan::id() << PlanControl::Select(
+                    self.stroke_ref,
+                    selection_start.min(selection_end),
+                    selection_end.max(selection_start)
+                );
             }
             Fate::Live
         },
