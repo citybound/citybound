@@ -4,7 +4,7 @@ use core::geometry::{CPath};
 use core::disjoint_sets::DisjointSets;
 use ordered_float::OrderedFloat;
 use itertools::{Itertools};
-use super::{LaneStroke, LaneStrokeNode, MIN_NODE_DISTANCE, Intersection, LaneStrokeRef};
+use super::{LaneStroke, LaneStrokeNode, Intersection, LaneStrokeRef};
 
 const STROKE_INTERSECTION_WIDTH : N = 4.0;
 const INTERSECTION_GROUPING_RADIUS : N = 30.0;
@@ -217,7 +217,7 @@ pub fn create_connecting_strokes(intersections: &mut CVec<Intersection>) {
             let mut incoming_groups = incoming_groups_sets.sets().map(|set| set.to_vec()).collect::<Vec<_>>();
             for incoming_group in &mut incoming_groups {
                 let base_position = incoming_group[0].1.position;
-                let direction_right = -incoming_group[0].1.direction.orthogonal();
+                let direction_right = incoming_group[0].1.direction.orthogonal();
                 incoming_group.sort_by_key(|group| OrderedFloat((group.1.position - base_position).dot(&direction_right)));
             }
 
@@ -229,28 +229,34 @@ pub fn create_connecting_strokes(intersections: &mut CVec<Intersection>) {
             let mut outgoing_groups = outgoing_groups_sets.sets().map(|set| set.to_vec()).collect::<Vec<_>>();
             for outgoing_group in &mut outgoing_groups {
                 let base_position = outgoing_group[0].1.position;
-                let direction_right = -outgoing_group[0].1.direction.orthogonal();
+                let direction_right = outgoing_group[0].1.direction.orthogonal();
                 outgoing_group.sort_by_key(|group| OrderedFloat((group.1.position - base_position).dot(&direction_right)));
             }
 
             intersection.strokes = incoming_groups.iter().flat_map(|incoming_group| {
-                outgoing_groups.iter().flat_map(|outgoing_group| {
-                    if groups_correspond(incoming_group, outgoing_group) {
-                        // straight connection
-                        incoming_group.iter().cartesian_product(outgoing_group.iter()).filter_map(
-                            |(&(incoming_ref, incoming), &(outgoing_ref, outgoing))|
-                            if incoming_ref == outgoing_ref {
-                                Some(LaneStroke::new(vec![*incoming, *outgoing].into()))
-                            } else {None}
-                        ).into_iter().collect::<Vec<_>>()
-                    } else {
-                        incoming_group.iter().zip(outgoing_group.iter()).filter_map(|(&(_, incoming), &(_, outgoing))|
-                            if (incoming.position - outgoing.position).norm() > MIN_NODE_DISTANCE {
-                                Some(LaneStroke::new(vec![*incoming, *outgoing].into()))
-                            } else {None}
-                        ).min_by_key(|stroke| OrderedFloat(stroke.path().length())).into_iter().collect::<Vec<_>>()
-                    }
-                }).collect::<Vec<_>>()
+                if outgoing_groups.iter().any(|outgoing_group| groups_correspond(incoming_group, outgoing_group)) {
+                    // continues after intersection
+                    outgoing_groups.iter().flat_map(|outgoing_group|
+                        if groups_correspond(incoming_group, outgoing_group) {
+                            // straight connection
+                            incoming_group.iter().cartesian_product(outgoing_group.iter()).filter_map(
+                                |(&(incoming_ref, incoming), &(outgoing_ref, outgoing))|
+                                if incoming_ref == outgoing_ref {
+                                    Some(LaneStroke::new(vec![*incoming, *outgoing].into()))
+                                } else {None}
+                            ).into_iter().collect::<Vec<_>>()
+                        } else {
+                            connect_as_much_as_possible(incoming_group, outgoing_group)
+                                .into_iter().take((incoming_group.len() as f32 / 3.0).ceil() as usize).collect()
+                        }
+                    ).collect::<Vec<_>>()
+                } else {
+                    // ends in intersection
+                    outgoing_groups.iter().flat_map(|outgoing_group|
+                        connect_as_much_as_possible(incoming_group, outgoing_group)
+                            .into_iter().take((incoming_group.len() as f32 / 2.0).ceil() as usize).collect::<Vec<_>>()
+                    ).collect()
+                }
             }).collect::<CVec<_>>();
         }
 }
@@ -260,4 +266,27 @@ fn groups_correspond(incoming_group: &Vec<(&LaneStrokeRef, &LaneStrokeNode)>, ou
     incoming_group.iter().all(|&(incoming_ref, _)|
         outgoing_group.iter().any(|&(outgoing_ref, _)| incoming_ref == outgoing_ref)
     )
+}
+
+#[allow(ptr_arg)]
+fn connect_as_much_as_possible(incoming_group: &Vec<(&LaneStrokeRef, &LaneStrokeNode)>, outgoing_group: &Vec<(&LaneStrokeRef, &LaneStrokeNode)>) -> Vec<LaneStroke> {
+    let is_right_of = (outgoing_group[0].1.position - incoming_group[0].1.position)
+        .dot(&incoming_group[0].1.direction.orthogonal()) > 0.0;
+
+    if is_right_of {
+        incoming_group.iter().rev().zip(outgoing_group.iter().rev()).map(|(&(_, incoming), &(_, outgoing))|
+            LaneStroke::new(vec![*incoming, *outgoing].into())
+        ).collect()
+    } else {
+        let is_uturn = outgoing_group[0].1.position.is_roughly_within(incoming_group[0].1.position, 7.0)
+            && outgoing_group[0].1.direction.is_roughly_within(-incoming_group[0].1.direction, 0.1);
+        
+        if is_uturn {
+            vec![LaneStroke::new(vec![*incoming_group[0].1, *outgoing_group[0].1].into())]
+        } else {
+            incoming_group.iter().zip(outgoing_group.iter()).map(|(&(_, incoming), &(_, outgoing))|
+                LaneStroke::new(vec![*incoming, *outgoing].into())
+            ).collect()
+        }
+    }
 }

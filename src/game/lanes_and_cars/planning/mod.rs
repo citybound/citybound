@@ -411,7 +411,7 @@ impl Default for PlanUIState{
     fn default() -> PlanUIState{
         PlanUIState{
             create_both_sides: true,
-            n_lanes_per_side: 3,
+            n_lanes_per_side: 5,
             drawing_status: DrawingStatus::Nothing(()),
             dirty: true,
             recreate_selectables: true
