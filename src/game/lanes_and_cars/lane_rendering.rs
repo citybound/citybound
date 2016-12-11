@@ -159,11 +159,13 @@ impl Recipient<RenderToScene> for Lane {
                 }
             }
 
-            renderer_id << AddSeveralInstances{
-                scene_id: scene_id,
-                batch_id: 0,
-                instances: car_instances
-            };
+            if !car_instances.is_empty() {
+                renderer_id << AddSeveralInstances{
+                    scene_id: scene_id,
+                    batch_id: 0,
+                    instances: car_instances
+                };
+            }
 
             if ! self.interactions.iter().any(|inter| match inter.kind {InteractionKind::Next{..} => true, _ => false}) {
                 renderer_id << AddInstance{scene_id: scene_id, batch_id: 1333, instance: Instance{
@@ -207,15 +209,16 @@ impl Recipient<RenderToScene> for Lane {
 impl Recipient<RenderToScene> for TransferLane {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg{
         RenderToScene{renderer_id, scene_id} => {
-            for car in &self.cars {
-                let position2d = self.path.along((*car.position).min(self.length));
-                let direction = self.path.direction_along((*car.position).min(self.length));
-                let rotated_direction = (direction + 0.3 * car.transfer_velocity * direction.orthogonal()).normalize();
-                let shifted_position2d = position2d + 2.5 * direction.orthogonal() * car.transfer_position;
-                renderer_id << AddInstance{
-                    scene_id: scene_id,
-                    batch_id: 1,
-                    instance: Instance{
+            let mut cars_iter = self.cars.iter();
+            let mut current_offset = 0.0;
+            let mut car_instances = CVec::with_capacity(self.cars.len());
+            for segment in self.path.segments().iter() {
+                for car in cars_iter.take_while_ref(|car| *car.position - current_offset < segment.length()) {
+                    let position2d = segment.along(*car.position - current_offset);
+                    let direction = segment.direction_along(*car.position - current_offset);
+                    let rotated_direction = (direction + 0.3 * car.transfer_velocity * direction.orthogonal()).normalize();
+                    let shifted_position2d = position2d + 2.5 * direction.orthogonal() * car.transfer_position;
+                    car_instances.push(Instance{
                         instance_position: [shifted_position2d.x, shifted_position2d.y, 0.0],
                         instance_direction: [rotated_direction.x, rotated_direction.y],
                         instance_color: if DEBUG_VIEW_LANDMARKS {
@@ -227,9 +230,19 @@ impl Recipient<RenderToScene> for TransferLane {
                                 car.trip.instance_id as usize % ::core::geometry::RANDOM_COLORS.len()
                             ]
                         }
-                    }
+                    })
+                }
+                current_offset += segment.length;
+            }
+
+            if !car_instances.is_empty() {
+                renderer_id << AddSeveralInstances{
+                    scene_id: scene_id,
+                    batch_id: 0,
+                    instances: car_instances
                 };
             }
+
             if self.left.is_none() {
                 let position = self.path.along(self.length / 2.0) + self.path.direction_along(self.length / 2.0).orthogonal();
                 renderer_id << AddInstance{scene_id: scene_id, batch_id: 1333, instance: Instance{
