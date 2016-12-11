@@ -19,14 +19,24 @@ impl Recipient<RenderToScene> for CurrentPlan {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg{
         RenderToScene{renderer_id, scene_id} => {
             if self.ui_state.dirty {
-                let thing : Thing = self.current_plan_result_delta.trimmed_strokes.to_create.values()
+                let stroke_thing : Thing = self.current_plan_result_delta.trimmed_strokes.to_create.values()
+                    .filter(|stroke| stroke.nodes().len() > 1)
+                    .map(LaneStroke::preview_thing)
+                    .sum();
+                renderer_id << UpdateThing{
+                    scene_id: scene_id,
+                    thing_id: 499,
+                    thing: stroke_thing,
+                    instance: Instance::with_color([0.8, 0.8, 0.8])
+                };
+                let trimmed_stroke_thing : Thing = self.current_plan_result_delta.trimmed_strokes.to_create.values()
                     .filter(|stroke| stroke.nodes().len() > 1)
                     .map(LaneStroke::preview_thing)
                     .sum();
                 renderer_id << UpdateThing{
                     scene_id: scene_id,
                     thing_id: 500,
-                    thing: thing,
+                    thing: trimmed_stroke_thing,
                     instance: Instance::with_color([0.3, 0.3, 0.5])
                 };
                 let intersections_thing : Thing = self.current_plan_result_delta.intersections.to_create.values()

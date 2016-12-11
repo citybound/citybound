@@ -66,7 +66,7 @@ use ::core::ui::Event3d;
 impl Recipient<Event3d> for LaneStrokeDraggable {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg{
         Event3d::DragFinished{from, to} => {
-            CurrentPlan::id() << PlanControl::MoveSelection(self.stroke_ref, to.into_2d() - from.into_2d());
+            CurrentPlan::id() << PlanControl::MoveSelection(to.into_2d() - from.into_2d());
             Fate::Live
         },
         _ => Fate::Live

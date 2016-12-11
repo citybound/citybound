@@ -198,7 +198,7 @@ pub fn setup_window_and_renderer(system: &mut ActorSystem, renderables: Vec<ID>)
 
     let mut renderer = Renderer::new(window.clone());
     let mut scene = Scene::new();
-    scene.eye.position *= 60.0;
+    scene.eye.position *= 30.0;
     scene.renderables = renderables;
     renderer.scenes.insert(0, scene);
 

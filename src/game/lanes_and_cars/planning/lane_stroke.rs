@@ -18,7 +18,12 @@ pub const MIN_NODE_DISTANCE : f32 = 1.0;
 
 impl LaneStroke {
     pub fn new(nodes: CVec<LaneStrokeNode>) -> Self {
-        if nodes.windows(2).any(|window| window[0].position.is_roughly_within(window[1].position, MIN_NODE_DISTANCE)) {
+        if nodes.windows(2).any(|window|
+            if window[0].position.is_roughly_within(window[1].position, MIN_NODE_DISTANCE) {
+                ::core::geometry::add_debug_point(window[0].position, [1.0, 0.0, 1.0], 0.5);
+                ::core::geometry::add_debug_point(window[1].position, [1.0, 0.0, 1.0], 0.5);
+                true
+            } else {false}) {
             panic!("close points in stroke")
         }
         if nodes.len() <= 1 {
@@ -71,31 +76,34 @@ impl LaneStroke {
         } else {None}
     }
 
-    pub fn with_subsection_moved(&self, start: N, end: N, delta: V2) -> Option<Self> {
+    pub fn with_subsection_moved(&self, start: N, end: N, delta: V2) -> MovedSubsectionInfo {
         let nodes_before = self.nodes.iter().take_while(|node|
-            self.path().project(node.position).unwrap() < start
-        );
+            self.path().project(node.position).unwrap() < start - 5.0
+        ).cloned().collect::<Vec<_>>();
 
         let new_subsection = self.subsection(start, end).into_iter()
             .flat_map(|subsection| subsection.nodes)
             .map(|node| LaneStrokeNode{
                 position: node.position + delta,
                 direction: node.direction
-            });
+            }).collect::<Vec<_>>();
 
         let nodes_after = self.nodes.iter().skip_while(|node|
-            self.path().project(node.position).unwrap() < end
-        );
+            self.path().project(node.position).unwrap() < end + 5.0
+        ).cloned().collect::<Vec<_>>();
 
-        let new_segments = nodes_before.cloned()
-            .chain(new_subsection)
-            .chain(nodes_after.cloned()).collect::<CVec<_>>();
+        let mut maybe_before_connector = None;
+        let mut maybe_after_connector = None;
 
-        if new_segments.is_empty() {
-            None
-        } else {
-            Some(LaneStroke::new(new_segments))
+        if let (Some(&last_node_before), Some(&first_moved_node)) = (nodes_before.last(), new_subsection.get(0)) {
+            maybe_before_connector = biarc_connection_node(last_node_before, first_moved_node);
         }
+
+        if let (Some(&last_moved_node), Some(&first_node_after)) = (new_subsection.last(), nodes_after.get(0)) {
+            maybe_after_connector = biarc_connection_node(last_moved_node, first_node_after);
+        }
+
+        (nodes_before, maybe_before_connector, new_subsection, maybe_after_connector, nodes_after)
      }
 
     pub fn build(&self, report_to: ID, report_as: BuildableRef) {
@@ -114,6 +122,32 @@ impl LaneStroke {
             AdvertiseToTransferAndReport(report_to, report_as)
         );
     }
+}
+
+pub type MovedSubsectionInfo = (
+    Vec<LaneStrokeNode>,
+    Option<LaneStrokeNode>,
+    Vec<LaneStrokeNode>,
+    Option<LaneStrokeNode>,
+    Vec<LaneStrokeNode>
+);
+
+fn biarc_connection_node(start_node: LaneStrokeNode, end_node: LaneStrokeNode) -> Option<LaneStrokeNode> {
+    let connection_segments = Segment::biarc(
+        start_node.position, start_node.direction,
+        end_node.position, end_node.direction
+    );
+
+    if connection_segments.len() > 1 {
+        let connection_node = LaneStrokeNode{
+            position: connection_segments[0].end(),
+            direction: connection_segments[0].end_direction()
+        };
+        if !connection_node.position.is_roughly_within(start_node.position, MIN_NODE_DISTANCE)
+        && !connection_node.position.is_roughly_within(end_node.position, MIN_NODE_DISTANCE) {
+            Some(connection_node)
+        } else {None}
+    } else {None}
 }
 
 impl<'a> RoughlyComparable for &'a LaneStroke {

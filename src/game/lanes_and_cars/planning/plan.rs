@@ -13,7 +13,7 @@ impl Default for Plan{
     fn default() -> Plan {Plan{strokes: CVec::new()}}
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct LaneStrokeRef(pub usize);
 
 #[derive(Compact, Clone)]

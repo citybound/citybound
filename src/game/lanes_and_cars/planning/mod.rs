@@ -1,5 +1,6 @@
-use descartes::{N, P2, V2, Norm, Segment, FiniteCurve, WithUniqueOrthogonal, RelativeToBasis};
+use descartes::{N, P2, V2, Norm, Segment, FiniteCurve, WithUniqueOrthogonal, RelativeToBasis, RoughlyComparable, Dot};
 use kay::{CVec, CDict, Recipient, Swarm, ActorSystem, Individual, Fate, CreateWith};
+use itertools::Itertools;
 
 //TODO: Clean up this whole mess with more submodules
 
@@ -33,7 +34,7 @@ impl Individual for CurrentPlan{}
 enum PlanControl{
     AddLaneStrokeNode(P2, bool),
     Select(SelectableStrokeRef, N, N),
-    MoveSelection(SelectableStrokeRef, V2),
+    MoveSelection(V2),
     DeleteSelection(()),
     ModifyRemainingOld(CVec<LaneStrokeRef>),
     CreateGrid(()),
@@ -134,47 +135,111 @@ impl Recipient<PlanControl> for CurrentPlan {
             self.create_draggables();
             Fate::Live
         },
-        PlanControl::MoveSelection(selection_ref, delta) => {
+        PlanControl::MoveSelection(delta) => {
             if let DrawingStatus::WithSelections(ref selections) = self.ui_state.drawing_status {
-                let mut maybe_new_strokes = Vec::new();
-                let mut changed_strokes_old_slots_map = Vec::new();
+                let mut with_subsections_moved = selections.pairs().map(|(&selection_ref, &(start, end))| {
+                    let stroke = match selection_ref {
+                        SelectableStrokeRef::New(node_idx) => &self.delta.new_strokes[node_idx],
+                        SelectableStrokeRef::RemainingOld(old_ref) =>
+                            self.current_remaining_old_strokes.mapping.get(old_ref).unwrap()
+                    };
+                    (selection_ref, stroke.with_subsection_moved(start, end, delta))
+                }).collect::<::fnv::FnvHashMap<_, _>>();
 
-                {
-                    let target_stroke = match selection_ref {
-                        SelectableStrokeRef::New(node_idx) => {
-                            changed_strokes_old_slots_map.push(Some(node_idx));
-                            &self.delta.new_strokes[node_idx]
+                #[derive(PartialEq, Eq)]
+                enum C{Before, After};
+
+                let mut connector_alignments = Vec::<((SelectableStrokeRef, C), (SelectableStrokeRef, C))>::new();
+
+                fn a_close_and_right_of_b(maybe_node_a: Option<&LaneStrokeNode>, maybe_node_b: Option<&LaneStrokeNode>) -> bool {
+                    if let (Some(node_a), Some(node_b)) = (maybe_node_a, maybe_node_b) {
+                        node_a.position.is_roughly_within(node_b.position, 7.0)
+                        && (node_a.position - node_b.position).dot(&node_a.direction.orthogonal()) > 0.0
+                    } else {false}
+                }
+
+                for (
+                    (&selection_ref_a, &(_, ref maybe_before_connector_a, ref new_subsection_a, ref maybe_after_connector_a, _)),
+                    (&selection_ref_b, &(_, ref maybe_before_connector_b, ref new_subsection_b, ref maybe_after_connector_b, _))
+                ) in with_subsections_moved.iter().cartesian_product(with_subsections_moved.iter()).filter(|&((a, _), (b, _))| a != b) {
+                    if a_close_and_right_of_b(new_subsection_a.get(0), new_subsection_b.get(0))
+                    && maybe_before_connector_a.is_some() && maybe_before_connector_b.is_some() {
+                        connector_alignments.push(((selection_ref_a, C::Before), (selection_ref_b, C::Before)));
+                    }
+                    if a_close_and_right_of_b(new_subsection_a.get(0), new_subsection_b.last())
+                    && maybe_before_connector_a.is_some() && maybe_after_connector_b.is_some()
+                    && !connector_alignments.iter().any(|other|
+                        other == &((selection_ref_b, C::After), (selection_ref_a, C::Before))
+                    ) {
+                        connector_alignments.push(((selection_ref_a, C::Before), (selection_ref_b, C::After)));
+                    }
+                    if a_close_and_right_of_b(new_subsection_a.last(), new_subsection_b.last())
+                    && maybe_after_connector_a.is_some() && maybe_after_connector_b.is_some() {
+                        connector_alignments.push(((selection_ref_a, C::After), (selection_ref_b, C::After)));
+                    }
+                    if a_close_and_right_of_b(new_subsection_a.last(), new_subsection_b.get(0))
+                    && maybe_after_connector_a.is_some() && maybe_before_connector_b.is_some()
+                    && !connector_alignments.iter().any(|other|
+                        other == &((selection_ref_b, C::Before), (selection_ref_a, C::After))
+                    ) {
+                        connector_alignments.push(((selection_ref_a, C::After), (selection_ref_b, C::Before)));
+                    }
+                }
+
+                if connector_alignments.len() > 1 {
+                    // figure out which alignments need to happen first
+                    // yes, this is not optimal at all, but correct
+                    while {
+                        let mut something_happened = false;
+                        #[allow(needless_range_loop)]
+                        for i in 0..connector_alignments.len() {
+                            let swap = {
+                                let &(_, ref align_a_to) = &connector_alignments[i];
+                                connector_alignments.iter().position(|&(ref b, _)| align_a_to == b)
+                                    .and_then(|b_idx| if b_idx > i {Some(b_idx)} else {None})
+                            };
+                            if let Some(swap_with) = swap {
+                                connector_alignments.swap(i, swap_with);
+                                something_happened = true;
+                                break;
+                            }
+                        }
+                        something_happened
+                    } {}
+                } 
+
+                for ((align_ref, align_connector), (align_to_ref, align_to_connector)) in connector_alignments {
+                    let align_to = match align_to_connector {
+                        C::Before => with_subsections_moved[&align_to_ref].1.unwrap(),
+                        C::After => with_subsections_moved[&align_to_ref].3.unwrap()
+                    };
+                    let align = match align_connector {
+                        C::Before => with_subsections_moved.get_mut(&align_ref).unwrap().1.as_mut().unwrap(),
+                        C::After => with_subsections_moved.get_mut(&align_ref).unwrap().3.as_mut().unwrap()
+                    };
+
+                    let direction_sign = align.direction.dot(&align_to.direction).signum();
+                    align.direction = direction_sign * align_to.direction;
+                    let distance = if direction_sign < 0.0 {6.0} else {5.0};
+                    align.position = align_to.position + distance * align.direction.orthogonal();
+                }
+
+                for (selection_ref, (b, bc, s, ac, a)) in with_subsections_moved {
+                    let new_stroke = LaneStroke::new(
+                        b.into_iter().chain(bc).chain(s).chain(ac).chain(a).collect()
+                    );
+                    match selection_ref {
+                        SelectableStrokeRef::New(stroke_idx) => {
+                            self.delta.new_strokes[stroke_idx] = new_stroke
                         },
                         SelectableStrokeRef::RemainingOld(old_ref) => {
                             let old_stroke = self.current_remaining_old_strokes.mapping.get(old_ref).unwrap();
                             self.delta.strokes_to_destroy.insert(old_ref, old_stroke.clone());
-                            changed_strokes_old_slots_map.push(None);
-                            old_stroke
+                            self.delta.new_strokes.push(new_stroke);
                         }
-                    };
-
-                    let &(target_start, target_end) = selections.get(selection_ref).unwrap();
-                    let maybe_new_target_stroke = target_stroke.with_subsection_moved(target_start, target_end, delta);
-                    maybe_new_strokes.push(maybe_new_target_stroke);
-                }
-
-                let mut new_stroke_indices_to_remove = Vec::new();
-
-                for (maybe_new_stroke, maybe_old_slot) in maybe_new_strokes.into_iter().zip(changed_strokes_old_slots_map.into_iter()) {
-                    if let Some(old_slot) = maybe_old_slot {
-                        if let Some(new_stroke) = maybe_new_stroke {
-                            self.delta.new_strokes[old_slot] = new_stroke;
-                        } else {
-                            new_stroke_indices_to_remove.push(old_slot);
-                        }
-                    } else if let Some(new_stroke) = maybe_new_stroke {
-                        self.delta.new_strokes.push(new_stroke);
                     }
                 }
 
-                for index_to_remove in new_stroke_indices_to_remove {
-                    self.delta.new_strokes.remove(index_to_remove);
-                }
             } else {unreachable!()}
             MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone()};
             self.ui_state.drawing_status = DrawingStatus::Nothing(());
@@ -279,7 +344,7 @@ impl Recipient<SimulationResult> for CurrentPlan{
     }}
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum SelectableStrokeRef{
     New(usize),
     RemainingOld(LaneStrokeRef)
@@ -306,13 +371,12 @@ impl CurrentPlan {
                     SelectableStrokeRef::New(stroke_idx) => &self.delta.new_strokes[stroke_idx],
                     SelectableStrokeRef::RemainingOld(old_stroke_ref) => self.current_remaining_old_strokes.mapping.get(old_stroke_ref).unwrap()
                 };
-                Swarm::<LaneStrokeDraggable>::all() << CreateWith(
-                    LaneStrokeDraggable::new(selection_ref,
-                        stroke.path().subsection(start, end)
-                            .expect("should already be valid for sure!")
-                    ),
-                    AddToUI
-                );
+                if let Some(subsection) = stroke.path().subsection(start, end) {
+                    Swarm::<LaneStrokeDraggable>::all() << CreateWith(
+                        LaneStrokeDraggable::new(selection_ref, subsection),
+                        AddToUI
+                    );
+                }
             }
         } else {unreachable!()}
     }
