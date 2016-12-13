@@ -4,10 +4,10 @@ version = "0.1.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
-glium = "*"
+glium = "0.15.0"
 rusttype = "0.2.1"
-unicode-normalization = "*"
-clippy = "*"
+unicode-normalization = "0.1.2"
+clippy = "0.0.96"
 fnv = "1.0.3"
 
 [dependencies.kay]

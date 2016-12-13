@@ -4,5 +4,5 @@ version = "0.1.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
-clippy = "*"
-random = "*"
+clippy = "0.0.96"
+random = "0.12.2"
