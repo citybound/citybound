@@ -34,9 +34,9 @@ use kay::Individual;
 const SECONDS_PER_TICK : f32 = 1.0 / 20.0;
 
 fn main() {    
-    let mut system = kay::ActorSystem::new();
+    let mut system = Box::new(kay::ActorSystem::new());
     unsafe {
-        kay::THE_SYSTEM = &mut system as *mut kay::ActorSystem;
+        kay::THE_SYSTEM = &mut *system as *mut kay::ActorSystem;
     }
 
     game::setup(&mut system);
