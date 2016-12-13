@@ -22,12 +22,14 @@ pub struct Lane {
     cars: CVec<LaneCar>,
     in_construction: f32,
     on_intersection: bool,
+    timings: CVec<bool>,
+    green: bool,
     pathfinding_info: pathfinding::PathfindingInfo,
     hovered: bool
 }
 
 impl Lane {
-    pub fn new(path: CPath, on_intersection: bool) -> Self {
+    pub fn new(path: CPath, on_intersection: bool, timings: CVec<bool>) -> Self {
         Lane {
             _id: ID::invalid(),
             length: path.length(),
@@ -37,6 +39,8 @@ impl Lane {
             cars: CVec::new(),
             in_construction: 0.0,
             on_intersection: on_intersection,
+            timings: timings,
+            green: false,
             pathfinding_info: pathfinding::PathfindingInfo::default(),
             hovered: false
         }
@@ -169,10 +173,27 @@ use core::simulation::Tick;
 const TRAFFIC_LOGIC_THROTTLING : usize = 30;
 const PATHFINDING_THROTTLING : usize = 10;
 
+#[derive(Copy, Clone)]
+pub struct SignalChanged{
+    from: ID,
+    green: bool
+}
+
 impl Recipient<Tick> for Lane {
     fn receive(&mut self, msg: &Tick) -> Fate {match *msg{
         Tick{dt, current_tick} => {
             self.in_construction += dt * 400.0;
+
+            let old_green = self.green;
+            self.green = if self.timings.is_empty() {true} else {self.timings[(current_tick / 25) % self.timings.len()]};
+
+            if old_green != self.green {
+                for interaction in &self.interactions {
+                    if let Interaction{kind: InteractionKind::Previous{..}, partner_lane, ..} = *interaction {
+                        partner_lane << SignalChanged{from: self.id(), green: self.green}
+                    }
+                }
+            }
 
             if current_tick % PATHFINDING_THROTTLING == self.id().instance_id as usize % PATHFINDING_THROTTLING {
                 self::pathfinding::tick(self);
@@ -205,6 +226,16 @@ impl Recipient<Tick> for Lane {
                     } else {INFINITY};
 
                     car.acceleration = next_car_acceleration.min(next_obstacle_acceleration);
+
+                    if let Interaction{start, kind: InteractionKind::Next{green}, ..} = self.interactions[car.next_hop_interaction as usize] {
+                        if !green {
+                            car.acceleration = car.acceleration.min(
+                                intelligent_acceleration(car, &Obstacle{
+                                    position: OrderedFloat(start + 2.0), velocity: 0.0, max_velocity: 0.0
+                                }, 2.0)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -418,6 +449,24 @@ impl Recipient<Tick> for TransferLane {
     }}
 }
 
+impl Recipient<SignalChanged> for Lane {
+    fn receive(&mut self, msg: &SignalChanged) -> Fate {match *msg{
+        SignalChanged{from, green} => {
+            if let Some(interaction) = self.interactions.iter_mut().find(|interaction|
+                match **interaction {
+                    Interaction{partner_lane, kind: InteractionKind::Next{..}, ..} => partner_lane == from,
+                    _ => false
+                }
+            ) {
+                interaction.kind = InteractionKind::Next{green: green}
+            } else {
+                println!("Lane doesn't know about next lane yet");
+            }
+            Fate::Live
+        }
+    }}
+}
+
 use self::planning::materialized_reality::BuildableRef;
 
 #[derive(Copy, Clone)]
@@ -494,7 +543,7 @@ impl Recipient<Connect> for Lane {
                     partner_lane: other_id,
                     start: self.length,
                     partner_start: 0.0,
-                    kind: InteractionKind::Next
+                    kind: InteractionKind::Next{green: false}
                 })
             }
 
@@ -742,6 +791,7 @@ pub fn setup(system: &mut ActorSystem) {
     system.add_inbox::<AddCar, Swarm<Lane>>();
     system.add_inbox::<AddObstacles, Swarm<Lane>>();
     system.add_inbox::<Tick, Swarm<Lane>>();
+    system.add_inbox::<SignalChanged, Swarm<Lane>>();
     system.add_inbox::<Connect, Swarm<Lane>>();
     system.add_inbox::<ConnectToTransfer, Swarm<Lane>>();
     system.add_inbox::<ConnectOverlaps, Swarm<Lane>>();
@@ -844,7 +894,7 @@ enum InteractionKind{
         partner_end: f32,
         kind: OverlapKind
     },
-    Next,
+    Next{green: bool},
     Previous
 }
 use self::InteractionKind::{Overlap, Next, Previous};

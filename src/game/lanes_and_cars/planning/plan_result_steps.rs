@@ -25,7 +25,8 @@ pub fn find_intersections(strokes: &CVec<LaneStroke>) -> CVec<Intersection> {
                 shape: convex_hull::<CPath>(group).shift_orthogonally(-5.0).unwrap(),
                 incoming: CDict::new(),
                 outgoing: CDict::new(),
-                strokes: CVec::new()
+                strokes: CVec::new(),
+                timings: CVec::new()
             })
         } else {None}
     ).collect::<CVec<_>>()
@@ -239,15 +240,12 @@ pub fn create_connecting_strokes(intersections: &mut CVec<Intersection>) {
                     outgoing_groups.iter().flat_map(|outgoing_group|
                         if groups_correspond(incoming_group, outgoing_group) {
                             // straight connection
-                            incoming_group.iter().cartesian_product(outgoing_group.iter()).filter_map(
-                                |(&(incoming_ref, incoming), &(outgoing_ref, outgoing))|
-                                if incoming_ref == outgoing_ref {
-                                    Some(LaneStroke::new(vec![*incoming, *outgoing].into()))
-                                } else {None}
-                            ).into_iter().collect::<Vec<_>>()
+                            connect_as_much_as_possible(incoming_group, outgoing_group)
+                                .into_iter().skip((incoming_group.len() as f32 / 3.0).ceil() as usize - 1)
+                                    .take(incoming_group.len() - 2 * ((incoming_group.len() as f32 / 3.0).ceil() as usize - 1)).collect::<Vec<_>>()
                         } else {
                             connect_as_much_as_possible(incoming_group, outgoing_group)
-                                .into_iter().take((incoming_group.len() as f32 / 3.0).ceil() as usize).collect()
+                                .into_iter().take((incoming_group.len() as f32 / 3.0).ceil() as usize).collect::<Vec<_>>()
                         }
                     ).collect::<Vec<_>>()
                 } else {
@@ -287,6 +285,107 @@ fn connect_as_much_as_possible(incoming_group: &Vec<(&LaneStrokeRef, &LaneStroke
             incoming_group.iter().zip(outgoing_group.iter()).map(|(&(_, incoming), &(_, outgoing))|
                 LaneStroke::new(vec![*incoming, *outgoing].into())
             ).collect()
+        }
+    }
+}
+
+pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
+    for intersection in intersections.iter_mut() {
+        // find maximal cliques of compatible lanes using Bron-Kerbosch
+
+        fn compatible(stroke_a: &LaneStroke, stroke_b: &LaneStroke) -> bool {
+            let first_a = stroke_a.nodes()[0];
+            let first_b = stroke_b.nodes()[0];
+            let last_a = stroke_a.nodes().last().unwrap();
+            let last_b = stroke_b.nodes().last().unwrap();
+            let a_is_uturn = first_a.position.is_roughly_within(last_a.position, 7.0)
+                && first_a.direction.is_roughly_within(-last_a.direction, 0.1);
+            let b_is_uturn = first_b.position.is_roughly_within(last_b.position, 7.0)
+                && first_b.direction.is_roughly_within(-last_b.direction, 0.1);
+
+            a_is_uturn || b_is_uturn || first_a.position.is_roughly_within(first_b.position, 0.1) /*|| last_a.position.is_roughly_within(last_b.position, 0.1)*/
+            || (&Segment::line(first_a.position, last_a.position), &Segment::line(first_b.position, last_b.position)).intersect().is_empty()
+            // let band_a = Band::new(stroke_a.path().clone(), 4.5);
+            // let band_b = Band::new(stroke_b.path().clone(), 4.5);
+            // let outline_a = band_a.outline();
+            // let outline_b = band_b.outline();
+
+            // let intersections = (&outline_a, &outline_b).intersect();
+            // if intersections.len() >= 2 {
+            //     if let ::itertools::MinMaxResult::MinMax(
+            //         (entry_intersection, entry_distance),
+            //         (exit_intersection, exit_distance)
+            //     ) = intersections.iter().map(
+            //         |intersection| (intersection, band_a.outline_distance_to_path_distance(intersection.along_a))
+            //     ).minmax_by_key(|&(_, distance)| OrderedFloat(distance)) {
+            //         let other_entry_distance = band_b.outline_distance_to_path_distance(entry_intersection.along_b);
+            //         let other_exit_distance = band_b.outline_distance_to_path_distance(exit_intersection.along_b);
+
+            //         stroke_b.path().direction_along(other_entry_distance)
+            //             .is_roughly_within(stroke_a.path().direction_along(entry_distance), 0.3)
+            //         || stroke_b.path().direction_along(other_exit_distance)
+            //             .is_roughly_within(stroke_a.path().direction_along(exit_distance), 0.3)
+            //     } else {panic!("both entry and exit should exist")}
+            // } else {true}
+        }
+
+        use ::fnv::{FnvHashMap, FnvHashSet};
+
+        let mut compatabilities = FnvHashMap::<usize, FnvHashSet<usize>>::default();
+
+        for (a, stroke_a) in intersection.strokes.iter().enumerate() {
+            for (b, stroke_b) in intersection.strokes.iter().enumerate().skip(a + 1) {
+                if compatible(stroke_a, stroke_b) {
+                    compatabilities.entry(a).or_insert_with(FnvHashSet::<usize>::default).insert(b);
+                    compatabilities.entry(b).or_insert_with(FnvHashSet::<usize>::default).insert(a);
+                }
+            }
+        }
+
+        fn bron_kerbosch_helper(r: FnvHashSet<usize>, mut p: FnvHashSet<usize>, mut x: FnvHashSet<usize>, neighbors: &FnvHashMap<usize, FnvHashSet<usize>>, out_max_cliques: &mut Vec<FnvHashSet<usize>>) {
+            if p.is_empty() && x.is_empty() {
+                out_max_cliques.push(r);
+            } else {
+                let pivot = *p.union(&x).max_by_key(|&v| neighbors[v].len()).unwrap();
+                for v in p.clone().difference(&neighbors[&pivot]) {
+                    bron_kerbosch_helper(
+                        r.union(&([*v].iter().cloned().collect())).cloned().collect(),
+                        p.intersection(&neighbors[v]).cloned().collect(),
+                        x.intersection(&neighbors[v]).cloned().collect(),
+                        neighbors, out_max_cliques
+                    );
+                    p.remove(v);
+                    x.insert(*v);
+                } 
+            }
+        }
+
+        fn bron_kerbosch(p: FnvHashSet<usize>, neighbors: &FnvHashMap<usize, FnvHashSet<usize>>) -> Vec<FnvHashSet<usize>> {
+            let mut max_cliques = Vec::new();
+            bron_kerbosch_helper(FnvHashSet::default(), p, FnvHashSet::default(), neighbors, &mut max_cliques);
+            max_cliques
+        }
+
+        let stroke_idx_max_cliques = bron_kerbosch((0usize..intersection.strokes.len()).into_iter().collect(), &compatabilities);
+
+        const SIGNAL_TIMING_BUFFER : usize = 4;
+
+        let total_cycle_duration = stroke_idx_max_cliques.iter().map(|clique| ::std::cmp::max(clique.len(), 6) + SIGNAL_TIMING_BUFFER).sum();
+
+        intersection.timings = vec![vec![false; total_cycle_duration].into(); intersection.strokes.len()].into();
+
+        let mut current_offset = 0;
+
+        for clique in stroke_idx_max_cliques {
+            let clique_duration = ::std::cmp::max(clique.len(), 6);
+
+            for stroke_idx in clique {
+                for t in current_offset..(current_offset + clique_duration) {
+                    intersection.timings[stroke_idx][t] = true;
+                }
+            }
+
+            current_offset += clique_duration + SIGNAL_TIMING_BUFFER;
         }
     }
 }

@@ -33,7 +33,8 @@ pub struct Intersection{
     pub shape: CPath,
     pub incoming: CDict<LaneStrokeRef, LaneStrokeNode>,
     pub outgoing: CDict<LaneStrokeRef, LaneStrokeNode>,
-    pub strokes: CVec<LaneStroke>
+    pub strokes: CVec<LaneStroke>,
+    pub timings: CVec<CVec<bool>>
 }
 
 impl<'a> RoughlyComparable for &'a Intersection{
@@ -161,7 +162,7 @@ impl Default for RemainingOldStrokes{
 }
 
 use super::plan_result_steps::{find_intersections, trim_strokes_and_add_incoming_outgoing,
-                        create_connecting_strokes, find_transfer_strokes};
+                        create_connecting_strokes, find_transfer_strokes, determine_signal_timings};
 
 impl Plan{
     pub fn with_delta(&self, delta: &PlanDelta) -> (Plan, RemainingOldStrokes) {
@@ -182,7 +183,7 @@ impl Plan{
         let trimmed_strokes = trim_strokes_and_add_incoming_outgoing(&self.strokes, &mut intersections);
         create_connecting_strokes(&mut intersections);        
         let transfer_strokes = find_transfer_strokes(&trimmed_strokes);
-        //let transfer_strokes = cut_transfer_strokes(rough_transfer_strokes, &intersections);
+        determine_signal_timings(&mut intersections);
 
         PlanResult{
             intersections: intersections.into_iter().enumerate().map(|(i, intersection)| (IntersectionRef(i), intersection)).collect(),

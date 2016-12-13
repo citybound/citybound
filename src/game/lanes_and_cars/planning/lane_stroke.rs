@@ -108,10 +108,14 @@ impl LaneStroke {
 
     pub fn build(&self, report_to: ID, report_as: BuildableRef) {
         Swarm::<Lane>::all() << CreateWith(
-            Lane::new(self.path().clone(), match report_as {
-                BuildableRef::Intersection(_) => true,
-                _ => false,
-            }),
+            Lane::new(self.path().clone(), false, CVec::new()),
+            AdvertiseToTransferAndReport(report_to, report_as)
+        );
+    }
+
+    pub fn build_intersection(&self, report_to: ID, report_as: BuildableRef, timings: CVec<bool>) {
+        Swarm::<Lane>::all() << CreateWith(
+            Lane::new(self.path().clone(), true, timings),
             AdvertiseToTransferAndReport(report_to, report_as)
         );
     }

@@ -64,8 +64,8 @@ impl Recipient<Apply> for MaterializedReality {
             }
 
             for (&IntersectionRef(new_index), new_intersection) in result_delta.intersections.to_create.pairs() {
-                for stroke in &new_intersection.strokes {
-                    stroke.build(MaterializedReality::id(), BuildableRef::Intersection(new_index));
+                for (stroke, timings) in new_intersection.strokes.iter().zip(new_intersection.timings.iter()) {
+                    stroke.build_intersection(MaterializedReality::id(), BuildableRef::Intersection(new_index), timings.clone());
                 }
             }
 

@@ -32,12 +32,12 @@ pub use self::path::{Path, convex_hull};
 pub use self::intersect::*;
 pub use self::shapes::*;
 
-fn angle_to(a: V2, b: V2) -> N {
+pub fn angle_to(a: V2, b: V2) -> N {
     let theta: N = a.dot(&b) / (a.norm() * b.norm());
     theta.min(1.0).max(-1.0).acos()
 }
 
-fn angle_along_to(a: V2, a_direction: V2, b: V2) -> N {
+pub fn angle_along_to(a: V2, a_direction: V2, b: V2) -> N {
     let simple_angle = angle_to(a, b);
     let linear_direction = (b - a).normalize();
 

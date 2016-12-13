@@ -114,6 +114,7 @@ use ::monet::AddInstance;
 use ::monet::AddSeveralInstances;
 
 const DEBUG_VIEW_LANDMARKS : bool = false;
+const DEBUG_VIEW_SIGNALS : bool = false;
 
 impl Recipient<RenderToScene> for Lane {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg {
@@ -164,6 +165,15 @@ impl Recipient<RenderToScene> for Lane {
                     scene_id: scene_id,
                     batch_id: 0,
                     instances: car_instances
+                };
+            }
+
+            if DEBUG_VIEW_SIGNALS && self.on_intersection {
+                renderer_id << UpdateThing{
+                    scene_id: scene_id,
+                    thing_id: 4000 + self.id().instance_id as u16,
+                    thing: band_to_thing(&Band::new(self.path.clone(), 0.3), if self.green {0.4} else {0.2}),
+                    instance: Instance::with_color(if self.green {[0.0, 1.0, 0.0]} else {[1.0, 0.0, 0.0]})
                 };
             }
 
