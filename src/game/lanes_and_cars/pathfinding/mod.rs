@@ -48,8 +48,12 @@ pub fn on_build(lane: &mut Lane) {
     }
 }
 
+pub fn on_connect(lane: &mut Lane) {
+    lane.pathfinding_info.routing_timeout = ROUTING_TIMEOUT_AFTER_CHANGE;
+}
+
 const MIN_LANDMARK_INCOMING : usize = 3;
-const ROUTING_TIMEOUT_AFTER_CHANGE : u16 = 20;
+const ROUTING_TIMEOUT_AFTER_CHANGE : u16 = 15;
 
 pub fn tick(lane: &mut Lane) {
     if let Some(as_destination) = lane.pathfinding_info.as_destination {
@@ -63,7 +67,7 @@ pub fn tick(lane: &mut Lane) {
                 hops_from_landmark: lane.pathfinding_info.hops_from_landmark + 1
             }
         }
-    } else if predecessors(lane).count() >= MIN_LANDMARK_INCOMING {
+    } else if !lane.on_intersection && predecessors(lane).count() >= MIN_LANDMARK_INCOMING {
         lane.pathfinding_info = PathfindingInfo{
             as_destination: Some(Destination::landmark(lane.id())),
             hops_from_landmark: 0,
@@ -103,9 +107,9 @@ pub fn tick(lane: &mut Lane) {
                     new_routes: lane.pathfinding_info.routes.pairs().filter_map(
                         |(&destination, &RoutingInfo{distance, distance_hops, ..})|
                         if true /*fresh*/ {Some((destination, (distance + self_cost, distance_hops + 1)))} else {None}
-                    ).chain(lane.pathfinding_info.as_destination.map(|destination|
+                    ).chain(if lane.on_intersection {None} else {lane.pathfinding_info.as_destination.map(|destination|
                         (destination, (self_cost, 0))
-                    )).collect(),
+                    )}).collect(),
                     from: lane.id()
                 };
             }
@@ -213,9 +217,9 @@ impl Recipient<QueryRoutes> for Lane {
                 new_routes: self.pathfinding_info.routes.pairs().map(
                     |(&destination, &RoutingInfo{distance, distance_hops, ..})|
                     (destination, (distance + self_cost, distance_hops + 1))
-                ).chain(self.pathfinding_info.as_destination.map(|destination|
+                ).chain(if self.on_intersection {None} else {self.pathfinding_info.as_destination.map(|destination|
                     (destination, (self_cost, 0))
-                )).collect(),
+                )}).collect(),
                 from: self.id()
             };
             Fate::Live

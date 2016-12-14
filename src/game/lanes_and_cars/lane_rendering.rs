@@ -115,6 +115,8 @@ use ::monet::AddSeveralInstances;
 
 const DEBUG_VIEW_LANDMARKS : bool = false;
 const DEBUG_VIEW_SIGNALS : bool = false;
+const DEBUG_VIEW_OBSTACLES : bool = false;
+const DEBUG_VIEW_TRANSFER_OBSTACLES : bool = false;
 
 impl Recipient<RenderToScene> for Lane {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg {
@@ -143,7 +145,7 @@ impl Recipient<RenderToScene> for Lane {
                 current_offset += segment.length;
             }
 
-            if self.hovered {
+            if DEBUG_VIEW_OBSTACLES {
                 for &(obstacle, _id) in &self.obstacles {
                     let position2d = if *obstacle.position < self.length {
                         self.path.along(*obstacle.position)
@@ -243,6 +245,23 @@ impl Recipient<RenderToScene> for TransferLane {
                     })
                 }
                 current_offset += segment.length;
+            }
+
+            if DEBUG_VIEW_TRANSFER_OBSTACLES{
+                for &(obstacle, _id) in &self.obstacles {
+                    let position2d = if *obstacle.position < self.length {
+                        self.path.along(*obstacle.position)
+                    } else {
+                        self.path.end() + (*obstacle.position - self.length) * self.path.end_direction()
+                    };
+                    let direction = self.path.direction_along(*obstacle.position);
+
+                    car_instances.push(Instance{
+                        instance_position: [position2d.x, position2d.y, 0.0],
+                        instance_direction: [direction.x, direction.y],
+                        instance_color: [0.5, 0.0, 0.0]
+                    });
+                }
             }
 
             if !car_instances.is_empty() {

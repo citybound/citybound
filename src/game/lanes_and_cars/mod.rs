@@ -215,7 +215,7 @@ impl Recipient<Tick> for Lane {
                     
                     maybe_next_obstacle = maybe_next_obstacle.and_then(|obstacle| {
                         let mut following_obstacle = Some(obstacle);
-                        while following_obstacle.is_some() && following_obstacle.unwrap().position < car.position {
+                        while following_obstacle.is_some() && *following_obstacle.unwrap().position < *car.position + 0.1 {
                             following_obstacle = obstacles.next();
                         }
                         following_obstacle
@@ -340,19 +340,15 @@ impl Recipient<Tick> for TransferLane {
                 self.obstacles.sort_by_key(|&(ref obstacle, _id)| obstacle.position);
                 let mut obstacles = self.obstacles.iter().map(|&(ref obstacle, _id)| obstacle);
                 let mut maybe_next_obstacle = obstacles.next();
-                let mut maybe_previous_obstacle = None;
 
                 for c in 0..self.cars.len() {
-                    let (acceleration, is_dangerous) = {
+                    let acceleration = {
                         let car = &self.cars[c];
-                        
                         let next_car = self.cars.get(c + 1).map_or(Obstacle::far_ahead(), |car| car.as_obstacle);
-                        let previous_car = if c > 0 {self.cars[c - 1].as_obstacle} else {Obstacle::far_behind()};
 
                         maybe_next_obstacle = maybe_next_obstacle.and_then(|obstacle| {
                             let mut following_obstacle = Some(obstacle);
-                            while following_obstacle.is_some() && following_obstacle.unwrap().position < car.position {
-                                maybe_previous_obstacle = Some(following_obstacle.unwrap());
+                            while following_obstacle.is_some() && *following_obstacle.unwrap().position < *car.position + 0.1 {
                                 following_obstacle = obstacles.next();
                             }
                             following_obstacle
@@ -360,31 +356,15 @@ impl Recipient<Tick> for TransferLane {
 
                         let next_obstacle_acceleration = intelligent_acceleration(car, &next_car, 0.5)
                             .min(intelligent_acceleration(car, maybe_next_obstacle.unwrap_or(&Obstacle::far_ahead()), 0.5));
-                        let previous_obstacle_acceleration = intelligent_acceleration(&previous_car, &car.as_obstacle, 0.5)
-                            .min(intelligent_acceleration(maybe_previous_obstacle.unwrap_or(&Obstacle::far_behind()), &car.as_obstacle, 0.5));
-
-                        let politeness_factor = 0.1;
 
                         let transfer_before_end_velocity = (self.length + 1.0 - *car.position) / 1.5;
                         let transfer_before_end_acceleration = transfer_before_end_velocity - car.velocity;
 
-                        let acceleration = (if previous_obstacle_acceleration < 0.0 {
-                            (1.0 - politeness_factor) * next_obstacle_acceleration + politeness_factor * previous_obstacle_acceleration
-                        } else {
-                            next_obstacle_acceleration
-                        }).min(transfer_before_end_acceleration);
-
-                        let is_dangerous = false; /*next_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION
-                            || previous_obstacle_acceleration < -2.0 * COMFORTABLE_BREAKING_DECELERATION;*/
-
-                        (acceleration, is_dangerous)
+                        next_obstacle_acceleration.min(transfer_before_end_acceleration)
                     };
 
                     let car = &mut self.cars[c];
                     car.acceleration = acceleration;
-                    if is_dangerous {
-                        car.transfer_acceleration = if car.transfer_position >= 0.0 {0.3} else {-0.3}
-                    }
                 }
             }
 
@@ -427,7 +407,7 @@ impl Recipient<Tick> for TransferLane {
 
                 if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING == left.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
                     let obstacles = self.cars.iter().filter_map(|car|
-                        if car.transfer_position < 0.3 || car.transfer_velocity > 0.0 {
+                        if car.transfer_position > -0.3 || car.transfer_velocity > 0.0 {
                             Some(car.as_obstacle.offset_by(left_start))
                         } else {None}
                     ).collect();
@@ -436,7 +416,7 @@ impl Recipient<Tick> for TransferLane {
 
                 if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING == right.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
                     let obstacles = self.cars.iter().filter_map(|car|
-                        if car.transfer_position > -0.3 || car.transfer_velocity < 0.0 {
+                        if car.transfer_position < 0.3 || car.transfer_velocity < 0.0 {
                             Some(car.as_obstacle.offset_by(right_start))
                         } else {None}
                     ).collect();
@@ -538,25 +518,35 @@ impl Recipient<Connect> for Lane {
         Connect{other_id, other_start, other_end, other_length, reply_needed} => {
             if other_id == self.id() {return Fate::Live};
 
+            let mut connected = false;
+
             if other_start.is_roughly_within(self.path.end(), CONNECTION_TOLERANCE) {
+                connected = true;
+
                 self.interactions.push(Interaction{
                     partner_lane: other_id,
                     start: self.length,
                     partner_start: 0.0,
                     kind: InteractionKind::Next{green: false}
-                })
+                });
+
+                pathfinding::on_connect(self);
             }
 
             if other_end.is_roughly_within(self.path.start(), CONNECTION_TOLERANCE) {
+                connected = true;
+
                 self.interactions.push(Interaction{
                     partner_lane: other_id,
                     start: 0.0,
                     partner_start: other_length,
                     kind: InteractionKind::Previous
-                })
+                });
+
+                pathfinding::on_connect(self);
             }
 
-            if reply_needed {
+            if reply_needed && connected {
                 other_id << Connect{
                     other_id: self.id(),
                     other_start: self.path.start(),
@@ -713,6 +703,7 @@ impl Recipient<AddTransferLaneInteraction> for Lane {
         AddTransferLaneInteraction(interaction) => {
             if !self.interactions.iter().any(|existing| existing.partner_lane == interaction.partner_lane) {
                 self.interactions.push(interaction);
+                pathfinding::on_connect(self);
             }
             Fate::Live
         }

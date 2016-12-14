@@ -301,7 +301,7 @@ impl Recipient<PlanControl> for CurrentPlan {
         },
         PlanControl::CreateGrid(()) => {
             let grid_size = 18u32;
-            let grid_spacing = 400.0;
+            let grid_spacing = 500.0;
 
             for x in 0..grid_size {
                 self.receive(&PlanControl::AddLaneStrokeNode(P2::new((x as f32 + 0.5) * grid_spacing, 0.0), false));
