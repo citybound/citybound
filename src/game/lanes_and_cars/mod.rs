@@ -54,7 +54,8 @@ pub struct TransferLane {
     path: CPath,
     left: Option<(ID, f32)>,
     right: Option<(ID, f32)>,
-    obstacles: CVec<(Obstacle, ID)>,
+    left_obstacles: CVec<Obstacle>,
+    right_obstacles: CVec<Obstacle>,
     cars: CVec<TransferringLaneCar>,
     in_construction: f32
 }
@@ -67,7 +68,8 @@ impl TransferLane {
             path: path,
             left: None,
             right: None,
-            obstacles: CVec::new(),
+            left_obstacles: CVec::new(),
+            right_obstacles: CVec::new(),
             cars: CVec::new(),
             in_construction: 0.0
         }
@@ -89,31 +91,31 @@ struct AddCar{car: LaneCar, from: Option<ID>}
 struct AddObstacles{obstacles: CVec<Obstacle>, from: ID}
 
 use self::pathfinding::RoutingInfo;
-use random::Source;
 
 impl Recipient<AddCar> for Lane {
     fn receive(&mut self, msg: &AddCar) -> Fate {match *msg{
         AddCar{car, ..} => {
-            //println!("{:?} -> {:?}", self.pathfinding_info.as_destination, car.destination);
             let maybe_next_hop_interaction = self.pathfinding_info.routes.get(car.destination)
             .or(self.pathfinding_info.routes.get(car.destination.landmark_destination()))
-            .map(|&RoutingInfo{outgoing_idx, /*distance,*/ ..}| {
-                //println!("distance {:?}", distance);
+            .map(|&RoutingInfo{outgoing_idx, ..}| {
                 outgoing_idx as usize
             });
 
             if let Some(next_hop_interaction) = maybe_next_hop_interaction {
-                //println!("next hop idx will be {:?}", next_hop_interaction);
-
                 let routed_car = LaneCar{
                     next_hop_interaction: next_hop_interaction as u8,
                     as_obstacle: if *car.as_obstacle.position < 0.0 {
                         car.as_obstacle.offset_by(-*car.as_obstacle.position).offset_by(
-                            (::random::default().read::<usize>() % 1000) as f32 * self.length / 2000.0
+                            self.cars.get(0).map(|last_car| *last_car.position).unwrap_or(self.length / 2.0) - 6.0
                         )
                     } else {car.as_obstacle},
                     .. car
                 };
+
+                if *routed_car.position < 0.0 {
+                    // TODO: cancel trip
+                    return Fate::Live;
+                } 
 
                 // TODO: optimize using BinaryHeap?
                 let maybe_next_car_position = self.cars.iter().position(|other_car| other_car.as_obstacle.position > car.as_obstacle.position);
@@ -123,7 +125,6 @@ impl Recipient<AddCar> for Lane {
                 }
             } else {
                 println!("NO ROUTE!");
-                //println!("NO ROUTE! Routes: {:?}", self.pathfinding_info.routes.pairs().collect::<Vec<_>>());
             }
             Fate::Live
         }
@@ -133,12 +134,13 @@ impl Recipient<AddCar> for Lane {
 impl Recipient<AddCar> for TransferLane {
     fn receive(&mut self, msg: &AddCar) -> Fate {match *msg{
         AddCar{car, from: Some(from)} => {
-            let side_multiplier = if from == self.left.expect("should have a left lane").0 {1.0} else {-1.0};
+            let side_multiplier = if from == self.left.expect("should have a left lane").0 {-1.0} else {1.0};
             self.cars.push(TransferringLaneCar{
                 as_lane_car: car,
                 transfer_position: 1.0 * side_multiplier,
                 transfer_velocity: 0.0,
-                transfer_acceleration: 0.3 * -side_multiplier
+                transfer_acceleration: 0.3 * -side_multiplier,
+                cancelling: false
             });
             // TODO: optimize using BinaryHeap?
             self.cars.sort_by_key(|car| car.as_obstacle.position);
@@ -161,8 +163,10 @@ impl Recipient<AddObstacles> for Lane {
 impl Recipient<AddObstacles> for TransferLane {
     fn receive(&mut self, msg: &AddObstacles) -> Fate {match *msg{
         AddObstacles{ref obstacles, from} => {
-            self.obstacles.retain(|&(_, received_from)| received_from != from);
-            self.obstacles.extend(obstacles.iter().map(|obstacle| (*obstacle, from)));
+            let target_obstacles = if self.left.unwrap().0 == from {
+                &mut self.left_obstacles
+            } else {&mut self.right_obstacles};
+            *target_obstacles = obstacles.clone();
             Fate::Live
         }
     }}
@@ -244,6 +248,10 @@ impl Recipient<Tick> for Lane {
                 car.velocity = (car.velocity + dt * car.acceleration).min(car.max_velocity).max(0.0);
             }
 
+            for &mut (ref mut obstacle, _id) in &mut self.obstacles {
+                *obstacle.position += dt * obstacle.velocity;
+            }
+
             if self.cars.len() > 1 {
                 for i in (0..self.cars.len() - 1).rev() {
                     self.cars[i].position = OrderedFloat((*self.cars[i].position).min(*self.cars[i + 1].position));
@@ -253,21 +261,21 @@ impl Recipient<Tick> for Lane {
             loop {
                 let maybe_switch_car = self.cars.iter().enumerate().rev().filter_map(|(i, &car)| {
                     let interaction = self.interactions[car.next_hop_interaction as usize];
-                    
-                    if *car.position > interaction.start {
-                        //println!("interaction for switching: {:?} (idx {:?})", interaction, car.next_hop_interaction);
-                        Some((i, interaction.partner_lane, interaction.start, interaction.partner_start))
-                    } else {None}
+
+                    match interaction.kind {
+                        InteractionKind::Overlap{end, kind: OverlapKind::Transfer, ..} => if *car.position > interaction.start && *car.position > end - 300.0 {
+                            Some((i, interaction.partner_lane, interaction.start, interaction.partner_start))
+                        }else {None},
+                        _ => if *car.position > interaction.start {
+                            Some((i, interaction.partner_lane, interaction.start, interaction.partner_start))
+                        } else {None}
+                    }
                 }).next();
 
                 if let Some((idx_to_remove, next_lane, start, partner_start)) = maybe_switch_car {
                     let car = self.cars.remove(idx_to_remove);
-                    if self.id() == car.destination.node {
-                        //::core::geometry::add_debug_path(self.path.clone(), [0.0, 1.0, 0.0], 0.4);
-                    } else {
+                    if self.id() != car.destination.node {
                         next_lane << AddCar{car: car.offset_by(partner_start - start), from: Some(self.id())};
-                        //println!("switched car from {:?} to {:?}", self.id(), next_lane);
-                        //::core::geometry::add_debug_path(self.path.clone(), [0.0, 0.0, 1.0], 0.4);
                     }
                 } else {
                     break;
@@ -336,35 +344,53 @@ impl Recipient<Tick> for TransferLane {
             let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING == self.id().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
             if do_traffic {
-
-                self.obstacles.sort_by_key(|&(ref obstacle, _id)| obstacle.position);
-                let mut obstacles = self.obstacles.iter().map(|&(ref obstacle, _id)| obstacle);
-                let mut maybe_next_obstacle = obstacles.next();
+                // TODO: optimize using BinaryHeap?
+                self.left_obstacles.sort_by_key(|obstacle| obstacle.position);
+                self.right_obstacles.sort_by_key(|obstacle| obstacle.position);
 
                 for c in 0..self.cars.len() {
-                    let acceleration = {
+                    let (acceleration, dangerous) = {
                         let car = &self.cars[c];
-                        let next_car = self.cars.get(c + 1).map_or(Obstacle::far_ahead(), |car| car.as_obstacle);
+                        let next_car = self.cars.iter().find(|other_car|
+                            *other_car.position > *car.position
+                        ).map(|other_car| &other_car.as_obstacle);
 
-                        maybe_next_obstacle = maybe_next_obstacle.and_then(|obstacle| {
-                            let mut following_obstacle = Some(obstacle);
-                            while following_obstacle.is_some() && *following_obstacle.unwrap().position < *car.position + 0.1 {
-                                following_obstacle = obstacles.next();
-                            }
-                            following_obstacle
-                        });
+                        let maybe_next_left_obstacle = if car.transfer_position < 0.3 || car.transfer_acceleration < 0.0 {
+                            self.left_obstacles.iter().find(|obstacle| *obstacle.position + 5.0 > *car.position)
+                        } else {None};
 
-                        let next_obstacle_acceleration = intelligent_acceleration(car, &next_car, 0.5)
-                            .min(intelligent_acceleration(car, maybe_next_obstacle.unwrap_or(&Obstacle::far_ahead()), 0.5));
+                        let maybe_next_right_obstacle = if car.transfer_position > -0.3 || car.transfer_acceleration > 0.0 {
+                            self.right_obstacles.iter().find(|obstacle| *obstacle.position + 5.0 > *car.position)
+                        } else {None};
+
+                        // TODO: sometimes cars get stuck when on top of each other or merge into standing queues happily
+                        let next_obstacle_acceleration = *next_car.into_iter().chain(maybe_next_left_obstacle)
+                            .chain(maybe_next_right_obstacle).chain(&[Obstacle::far_ahead()]).map(|obstacle| {
+                                let corrected_obstacle = if obstacle.position < car.position {
+                                    Obstacle{
+                                        position: OrderedFloat(*car.position + 18.0),
+                                        velocity: 0.0,
+                                        max_velocity: 0.0
+                                    }
+                                } else {*obstacle};
+                                OrderedFloat(intelligent_acceleration(car, &corrected_obstacle, 1.0))
+                            }).min().unwrap();
 
                         let transfer_before_end_velocity = (self.length + 1.0 - *car.position) / 1.5;
                         let transfer_before_end_acceleration = transfer_before_end_velocity - car.velocity;
 
-                        next_obstacle_acceleration.min(transfer_before_end_acceleration)
+                        let dangerous = car.velocity > 5.0 && next_obstacle_acceleration < -7.0;
+
+                        (next_obstacle_acceleration.min(transfer_before_end_acceleration), dangerous)
                     };
 
                     let car = &mut self.cars[c];
                     car.acceleration = acceleration;
+
+                    if dangerous && !car.cancelling {
+                        car.transfer_acceleration = -car.transfer_acceleration;
+                        car.cancelling = true;
+                    }
                 }
             }
 
@@ -378,9 +404,15 @@ impl Recipient<Tick> for TransferLane {
                 }
             }
 
+            for obstacle in self.left_obstacles.iter_mut().chain(self.right_obstacles.iter_mut()) {
+                *obstacle.position += dt * obstacle.velocity;
+            }
+
             if self.cars.len() > 1 {
                 for i in (0..self.cars.len() - 1).rev() {
-                    self.cars[i].position = OrderedFloat((*self.cars[i].position).min(*self.cars[i + 1].position));
+                    if self.cars[i].position > self.cars[i + 1].position {
+                        self.cars.swap(i, i + 1);
+                    }
                 }
             }
 
@@ -388,10 +420,10 @@ impl Recipient<Tick> for TransferLane {
                 let mut i = 0;
                 loop {
                     let (should_remove, done) = if let Some(car) = self.cars.get(i) {
-                        if car.transfer_position < -1.0 || (*car.position > self.length && car.transfer_velocity < 0.0) {
+                        if car.transfer_position > 1.0 || (*car.position > self.length && car.transfer_acceleration > 0.0) {
                             right << AddCar{car: car.as_lane_car.offset_by(left_start), from: Some(self.id())};
                             (true, false)
-                        } else if car.transfer_position > 1.0 || (*car.position > self.length && car.transfer_velocity >= 0.0)  {
+                        } else if car.transfer_position < -1.0 || (*car.position > self.length && car.transfer_acceleration <= 0.0)  {
                             left << AddCar{car: car.as_lane_car.offset_by(right_start), from: Some(self.id())};
                             (true, false)
                         } else {
@@ -407,7 +439,7 @@ impl Recipient<Tick> for TransferLane {
 
                 if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING == left.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
                     let obstacles = self.cars.iter().filter_map(|car|
-                        if car.transfer_position > -0.3 || car.transfer_velocity > 0.0 {
+                        if car.transfer_position < 0.3 || car.transfer_acceleration < 0.0 {
                             Some(car.as_obstacle.offset_by(left_start))
                         } else {None}
                     ).collect();
@@ -416,7 +448,7 @@ impl Recipient<Tick> for TransferLane {
 
                 if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING == right.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
                     let obstacles = self.cars.iter().filter_map(|car|
-                        if car.transfer_position < 0.3 || car.transfer_velocity < 0.0 {
+                        if car.transfer_position > -0.3 || car.transfer_acceleration > 0.0 {
                             Some(car.as_obstacle.offset_by(right_start))
                         } else {None}
                     ).collect();
@@ -679,10 +711,10 @@ impl Recipient<ConnectTransferToNormal> for TransferLane {
                             }
                         });
                         
-                        let is_right_of = (self.path.start() - self_start_on_other)
+                        let other_is_right = (self_start_on_other - self.path.start())
                             .dot(&self.path.start_direction().orthogonal()) > 0.0;
 
-                        if is_right_of {
+                        if other_is_right {
                             self.right = Some((other_id, self_start_on_other_distance));
                         } else {
                             self.left = Some((other_id, self_start_on_other_distance));
@@ -853,7 +885,8 @@ struct TransferringLaneCar {
     as_lane_car: LaneCar,
     transfer_position: f32,
     transfer_velocity: f32,
-    transfer_acceleration: f32
+    transfer_acceleration: f32,
+    cancelling: bool
 }
 
 impl Deref for TransferringLaneCar {

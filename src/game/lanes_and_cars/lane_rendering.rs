@@ -248,18 +248,33 @@ impl Recipient<RenderToScene> for TransferLane {
             }
 
             if DEBUG_VIEW_TRANSFER_OBSTACLES{
-                for &(obstacle, _id) in &self.obstacles {
+                for obstacle in &self.left_obstacles {
                     let position2d = if *obstacle.position < self.length {
                         self.path.along(*obstacle.position)
                     } else {
                         self.path.end() + (*obstacle.position - self.length) * self.path.end_direction()
-                    };
+                    } - 1.0 * self.path.direction_along(*obstacle.position).orthogonal();
                     let direction = self.path.direction_along(*obstacle.position);
 
                     car_instances.push(Instance{
                         instance_position: [position2d.x, position2d.y, 0.0],
                         instance_direction: [direction.x, direction.y],
-                        instance_color: [0.5, 0.0, 0.0]
+                        instance_color: [1.0, 0.7, 0.7]
+                    });
+                }
+
+                for obstacle in &self.right_obstacles {
+                    let position2d = if *obstacle.position < self.length {
+                        self.path.along(*obstacle.position)
+                    } else {
+                        self.path.end() + (*obstacle.position - self.length) * self.path.end_direction()
+                    } + 1.0 * self.path.direction_along(*obstacle.position).orthogonal();
+                    let direction = self.path.direction_along(*obstacle.position);
+
+                    car_instances.push(Instance{
+                        instance_position: [position2d.x, position2d.y, 0.0],
+                        instance_direction: [direction.x, direction.y],
+                        instance_color: [1.0, 0.7, 0.7]
                     });
                 }
             }
@@ -314,6 +329,15 @@ pub fn on_unbuild(lane: &Lane) {
 
     if DEBUG_VIEW_LANDMARKS {
         // TODO: ugly
+        ::monet::Renderer::id() << UpdateThing{
+            scene_id: 0,
+            thing_id: 4000 + lane.id().instance_id as u16,
+            thing: Thing::new(vec![], vec![]),
+            instance: Instance::with_color([0.0, 0.0, 0.0])
+        };
+    }
+
+    if DEBUG_VIEW_SIGNALS {
         ::monet::Renderer::id() << UpdateThing{
             scene_id: 0,
             thing_id: 4000 + lane.id().instance_id as u16,

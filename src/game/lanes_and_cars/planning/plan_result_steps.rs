@@ -303,30 +303,10 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
             let b_is_uturn = first_b.position.is_roughly_within(last_b.position, 7.0)
                 && first_b.direction.is_roughly_within(-last_b.direction, 0.1);
 
-            a_is_uturn || b_is_uturn || first_a.position.is_roughly_within(first_b.position, 0.1) /*|| last_a.position.is_roughly_within(last_b.position, 0.1)*/
-            || (&Segment::line(first_a.position, last_a.position), &Segment::line(first_b.position, last_b.position)).intersect().is_empty()
-            // let band_a = Band::new(stroke_a.path().clone(), 4.5);
-            // let band_b = Band::new(stroke_b.path().clone(), 4.5);
-            // let outline_a = band_a.outline();
-            // let outline_b = band_b.outline();
+            a_is_uturn || b_is_uturn || first_a.position.is_roughly_within(first_b.position, 0.1) ||
+                (!last_a.position.is_roughly_within(last_b.position, 0.1)
+                    && (stroke_a.path(), stroke_b.path()).intersect().is_empty())
 
-            // let intersections = (&outline_a, &outline_b).intersect();
-            // if intersections.len() >= 2 {
-            //     if let ::itertools::MinMaxResult::MinMax(
-            //         (entry_intersection, entry_distance),
-            //         (exit_intersection, exit_distance)
-            //     ) = intersections.iter().map(
-            //         |intersection| (intersection, band_a.outline_distance_to_path_distance(intersection.along_a))
-            //     ).minmax_by_key(|&(_, distance)| OrderedFloat(distance)) {
-            //         let other_entry_distance = band_b.outline_distance_to_path_distance(entry_intersection.along_b);
-            //         let other_exit_distance = band_b.outline_distance_to_path_distance(exit_intersection.along_b);
-
-            //         stroke_b.path().direction_along(other_entry_distance)
-            //             .is_roughly_within(stroke_a.path().direction_along(entry_distance), 0.3)
-            //         || stroke_b.path().direction_along(other_exit_distance)
-            //             .is_roughly_within(stroke_a.path().direction_along(exit_distance), 0.3)
-            //     } else {panic!("both entry and exit should exist")}
-            // } else {true}
         }
 
         use ::fnv::{FnvHashMap, FnvHashSet};
@@ -366,21 +346,54 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
             max_cliques
         }
 
-        let stroke_idx_max_cliques = bron_kerbosch((0usize..intersection.strokes.len()).into_iter().collect(), &compatabilities);
+        let mut stroke_idx_max_cliques = bron_kerbosch((0usize..intersection.strokes.len()).into_iter().collect(), &compatabilities);
+
+        stroke_idx_max_cliques.sort_by_key(|clique| {
+            let parallelity : isize = clique.iter().map(|&stroke_idx|
+                clique.iter().filter(|&&other_stroke_idx|
+                    intersection.strokes[stroke_idx].nodes()[0].direction
+                        .is_roughly_within(intersection.strokes[other_stroke_idx].nodes()[0].direction, 0.1)
+                ).count() as isize
+            ).sum();
+
+            -parallelity
+        });
+
+        // TODO: improvement: reorder here in a way that always tends to the longest waiting lane
+
+        let mut stroke_idx_covered = vec![false; intersection.strokes.len()];
+
+        let stroke_idx_max_cliques = stroke_idx_max_cliques.into_iter().take_while(|clique| {
+            let all_covered = stroke_idx_covered.iter().any(|covered| !covered);
+            
+            for &stroke_idx in clique {
+                stroke_idx_covered[stroke_idx] = true;
+            }
+
+            all_covered
+        }).collect::<Vec<_>>();
 
         const SIGNAL_TIMING_BUFFER : usize = 4;
+        const MIN_CLIQUE_DURATION : usize = 6;
+        use ::std::cmp::max;
 
-        let total_cycle_duration = stroke_idx_max_cliques.iter().map(|clique| ::std::cmp::max(clique.len(), 6) + SIGNAL_TIMING_BUFFER).sum();
+        let total_cycle_duration = stroke_idx_max_cliques.iter().map(|clique|
+            max(clique.len() * 2, MIN_CLIQUE_DURATION) + SIGNAL_TIMING_BUFFER).sum();
 
         intersection.timings = vec![vec![false; total_cycle_duration].into(); intersection.strokes.len()].into();
 
         let mut current_offset = 0;
 
-        for clique in stroke_idx_max_cliques {
-            let clique_duration = ::std::cmp::max(clique.len(), 6);
+        for (clique, next_clique) in stroke_idx_max_cliques.iter().chain(stroke_idx_max_cliques.get(0)).tuple_windows() {
+            let clique_duration = max(clique.len() * 2, MIN_CLIQUE_DURATION);
 
-            for stroke_idx in clique {
-                for t in current_offset..(current_offset + clique_duration) {
+            for &stroke_idx in clique {
+                let end_offset = if next_clique.contains(&stroke_idx) {
+                    current_offset + clique_duration + SIGNAL_TIMING_BUFFER
+                } else {
+                    current_offset + clique_duration
+                };
+                for t in current_offset..end_offset {
                     intersection.timings[stroke_idx][t] = true;
                 }
             }
