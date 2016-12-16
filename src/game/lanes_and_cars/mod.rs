@@ -25,7 +25,9 @@ pub struct Lane {
     timings: CVec<bool>,
     green: bool,
     pathfinding_info: pathfinding::PathfindingInfo,
-    hovered: bool
+    hovered: bool,
+    unbuilding_for: Option<ID>,
+    disconnects_remaining: u8
 }
 
 impl Lane {
@@ -42,7 +44,9 @@ impl Lane {
             timings: timings,
             green: false,
             pathfinding_info: pathfinding::PathfindingInfo::default(),
-            hovered: false
+            hovered: false,
+            unbuilding_for: None,
+            disconnects_remaining: 0
         }
     }
 }
@@ -57,7 +61,9 @@ pub struct TransferLane {
     left_obstacles: CVec<Obstacle>,
     right_obstacles: CVec<Obstacle>,
     cars: CVec<TransferringLaneCar>,
-    in_construction: f32
+    in_construction: f32,
+    unbuilding_for: Option<ID>,
+    disconnects_remaining: u8
 }
 
 impl TransferLane {
@@ -71,7 +77,9 @@ impl TransferLane {
             left_obstacles: CVec::new(),
             right_obstacles: CVec::new(),
             cars: CVec::new(),
-            in_construction: 0.0
+            in_construction: 0.0,
+            unbuilding_for: None,
+            disconnects_remaining: 0
         }
     }
 
@@ -163,10 +171,14 @@ impl Recipient<AddObstacles> for Lane {
 impl Recipient<AddObstacles> for TransferLane {
     fn receive(&mut self, msg: &AddObstacles) -> Fate {match *msg{
         AddObstacles{ref obstacles, from} => {
-            let target_obstacles = if self.left.unwrap().0 == from {
-                &mut self.left_obstacles
-            } else {&mut self.right_obstacles};
-            *target_obstacles = obstacles.clone();
+            if let (Some((left_id, _)), Some(_)) = (self.left, self.right) {
+                let target_obstacles = if left_id == from {
+                    &mut self.left_obstacles
+                } else {&mut self.right_obstacles};
+                *target_obstacles = obstacles.clone();
+            } else {
+                println!("transfer lane not connected for obstacles yet");
+            }
             Fate::Live
         }
     }}
@@ -555,12 +567,17 @@ impl Recipient<Connect> for Lane {
             if other_start.is_roughly_within(self.path.end(), CONNECTION_TOLERANCE) {
                 connected = true;
 
-                self.interactions.push(Interaction{
-                    partner_lane: other_id,
-                    start: self.length,
-                    partner_start: 0.0,
-                    kind: InteractionKind::Next{green: false}
-                });
+                if !self.interactions.iter().any(|interaction| match *interaction {
+                    Interaction{partner_lane, kind: InteractionKind::Next{..}, ..} => partner_lane == other_id,
+                    _ => false
+                }) {
+                    self.interactions.push(Interaction{
+                        partner_lane: other_id,
+                        start: self.length,
+                        partner_start: 0.0,
+                        kind: InteractionKind::Next{green: false}
+                    });
+                }
 
                 pathfinding::on_connect(self);
             }
@@ -568,12 +585,17 @@ impl Recipient<Connect> for Lane {
             if other_end.is_roughly_within(self.path.start(), CONNECTION_TOLERANCE) {
                 connected = true;
 
-                self.interactions.push(Interaction{
-                    partner_lane: other_id,
-                    start: 0.0,
-                    partner_start: other_length,
-                    kind: InteractionKind::Previous
-                });
+                if !self.interactions.iter().any(|interaction| match *interaction {
+                    Interaction{partner_lane, kind: InteractionKind::Previous{..}, ..} => partner_lane == other_id,
+                    _ => false
+                }) {
+                    self.interactions.push(Interaction{
+                        partner_lane: other_id,
+                        start: 0.0,
+                        partner_start: other_length,
+                        kind: InteractionKind::Previous
+                    });
+                }
 
                 pathfinding::on_connect(self);
             }
@@ -744,14 +766,23 @@ impl Recipient<AddTransferLaneInteraction> for Lane {
 
 #[derive(Copy, Clone)]
 pub struct Disconnect{other_id: ID}
+#[derive(Copy, Clone)]
+pub struct ConfirmDisconnect;
 
 impl Recipient<Disconnect> for Lane {
     fn receive(&mut self, msg: &Disconnect) -> Fate {match *msg{
         Disconnect{other_id} => {
-            // TODO: use retain
-            self.interactions = self.interactions.iter().filter(|interaction|
-                interaction.partner_lane != other_id
-            ).cloned().collect();
+            let interaction_indices_to_remove = self.interactions.iter().enumerate().filter_map(
+                |(i, interaction)| if interaction.partner_lane == other_id {
+                    Some(i)
+                } else {None}
+            ).collect::<Vec<_>>();
+            // TODO: Cancel trip
+            self.cars.retain(|car| !interaction_indices_to_remove.contains(&(car.next_hop_interaction as usize)));
+            for idx in interaction_indices_to_remove.into_iter().rev() {
+                self.interactions.remove(idx);
+            }
+            other_id << ConfirmDisconnect;
             Fate::Live
         }
     }}
@@ -760,50 +791,86 @@ impl Recipient<Disconnect> for Lane {
 impl Recipient<Disconnect> for TransferLane {
     fn receive(&mut self, msg: &Disconnect) -> Fate {match *msg{
         Disconnect{other_id} => {
-            let mut something_changed = false;
             self.left = self.left.and_then(|(left_id, left_start)|
-                if left_id == other_id {
-                    something_changed = true;
-                    None
-                } else {Some((left_id, left_start))}
+                if left_id == other_id {None} else {Some((left_id, left_start))}
             );
             self.right = self.right.and_then(|(right_id, right_start)|
-                if right_id == other_id {
-                    something_changed = true;
-                    None
-                } else {Some((right_id, right_start))}
+                if right_id == other_id {None} else {Some((right_id, right_start))}
             );
-            if !something_changed {panic!("Tried to disconnect a non-connected lane")}
+            other_id << ConfirmDisconnect;
             Fate::Live
         }
     }}
 }
 
 #[derive(Copy, Clone)]
-pub struct Unbuild;
+pub struct Unbuild{pub report_to: ID}
+use self::planning::materialized_reality::ReportLaneUnbuilt;
 
 impl Recipient<Unbuild> for Lane{
-    fn receive(&mut self, _msg: &Unbuild) -> Fate {
-        Swarm::<Lane>::all() << Disconnect{other_id: self.id()}; 
-        self::lane_rendering::on_unbuild(self);
-        MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
+    fn receive(&mut self, msg: &Unbuild) -> Fate {match *msg {
+        Unbuild{report_to} => {
+            let mut disconnects_remaining = 0;
+            for id in self.interactions.iter().map(|interaction| interaction.partner_lane).unique() {
+                id << Disconnect{other_id: self.id()};
+                disconnects_remaining += 1;
+            }
+            self::lane_rendering::on_unbuild(self);
+            MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
                 let memoized_bands_outlines = unsafe{&mut *memoized_bands_outlines_cell.get()};
                 memoized_bands_outlines.remove(&self.id())
-        });
-        Fate::Die
-    }
+            });
+            if disconnects_remaining == 0 {
+                report_to << ReportLaneUnbuilt(Some(self.id()));
+                Fate::Die
+            } else {
+                self.disconnects_remaining = disconnects_remaining;
+                self.unbuilding_for = Some(report_to);
+                Fate::Live
+            }
+        }
+    }}
 }
 
 impl Recipient<Unbuild> for TransferLane{
-    fn receive(&mut self, _msg: &Unbuild) -> Fate {
-        if let Some((left_id, _)) = self.left {
-            left_id << Disconnect{other_id: self.id()}; 
+    fn receive(&mut self, msg: &Unbuild) -> Fate {match *msg{
+        Unbuild{report_to} => {
+            if let Some((left_id, _)) = self.left {
+                left_id << Disconnect{other_id: self.id()}; 
+            }
+            if let Some((right_id, _)) = self.right {
+                right_id << Disconnect{other_id: self.id()}; 
+            }
+            self::lane_rendering::on_unbuild_transfer(self);
+            if self.left.is_none() && self.right.is_none() {
+                report_to << ReportLaneUnbuilt(Some(self.id()));
+                Fate::Die
+            } else {
+                self.disconnects_remaining = self.left.into_iter().chain(self.right).count() as u8;
+                self.unbuilding_for = Some(report_to);
+                Fate::Live
+            }
         }
-        if let Some((right_id, _)) = self.right {
-            right_id << Disconnect{other_id: self.id()}; 
-        }
-        self::lane_rendering::on_unbuild_transfer(self);
-        Fate::Die
+    }}
+}
+
+impl Recipient<ConfirmDisconnect> for Lane {
+    fn receive(&mut self, _msg: &ConfirmDisconnect) -> Fate {
+        self.disconnects_remaining -= 1;
+        if self.disconnects_remaining == 0 {
+            self.unbuilding_for.expect("should be unbuilding") << ReportLaneUnbuilt(Some(self.id()));
+            Fate::Die
+        } else {Fate::Live}
+    }
+}
+
+impl Recipient<ConfirmDisconnect> for TransferLane {
+    fn receive(&mut self, _msg: &ConfirmDisconnect) -> Fate {
+        self.disconnects_remaining -= 1;
+        if self.disconnects_remaining == 0 {
+            self.unbuilding_for.expect("should be unbuilding") << ReportLaneUnbuilt(Some(self.id()));
+            Fate::Die
+        } else {Fate::Live}
     }
 }
 
@@ -821,6 +888,7 @@ pub fn setup(system: &mut ActorSystem) {
     system.add_inbox::<AddTransferLaneInteraction, Swarm<Lane>>();
     system.add_inbox::<Disconnect, Swarm<Lane>>();
     system.add_inbox::<Unbuild, Swarm<Lane>>();
+    system.add_inbox::<ConfirmDisconnect, Swarm<Lane>>();
 
     system.add_individual(Swarm::<TransferLane>::new());
     system.add_inbox::<CreateWith<TransferLane, AdvertiseToTransferAndReport>, Swarm<TransferLane>>();
@@ -830,6 +898,7 @@ pub fn setup(system: &mut ActorSystem) {
     system.add_inbox::<ConnectTransferToNormal, Swarm<TransferLane>>();
     system.add_inbox::<Disconnect, Swarm<TransferLane>>();
     system.add_inbox::<Unbuild, Swarm<TransferLane>>();
+    system.add_inbox::<ConfirmDisconnect, Swarm<TransferLane>>();
 
     self::pathfinding::setup(system);
 }
