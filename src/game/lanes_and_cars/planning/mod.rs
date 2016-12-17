@@ -1,4 +1,4 @@
-use descartes::{N, P2, V2, Norm, Segment, FiniteCurve, WithUniqueOrthogonal, RelativeToBasis, RoughlyComparable, Dot};
+use descartes::{N, P2, V2, Norm, Segment, FiniteCurve, WithUniqueOrthogonal, Curve, RelativeToBasis, RoughlyComparable, Dot};
 use kay::{CVec, CDict, Recipient, Swarm, ActorSystem, Individual, Fate, CreateWith};
 use itertools::Itertools;
 
@@ -136,7 +136,7 @@ impl Recipient<PlanControl> for CurrentPlan {
             Fate::Live
         },
         PlanControl::MoveSelection(delta) => {
-            if let DrawingStatus::WithSelections(ref selections) = self.ui_state.drawing_status {
+            let new_selections = if let DrawingStatus::WithSelections(ref selections) = self.ui_state.drawing_status {
                 let mut with_subsections_moved = selections.pairs().map(|(&selection_ref, &(start, end))| {
                     let stroke = match selection_ref {
                         SelectableStrokeRef::New(node_idx) => &self.delta.new_strokes[node_idx],
@@ -224,27 +224,39 @@ impl Recipient<PlanControl> for CurrentPlan {
                     align.position = align_to.position + distance * align.direction.orthogonal();
                 }
 
+                let mut new_selections = CDict::new();
+
                 for (selection_ref, (b, bc, s, ac, a)) in with_subsections_moved {
                     let new_stroke = LaneStroke::new(
-                        b.into_iter().chain(bc).chain(s).chain(ac).chain(a).collect()
+                        b.into_iter().chain(bc).chain(s.clone()).chain(ac).chain(a).collect()
                     );
-                    match selection_ref {
+
+                    let new_selection_start = new_stroke.path().project(s[0].position).unwrap();
+                    let new_selection_end = new_stroke.path().project(s.last().unwrap().position).unwrap();
+
+                    let new_selection_ref = match selection_ref {
                         SelectableStrokeRef::New(stroke_idx) => {
-                            self.delta.new_strokes[stroke_idx] = new_stroke
+                            self.delta.new_strokes[stroke_idx] = new_stroke;
+                            SelectableStrokeRef::New(stroke_idx)
                         },
                         SelectableStrokeRef::RemainingOld(old_ref) => {
                             let old_stroke = self.current_remaining_old_strokes.mapping.get(old_ref).unwrap();
                             self.delta.strokes_to_destroy.insert(old_ref, old_stroke.clone());
                             self.delta.new_strokes.push(new_stroke);
+                            SelectableStrokeRef::New(self.delta.new_strokes.len() - 1)
                         }
-                    }
+                    };
+
+                    new_selections.insert(new_selection_ref, (new_selection_start, new_selection_end));
                 }
 
-            } else {unreachable!()}
+                new_selections
+            } else {unreachable!()};
             MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.delta.clone()};
-            self.ui_state.drawing_status = DrawingStatus::Nothing(());
+            self.ui_state.drawing_status = DrawingStatus::WithSelections(new_selections);
             self.ui_state.dirty = true;
             self.ui_state.recreate_selectables = true;
+            self.ui_state.recreate_draggables = true;
             self.clear_selectables();
             self.clear_draggables();
             Fate::Live
@@ -339,6 +351,10 @@ impl Recipient<SimulationResult> for CurrentPlan{
                 self.ui_state.recreate_selectables = false;
                 self.create_selectables();
             }
+            if self.ui_state.recreate_draggables {
+                self.ui_state.recreate_draggables = false;
+                self.create_draggables();
+            }
             Fate::Live
         }
     }}
@@ -378,7 +394,7 @@ impl CurrentPlan {
                     );
                 }
             }
-        } else {unreachable!()}
+        }
     }
 
     fn clear_selectables(&mut self) {
@@ -404,7 +420,8 @@ struct PlanUIState{
     n_lanes_per_side: usize,
     drawing_status: DrawingStatus,
     dirty: bool,
-    recreate_selectables: bool
+    recreate_selectables: bool,
+    recreate_draggables: bool
 }
 
 impl Default for PlanUIState{
@@ -414,7 +431,8 @@ impl Default for PlanUIState{
             n_lanes_per_side: 5,
             drawing_status: DrawingStatus::Nothing(()),
             dirty: true,
-            recreate_selectables: true
+            recreate_selectables: true,
+            recreate_draggables: true
         }
     }
 }
