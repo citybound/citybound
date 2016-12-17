@@ -52,6 +52,17 @@ pub fn on_connect(lane: &mut Lane) {
     lane.pathfinding_info.routing_timeout = ROUTING_TIMEOUT_AFTER_CHANGE;
 }
 
+pub fn on_disconnect(lane: &mut Lane, disconnected_id: ID) {
+    let new_routes = lane.pathfinding_info.routes.pairs().filter_map(|(destination, route)|
+        if route.learned_from == disconnected_id {
+            None
+        } else {Some((*destination, *route))}
+    ).collect();
+    lane.pathfinding_info.routes = new_routes;
+    lane.pathfinding_info.routes_changed = true;
+    lane.pathfinding_info.query_routes_next_tick = true;
+}
+
 const MIN_LANDMARK_INCOMING : usize = 3;
 const ROUTING_TIMEOUT_AFTER_CHANGE : u16 = 15;
 
@@ -311,6 +322,11 @@ impl Recipient<ForgetRoutes> for Lane {
                 } else {false};
                 if forget {
                     self.pathfinding_info.routes.remove(*destination_to_forget);
+                    if destination_to_forget.is_landmark() {
+                        self.cars.retain(|car| car.destination.landmark != destination_to_forget.landmark)
+                    } else {
+                        self.cars.retain(|car| &car.destination != destination_to_forget)
+                    }
                     forgotten.push(*destination_to_forget);
                 }
             }

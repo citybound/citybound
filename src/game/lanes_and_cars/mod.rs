@@ -103,27 +103,33 @@ use self::pathfinding::RoutingInfo;
 impl Recipient<AddCar> for Lane {
     fn receive(&mut self, msg: &AddCar) -> Fate {match *msg{
         AddCar{car, ..} => {
+            // TODO: horrible hack to encode it like this
+            let car_forcibly_spawned = *car.as_obstacle.position < 0.0;
+
             let maybe_next_hop_interaction = self.pathfinding_info.routes.get(car.destination)
             .or(self.pathfinding_info.routes.get(car.destination.landmark_destination()))
-            .map(|&RoutingInfo{outgoing_idx, ..}| {
+            .or_else(|| {
+                println!("NO ROUTE!");
+                if car_forcibly_spawned || self.pathfinding_info.routes.is_empty() {
+                    None
+                } else {
+                    // pseudorandom, lol
+                    self.pathfinding_info.routes.values().nth((car.velocity * 10000.0) as usize % self.pathfinding_info.routes.len())
+                }
+            }).map(|&RoutingInfo{outgoing_idx, ..}| {
                 outgoing_idx as usize
             });
 
             if let Some(next_hop_interaction) = maybe_next_hop_interaction {
                 let routed_car = LaneCar{
                     next_hop_interaction: next_hop_interaction as u8,
-                    as_obstacle: if *car.as_obstacle.position < 0.0 {
+                    as_obstacle: if car_forcibly_spawned {
                         car.as_obstacle.offset_by(-*car.as_obstacle.position).offset_by(
                             self.cars.get(0).map(|last_car| *last_car.position).unwrap_or(self.length / 2.0) - 6.0
                         )
                     } else {car.as_obstacle},
                     .. car
                 };
-
-                if *routed_car.position < 0.0 {
-                    // TODO: cancel trip
-                    return Fate::Live;
-                } 
 
                 // TODO: optimize using BinaryHeap?
                 let maybe_next_car_position = self.cars.iter().position(|other_car| other_car.as_obstacle.position > car.as_obstacle.position);
@@ -132,8 +138,9 @@ impl Recipient<AddCar> for Lane {
                     None => self.cars.push(routed_car)
                 }
             } else {
-                println!("NO ROUTE!");
+                // TODO: cancel trip
             }
+
             Fate::Live
         }
     }}
@@ -200,10 +207,13 @@ impl Recipient<Tick> for Lane {
         Tick{dt, current_tick} => {
             self.in_construction += dt * 400.0;
 
+            let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING == self.id().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
+
             let old_green = self.green;
             self.green = if self.timings.is_empty() {true} else {self.timings[(current_tick / 25) % self.timings.len()]};
 
-            if old_green != self.green {
+            //                            TODO: this is just a hacky way to update new lanes about existing lane's green
+            if old_green != self.green || do_traffic {
                 for interaction in &self.interactions {
                     if let Interaction{kind: InteractionKind::Previous{..}, partner_lane, ..} = *interaction {
                         partner_lane << SignalChanged{from: self.id(), green: self.green}
@@ -214,8 +224,6 @@ impl Recipient<Tick> for Lane {
             if current_tick % PATHFINDING_THROTTLING == self.id().instance_id as usize % PATHFINDING_THROTTLING {
                 self::pathfinding::tick(self);
             }
-
-            let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING == self.id().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
             if do_traffic {
                 // TODO: optimize using BinaryHeap?
@@ -779,9 +787,11 @@ impl Recipient<Disconnect> for Lane {
             ).collect::<Vec<_>>();
             // TODO: Cancel trip
             self.cars.retain(|car| !interaction_indices_to_remove.contains(&(car.next_hop_interaction as usize)));
+            self.obstacles.retain(|&(_obstacle, from_id)| from_id != other_id);
             for idx in interaction_indices_to_remove.into_iter().rev() {
                 self.interactions.remove(idx);
             }
+            pathfinding::on_disconnect(self, other_id);
             other_id << ConfirmDisconnect;
             Fate::Live
         }

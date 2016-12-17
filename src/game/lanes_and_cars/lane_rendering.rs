@@ -203,7 +203,7 @@ impl Recipient<RenderToScene> for Lane {
                     let weaker_random_color = [(random_color[0] + 1.0) / 2.0, (random_color[1] + 1.0) / 2.0, (random_color[2] + 1.0) / 2.0];
                     (weaker_random_color, as_destination.is_landmark())
                 } else {
-                    ([0.0, 0.0, 0.0], false)
+                    ([1.0, 1.0, 1.0], false)
                 };
 
                 renderer_id << UpdateThing{
