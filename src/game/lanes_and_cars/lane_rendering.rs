@@ -114,7 +114,7 @@ use ::monet::AddInstance;
 use ::monet::AddSeveralInstances;
 
 const DEBUG_VIEW_LANDMARKS : bool = false;
-const DEBUG_VIEW_SIGNALS : bool = false;
+const DEBUG_VIEW_SIGNALS : bool = true;
 const DEBUG_VIEW_OBSTACLES : bool = false;
 const DEBUG_VIEW_TRANSFER_OBSTACLES : bool = false;
 

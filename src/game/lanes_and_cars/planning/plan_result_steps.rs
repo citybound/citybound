@@ -348,18 +348,32 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
             max_cliques
         }
 
-        let mut stroke_idx_max_cliques = bron_kerbosch((0usize..intersection.strokes.len()).into_iter().collect(), &compatabilities);
+        let stroke_idx_max_cliques = bron_kerbosch((0usize..intersection.strokes.len()).into_iter().collect(), &compatabilities);
 
-        stroke_idx_max_cliques.sort_by_key(|clique| {
-            let parallelity : isize = clique.iter().map(|&stroke_idx|
-                clique.iter().filter(|&&other_stroke_idx|
-                    intersection.strokes[stroke_idx].nodes()[0].direction
-                        .is_roughly_within(intersection.strokes[other_stroke_idx].nodes()[0].direction, 0.1)
-                ).count() as isize
-            ).sum();
+        let mut cliques_with_parallelity = stroke_idx_max_cliques.into_iter().map(|clique| {
+            let mut parallel_groups = Vec::new();
+            for &stroke_idx in &clique {
+                let start_direction = intersection.strokes[stroke_idx].nodes()[0].direction;
+                let found = if let Some(&mut (_, ref mut n_members)) = parallel_groups.iter_mut().find(|&&mut (group_direction, _)|
+                    start_direction.is_roughly_within(group_direction, 0.1)
+                ) {
+                    *n_members += 1;
+                    true
+                } else {false};
+                if !found {
+                    parallel_groups.push((start_direction, 1));
+                }
+            }
 
+            let parallelity : isize = parallel_groups.into_iter().map(|(_, n_members)| n_members*n_members).sum();
+            (clique, parallelity)
+        }).collect::<Vec<_>>();
+
+        cliques_with_parallelity.sort_by_key(|&(_, ref parallelity)| {
             -parallelity
         });
+
+        let stroke_idx_max_cliques = cliques_with_parallelity.into_iter().map(|(clique, _)| clique).collect::<Vec<_>>();
 
         // TODO: improvement: reorder here in a way that always tends to the longest waiting lane
 
