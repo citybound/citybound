@@ -194,13 +194,13 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                 sorted_segments
             });
 
-            aligned_paths.map(|segments| LaneStroke::new(
+            aligned_paths.flat_map(|segments| LaneStroke::new(
                 segments.iter().map(|segment|
                     LaneStrokeNode{position: segment.start(), direction: segment.start_direction()}
                 ).chain(Some(
                     LaneStrokeNode{position: segments.last().unwrap().end(), direction: segments.last().unwrap().end_direction()}
                 ).into_iter()).collect()
-            )).collect::<Vec<_>>()
+            ).into_iter()).collect::<Vec<_>>()
         }).collect::<Vec<_>>()
     }).collect::<Vec<_>>()
 }
@@ -272,18 +272,18 @@ fn connect_as_much_as_possible(incoming_group: &Vec<(&LaneStrokeRef, &LaneStroke
         .dot(&incoming_group[0].1.direction.orthogonal()) > 0.0;
 
     if is_right_of {
-        incoming_group.iter().rev().zip(outgoing_group.iter().rev()).map(|(&(_, incoming), &(_, outgoing))|
-            LaneStroke::new(vec![*incoming, *outgoing].into())
+        incoming_group.iter().rev().zip(outgoing_group.iter().rev()).flat_map(|(&(_, incoming), &(_, outgoing))|
+            LaneStroke::new(vec![*incoming, *outgoing].into()).into_iter()
         ).collect()
     } else {
         let is_uturn = outgoing_group[0].1.position.is_roughly_within(incoming_group[0].1.position, 7.0)
             && outgoing_group[0].1.direction.is_roughly_within(-incoming_group[0].1.direction, 0.1);
         
         if is_uturn {
-            vec![LaneStroke::new(vec![*incoming_group[0].1, *outgoing_group[0].1].into())]
+            LaneStroke::new(vec![*incoming_group[0].1, *outgoing_group[0].1].into()).into_iter().collect()
         } else {
-            incoming_group.iter().zip(outgoing_group.iter()).map(|(&(_, incoming), &(_, outgoing))|
-                LaneStroke::new(vec![*incoming, *outgoing].into())
+            incoming_group.iter().zip(outgoing_group.iter()).flat_map(|(&(_, incoming), &(_, outgoing))|
+                LaneStroke::new(vec![*incoming, *outgoing].into()).into_iter()
             ).collect()
         }
     }
@@ -322,17 +322,19 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
             }
         }
 
-        fn bron_kerbosch_helper(r: FnvHashSet<usize>, mut p: FnvHashSet<usize>, mut x: FnvHashSet<usize>, neighbors: &FnvHashMap<usize, FnvHashSet<usize>>, out_max_cliques: &mut Vec<FnvHashSet<usize>>) {
+        fn bron_kerbosch_helper(r: FnvHashSet<usize>, mut p: FnvHashSet<usize>, mut x: FnvHashSet<usize>, neighbors_map: &FnvHashMap<usize, FnvHashSet<usize>>, out_max_cliques: &mut Vec<FnvHashSet<usize>>) {
+            let empty_set = FnvHashSet::default();
+            let neighbors = |v: &usize| neighbors_map.get(v).unwrap_or(&empty_set);
             if p.is_empty() && x.is_empty() {
                 out_max_cliques.push(r);
             } else {
-                let pivot = *p.union(&x).max_by_key(|&v| neighbors[v].len()).unwrap();
-                for v in p.clone().difference(&neighbors[&pivot]) {
+                let pivot = *p.union(&x).max_by_key(|&v| (neighbors)(v).len()).unwrap();
+                for v in p.clone().difference((neighbors)(&pivot)) {
                     bron_kerbosch_helper(
                         r.union(&([*v].iter().cloned().collect())).cloned().collect(),
-                        p.intersection(&neighbors[v]).cloned().collect(),
-                        x.intersection(&neighbors[v]).cloned().collect(),
-                        neighbors, out_max_cliques
+                        p.intersection((neighbors)(v)).cloned().collect(),
+                        x.intersection((neighbors)(v)).cloned().collect(),
+                        neighbors_map, out_max_cliques
                     );
                     p.remove(v);
                     x.insert(*v);

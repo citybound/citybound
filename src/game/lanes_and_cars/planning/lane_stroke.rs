@@ -16,20 +16,27 @@ pub struct LaneStrokeNodeRef(pub usize, pub usize);
 
 pub const MIN_NODE_DISTANCE : f32 = 1.0;
 
+#[derive(Debug)]
+pub enum LaneStrokeError{
+    NodesTooClose,
+    LessThanTwoNodes
+}
+
 impl LaneStroke {
-    pub fn new(nodes: CVec<LaneStrokeNode>) -> Self {
+    pub fn new(nodes: CVec<LaneStrokeNode>) -> Result<Self, LaneStrokeError> {
         if nodes.windows(2).any(|window|
             if window[0].position.is_roughly_within(window[1].position, MIN_NODE_DISTANCE) {
                 ::core::geometry::add_debug_point(window[0].position, [1.0, 0.0, 1.0], 0.5);
                 ::core::geometry::add_debug_point(window[1].position, [1.0, 0.0, 1.0], 0.5);
                 true
-            } else {false}) {
-            panic!("close points in stroke")
+            } else {false}
+        ) {
+            Result::Err(LaneStrokeError::NodesTooClose)
+        } else if nodes.len() <= 1 {
+            Result::Err(LaneStrokeError::LessThanTwoNodes)
+        } else {
+            Result::Ok(LaneStroke{nodes: nodes, _memoized_path: CPath::new(vec![])})
         }
-        if nodes.len() <= 1 {
-            panic!("Invalid stroke")
-        }
-        LaneStroke{nodes: nodes, _memoized_path: CPath::new(vec![])}
     }
 
     pub fn nodes(&self) -> &CVec<LaneStrokeNode> {
@@ -72,7 +79,7 @@ impl LaneStroke {
                     direction: last_segment.end_direction()
                 }
             ).into_iter()).collect();
-            Some(LaneStroke::new(nodes))
+            LaneStroke::new(nodes).ok()
         } else {None}
     }
 

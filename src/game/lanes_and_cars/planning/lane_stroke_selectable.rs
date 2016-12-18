@@ -64,6 +64,10 @@ impl Recipient<Event3d> for LaneStrokeSelectable {
             }
             Fate::Live
         },
+        Event3d::DragFinished{..} => {
+            CurrentPlan::id() << PlanControl::Commit(true);
+            Fate::Live
+        },
         _ => Fate::Live
     }}
 }

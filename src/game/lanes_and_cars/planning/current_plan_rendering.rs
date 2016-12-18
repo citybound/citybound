@@ -18,8 +18,8 @@ use monet::UpdateThing;
 impl Recipient<RenderToScene> for CurrentPlan {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg{
         RenderToScene{renderer_id, scene_id} => {
-            if self.ui_state.dirty {
-                let stroke_thing : Thing = self.current_plan_result_delta.trimmed_strokes.to_create.values()
+            if self.preview.ui_state.dirty {
+                let stroke_thing : Thing = self.preview.current_plan_result_delta.trimmed_strokes.to_create.values()
                     .filter(|stroke| stroke.nodes().len() > 1)
                     .map(LaneStroke::preview_thing)
                     .sum();
@@ -29,7 +29,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
                     thing: stroke_thing,
                     instance: Instance::with_color([0.8, 0.8, 0.8])
                 };
-                let trimmed_stroke_thing : Thing = self.current_plan_result_delta.trimmed_strokes.to_create.values()
+                let trimmed_stroke_thing : Thing = self.preview.current_plan_result_delta.trimmed_strokes.to_create.values()
                     .filter(|stroke| stroke.nodes().len() > 1)
                     .map(LaneStroke::preview_thing)
                     .sum();
@@ -39,7 +39,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
                     thing: trimmed_stroke_thing,
                     instance: Instance::with_color([0.3, 0.3, 0.5])
                 };
-                let intersections_thing : Thing = self.current_plan_result_delta.intersections.to_create.values()
+                let intersections_thing : Thing = self.preview.current_plan_result_delta.intersections.to_create.values()
                     .filter(|i| i.shape.segments().len() > 0)
                     .map(|i| band_to_thing(&Band::new(i.shape.clone(), 0.4), 0.5))
                     .sum();
@@ -49,7 +49,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
                     thing: intersections_thing,
                     instance: Instance::with_color([0.0, 0.0, 1.0])
                 };
-                let connecting_strokes_thing : Thing = self.current_plan_result_delta.intersections.to_create.values()
+                let connecting_strokes_thing : Thing = self.preview.current_plan_result_delta.intersections.to_create.values()
                     .filter(|i| !i.strokes.is_empty())
                     .map(|i| -> Thing {i.strokes.iter().map(LaneStroke::preview_thing).sum()})
                     .sum();
@@ -59,7 +59,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
                     thing: connecting_strokes_thing,
                     instance: Instance::with_color([0.5, 0.5, 1.0])
                 };
-                let transfer_strokes_thing : Thing = self.current_plan_result_delta.transfer_strokes.to_create.values()
+                let transfer_strokes_thing : Thing = self.preview.current_plan_result_delta.transfer_strokes.to_create.values()
                     .map(|lane_stroke|
                         band_to_thing(&Band::new(lane_stroke.path().clone(), 0.3), 0.1))
                     .sum();
@@ -69,13 +69,13 @@ impl Recipient<RenderToScene> for CurrentPlan {
                     thing: transfer_strokes_thing,
                     instance: Instance::with_color([1.0, 0.5, 0.0])
                 };
-                self.ui_state.dirty = false;
+                self.preview.ui_state.dirty = false;
             }
-            if let DrawingStatus::WithSelections(ref selections) = self.ui_state.drawing_status {
+            if let DrawingStatus::WithSelections(ref selections, _) = self.preview.ui_state.drawing_status {
                 let selection_thing = selections.pairs().filter_map(|(&selection_ref, &(start, end))| {
                     let stroke = match selection_ref {
-                        SelectableStrokeRef::New(stroke_idx) => &self.delta.new_strokes[stroke_idx],
-                        SelectableStrokeRef::RemainingOld(old_stroke_ref) => self.current_remaining_old_strokes.mapping.get(old_stroke_ref).unwrap()
+                        SelectableStrokeRef::New(stroke_idx) => &self.preview.delta.new_strokes[stroke_idx],
+                        SelectableStrokeRef::RemainingOld(old_stroke_ref) => self.preview.current_remaining_old_strokes.mapping.get(old_stroke_ref).unwrap()
                     };
                     stroke.path().subsection(start, end).map(|subsection|
                         band_to_thing(&Band::new(subsection, 2.5), 0.1)

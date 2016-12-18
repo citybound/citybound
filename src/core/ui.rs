@@ -86,6 +86,7 @@ pub enum Event3d{
     DragFinished{from: P3, to: P3},
     DragAborted,
     HoverStarted{at: P3},
+    HoverOngoing{at: P3},
     HoverStopped,
     KeyDown(VirtualKeyCode),
     KeyUp(VirtualKeyCode)
@@ -171,6 +172,8 @@ impl Recipient<Projected3d> for UserInterface {
                     if let Some(next) = new_hovered_interactable {
                         next << Event3d::HoverStarted{at: self.cursor_3d};
                     }
+                } else if let Some(hovered_interactable) = self.hovered_interactable {
+                    hovered_interactable << Event3d::HoverOngoing{at: self.cursor_3d};
                 }
                 self.hovered_interactable = new_hovered_interactable;
             }
