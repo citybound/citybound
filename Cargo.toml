@@ -9,6 +9,7 @@ itertools = "0.5.5"
 clippy = "0.0.96"
 random = "0.12.2"
 fnv = "1.0.3"
+roaring = "0.4.0"
 
 [dependencies.kay]
 path = "./lib/kay/"

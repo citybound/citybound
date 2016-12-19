@@ -1,4 +1,4 @@
-use descartes::{N, P2, Path, Norm, Band, Intersect, convex_hull, Curve, FiniteCurve, RoughlyComparable, Dot, WithUniqueOrthogonal, Segment};
+use descartes::{N, P2, Path, Norm, Band, Intersect, convex_hull, Curve, FiniteCurve, RoughlyComparable, Dot, WithUniqueOrthogonal, Segment, HasBoundingBox, BoundingBox};
 use kay::{CVec, CDict};
 use core::geometry::{CPath};
 use core::disjoint_sets::DisjointSets;
@@ -11,12 +11,21 @@ const INTERSECTION_GROUPING_RADIUS : N = 30.0;
 
 #[inline(never)]
 pub fn find_intersections(strokes: &CVec<LaneStroke>) -> CVec<Intersection> {
-    let mut intersection_point_groups = DisjointSets::from_individuals(find_intersection_points(strokes));
+    let points = find_intersection_points(strokes);
+    let mut intersection_point_groups = DisjointSets::from_individuals(points);
 
-    intersection_point_groups.union_all_with(|point_i, point_j|
-        (point_i.x - point_j.x).abs() < INTERSECTION_GROUPING_RADIUS
-        && (point_i.y - point_j.y).abs() < INTERSECTION_GROUPING_RADIUS
-        && (*point_i - *point_j).norm() < INTERSECTION_GROUPING_RADIUS
+    intersection_point_groups.union_all_with_accelerator(
+        GridAccelerator::new(200.0),
+        |&point, idx, accelerator|
+            accelerator.add(idx, vec![BoundingBox::point(point).grown_by(
+                INTERSECTION_GROUPING_RADIUS/2.0
+            )].into_iter()),
+        |accelerator|
+            accelerator.colocated_pairs(),
+        |point_i, point_j|
+            (point_i.x - point_j.x).abs() < INTERSECTION_GROUPING_RADIUS
+            && (point_i.y - point_j.y).abs() < INTERSECTION_GROUPING_RADIUS
+            && (*point_i - *point_j).norm() < INTERSECTION_GROUPING_RADIUS
     );
 
     intersection_point_groups.sets().filter_map(|group|
@@ -32,17 +41,25 @@ pub fn find_intersections(strokes: &CVec<LaneStroke>) -> CVec<Intersection> {
     ).collect::<CVec<_>>()
 }
 
+use ::core::grid_accelerator::GridAccelerator;
+
+#[allow(let_and_return)] // stupid lifetime complaining otherwise
 #[inline(never)]
 fn find_intersection_points(strokes: &CVec<LaneStroke>) -> Vec<P2> {
-    strokes.iter().enumerate().flat_map(|(i, stroke_1)| {
-        let path_1 = stroke_1.path();
-        let band_1 = Band::new(path_1.clone(), STROKE_INTERSECTION_WIDTH).outline();
-        strokes[i+1..].iter().flat_map(|stroke_2| {
-            let path_2 = stroke_2.path();
-            let band_2 = Band::new(path_2.clone(), STROKE_INTERSECTION_WIDTH).outline();
-            (&band_1, &band_2).intersect().iter().map(|intersection| intersection.position).collect::<Vec<_>>()
-        }).collect::<Vec<_>>()
-    }).collect::<Vec<_>>()
+    let mut grid = GridAccelerator::new(400.0);
+    let mut bands = Vec::new();
+    for (i, stroke) in strokes.iter().enumerate() {
+        bands.push(Band::new(stroke.path().clone(), STROKE_INTERSECTION_WIDTH).outline());
+        grid.add(i, stroke.path().segments().iter().map(|segment| segment.bounding_box().grown_by(STROKE_INTERSECTION_WIDTH)));
+    }
+
+    let points = grid.colocated_pairs().into_iter().flat_map(|&(stroke_idx_a, ref stroke_idx_b_bmap)|
+        stroke_idx_b_bmap.iter().flat_map(|stroke_idx_b|
+            (&bands[stroke_idx_a], strokes[stroke_idx_b as usize].path()).intersect().iter().map(|intersection| intersection.position).collect::<Vec<_>>()
+        ).collect::<Vec<_>>()
+    ).collect::<Vec<_>>();
+
+    points
 }
 
 #[inline(never)]
@@ -102,9 +119,16 @@ pub fn trim_strokes_and_add_incoming_outgoing(strokes: &CVec<LaneStroke>, inters
 
 #[inline(never)]
 pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStroke> {
-    trimmed_strokes.iter().enumerate().flat_map(|(i, stroke_1)| {
-        let path_1 = stroke_1.path();
-        trimmed_strokes.iter().skip(i + 1).flat_map(|stroke_2| {
+    let mut grid = GridAccelerator::new(200.0);
+    for (i, stroke) in trimmed_strokes.iter().enumerate() {
+        grid.add(i, stroke.path().segments().iter().map(|segment| segment.bounding_box().grown_by(6.0)));
+    }
+
+    grid.colocated_pairs().into_iter().flat_map(|&(stroke_1_idx, ref stroke_2_idx_bmap)| {
+        let stroke_1 = &trimmed_strokes[stroke_1_idx];
+        stroke_2_idx_bmap.iter().flat_map(|stroke_2_idx| {
+            let stroke_2 = &trimmed_strokes[stroke_2_idx as usize];
+            let path_1 = stroke_1.path();
             let path_2 = stroke_2.path();
             let aligned_segments = path_1.segments().iter().cartesian_product(path_2.segments().iter()).filter_map(|(segment_1, segment_2)|
                 // TODO: would you look at that horrible mess!
@@ -290,6 +314,8 @@ fn connect_as_much_as_possible(incoming_group: &Vec<(&LaneStrokeRef, &LaneStroke
 }
 
 pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
+    use ::roaring::RoaringBitmap;
+
     for intersection in intersections.iter_mut() {
         // find maximal cliques of compatible lanes using Bron-Kerbosch
 
@@ -309,51 +335,55 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
 
         }
 
-        use ::fnv::{FnvHashMap, FnvHashSet};
+        use ::fnv::{FnvHashMap};
 
-        let mut compatabilities = FnvHashMap::<usize, FnvHashSet<usize>>::default();
+        let mut compatabilities = FnvHashMap::<usize, RoaringBitmap<u32>>::default();
 
         for (a, stroke_a) in intersection.strokes.iter().enumerate() {
             for (b, stroke_b) in intersection.strokes.iter().enumerate().skip(a + 1) {
                 if compatible(stroke_a, stroke_b) {
-                    compatabilities.entry(a).or_insert_with(FnvHashSet::<usize>::default).insert(b);
-                    compatabilities.entry(b).or_insert_with(FnvHashSet::<usize>::default).insert(a);
+                    compatabilities.entry(a).or_insert_with(RoaringBitmap::<u32>::new).insert(b as u32);
+                    compatabilities.entry(b).or_insert_with(RoaringBitmap::<u32>::new).insert(a as u32);
                 }
             }
         }
 
-        fn bron_kerbosch_helper(r: FnvHashSet<usize>, mut p: FnvHashSet<usize>, mut x: FnvHashSet<usize>, neighbors_map: &FnvHashMap<usize, FnvHashSet<usize>>, out_max_cliques: &mut Vec<FnvHashSet<usize>>) {
-            let empty_set = FnvHashSet::default();
-            let neighbors = |v: &usize| neighbors_map.get(v).unwrap_or(&empty_set);
-            if p.is_empty() && x.is_empty() {
+        #[allow(len_zero)]
+        fn bron_kerbosch_helper(r: RoaringBitmap<u32>, mut p: RoaringBitmap<u32>, mut x: RoaringBitmap<u32>, neighbors_map: &FnvHashMap<usize, RoaringBitmap<u32>>, out_max_cliques: &mut Vec<RoaringBitmap<u32>>) {
+            let empty_set = RoaringBitmap::<u32>::new();
+            let neighbors = |v: u32| neighbors_map.get(&(v as usize)).unwrap_or(&empty_set);
+            // TODO: roaring::RoaringBitmap::is_empty is buggy!! https://github.com/Nemo157/roaring-rs/issues/18
+            if p.len() == 0 && x.len() == 0 {
                 out_max_cliques.push(r);
             } else {
-                let pivot = *p.union(&x).max_by_key(|&v| (neighbors)(v).len()).unwrap();
-                for v in p.clone().difference((neighbors)(&pivot)) {
+                let pivot = p.union(&x).max_by_key(|&v| (neighbors)(v).len()).expect("should have a pivot");
+                for v in p.clone() - (neighbors)(pivot) {
+                    let mut just_v = RoaringBitmap::new();
+                    just_v.insert(v);
                     bron_kerbosch_helper(
-                        r.union(&([*v].iter().cloned().collect())).cloned().collect(),
-                        p.intersection((neighbors)(v)).cloned().collect(),
-                        x.intersection((neighbors)(v)).cloned().collect(),
+                        r.clone() | just_v,
+                        p.clone() & (neighbors)(v),
+                        x.clone() & (neighbors)(v),
                         neighbors_map, out_max_cliques
                     );
                     p.remove(v);
-                    x.insert(*v);
+                    x.insert(v);
                 } 
             }
         }
 
-        fn bron_kerbosch(p: FnvHashSet<usize>, neighbors: &FnvHashMap<usize, FnvHashSet<usize>>) -> Vec<FnvHashSet<usize>> {
+        fn bron_kerbosch(p: RoaringBitmap<u32>, neighbors: &FnvHashMap<usize, RoaringBitmap<u32>>) -> Vec<RoaringBitmap<u32>> {
             let mut max_cliques = Vec::new();
-            bron_kerbosch_helper(FnvHashSet::default(), p, FnvHashSet::default(), neighbors, &mut max_cliques);
+            bron_kerbosch_helper(RoaringBitmap::<u32>::new(), p, RoaringBitmap::<u32>::new(), neighbors, &mut max_cliques);
             max_cliques
         }
 
-        let stroke_idx_max_cliques = bron_kerbosch((0usize..intersection.strokes.len()).into_iter().collect(), &compatabilities);
+        let stroke_idx_max_cliques = bron_kerbosch((0u32..(intersection.strokes.len() as u32)).into_iter().collect(), &compatabilities);
 
         let mut cliques_with_parallelity = stroke_idx_max_cliques.into_iter().map(|clique| {
             let mut parallel_groups = Vec::new();
-            for &stroke_idx in &clique {
-                let start_direction = intersection.strokes[stroke_idx].nodes()[0].direction;
+            for stroke_idx in clique.iter() {
+                let start_direction = intersection.strokes[stroke_idx as usize].nodes()[0].direction;
                 let found = if let Some(&mut (_, ref mut n_members)) = parallel_groups.iter_mut().find(|&&mut (group_direction, _)|
                     start_direction.is_roughly_within(group_direction, 0.1)
                 ) {
@@ -382,8 +412,8 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
         let stroke_idx_max_cliques = stroke_idx_max_cliques.into_iter().take_while(|clique| {
             let all_covered = stroke_idx_covered.iter().any(|covered| !covered);
             
-            for &stroke_idx in clique {
-                stroke_idx_covered[stroke_idx] = true;
+            for stroke_idx in clique.iter() {
+                stroke_idx_covered[stroke_idx as usize] = true;
             }
 
             all_covered
@@ -394,23 +424,23 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
         use ::std::cmp::max;
 
         let total_cycle_duration = stroke_idx_max_cliques.iter().map(|clique|
-            max(clique.len() * 2, MIN_CLIQUE_DURATION) + SIGNAL_TIMING_BUFFER).sum();
+            max(clique.len() as usize * 2, MIN_CLIQUE_DURATION) + SIGNAL_TIMING_BUFFER).sum();
 
         intersection.timings = vec![vec![false; total_cycle_duration].into(); intersection.strokes.len()].into();
 
         let mut current_offset = 0;
 
         for (clique, next_clique) in stroke_idx_max_cliques.iter().chain(stroke_idx_max_cliques.get(0)).tuple_windows() {
-            let clique_duration = max(clique.len() * 2, MIN_CLIQUE_DURATION);
+            let clique_duration = max(clique.len() as usize * 2, MIN_CLIQUE_DURATION);
 
-            for &stroke_idx in clique {
-                let end_offset = if next_clique.contains(&stroke_idx) {
+            for stroke_idx in clique.iter() {
+                let end_offset = if next_clique.contains(stroke_idx) {
                     current_offset + clique_duration + SIGNAL_TIMING_BUFFER
                 } else {
                     current_offset + clique_duration
                 };
                 for t in current_offset..end_offset {
-                    intersection.timings[stroke_idx][t] = true;
+                    intersection.timings[stroke_idx as usize][t] = true;
                 }
             }
 

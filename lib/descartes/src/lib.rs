@@ -175,8 +175,8 @@ pub trait Shape {
 
 #[derive(Copy, Clone)]
 pub struct BoundingBox {
-    min: P2,
-    max: P2
+    pub min: P2,
+    pub max: P2
 }
 
 impl BoundingBox{
@@ -190,6 +190,14 @@ impl BoundingBox{
     pub fn overlaps(&self, other: &BoundingBox) -> bool {
         self.max.x >= other.min.x && other.max.x >= self.min.x
         && self.max.y >= other.min.y && other.max.y >= self.min.y
+    }
+
+    pub fn point(p: P2) -> Self {
+        BoundingBox{min: p, max: p}
+    }
+
+    pub fn grown_by(&self, offset: N) -> Self {
+        BoundingBox{min: self.min - V2::new(offset, offset), max: self.max + V2::new(offset, offset)}
     }
 }
 

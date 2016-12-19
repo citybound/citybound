@@ -1,3 +1,5 @@
+use ::roaring::RoaringBitmap;
+
 pub struct DisjointSets<T> {
     elements: Vec<T>,
     parent_indices: Vec<usize>,
@@ -41,12 +43,31 @@ impl<T> DisjointSets<T> {
         self.is_sorted = false;
     }
 
+    #[inline(never)]
     pub fn union_all_with<F: Fn(&T, &T) -> bool>(&mut self, should_union: F) {
         let len = self.elements.len();
         for idx_a in 0..len {
             for idx_b in (idx_a + 1)..len {
                 if should_union(&self.elements[idx_a], &self.elements[idx_b]) {
                     self.union(idx_a, idx_b);
+                }
+            }
+        }
+    }
+
+    pub fn union_all_with_accelerator
+    <Acc, FAdd: Fn(&T, usize, &mut Acc), FPairs: Fn(&Acc) -> &Vec<(usize, RoaringBitmap<u32>)>, F: Fn(&T, &T) -> bool>
+    (&mut self, initial_accelerator: Acc, add: FAdd, pairs: FPairs, should_union: F) {
+        let mut accelerator = initial_accelerator;
+        for (i, element) in self.elements.iter().enumerate() {
+            add(element, i, &mut accelerator);
+        }
+
+        // TODO: use fact that pairs are commutative
+        for &(idx_a, ref idx_b_bmap) in pairs(&accelerator) {
+            for idx_b in idx_b_bmap.iter() {
+                if should_union(&self.elements[idx_a], &self.elements[idx_b as usize]) {
+                    self.union(idx_a, idx_b as usize);
                 }
             }
         }
