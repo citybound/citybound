@@ -60,7 +60,7 @@ impl Recipient<RenderToCollector> for Lane {
             };
             if collector_id == ThingCollector::<LaneAsphalt>::id() {
                 collector_id << Update(self.id(), maybe_path
-                    .map(|path| band_to_thing(&Band::new(path, 3.0), if self.on_intersection {0.2} else {0.0}))
+                    .map(|path| band_to_thing(&Band::new(path, 6.0), if self.on_intersection {0.2} else {0.0}))
                     .unwrap_or_else(|| Thing::new(vec![], vec![])));
                 if self.in_construction - CONSTRUCTION_ANIMATION_DELAY > self.length {
                     collector_id << Freeze(self.id())
@@ -68,12 +68,12 @@ impl Recipient<RenderToCollector> for Lane {
             } else {
                 let left_marker = maybe_path.clone().and_then(|path|
                     path.shift_orthogonally(2.5)
-                ).map(|path| band_to_thing(&Band::new(path, 0.3), 0.1))
+                ).map(|path| band_to_thing(&Band::new(path, 0.6), 0.1))
                 .unwrap_or_else(|| Thing::new(vec![], vec![]));
 
                 let right_marker = maybe_path.and_then(|path|
                     path.shift_orthogonally(-2.5)
-                ).map(|path| band_to_thing(&Band::new(path, 0.3), 0.1))
+                ).map(|path| band_to_thing(&Band::new(path, 0.6), 0.1))
                 .unwrap_or_else(|| Thing::new(vec![], vec![]));
                 collector_id << Update(self.id(), left_marker + right_marker);
                 if self.in_construction - CONSTRUCTION_ANIMATION_DELAY > self.length {
@@ -96,8 +96,8 @@ impl Recipient<RenderToCollector> for TransferLane {
             };
 
             collector_id << Update(self.id(), maybe_path
-                .map(|path| dash_path(path, 3.0, 6.0).into_iter().map(|dash|
-                    band_to_thing(&Band::new(dash, 0.4), 0.2)
+                .map(|path| dash_path(path, 3.0, 3.0).into_iter().map(|dash|
+                    band_to_thing(&Band::new(dash, 0.8), 0.2)
                 ).sum())
                 .unwrap_or_else(|| Thing::new(vec![], vec![])));
             if self.in_construction - 2.0 * CONSTRUCTION_ANIMATION_DELAY > self.length {
@@ -114,7 +114,7 @@ use ::monet::AddInstance;
 use ::monet::AddSeveralInstances;
 
 const DEBUG_VIEW_LANDMARKS : bool = false;
-const DEBUG_VIEW_SIGNALS : bool = true;
+const DEBUG_VIEW_SIGNALS : bool = false;
 const DEBUG_VIEW_OBSTACLES : bool = false;
 const DEBUG_VIEW_TRANSFER_OBSTACLES : bool = false;
 

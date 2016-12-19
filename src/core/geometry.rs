@@ -76,10 +76,10 @@ pub fn band_to_thing<P: Path>(band: &Band<P>, z: N) -> Thing {
         if segment.is_linear() {
             let first_new_vertex = vertices.len() as u16;
             let orth_direction = segment.center_or_direction.orthogonal();
-            vertices.push(to_vertex(segment.start + band.width * orth_direction, z));
-            vertices.push(to_vertex(segment.start - band.width * orth_direction, z));
-            vertices.push(to_vertex(segment.end + band.width * orth_direction, z));
-            vertices.push(to_vertex(segment.end - band.width * orth_direction, z));
+            vertices.push(to_vertex(segment.start + band.width / 2.0 * orth_direction, z));
+            vertices.push(to_vertex(segment.start - band.width / 2.0 * orth_direction, z));
+            vertices.push(to_vertex(segment.end + band.width / 2.0 * orth_direction, z));
+            vertices.push(to_vertex(segment.end - band.width / 2.0 * orth_direction, z));
 
             indices.extend_from_slice(&[first_new_vertex, first_new_vertex + 1, first_new_vertex + 2]);
             indices.extend_from_slice(&[first_new_vertex + 1, first_new_vertex + 3, first_new_vertex + 2]);
@@ -91,8 +91,8 @@ pub fn band_to_thing<P: Path>(band: &Band<P>, z: N) -> Thing {
             let position = segment.start;
             let orth_direction = segment.start_direction().orthogonal();
 
-            vertices.push(to_vertex(position + band.width * orth_direction, z));
-            vertices.push(to_vertex(position - band.width * orth_direction, z));
+            vertices.push(to_vertex(position + band.width / 2.0 * orth_direction, z));
+            vertices.push(to_vertex(position - band.width / 2.0 * orth_direction, z));
 
             for subdivision in 0..subdivisions {
                 let first_new_vertex = vertices.len() as u16;
@@ -100,8 +100,8 @@ pub fn band_to_thing<P: Path>(band: &Band<P>, z: N) -> Thing {
                 let position = segment.along(distance);
                 let orth_direction = segment.direction_along(distance).orthogonal();
 
-                vertices.push(to_vertex(position + band.width * orth_direction, z));
-                vertices.push(to_vertex(position - band.width * orth_direction, z));
+                vertices.push(to_vertex(position + band.width / 2.0 * orth_direction, z));
+                vertices.push(to_vertex(position - band.width / 2.0 * orth_direction, z));
 
                 indices.extend_from_slice(&[first_new_vertex - 2, first_new_vertex - 1, first_new_vertex]);
                 indices.extend_from_slice(&[first_new_vertex - 1, first_new_vertex + 1, first_new_vertex]);

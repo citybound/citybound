@@ -61,7 +61,7 @@ impl LaneStroke {
     }
 
     pub fn preview_thing(&self) -> Thing {
-        band_to_thing(&Band::new(self.path().clone(), 4.85), 0.0)
+        band_to_thing(&Band::new(Band::new(self.path().clone(), 4.85).outline(), 0.6), 0.0)
     }
 
     // TODO: this is slightly ugly

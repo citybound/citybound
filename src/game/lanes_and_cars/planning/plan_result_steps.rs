@@ -54,9 +54,11 @@ fn find_intersection_points(strokes: &CVec<LaneStroke>) -> Vec<P2> {
     }
 
     let points = grid.colocated_pairs().into_iter().flat_map(|&(stroke_idx_a, ref stroke_idx_b_bmap)|
-        stroke_idx_b_bmap.iter().flat_map(|stroke_idx_b|
-            (&bands[stroke_idx_a], strokes[stroke_idx_b as usize].path()).intersect().iter().map(|intersection| intersection.position).collect::<Vec<_>>()
-        ).collect::<Vec<_>>()
+        stroke_idx_b_bmap.iter().flat_map(|stroke_idx_b| {
+            if stroke_idx_a != stroke_idx_b as usize {
+                (&bands[stroke_idx_a], strokes[stroke_idx_b as usize].path()).intersect().iter().map(|intersection| intersection.position).collect::<Vec<_>>()
+            } else {vec![]}
+        }).collect::<Vec<_>>()
     ).collect::<Vec<_>>();
 
     points
@@ -126,7 +128,7 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
 
     grid.colocated_pairs().into_iter().flat_map(|&(stroke_1_idx, ref stroke_2_idx_bmap)| {
         let stroke_1 = &trimmed_strokes[stroke_1_idx];
-        stroke_2_idx_bmap.iter().flat_map(|stroke_2_idx| {
+        stroke_2_idx_bmap.iter().filter(|stroke_2_idx| stroke_1_idx != *stroke_2_idx as usize).flat_map(|stroke_2_idx| {
             let stroke_2 = &trimmed_strokes[stroke_2_idx as usize];
             let path_1 = stroke_1.path();
             let path_2 = stroke_2.path();
