@@ -355,6 +355,7 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
             let empty_set = RoaringBitmap::<u32>::new();
             let neighbors = |v: u32| neighbors_map.get(&(v as usize)).unwrap_or(&empty_set);
             // TODO: roaring::RoaringBitmap::is_empty is buggy!! https://github.com/Nemo157/roaring-rs/issues/18
+            // TODO: Blocked by dependency conflict on num_bigint -_-
             if p.len() == 0 && x.len() == 0 {
                 out_max_cliques.push(r);
             } else {
