@@ -106,6 +106,8 @@ impl Recipient<Mouse> for UserInterface {
         Mouse::Down => {
             self.drag_start_2d = Some(self.cursor_2d);
             self.drag_start_3d = Some(self.cursor_3d);
+            let cursor_3d = self.cursor_3d;
+            self.receive(&Projected3d{position_3d: cursor_3d});
             self.active_interactable = self.hovered_interactable;
             if let Some(active_interactable) = self.active_interactable{
                 active_interactable << Event3d::DragStarted{at: self.cursor_3d};

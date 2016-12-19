@@ -62,7 +62,7 @@ impl<P: Path> Shape for Band<P> {
     fn contains(&self, point: P2) -> bool {
         if let Some(along) = self.path.project(point) {
             let distance = (point - self.path.along(along)).norm();
-            distance < self.width + THICKNESS/2.0
+            distance < self.width/2.0 + THICKNESS/2.0
         } else {false}
     }
 }

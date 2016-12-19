@@ -1,5 +1,5 @@
 use kay::{ID, Recipient, Actor, Individual, Swarm, ActorSystem, Fate, CreateWith};
-use descartes::{Band, Into2d};
+use descartes::{Band, Into2d, RoughlyComparable};
 use ::core::geometry::{CPath, AnyShape};
 
 use super::{SelectableStrokeRef, CurrentPlan, PlanControl};
@@ -69,7 +69,10 @@ impl Recipient<Event3d> for LaneStrokeDraggable {
             CurrentPlan::id() << PlanControl::MoveSelection(to.into_2d() - from.into_2d());
             Fate::Live
         },
-        Event3d::DragFinished{to, ..} => {
+        Event3d::DragFinished{from, to} => {
+            if from.into_2d().is_roughly_within(to.into_2d(), 3.0) {
+                CurrentPlan::id() << PlanControl::MaximizeSelection(());
+            }
             CurrentPlan::id() << PlanControl::Commit(true, to.into_2d());
             Fate::Live
         },

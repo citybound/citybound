@@ -43,6 +43,7 @@ enum PlanControl{
     Undo(()),
     WithLatestNode(P2, bool),
     Select(SelectableStrokeRef, N, N),
+    MaximizeSelection(()),
     MoveSelection(V2),
     DeleteSelection(()),
     CreateGrid(()),
@@ -249,6 +250,20 @@ impl Recipient<PlanControl> for CurrentPlan {
                 );
             }
             self.create_draggables();
+            Fate::Live
+        },
+        PlanControl::MaximizeSelection(()) => {
+            let new_selections = if let DrawingStatus::WithSelections(ref selections, _) = self.preview.ui_state.drawing_status {
+                selections.pairs().map(|(selection_ref, _)| {
+                    let stroke = match *selection_ref {
+                        SelectableStrokeRef::New(node_idx) => &self.preview.delta.new_strokes[node_idx],
+                        SelectableStrokeRef::RemainingOld(old_ref) =>
+                            self.preview.current_remaining_old_strokes.mapping.get(old_ref).unwrap()
+                    };
+                    (*selection_ref, (0.0, stroke.path().length()))
+                }).collect()
+            } else {unreachable!()};
+            self.preview.ui_state.drawing_status = DrawingStatus::WithSelections(new_selections, false);
             Fate::Live
         },
         PlanControl::MoveSelection(delta) => {

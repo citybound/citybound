@@ -1,5 +1,5 @@
 use kay::{ID, Recipient, Actor, Individual, Swarm, ActorSystem, Fate, CreateWith};
-use descartes::{Band, Curve, Into2d};
+use descartes::{Band, Curve, Into2d, FiniteCurve};
 use ::core::geometry::{CPath, AnyShape};
 
 use super::{SelectableStrokeRef, CurrentPlan, PlanControl};
@@ -57,8 +57,8 @@ impl Recipient<Event3d> for LaneStrokeSelectable {
             if let Some(selection_start) = self.path.project(at.into_2d()) {
                 CurrentPlan::id() << PlanControl::Select(
                     self.stroke_ref,
-                    selection_start,
-                    selection_start
+                    (selection_start - 1.5).max(0.0),
+                    (selection_start + 1.5).min(self.path.length())
                 );
             }
             Fate::Live
@@ -66,10 +66,12 @@ impl Recipient<Event3d> for LaneStrokeSelectable {
         Event3d::DragOngoing{from, to} => {
             if let (Some(selection_start), Some(selection_end)) =
             (self.path.project(from.into_2d()), self.path.project(to.into_2d())) {
+                let start = selection_start.min(selection_end);
+                let end = selection_end.max(selection_start);
                 CurrentPlan::id() << PlanControl::Select(
                     self.stroke_ref,
-                    selection_start.min(selection_end),
-                    selection_end.max(selection_start)
+                    start.min(end - 1.5).max(0.0),
+                    end.max(start + 1.5).min(self.path.length())
                 );
             }
             Fate::Live
