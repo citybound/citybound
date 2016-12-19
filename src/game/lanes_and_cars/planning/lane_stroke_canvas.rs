@@ -20,7 +20,7 @@ impl Recipient<Event3d> for LaneStrokeCanvas {
         },
         Event3d::DragStarted{at} => {
             CurrentPlan::id() << WithLatestNode(at.into_2d(), true);
-            CurrentPlan::id() << Commit(true);
+            CurrentPlan::id() << Commit(true, at.into_2d());
             Fate::Live
         },
         Event3d::DragFinished{..} => {

@@ -96,7 +96,7 @@ impl Recipient<RenderToCollector> for TransferLane {
             };
 
             collector_id << Update(self.id(), maybe_path
-                .map(|path| dash_path(path, 3.0, 3.0).into_iter().map(|dash|
+                .map(|path| dash_path(path, 2.0, 4.0).into_iter().map(|dash|
                     band_to_thing(&Band::new(dash, 0.8), 0.2)
                 ).sum())
                 .unwrap_or_else(|| Thing::new(vec![], vec![])));

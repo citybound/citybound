@@ -11,7 +11,7 @@ pub struct LaneStroke{
     _memoized_path: CPath
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct LaneStrokeNodeRef(pub usize, pub usize);
 
 pub const MIN_NODE_DISTANCE : f32 = 1.0;
@@ -44,6 +44,7 @@ impl LaneStroke {
     }
 
     pub fn nodes_mut(&mut self) -> &mut CVec<LaneStrokeNode> {
+        self._memoized_path = CPath::new(vec![]);
         &mut self.nodes
     }
 

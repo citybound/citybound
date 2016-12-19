@@ -39,7 +39,7 @@ impl Individual for CurrentPlan{}
 
 #[derive(Compact, Clone)]
 enum PlanControl{
-    Commit(bool),
+    Commit(bool, P2),
     Undo(()),
     WithLatestNode(P2, bool),
     Select(SelectableStrokeRef, N, N),
@@ -56,7 +56,7 @@ use self::materialized_reality::Apply;
 
 impl Recipient<PlanControl> for CurrentPlan {
     fn receive(&mut self, msg: &PlanControl) -> Fate {match *msg{
-        PlanControl::Commit(update_preview_and_history) => {
+        PlanControl::Commit(update_preview_and_history, at) => {
             if update_preview_and_history {
                 self.history.push(self.current.clone());
             }
@@ -78,9 +78,56 @@ impl Recipient<PlanControl> for CurrentPlan {
                             self.current.ui_state.drawing_status = DrawingStatus::Nothing(());
                             self.preview.ui_state.drawing_status = DrawingStatus::Nothing(());
                         } else {
-                            self.preview.ui_state.recreate_selectables = true;
-                            self.preview.ui_state.recreate_draggables = true;
-                            MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
+                            // to prevent borrow of self
+                            let selections = match self.preview.ui_state.drawing_status {
+                                DrawingStatus::WithSelections(ref selections, _) => selections.clone(),
+                                _ => unreachable!()
+                            };
+                            #[derive(PartialEq, Eq)]
+                            enum SelectionMeaning{Start, SubSection, End};
+                            let meanings = selections.pairs().map(|(selection_ref, &(start, end))| {
+                                let stroke = match *selection_ref {
+                                    SelectableStrokeRef::New(node_idx) => &self.preview.delta.new_strokes[node_idx],
+                                    SelectableStrokeRef::RemainingOld(old_ref) =>
+                                        self.preview.current_remaining_old_strokes.mapping.get(old_ref).unwrap()
+                                };
+                                if start.is_roughly_within(0.0, 3.0) && end.is_roughly_within(0.0, 3.0) {
+                                    SelectionMeaning::Start
+                                } else if start.is_roughly_within(stroke.path().length(), 3.0) && end.is_roughly_within(stroke.path().length(), 3.0) {
+                                    SelectionMeaning::End
+                                } else {SelectionMeaning::SubSection}
+                            }).collect::<Vec<_>>();
+                            if meanings.iter().any(|meaning| *meaning == SelectionMeaning::SubSection) {
+                                self.preview.ui_state.recreate_selectables = true;
+                                self.preview.ui_state.recreate_draggables = true;
+                                MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
+                            } else {
+                                let current_nodes = meanings.iter().zip(selections.keys()).map(|(meaning, selection_ref)| {
+                                    let stroke_idx = match *selection_ref {
+                                        SelectableStrokeRef::New(usize) => usize,
+                                        SelectableStrokeRef::RemainingOld(old_ref) => {
+                                            let old_stroke = self.preview.current_remaining_old_strokes.mapping.get(old_ref).unwrap();
+                                            self.preview.delta.strokes_to_destroy.insert(old_ref, old_stroke.clone());
+                                            self.preview.delta.new_strokes.push(old_stroke.clone());
+                                            self.preview.delta.new_strokes.len() - 1
+                                        }
+                                    };
+
+                                    let node_idx = match *meaning {
+                                        SelectionMeaning::Start => 0,
+                                        SelectionMeaning::End => self.preview.delta.new_strokes[stroke_idx].nodes().len() - 1,
+                                        _ => unreachable!()
+                                    };
+                                    LaneStrokeNodeRef(stroke_idx, node_idx)
+                                }).collect();
+
+                                let previous_add = at;
+                                self.preview.ui_state.drawing_status = DrawingStatus::ContinuingFrom(current_nodes, previous_add);
+
+                                self.current = self.preview.clone();
+                                self.clear_selectables();
+                                self.clear_draggables();
+                            }
                         }
                     },
                     _ => {}
@@ -362,7 +409,7 @@ impl Recipient<PlanControl> for CurrentPlan {
                 }
             }
             self.preview.ui_state.drawing_status = DrawingStatus::Nothing(());
-            Self::id() << PlanControl::Commit(true);
+            Self::id() << PlanControl::Commit(true, P2::new(0.0, 0.0));
             Fate::Live
         },
         PlanControl::CreateGrid(()) => {
@@ -371,21 +418,21 @@ impl Recipient<PlanControl> for CurrentPlan {
 
             for x in 0..grid_size {
                 self.receive(&PlanControl::WithLatestNode(P2::new((x as f32 + 0.5) * grid_spacing, 0.0), false));
-                self.receive(&PlanControl::Commit(false));
+                self.receive(&PlanControl::Commit(false, P2::new(0.0, 0.0)));
                 self.receive(&PlanControl::WithLatestNode(P2::new((x as f32 + 0.5) * grid_spacing, grid_size as f32 * grid_spacing), false));
-                self.receive(&PlanControl::Commit(false));
+                self.receive(&PlanControl::Commit(false, P2::new(0.0, 0.0)));
                 self.receive(&PlanControl::WithLatestNode(P2::new((x as f32 + 0.5) * grid_spacing, grid_size as f32 * grid_spacing), false));
-                self.receive(&PlanControl::Commit(false));
+                self.receive(&PlanControl::Commit(false, P2::new(0.0, 0.0)));
             }
             for y in 0..grid_size {
                 self.receive(&PlanControl::WithLatestNode(P2::new(0.0, (y as f32 + 0.5) * grid_spacing), false));
-                self.receive(&PlanControl::Commit(false));
+                self.receive(&PlanControl::Commit(false, P2::new(0.0, 0.0)));
                 self.receive(&PlanControl::WithLatestNode(P2::new(grid_size as f32 * grid_spacing, (y as f32 + 0.5) * grid_spacing), false));
-                self.receive(&PlanControl::Commit(false));
+                self.receive(&PlanControl::Commit(false, P2::new(0.0, 0.0)));
                 self.receive(&PlanControl::WithLatestNode(P2::new(grid_size as f32 * grid_spacing, (y as f32 + 0.5) * grid_spacing), false));
-                self.receive(&PlanControl::Commit(false));
+                self.receive(&PlanControl::Commit(false, P2::new(0.0, 0.0)));
             }
-            self.receive(&PlanControl::Commit(true));
+            self.receive(&PlanControl::Commit(true, P2::new(0.0, 0.0)));
             Fate::Live
         },
         PlanControl::Materialize(()) => {

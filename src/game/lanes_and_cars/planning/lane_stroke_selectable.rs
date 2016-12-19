@@ -29,7 +29,7 @@ impl Recipient<AddToUI> for LaneStrokeSelectable {
         AddToUI => {
             ::core::ui::UserInterface::id() << Add::Interactable3d(
                 self.id(),
-                AnyShape::Band(Band::new(self.path.clone(), 2.5)),
+                AnyShape::Band(Band::new(self.path.clone(), 5.0)),
                 1
             );
             Fate::Live
@@ -53,6 +53,16 @@ use ::core::ui::Event3d;
 
 impl Recipient<Event3d> for LaneStrokeSelectable {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg{
+        Event3d::DragStarted{at} => {
+            if let Some(selection_start) = self.path.project(at.into_2d()) {
+                CurrentPlan::id() << PlanControl::Select(
+                    self.stroke_ref,
+                    selection_start,
+                    selection_start
+                );
+            }
+            Fate::Live
+        },
         Event3d::DragOngoing{from, to} => {
             if let (Some(selection_start), Some(selection_end)) =
             (self.path.project(from.into_2d()), self.path.project(to.into_2d())) {
@@ -64,8 +74,8 @@ impl Recipient<Event3d> for LaneStrokeSelectable {
             }
             Fate::Live
         },
-        Event3d::DragFinished{..} => {
-            CurrentPlan::id() << PlanControl::Commit(true);
+        Event3d::DragFinished{to, ..} => {
+            CurrentPlan::id() << PlanControl::Commit(true, to.into_2d());
             Fate::Live
         },
         _ => Fate::Live

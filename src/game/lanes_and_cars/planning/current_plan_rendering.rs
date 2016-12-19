@@ -19,7 +19,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg{
         RenderToScene{renderer_id, scene_id} => {
             if self.preview.ui_state.dirty {
-                let stroke_thing : Thing = self.preview.current_plan_result_delta.trimmed_strokes.to_create.values()
+                let stroke_thing : Thing = self.preview.delta.new_strokes.iter()
                     .filter(|stroke| stroke.nodes().len() > 1)
                     .map(LaneStroke::preview_thing)
                     .sum();
@@ -78,7 +78,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
                         SelectableStrokeRef::RemainingOld(old_stroke_ref) => self.preview.current_remaining_old_strokes.mapping.get(old_stroke_ref).unwrap()
                     };
                     stroke.path().subsection(start, end).map(|subsection|
-                        band_to_thing(&Band::new(subsection, 2.5), 0.1)
+                        band_to_thing(&Band::new(subsection, 5.0), 0.1)
                     )
                 }).sum();
                 renderer_id << UpdateThing{

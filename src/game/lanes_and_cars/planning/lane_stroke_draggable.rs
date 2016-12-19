@@ -41,7 +41,7 @@ impl Recipient<AddToUI> for LaneStrokeDraggable {
         AddToUI => {
             ::core::ui::UserInterface::id() << Add::Interactable3d(
                 self.id(),
-                AnyShape::Band(Band::new(self.path.clone(), 2.5)),
+                AnyShape::Band(Band::new(self.path.clone(), 5.0)),
                 2
             );
             Fate::Live
@@ -69,8 +69,8 @@ impl Recipient<Event3d> for LaneStrokeDraggable {
             CurrentPlan::id() << PlanControl::MoveSelection(to.into_2d() - from.into_2d());
             Fate::Live
         },
-        Event3d::DragFinished{..} => {
-            CurrentPlan::id() << PlanControl::Commit(true);
+        Event3d::DragFinished{to, ..} => {
+            CurrentPlan::id() << PlanControl::Commit(true, to.into_2d());
             Fate::Live
         },
         _ => Fate::Live
