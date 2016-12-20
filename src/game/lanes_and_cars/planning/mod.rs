@@ -420,6 +420,8 @@ impl Recipient<PlanControl> for CurrentPlan {
                     }
                 }
 
+                new_stroke_indices_to_remove.sort();
+
                 for index_to_remove in new_stroke_indices_to_remove.into_iter().rev() {
                     self.preview.delta.new_strokes.remove(index_to_remove);
                 }
@@ -429,6 +431,8 @@ impl Recipient<PlanControl> for CurrentPlan {
                 }
             }
             self.preview.ui_state.drawing_status = DrawingStatus::Nothing(());
+            self.clear_selectables();
+            self.clear_draggables();
             Self::id() << PlanControl::Commit(true, P2::new(0.0, 0.0));
             Fate::Live
         },
@@ -465,6 +469,7 @@ impl Recipient<PlanControl> for CurrentPlan {
             MaterializedReality::id() << Apply{requester: Self::id(), delta: self.current.delta.clone()};
             *self = CurrentPlan::default();
             self.clear_selectables();
+            self.clear_draggables();
             self.preview.ui_state.recreate_selectables = true;
             Fate::Live
         }
