@@ -9,6 +9,7 @@ mod lane_stroke;
 mod lane_stroke_canvas;
 mod lane_stroke_selectable;
 mod lane_stroke_draggable;
+mod lane_stroke_addable;
 pub mod plan_result_steps;
 pub mod materialized_reality;
 pub mod current_plan_rendering;
@@ -18,6 +19,7 @@ pub use self::lane_stroke::{LaneStroke, LaneStrokeNode, LaneStrokeNodeRef};
 pub use self::lane_stroke_canvas::LaneStrokeCanvas;
 use self::lane_stroke_selectable::LaneStrokeSelectable;
 use self::lane_stroke_draggable::LaneStrokeDraggable;
+use self::lane_stroke_addable::LaneStrokeAddable;
 use self::materialized_reality::MaterializedReality;
 pub use self::lane_stroke::MIN_NODE_DISTANCE;
 
@@ -46,6 +48,7 @@ enum PlanControl{
     MaximizeSelection(()),
     MoveSelection(V2),
     DeleteSelection(()),
+    AddStroke(LaneStroke),
     CreateGrid(()),
     Materialize(())
 }
@@ -78,6 +81,8 @@ impl Recipient<PlanControl> for CurrentPlan {
                             self.clear_draggables();
                             self.current.ui_state.drawing_status = DrawingStatus::Nothing(());
                             self.preview.ui_state.drawing_status = DrawingStatus::Nothing(());
+                            self.preview.ui_state.recreate_selectables = true;
+                            MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
                         } else {
                             // to prevent borrow of self
                             let selections = match self.preview.ui_state.drawing_status {
@@ -427,6 +432,12 @@ impl Recipient<PlanControl> for CurrentPlan {
             Self::id() << PlanControl::Commit(true, P2::new(0.0, 0.0));
             Fate::Live
         },
+        PlanControl::AddStroke(ref stroke) => {
+            self.preview = self.current.clone();
+            self.preview.delta.new_strokes.push(stroke.clone());
+            MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
+            Fate::Live
+        },
         PlanControl::CreateGrid(()) => {
             let grid_size = 18u32;
             let grid_spacing = 500.0;
@@ -475,6 +486,7 @@ impl Recipient<SimulationResult> for CurrentPlan{
             if self.preview.ui_state.recreate_draggables {
                 self.preview.ui_state.recreate_draggables = false;
                 self.create_draggables();
+                self.create_addables();
             }
             Fate::Live
         }
@@ -518,12 +530,62 @@ impl CurrentPlan {
         }
     }
 
+    fn create_addables(&mut self) {
+        if let DrawingStatus::WithSelections(ref selections, _) = self.preview.ui_state.drawing_status {
+            for (&selection_ref, &(start, end)) in selections.pairs() {
+                let stroke = match selection_ref {
+                    SelectableStrokeRef::New(stroke_idx) => &self.preview.delta.new_strokes[stroke_idx],
+                    SelectableStrokeRef::RemainingOld(old_stroke_ref) => self.preview.current_remaining_old_strokes.mapping.get(old_stroke_ref).unwrap()
+                };
+                let start_position = stroke.path().along(start);
+                let start_direction = stroke.path().direction_along(start);
+                let end_position = stroke.path().along(end);
+                let end_direction = stroke.path().direction_along(end);
+
+                let is_right_of_stroke = |other_stroke: &LaneStroke| {
+                    if let Some(start_on_other_distance) = other_stroke.path().project(start_position) {
+                        let start_on_other = other_stroke.path().along(start_on_other_distance);
+                        start_on_other.is_roughly_within(start_position, 6.0)
+                        && (start_on_other - start_position).dot(&start_direction.orthogonal()) > 0.0
+                    } else if let Some(end_on_other_distance) = other_stroke.path().project(end_position) {
+                        let end_on_other = other_stroke.path().along(end_on_other_distance);
+                        end_on_other.is_roughly_within(end_position, 6.0)
+                        && (end_on_other - end_position).dot(&end_direction.orthogonal()) > 0.0
+                    } else {
+                        false
+                    }
+                };
+
+                let mut all_strokes = self.preview.delta.new_strokes.iter()
+                    .chain(self.preview.current_remaining_old_strokes.mapping.values());
+
+                if ! all_strokes.any(is_right_of_stroke) {
+                    if let Some(shifted_stroke) = stroke.subsection(start, end).and_then(|subsection|
+                        LaneStroke::new(
+                            subsection.nodes().iter().map(|node|
+                                LaneStrokeNode{
+                                    position: node.position + 5.0 * node.direction.orthogonal(),
+                                    direction: node.direction
+                                }
+                            ).collect()
+                        ).ok()
+                    ) {
+                        Swarm::<LaneStrokeAddable>::all() << CreateWith(
+                            LaneStrokeAddable::new(shifted_stroke), AddToUI
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     fn clear_selectables(&mut self) {
         Swarm::<LaneStrokeSelectable>::all() << ClearSelectables;
     }
 
     fn clear_draggables(&mut self) {
         Swarm::<LaneStrokeDraggable>::all() << ClearDraggables;
+        Swarm::<LaneStrokeAddable>::all() << ClearDraggables;
     }
 }
 
@@ -578,6 +640,9 @@ struct ClearSelectables;
 #[derive(Copy, Clone)]
 struct ClearDraggables;
 
+#[derive(Copy, Clone)]
+struct ClearAddables;
+
 pub fn setup(system: &mut ActorSystem) {
     system.add_individual(CurrentPlan::default());
     system.add_inbox::<PlanControl, CurrentPlan>();
@@ -586,4 +651,5 @@ pub fn setup(system: &mut ActorSystem) {
     self::lane_stroke_canvas::setup(system);
     self::lane_stroke_selectable::setup(system);
     self::lane_stroke_draggable::setup(system);
+    self::lane_stroke_addable::setup(system);
 }
