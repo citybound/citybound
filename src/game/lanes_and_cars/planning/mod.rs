@@ -233,7 +233,75 @@ impl Recipient<PlanControl> for CurrentPlan {
                             } else {unreachable!()}
                         }).collect();
 
-                        DrawingStatus::ContinuingFrom(new_current_nodes, position)
+                        let mut joined_some = false;
+
+                        for &LaneStrokeNodeRef(stroke_idx, node_idx) in &new_current_nodes {
+                            
+                            let (maybe_join_with, is_end) = {
+                                let stroke = &self.preview.delta.new_strokes[stroke_idx];
+                                let is_end = stroke.nodes().len() - 1 == node_idx;
+                                let node = &stroke.nodes()[node_idx];
+
+                                let mut all_strokes = self.preview.delta.new_strokes.iter().enumerate().map(|(new_idx, new_stroke)|
+                                    (SelectableStrokeRef::New(new_idx), new_stroke)
+                                ).chain(self.preview.current_remaining_old_strokes.mapping.pairs().map(|(old_ref, old_stroke)|
+                                    (SelectableStrokeRef::RemainingOld(*old_ref), old_stroke)
+                                ));
+
+                                let maybe_join_with = all_strokes.find(|&(_, stroke)|
+                                    if is_end {
+                                        stroke.nodes()[0].position.is_roughly_within(node.position, 5.0)
+                                    } else {
+                                        stroke.nodes().last().unwrap().position.is_roughly_within(node.position, 5.0)
+                                    }
+                                ).map(|(stroke_ref, _)|
+                                    stroke_ref
+                                );
+
+                                (maybe_join_with, is_end)
+                            };
+
+                            if let Some(join_with_ref) = maybe_join_with {
+                                joined_some = true;
+
+                                let stroke = self.preview.delta.new_strokes[stroke_idx].clone();
+
+                                {
+                                    let other_stroke = match join_with_ref {
+                                        SelectableStrokeRef::New(node_idx) => {
+                                            &mut self.preview.delta.new_strokes[node_idx]
+                                        },
+                                        SelectableStrokeRef::RemainingOld(old_ref) => {
+                                            let old_stroke = self.preview.current_remaining_old_strokes.mapping.get(old_ref).unwrap();
+                                            self.preview.delta.strokes_to_destroy.insert(old_ref, old_stroke.clone());
+                                            self.preview.delta.new_strokes.push(old_stroke.clone());
+                                            self.preview.delta.new_strokes.last_mut().unwrap()
+                                        }
+                                    };
+
+                                    let other_nodes = other_stroke.nodes().clone();
+
+                                    *other_stroke.nodes_mut() = if is_end {
+                                        let mut new_nodes = stroke.nodes().clone();
+                                        new_nodes.pop();
+                                        new_nodes.extend(other_nodes.into_iter());
+                                        new_nodes
+                                    } else {
+                                        let mut new_nodes = other_nodes;
+                                        new_nodes.extend(stroke.nodes().clone().into_iter().skip(1));
+                                        new_nodes
+                                    }
+                                }
+
+                                self.preview.delta.new_strokes.remove(stroke_idx);
+                            }
+                        }
+
+                        if joined_some {
+                            DrawingStatus::Nothing(())
+                        } else {
+                            DrawingStatus::ContinuingFrom(new_current_nodes, position)
+                        }
                     }
                 },
                 DrawingStatus::WithSelections(selections, _) => {
