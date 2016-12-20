@@ -33,7 +33,8 @@ pub struct PlanState {
 
 #[derive(Compact, Clone, Default)]
 pub struct CurrentPlan {
-    history: CVec<PlanState>,
+    undo_history: CVec<PlanState>,
+    redo_history: CVec<PlanState>,
     current: PlanState,
     preview: PlanState
 }
@@ -43,6 +44,7 @@ impl Individual for CurrentPlan{}
 enum PlanControl{
     Commit(bool, P2),
     Undo(()),
+    Redo(()),
     WithLatestNode(P2, bool),
     Select(SelectableStrokeRef, N, N),
     MaximizeSelection(()),
@@ -62,7 +64,8 @@ impl Recipient<PlanControl> for CurrentPlan {
     fn receive(&mut self, msg: &PlanControl) -> Fate {match *msg{
         PlanControl::Commit(update_preview_and_history, at) => {
             if update_preview_and_history {
-                self.history.push(self.current.clone());
+                self.undo_history.push(self.current.clone());
+                self.redo_history.clear();
             }
             self.current = self.preview.clone();
             if update_preview_and_history {
@@ -142,9 +145,33 @@ impl Recipient<PlanControl> for CurrentPlan {
             Fate::Live
         },
         PlanControl::Undo(()) => {
-            if let Some(previous_state) = self.history.pop() {
+            if let Some(previous_state) = self.undo_history.pop() {
+                self.redo_history.push(self.current.clone());
                 self.preview = previous_state.clone();
                 self.current = previous_state;
+                self.clear_selectables();
+                self.clear_draggables();
+
+                match self.preview.ui_state.drawing_status{
+                    DrawingStatus::Nothing(()) => {
+                        self.preview.ui_state.recreate_selectables = true;
+                    },
+                    DrawingStatus::WithSelections(_, _) => {
+                        self.preview.ui_state.recreate_selectables = true;
+                        self.preview.ui_state.recreate_draggables = true;
+                    }
+                    _ => {}
+                }
+
+                MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
+            }
+            Fate::Live
+        },
+        PlanControl::Redo(()) => {
+            if let Some(next_state) = self.redo_history.pop() {
+                self.undo_history.push(self.current.clone());
+                self.preview = next_state.clone();
+                self.current = next_state;
                 self.clear_selectables();
                 self.clear_draggables();
 
