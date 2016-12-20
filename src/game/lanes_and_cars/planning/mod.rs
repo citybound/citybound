@@ -1,6 +1,7 @@
 use descartes::{N, P2, V2, Norm, Segment, FiniteCurve, WithUniqueOrthogonal, Curve, RelativeToBasis, RoughlyComparable, Dot};
 use kay::{CVec, CDict, Recipient, Swarm, ActorSystem, Individual, Fate, CreateWith};
 use itertools::Itertools;
+use ordered_float::OrderedFloat;
 
 //TODO: Clean up this whole mess with more submodules
 
@@ -106,12 +107,13 @@ impl Recipient<PlanControl> for CurrentPlan {
                                     SelectionMeaning::End
                                 } else {SelectionMeaning::SubSection}
                             }).collect::<Vec<_>>();
-                            if meanings.iter().any(|meaning| *meaning == SelectionMeaning::SubSection) {
+                            if meanings.iter().all(|meaning| *meaning == SelectionMeaning::SubSection) {
                                 self.preview.ui_state.recreate_selectables = true;
                                 self.preview.ui_state.recreate_draggables = true;
                                 MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
                             } else {
-                                let current_nodes = meanings.iter().zip(selections.keys()).map(|(meaning, selection_ref)| {
+                                let current_nodes = meanings.iter().filter(|meaning| **meaning != SelectionMeaning::SubSection)
+                                    .zip(selections.keys()).map(|(meaning, selection_ref)| {
                                     let stroke_idx = match *selection_ref {
                                         SelectableStrokeRef::New(usize) => usize,
                                         SelectableStrokeRef::RemainingOld(old_ref) => {
@@ -261,6 +263,7 @@ impl Recipient<PlanControl> for CurrentPlan {
                         }).collect();
 
                         let mut joined_some = false;
+                        let mut new_strokes_to_remove = Vec::new();
 
                         for &LaneStrokeNodeRef(stroke_idx, node_idx) in &new_current_nodes {
                             
@@ -269,20 +272,32 @@ impl Recipient<PlanControl> for CurrentPlan {
                                 let is_end = stroke.nodes().len() - 1 == node_idx;
                                 let node = &stroke.nodes()[node_idx];
 
-                                let mut all_strokes = self.preview.delta.new_strokes.iter().enumerate().map(|(new_idx, new_stroke)|
+                                let all_strokes = self.preview.delta.new_strokes.iter().enumerate().map(|(new_idx, new_stroke)|
                                     (SelectableStrokeRef::New(new_idx), new_stroke)
                                 ).chain(self.preview.current_remaining_old_strokes.mapping.pairs().map(|(old_ref, old_stroke)|
                                     (SelectableStrokeRef::RemainingOld(*old_ref), old_stroke)
                                 ));
 
-                                let maybe_join_with = all_strokes.find(|&(_, stroke)|
+                                let maybe_join_with = all_strokes.map(|(stroke_ref, stroke)|
                                     if is_end {
-                                        stroke.nodes()[0].position.is_roughly_within(node.position, 5.0)
+                                        let mut distance = (stroke.nodes()[0].position - node.position).norm();
+                                        if !stroke.nodes()[0].direction.is_roughly_within(node.direction, 0.5) {
+                                            // prevent unaligned connects
+                                            distance = ::std::f32::INFINITY
+                                        }
+                                        (stroke_ref, distance)
                                     } else {
-                                        stroke.nodes().last().unwrap().position.is_roughly_within(node.position, 5.0)
+                                        let mut distance = (stroke.nodes().last().unwrap().position - node.position).norm();
+                                        if !stroke.nodes().last().unwrap().direction.is_roughly_within(node.direction, 0.5) {
+                                            // prevent unaligned connects
+                                            distance = ::std::f32::INFINITY
+                                        }
+                                        (stroke_ref, distance)
                                     }
-                                ).map(|(stroke_ref, _)|
-                                    stroke_ref
+                                ).min_by_key(|&(_, distance)| OrderedFloat(distance)).and_then(|(stroke_ref, distance)|
+                                    if distance < 6.0 {
+                                        Some(stroke_ref)
+                                    } else {None}
                                 );
 
                                 (maybe_join_with, is_end)
@@ -320,11 +335,15 @@ impl Recipient<PlanControl> for CurrentPlan {
                                     }
                                 }
 
-                                self.preview.delta.new_strokes.remove(stroke_idx);
+                                new_strokes_to_remove.push(stroke_idx);
                             }
                         }
 
                         if joined_some {
+                            new_strokes_to_remove.sort();
+                            for idx_to_remove in new_strokes_to_remove.into_iter().rev() {
+                                self.preview.delta.new_strokes.remove(idx_to_remove);
+                            }
                             DrawingStatus::Nothing(())
                         } else {
                             DrawingStatus::ContinuingFrom(new_current_nodes, position)
@@ -349,6 +368,65 @@ impl Recipient<PlanControl> for CurrentPlan {
                     vec![(selection_ref, (start, end))].into_iter().collect(), false
                 );
             }
+
+            if self.preview.ui_state.select_parallel {
+                let stroke = match selection_ref {
+                    SelectableStrokeRef::New(node_idx) => &self.preview.delta.new_strokes[node_idx],
+                    SelectableStrokeRef::RemainingOld(old_ref) =>
+                        self.preview.current_remaining_old_strokes.mapping.get(old_ref).unwrap()
+                };
+
+                let start_position = stroke.path().along(start);
+                let start_direction = stroke.path().direction_along(start);
+                let end_position = stroke.path().along(end);
+                let end_direction = stroke.path().direction_along(end);
+
+                let mut additional_selections = Vec::new();
+
+                let all_strokes = self.preview.delta.new_strokes.iter().enumerate().map(|(new_idx, new_stroke)|
+                    (SelectableStrokeRef::New(new_idx), new_stroke)
+                ).chain(self.preview.current_remaining_old_strokes.mapping.pairs().map(|(old_ref, old_stroke)|
+                    (SelectableStrokeRef::RemainingOld(*old_ref), old_stroke)
+                ));
+
+                for (other_ref, other_stroke) in all_strokes {
+                    if other_ref != selection_ref {
+                        if let (Some(start_on_other_distance), Some(end_on_other_distance))
+                            = (other_stroke.path().project(start_position), other_stroke.path().project(end_position))
+                        {
+                            let start_on_other = other_stroke.path().along(start_on_other_distance);
+                            let start_direction_on_other = other_stroke.path().direction_along(start_on_other_distance);
+                            let end_on_other = other_stroke.path().along(end_on_other_distance);
+                            let end_direction_on_other = other_stroke.path().direction_along(end_on_other_distance);
+
+                            let add_selection = start_on_other.is_roughly_within(start_position, 60.0)
+                                && end_on_other.is_roughly_within(end_position, 60.0)
+                                && if start_on_other_distance < end_on_other_distance {
+                                    start_direction_on_other.is_roughly_within(start_direction, 0.1)
+                                    && end_direction_on_other.is_roughly_within(end_direction, 0.1)
+                                } else if self.preview.ui_state.select_opposite {
+                                    start_direction_on_other.is_roughly_within(-start_direction, 0.1)
+                                    && end_direction_on_other.is_roughly_within(-end_direction, 0.1)
+                                } else {
+                                    false
+                                };
+                            if add_selection {
+                                additional_selections.push((other_ref, (
+                                    start_on_other_distance.min(end_on_other_distance),
+                                    end_on_other_distance.max(start_on_other_distance)
+                                )));
+                            }
+                        }
+                    }
+                }
+
+                if let DrawingStatus::WithSelections(ref mut selections, _) = self.preview.ui_state.drawing_status {
+                    for (other_ref, (start, end)) in additional_selections {
+                        selections.insert(other_ref, (start, end));
+                    }
+                } else {unreachable!()}
+            }
+
             self.create_draggables();
             Fate::Live
         },
@@ -712,6 +790,8 @@ impl ::std::fmt::Debug for DrawingStatus{
 struct PlanUIState{
     create_both_sides: bool,
     n_lanes_per_side: usize,
+    select_parallel: bool,
+    select_opposite: bool,
     drawing_status: DrawingStatus,
     dirty: bool,
     recreate_selectables: bool,
@@ -723,6 +803,8 @@ impl Default for PlanUIState{
         PlanUIState{
             create_both_sides: true,
             n_lanes_per_side: 5,
+            select_parallel: true,
+            select_opposite: true,
             drawing_status: DrawingStatus::Nothing(()),
             dirty: true,
             recreate_selectables: false,
