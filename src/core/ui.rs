@@ -16,7 +16,9 @@ pub struct UserInterface {
     drag_start_3d: Option<P3>,
     hovered_interactable: Option<ID>,
     active_interactable: Option<ID>,
-    focused_interactable: Option<ID>
+    focused_interactable: Option<ID>,
+    space_pressed: bool,
+    alt_pressed: bool
 }
 impl Individual for UserInterface{}
 
@@ -31,7 +33,9 @@ impl UserInterface{
             drag_start_3d: None,
             hovered_interactable: None,
             active_interactable: None,
-            focused_interactable: None
+            focused_interactable: None,
+            space_pressed: false,
+            alt_pressed: false
         }
     }
 }
@@ -75,7 +79,7 @@ impl Recipient<Focus> for UserInterface {
 }
 
 #[derive(Copy, Clone)]
-enum Mouse{Moved(P2), Down, Up}
+enum Mouse{Moved(P2), Scrolled(P2), Down, Up}
 
 use ::monet::Project2dTo3d;
 
@@ -95,12 +99,26 @@ pub enum Event3d{
 impl Recipient<Mouse> for UserInterface {
     fn receive(&mut self, msg: &Mouse) -> Fate {match *msg{
         Mouse::Moved(position) => {
-            self.cursor_2d = position;
-            Renderer::id() << Project2dTo3d{
-                scene_id: 0,
-                position_2d: position,
-                requester: Self::id()
-            };
+            let delta = self.cursor_2d - position;
+            if self.space_pressed {
+                Renderer::id() << MoveEye{scene_id: 0, movement: ::monet::Movement::Shift(V3::new(-delta.y / 3.0, delta.x / 3.0, 0.0))};                
+                self.cursor_2d = position;
+            } else if self.alt_pressed {
+                Renderer::id() << MoveEye{scene_id: 0, movement: ::monet::Movement::Rotate(-delta.x/300.0)};
+                Renderer::id() << MoveEye{scene_id: 0, movement: ::monet::Movement::Zoom(-delta.y)};
+                self.cursor_2d = position;
+            } else {
+                self.cursor_2d = position;
+                Renderer::id() << Project2dTo3d{
+                    scene_id: 0,
+                    position_2d: position,
+                    requester: Self::id()
+                };
+            }
+            Fate::Live
+        },
+        Mouse::Scrolled(delta) => {
+            Renderer::id() << MoveEye{scene_id: 0, movement: ::monet::Movement::Shift(V3::new(delta.y / 5.0, -delta.x / 5.0, 0.0))};
             Fate::Live
         },
         Mouse::Down => {
@@ -135,15 +153,35 @@ enum Key{Up(VirtualKeyCode), Down(VirtualKeyCode)}
 impl Recipient<Key> for UserInterface {
     fn receive(&mut self, msg: &Key) -> Fate {match *msg {
         Key::Down(key_code) => {
-            self.focused_interactable.map(|interactable|
-                interactable << Event3d::KeyDown(key_code)
-            );
+            match key_code {
+                VirtualKeyCode::Space => {
+                    self.space_pressed = true;
+                },
+                VirtualKeyCode::LAlt | VirtualKeyCode::RAlt => {
+                    self.alt_pressed = true;
+                },
+                _ => {
+                    self.focused_interactable.map(|interactable|
+                        interactable << Event3d::KeyDown(key_code)
+                    );
+                }
+            }
             Fate::Live
         },
         Key::Up(key_code) => {
-            self.focused_interactable.map(|interactable|
-                interactable << Event3d::KeyUp(key_code)
-            );
+            match key_code {
+                VirtualKeyCode::Space => {
+                    self.space_pressed = false;
+                },
+                VirtualKeyCode::LAlt | VirtualKeyCode::RAlt => {
+                    self.alt_pressed = false;
+                },
+                _ => {
+                    self.focused_interactable.map(|interactable|
+                        interactable << Event3d::KeyUp(key_code)
+                    );
+                }
+            }
             Fate::Live
         }
     }}
@@ -217,7 +255,7 @@ pub fn process_events(window: &GlutinFacade) -> bool {
         match event {
             Event::Closed => return false,
             Event::MouseWheel(MouseScrollDelta::PixelDelta(x, y), _) =>
-                Renderer::id() << MoveEye{scene_id: 0, delta: V3::new(y / 5.0, -x / 5.0, 0.0)},
+                UserInterface::id() << Mouse::Scrolled(P2::new(x as N, y as N)),
             Event::MouseMoved(x, y) =>
                 UserInterface::id() << Mouse::Moved(P2::new(x as N, y as N)),
             Event::MouseInput(ElementState::Pressed, MouseButton::Left) =>
