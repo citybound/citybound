@@ -6,7 +6,7 @@ mod intelligent_acceleration;
 use self::intelligent_acceleration::{intelligent_acceleration};
 use core::geometry::{CPath};
 use kay::{ID, Actor, CVec, Swarm, CreateWith, Recipient, ActorSystem, Fate};
-use descartes::{N, P2, FiniteCurve, RoughlyComparable, Band, Intersect, Curve, Dot, WithUniqueOrthogonal};
+use descartes::{N, P2, FiniteCurve, RoughlyComparable, Band, Intersect, Curve, Dot, WithUniqueOrthogonal, Path};
 use ordered_float::OrderedFloat;
 use itertools::Itertools;
 use ::std::f32::INFINITY;
@@ -60,6 +60,8 @@ pub struct TransferLane {
     right: Option<(ID, f32)>,
     left_obstacles: CVec<Obstacle>,
     right_obstacles: CVec<Obstacle>,
+    left_distance_map: CVec<(N, N)>,
+    right_distance_map: CVec<(N, N)>,
     cars: CVec<TransferringLaneCar>,
     in_construction: f32,
     unbuilding_for: Option<ID>,
@@ -76,6 +78,8 @@ impl TransferLane {
             right: None,
             left_obstacles: CVec::new(),
             right_obstacles: CVec::new(),
+            left_distance_map: CVec::new(),
+            right_distance_map: CVec::new(),
             cars: CVec::new(),
             in_construction: 0.0,
             unbuilding_for: None,
@@ -89,6 +93,36 @@ impl TransferLane {
         } else {
             self.left.expect("should have a left lane").0
         }
+    }
+
+    fn interaction_to_self_offset(&self, distance_on_interaction: N, came_from_left: bool) -> N {
+        let map = if came_from_left {&self.left_distance_map} else {&self.right_distance_map};
+        #[allow(needless_range_loop)]
+        for i in 0..map.len() {
+            let (next_self, next_other) = map[i];
+            let &(prev_self, prev_other) = map.get(i - 1).unwrap_or(&(0.0, 0.0));
+            if prev_other <= distance_on_interaction && next_other >= distance_on_interaction {
+                let amount_of_segment = (distance_on_interaction - prev_other) / (next_other - prev_other);
+                let distance_on_self = prev_self + amount_of_segment * (next_self - prev_self);
+                return distance_on_self - distance_on_interaction
+            } 
+        }
+        map.last().unwrap().0 - map.last().unwrap().1
+    }
+
+    fn self_to_interaction_offset(&self, distance_on_self: N, going_to_left: bool) -> N {
+        let map = if going_to_left {&self.left_distance_map} else {&self.right_distance_map};
+        #[allow(needless_range_loop)]
+        for i in 0..map.len() {
+            let (next_self, next_other) = map[i];
+            let &(prev_self, prev_other) = map.get(i - 1).unwrap_or(&(0.0, 0.0));
+            if prev_self <= distance_on_self && next_self >= distance_on_self {
+                let amount_of_segment = (distance_on_self - prev_self) / (next_self - prev_self);
+                let distance_on_other = prev_other + amount_of_segment * (next_other - prev_other);
+                return distance_on_other - distance_on_self
+            }
+        }
+        map.last().unwrap().1 - map.last().unwrap().0
     }
 }
 
@@ -149,9 +183,11 @@ impl Recipient<AddCar> for Lane {
 impl Recipient<AddCar> for TransferLane {
     fn receive(&mut self, msg: &AddCar) -> Fate {match *msg{
         AddCar{car, from: Some(from)} => {
-            let side_multiplier = if from == self.left.expect("should have a left lane").0 {-1.0} else {1.0};
+            let from_left = from == self.left.expect("should have a left lane").0;
+            let side_multiplier = if from_left {-1.0} else {1.0};
+            let offset = self.interaction_to_self_offset(*car.position, from_left);
             self.cars.push(TransferringLaneCar{
-                as_lane_car: car,
+                as_lane_car: car.offset_by(offset),
                 transfer_position: 1.0 * side_multiplier,
                 transfer_velocity: 0.0,
                 transfer_acceleration: 0.3 * -side_multiplier,
@@ -179,10 +215,15 @@ impl Recipient<AddObstacles> for TransferLane {
     fn receive(&mut self, msg: &AddObstacles) -> Fate {match *msg{
         AddObstacles{ref obstacles, from} => {
             if let (Some((left_id, _)), Some(_)) = (self.left, self.right) {
-                let target_obstacles = if left_id == from {
-                    &mut self.left_obstacles
-                } else {&mut self.right_obstacles};
-                *target_obstacles = obstacles.clone();
+                if left_id == from {
+                    self.left_obstacles = obstacles.iter().map(|obstacle|
+                        obstacle.offset_by(self.interaction_to_self_offset(*obstacle.position, true))
+                    ).collect();
+                } else {
+                    self.right_obstacles = obstacles.iter().map(|obstacle|
+                        obstacle.offset_by(self.interaction_to_self_offset(*obstacle.position, false))
+                    ).collect();
+                };
             } else {
                 println!("transfer lane not connected for obstacles yet");
             }
@@ -441,10 +482,14 @@ impl Recipient<Tick> for TransferLane {
                 loop {
                     let (should_remove, done) = if let Some(car) = self.cars.get(i) {
                         if car.transfer_position > 1.0 || (*car.position > self.length && car.transfer_acceleration > 0.0) {
-                            right << AddCar{car: car.as_lane_car.offset_by(left_start), from: Some(self.id())};
+                            right << AddCar{car: car.as_lane_car.offset_by(
+                                right_start + self.self_to_interaction_offset(*car.position, false)
+                            ), from: Some(self.id())};
                             (true, false)
                         } else if car.transfer_position < -1.0 || (*car.position > self.length && car.transfer_acceleration <= 0.0)  {
-                            left << AddCar{car: car.as_lane_car.offset_by(right_start), from: Some(self.id())};
+                            left << AddCar{car: car.as_lane_car.offset_by(
+                                left_start + self.self_to_interaction_offset(*car.position, true)
+                            ), from: Some(self.id())};
                             (true, false)
                         } else {
                             i += 1;
@@ -460,7 +505,7 @@ impl Recipient<Tick> for TransferLane {
                 if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING == left.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
                     let obstacles = self.cars.iter().filter_map(|car|
                         if car.transfer_position < 0.3 || car.transfer_acceleration < 0.0 {
-                            Some(car.as_obstacle.offset_by(left_start))
+                            Some(car.as_obstacle.offset_by(left_start + self.self_to_interaction_offset(*car.position, true)))
                         } else {None}
                     ).collect();
                     left << AddObstacles{obstacles: obstacles, from: self.id()};
@@ -469,7 +514,7 @@ impl Recipient<Tick> for TransferLane {
                 if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING == right.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
                     let obstacles = self.cars.iter().filter_map(|car|
                         if car.transfer_position > -0.3 || car.transfer_acceleration > 0.0 {
-                            Some(car.as_obstacle.offset_by(right_start))
+                            Some(car.as_obstacle.offset_by(right_start + self.self_to_interaction_offset(*car.position, false)))
                         } else {None}
                     ).collect();
                     right << AddObstacles{obstacles: obstacles, from: self.id()};
@@ -741,13 +786,22 @@ impl Recipient<ConnectTransferToNormal> for TransferLane {
                             }
                         });
                         
+                        let mut distance_covered = 0.0;
+                        let distance_map = self.path.segments().iter().map(|segment| {
+                            distance_covered += segment.length();
+                            let segment_end_on_other_distance = other_path.project(segment.end()).expect("should contain transfer lane segment end");
+                            (distance_covered, segment_end_on_other_distance - self_start_on_other_distance)
+                        }).collect();
+
                         let other_is_right = (self_start_on_other - self.path.start())
                             .dot(&self.path.start_direction().orthogonal()) > 0.0;
 
                         if other_is_right {
                             self.right = Some((other_id, self_start_on_other_distance));
+                            self.right_distance_map = distance_map;
                         } else {
                             self.left = Some((other_id, self_start_on_other_distance));
+                            self.left_distance_map = distance_map;
                         }
                     }
                 }
