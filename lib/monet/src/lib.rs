@@ -135,12 +135,12 @@ impl Recipient<AddBatch> for Renderer {
 }
 
 #[derive(Compact, Clone)]
-pub struct UpdateThing {pub scene_id: usize, pub thing_id: u16, pub thing: Thing, pub instance: Instance}
+pub struct UpdateThing {pub scene_id: usize, pub thing_id: u16, pub thing: Thing, pub instance: Instance, pub is_decal: bool}
 
 impl Recipient<UpdateThing> for Renderer {
     fn receive(&mut self, msg: &UpdateThing) -> Fate {match *msg {
-        UpdateThing{scene_id, thing_id, ref thing, instance} => {
-            self.scenes[scene_id].batches.insert(thing_id, Batch::new_thing(thing.clone(), instance, &self.render_context.window));
+        UpdateThing{scene_id, thing_id, ref thing, instance, is_decal} => {
+            self.scenes[scene_id].batches.insert(thing_id, Batch::new_thing(thing.clone(), instance, is_decal, &self.render_context.window));
             Fate::Live
         }
     }}
@@ -364,7 +364,8 @@ pub struct Batch {
     vertices: glium::VertexBuffer<Vertex>,
     indices: glium::IndexBuffer<u16>,
     instances: Vec<Instance>,
-    clear_every_frame: bool
+    clear_every_frame: bool,
+    is_decal: bool
 }
 
 impl Batch {
@@ -373,16 +374,18 @@ impl Batch {
             vertices: glium::VertexBuffer::new(window, &prototype.vertices).unwrap(),
             indices: glium::IndexBuffer::new(window, index::PrimitiveType::TrianglesList, &prototype.indices).unwrap(),
             instances: Vec::new(),
-            clear_every_frame: true
+            clear_every_frame: true,
+            is_decal: false
         }
     }
 
-    pub fn new_thing(thing: Thing, instance: Instance, window: &GlutinFacade) -> Batch {
+    pub fn new_thing(thing: Thing, instance: Instance, is_decal: bool, window: &GlutinFacade) -> Batch {
         Batch{
             vertices: glium::VertexBuffer::new(window, &thing.vertices).unwrap(),
             indices: glium::IndexBuffer::new(window, index::PrimitiveType::TrianglesList, &thing.indices).unwrap(),
             instances: vec![instance],
-            clear_every_frame: false
+            clear_every_frame: false,
+            is_decal: is_decal
         }
     }
 }
@@ -481,13 +484,25 @@ impl RenderContext {
             },
             .. Default::default()
         };
+
+        let decal_params = glium::DrawParameters {
+            depth: glium::Depth {
+                test: glium::draw_parameters::DepthTest::Overwrite,
+                write: false,
+                .. Default::default()
+            },
+            .. Default::default()
+        };
         
         // draw a frame
         target.clear_color_and_depth((1.0, 1.0, 1.0, 1.0), 1.0);
 
         let mut render_debug_text = String::from("Renderer:\n");
 
-        for (i, &Batch{ref vertices, ref indices, ref instances, ..}) in scene.batches.values().enumerate() {
+        let mut batches_todo = scene.batches.iter().collect::<Vec<_>>();
+        batches_todo.sort_by_key(|&(batch_id, _)| batch_id);
+
+        for (i, &Batch{ref vertices, ref indices, ref instances, is_decal, ..}) in batches_todo {
             if instances.len() > 1 {
                 render_debug_text.push_str(format!("batch{}: {} instances\n", i, instances.len()).as_str());
             }
@@ -497,7 +512,7 @@ impl RenderContext {
                 indices,
                 &self.batch_program,
                 &uniforms,
-                &params
+                if is_decal {&decal_params} else {&params}
             ).unwrap();
         }
 

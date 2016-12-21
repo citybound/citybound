@@ -247,7 +247,8 @@ impl Recipient<RenderToScene> for Lane {
                     scene_id: scene_id,
                     thing_id: 4000 + self.id().instance_id as u16,
                     thing: band_to_thing(&Band::new(self.path.clone(), 0.3), if self.green {0.4} else {0.2}),
-                    instance: Instance::with_color(if self.green {[0.0, 1.0, 0.0]} else {[1.0, 0.0, 0.0]})
+                    instance: Instance::with_color(if self.green {[0.0, 1.0, 0.0]} else {[1.0, 0.0, 0.0]}),
+                    is_decal: true
                 };
             }
 
@@ -282,7 +283,8 @@ impl Recipient<RenderToScene> for Lane {
                     scene_id: scene_id,
                     thing_id: 4000 + self.id().instance_id as u16,
                     thing: band_to_thing(&Band::new(self.path.clone(), if is_landmark {2.5} else {1.0}), 0.4),
-                    instance: Instance::with_color(random_color)
+                    instance: Instance::with_color(random_color),
+                    is_decal: true
                 };
             }
             Fate::Live
@@ -405,7 +407,8 @@ pub fn on_unbuild(lane: &Lane) {
             scene_id: 0,
             thing_id: 4000 + lane.id().instance_id as u16,
             thing: Thing::new(vec![], vec![]),
-            instance: Instance::with_color([0.0, 0.0, 0.0])
+            instance: Instance::with_color([0.0, 0.0, 0.0]),
+            is_decal: true
         };
     }
 
@@ -414,7 +417,8 @@ pub fn on_unbuild(lane: &Lane) {
             scene_id: 0,
             thing_id: 4000 + lane.id().instance_id as u16,
             thing: Thing::new(vec![], vec![]),
-            instance: Instance::with_color([0.0, 0.0, 0.0])
+            instance: Instance::with_color([0.0, 0.0, 0.0]),
+            is_decal: true
         };
     }
 }
@@ -434,13 +438,13 @@ pub fn setup(system: &mut ActorSystem) {
     system.add_inbox::<SetupInScene, Swarm<Lane>>();
     system.add_inbox::<RenderToCollector, Swarm<Lane>>();
     system.add_inbox::<RenderToScene, Swarm<Lane>>();
-    super::lane_thing_collector::setup::<LaneAsphalt>(system, [0.7, 0.7, 0.7], 2000);
-    super::lane_thing_collector::setup::<LaneMarker>(system, [1.0, 1.0, 1.0], 2100);
+    super::lane_thing_collector::setup::<LaneAsphalt>(system, [0.7, 0.7, 0.7], 2000, false);
+    super::lane_thing_collector::setup::<LaneMarker>(system, [1.0, 1.0, 1.0], 2100, true);
 
     system.add_inbox::<SetupInScene, Swarm<TransferLane>>();
     system.add_inbox::<RenderToCollector, Swarm<TransferLane>>();
     system.add_inbox::<RenderToScene, Swarm<TransferLane>>();
-    super::lane_thing_collector::setup::<TransferLaneMarkerGaps>(system, [0.7, 0.7, 0.7], 2200);
+    super::lane_thing_collector::setup::<TransferLaneMarkerGaps>(system, [0.7, 0.7, 0.7], 2200, true);
     
     super::planning::setup(system);
 }

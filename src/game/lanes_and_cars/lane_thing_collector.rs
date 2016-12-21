@@ -14,6 +14,7 @@ enum ThingLocation{
 pub struct ThingCollector<T: Clone> {
     instance_color: [f32; 3],
     base_thing_id: u16,
+    is_decal: bool,
     living_things: CDict<ID, Thing>,
     frozen_things: CDict<ID, Thing>,
     n_frozen_groups: usize,
@@ -110,7 +111,8 @@ impl<T: Clone + 'static> Recipient<RenderToScene> for ThingCollector<T>{
                             instance_position: [0.0, 0.0, -0.1],
                             instance_direction: [1.0, 0.0],
                             instance_color: self.instance_color
-                        }
+                        },
+                        is_decal: self.is_decal
                     };
 
                     self.n_frozen_groups += 1;
@@ -136,7 +138,8 @@ impl<T: Clone + 'static> Recipient<RenderToScene> for ThingCollector<T>{
                         instance_position: [0.0, 0.0, -0.1],
                         instance_direction: [1.0, 0.0],
                         instance_color: self.instance_color
-                    }
+                    },
+                    is_decal: self.is_decal
                 };
 
                 new_n_total_groups += 1;
@@ -148,7 +151,8 @@ impl<T: Clone + 'static> Recipient<RenderToScene> for ThingCollector<T>{
                         scene_id: scene_id,
                         thing_id: self.base_thing_id + thing_to_empty_id as u16,
                         thing: Thing::new(vec![], vec![]),
-                        instance: Instance::with_color([0.0, 0.0, 0.0])
+                        instance: Instance::with_color([0.0, 0.0, 0.0]),
+                        is_decal: self.is_decal
                     }
                 }
             }
@@ -160,10 +164,11 @@ impl<T: Clone + 'static> Recipient<RenderToScene> for ThingCollector<T>{
     }}
 }
 
-pub fn setup<T: Clone + 'static>(system: &mut ActorSystem, instance_color: [f32; 3], base_thing_id: u16) {
+pub fn setup<T: Clone + 'static>(system: &mut ActorSystem, instance_color: [f32; 3], base_thing_id: u16, is_decal: bool) {
     system.add_individual(ThingCollector::<T>{
         instance_color: instance_color,
         base_thing_id: base_thing_id,
+        is_decal: is_decal,
         living_things: CDict::new(),
         frozen_things: CDict::new(),
         n_frozen_groups: 0,
