@@ -1,4 +1,4 @@
-use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Norm, Path};
+use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Norm, Path, Dot, RoughlyComparable};
 use kay::{Actor, CVec, Individual, Recipient, RecipientAsSwarm, ActorSystem, Swarm, Fate};
 use monet::{Instance, Thing, Vertex, UpdateThing};
 use core::geometry::{band_to_thing, dash_path};
@@ -7,6 +7,9 @@ use itertools::Itertools;
 
 #[path = "./resources/car.rs"]
 mod car;
+
+#[path = "./resources/traffic_light.rs"]
+mod traffic_light;
 
 use super::lane_thing_collector::ThingCollector;
 
@@ -17,6 +20,10 @@ impl RecipientAsSwarm<SetupInScene> for Lane {
     fn receive(_swarm: &mut Swarm<Self>, msg: &SetupInScene) -> Fate {match *msg {
         SetupInScene{renderer_id, scene_id} => {
             renderer_id << AddBatch{scene_id: scene_id, batch_id: 0, thing: car::create()};
+            renderer_id << AddBatch{scene_id: scene_id, batch_id: 1, thing: traffic_light::create()};
+            renderer_id << AddBatch{scene_id: scene_id, batch_id: 2, thing: traffic_light::create_light()};
+            renderer_id << AddBatch{scene_id: scene_id, batch_id: 3, thing: traffic_light::create_light_left()};
+            renderer_id << AddBatch{scene_id: scene_id, batch_id: 4, thing: traffic_light::create_light_right()};
 
             renderer_id << AddBatch{scene_id: scene_id, batch_id: 1333, thing: Thing::new(
                 vec![
@@ -38,10 +45,7 @@ impl RecipientAsSwarm<SetupInScene> for Lane {
 
 impl RecipientAsSwarm<SetupInScene> for TransferLane {
     fn receive(_swarm: &mut Swarm<Self>, msg: &SetupInScene) -> Fate {match *msg{
-        SetupInScene{renderer_id, scene_id} => {
-            renderer_id << AddBatch{scene_id: scene_id, batch_id: 1, thing: car::create()};
-            Fate::Live
-        }
+        SetupInScene{..} => {Fate::Live}
     }}
 }
 
@@ -168,6 +172,74 @@ impl Recipient<RenderToScene> for Lane {
                     batch_id: 0,
                     instances: car_instances
                 };
+            }
+            //                         no traffic light for u-turn
+            if self.on_intersection && !self.path.end_direction().is_roughly_within(-self.path.start_direction(), 0.1) {
+                let mut position = self.path.start();
+                let (position_shift, batch_id) = if !self.path.start_direction().is_roughly_within(self.path.end_direction(), 0.5) {
+                    let dot = self.path.end_direction().dot(&self.path.start_direction().orthogonal());
+                    let shift = if dot > 0.0 {1.0} else {-1.0};
+                    let batch_id = if dot > 0.0 {4} else {3};
+                    (shift, batch_id)
+                } else {(0.0, 2)};
+                position += self.path.start_direction().orthogonal() * position_shift;
+                let direction = self.path.start_direction();
+
+                renderer_id << AddInstance{
+                    scene_id: scene_id,
+                    batch_id: 1,
+                    instance: Instance{
+                        instance_position: [position.x, position.y, 6.0],
+                        instance_direction: [direction.x, direction.y],
+                        instance_color: [0.1, 0.1, 0.1]
+                    }
+                };
+
+                if self.yellow_to_red && self.green {
+                    renderer_id << AddInstance{
+                        scene_id: scene_id,
+                        batch_id: batch_id,
+                        instance: Instance{
+                            instance_position: [position.x, position.y, 6.7],
+                            instance_direction: [direction.x, direction.y],
+                            instance_color: [1.0, 0.8, 0.0]
+                        }
+                    }
+                } else if self.green {
+                    renderer_id << AddInstance{
+                        scene_id: scene_id,
+                        batch_id: batch_id,
+                        instance: Instance{
+                            instance_position: [position.x, position.y, 6.1],
+                            instance_direction: [direction.x, direction.y],
+                            instance_color: [0.0, 1.0, 0.2]
+                        }
+                    }
+                }
+                
+                if !self.green {
+                    renderer_id << AddInstance{
+                        scene_id: scene_id,
+                        batch_id: batch_id,
+                        instance: Instance{
+                            instance_position: [position.x, position.y, 7.3],
+                            instance_direction: [direction.x, direction.y],
+                            instance_color: [1.0, 0.0, 0.0]
+                        }
+                    };
+
+                    if self.yellow_to_green {
+                        renderer_id << AddInstance{
+                            scene_id: scene_id,
+                            batch_id: batch_id,
+                            instance: Instance{
+                                instance_position: [position.x, position.y, 6.7],
+                                instance_direction: [direction.x, direction.y],
+                                instance_color: [1.0, 0.8, 0.0]
+                            }
+                        }
+                    }
+                }
             }
 
             if DEBUG_VIEW_SIGNALS && self.on_intersection {

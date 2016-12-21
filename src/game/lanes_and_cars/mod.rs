@@ -24,6 +24,8 @@ pub struct Lane {
     on_intersection: bool,
     timings: CVec<bool>,
     green: bool,
+    yellow_to_green: bool,
+    yellow_to_red: bool,
     pathfinding_info: pathfinding::PathfindingInfo,
     hovered: bool,
     unbuilding_for: Option<ID>,
@@ -43,6 +45,8 @@ impl Lane {
             on_intersection: on_intersection,
             timings: timings,
             green: false,
+            yellow_to_green: false,
+            yellow_to_red: false,
             pathfinding_info: pathfinding::PathfindingInfo::default(),
             hovered: false,
             unbuilding_for: None,
@@ -252,6 +256,8 @@ impl Recipient<Tick> for Lane {
             let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING == self.id().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
             let old_green = self.green;
+            self.yellow_to_red = if self.timings.is_empty() {true} else {!self.timings[((current_tick + 100) / 25) % self.timings.len()]};
+            self.yellow_to_green = if self.timings.is_empty() {true} else {self.timings[((current_tick + 100) / 25) % self.timings.len()]};
             self.green = if self.timings.is_empty() {true} else {self.timings[(current_tick / 25) % self.timings.len()]};
 
             //                            TODO: this is just a hacky way to update new lanes about existing lane's green
