@@ -101,9 +101,9 @@ impl Recipient<PlanControl> for CurrentPlan {
                                     SelectableStrokeRef::RemainingOld(old_ref) =>
                                         self.preview.current_remaining_old_strokes.mapping.get(old_ref).unwrap()
                                 };
-                                if start.is_roughly_within(0.0, 3.0) && end.is_roughly_within(0.0, 3.0) {
+                                if start.is_roughly_within(0.0, 6.0) && end.is_roughly_within(0.0, 6.0) {
                                     SelectionMeaning::Start
-                                } else if start.is_roughly_within(stroke.path().length(), 3.0) && end.is_roughly_within(stroke.path().length(), 3.0) {
+                                } else if start.is_roughly_within(stroke.path().length(), 6.0) && end.is_roughly_within(stroke.path().length(), 6.0) {
                                     SelectionMeaning::End
                                 } else {SelectionMeaning::SubSection}
                             }).collect::<Vec<_>>();

@@ -57,8 +57,8 @@ impl Recipient<Event3d> for LaneStrokeSelectable {
             if let Some(selection_start) = self.path.project(at.into_2d()) {
                 CurrentPlan::id() << PlanControl::Select(
                     self.stroke_ref,
-                    (selection_start - 1.5).max(0.0),
-                    (selection_start + 1.5).min(self.path.length())
+                    (selection_start - 1.5).max(0.1),
+                    (selection_start + 1.5).min(self.path.length() - 0.1)
                 );
             }
             Fate::Live
@@ -70,8 +70,8 @@ impl Recipient<Event3d> for LaneStrokeSelectable {
                 let end = selection_end.max(selection_start);
                 CurrentPlan::id() << PlanControl::Select(
                     self.stroke_ref,
-                    start.min(end - 1.5).max(0.0),
-                    end.max(start + 1.5).min(self.path.length())
+                    start.min(end - 1.5).max(0.1),
+                    end.max(start + 1.5).min(self.path.length() - 0.1)
                 );
             }
             Fate::Live
