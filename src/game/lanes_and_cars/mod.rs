@@ -154,13 +154,14 @@ impl Recipient<AddCar> for Lane {
                 outgoing_idx as usize
             });
 
-            if let Some(next_hop_interaction) = maybe_next_hop_interaction {
+            let forced_spawn_position = self.cars.get(0).map(|last_car| *last_car.position).unwrap_or(self.length / 2.0) - 6.0;
+            let spawn_possible = if car_forcibly_spawned {if forced_spawn_position > 2.0 {Some(true)} else {None}} else {Some(true)};
+
+            if let (Some(next_hop_interaction), Some(_)) = (maybe_next_hop_interaction, spawn_possible) {
                 let routed_car = LaneCar{
                     next_hop_interaction: next_hop_interaction as u8,
                     as_obstacle: if car_forcibly_spawned {
-                        car.as_obstacle.offset_by(-*car.as_obstacle.position).offset_by(
-                            self.cars.get(0).map(|last_car| *last_car.position).unwrap_or(self.length / 2.0) - 6.0
-                        )
+                        car.as_obstacle.offset_by(-*car.as_obstacle.position).offset_by(forced_spawn_position)
                     } else {car.as_obstacle},
                     .. car
                 };
