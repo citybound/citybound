@@ -19,6 +19,16 @@ impl Recipient<RenderToScene> for CurrentPlan {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {match *msg{
         RenderToScene{renderer_id, scene_id} => {
             if self.preview.ui_state.dirty {
+                let changed_old_stroke_thing : Thing = self.preview.delta.strokes_to_destroy.values()
+                    .filter(|stroke| stroke.nodes().len() > 1)
+                    .map(LaneStroke::preview_thing)
+                    .sum();
+                renderer_id << UpdateThing{
+                    scene_id: scene_id,
+                    thing_id: 498,
+                    thing: changed_old_stroke_thing,
+                    instance: Instance::with_color([1.0, 0.4, 0.4])
+                };
                 let stroke_thing : Thing = self.preview.delta.new_strokes.iter()
                     .filter(|stroke| stroke.nodes().len() > 1)
                     .map(LaneStroke::preview_thing)
