@@ -25,11 +25,9 @@ pub enum LaneStrokeError{
 impl LaneStroke {
     pub fn new(nodes: CVec<LaneStrokeNode>) -> Result<Self, LaneStrokeError> {
         if nodes.windows(2).any(|window|
-            if window[0].position.is_roughly_within(window[1].position, MIN_NODE_DISTANCE) {
-                ::core::geometry::add_debug_point(window[0].position, [1.0, 0.0, 1.0], 0.5);
-                ::core::geometry::add_debug_point(window[1].position, [1.0, 0.0, 1.0], 0.5);
-                true
-            } else {false}
+            window[0].position.is_roughly_within(window[1].position, MIN_NODE_DISTANCE)
+            //::core::geometry::add_debug_point(window[0].position, [1.0, 0.0, 1.0], 0.5);
+            //::core::geometry::add_debug_point(window[1].position, [1.0, 0.0, 1.0], 0.5);
         ) {
             Result::Err(LaneStrokeError::NodesTooClose)
         } else if nodes.len() <= 1 {
