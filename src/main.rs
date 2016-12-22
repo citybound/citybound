@@ -35,84 +35,80 @@ use kay::Individual;
 const SECONDS_PER_TICK : f32 = 1.0 / 20.0;
 
 fn main() {
-    let dummy_thread = ::std::thread::Builder::new().stack_size(32 * 1024 * 1024).spawn(move || {
-        let mut system = Box::new(kay::ActorSystem::new());
-        unsafe {
-            kay::THE_SYSTEM = &mut *system as *mut kay::ActorSystem;
-        }
+    let mut system = Box::new(kay::ActorSystem::new());
+    unsafe {
+        kay::THE_SYSTEM = &mut *system as *mut kay::ActorSystem;
+    }
 
-        game::setup(&mut system);
-        game::setup_ui(&mut system);
+    game::setup(&mut system);
+    game::setup_ui(&mut system);
 
-        let simulatables = vec![
-            system.broadcast_id::<Lane>(),
-            system.broadcast_id::<TransferLane>()
-        ];
-        core::simulation::setup(&mut system, simulatables);
+    let simulatables = vec![
+        system.broadcast_id::<Lane>(),
+        system.broadcast_id::<TransferLane>()
+    ];
+    core::simulation::setup(&mut system, simulatables);
 
-        let renderables = vec![
-            system.broadcast_id::<Lane>(),
-            system.broadcast_id::<TransferLane>(),
-            system.individual_id::<ThingCollector<LaneAsphalt>>(),
-            system.individual_id::<ThingCollector<LaneMarker>>(),
-            system.individual_id::<ThingCollector<TransferLaneMarkerGaps>>(),
-            system.individual_id::<CurrentPlan>(),
-        ];
-        let window = core::ui::setup_window_and_renderer(&mut system, renderables);
+    let renderables = vec![
+        system.broadcast_id::<Lane>(),
+        system.broadcast_id::<TransferLane>(),
+        system.individual_id::<ThingCollector<LaneAsphalt>>(),
+        system.individual_id::<ThingCollector<LaneMarker>>(),
+        system.individual_id::<ThingCollector<TransferLaneMarkerGaps>>(),
+        system.individual_id::<CurrentPlan>(),
+    ];
+    let window = core::ui::setup_window_and_renderer(&mut system, renderables);
 
-        let mut simulation_panicked : Option<String> = None;
-        let mut last_frame = std::time::Instant::now();
+    let mut simulation_panicked : Option<String> = None;
+    let mut last_frame = std::time::Instant::now();
 
-        system.process_all_messages();
+    system.process_all_messages();
 
-        loop {
+    loop {
+        Renderer::id() << AddDebugText{
+            scene_id: 0,
+            key: "Frame".chars().collect(),
+            value: format!("{:.2} ms", last_frame.elapsed().as_secs() as f32 * 1000.0 + last_frame.elapsed().subsec_nanos() as f32 / 10.0E5).as_str().chars().collect()
+        };
+        last_frame = std::time::Instant::now();
+        if !core::ui::process_events(&window) {return}
+
+        if let Some(error) = simulation_panicked.clone() {
+            system.clear_all_clearable_messages();
+            system.process_all_messages();
             Renderer::id() << AddDebugText{
                 scene_id: 0,
-                key: "Frame".chars().collect(),
-                value: format!("{:.2} ms", last_frame.elapsed().as_secs() as f32 * 1000.0 + last_frame.elapsed().subsec_nanos() as f32 / 10.0E5).as_str().chars().collect()
+                key: "SIMULATION PANIC".chars().collect(),
+                value: error.as_str().chars().collect()
             };
-            last_frame = std::time::Instant::now();
-            if !core::ui::process_events(&window) {return}
-
-            if let Some(error) = simulation_panicked.clone() {
-                system.clear_all_clearable_messages();
+        } else {
+            let simulation_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 system.process_all_messages();
-                Renderer::id() << AddDebugText{
-                    scene_id: 0,
-                    key: "SIMULATION PANIC".chars().collect(),
-                    value: error.as_str().chars().collect()
+                
+                Simulation::id() << Tick{dt: SECONDS_PER_TICK, current_tick: 0};
+
+                system.process_all_messages();
+
+                Renderer::id() << Control::Render;
+
+                system.process_all_messages();
+            }));
+            if simulation_result.is_err() {
+                system.clear_all_clearable_messages();
+                let msg = match simulation_result.unwrap_err().downcast::<String>() {
+                    Ok(string) => (*string),
+                    Err(any) => match any.downcast::<&'static str>() {
+                        Ok(static_str) => (*static_str).to_string(),
+                        Err(_) => "Weird error type".to_string()
+                    }
                 };
-            } else {
-                let simulation_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    system.process_all_messages();
-                    
-                    Simulation::id() << Tick{dt: SECONDS_PER_TICK, current_tick: 0};
-
-                    system.process_all_messages();
-
-                    Renderer::id() << Control::Render;
-
-                    system.process_all_messages();
-                }));
-                if simulation_result.is_err() {
-                    system.clear_all_clearable_messages();
-                    let msg = match simulation_result.unwrap_err().downcast::<String>() {
-                        Ok(string) => (*string),
-                        Err(any) => match any.downcast::<&'static str>() {
-                            Ok(static_str) => (*static_str).to_string(),
-                            Err(_) => "Weird error type".to_string()
-                        }
-                    };
-                    println!("Simulation Panic!\n{:?}", msg);
-                    simulation_panicked = Some(msg);
-                }
+                println!("Simulation Panic!\n{:?}", msg);
+                simulation_panicked = Some(msg);
             }
-
-            Renderer::id() << Control::Submit;
-
-            system.process_all_messages();
         }
-    }).unwrap();
 
-    dummy_thread.join().unwrap();
+        Renderer::id() << Control::Submit;
+
+        system.process_all_messages();
+    }
 }

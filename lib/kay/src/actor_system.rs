@@ -61,7 +61,7 @@ impl<M: Message> ::std::ops::Shl<M> for ID {
     }
 }
 
-const MAX_RECIPIENT_TYPES : usize = 1024;
+const MAX_RECIPIENT_TYPES : usize = 64;
 const MAX_MESSAGE_TYPES_PER_RECIPIENT: usize = 32;
 
 #[derive(Clone)]
