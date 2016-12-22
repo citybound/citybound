@@ -251,7 +251,19 @@ pub fn setup_window_and_renderer(system: &mut ActorSystem, renderables: Vec<ID>)
 }
 
 pub fn process_events(window: &GlutinFacade) -> bool {
-    for event in window.poll_events() {
+    let mut cleaned_events = window.poll_events().collect::<Vec<_>>();
+    if let Some(last_mouse_move_event_pos) = cleaned_events.iter().rposition(|event| match *event { Event::MouseMoved(..) => true, _ => false}) {
+        let mut i = 0;
+        cleaned_events.retain(|event| {
+            let keep = match *event {
+                Event::MouseMoved(..) => i == last_mouse_move_event_pos,
+                _ => true
+            };
+            i += 1;
+            keep
+        });
+    }
+    for event in cleaned_events {
         match event {
             Event::Closed => return false,
             Event::MouseWheel(MouseScrollDelta::PixelDelta(x, y), _) =>
