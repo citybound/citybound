@@ -68,7 +68,8 @@ fn main() {
         Renderer::id() << AddDebugText{
             scene_id: 0,
             key: "Frame".chars().collect(),
-            value: format!("{:.2} ms", last_frame.elapsed().as_secs() as f32 * 1000.0 + last_frame.elapsed().subsec_nanos() as f32 / 10.0E5).as_str().chars().collect()
+            text: format!("{:.2} ms", last_frame.elapsed().as_secs() as f32 * 1000.0 + last_frame.elapsed().subsec_nanos() as f32 / 10.0E5).as_str().chars().collect(),
+            color: [0.0, 0.0, 0.0, 0.5]
         };
         last_frame = std::time::Instant::now();
         if !core::ui::process_events(&window) {return}
@@ -79,7 +80,8 @@ fn main() {
             Renderer::id() << AddDebugText{
                 scene_id: 0,
                 key: "SIMULATION PANIC".chars().collect(),
-                value: error.as_str().chars().collect()
+                text: error.as_str().chars().collect(),
+                color: [1.0, 0.0, 0.0, 1.0]
             };
         } else {
             let simulation_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {

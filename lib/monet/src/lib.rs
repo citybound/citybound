@@ -188,14 +188,14 @@ impl Recipient<AddSeveralInstances> for Renderer {
 }
 
 #[derive(Compact, Clone)]
-pub struct AddDebugText {pub scene_id: usize, pub key: CVec<char>, pub value: CVec<char>}
+pub struct AddDebugText {pub scene_id: usize, pub key: CVec<char>, pub text: CVec<char>, pub color: [f32; 4]}
 
 impl Recipient<AddDebugText> for Renderer {
     fn receive(&mut self, msg: &AddDebugText) -> Fate {match *msg {
-        AddDebugText{scene_id, ref key, ref value} => {
+        AddDebugText{scene_id, ref key, ref text, ref color} => {
             self.scenes[scene_id].debug_text.insert(
                 key.iter().cloned().collect(),
-                value.iter().cloned().collect()
+                (text.iter().cloned().collect(), *color)
             );
             Fate::Live
         }
@@ -272,7 +272,7 @@ pub struct Scene {
     pub eye_listeners: CVec<ID>,
     pub batches: FnvHashMap<u16, Batch>,
     pub renderables: Vec<ID>,
-    pub debug_text: std::collections::BTreeMap<String, String>
+    pub debug_text: std::collections::BTreeMap<String, (String, [f32; 4])>
 }
 
 impl Scene {
@@ -545,12 +545,15 @@ impl RenderContext {
             &self.text_font,
             rusttype::Scale::uniform(14.0 * dpi_factor),
             width,
-            (scene.debug_text.iter().map(|(key, value)|
-                format!("{}:\n{}\n", key, value)
-            ).collect::<String>() + render_debug_text.as_str()).as_str()
+            (scene.debug_text.iter().map(|(key, &(ref text, _))|
+                format!("{}:\n{}\n", key, text)
+            ).collect::<String>() + render_debug_text.as_str()).as_str(),
+            scene.debug_text.iter().map(|(key, &(ref text, ref color))|
+                (key.len() + text.len() + 3, *color)
+            ).chain(Some((render_debug_text.len(), [0.0, 0.0, 0.0, 0.5]))).collect()
         );
         
-        for glyph in &glyphs {
+        for &(ref glyph, _) in &glyphs {
             self.text_cache.queue_glyph(0, glyph.clone());
         }
         {
@@ -583,13 +586,12 @@ impl RenderContext {
             }
 
             implement_vertex!(TextVertex, position, tex_coords, color);
-            let color = [0.0, 0.0, 0.0, 1.0];
             let (screen_width, screen_height) = {
                 let (w, h) = self.window.get_framebuffer_dimensions();
                 (w as f32, h as f32)
             };
             let origin = rusttype::point(0.0, 0.0);
-            let vertices: Vec<TextVertex> = glyphs.iter().flat_map(|g| {
+            let vertices: Vec<TextVertex> = glyphs.iter().flat_map(|&(ref g, color)| {
                 if let Ok(Some((uv_rect, screen_rect))) = self.text_cache.rect_for(0, g) {
                     let gl_rect = rusttype::Rect {
                         min: origin
@@ -654,7 +656,8 @@ impl RenderContext {
 fn layout_paragraph<'a>(font: &'a rusttype::Font,
                         scale: rusttype::Scale,
                         width: u32,
-                        text: &str) -> Vec<rusttype::PositionedGlyph<'a>> {
+                        text: &str,
+                        mut colors: Vec<(usize, [f32; 4])>) -> Vec<(rusttype::PositionedGlyph<'a>, [f32; 4])> {
     use unicode_normalization::UnicodeNormalization;
     let mut result = Vec::new();
     let v_metrics = font.v_metrics(scale);
@@ -662,6 +665,11 @@ fn layout_paragraph<'a>(font: &'a rusttype::Font,
     let mut caret = rusttype::point(0.0, v_metrics.ascent);
     let mut last_glyph_id = None;
     for c in text.nfc() {
+        let color = colors[0].1;
+        colors[0].0 -= 1;
+        if colors[0].0 == 0 && colors.len() > 1 {
+            colors.remove(0);
+        }
         if c.is_control() {
             if c == '\n' {
                 caret = rusttype::point(0.0, caret.y + advance_height);
@@ -686,7 +694,7 @@ fn layout_paragraph<'a>(font: &'a rusttype::Font,
             }
         }
         caret.x += glyph.unpositioned().h_metrics().advance_width;
-        result.push(glyph);
+        result.push((glyph, color));
     }
     result
 }
