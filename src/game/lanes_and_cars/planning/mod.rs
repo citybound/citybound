@@ -306,13 +306,15 @@ impl Recipient<PlanControl> for CurrentPlan {
 
                             if let Some(join_with_ref) = maybe_join_with {
                                 joined_some = true;
+                                let mut self_join = false;
 
                                 let stroke = self.preview.delta.new_strokes[stroke_idx].clone();
 
                                 {
                                     let other_stroke = match join_with_ref {
-                                        SelectableStrokeRef::New(node_idx) => {
-                                            &mut self.preview.delta.new_strokes[node_idx]
+                                        SelectableStrokeRef::New(other_stroke_idx) => {
+                                            if stroke_idx == other_stroke_idx {self_join = true;}
+                                            &mut self.preview.delta.new_strokes[other_stroke_idx]
                                         },
                                         SelectableStrokeRef::RemainingOld(old_ref) => {
                                             let old_stroke = self.preview.current_remaining_old_strokes.mapping.get(old_ref).unwrap();
@@ -324,7 +326,17 @@ impl Recipient<PlanControl> for CurrentPlan {
 
                                     let other_nodes = other_stroke.nodes().clone();
 
-                                    *other_stroke.nodes_mut() = if is_end {
+                                    *other_stroke.nodes_mut() = if self_join {
+                                        let mut new_nodes = stroke.nodes().clone();
+                                        if is_end {
+                                            new_nodes.pop();
+                                            new_nodes.push(other_nodes[0]);
+                                        } else {
+                                            new_nodes.remove(0);
+                                            new_nodes.insert(0, *other_nodes.last().unwrap());
+                                        }
+                                        new_nodes
+                                    } else if is_end {
                                         let mut new_nodes = stroke.nodes().clone();
                                         new_nodes.pop();
                                         new_nodes.extend(other_nodes.into_iter());
@@ -336,7 +348,9 @@ impl Recipient<PlanControl> for CurrentPlan {
                                     }
                                 }
 
-                                new_strokes_to_remove.push(stroke_idx);
+                                if !self_join {
+                                    new_strokes_to_remove.push(stroke_idx);
+                                }
                             }
                         }
 
