@@ -1,5 +1,5 @@
 use kay::{ID, Recipient, Actor, Individual, Swarm, ActorSystem, Fate, CreateWith};
-use descartes::{Band, Curve, Into2d, FiniteCurve};
+use descartes::{Band, Curve, Into2d, FiniteCurve, Path};
 use ::core::geometry::{CPath, AnyShape};
 
 use super::{SelectableStrokeRef, CurrentPlan, PlanControl};
@@ -66,8 +66,17 @@ impl Recipient<Event3d> for LaneStrokeSelectable {
         Event3d::DragOngoing{from, to} => {
             if let (Some(selection_start), Some(selection_end)) =
             (self.path.project(from.into_2d()), self.path.project(to.into_2d())) {
-                let start = selection_start.min(selection_end);
-                let end = selection_end.max(selection_start);
+                let mut start = selection_start.min(selection_end);
+                let mut end = selection_end.max(selection_start);
+                if start < 10.0 {start = 0.0}
+                if end > self.path.length() - 10.0 {end = self.path.length()}
+                let mut offset = 0.0;
+                for segment in self.path.segments() {
+                    let next_offset = offset + segment.length();
+                    if start > offset - 5.0 && start < offset + 5.0 {start = offset}
+                    if end > next_offset - 5.0 && end < next_offset + 5.0 {end = next_offset}
+                    offset = next_offset;
+                }
                 CurrentPlan::id() << PlanControl::Select(
                     self.stroke_ref,
                     start.min(end - 1.5).max(0.1),
