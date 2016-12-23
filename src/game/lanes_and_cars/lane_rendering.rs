@@ -19,11 +19,11 @@ use ::monet::AddBatch;
 impl RecipientAsSwarm<SetupInScene> for Lane {
     fn receive(_swarm: &mut Swarm<Self>, msg: &SetupInScene) -> Fate {match *msg {
         SetupInScene{renderer_id, scene_id} => {
-            renderer_id << AddBatch{scene_id: scene_id, batch_id: 0, thing: car::create()};
-            renderer_id << AddBatch{scene_id: scene_id, batch_id: 1, thing: traffic_light::create()};
-            renderer_id << AddBatch{scene_id: scene_id, batch_id: 2, thing: traffic_light::create_light()};
-            renderer_id << AddBatch{scene_id: scene_id, batch_id: 3, thing: traffic_light::create_light_left()};
-            renderer_id << AddBatch{scene_id: scene_id, batch_id: 4, thing: traffic_light::create_light_right()};
+            renderer_id << AddBatch{scene_id: scene_id, batch_id: 8000, thing: car::create()};
+            renderer_id << AddBatch{scene_id: scene_id, batch_id: 8001, thing: traffic_light::create()};
+            renderer_id << AddBatch{scene_id: scene_id, batch_id: 8002, thing: traffic_light::create_light()};
+            renderer_id << AddBatch{scene_id: scene_id, batch_id: 8003, thing: traffic_light::create_light_left()};
+            renderer_id << AddBatch{scene_id: scene_id, batch_id: 8004, thing: traffic_light::create_light_right()};
 
             renderer_id << AddBatch{scene_id: scene_id, batch_id: 1333, thing: Thing::new(
                 vec![
@@ -169,7 +169,7 @@ impl Recipient<RenderToScene> for Lane {
             if !car_instances.is_empty() {
                 renderer_id << AddSeveralInstances{
                     scene_id: scene_id,
-                    batch_id: 0,
+                    batch_id: 8000,
                     instances: car_instances
                 };
             }
@@ -179,15 +179,15 @@ impl Recipient<RenderToScene> for Lane {
                 let (position_shift, batch_id) = if !self.path.start_direction().is_roughly_within(self.path.end_direction(), 0.5) {
                     let dot = self.path.end_direction().dot(&self.path.start_direction().orthogonal());
                     let shift = if dot > 0.0 {1.0} else {-1.0};
-                    let batch_id = if dot > 0.0 {4} else {3};
+                    let batch_id = if dot > 0.0 {8004} else {8003};
                     (shift, batch_id)
-                } else {(0.0, 2)};
+                } else {(0.0, 8002)};
                 position += self.path.start_direction().orthogonal() * position_shift;
                 let direction = self.path.start_direction();
 
                 renderer_id << AddInstance{
                     scene_id: scene_id,
-                    batch_id: 1,
+                    batch_id: 8001,
                     instance: Instance{
                         instance_position: [position.x, position.y, 6.0],
                         instance_direction: [direction.x, direction.y],
@@ -356,7 +356,7 @@ impl Recipient<RenderToScene> for TransferLane {
             if !car_instances.is_empty() {
                 renderer_id << AddSeveralInstances{
                     scene_id: scene_id,
-                    batch_id: 0,
+                    batch_id: 8000,
                     instances: car_instances
                 };
             }
