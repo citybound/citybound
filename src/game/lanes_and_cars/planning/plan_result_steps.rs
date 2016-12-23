@@ -66,9 +66,33 @@ fn find_intersection_points(strokes: &CVec<LaneStroke>) -> Vec<P2> {
 
 #[inline(never)]
 pub fn trim_strokes_and_add_incoming_outgoing(strokes: &CVec<LaneStroke>, intersections: &mut CVec<Intersection>) -> CVec<LaneStroke> {
-    let strokes = strokes.iter().cloned().enumerate().map(|(i, stroke)| (LaneStrokeRef(i), stroke)).collect::<Vec<_>>();
+    let mut strokes = strokes.clone();
+    // resolve self-intersections
+    while {
+        let mut something_happened = false;
+        let mut split_strokes = Vec::new();
 
-    strokes.iter().flat_map(|&(stroke_ref, ref stroke)| {
+        strokes.retain(|stroke|
+            match stroke.path().self_intersections().into_iter().next() {
+                Some(self_intersection) => {
+                    let division_distance = (self_intersection.along_a + self_intersection.along_b) / 2.0;
+                    split_strokes.extend(stroke.subsection(0.0, division_distance));
+                    split_strokes.extend(stroke.subsection(division_distance, stroke.path().length()));
+                    something_happened = true;
+                    false
+                },
+                None => true
+            }
+        );
+
+        strokes.extend(split_strokes.into_iter());
+
+        something_happened
+    } {}
+
+    let ref_strokes = strokes.into_iter().enumerate().map(|(i, stroke)| (LaneStrokeRef(i), stroke));
+
+    ref_strokes.flat_map(|(stroke_ref, ref stroke)| {
         let path = stroke.path();
         let mut start_trim = 0.0f32;
         let mut end_trim = path.length();

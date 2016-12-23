@@ -1,6 +1,6 @@
-use super::{N, P2, V2, Norm, Curve, FiniteCurve, RoughlyComparable};
+use super::{N, P2, V2, Norm, Curve, FiniteCurve, RoughlyComparable, THICKNESS};
 use super::primitives::Segment;
-use super::intersect::Intersect;
+use super::intersect::{Intersect, Intersection};
 use ordered_float::OrderedFloat;
 
 type ScannerFn<'a> = fn(&mut StartOffsetState, &'a Segment) -> Option<(&'a Segment, N)>;
@@ -36,6 +36,25 @@ pub trait Path : Sized + Clone {
     fn contains(&self, point: P2) -> bool {
         let ray = Segment::line(point, P2::new(point.x + 10000000000.0, point.y));
         (self, &Self::new(vec![ray].into())).intersect().len() % 2 == 1
+    }
+
+    fn self_intersections(&self) -> Vec<Intersection> {
+        self.segments_with_start_offsets().enumerate().flat_map(|(i, (segment_a, offset_a))|
+            self.segments_with_start_offsets().skip(i + 1).flat_map(|(segment_b, offset_b)|
+                (segment_a, segment_b).intersect().into_iter().filter_map(|intersection|
+                    if intersection.along_a.is_roughly_within(0.0, THICKNESS) || intersection.along_a.is_roughly_within(segment_a.length(), THICKNESS)
+                    || intersection.along_b.is_roughly_within(0.0, THICKNESS) || intersection.along_b.is_roughly_within(segment_b.length(), THICKNESS) {
+                        None
+                    } else {
+                        Some(Intersection{
+                            position: intersection.position,
+                            along_a: offset_a + intersection.along_a,
+                            along_b: offset_b + intersection.along_b
+                        })
+                    }
+                ).collect::<Vec<_>>()
+            ).collect::<Vec<_>>()
+        ).collect()
     }
 }
 
