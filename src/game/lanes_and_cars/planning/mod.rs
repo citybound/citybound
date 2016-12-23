@@ -53,7 +53,8 @@ enum PlanControl{
     DeleteSelection(()),
     AddStroke(LaneStroke),
     CreateGrid(()),
-    Materialize(())
+    Materialize(()),
+    SetSelectionMode(bool, bool)
 }
 
 const FINISH_STROKE_TOLERANCE : f32 = 5.0;
@@ -644,6 +645,13 @@ impl Recipient<PlanControl> for CurrentPlan {
             self.clear_selectables();
             self.clear_draggables();
             self.preview.ui_state.recreate_selectables = true;
+            Fate::Live
+        },
+        PlanControl::SetSelectionMode(select_parallel, select_opposite) => {
+            self.preview.ui_state.select_parallel = select_parallel;
+            self.preview.ui_state.select_opposite = select_opposite;
+            self.current.ui_state.select_parallel = select_parallel;
+            self.current.ui_state.select_opposite = select_opposite;
             Fate::Live
         }
     }}

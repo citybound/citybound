@@ -13,7 +13,7 @@ pub struct LaneStrokeCanvas{
 impl Individual for LaneStrokeCanvas{}
 
 use core::ui::Event3d;
-use super::PlanControl::{Commit, Undo, Redo, WithLatestNode, Materialize, CreateGrid, DeleteSelection};
+use super::PlanControl::{Commit, Undo, Redo, WithLatestNode, Materialize, CreateGrid, DeleteSelection, SetSelectionMode};
 
 impl Recipient<Event3d> for LaneStrokeCanvas {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg {
@@ -80,6 +80,23 @@ impl Recipient<Event3d> for LaneStrokeCanvas {
     }}
 }
 
+use ::monet::EyeMoved;
+
+impl Recipient<EyeMoved> for LaneStrokeCanvas{
+    fn receive(&mut self, msg: &EyeMoved) -> Fate {match *msg {
+        EyeMoved{eye, ..} => {
+            if eye.position.z < 100.0 {
+                CurrentPlan::id() << SetSelectionMode(false, false);
+            } else if eye.position.z < 130.0 {
+                CurrentPlan::id() << SetSelectionMode(true, false);
+            } else {
+                CurrentPlan::id() << SetSelectionMode(true, true);
+            }
+            Fate::Live
+        }
+    }}
+}
+
 use core::ui::Add;
 use core::ui::Focus;
 
@@ -90,6 +107,7 @@ impl Recipient<AddToUI> for LaneStrokeCanvas {
     fn receive(&mut self, _msg: &AddToUI) -> Fate {
         UserInterface::id() << Add::Interactable3d(LaneStrokeCanvas::id(), AnyShape::Everywhere, 0);
         UserInterface::id() << Focus(LaneStrokeCanvas::id());
+        ::monet::Renderer::id() << ::monet::AddEyeListener{scene_id: 0, listener: Self::id()};
         Fate::Live
     }
 }
@@ -97,6 +115,7 @@ impl Recipient<AddToUI> for LaneStrokeCanvas {
 pub fn setup(system: &mut ActorSystem) {
     system.add_individual(LaneStrokeCanvas{cmd_pressed: false, shift_pressed: false});
     system.add_inbox::<Event3d, LaneStrokeCanvas>();
+    system.add_inbox::<EyeMoved, LaneStrokeCanvas>();
     system.add_inbox::<AddToUI, LaneStrokeCanvas>();
     LaneStrokeCanvas::id() << AddToUI;    
 }

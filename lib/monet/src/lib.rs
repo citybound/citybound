@@ -87,6 +87,8 @@ pub enum Movement{
 
 #[derive(Copy, Clone)]
 pub struct MoveEye {pub scene_id: usize, pub movement: Movement}
+#[derive(Copy, Clone)]
+pub struct EyeMoved {pub eye: Eye, pub movement: Movement}
 
 impl Recipient<MoveEye> for Renderer {
     fn receive(&mut self, msg: &MoveEye) -> Fate {match *msg{
@@ -116,8 +118,23 @@ impl Recipient<MoveEye> for Renderer {
                     eye.position = eye.target + rotated_relative_eye_position;
                 }
             }
+            for &id in &self.scenes[scene_id].eye_listeners {
+                id << EyeMoved{eye: self.scenes[scene_id].eye, movement: movement};
+            }
             Fate::Live
         },
+    }}
+}
+
+#[derive(Copy, Clone)]
+pub struct AddEyeListener{pub scene_id: usize, pub listener: ID}
+
+impl Recipient<AddEyeListener> for Renderer {
+    fn receive(&mut self, msg: &AddEyeListener) -> Fate {match *msg {
+        AddEyeListener{scene_id, listener} => {
+            self.scenes[scene_id].eye_listeners.push(listener);
+            Fate::Live
+        }
     }}
 }
 
@@ -242,6 +259,7 @@ pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
     system.add_unclearable_inbox::<AddInstance, Renderer>();
     system.add_unclearable_inbox::<AddSeveralInstances, Renderer>();
     system.add_unclearable_inbox::<MoveEye, Renderer>();
+    system.add_unclearable_inbox::<AddEyeListener, Renderer>();
     system.add_unclearable_inbox::<AddDebugText, Renderer>();
     system.add_unclearable_inbox::<UpdateThing, Renderer>();
     system.add_unclearable_inbox::<Project2dTo3d, Renderer>();
@@ -251,6 +269,7 @@ pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
 
 pub struct Scene {
     pub eye: Eye,
+    pub eye_listeners: CVec<ID>,
     pub batches: FnvHashMap<u16, Batch>,
     pub renderables: Vec<ID>,
     pub debug_text: std::collections::BTreeMap<String, String>
@@ -265,6 +284,7 @@ impl Scene {
                 up: V3::new(0.0, 0.0, 1.0),
                 field_of_view: 0.3 * ::std::f32::consts::PI
             },
+            eye_listeners: CVec::new(),
             batches: FnvHashMap::default(),
             renderables: Vec::new(),
             debug_text: std::collections::BTreeMap::new()
@@ -276,6 +296,7 @@ impl Default for Scene {
     fn default() -> Self {Self::new()}
 }
 
+#[derive(Copy, Clone)]
 pub struct Eye {
     pub position: P3,
     pub target: P3,
