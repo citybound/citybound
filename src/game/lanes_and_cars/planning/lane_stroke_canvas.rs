@@ -13,7 +13,9 @@ pub struct LaneStrokeCanvas{
 impl Individual for LaneStrokeCanvas{}
 
 use core::ui::Event3d;
-use super::PlanControl::{Commit, Undo, Redo, WithLatestNode, Materialize, CreateGrid, DeleteSelection, SetSelectionMode};
+use super::PlanControl::{Commit, Undo, Redo, WithLatestNode, Materialize,
+                         CreateGrid, DeleteSelection, SetSelectionMode,
+                         SetNLanes, ToggleBothSides};
 
 impl Recipient<Event3d> for LaneStrokeCanvas {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg {
@@ -75,7 +77,20 @@ impl Recipient<Event3d> for LaneStrokeCanvas {
         Event3d::KeyDown(VirtualKeyCode::Back) => {
             CurrentPlan::id() << DeleteSelection(());
             Fate::Live
-        }
+        },
+        Event3d::KeyDown(VirtualKeyCode::Key1) => {CurrentPlan::id() << SetNLanes(1); Fate::Live},
+        Event3d::KeyDown(VirtualKeyCode::Key2) => {CurrentPlan::id() << SetNLanes(2); Fate::Live},
+        Event3d::KeyDown(VirtualKeyCode::Key3) => {CurrentPlan::id() << SetNLanes(3); Fate::Live},
+        Event3d::KeyDown(VirtualKeyCode::Key4) => {CurrentPlan::id() << SetNLanes(4); Fate::Live},
+        Event3d::KeyDown(VirtualKeyCode::Key5) => {CurrentPlan::id() << SetNLanes(5); Fate::Live},
+        Event3d::KeyDown(VirtualKeyCode::Key6) => {CurrentPlan::id() << SetNLanes(6); Fate::Live},
+        Event3d::KeyDown(VirtualKeyCode::Key7) => {CurrentPlan::id() << SetNLanes(7); Fate::Live},
+        Event3d::KeyDown(VirtualKeyCode::Key8) => {CurrentPlan::id() << SetNLanes(8); Fate::Live},
+        Event3d::KeyDown(VirtualKeyCode::Key9) => {CurrentPlan::id() << SetNLanes(9); Fate::Live},
+        Event3d::KeyUp(VirtualKeyCode::Key0) => {
+            CurrentPlan::id() << ToggleBothSides(());
+            Fate::Live
+        },
         _ => Fate::Live
     }}
 }

@@ -54,7 +54,9 @@ enum PlanControl{
     AddStroke(LaneStroke),
     CreateGrid(()),
     Materialize(()),
-    SetSelectionMode(bool, bool)
+    SetSelectionMode(bool, bool),
+    SetNLanes(usize),
+    ToggleBothSides(())
 }
 
 const FINISH_STROKE_TOLERANCE : f32 = 5.0;
@@ -666,6 +668,26 @@ impl Recipient<PlanControl> for CurrentPlan {
             self.preview.ui_state.select_opposite = select_opposite;
             self.current.ui_state.select_parallel = select_parallel;
             self.current.ui_state.select_opposite = select_opposite;
+            Fate::Live
+        },
+        PlanControl::SetNLanes(n_lanes) => {
+            self.preview.ui_state.n_lanes_per_side = n_lanes;
+            self.current.ui_state.n_lanes_per_side = n_lanes;
+            let at = match self.preview.ui_state.drawing_status {
+                DrawingStatus::ContinuingFrom(_, last_add) => last_add,
+                _ => P2::new(0.0, 0.0)
+            };
+            Self::id() << PlanControl::WithLatestNode(at, true);
+            Fate::Live
+        },
+        PlanControl::ToggleBothSides(()) => {
+            self.preview.ui_state.create_both_sides = !self.preview.ui_state.create_both_sides;
+            self.current.ui_state.create_both_sides = self.preview.ui_state.create_both_sides;
+            let at = match self.preview.ui_state.drawing_status {
+                DrawingStatus::ContinuingFrom(_, last_add) => last_add,
+                _ => P2::new(0.0, 0.0)
+            };
+            Self::id() << PlanControl::WithLatestNode(at, true);
             Fate::Live
         }
     }}
