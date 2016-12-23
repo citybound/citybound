@@ -18,7 +18,7 @@ pub struct UserInterface {
     active_interactable: Option<ID>,
     focused_interactable: Option<ID>,
     space_pressed: bool,
-    alt_pressed: bool
+    shift_pressed: bool
 }
 impl Individual for UserInterface{}
 
@@ -35,7 +35,7 @@ impl UserInterface{
             active_interactable: None,
             focused_interactable: None,
             space_pressed: false,
-            alt_pressed: false
+            shift_pressed: false
         }
     }
 }
@@ -101,12 +101,14 @@ impl Recipient<Mouse> for UserInterface {
         Mouse::Moved(position) => {
             let delta = self.cursor_2d - position;
             if self.space_pressed {
-                Renderer::id() << MoveEye{scene_id: 0, movement: ::monet::Movement::Shift(V3::new(-delta.y / 3.0, delta.x / 3.0, 0.0))};                
-                self.cursor_2d = position;
-            } else if self.alt_pressed {
-                Renderer::id() << MoveEye{scene_id: 0, movement: ::monet::Movement::Rotate(-delta.x/300.0)};
-                Renderer::id() << MoveEye{scene_id: 0, movement: ::monet::Movement::Zoom(-delta.y)};
-                self.cursor_2d = position;
+                if self.shift_pressed {
+                    Renderer::id() << MoveEye{scene_id: 0, movement: ::monet::Movement::Rotate(-delta.x/300.0)};
+                    Renderer::id() << MoveEye{scene_id: 0, movement: ::monet::Movement::Zoom(-delta.y)};
+                    self.cursor_2d = position;
+                } else {
+                    Renderer::id() << MoveEye{scene_id: 0, movement: ::monet::Movement::Shift(V3::new(-delta.y / 3.0, delta.x / 3.0, 0.0))};                
+                    self.cursor_2d = position;
+                }
             } else {
                 self.cursor_2d = position;
                 Renderer::id() << Project2dTo3d{
@@ -157,15 +159,14 @@ impl Recipient<Key> for UserInterface {
                 VirtualKeyCode::Space => {
                     self.space_pressed = true;
                 },
-                VirtualKeyCode::LAlt | VirtualKeyCode::RAlt => {
-                    self.alt_pressed = true;
+                VirtualKeyCode::LShift | VirtualKeyCode::RShift => {
+                    self.shift_pressed = true;
                 },
-                _ => {
-                    self.focused_interactable.map(|interactable|
-                        interactable << Event3d::KeyDown(key_code)
-                    );
-                }
+                _ => {}
             }
+            self.focused_interactable.map(|interactable|
+                interactable << Event3d::KeyDown(key_code)
+            );
             Fate::Live
         },
         Key::Up(key_code) => {
@@ -173,15 +174,14 @@ impl Recipient<Key> for UserInterface {
                 VirtualKeyCode::Space => {
                     self.space_pressed = false;
                 },
-                VirtualKeyCode::LAlt | VirtualKeyCode::RAlt => {
-                    self.alt_pressed = false;
+                VirtualKeyCode::LShift | VirtualKeyCode::RShift => {
+                    self.shift_pressed = false;
                 },
-                _ => {
-                    self.focused_interactable.map(|interactable|
-                        interactable << Event3d::KeyUp(key_code)
-                    );
-                }
+                _ => {}
             }
+            self.focused_interactable.map(|interactable|
+                interactable << Event3d::KeyUp(key_code)
+            );
             Fate::Live
         }
     }}
