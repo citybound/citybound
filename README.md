@@ -1,9 +1,9 @@
 # Citybound
 
 Citybound is an independently developed city building game, available open source and funded though Patreon.
-Find out more about Citybound on the wiki.
+Find out more about Citybound [on the wiki](https://github.com/aeickhoff/citybound/wiki).
 
-# Latest binary releases
+# [Latest binary releases](https://github.com/aeickhoff/citybound/releases)
 
 # Building from source
 
