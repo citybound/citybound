@@ -49,7 +49,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
                     scene_id: scene_id,
                     thing_id: 5499,
                     thing: stroke_thing,
-                    instance: Instance::with_color([0.8, 0.8, 0.8]),
+                    instance: Instance::with_color([0.6, 0.6, 0.6]),
                     is_decal: true
                 };
                 let trimmed_stroke_thing : Thing = self.preview.current_plan_result_delta.trimmed_strokes.to_create.values()

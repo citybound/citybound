@@ -52,7 +52,7 @@ enum PlanControl{
     MoveSelection(V2),
     DeleteSelection(()),
     AddStroke(LaneStroke),
-    CreateGrid(()),
+    CreateGrid(usize),
     Materialize(()),
     SetSelectionMode(bool, bool),
     SetNLanes(usize),
@@ -634,8 +634,8 @@ impl Recipient<PlanControl> for CurrentPlan {
             MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
             Fate::Live
         },
-        PlanControl::CreateGrid(()) => {
-            let grid_size = 15u32;
+        PlanControl::CreateGrid(gridsize) => {
+            let grid_size = gridsize;
             let grid_spacing = 1000.0;
 
             for x in 0..grid_size {
@@ -655,6 +655,7 @@ impl Recipient<PlanControl> for CurrentPlan {
                 self.receive(&PlanControl::Commit(false, P2::new(0.0, 0.0)));
             }
             self.receive(&PlanControl::Commit(true, P2::new(0.0, 0.0)));
+            MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
             Fate::Live
         },
         PlanControl::Materialize(()) => {

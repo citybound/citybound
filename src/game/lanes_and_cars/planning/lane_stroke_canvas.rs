@@ -71,7 +71,7 @@ impl Recipient<Event3d> for LaneStrokeCanvas {
             Fate::Live
         },
         Event3d::KeyDown(VirtualKeyCode::G) => {
-            CurrentPlan::id() << CreateGrid(());
+            CurrentPlan::id() << CreateGrid(if self.shift_pressed {15} else {10});
             Fate::Live
         },
         Event3d::KeyDown(VirtualKeyCode::Back) => {

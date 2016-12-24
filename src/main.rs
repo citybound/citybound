@@ -78,6 +78,12 @@ fn main() {
     loop {
         Renderer::id() << AddDebugText{
             scene_id: 0,
+            key: "Version".chars().collect(),
+            text: "0.1.0".chars().collect(),
+            color: [0.0, 0.0, 0.0, 1.0]
+        };
+        Renderer::id() << AddDebugText{
+            scene_id: 0,
             key: "Frame".chars().collect(),
             text: format!("{:.2} ms", last_frame.elapsed().as_secs() as f32 * 1000.0 + last_frame.elapsed().subsec_nanos() as f32 / 10.0E5).as_str().chars().collect(),
             color: [0.0, 0.0, 0.0, 0.5]
