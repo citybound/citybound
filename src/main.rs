@@ -14,6 +14,7 @@ extern crate itertools;
 extern crate random;
 extern crate fnv;
 extern crate roaring;
+extern crate open;
 
 extern crate kay;
 #[macro_use]
@@ -35,6 +36,16 @@ use kay::Individual;
 const SECONDS_PER_TICK : f32 = 1.0 / 20.0;
 
 fn main() {
+    let mut dir = ::std::env::temp_dir();
+    dir.push("cb_seen_wiki.txt");
+    if !::std::path::Path::new(&dir).exists() {
+        let url = "https://github.com/aeickhoff/cbr/wiki/Road-%26-Traffic-Prototype-1";
+        if let Err(_err) = open::that(url) {
+            println!("Please open {:?} in your browser!", url);
+        };
+        ::std::fs::File::create(dir).expect("should be able to create tmp file");
+    }
+
     let mut system = Box::new(kay::ActorSystem::new());
     unsafe {
         kay::THE_SYSTEM = &mut *system as *mut kay::ActorSystem;

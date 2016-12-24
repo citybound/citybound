@@ -29,7 +29,8 @@ pub struct Lane {
     pathfinding_info: pathfinding::PathfindingInfo,
     hovered: bool,
     unbuilding_for: Option<ID>,
-    disconnects_remaining: u8
+    disconnects_remaining: u8,
+    last_spawn_position: N
 }
 
 impl Lane {
@@ -37,6 +38,7 @@ impl Lane {
         Lane {
             _id: ID::invalid(),
             length: path.length(),
+            last_spawn_position: path.length()/2.0,
             path: path,
             interactions: CVec::new(),
             obstacles: CVec::new(),
@@ -158,14 +160,14 @@ impl Recipient<AddCar> for Lane {
                 outgoing_idx as usize
             });
 
-            let forced_spawn_position = self.cars.get(0).map(|last_car| *last_car.position).unwrap_or(self.length / 2.0) - 6.0;
-            let spawn_possible = if car_forcibly_spawned {if forced_spawn_position > 2.0 {Some(true)} else {None}} else {Some(true)};
+            let spawn_possible = if car_forcibly_spawned {if self.last_spawn_position > 2.0 {Some(true)} else {None}} else {Some(true)};
 
             if let (Some(next_hop_interaction), Some(_)) = (maybe_next_hop_interaction, spawn_possible) {
                 let routed_car = LaneCar{
                     next_hop_interaction: next_hop_interaction as u8,
                     as_obstacle: if car_forcibly_spawned {
-                        car.as_obstacle.offset_by(-*car.as_obstacle.position).offset_by(forced_spawn_position)
+                        self.last_spawn_position -= 6.0;
+                        car.as_obstacle.offset_by(-*car.as_obstacle.position).offset_by(self.last_spawn_position + 6.0)
                     } else {car.as_obstacle},
                     .. car
                 };
@@ -431,23 +433,19 @@ impl Recipient<Tick> for TransferLane {
                             self.right_obstacles.iter().find(|obstacle| *obstacle.position + 5.0 > *car.position)
                         } else {None};
 
-                        // TODO: sometimes cars get stuck when on top of each other or merge into standing queues happily
+                        let mut dangerous = false;
                         let next_obstacle_acceleration = *next_car.into_iter().chain(maybe_next_left_obstacle)
-                            .chain(maybe_next_right_obstacle).chain(&[Obstacle::far_ahead()]).map(|obstacle| {
-                                let corrected_obstacle = if obstacle.position < car.position {
-                                    Obstacle{
-                                        position: OrderedFloat(*car.position + 18.0),
-                                        velocity: 0.0,
-                                        max_velocity: 0.0
-                                    }
-                                } else {*obstacle};
-                                OrderedFloat(intelligent_acceleration(car, &corrected_obstacle, 1.0))
+                            .chain(maybe_next_right_obstacle).chain(&[Obstacle::far_ahead()]).filter_map(|obstacle| {
+                                if *obstacle.position < *car.position + 0.1 {
+                                    dangerous = true;
+                                    None
+                                } else {Some(OrderedFloat(intelligent_acceleration(car, obstacle, 1.0)))}
                             }).min().unwrap();
 
                         let transfer_before_end_velocity = (self.length + 1.0 - *car.position) / 1.5;
                         let transfer_before_end_acceleration = transfer_before_end_velocity - car.velocity;
 
-                        let dangerous = car.velocity > 5.0 && next_obstacle_acceleration < -7.0;
+                        //let dangerous = car.velocity > 5.0 && next_obstacle_acceleration < -7.0;
 
                         (next_obstacle_acceleration.min(transfer_before_end_acceleration), dangerous)
                     };

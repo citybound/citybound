@@ -196,9 +196,11 @@ impl Recipient<PlanControl> for CurrentPlan {
             Fate::Live
         },
         PlanControl::WithLatestNode(position, update_preview) => {
+            let mut update_preview = update_preview;
             self.preview = self.current.clone();
             self.preview.ui_state.drawing_status = match self.current.ui_state.drawing_status.clone() {
                 DrawingStatus::Nothing(_) => {
+                    update_preview = false;
                     DrawingStatus::WithStartPoint(position)
                 },
                 DrawingStatus::WithStartPoint(start) => {
@@ -633,8 +635,8 @@ impl Recipient<PlanControl> for CurrentPlan {
             Fate::Live
         },
         PlanControl::CreateGrid(()) => {
-            let grid_size = 18u32;
-            let grid_spacing = 500.0;
+            let grid_size = 15u32;
+            let grid_spacing = 1000.0;
 
             for x in 0..grid_size {
                 self.receive(&PlanControl::WithLatestNode(P2::new((x as f32 + 0.5) * grid_spacing, 0.0), false));
@@ -846,7 +848,7 @@ impl Default for PlanUIState{
     fn default() -> PlanUIState{
         PlanUIState{
             create_both_sides: true,
-            n_lanes_per_side: 5,
+            n_lanes_per_side: 2,
             select_parallel: true,
             select_opposite: true,
             drawing_status: DrawingStatus::Nothing(()),
