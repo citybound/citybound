@@ -12,8 +12,8 @@ Currently Citybound is only tested with Rust `nightly-2016-10-28`
 Recommended setup:
 * install rustup
 * Windows: `rustup default nightly-2016-10-28-x86_64-pc-windows-gnu`
-* MacOS: `rustup default nightly-2016-10-28-x86_64-pc-windows-gnu`
-* Linux: `rustup default nightly-2016-10-28-x86_64-pc-windows-gnu`
+* MacOS: `rustup default nightly-2016-10-28-x86_64-apple-darwin`
+* Linux: `rustup default nightly-2016-10-28-x86_64-unknown-linux-gnu`
 * `cargo run --release` (Debug mode is generally too slow to interact with)
 
 # License
