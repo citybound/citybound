@@ -12,8 +12,7 @@
 use ::monet::Vertex;
 
 pub fn create() -> ::monet::Thing {
-    ::monet::Thing::new(
-        vec![
+    ::monet::Thing::new(vec![
             Vertex { position: [ -2.25,  -0.9, 0.00 ] }, // 0
             Vertex { position: [ -2.25,  -0.9, 0.80 ] }, // 1
             Vertex { position: [ -2.00,  -0.9, 1.00 ] }, // 2
@@ -32,7 +31,7 @@ pub fn create() -> ::monet::Thing {
             Vertex { position: [  2.25,   0.9, 0.80 ] }, // E
             Vertex { position: [  2.25,   0.9, 0.00 ] }, // F
         ],
-        vec![
+                        vec![
             // right side
             0, 1, 2,
             0, 2, 5,
@@ -62,6 +61,5 @@ pub fn create() -> ::monet::Thing {
             0xD, 6, 5,
             0xE, 0xF, 7,
             0xE, 7, 6u16
-        ]
-    )
+        ])
 }

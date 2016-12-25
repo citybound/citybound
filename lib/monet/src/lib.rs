@@ -432,7 +432,7 @@ impl Instance {
             instance_direction: [1.0, 0.0],
             instance_color: color
         }
-    } 
+    }
 }
 
 pub struct RenderContext {
@@ -491,7 +491,7 @@ impl RenderContext {
             0.1,
             50000.0
         ).to_matrix().as_ref();
-        
+
         let uniforms = uniform! {
             view: view,
             perspective: perspective
@@ -514,7 +514,7 @@ impl RenderContext {
             },
             .. Default::default()
         };
-        
+
         // draw a frame
         target.clear_color_and_depth((1.0, 1.0, 1.0, 1.0), 1.0);
 
@@ -552,7 +552,7 @@ impl RenderContext {
                 (key.len() + text.len() + 3, *color)
             ).chain(Some((render_debug_text.len(), [0.0, 0.0, 0.0, 0.5]))).collect()
         );
-        
+
         for &(ref glyph, _) in &glyphs {
             self.text_cache.queue_glyph(0, glyph.clone());
         }

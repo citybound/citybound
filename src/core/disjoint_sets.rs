@@ -4,16 +4,16 @@ pub struct DisjointSets<T> {
     elements: Vec<T>,
     parent_indices: Vec<usize>,
     ranks: Vec<usize>,
-    is_sorted: bool
+    is_sorted: bool,
 }
 
 impl<T> DisjointSets<T> {
     pub fn from_individuals(individuals: Vec<T>) -> Self {
-        DisjointSets{
+        DisjointSets {
             parent_indices: (0..individuals.len()).into_iter().collect(),
             ranks: vec![0; individuals.len()],
             elements: individuals,
-            is_sorted: true
+            is_sorted: true,
         }
     }
 
@@ -55,9 +55,15 @@ impl<T> DisjointSets<T> {
         }
     }
 
-    pub fn union_all_with_accelerator
-    <Acc, FAdd: Fn(&T, usize, &mut Acc), FPairs: Fn(&Acc) -> &Vec<(usize, RoaringBitmap<u32>)>, F: Fn(&T, &T) -> bool>
-    (&mut self, initial_accelerator: Acc, add: FAdd, pairs: FPairs, should_union: F) {
+    pub fn union_all_with_accelerator<Acc,
+                                      FAdd: Fn(&T, usize, &mut Acc),
+                                      FPairs: Fn(&Acc) -> &Vec<(usize, RoaringBitmap<u32>)>,
+                                      F: Fn(&T, &T) -> bool>
+        (&mut self,
+         initial_accelerator: Acc,
+         add: FAdd,
+         pairs: FPairs,
+         should_union: F) {
         let mut accelerator = initial_accelerator;
         for (i, element) in self.elements.iter().enumerate() {
             add(element, i, &mut accelerator);
@@ -80,7 +86,7 @@ impl<T> DisjointSets<T> {
 
             for idx in 0..self.elements.len() {
                 root_occurences[self.find_root(idx)] += 1;
-            };
+            }
 
             let mut root_start_index = root_occurences;
 
@@ -108,8 +114,14 @@ impl<T> DisjointSets<T> {
                 new_to_old_idx_map[new_idx] = idx;
 
                 unsafe {
-                    ::std::ptr::copy_nonoverlapping(&self.elements[idx], new_elements.as_mut_ptr().offset(new_idx as isize), 1);
-                    ::std::ptr::copy_nonoverlapping(&self.ranks[idx], new_ranks.as_mut_ptr().offset(new_idx as isize), 1);
+                    ::std::ptr::copy_nonoverlapping(&self.elements[idx],
+                                                    new_elements.as_mut_ptr()
+                                                        .offset(new_idx as isize),
+                                                    1);
+                    ::std::ptr::copy_nonoverlapping(&self.ranks[idx],
+                                                    new_ranks.as_mut_ptr()
+                                                        .offset(new_idx as isize),
+                                                    1);
                 }
             }
 
@@ -122,7 +134,9 @@ impl<T> DisjointSets<T> {
 
             self.elements = new_elements;
             self.ranks = new_ranks;
-            self.parent_indices = new_to_old_idx_map.iter().map(|&old_idx| old_to_new_idx_map[self.parent_indices[old_idx]]).collect();
+            self.parent_indices = new_to_old_idx_map.iter()
+                .map(|&old_idx| old_to_new_idx_map[self.parent_indices[old_idx]])
+                .collect();
 
             self.is_sorted = true;
         }
@@ -130,16 +144,16 @@ impl<T> DisjointSets<T> {
 
     pub fn sets(&mut self) -> SetsIterator<T> {
         self.ensure_sorted();
-        SetsIterator{
+        SetsIterator {
             elements: &self.elements,
-            input_iter: self.parent_indices.iter().enumerate().peekable()
+            input_iter: self.parent_indices.iter().enumerate().peekable(),
         }
     }
 }
 
 pub struct SetsIterator<'a, T: 'a> {
     elements: &'a Vec<T>,
-    input_iter: ::std::iter::Peekable<::std::iter::Enumerate<::std::slice::Iter<'a, usize>>>
+    input_iter: ::std::iter::Peekable<::std::iter::Enumerate<::std::slice::Iter<'a, usize>>>,
 }
 
 impl<'a, T: 'a> Iterator for SetsIterator<'a, T> {
@@ -154,7 +168,9 @@ impl<'a, T: 'a> Iterator for SetsIterator<'a, T> {
             }
 
             Some(&self.elements[set_start_idx..set_end_idx])
-        } else {None}
+        } else {
+            None
+        }
     }
 }
 
