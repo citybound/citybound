@@ -7,6 +7,12 @@ pub use ::monet::glium::glutin::{VirtualKeyCode};
 use core::geometry::AnyShape;
 use ::std::collections::HashMap;
 
+#[derive(Copy, Clone, Debug)]
+pub enum KeyOrButton{
+    Key(VirtualKeyCode),
+    Button(MouseButton),
+}
+
 #[derive(Copy, Clone)]
 enum Mouse {
     Moved(P2),

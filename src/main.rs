@@ -1,8 +1,9 @@
+#![feature(custom_derive, plugin)]
+#![cfg_attr(feature = "serde_derive", feature(proc_macro))]
 #![feature(proc_macro)]
 #![allow(dead_code)]
 #![feature(plugin)]
 #![feature(conservative_impl_trait)]
-#![plugin(clippy)]
 #![allow(no_effect, unnecessary_operation)]
 // Enable this for memory tracking with Instruments/MacOS
 // and for much better stacktraces for memory issues
@@ -15,6 +16,11 @@ extern crate random;
 extern crate fnv;
 extern crate roaring;
 extern crate open;
+#[cfg(feature = "serde_derive")]
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_json;
+extern crate serde;
 
 extern crate kay;
 #[macro_use]
@@ -32,6 +38,9 @@ use game::lanes_and_cars::lane_rendering::{LaneAsphalt, LaneMarker, TransferLane
 use game::lanes_and_cars::lane_thing_collector::ThingCollector;
 use game::lanes_and_cars::planning::{CurrentPlan};
 use kay::Individual;
+
+use serde::ser::Serialize;
+use serde::de::Deserialize;
 
 const SECONDS_PER_TICK : f32 = 1.0 / 20.0;
 
