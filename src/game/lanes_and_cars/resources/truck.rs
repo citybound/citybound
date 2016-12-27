@@ -55,7 +55,6 @@ pub fn create() -> ::monet::Thing {
             0xB, 4, 0xA,
             4, 0xB, 5,
             0xC, 5, 0xB,
-           
             0xD, 0xC, 5,
             0xD, 6, 5,
             0, 6, 7,
