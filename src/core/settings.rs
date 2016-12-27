@@ -1,4 +1,3 @@
-#![feature(rustc_macro)]
 use ::core::ui::KeyOrButton;
 use ::monet::glium::glutin::{MouseButton, VirtualKeyCode};
 use serde_json;
@@ -51,7 +50,7 @@ impl Settings{
         let settings = Settings::new();
 
         let mut file = match File::open(&path) {
-            Err(why) => {
+            Err(_) => {
                 println!("Config file does not exist, creating new one");
                 match File::create(&path) {
                     Err(why) => panic!("couldn't create {}: {}", display, why.description()),
@@ -74,11 +73,10 @@ impl Settings{
             Ok(file) => file,
         };
         let mut s = String::new();
-        match file.read_to_string(&mut s) {
-            Err(why) => panic!("couldn't read {}: {}", display, why.description()),
-            Ok(_) => (),
+        if let Err(why) = file.read_to_string(&mut s) {
+            panic!("couldn't read {}: {}", display, why.description())
         }
-        let deserialized: Settings = serde_json::from_str(&s).unwrap();
-        deserialized
+        let ret: Settings = serde_json::from_str(&s).unwrap();
+        ret
     }
 }

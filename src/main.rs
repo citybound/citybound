@@ -1,4 +1,5 @@
-#![feature(custom_derive, plugin, rustc_macro, proc_macro, conservative_impl_trait)]
+#![feature(custom_derive, plugin, proc_macro, conservative_impl_trait)]
+#![plugin(clippy)]
 #![allow(dead_code)]
 #![allow(no_effect, unnecessary_operation)]
 // Enable this for memory tracking with Instruments/MacOS
@@ -33,9 +34,6 @@ use game::lanes_and_cars::lane_rendering::{LaneAsphalt, LaneMarker, TransferLane
 use game::lanes_and_cars::lane_thing_collector::ThingCollector;
 use game::lanes_and_cars::planning::{CurrentPlan};
 use kay::Individual;
-
-use serde::ser::Serialize;
-use serde::de::Deserialize;
 
 const SECONDS_PER_TICK : f32 = 1.0 / 20.0;
 

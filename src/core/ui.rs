@@ -319,12 +319,18 @@ impl Recipient<UIUpdate> for UserInterface {
         for mouse_action in &self.input_state.mouse.clone() {
             match *mouse_action {
                 Mouse::Moved(position) => {
+                    let inverted = if self.settings.invert_y {-1.0} else {1.0};
                     let delta = self.cursor_2d - position;
                     if self.input_state.rotate_mod {
-                        Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Rotate(-delta.x * self.settings.rotation_speed / 300.0) };
+                        Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Rotate(
+                            -delta.x * self.settings.rotation_speed * inverted/ 300.0)
+                        };
                         self.cursor_2d = position;
                     } else if self.input_state.pan_mod {
-                        Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(-delta.y * self.settings.move_speed / 3.0, delta.x * self.settings.move_speed / 3.0, 0.0)) };
+                        Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(
+                            V3::new(-delta.y * self.settings.move_speed * inverted/ 3.0,
+                                    delta.x * self.settings.move_speed * inverted / 3.0, 0.0)
+                        )};
                         self.cursor_2d = position;
                     } else {
                         self.cursor_2d = position;
