@@ -1,9 +1,5 @@
-#![feature(custom_derive, plugin)]
-#![cfg_attr(feature = "serde_derive", feature(proc_macro))]
-#![feature(proc_macro)]
+#![feature(custom_derive, plugin, rustc_macro, proc_macro, conservative_impl_trait)]
 #![allow(dead_code)]
-#![feature(plugin)]
-#![feature(conservative_impl_trait)]
 #![allow(no_effect, unnecessary_operation)]
 // Enable this for memory tracking with Instruments/MacOS
 // and for much better stacktraces for memory issues
@@ -16,7 +12,6 @@ extern crate random;
 extern crate fnv;
 extern crate roaring;
 extern crate open;
-#[cfg(feature = "serde_derive")]
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;

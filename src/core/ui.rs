@@ -6,11 +6,50 @@ use ::monet::glium::glutin::{Event, MouseScrollDelta, ElementState, MouseButton}
 pub use ::monet::glium::glutin::{VirtualKeyCode};
 use core::geometry::AnyShape;
 use ::std::collections::HashMap;
+use ::core::settings::Settings;
+use serde_json;
+use serde;
+use serde::{Serializer, Serialize, Deserialize, Deserializer};
+use std::mem::transmute;
 
 #[derive(Copy, Clone, Debug)]
 pub enum KeyOrButton{
     Key(VirtualKeyCode),
     Button(MouseButton),
+}
+
+impl Serialize for KeyOrButton{
+    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
+        where S: Serializer
+    {
+        match *self{
+            KeyOrButton::Key(code) => serializer.serialize_u64(code as u64),
+            KeyOrButton::Button(code) => match code {
+                MouseButton::Other(code) => serializer.serialize_u64(code as u64 + 2000),
+                MouseButton::Left => serializer.serialize_u64(1001),
+                MouseButton::Middle => serializer.serialize_u64(1002),
+                MouseButton::Right => serializer.serialize_u64(1003),
+            }
+        }
+    }
+}
+
+impl Deserialize for KeyOrButton{
+    fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error>
+        where D: Deserializer,
+    {
+        let deser_result: serde_json::Value = serde::Deserialize::deserialize(deserializer)?;
+        match deser_result {
+            serde_json::Value::U64(b) if b > 1000 => match b {
+                1001 => Ok(KeyOrButton::Button(MouseButton::Left)),
+                1002 => Ok(KeyOrButton::Button(MouseButton::Middle)),
+                1003 => Ok(KeyOrButton::Button(MouseButton::Right)),
+                _ => Ok(KeyOrButton::Button(MouseButton::Other((b - 2000) as u8))),
+            },
+            serde_json::Value::U64(b) => Ok(KeyOrButton::Key(unsafe{transmute(b as u8)})),
+            _ => Err(serde::de::Error::custom("Unexpected value")),
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -61,6 +100,7 @@ pub struct UserInterface {
     active_interactable: Option<ID>,
     focused_interactable: Option<ID>,
     input_state: InputState,
+    settings: Settings,
 }
 
 impl Individual for UserInterface {}
@@ -78,6 +118,7 @@ impl UserInterface {
             active_interactable: None,
             focused_interactable: None,
             input_state: InputState::new(),
+            settings: Settings::load(),
         }
     }
 }
