@@ -8,21 +8,22 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Settings {
     //Controls
-    rotation_speed: f32,
-    zoom_speed: f32,
-    invert_y: bool,
+    pub rotation_speed: f32,
+    pub move_speed: f32,
+    pub zoom_speed: f32,
+    pub invert_y: bool,
 
-    mouse_main: Vec<KeyOrButton>,
+    pub mouse_main: Vec<KeyOrButton>,
     
-    forward_key: Vec<KeyOrButton>,
-    backward_key: Vec<KeyOrButton>,
-    left_key: Vec<KeyOrButton>,
-    right_key: Vec<KeyOrButton>,
-    pan_modifier_key: Vec<KeyOrButton>,
-    rotate_modifier_key: Vec<KeyOrButton>,
+    pub forward_key: Vec<KeyOrButton>,
+    pub backward_key: Vec<KeyOrButton>,
+    pub left_key: Vec<KeyOrButton>,
+    pub right_key: Vec<KeyOrButton>,
+    pub pan_modifier_key: Vec<KeyOrButton>,
+    pub rotate_modifier_key: Vec<KeyOrButton>,
 }
 
 impl Settings{
@@ -30,6 +31,7 @@ impl Settings{
         Settings{
             rotation_speed: 1.0f32,
             zoom_speed: 1.0f32,
+            move_speed: 1.0f32,
             invert_y: false,
 
             mouse_main: vec![KeyOrButton::Button(MouseButton::Left)],

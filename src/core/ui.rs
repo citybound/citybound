@@ -12,7 +12,7 @@ use serde;
 use serde::{Serializer, Serialize, Deserialize, Deserializer};
 use std::mem::transmute;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum KeyOrButton{
     Key(VirtualKeyCode),
     Button(MouseButton),
@@ -52,7 +52,7 @@ impl Deserialize for KeyOrButton{
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 enum Mouse {
     Moved(P2),
     Scrolled(P2),
@@ -204,15 +204,36 @@ impl Recipient<Mouse> for UserInterface {
     fn receive(&mut self, msg: &Mouse) -> Fate {
         self.input_state.mouse.push(*msg);
         match *msg {
-            Mouse::Down(MouseButton::Middle) => self.input_state.rotate_mod = true,
-            Mouse::Up(MouseButton::Middle) => self.input_state.rotate_mod = false,
+            Mouse::Down(button) | Mouse::Up(button) => {
+                let down = *msg == Mouse::Down(button);
+                // If you want to bind movement to mouse buttons, who am I to judge
+                if self.settings.forward_key.iter().any(|x| *x == KeyOrButton::Button(button)){
+                    self.input_state.forward = down;
+                }
+                if self.settings.backward_key.iter().any(|x| *x == KeyOrButton::Button(button)){
+                    self.input_state.backward = down;
+                }
+                if self.settings.left_key.iter().any(|x| *x == KeyOrButton::Button(button)){
+                    self.input_state.left = down;
+                }
+                if self.settings.right_key.iter().any(|x| *x == KeyOrButton::Button(button)){
+                    self.input_state.right = down;
+                }
+
+                if self.settings.rotate_modifier_key.iter().any(|x| *x == KeyOrButton::Button(button)){
+                    self.input_state.rotate_mod = down;
+                }
+                if self.settings.pan_modifier_key.iter().any(|x| *x == KeyOrButton::Button(button)){
+                    self.input_state.pan_mod = down;
+                }
+            },
             _ => ()
         }
         Fate::Live
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 enum Key {
     Up(VirtualKeyCode),
     Down(VirtualKeyCode)
@@ -221,57 +242,35 @@ enum Key {
 impl Recipient<Key> for UserInterface {
     fn receive(&mut self, msg: &Key) -> Fate {
         match *msg {
-            Key::Down(key_code) => {
-                match key_code {
-                    VirtualKeyCode::W => {
-                        self.input_state.forward = true;
-                    },
-                    VirtualKeyCode::S => {
-                        self.input_state.backward = true;
-                    },
-                    VirtualKeyCode::A => {
-                        self.input_state.left = true;
-                    },
-                    VirtualKeyCode::D => {
-                        self.input_state.right = true;
-                    },
+            Key::Down(key_code) | Key::Up(key_code) => {
+                let down = *msg == Key::Down(key_code);
+                if self.settings.forward_key.iter().any(|x| *x == KeyOrButton::Key(key_code)){
+                    self.input_state.forward = down;
+                };
+                if self.settings.backward_key.iter().any(|x| *x == KeyOrButton::Key(key_code)){
+                    self.input_state.backward = down;
+                };
+                if self.settings.left_key.iter().any(|x| *x == KeyOrButton::Key(key_code)){
+                    self.input_state.left = down;
+                };
+                if self.settings.right_key.iter().any(|x| *x == KeyOrButton::Key(key_code)){
+                    self.input_state.right = down;
+                };
+                if self.settings.rotate_modifier_key.iter().any(|x| *x == KeyOrButton::Key(key_code)){
+                    self.input_state.rotate_mod = down;
+                };
+                if self.settings.pan_modifier_key.iter().any(|x| *x == KeyOrButton::Key(key_code)){
+                    self.input_state.pan_mod = down;
+                };
 
-                    VirtualKeyCode::LShift | VirtualKeyCode::RShift => {
-                        self.input_state.pan_mod = true;
-                    },
-                    _ => {}
-                }
                 self.focused_interactable.map(|interactable|
-                    interactable << Event3d::KeyDown(key_code)
+                    interactable << if down
+                        {Event3d::KeyDown(key_code)}else {Event3d::KeyUp(key_code)}
                 );
-                Fate::Live
+                ()
             },
-            Key::Up(key_code) => {
-                match key_code {
-                    VirtualKeyCode::W => {
-                        self.input_state.forward = false;
-                    },
-                    VirtualKeyCode::S => {
-                        self.input_state.backward = false;
-                    },
-                    VirtualKeyCode::A => {
-                        self.input_state.left = false;
-                    },
-                    VirtualKeyCode::D => {
-                        self.input_state.right = false;
-                    },
-
-                    VirtualKeyCode::LShift | VirtualKeyCode::RShift => {
-                        self.input_state.pan_mod = false;
-                    },
-                    _ => {}
-                }
-                self.focused_interactable.map(|interactable|
-                    interactable << Event3d::KeyUp(key_code)
-                );
-                Fate::Live
-            }
         }
+        Fate::Live
     }
 }
 
@@ -322,10 +321,10 @@ impl Recipient<UIUpdate> for UserInterface {
                 Mouse::Moved(position) => {
                     let delta = self.cursor_2d - position;
                     if self.input_state.rotate_mod {
-                        Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Rotate(-delta.x / 300.0) };
+                        Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Rotate(-delta.x * self.settings.rotation_speed / 300.0) };
                         self.cursor_2d = position;
                     } else if self.input_state.pan_mod {
-                        Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(-delta.y / 3.0, delta.x / 3.0, 0.0)) };
+                        Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(-delta.y * self.settings.move_speed / 3.0, delta.x * self.settings.move_speed / 3.0, 0.0)) };
                         self.cursor_2d = position;
                     } else {
                         self.cursor_2d = position;
@@ -337,7 +336,7 @@ impl Recipient<UIUpdate> for UserInterface {
                     }
                 },
                 Mouse::Scrolled(delta) => {
-                    Renderer::id() << MoveEye{scene_id: 0, movement: ::monet::Movement::Zoom(delta.y)};
+                    Renderer::id() << MoveEye{scene_id: 0, movement: ::monet::Movement::Zoom(delta.y * self.settings.zoom_speed)};
                 },
                 Mouse::Down(MouseButton::Left) => {
                     self.drag_start_2d = Some(self.cursor_2d);
@@ -364,16 +363,16 @@ impl Recipient<UIUpdate> for UserInterface {
             }
         }
         if self.input_state.forward {
-            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(5.0, 0.0, 0.0))};
+            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(5.0 * self.settings.move_speed, 0.0, 0.0))};
         }
         if self.input_state.backward {
-            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(-5.0, 0.0, 0.0))};
+            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(-5.0 * self.settings.move_speed, 0.0, 0.0))};
         }
         if self.input_state.left {
-            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(0.0, -5.0, 0.0))};
+            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(0.0, -5.0 * self.settings.move_speed, 0.0))};
         }
         if self.input_state.right {
-            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(0.0, 5.0, 0.0))};
+            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(0.0, 5.0 * self.settings.move_speed, 0.0))};
         }
 
         self.input_state.mouse.clear();
