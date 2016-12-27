@@ -44,6 +44,7 @@ impl Settings{
         }
     }
 
+    #[allow(let_and_return)]
     pub fn load() -> Settings{
         let path = Path::new("config.json");
         let display = path.display();
