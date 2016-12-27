@@ -13,7 +13,7 @@ mod font;
 mod glyph;
 mod rich_text;
 
-pub use self::font::{Font, FontBank};
+pub use self::font::{Font, FontBank, FontDescription};
 pub use self::glyph::{Glyph, GlyphIter};
 pub use self::rich_text::{RichText, Formatting};
 
@@ -60,8 +60,8 @@ impl TextRenderer {
                        text: &[RichText]) {
         for text in text {
             for glyph in text.glyphs_iter() {
-                let positioned = glyph.positioned(&self.font_bank);
-                self.text_cache.queue_glyph(0, positioned);
+                let positioned = glyph.positioned();
+                self.text_cache.queue_glyph(0, positioned.clone());
             }
         }
 
@@ -113,8 +113,8 @@ impl TextRenderer {
     pub fn cache_rect_for(&self,
                           glyph: &Glyph)
                           -> Option<(rusttype::Rect<f32>, rusttype::Rect<i32>)> {
-        let positioned = glyph.positioned(&self.font_bank);
-        match self.text_cache.rect_for(0, &positioned) {
+        let positioned = glyph.positioned();
+        match self.text_cache.rect_for(0, positioned) {
             Ok(Some(rects)) => Some(rects),
             _ => None,
         }

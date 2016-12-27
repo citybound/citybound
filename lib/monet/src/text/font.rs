@@ -10,25 +10,58 @@ pub enum Font {
 }
 
 pub struct FontBank {
-    pub dpi_factor: f32,
-    text_font: rusttype::Font<'static>,
+    dpi_factor: f32,
 }
 
 impl FontBank {
     pub fn new(dpi_factor: f32) -> FontBank {
         FontBank {
             dpi_factor: dpi_factor,
-            text_font: rusttype::FontCollection::from_bytes(
-                include_bytes!("../../../../fonts/ClearSans-Regular.ttf") as &[u8]
-            ).into_font().unwrap(),
         }
     }
 
-    pub fn font(&self, font: Font) -> (&rusttype::Font<'static>, rusttype::Scale) {
+    pub fn font(&self, font: Font) -> FontDescription {
         let (font, scale) = match font {
-            Font::Debug => (&self.text_font, 14.0),
+            Font::Debug => (&FONT_CLEAR_SANS_REGULAR, 14.0),
         };
 
-        (font, rusttype::Scale::uniform(scale * self.dpi_factor))
+        FontDescription::new(font, scale, self.dpi_factor)
     }
+}
+
+#[derive(Copy, Clone)]
+pub struct FontDescription {
+    font: &'static rusttype::Font<'static>,
+    scale: rusttype::Scale,
+}
+
+impl FontDescription {
+    fn new(font: &'static rusttype::Font<'static>, scale: f32, dpi_factor: f32) -> FontDescription {
+        FontDescription {
+            font: font,
+            scale: rusttype::Scale::uniform(scale * dpi_factor),
+        }
+    }
+
+    pub fn font(&self) -> &'static rusttype::Font<'static> {
+        self.font
+    }
+
+    pub fn scale(&self) -> rusttype::Scale {
+        self.scale
+    }
+}
+
+macro_rules! font {
+    ( $name:expr ) => {
+        {
+            let bytes: &[u8] = include_bytes!(concat!("../../../../fonts/", $name));
+            rusttype::FontCollection::from_bytes(bytes).into_font().unwrap()
+        }
+    }
+}
+
+lazy_static! {
+    static ref FONT_CLEAR_SANS_REGULAR: rusttype::Font<'static> =
+        font!("ClearSans-Regular.ttf");
 }

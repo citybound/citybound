@@ -4,24 +4,40 @@ use rusttype;
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
                     WithUniqueOrthogonal, Inverse, Rotate};
 
-use ::{TextRenderer, Font, FontBank, Formatting};
+use ::{TextRenderer, Font, FontDescription, Formatting};
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct Glyph {
     font: Font,
     color: [f32; 4],
 
+    positioned: rusttype::PositionedGlyph<'static>,
     glyph_id: rusttype::GlyphId,
     position: rusttype::Point<f32>,
 }
 
 impl Glyph {
-    pub fn positioned<'a>(&self, font_bank: &'a FontBank) -> rusttype::PositionedGlyph<'a> {
-        let (font, scale) = font_bank.font(self.font);
-        font.glyph(self.glyph_id)
+    fn new(font: Font, font_desc: FontDescription,
+           color: [f32; 4], glyph_id: rusttype::GlyphId,
+           position: rusttype::Point<f32>) -> Glyph {
+        let positioned = font_desc.font()
+            .glyph(glyph_id)
             .unwrap()
-            .scaled(scale)
-            .positioned(self.position)
+            .scaled(font_desc.scale())
+            .positioned(position);
+
+        Glyph {
+            font: font,
+            color: color,
+
+            positioned: positioned,
+            glyph_id: glyph_id,
+            position: position,
+        }
+    }
+
+    pub fn positioned(&self) -> &rusttype::PositionedGlyph<'static> {
+        &self.positioned
     }
 
     pub fn font(&self) -> Font {
@@ -77,8 +93,8 @@ impl<'a, 'b, 'c> GlyphIter<'a, 'b, 'c> {
             format
         };
 
-        let (font, scale) = self.text_renderer.font_bank().font(format.font);
-        let v_metrics = font.v_metrics(scale);
+        let font_desc = self.text_renderer.font_bank().font(format.font);
+        let v_metrics = font_desc.font().v_metrics(font_desc.scale());
         let advance_height = v_metrics.ascent - v_metrics.descent + v_metrics.line_gap;
 
         // todo: we should keep track of the tallest character in the row
@@ -93,11 +109,11 @@ impl<'a, 'b, 'c> GlyphIter<'a, 'b, 'c> {
             return None;
         }
 
-        let base_glyph = match font.glyph(c) {
+        let base_glyph = match font_desc.font().glyph(c) {
             Some(glyph) => glyph,
             None => {
                 // If the character does not exist, try the replacement character
-                match font.glyph('�') {
+                match font_desc.font().glyph('�') {
                     Some(glyph) => glyph,
                     None => return None,
                 }
@@ -105,11 +121,11 @@ impl<'a, 'b, 'c> GlyphIter<'a, 'b, 'c> {
         };
 
         if let Some(id) = self.last_glyph_id.take() {
-            self.caret.x += font.pair_kerning(scale, id, base_glyph.id());
+            self.caret.x += font_desc.font().pair_kerning(font_desc.scale(), id, base_glyph.id());
         }
         self.last_glyph_id = Some(base_glyph.id());
 
-        let glyph = base_glyph.scaled(scale).positioned(self.caret);
+        let glyph = base_glyph.scaled(font_desc.scale()).positioned(self.caret);
         if let Some(bb) = glyph.pixel_bounding_box() {
             if bb.max.x > format.width as i32 {
                 self.caret = rusttype::point(0.0, self.caret.y + advance_height);
@@ -118,13 +134,7 @@ impl<'a, 'b, 'c> GlyphIter<'a, 'b, 'c> {
         }
 
         let h_metrics = glyph.unpositioned().h_metrics();
-
-        let glyph = Glyph {
-            font: format.font,
-            color: format.color,
-            glyph_id: glyph.id(),
-            position: self.caret,
-        };
+        let glyph = Glyph::new(format.font, font_desc, format.color, glyph.id(), self.caret);
 
         self.caret.x += h_metrics.advance_width;
         Some(glyph)

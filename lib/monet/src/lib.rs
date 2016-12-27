@@ -11,6 +11,8 @@ extern crate kay_macros;
 extern crate rusttype;
 extern crate fnv;
 extern crate unicode_normalization;
+#[macro_use]
+extern crate lazy_static;
 
 use kay::{ActorSystem, Individual};
 
@@ -30,7 +32,7 @@ pub use renderer::{Renderer, SetupInScene, RenderToScene, Control, AddBatch, Add
 pub use render_context::RenderContext;
 pub use scene::{Eye, Scene};
 pub use thing::Thing;
-pub use text::{TextRenderer, TextVertex, Font, FontBank, RichText, Formatting, Glyph, GlyphIter};
+pub use text::{TextRenderer, TextVertex, Font, FontBank, RichText, FontDescription, Formatting, Glyph, GlyphIter};
 
 pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
     system.add_individual(renderer);
