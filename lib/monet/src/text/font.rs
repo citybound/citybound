@@ -43,10 +43,12 @@ impl FontDescription {
         }
     }
 
+    #[inline]
     pub fn font(&self) -> &'static rusttype::Font<'static> {
         self.font
     }
 
+    #[inline]
     pub fn scale(&self) -> rusttype::Scale {
         self.scale
     }

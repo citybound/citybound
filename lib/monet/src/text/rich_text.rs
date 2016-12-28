@@ -28,6 +28,7 @@ impl RichText {
     }
 
     #[allow(needless_lifetimes)]
+    #[inline]
     pub fn glyphs_iter<'a>(&'a self) -> impl Iterator<Item = &'a Glyph> {
         self.glyphs.iter()
     }

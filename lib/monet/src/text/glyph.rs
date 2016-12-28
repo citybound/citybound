@@ -36,14 +36,17 @@ impl Glyph {
         }
     }
 
+    #[inline]
     pub fn positioned(&self) -> &rusttype::PositionedGlyph<'static> {
         &self.positioned
     }
 
+    #[inline]
     pub fn font(&self) -> Font {
         self.font
     }
 
+    #[inline]
     pub fn color(&self) -> [f32; 4] {
         self.color
     }
