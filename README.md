@@ -20,7 +20,7 @@ Recommended setup:
 
 # License
 
-Citybound is licensed under AGPL (see LICENSE.txt), for interest in commercial licenses please contact me.
+Citybound is licensed under AGPL (see [LICENSE.txt](LICENSE.txt)), for interest in commercial licenses please contact me.
 
 # Contribution
 
