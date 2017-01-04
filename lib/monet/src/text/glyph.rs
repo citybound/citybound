@@ -17,9 +17,12 @@ pub struct Glyph {
 }
 
 impl Glyph {
-    fn new(font: Font, font_desc: FontDescription,
-           color: [f32; 4], glyph_id: rusttype::GlyphId,
-           position: rusttype::Point<f32>) -> Glyph {
+    fn new(font: Font,
+           font_desc: FontDescription,
+           color: [f32; 4],
+           glyph_id: rusttype::GlyphId,
+           position: rusttype::Point<f32>)
+           -> Glyph {
         let positioned = font_desc.font()
             .glyph(glyph_id)
             .unwrap()

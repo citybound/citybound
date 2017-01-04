@@ -1,4 +1,4 @@
-#![feature(plugin, proc_macro, conservative_impl_trait)]
+#![feature(plugin, proc_macro, conservative_impl_trait, btree_range, collections_bound)]
 #![plugin(clippy)]
 #![allow(no_effect, unnecessary_operation)]
 
@@ -13,6 +13,7 @@ extern crate fnv;
 extern crate unicode_normalization;
 #[macro_use]
 extern crate lazy_static;
+extern crate image;
 
 use kay::{ActorSystem, Individual};
 
@@ -22,6 +23,7 @@ mod render_context;
 mod scene;
 mod thing;
 mod text;
+mod sdf;
 
 pub use glium::backend::glutin_backend::GlutinFacade;
 
@@ -32,7 +34,8 @@ pub use renderer::{Renderer, SetupInScene, RenderToScene, Control, AddBatch, Add
 pub use render_context::RenderContext;
 pub use scene::{Eye, Scene};
 pub use thing::Thing;
-pub use text::{TextRenderer, TextVertex, Font, FontBank, RichText, FontDescription, Formatting, Glyph, GlyphIter};
+pub use text::{TextRenderer, TextVertex, Font, FontBank, RichText, FontDescription, Formatting,
+               Glyph, GlyphIter};
 
 pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
     system.add_individual(renderer);

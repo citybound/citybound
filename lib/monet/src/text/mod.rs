@@ -18,6 +18,10 @@ pub use self::glyph::{Glyph, GlyphIter};
 pub use self::rich_text::{RichText, Formatting};
 
 pub struct TextRenderer {
+    sdf_program: glium::Program,
+    sdf_verts: glium::VertexBuffer<GlyphVertex>,
+    sdf_glyph: ::sdf::SdfGlyph,
+
     text_program: glium::Program,
     text_cache_tex: glium::Texture2d,
     text_cache: rusttype::gpu_cache::Cache,
@@ -40,8 +44,22 @@ impl TextRenderer {
             glium::texture::MipmapsOption::NoMipmap
         ).unwrap();
 
+        let mut image = ::image::load_from_memory_with_format(include_bytes!("../../../..\
+                                                                          /images/logo.png"),
+                                                              ::image::ImageFormat::PNG)
+            .unwrap()
+            .to_rgba();
+
         #[allow(redundant_closure)]
         TextRenderer {
+            sdf_program: program!(window, 140 => {
+                vertex: include_str!("../shader/sdf_140.glslv"),
+                fragment: include_str!("../shader/sdf_140.glslf")
+            })
+                .unwrap(),
+            sdf_glyph: ::sdf::SdfGlyph::new(window, &mut image, 256),
+            sdf_verts: TextRenderer::rect_vert(window),
+
             text_program: program!(window, 140 => {
                 vertex: include_str!("../shader/text_140.glslv"),
                 fragment: include_str!("../shader/text_140.glslf")
@@ -53,11 +71,36 @@ impl TextRenderer {
         }
     }
 
+    pub fn render_glyph(&self,
+                        screen: (f32, f32),
+                        window: &GlutinFacade,
+                        target: &mut glium::Frame,
+                        glyph: &::sdf::SdfGlyph) {
+        let sdf_uniforms = uniform! {
+            tex: glyph.texture()
+                .sampled()
+                .magnify_filter(glium::uniforms::MagnifySamplerFilter::Linear),
+            aspect: glyph.aspect(),
+        };
+
+        target.draw(&self.sdf_verts,
+                  glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList),
+                  &self.sdf_program,
+                  &sdf_uniforms,
+                  &glium::DrawParameters {
+                      blend: glium::Blend::alpha_blending(),
+                      ..Default::default()
+                  })
+            .unwrap();
+    }
+
     pub fn render_text(&mut self,
                        screen: (f32, f32),
                        window: &GlutinFacade,
                        target: &mut glium::Frame,
                        text: &[RichText]) {
+        self.render_glyph(screen, window, target, &self.sdf_glyph);
+
         for text in text {
             for glyph in text.glyphs_iter() {
                 let positioned = glyph.positioned();
@@ -124,6 +167,16 @@ impl TextRenderer {
     pub fn font_bank(&self) -> &FontBank {
         &self.font_bank
     }
+
+    fn rect_vert(window: &GlutinFacade) -> glium::VertexBuffer<GlyphVertex> {
+        const VERTS: &'static [GlyphVertex] = &[GlyphVertex { position: [-1., 1.], tex_coords: [0., 0.], },
+                                                GlyphVertex { position: [-1., -1.], tex_coords: [0., 1.], },
+                                                GlyphVertex { position: [1., -1.], tex_coords: [1., 1.], },
+                                                GlyphVertex { position: [1., -1.], tex_coords: [1., 1.], },
+                                                GlyphVertex { position: [1., 1.], tex_coords: [1., 0.], },
+                                                GlyphVertex { position: [-1., 1.], tex_coords: [0., 0.], }];
+        glium::VertexBuffer::new(window, VERTS).unwrap()
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -133,3 +186,10 @@ pub struct TextVertex {
     color: [f32; 4],
 }
 implement_vertex!(TextVertex, position, tex_coords, color);
+
+#[derive(Copy, Clone)]
+pub struct GlyphVertex {
+    position: [f32; 2],
+    tex_coords: [f32; 2],
+}
+implement_vertex!(GlyphVertex, position, tex_coords);
