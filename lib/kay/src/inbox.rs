@@ -3,14 +3,17 @@ use super::chunked::{MemChunker, MultiSized, SizedChunkedQueue};
 use ::std::marker::PhantomData;
 use super::messaging::{Packet, Message};
 
+/// Stores an ordered list of homogeneous messages
 pub struct Inbox<M: Message> {
     queues: MultiSized<SizedChunkedQueue>,
     message_marker: PhantomData<[M]>
 }
 
-const CHUNK_SIZE : usize = 4096 * 4096 * 4;
+/// Chunk size in bytes, each chunk of messages
+const CHUNK_SIZE : usize = 4096 * 4096 * 4; // 64MB
 
 impl <M: Message> Inbox<M> {
+    /// Create new inbox for a given type
     pub fn new() -> Self {
         let chunker = MemChunker::new("", CHUNK_SIZE);
         Inbox {
@@ -19,15 +22,23 @@ impl <M: Message> Inbox<M> {
         }
     }
 
+    /// Place a new message in the Inbox
     pub fn put(&mut self, package: Packet<M>) {
         let required_size = package.total_size_bytes();
+
         unsafe {
+            // "Allocate" the space in the array
             let raw_ptr = self.queues.sized_for_mut(required_size).enqueue();
+
+            // Get the address of the location in the array
             let message_in_slot = &mut *(raw_ptr as *mut Packet<M>);
+
+            // Write the message to the array
             message_in_slot.compact_behind_from(&package);
         }
     }
 
+    /// Create an iterator which iterates through all messages and deletes them
     pub fn empty(&mut self) -> InboxIterator<M> {
         // one higher than last index, first next() will init messages left
         let start_queue_index = self.queues.collections.len();
@@ -40,8 +51,8 @@ impl <M: Message> Inbox<M> {
     }
 }
 
-// once created, reads all messages that are there roughly at the point of creation
-// that means that once it terminates there might already be new messages in the inbox
+/// once created, reads all messages that are there roughly at the point of creation
+/// that means that once it terminates there might already be new messages in the inbox
 pub struct InboxIterator<'a, M: Message> where M: 'a {
     queues: &'a mut Vec<SizedChunkedQueue>,
     current_sized_queue_index: usize,
@@ -49,6 +60,7 @@ pub struct InboxIterator<'a, M: Message> where M: 'a {
     message_marker: PhantomData<[M]>
 }
 
+// TODO: is this actually used? only set but not read
 const MAX_MESSAGES_AT_ONCE : usize = 500;
 
 impl<'a, M: Message> Iterator for InboxIterator<'a, M> {
@@ -56,9 +68,12 @@ impl<'a, M: Message> Iterator for InboxIterator<'a, M> {
 
     fn next(&mut self) -> Option<&'a Packet<M>> {
         if self.messages_in_sized_queue_left == 0 {
+            // Sized queue empty
             if self.current_sized_queue_index == 0 {
+                // Completely empty
                 None
             } else {
+                // Get index of new sized queue
                 self.current_sized_queue_index -= 1;
                 {
                     let next_queue = &self.queues[self.current_sized_queue_index];
