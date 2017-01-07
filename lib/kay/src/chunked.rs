@@ -5,19 +5,30 @@ use ::std::marker::PhantomData;
 use ::std::ops::{Deref, DerefMut};
 use super::allocators::{Allocator, DefaultHeap};
 
+/// Store information and utility functions for the creation of chunks
 pub trait Chunker {
+    /// Size of each chunk
     fn chunk_size(&self) -> usize;
+    /// Get name of chunk
     fn name(&self) -> &str;
+    /// Create new chunker with different size
     fn with_chunk_size(&self, size: usize) -> Box<Chunker>;
+    /// Create new chunker with different name
     fn with_name(&self, name: &str) -> Box<Chunker>;
+    /// Create new chunker with a suffix
     fn child(&self, suffix: &str) -> Box<Chunker>;
+    /// Allocate memory
     fn create_chunk(&mut self) -> *mut u8;
+    /// Load chunks from disk/persistent storage
+    // TODO: Actually load the chunks
     fn load_chunk(&mut self, _index: usize) -> *mut u8 {
         self.create_chunk()
     }
+    /// Deallocate chunk
     fn destroy_chunk(&mut self, ptr: *mut u8);
 }
 
+/// Implementation of `Chunker`
 #[derive(Clone)]
 pub struct MemChunker {
     name: String,
@@ -68,6 +79,8 @@ impl Chunker for MemChunker {
     }
 }
 
+/// An value that is directly stored within a newly created chunk which can fit exactly 1 of the
+/// type
 pub struct ValueInChunk<T> {
     ptr: *mut u8,
     chunker: Box<Chunker>,
@@ -75,6 +88,8 @@ pub struct ValueInChunk<T> {
 }
 
 impl<T> ValueInChunk<T> {
+    /// Create a new chunk and allocating enough memory to fit one of `T`, copying the default
+    /// value across to it
     pub fn new(chunker: Box<Chunker>, default: T) -> ValueInChunk<T> {
         let mut chunker = chunker.with_chunk_size(mem::size_of::<T>());
         let ptr = chunker.create_chunk();
@@ -115,32 +130,45 @@ impl<T> Drop for ValueInChunk<T> {
 }
 
 pub trait SizedChunkedCollection {
+    /// Create a new chunker within a collection from an existing chunker and item size
     fn new(chunker: Box<Chunker>, item_size: usize) -> Self;
 }
 
+/// Provides storage of items up to a fixed size in chunks
 pub struct SizedChunkedArena {
+    /// Chunker which is used for the creation of all chunks
     pub chunker: Box<Chunker>,
+    /// List of allocated chunks
     pub chunks: Vec<*mut u8>,
+    /// Size, in bytes, of each element
     pub item_size: usize,
+    /// Length, in elements, stored as a value in a chunk
+    /// For ease of saving and loading
     len: ValueInChunk<usize>
 }
 
 impl SizedChunkedArena {
+    /// Calculates the amount of items that can fit in a single chunk, rounding down
     fn items_per_chunk(&self) -> usize {
         self.chunker.chunk_size() / self.item_size
     }
 
+    /// Removes the last chunk from the end
     fn pop_chunk(&mut self) {
         let ptr = self.chunks.pop().unwrap();
         self.chunker.destroy_chunk(ptr);
     }
 
+    /// Get the amount of items (not chunks) stored
     pub fn len(&self) -> usize {
         *self.len
     }
 
+    /// Add an new item to the end
     pub fn push(&mut self) -> (*mut u8, usize) {
+        // Make sure the item can fit in the current chunk
         if (*self.len + 1) > self.chunks.len() * self.items_per_chunk() {
+            // If not, create a new chunk
             self.chunks.push(self.chunker.create_chunk());
         }
         let offset = (*self.len % self.items_per_chunk()) * self.item_size;
@@ -151,32 +179,40 @@ impl SizedChunkedArena {
         }
     }
 
+    /// Remove the last item from the end
     pub fn pop_away(&mut self) {
         *self.len -= 1;
+        // If possible, remove the last chunk as well
         if *self.len + self.items_per_chunk() < self.chunks.len() * self.items_per_chunk() {
             self.pop_chunk();
         }
     }
 
+    /// Swap the item at `index` with the item at the end, and then pop the item at the end,
+    /// possibly returning the item at the end
     pub unsafe fn swap_remove(&mut self, index: usize) -> Option<*const u8> {
         let last_index = *self.len - 1;
         if last_index == index {
+            // if swapping last item
             self.pop_away();
             None
         } else {
             let last = self.at(*self.len - 1);
             let at_index = self.at_mut(index);
+            // copy item from index to the end
             ptr::copy_nonoverlapping(last, at_index, self.item_size);
             self.pop_away();
             Some(self.at(index))
         }
     }
 
+    /// Get a pointer to the item at `index`
     pub unsafe fn at(&self, index: usize) -> *const u8 {
         self.chunks[index / self.items_per_chunk()]
             .offset(((index % self.items_per_chunk()) * self.item_size) as isize)
     }
 
+    /// Get a mutable pointer to the item at `index`
     pub unsafe fn at_mut(&mut self, index: usize) -> *mut u8 {
         let items_per_chunk = self.items_per_chunk();
         self.chunks[index / items_per_chunk]
@@ -273,12 +309,14 @@ impl SizedChunkedCollection for SizedChunkedArena {
 //     }
 // }
 
+/// A vector which stores the data in chunks
 pub struct ChunkedVec<Item: Clone> {
     arena: SizedChunkedArena,
     marker: PhantomData<Item>
 }
 
 impl <Item: Clone> ChunkedVec<Item> {
+    /// Create a new chunked vector
     pub fn new(chunker: Box<Chunker>) -> Self {
         ChunkedVec {
             arena: SizedChunkedArena::new(chunker, mem::size_of::<Item>()),
@@ -286,22 +324,26 @@ impl <Item: Clone> ChunkedVec<Item> {
         }
     }
 
+    /// Get the length of the vector
     pub fn len(&self) -> usize {
         *self.arena.len
     }
 
+    /// Get the item at the index
     pub fn at(&self, index: usize) -> &Item {
         unsafe {
             &*(self.arena.at(index) as *const Item)
         }
     }
 
+    /// Get the item at the index mutably
     pub fn at_mut(&mut self, index: usize) -> &mut Item {
         unsafe {
             &mut *(self.arena.at(index) as *mut Item)
         }
     }
 
+    /// Push a item to the back
     pub fn push(&mut self, item: Item) {
         unsafe {
             let item_ptr = self.arena.push().0 as *mut Item;
@@ -309,6 +351,7 @@ impl <Item: Clone> ChunkedVec<Item> {
         }
     }
 
+    /// Remove and return the last item
     pub fn pop(&mut self) -> Option<Item> {
         if *self.arena.len == 0 {
             None
@@ -322,6 +365,7 @@ impl <Item: Clone> ChunkedVec<Item> {
     }
 }
 
+/// A FIFO queue which stores a single data type, implemented in chunks
 // TODO: replace this by concurrent MPSC queue
 // add write_done and read_done indices
 // if one thread finishes writing out-of-order,
@@ -340,10 +384,12 @@ pub struct SizedChunkedQueue {
 }
 
 impl SizedChunkedQueue {
+    /// Calculates the amount of items that can fit in a single chunk, rounding down
     fn items_per_chunk(&self) -> usize {
         self.chunker.chunk_size() / self.item_size
     }
 
+    /// Gets a pointer to the back of the queue
     // TODO: separate into enqueue_start and enqueue_done
     // or return done_guard
     pub unsafe fn enqueue(&mut self) -> *mut u8 {
@@ -358,6 +404,7 @@ impl SizedChunkedQueue {
         ptr
     }
 
+    /// Gets a pointer to the front of the queue, queuing chunks at the front for deletion
     // TODO: separate into dequeue_start and dequeue_done
     // or return done_guard
     pub unsafe fn dequeue(&mut self) -> Option<*const u8> {
@@ -375,6 +422,7 @@ impl SizedChunkedQueue {
         }
     }
 
+    /// Delete chunks which have already been read
     pub unsafe fn drop_old_chunks(&mut self) {
         for chunk in self.chunks_to_drop.drain(..) {
             self.chunker.destroy_chunk(chunk);
@@ -408,6 +456,7 @@ impl SizedChunkedCollection for SizedChunkedQueue {
     }
 }
 
+/// Storage for objects with dynamic sizes
 pub struct MultiSized<B: SizedChunkedCollection> {
     chunker: Box<Chunker>,
     base_size: usize,
@@ -416,6 +465,7 @@ pub struct MultiSized<B: SizedChunkedCollection> {
 }
 
 impl<B: SizedChunkedCollection> MultiSized<B> {
+    /// Create a new `MultiSized` collection
     pub fn new(chunker: Box<Chunker>, base_size: usize) -> Self {
         let mut multi_sized = MultiSized{
             largest_size: ValueInChunk::new(chunker.child("_largest"), 0),
@@ -431,6 +481,7 @@ impl<B: SizedChunkedCollection> MultiSized<B> {
         multi_sized
     }
 
+    /// Create a new chunked storage which has a 2 times size of the previous one
     fn push_higher_sized_collection(&mut self) {
         let new_largest_size = 2u32.pow(self.collections.len() as u32) as usize * self.base_size;
         self.collections.push(B::new(
@@ -439,12 +490,14 @@ impl<B: SizedChunkedCollection> MultiSized<B> {
         ))
     }
 
+    /// Get the index of the chunked storage which stores the size of the object
     pub fn size_to_index(&self, size: usize) -> usize {
         // TODO: the log two part can probably optimized crazily: http://stackoverflow.com/a/11398748
         //|----------- rounding up int div -----------|
         (((size + self.base_size - 1) / self.base_size).next_power_of_two() as f32).log2() as usize
     }
 
+    /// Get a pointer to the suitable sized chunked storage
     pub fn sized_for_mut(&mut self, size: usize) -> &mut B {
         let index = self.size_to_index(size);
 

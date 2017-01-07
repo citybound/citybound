@@ -6,22 +6,32 @@ use ::std::ptr;
 use ::std::ops::{Deref, DerefMut};
 use ::std::iter::FromIterator;
 
+/// A vector which can be compacted. Will usually contain the data in the dynamic part of the
+/// compacted data structure, but if the size will overflow the dynamic part, it is moved to the
+/// heap instead
 pub struct CompactVec <T, A: Allocator = DefaultHeap> {
+    /// Either a null pointer, an offset to the dynamic part of the data or a pointer to an array
+    /// in the heap
     ptr: PointerToMaybeCompact<T>,
+    /// Current length
     len: usize,
+    /// Maximum length before needing to expand the heap
     cap: usize,
     _alloc: PhantomData<*const A>
 }
 
 impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
+    /// Get the length of the vector
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Is the vector empty?
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    /// Create a new, empty vector
     pub fn new() -> CompactVec<T, A> {
         CompactVec {
             ptr: PointerToMaybeCompact::default(),
@@ -31,6 +41,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         }
     }
 
+    /// Initialize the vector with a set capacity
     pub fn with_capacity(cap: usize) -> CompactVec<T, A> {
         let mut vec = CompactVec {
             ptr: PointerToMaybeCompact::default(),
@@ -43,6 +54,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         vec
     }
 
+    /// Double the cap by allocating from the heap
     fn double_buf(&mut self) {
         let new_cap = if self.cap == 0 {1} else {self.cap * 2};
         let new_ptr = A::allocate::<T>(new_cap);
@@ -61,6 +73,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         self.cap = new_cap;
     }
 
+    /// Push new data to the end of the vector
     pub fn push(&mut self, value: T) {
         if self.len == self.cap {
             self.double_buf();
@@ -73,6 +86,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         }
     }
 
+    /// Remove and return the last element
     pub fn pop(&mut self) -> Option<T> {
         if self.len == 0 {
             None
@@ -84,6 +98,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         }
     }
 
+    /// Insert an value at the index, pushing the values behind it back
     pub fn insert(&mut self, index: usize, value: T) {
         if self.len == self.cap {
             self.double_buf();
@@ -104,6 +119,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         }
     }
 
+    /// Remove the item at the index, with the items at the back being copied forward
     pub fn remove(&mut self, index: usize) -> T {
         let len = self.len;
         assert!(index < len);
@@ -130,6 +146,8 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         }
     }
 
+    /// Take a function which returns if the value should be kept, and creates a new list with
+    /// those values
     pub fn retain<F: FnMut(&T) -> bool>(&mut self, mut keep: F) {
         let mut del = 0;
         let len = self.len();
@@ -151,6 +169,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         }
     }
 
+    /// Truncate the vector to the length desired
     pub fn truncate(&mut self, desired_len: usize) {
         unsafe {
             while desired_len < self.len {
@@ -161,12 +180,14 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         }
     }
 
+    /// Empty the array
     pub fn clear(&mut self) {
         self.truncate(0);
     }
 }
 
 impl<T, A: Allocator> From<Vec<T>> for CompactVec<T, A> {
+    /// Utility function to convert from `Vec` to `CompactVec`
     fn from(mut vec: Vec<T>) -> Self {
         let p = vec.as_mut_ptr();
         let len = vec.len();
@@ -184,6 +205,7 @@ impl<T, A: Allocator> From<Vec<T>> for CompactVec<T, A> {
 }
 
 impl<T, A: Allocator> Drop for CompactVec<T, A> {
+    /// Deallocate memory and drop elements when dropped
     fn drop(&mut self) {
         unsafe {ptr::drop_in_place(&mut self[..])};
         if !self.ptr.is_compact() {
