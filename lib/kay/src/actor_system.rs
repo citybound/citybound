@@ -22,7 +22,7 @@ pub struct ID {
 
 impl ID {
     /// Construct an invalid ID
-    /// Uses similarly to a null pointer
+    /// Used similarly to a null pointer
     pub fn invalid() -> ID {ID {type_id: u16::max_value(), version: u8::max_value(), instance_id: 0}}
 
     /// Construct an individual actor ID with instance ID of 0 and the typeID specified
