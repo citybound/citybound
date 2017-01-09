@@ -1,8 +1,6 @@
-#![feature(proc_macro)]
-#![allow(dead_code)]
-#![feature(plugin)]
-#![feature(conservative_impl_trait)]
+#![feature(custom_derive, plugin, proc_macro, conservative_impl_trait)]
 #![plugin(clippy)]
+#![allow(dead_code)]
 #![allow(no_effect, unnecessary_operation)]
 // Enable this for memory tracking with Instruments/MacOS
 // and for much better stacktraces for memory issues
@@ -15,6 +13,10 @@ extern crate random;
 extern crate fnv;
 extern crate roaring;
 extern crate open;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_json;
+extern crate serde;
 
 extern crate kay;
 #[macro_use]
