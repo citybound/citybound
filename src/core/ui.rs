@@ -322,12 +322,12 @@ impl Recipient<UIUpdate> for UserInterface {
                     let inverted = if self.settings.invert_y {-1.0} else {1.0};
                     let delta = self.cursor_2d - position;
                     if self.input_state.rotate_mod {
-                        Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Rotate(
+                        Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Yaw(
                             -delta.x * self.settings.rotation_speed * inverted/ 300.0)
                         };
 
-                        Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Tilt(
-                        -delta.y * self.settings.rotation_speed * inverted / 300.0)
+                        Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Pitch(
+                            -delta.y * self.settings.rotation_speed * inverted / 300.0)
                         };
                         self.cursor_2d = position;
                     } else if self.input_state.pan_mod {

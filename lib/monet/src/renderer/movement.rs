@@ -9,8 +9,8 @@ use ::{Renderer, Eye};
 pub enum Movement {
     Shift(V3),
     Zoom(N),
-    Rotate(N),
-    Tilt(N),
+    Yaw(N),
+    Pitch(N),
 }
 
 #[derive(Copy, Clone)]
@@ -31,8 +31,8 @@ impl Recipient<MoveEye> for Renderer {
                 match movement {
                     Movement::Shift(delta) => self.movement_shift(scene_id, delta),
                     Movement::Zoom(delta) => self.movement_zoom(scene_id, delta),
-                    Movement::Rotate(delta) => self.movement_rotate(scene_id, delta),
-                    Movement::Tilt(delta) => self.movement_tilt(scene_id, delta),
+                    Movement::Yaw(delta) => self.movement_yaw(scene_id, delta),
+                    Movement::Pitch(delta) => self.movement_pitch(scene_id, delta),
                 }
 
                 for &id in &self.scenes[scene_id].eye_listeners {
@@ -68,7 +68,7 @@ impl Renderer {
         }
     }
 
-    fn movement_rotate(&mut self, scene_id: usize, delta: N) {
+    fn movement_yaw(&mut self, scene_id: usize, delta: N) {
         let eye = &mut self.scenes[scene_id].eye;
         let relative_eye_position = eye.position - eye.target;
         let iso = Iso3::new(V3::new(0.0, 0.0, 0.0), V3::new(0.0, 0.0, delta));
@@ -77,7 +77,7 @@ impl Renderer {
         eye.position = eye.target + rotated_relative_eye_position;
     }
 
-    fn movement_tilt(&mut self, scene_id: usize, delta: N) {
+    fn movement_pitch(&mut self, scene_id: usize, delta: N) {
         let eye = &mut self.scenes[scene_id].eye;
         let relative_eye_position = eye.position - eye.target;
 
@@ -88,6 +88,12 @@ impl Renderer {
 
         // Add delta to the inclination
         inc += delta;
+
+        // Clamp the inclination to within 0;1.5 radians
+        inc = if inc < 0.0001 { 0.0001 } else { inc }; // Check lower bounds
+        inc = if inc > 1.5 { 1.5 } else { inc }; // Check upper bounds;
+
+        println!("{}", inc);
 
         // Convert spherical coordinates back into carteesiam coordinates
         let x = r * inc.sin() * azi.cos();
