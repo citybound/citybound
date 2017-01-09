@@ -40,7 +40,7 @@ impl Settings{
             right_key: vec![KeyOrButton::Key(VirtualKeyCode::D), KeyOrButton::Key(VirtualKeyCode::Right)],
 
             pan_modifier_key:    vec![KeyOrButton::Key(VirtualKeyCode::LShift), KeyOrButton::Key(VirtualKeyCode::RShift)],
-            rotate_modifier_key: vec![KeyOrButton::Button(MouseButton::Middle)],
+            rotate_modifier_key: vec![KeyOrButton::Button(MouseButton::Middle), KeyOrButton::Key(VirtualKeyCode::LAlt), KeyOrButton::Key(VirtualKeyCode::RAlt)],
         }
     }
 
