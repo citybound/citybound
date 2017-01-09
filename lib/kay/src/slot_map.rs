@@ -68,6 +68,10 @@ impl SlotMap {
         self.free_ids_with_versions.push((id, version + 1));
     }
 
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
     pub fn random_used(&self) -> usize {
         loop {
             let random_id = ::random::default().read::<usize>() % self.entries.len();

@@ -290,17 +290,19 @@ impl <M: Message> !NotAToRandomMessage for ToRandom<M> {}
 
 impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<ToRandom<M>> for A {
     fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<ToRandom<M>>) -> Fate {
-        let mut new_packet = Packet{
-            recipient_id: ID::invalid(),
-            message: packet.message.message.clone()
-        };
-        for _i in 0..packet.message.n_recipients {
-            let random_id = ID::instance(
-                packet.recipient_id.type_id as usize,
-                (swarm.slot_map.random_used(), 0)
-            );
-            new_packet.recipient_id = random_id;
-            swarm.receive_packet(&new_packet);
+        if swarm.slot_map.len() > 0 {
+            let mut new_packet = Packet {
+                recipient_id: ID::invalid(),
+                message: packet.message.message.clone()
+            };
+            for _i in 0..packet.message.n_recipients {
+                let random_id = ID::instance(
+                    packet.recipient_id.type_id as usize,
+                    (swarm.slot_map.random_used(), 0)
+                );
+                new_packet.recipient_id = random_id;
+                swarm.receive_packet(&new_packet);
+            }
         }
         Fate::Live
     }
