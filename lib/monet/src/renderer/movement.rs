@@ -83,7 +83,7 @@ impl Renderer {
 
         // Convert relative eye position to spherical coordinates
         let r = relative_eye_position.norm();
-        let mut inc = relative_eye_position.z / r;
+        let mut inc = (relative_eye_position.z / r).acos();
         let azi = relative_eye_position.y.atan2(relative_eye_position.x);
 
         // Add delta to the inclination
@@ -94,6 +94,7 @@ impl Renderer {
         let y = r * inc.sin() * azi.sin();
         let z = r * inc.cos();
 
-        eye.position = P3::new(x, y, z);
+        // The spherical coordinates are calculated relative to the target.
+        eye.position = eye.target + V3::new(x, y, z);
     }
 }
