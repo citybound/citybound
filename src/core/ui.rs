@@ -314,9 +314,8 @@ impl Recipient<Projected3d> for UserInterface {
 #[derive(Copy, Clone)]
 struct UIUpdate;
 
-#[allow(unused_variables)]
 impl Recipient<UIUpdate> for UserInterface {
-    fn receive(&mut self, msg: &UIUpdate) -> Fate {
+    fn receive(&mut self, _msg: &UIUpdate) -> Fate {
         for mouse_action in &self.input_state.mouse.clone() {
             match *mouse_action {
                 Mouse::Moved(position) => {

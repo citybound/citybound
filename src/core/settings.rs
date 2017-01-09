@@ -44,7 +44,6 @@ impl Settings{
         }
     }
 
-    #[allow(let_and_return)]
     pub fn load() -> Settings{
         let path = Path::new("config.json");
         let display = path.display();
@@ -77,7 +76,6 @@ impl Settings{
         if let Err(why) = file.read_to_string(&mut s) {
             panic!("couldn't read {}: {}", display, why.description())
         }
-        let ret: Settings = serde_json::from_str(&s).unwrap();
-        ret
+        serde_json::from_str::<Settings>(&s).unwrap()
     }
 }
