@@ -10,6 +10,7 @@ pub enum Movement {
     Shift(V3),
     Zoom(N),
     Rotate(N),
+    Tilt(N),
 }
 
 #[derive(Copy, Clone)]
@@ -31,6 +32,7 @@ impl Recipient<MoveEye> for Renderer {
                     Movement::Shift(delta) => self.movement_shift(scene_id, delta),
                     Movement::Zoom(delta) => self.movement_zoom(scene_id, delta),
                     Movement::Rotate(delta) => self.movement_rotate(scene_id, delta),
+                    Movement::Tilt(delta) => self.movement_tilt(scene_id, delta),
                 }
 
                 for &id in &self.scenes[scene_id].eye_listeners {
@@ -73,5 +75,25 @@ impl Renderer {
         let rotated_relative_eye_position = iso.rotate(&relative_eye_position);
 
         eye.position = eye.target + rotated_relative_eye_position;
+    }
+
+    fn movement_tilt(&mut self, scene_id: usize, delta: N) {
+        let eye = &mut self.scenes[scene_id].eye;
+        let relative_eye_position = eye.position - eye.target;
+
+        // Convert relative eye position to spherical coordinates
+        let r = relative_eye_position.norm();
+        let mut inc = relative_eye_position.z / r;
+        let azi = relative_eye_position.y.atan2(relative_eye_position.x);
+
+        // Add delta to the inclination
+        inc += delta;
+
+        // Convert spherical coordinates back into carteesiam coordinates
+        let x = r * inc.sin() * azi.cos();
+        let y = r * inc.sin() * azi.sin();
+        let z = r * inc.cos();
+
+        eye.position = P3::new(x, y, z);
     }
 }
