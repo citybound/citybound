@@ -2,7 +2,7 @@ use kay::{ID, Recipient, Actor, Individual, Swarm, ActorSystem, Fate, CreateWith
 use descartes::{Band, Into2d, RoughlyComparable};
 use ::core::geometry::{CPath, AnyShape};
 
-use super::{SelectableStrokeRef, CurrentPlan, PlanControl};
+use super::{SelectableStrokeRef, CurrentPlan};
 
 #[derive(Actor, Compact, Clone)]
 pub struct LaneStrokeDraggable{
@@ -62,18 +62,19 @@ impl Recipient<ClearDraggables> for LaneStrokeDraggable {
 }
 
 use ::core::ui::Event3d;
+use super::{MoveSelection, MaximizeSelection, Commit};
 
 impl Recipient<Event3d> for LaneStrokeDraggable {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg{
         Event3d::DragOngoing{from, to} => {
-            CurrentPlan::id() << PlanControl::MoveSelection(to.into_2d() - from.into_2d());
+            CurrentPlan::id() << MoveSelection(to.into_2d() - from.into_2d());
             Fate::Live
         },
         Event3d::DragFinished{from, to} => {
             if from.into_2d().is_roughly_within(to.into_2d(), 3.0) {
-                CurrentPlan::id() << PlanControl::MaximizeSelection(());
+                CurrentPlan::id() << MaximizeSelection;
             }
-            CurrentPlan::id() << PlanControl::Commit(true, to.into_2d());
+            CurrentPlan::id() << Commit(true, to.into_2d());
             Fate::Live
         },
         _ => Fate::Live

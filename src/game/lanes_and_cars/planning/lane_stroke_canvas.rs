@@ -13,7 +13,7 @@ pub struct LaneStrokeCanvas{
 impl Individual for LaneStrokeCanvas{}
 
 use core::ui::Event3d;
-use super::PlanControl::{Commit, Undo, Redo, WithLatestNode, Materialize,
+use super::{Commit, Undo, Redo, WithLatestNode, Materialize,
                          CreateGrid, DeleteSelection, SetSelectionMode,
                          SetNLanes, ToggleBothSides};
 
@@ -32,7 +32,7 @@ impl Recipient<Event3d> for LaneStrokeCanvas {
             Fate::Live
         },
         Event3d::KeyDown(VirtualKeyCode::Return) => {
-            CurrentPlan::id() << Materialize(());
+            CurrentPlan::id() << Materialize;
             Fate::Live
         },
         Event3d::KeyDown(VirtualKeyCode::LControl) | Event3d::KeyDown(VirtualKeyCode::RControl)
@@ -56,9 +56,9 @@ impl Recipient<Event3d> for LaneStrokeCanvas {
         Event3d::KeyDown(VirtualKeyCode::Z) => {
             if self.cmd_pressed {
                 if self.shift_pressed {
-                    CurrentPlan::id() << Redo(());
+                    CurrentPlan::id() << Redo;
                 } else {
-                    CurrentPlan::id() << Undo(());
+                    CurrentPlan::id() << Undo;
                 }
             }
             Fate::Live
@@ -75,7 +75,7 @@ impl Recipient<Event3d> for LaneStrokeCanvas {
             Fate::Live
         },
         Event3d::KeyDown(VirtualKeyCode::Back) => {
-            CurrentPlan::id() << DeleteSelection(());
+            CurrentPlan::id() << DeleteSelection;
             Fate::Live
         },
         Event3d::KeyDown(VirtualKeyCode::Key1) => {CurrentPlan::id() << SetNLanes(1); Fate::Live},
@@ -88,7 +88,7 @@ impl Recipient<Event3d> for LaneStrokeCanvas {
         Event3d::KeyDown(VirtualKeyCode::Key8) => {CurrentPlan::id() << SetNLanes(8); Fate::Live},
         Event3d::KeyDown(VirtualKeyCode::Key9) => {CurrentPlan::id() << SetNLanes(9); Fate::Live},
         Event3d::KeyUp(VirtualKeyCode::Key0) => {
-            CurrentPlan::id() << ToggleBothSides(());
+            CurrentPlan::id() << ToggleBothSides;
             Fate::Live
         },
         _ => Fate::Live

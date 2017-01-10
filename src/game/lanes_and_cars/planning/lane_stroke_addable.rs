@@ -2,7 +2,7 @@ use kay::{ID, Recipient, Actor, Individual, Swarm, ActorSystem, Fate, CreateWith
 use descartes::{Band, P2};
 use ::core::geometry::{AnyShape};
 
-use super::{LaneStroke, CurrentPlan, PlanControl};
+use super::{LaneStroke, CurrentPlan};
 
 #[derive(Actor, Compact, Clone)]
 pub struct LaneStrokeAddable{
@@ -48,15 +48,16 @@ impl Recipient<ClearDraggables> for LaneStrokeAddable {
 }
 
 use ::core::ui::Event3d;
+use super::{AddStroke, Commit};
 
 impl Recipient<Event3d> for LaneStrokeAddable {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg{
         Event3d::HoverStarted{..} | Event3d::HoverOngoing{..} => {
-            CurrentPlan::id() << PlanControl::AddStroke(self.stroke.clone());
+            CurrentPlan::id() << AddStroke{stroke: self.stroke.clone()};
             Fate::Live
         },
         Event3d::DragFinished{..} => {
-            CurrentPlan::id() << PlanControl::Commit(true, P2::new(0.0, 0.0));
+            CurrentPlan::id() << Commit(true, P2::new(0.0, 0.0));
             Fate::Live
         },
         _ => Fate::Live

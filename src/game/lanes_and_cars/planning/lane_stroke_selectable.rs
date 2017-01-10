@@ -2,7 +2,7 @@ use kay::{ID, Recipient, Actor, Individual, Swarm, ActorSystem, Fate, CreateWith
 use descartes::{Band, Curve, Into2d, FiniteCurve, Path};
 use ::core::geometry::{CPath, AnyShape};
 
-use super::{SelectableStrokeRef, CurrentPlan, PlanControl};
+use super::{SelectableStrokeRef, CurrentPlan};
 
 #[derive(Actor, Compact, Clone)]
 pub struct LaneStrokeSelectable{
@@ -50,12 +50,13 @@ impl Recipient<ClearSelectables> for LaneStrokeSelectable {
 }
 
 use ::core::ui::Event3d;
+use super::{Select, Commit};
 
 impl Recipient<Event3d> for LaneStrokeSelectable {
     fn receive(&mut self, msg: &Event3d) -> Fate {match *msg{
         Event3d::DragStarted{at} => {
             if let Some(selection_start) = self.path.project(at.into_2d()) {
-                CurrentPlan::id() << PlanControl::Select(
+                CurrentPlan::id() << Select(
                     self.stroke_ref,
                     (selection_start - 1.5).max(0.1),
                     (selection_start + 1.5).min(self.path.length() - 0.1)
@@ -77,7 +78,7 @@ impl Recipient<Event3d> for LaneStrokeSelectable {
                     if end > next_offset - 5.0 && end < next_offset + 5.0 {end = next_offset}
                     offset = next_offset;
                 }
-                CurrentPlan::id() << PlanControl::Select(
+                CurrentPlan::id() << Select(
                     self.stroke_ref,
                     start.min(end - 1.5).max(0.1),
                     end.max(start + 1.5).min(self.path.length() - 0.1)
@@ -86,7 +87,7 @@ impl Recipient<Event3d> for LaneStrokeSelectable {
             Fate::Live
         },
         Event3d::DragFinished{to, ..} => {
-            CurrentPlan::id() << PlanControl::Commit(true, to.into_2d());
+            CurrentPlan::id() << Commit(true, to.into_2d());
             Fate::Live
         },
         _ => Fate::Live

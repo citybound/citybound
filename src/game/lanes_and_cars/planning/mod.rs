@@ -41,32 +41,17 @@ pub struct CurrentPlan {
 }
 impl Individual for CurrentPlan{}
 
-#[derive(Compact, Clone)]
-enum PlanControl{
-    Commit(bool, P2),
-    Undo(()),
-    Redo(()),
-    WithLatestNode(P2, bool),
-    Select(SelectableStrokeRef, N, N),
-    MaximizeSelection(()),
-    MoveSelection(V2),
-    DeleteSelection(()),
-    AddStroke(LaneStroke),
-    CreateGrid(usize),
-    Materialize(()),
-    SetSelectionMode(bool, bool),
-    SetNLanes(usize),
-    ToggleBothSides(())
-}
-
 const FINISH_STROKE_TOLERANCE : f32 = 5.0;
 
 use self::materialized_reality::Simulate;
 use self::materialized_reality::Apply;
 
-impl Recipient<PlanControl> for CurrentPlan {
-    fn receive(&mut self, msg: &PlanControl) -> Fate {match *msg{
-        PlanControl::Commit(update_preview_and_history, at) => {
+#[derive(Copy, Clone)]
+struct Commit(bool, P2);
+
+impl Recipient<Commit> for CurrentPlan {
+    fn receive(&mut self, msg: &Commit) -> Fate {match *msg{
+        Commit(update_preview_and_history, at) => {
             if update_preview_and_history {
                 self.undo_history.push(self.current.clone());
                 self.redo_history.clear();
@@ -148,54 +133,74 @@ impl Recipient<PlanControl> for CurrentPlan {
                 }
             }
             Fate::Live
-        },
-        PlanControl::Undo(()) => {
-            if let Some(previous_state) = self.undo_history.pop() {
-                self.redo_history.push(self.current.clone());
-                self.preview = previous_state.clone();
-                self.current = previous_state;
-                self.clear_selectables();
-                self.clear_draggables();
+        }
+    }}
+}
 
-                match self.preview.ui_state.drawing_status{
-                    DrawingStatus::Nothing(()) => {
-                        self.preview.ui_state.recreate_selectables = true;
-                    },
-                    DrawingStatus::WithSelections(_, _) => {
-                        self.preview.ui_state.recreate_selectables = true;
-                        self.preview.ui_state.recreate_draggables = true;
-                    }
-                    _ => {}
+#[derive(Copy, Clone)]
+struct Undo;
+
+impl Recipient<Undo> for CurrentPlan {
+    fn receive(&mut self, _msg: &Undo) -> Fate {
+        if let Some(previous_state) = self.undo_history.pop() {
+            self.redo_history.push(self.current.clone());
+            self.preview = previous_state.clone();
+            self.current = previous_state;
+            self.clear_selectables();
+            self.clear_draggables();
+
+            match self.preview.ui_state.drawing_status{
+                DrawingStatus::Nothing(()) => {
+                    self.preview.ui_state.recreate_selectables = true;
+                },
+                DrawingStatus::WithSelections(_, _) => {
+                    self.preview.ui_state.recreate_selectables = true;
+                    self.preview.ui_state.recreate_draggables = true;
                 }
-
-                MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
+                _ => {}
             }
-            Fate::Live
-        },
-        PlanControl::Redo(()) => {
-            if let Some(next_state) = self.redo_history.pop() {
-                self.undo_history.push(self.current.clone());
-                self.preview = next_state.clone();
-                self.current = next_state;
-                self.clear_selectables();
-                self.clear_draggables();
 
-                match self.preview.ui_state.drawing_status{
-                    DrawingStatus::Nothing(()) => {
-                        self.preview.ui_state.recreate_selectables = true;
-                    },
-                    DrawingStatus::WithSelections(_, _) => {
-                        self.preview.ui_state.recreate_selectables = true;
-                        self.preview.ui_state.recreate_draggables = true;
-                    }
-                    _ => {}
+            MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
+        }
+        Fate::Live
+    }
+}
+
+#[derive(Copy, Clone)]
+struct Redo;
+
+impl Recipient<Redo> for CurrentPlan {
+    fn receive(&mut self, _msg: &Redo) -> Fate {
+        if let Some(next_state) = self.redo_history.pop() {
+            self.undo_history.push(self.current.clone());
+            self.preview = next_state.clone();
+            self.current = next_state;
+            self.clear_selectables();
+            self.clear_draggables();
+
+            match self.preview.ui_state.drawing_status{
+                DrawingStatus::Nothing(()) => {
+                    self.preview.ui_state.recreate_selectables = true;
+                },
+                DrawingStatus::WithSelections(_, _) => {
+                    self.preview.ui_state.recreate_selectables = true;
+                    self.preview.ui_state.recreate_draggables = true;
                 }
-
-                MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
+                _ => {}
             }
-            Fate::Live
-        },
-        PlanControl::WithLatestNode(position, update_preview) => {
+
+            MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
+        }
+        Fate::Live
+    }
+}
+
+#[derive(Copy, Clone)]
+struct WithLatestNode(P2, bool);
+
+impl Recipient<WithLatestNode> for CurrentPlan {
+    fn receive(&mut self, msg: &WithLatestNode) -> Fate {match *msg{
+        WithLatestNode(position, update_preview) => {
             let mut update_preview = update_preview;
             self.preview = self.current.clone();
             self.preview.ui_state.drawing_status = match self.current.ui_state.drawing_status.clone() {
@@ -377,8 +382,16 @@ impl Recipient<PlanControl> for CurrentPlan {
                 MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
             }
             Fate::Live
-        },
-        PlanControl::Select(selection_ref, start, end) => {
+        }
+    }}
+}
+
+#[derive(Copy, Clone)]
+struct Select(SelectableStrokeRef, N, N);
+
+impl Recipient<Select> for CurrentPlan {
+    fn receive(&mut self, msg: &Select) -> Fate {match *msg{
+        Select(selection_ref, start, end) => {
             if let DrawingStatus::WithSelections(ref mut selections, ref mut remove_next_commit) = self.preview.ui_state.drawing_status {
                 selections.insert(selection_ref, (start, end));
                 *remove_next_commit = false;
@@ -448,22 +461,36 @@ impl Recipient<PlanControl> for CurrentPlan {
 
             self.create_draggables();
             Fate::Live
-        },
-        PlanControl::MaximizeSelection(()) => {
-            let new_selections = if let DrawingStatus::WithSelections(ref selections, _) = self.preview.ui_state.drawing_status {
-                selections.pairs().map(|(selection_ref, _)| {
-                    let stroke = match *selection_ref {
-                        SelectableStrokeRef::New(node_idx) => &self.preview.delta.new_strokes[node_idx],
-                        SelectableStrokeRef::RemainingOld(old_ref) =>
-                            self.preview.current_remaining_old_strokes.mapping.get(old_ref).unwrap()
-                    };
-                    (*selection_ref, (0.0, stroke.path().length()))
-                }).collect()
-            } else {unreachable!()};
-            self.preview.ui_state.drawing_status = DrawingStatus::WithSelections(new_selections, false);
-            Fate::Live
-        },
-        PlanControl::MoveSelection(delta) => {
+        }
+    }}
+}
+
+#[derive(Copy, Clone)]
+struct MaximizeSelection;
+
+impl Recipient<MaximizeSelection> for CurrentPlan {
+    fn receive(&mut self, _msg: &MaximizeSelection) -> Fate {
+        let new_selections = if let DrawingStatus::WithSelections(ref selections, _) = self.preview.ui_state.drawing_status {
+            selections.pairs().map(|(selection_ref, _)| {
+                let stroke = match *selection_ref {
+                    SelectableStrokeRef::New(node_idx) => &self.preview.delta.new_strokes[node_idx],
+                    SelectableStrokeRef::RemainingOld(old_ref) =>
+                        self.preview.current_remaining_old_strokes.mapping.get(old_ref).unwrap()
+                };
+                (*selection_ref, (0.0, stroke.path().length()))
+            }).collect()
+        } else {unreachable!()};
+        self.preview.ui_state.drawing_status = DrawingStatus::WithSelections(new_selections, false);
+        Fate::Live
+    }
+}
+
+#[derive(Copy, Clone)]
+struct MoveSelection(V2);
+
+impl Recipient<MoveSelection> for CurrentPlan {
+    fn receive(&mut self, msg: &MoveSelection) -> Fate {match *msg{
+        MoveSelection(delta) => {
             self.preview = self.current.clone();
             let new_selections = if let DrawingStatus::WithSelections(ref selections, _) = self.preview.ui_state.drawing_status {
                 let mut with_subsections_moved = selections.pairs().map(|(&selection_ref, &(start, end))| {
@@ -585,115 +612,165 @@ impl Recipient<PlanControl> for CurrentPlan {
             self.preview.ui_state.dirty = true;
             MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
             Fate::Live
-        },
-        PlanControl::DeleteSelection(()) => {
-            self.preview = self.current.clone();
-            if let DrawingStatus::WithSelections(ref selections, _) = self.preview.ui_state.drawing_status {
-                let mut new_stroke_indices_to_remove = Vec::new();
-                let mut new_strokes = Vec::new();
+        }
+    }}
+}
 
-                for (&selection_ref, &(start, end)) in selections.pairs() {
-                    let stroke = match selection_ref {
-                        SelectableStrokeRef::New(node_idx) => {
-                            new_stroke_indices_to_remove.push(node_idx);
-                            &self.preview.delta.new_strokes[node_idx]
-                        },
-                        SelectableStrokeRef::RemainingOld(old_ref) => {
-                            let old_stroke = self.preview.current_remaining_old_strokes.mapping.get(old_ref).unwrap();
-                            self.preview.delta.strokes_to_destroy.insert(old_ref, old_stroke.clone());
-                            old_stroke
-                        }
-                    };
-                    if let Some(before) = stroke.subsection(0.0, start) {
-                        new_strokes.push(before);
+#[derive(Copy, Clone)]
+struct DeleteSelection;
+
+impl Recipient<DeleteSelection> for CurrentPlan {
+    fn receive(&mut self, _msg: &DeleteSelection) -> Fate {
+        self.preview = self.current.clone();
+        if let DrawingStatus::WithSelections(ref selections, _) = self.preview.ui_state.drawing_status {
+            let mut new_stroke_indices_to_remove = Vec::new();
+            let mut new_strokes = Vec::new();
+
+            for (&selection_ref, &(start, end)) in selections.pairs() {
+                let stroke = match selection_ref {
+                    SelectableStrokeRef::New(node_idx) => {
+                        new_stroke_indices_to_remove.push(node_idx);
+                        &self.preview.delta.new_strokes[node_idx]
+                    },
+                    SelectableStrokeRef::RemainingOld(old_ref) => {
+                        let old_stroke = self.preview.current_remaining_old_strokes.mapping.get(old_ref).unwrap();
+                        self.preview.delta.strokes_to_destroy.insert(old_ref, old_stroke.clone());
+                        old_stroke
                     }
-                    if let Some(after) = stroke.subsection(end, stroke.path().length()) {
-                        new_strokes.push(after);
-                    }
+                };
+                if let Some(before) = stroke.subsection(0.0, start) {
+                    new_strokes.push(before);
                 }
-
-                new_stroke_indices_to_remove.sort();
-
-                for index_to_remove in new_stroke_indices_to_remove.into_iter().rev() {
-                    self.preview.delta.new_strokes.remove(index_to_remove);
-                }
-
-                for new_stroke in new_strokes {
-                    self.preview.delta.new_strokes.push(new_stroke);
+                if let Some(after) = stroke.subsection(end, stroke.path().length()) {
+                    new_strokes.push(after);
                 }
             }
-            self.preview.ui_state.drawing_status = DrawingStatus::Nothing(());
-            self.clear_selectables();
-            self.clear_draggables();
-            Self::id() << PlanControl::Commit(true, P2::new(0.0, 0.0));
-            Fate::Live
-        },
-        PlanControl::AddStroke(ref stroke) => {
+
+            new_stroke_indices_to_remove.sort();
+
+            for index_to_remove in new_stroke_indices_to_remove.into_iter().rev() {
+                self.preview.delta.new_strokes.remove(index_to_remove);
+            }
+
+            for new_stroke in new_strokes {
+                self.preview.delta.new_strokes.push(new_stroke);
+            }
+        }
+        self.preview.ui_state.drawing_status = DrawingStatus::Nothing(());
+        self.clear_selectables();
+        self.clear_draggables();
+        Self::id() << Commit(true, P2::new(0.0, 0.0));
+        Fate::Live
+    }
+}
+
+#[derive(Compact, Clone)]
+struct AddStroke{stroke: LaneStroke}
+
+impl Recipient<AddStroke> for CurrentPlan {
+    fn receive(&mut self, msg: &AddStroke) -> Fate {match *msg{
+        AddStroke{ref stroke} => {
             self.preview = self.current.clone();
             self.preview.delta.new_strokes.push(stroke.clone());
             MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
             Fate::Live
-        },
-        PlanControl::CreateGrid(gridsize) => {
+        }
+    }}
+}
+
+#[derive(Copy, Clone)]
+struct CreateGrid(usize);
+
+impl Recipient<CreateGrid> for CurrentPlan {
+    fn receive(&mut self, msg: &CreateGrid) -> Fate {match *msg{
+        CreateGrid(gridsize) => {
             let grid_size = gridsize;
             let grid_spacing = 1000.0;
 
             for x in 0..grid_size {
-                self.receive(&PlanControl::WithLatestNode(P2::new((x as f32 + 0.5) * grid_spacing, 0.0), false));
-                self.receive(&PlanControl::Commit(false, P2::new(0.0, 0.0)));
-                self.receive(&PlanControl::WithLatestNode(P2::new((x as f32 + 0.5) * grid_spacing, grid_size as f32 * grid_spacing), false));
-                self.receive(&PlanControl::Commit(false, P2::new(0.0, 0.0)));
-                self.receive(&PlanControl::WithLatestNode(P2::new((x as f32 + 0.5) * grid_spacing, grid_size as f32 * grid_spacing), false));
-                self.receive(&PlanControl::Commit(false, P2::new(0.0, 0.0)));
+                self.receive(&WithLatestNode(P2::new((x as f32 + 0.5) * grid_spacing, 0.0), false));
+                self.receive(&Commit(false, P2::new(0.0, 0.0)));
+                self.receive(&WithLatestNode(P2::new((x as f32 + 0.5) * grid_spacing, grid_size as f32 * grid_spacing), false));
+                self.receive(&Commit(false, P2::new(0.0, 0.0)));
+                self.receive(&WithLatestNode(P2::new((x as f32 + 0.5) * grid_spacing, grid_size as f32 * grid_spacing), false));
+                self.receive(&Commit(false, P2::new(0.0, 0.0)));
             }
             for y in 0..grid_size {
-                self.receive(&PlanControl::WithLatestNode(P2::new(0.0, (y as f32 + 0.5) * grid_spacing), false));
-                self.receive(&PlanControl::Commit(false, P2::new(0.0, 0.0)));
-                self.receive(&PlanControl::WithLatestNode(P2::new(grid_size as f32 * grid_spacing, (y as f32 + 0.5) * grid_spacing), false));
-                self.receive(&PlanControl::Commit(false, P2::new(0.0, 0.0)));
-                self.receive(&PlanControl::WithLatestNode(P2::new(grid_size as f32 * grid_spacing, (y as f32 + 0.5) * grid_spacing), false));
-                self.receive(&PlanControl::Commit(false, P2::new(0.0, 0.0)));
+                self.receive(&WithLatestNode(P2::new(0.0, (y as f32 + 0.5) * grid_spacing), false));
+                self.receive(&Commit(false, P2::new(0.0, 0.0)));
+                self.receive(&WithLatestNode(P2::new(grid_size as f32 * grid_spacing, (y as f32 + 0.5) * grid_spacing), false));
+                self.receive(&Commit(false, P2::new(0.0, 0.0)));
+                self.receive(&WithLatestNode(P2::new(grid_size as f32 * grid_spacing, (y as f32 + 0.5) * grid_spacing), false));
+                self.receive(&Commit(false, P2::new(0.0, 0.0)));
             }
-            self.receive(&PlanControl::Commit(true, P2::new(0.0, 0.0)));
+            self.receive(&Commit(true, P2::new(0.0, 0.0)));
             MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
             Fate::Live
-        },
-        PlanControl::Materialize(()) => {
-            MaterializedReality::id() << Apply{requester: Self::id(), delta: self.current.delta.clone()};
-            *self = CurrentPlan::default();
-            self.clear_selectables();
-            self.clear_draggables();
-            self.preview.ui_state.recreate_selectables = true;
-            Fate::Live
-        },
-        PlanControl::SetSelectionMode(select_parallel, select_opposite) => {
+        }
+    }}
+}
+
+#[derive(Copy, Clone)]
+struct Materialize;
+
+impl Recipient<Materialize> for CurrentPlan {
+    fn receive(&mut self, _msg: &Materialize) -> Fate {
+        MaterializedReality::id() << Apply{requester: Self::id(), delta: self.current.delta.clone()};
+        *self = CurrentPlan::default();
+        self.clear_selectables();
+        self.clear_draggables();
+        self.preview.ui_state.recreate_selectables = true;
+        Fate::Live
+    }
+}
+
+#[derive(Copy, Clone)]
+struct SetSelectionMode(bool, bool);
+
+impl Recipient<SetSelectionMode> for CurrentPlan {
+    fn receive(&mut self, msg: &SetSelectionMode) -> Fate {match *msg{
+        SetSelectionMode(select_parallel, select_opposite) => {
             self.preview.ui_state.select_parallel = select_parallel;
             self.preview.ui_state.select_opposite = select_opposite;
             self.current.ui_state.select_parallel = select_parallel;
             self.current.ui_state.select_opposite = select_opposite;
             Fate::Live
-        },
-        PlanControl::SetNLanes(n_lanes) => {
+        }
+    }}
+}
+
+#[derive(Copy, Clone)]
+struct SetNLanes(usize);
+
+impl Recipient<SetNLanes> for CurrentPlan {
+    fn receive(&mut self, msg: &SetNLanes) -> Fate {match *msg{
+        SetNLanes(n_lanes) => {
             self.preview.ui_state.n_lanes_per_side = n_lanes;
             self.current.ui_state.n_lanes_per_side = n_lanes;
             let at = match self.preview.ui_state.drawing_status {
                 DrawingStatus::ContinuingFrom(_, last_add) => last_add,
                 _ => P2::new(0.0, 0.0)
             };
-            Self::id() << PlanControl::WithLatestNode(at, true);
-            Fate::Live
-        },
-        PlanControl::ToggleBothSides(()) => {
-            self.preview.ui_state.create_both_sides = !self.preview.ui_state.create_both_sides;
-            self.current.ui_state.create_both_sides = self.preview.ui_state.create_both_sides;
-            let at = match self.preview.ui_state.drawing_status {
-                DrawingStatus::ContinuingFrom(_, last_add) => last_add,
-                _ => P2::new(0.0, 0.0)
-            };
-            Self::id() << PlanControl::WithLatestNode(at, true);
+            Self::id() << WithLatestNode(at, true);
             Fate::Live
         }
     }}
+}
+
+#[derive(Copy, Clone)]
+struct ToggleBothSides;
+
+impl Recipient<ToggleBothSides> for CurrentPlan {
+    fn receive(&mut self, _msg: &ToggleBothSides) -> Fate {
+        self.preview.ui_state.create_both_sides = !self.preview.ui_state.create_both_sides;
+        self.current.ui_state.create_both_sides = self.preview.ui_state.create_both_sides;
+        let at = match self.preview.ui_state.drawing_status {
+            DrawingStatus::ContinuingFrom(_, last_add) => last_add,
+            _ => P2::new(0.0, 0.0)
+        };
+        Self::id() << WithLatestNode(at, true);
+        Fate::Live
+    }
 }
 
 use self::materialized_reality::SimulationResult;
@@ -874,7 +951,20 @@ struct ClearAddables;
 
 pub fn setup(system: &mut ActorSystem) {
     system.add_individual(CurrentPlan::default());
-    system.add_inbox::<PlanControl, CurrentPlan>();
+    system.add_inbox::<Commit, CurrentPlan>();
+    system.add_inbox::<Undo, CurrentPlan>();
+    system.add_inbox::<Redo, CurrentPlan>();
+    system.add_inbox::<WithLatestNode, CurrentPlan>();
+    system.add_inbox::<Select, CurrentPlan>();
+    system.add_inbox::<MaximizeSelection, CurrentPlan>();
+    system.add_inbox::<MoveSelection, CurrentPlan>();
+    system.add_inbox::<DeleteSelection, CurrentPlan>();
+    system.add_inbox::<AddStroke, CurrentPlan>();
+    system.add_inbox::<CreateGrid, CurrentPlan>();
+    system.add_inbox::<Materialize, CurrentPlan>();
+    system.add_inbox::<SetSelectionMode, CurrentPlan>();
+    system.add_inbox::<SetNLanes, CurrentPlan>();
+    system.add_inbox::<ToggleBothSides, CurrentPlan>();
     system.add_inbox::<SimulationResult, CurrentPlan>();
     self::materialized_reality::setup(system);
     self::lane_stroke_canvas::setup(system);
