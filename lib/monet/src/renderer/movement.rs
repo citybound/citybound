@@ -56,8 +56,10 @@ impl Renderer {
                              delta.y * eye_direction_2d.orthogonal().into_3d() +
                              V3::new(0.0, 0.0, delta.z);
 
-        eye.position += absolute_delta * (eye.position.z / 100.0);
-        eye.target += absolute_delta * (eye.position.z / 100.0);
+        let dist_to_target = (eye.target - eye.position).norm();
+
+        eye.position += absolute_delta * (dist_to_target / 500.0);
+        eye.target += absolute_delta * (dist_to_target / 500.0);
     }
 
     fn movement_zoom(&mut self, scene_id: usize, delta: N) {
