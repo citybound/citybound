@@ -7,7 +7,7 @@ Find out more about Citybound [on the wiki](https://github.com/aeickhoff/citybou
 
 # Building from source
 
-Currently Citybound is only tested with Rust `nightly-2016-10-28`
+Currently Citybound is only tested with Rust `nightly-2017-01-08`
 
 Recommended setup:
 * install [rustup](https://rustup.rs/)
