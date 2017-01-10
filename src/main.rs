@@ -17,6 +17,10 @@ extern crate open;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate serde;
+extern crate app_dirs;
+
+use app_dirs::AppInfo;
+pub const APP_INFO: AppInfo = AppInfo{name: "Citybound", author: "ae_play"};
 
 extern crate kay;
 #[macro_use]
