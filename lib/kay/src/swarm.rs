@@ -19,7 +19,6 @@ pub struct Swarm<Actor> {
 const CHUNK_SIZE : usize = 4096 * 4096 * 4;
 
 impl<A: Actor> Swarm<A> {
-    /// Create new swarm
     pub fn new() -> Self {
         let chunker = MemChunker::new("", CHUNK_SIZE);
         Swarm{
@@ -30,7 +29,6 @@ impl<A: Actor> Swarm<A> {
         }
     }
 
-    /// Create a new instance ID
     fn allocate_instance_id(&mut self) -> (usize, usize) {
         self.slot_map.allocate_id()
     }
@@ -76,7 +74,7 @@ impl<A: Actor> Swarm<A> {
         }
     }
 
-    /// A utility function to swap an actor to the end of it's chunk and remove it with its index
+    /// A utility function to swap an actor to the end of it's chunk and remove it by its index
     fn swap_remove(&mut self, indices: SlotIndices) -> bool {
         unsafe {
             let collection = &mut self.actors.collections[indices.collection()];
@@ -92,13 +90,13 @@ impl<A: Actor> Swarm<A> {
         }
     }
 
-    /// Remove an actor with its ID
+    /// Remove an actor with by ID
     fn remove(&mut self, id: ID) {
         let i = *self.slot_map.indices_of(id.instance_id as usize);
         self.remove_at_index(i, id);
     }
 
-    /// Remove an actor with its index and ID
+    /// Remove an actor with by index and mark the ID as free
     fn remove_at_index(&mut self, i: SlotIndices, id: ID) {
         self.swap_remove(i);
         self.slot_map.free(id.instance_id as usize, id.version as usize);
@@ -119,7 +117,7 @@ impl<A: Actor> Swarm<A> {
         self.swap_remove(old_i)
     }
 
-    /// Process a message destined for an instance of an actor
+    /// Process a message destined for an instance of an actor, potentially mutating the instance
     fn receive_instance<M: Message>(&mut self, packet: &Packet<M>) where A: Recipient<M> {
         let (fate, is_still_compact) = {
             let actor = self.at_mut(packet.recipient_id.instance_id as usize);
@@ -137,7 +135,7 @@ impl<A: Actor> Swarm<A> {
         }
     }
 
-    /// Process a broadcast to all actors of the same type
+    /// Process a broadcast to all actors of the swarm
     fn receive_broadcast<M: Message>(&mut self, packet: &Packet<M>) where A: Recipient<M> {
         // this function has to deal with the fact that during the iteration, receivers of the broadcast can be resized
         // and thus removed from a collection, swapping in either

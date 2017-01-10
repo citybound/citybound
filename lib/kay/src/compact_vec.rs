@@ -146,8 +146,8 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         }
     }
 
-    /// Take a function which returns if the value should be kept, and creates a new list with
-    /// those values
+    /// Take a function which returns if the value should be kept, and removes all elements
+    /// from the list which are not kept
     pub fn retain<F: FnMut(&T) -> bool>(&mut self, mut keep: F) {
         let mut del = 0;
         let len = self.len();

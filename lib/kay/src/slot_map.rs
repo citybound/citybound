@@ -3,7 +3,7 @@ use super::chunked::{Chunker, ChunkedVec};
 /// The index into a `MultiSized<SizedChunkedArena>`
 #[derive(Clone, Copy)]
 pub struct SlotIndices {
-    /// The chunk length of the collection holding the data
+    /// Index of sized collection that contains the item
     collection: u8,
     /// The slot within those chunks holding the data
     slot: u32
@@ -26,12 +26,10 @@ impl SlotIndices {
         }
     }
 
-    /// Getter function for `self.collections`
     pub fn collection(&self) -> usize {
         self.collection as usize
     }
 
-    /// Getter function for `self.slot`
     pub fn slot(&self) -> usize {
         self.slot as usize
     }
@@ -85,7 +83,7 @@ impl SlotMap {
         self.entries.len()
     }
 
-    /// Get an ID which is currently in use ?????
+    /// Get an ID which is currently in use for messages with random recipients
     pub fn random_used(&self) -> usize {
         loop {
             let random_id = ::random::default().read::<usize>() % self.entries.len();

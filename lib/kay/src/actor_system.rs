@@ -12,10 +12,10 @@ pub static mut THE_SYSTEM: *mut ActorSystem = 0 as *mut ActorSystem;
 pub struct ID {
     /// The sequentially numbered type ID of the actor within the actor system
     pub type_id: u16,
-    /// The version of the game which the actor was created in
+    /// The "generation" of the actor, to help debugging as instance_IDs can be reused
     pub version: u8,
     /// The instance of the type used to address a specific actor
-    /// Is broadcast if equal to `u32::max_value()1`
+    /// Is broadcast if equal to `u32::max_value()`
     /// Is swarm if equal to `u32::max_value() -1`
     pub instance_id: u32
 }
@@ -25,17 +25,16 @@ impl ID {
     /// Used similarly to a null pointer
     pub fn invalid() -> ID {ID {type_id: u16::max_value(), version: u8::max_value(), instance_id: 0}}
 
-    /// Construct an individual actor ID with instance ID of 0 and the typeID specified
     pub fn individual(individual_type_id: usize) -> ID {
         ID {type_id: individual_type_id as u16, version: 0, instance_id: 0}
     }
 
-    /// Construct a broadcast ID to all actors with the type ID specified
+    /// Construct a broadcast ID to the type
     pub fn broadcast(type_id: usize) -> ID {
         ID {type_id: type_id as u16, version: 0, instance_id: u32::max_value()}
     }
 
-    /// Construct an individual actor ID
+    /// Construct an ID which points to an actor instance in a swarm
     pub fn instance(type_id: usize, instance_id_and_version: (usize, usize)) -> ID {
         ID {type_id: type_id as u16, version: instance_id_and_version.1 as u8, instance_id: instance_id_and_version.0 as u32}
     }
@@ -116,11 +115,11 @@ impl InboxMap {
 }
 
 pub struct ActorSystem {
-    /// Stores the inboxes of all the swarms
+    /// Stores the inboxes of all the individuals
     routing: [Option<InboxMap>; MAX_RECIPIENT_TYPES],
     /// Stores the rust TypeID to internal ID and type name mapping
     recipient_registry: TypeRegistry,
-    /// Stores all swarms
+    /// Stores all individuals
     individuals: [Option<*mut u8>; MAX_RECIPIENT_TYPES],
     /// Closures to process and clear messages
     update_callbacks: Vec<Box<Fn()>>,
@@ -139,7 +138,6 @@ macro_rules! make_array {
 }
 
 impl ActorSystem {
-    /// Creates new actor system
     pub fn new() -> ActorSystem {
         ActorSystem {
             routing: unsafe{make_array!(MAX_RECIPIENT_TYPES, |_| None)},
@@ -155,12 +153,11 @@ impl ActorSystem {
         // Register type in recipient_registry, and return the short ID of the type (sequential ID starting from 0)
         let recipient_id = self.recipient_registry.register_new::<I>();
 
-        // Check inbox does not exist at routing[recipient_id]
         assert!(self.routing[recipient_id].is_none());
 
         self.routing[recipient_id] = Some(InboxMap::new());
 
-        // Store pointer to the Swarm
+        // Store pointer to the individual
         self.individuals[recipient_id] = Some(Box::into_raw(Box::new(individual)) as *mut u8);
     }
 
@@ -245,7 +242,7 @@ impl ActorSystem {
         self.inbox_for(&packet).put(packet);
     }
 
-    /// Process all messages and clear all inboxes afterwards
+    /// Process all messages and clears all inboxes
     pub fn process_messages(&mut self) {
         for callback in &self.update_callbacks {
             callback();

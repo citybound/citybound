@@ -3,7 +3,7 @@ use super::chunked::{MemChunker, MultiSized, SizedChunkedQueue};
 use ::std::marker::PhantomData;
 use super::messaging::{Packet, Message};
 
-/// Stores an ordered list of homogeneous messages
+/// Stores an ordered list of homogeneously sized messages
 pub struct Inbox<M: Message> {
     queues: MultiSized<SizedChunkedQueue>,
     message_marker: PhantomData<[M]>
@@ -73,7 +73,7 @@ impl<'a, M: Message> Iterator for InboxIterator<'a, M> {
                 // Completely empty
                 None
             } else {
-                // Get index of new sized queue
+                // Get index of the next sized queue
                 self.current_sized_queue_index -= 1;
                 {
                     let next_queue = &self.queues[self.current_sized_queue_index];

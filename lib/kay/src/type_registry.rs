@@ -11,7 +11,6 @@ pub struct TypeRegistry {
 }
 
 impl TypeRegistry {
-    /// Create a new, empty type registry
     pub fn new() -> TypeRegistry {
         TypeRegistry{
             next_short_id: 0,

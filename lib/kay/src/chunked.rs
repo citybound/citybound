@@ -7,9 +7,7 @@ use super::allocators::{Allocator, DefaultHeap};
 
 /// Store information and utility functions for the creation of chunks
 pub trait Chunker {
-    /// Size of each chunk
     fn chunk_size(&self) -> usize;
-    /// Get name of chunk
     fn name(&self) -> &str;
     /// Create new chunker with different size
     fn with_chunk_size(&self, size: usize) -> Box<Chunker>;
@@ -28,7 +26,7 @@ pub trait Chunker {
     fn destroy_chunk(&mut self, ptr: *mut u8);
 }
 
-/// Implementation of `Chunker`
+/// Implementation of `Chunker` for non-volatile memory
 #[derive(Clone)]
 pub struct MemChunker {
     name: String,
@@ -130,7 +128,7 @@ impl<T> Drop for ValueInChunk<T> {
 }
 
 pub trait SizedChunkedCollection {
-    /// Create a new chunker within a collection from an existing chunker and item size
+    ///Create a collection of fixed-size items using a chunker
     fn new(chunker: Box<Chunker>, item_size: usize) -> Self;
 }
 
