@@ -3,7 +3,7 @@ use ::monet::glium::glutin::{MouseButton, VirtualKeyCode};
 use serde_json;
 
 use std::error::Error;
-use std::fs::File;
+use std::fs::{File, remove_file};
 use std::io::prelude::*;
 
 use app_dirs;
@@ -79,6 +79,13 @@ impl Settings{
         if let Err(why) = file.read_to_string(&mut s) {
             panic!("couldn't read {}: {}", display, why.description())
         }
-        serde_json::from_str::<Settings>(&s).unwrap()
+        match serde_json::from_str::<Settings>(&s){
+            Err(_) => {
+                println!("Config file does not exists, but cannot be read");
+                remove_file(&path).expect("couldn't delete old config file");
+                Settings::load()
+            }
+            Ok(s) => s
+        }
     }
 }
