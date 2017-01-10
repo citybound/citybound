@@ -46,9 +46,13 @@ impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
     pub fn get_mru(&mut self, query: K) -> Option<&V> {
         for i in 0..self.keys.len() {
             if self.keys[i] == query {
-                self.keys.swap(0, i); // TODO: Is is better to swap with the one in front instead of the first?
-                self.values.swap(0, i);
-                return Some(&self.values[0]);
+                if i > 0 {
+                    self.keys.swap(i-1, i);
+                    self.values.swap(i-1, i);
+                    return Some(&self.values[i-1]);
+                }else{
+                    return Some(&self.values[0]);
+                }
             }
         }
         None
