@@ -90,13 +90,13 @@ impl<A: Actor> Swarm<A> {
         }
     }
 
-    /// Remove an actor with by ID
+    /// Remove an actor by ID
     fn remove(&mut self, id: ID) {
         let i = *self.slot_map.indices_of(id.instance_id as usize);
         self.remove_at_index(i, id);
     }
 
-    /// Remove an actor with by index and mark the ID as free
+    /// Remove an actor by index and mark the ID as free
     fn remove_at_index(&mut self, i: SlotIndices, id: ID) {
         self.swap_remove(i);
         self.slot_map.free(id.instance_id as usize, id.version as usize);
