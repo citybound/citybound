@@ -42,7 +42,7 @@ impl Settings{
 
             pan_modifier_key:    vec![KeyOrButton::Key(VirtualKeyCode::LShift), KeyOrButton::Key(VirtualKeyCode::RShift)],
             yaw_modifier_key: vec![KeyOrButton::Button(MouseButton::Middle), KeyOrButton::Key(VirtualKeyCode::LAlt), KeyOrButton::Key(VirtualKeyCode::RAlt)],
-            pitch_modifier_key: vec!{KeyOrButton::Key(VirtualKeyCode::K)} //vec![KeyOrButton::Button(MouseButton::Middle), KeyOrButton::Key(VirtualKeyCode::LAlt), KeyOrButton::Key(VirtualKeyCode::RAlt)],
+            pitch_modifier_key: vec![KeyOrButton::Button(MouseButton::Middle), KeyOrButton::Key(VirtualKeyCode::LAlt), KeyOrButton::Key(VirtualKeyCode::RAlt)],
         }
     }
 
