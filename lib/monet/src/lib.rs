@@ -1,4 +1,4 @@
-#![feature(plugin, proc_macro, conservative_impl_trait, btree_range, collections_bound)]
+#![feature(plugin, conservative_impl_trait)]
 #![plugin(clippy)]
 #![allow(no_effect, unnecessary_operation)]
 

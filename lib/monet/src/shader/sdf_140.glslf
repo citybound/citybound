@@ -7,7 +7,7 @@ out vec4 f_color;
 
 void main() {
     vec4 base_color = vec4(0.0, 0.0, 0.0, 1.0);
-    float dist_alpha_map = texture(tex, v_tex_coords).a;
+    float dist_alpha_map = texture(tex, v_tex_coords).r;
 
     base_color.a *= smoothstep(0.49, 0.51, dist_alpha_map);
     f_color = base_color;

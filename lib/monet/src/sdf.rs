@@ -1,7 +1,7 @@
 
 use glium;
 use glium::backend::glutin_backend::GlutinFacade;
-use image::{ImageFormat, RgbaImage, GenericImage};
+use image::RgbaImage;
 
 use std::borrow::Cow;
 
@@ -127,7 +127,7 @@ impl SdfGlyph {
 
         let (out_width, out_height, scale) = min_dimensions(width, height, size);
         let mut image_data = ::std::iter::repeat(0u8)
-            .take((out_width * out_height) as usize * 4)
+            .take((out_width * out_height) as usize)
             .collect::<Vec<_>>();
 
         for y in 0..out_height {
@@ -156,7 +156,7 @@ impl SdfGlyph {
 
                 if iy < ih && ix < iw {
                     let dist = (sum + 127.).max(0.).min(255.) as u8;
-                    image_data[(x + y * out_width) as usize * 4 + 3] = dist;
+                    image_data[(x + y * out_width) as usize] = dist;
                 }
             }
         }
@@ -175,8 +175,7 @@ impl SdfGlyph {
 
         SdfGlyph {
             texture: texture,
-            texture_aspect: out_width as f32 / out_height as f32,
-            image_aspect: in_width as f32 / in_height as f32,
+            aspect: width as f32 / height as f32,
         }
     }
 
@@ -187,7 +186,7 @@ impl SdfGlyph {
 
     #[inline]
     pub fn aspect(&self) -> f32 {
-        self.image_aspect
+        self.aspect
     }
 }
 
