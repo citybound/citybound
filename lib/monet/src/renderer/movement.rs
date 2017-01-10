@@ -93,8 +93,6 @@ impl Renderer {
         inc = if inc < 0.0001 { 0.0001 } else { inc }; // Check lower bounds
         inc = if inc > 1.5 { 1.5 } else { inc }; // Check upper bounds;
 
-        println!("{}", inc);
-
         // Convert spherical coordinates back into carteesiam coordinates
         let x = r * inc.sin() * azi.cos();
         let y = r * inc.sin() * azi.sin();
