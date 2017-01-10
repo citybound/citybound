@@ -67,8 +67,9 @@ pub struct InputState {
     left: bool,
     right: bool,
 
-    rotate_mod: bool,
+    yaw_mod: bool,
     pan_mod: bool,
+    pitch_mod: bool,
 
     mouse: Vec<Mouse>,
 }
@@ -81,8 +82,9 @@ impl InputState {
             left: false,
             right: false,
 
-            rotate_mod: false,
+            yaw_mod: false,
             pan_mod: false,
+            pitch_mod: false,
 
             mouse: vec![],
         }
@@ -219,12 +221,14 @@ impl Recipient<Mouse> for UserInterface {
                 if self.settings.right_key.iter().any(|x| *x == KeyOrButton::Button(button)){
                     self.input_state.right = down;
                 }
-
-                if self.settings.rotate_modifier_key.iter().any(|x| *x == KeyOrButton::Button(button)){
-                    self.input_state.rotate_mod = down;
+                if self.settings.yaw_modifier_key.iter().any(|x| *x == KeyOrButton::Button(button)){
+                    self.input_state.yaw_mod = down;
                 }
                 if self.settings.pan_modifier_key.iter().any(|x| *x == KeyOrButton::Button(button)){
                     self.input_state.pan_mod = down;
+                }
+                if self.settings.pitch_modifier_key.iter().any(|x| *x == KeyOrButton::Button(button)) {
+                    self.input_state.pitch_mod = down;
                 }
             },
             _ => ()
@@ -256,11 +260,14 @@ impl Recipient<Key> for UserInterface {
                 if self.settings.right_key.iter().any(|x| *x == KeyOrButton::Key(key_code)){
                     self.input_state.right = down;
                 };
-                if self.settings.rotate_modifier_key.iter().any(|x| *x == KeyOrButton::Key(key_code)){
-                    self.input_state.rotate_mod = down;
+                if self.settings.yaw_modifier_key.iter().any(|x| *x == KeyOrButton::Key(key_code)){
+                    self.input_state.yaw_mod = down;
                 };
                 if self.settings.pan_modifier_key.iter().any(|x| *x == KeyOrButton::Key(key_code)){
                     self.input_state.pan_mod = down;
+                };
+                if self.settings.pitch_modifier_key.iter().any(|x| *x == KeyOrButton::Key(key_code)) {
+                    self.input_state.pitch_mod = down;
                 };
 
                 self.focused_interactable.map(|interactable|
@@ -321,21 +328,30 @@ impl Recipient<UIUpdate> for UserInterface {
                 Mouse::Moved(position) => {
                     let inverted = if self.settings.invert_y {-1.0} else {1.0};
                     let delta = self.cursor_2d - position;
-                    if self.input_state.rotate_mod {
-                        Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Yaw(
-                            -delta.x * self.settings.rotation_speed * inverted/ 300.0)
-                        };
 
-                        Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Pitch(
-                            -delta.y * self.settings.rotation_speed * inverted / 300.0)
-                        };
-                        self.cursor_2d = position;
-                    } else if self.input_state.pan_mod {
-                        Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(
-                            V3::new(-delta.y * self.settings.move_speed * inverted/ 3.0,
-                                    delta.x * self.settings.move_speed * inverted / 3.0, 0.0)
-                        )};
-                        self.cursor_2d = position;
+                    if self.input_state.yaw_mod || self.input_state.pitch_mod || self.input_state.pan_mod {
+                        if self.input_state.yaw_mod {
+                            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Yaw(
+                                -delta.x * self.settings.rotation_speed * inverted/ 300.0)
+                            };
+                            
+                            self.cursor_2d = position;
+                        }
+                        
+                        if self.input_state.pitch_mod {
+                            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Pitch(
+                                -delta.y * self.settings.rotation_speed * inverted / 300.0)
+                            };
+                            self.cursor_2d = position;
+                        }
+                        
+                        if self.input_state.pan_mod {
+                            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(
+                                V3::new(-delta.y * self.settings.move_speed * inverted/ 3.0,
+                                        delta.x * self.settings.move_speed * inverted / 3.0, 0.0)
+                            )};
+                            self.cursor_2d = position;
+                        }
                     } else {
                         self.cursor_2d = position;
                         Renderer::id() << Project2dTo3d {

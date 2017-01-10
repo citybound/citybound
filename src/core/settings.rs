@@ -22,7 +22,8 @@ pub struct Settings {
     pub left_key: Vec<KeyOrButton>,
     pub right_key: Vec<KeyOrButton>,
     pub pan_modifier_key: Vec<KeyOrButton>,
-    pub rotate_modifier_key: Vec<KeyOrButton>,
+    pub yaw_modifier_key: Vec<KeyOrButton>,
+    pub pitch_modifier_key: Vec<KeyOrButton>,
 }
 
 impl Settings{
@@ -40,7 +41,8 @@ impl Settings{
             right_key: vec![KeyOrButton::Key(VirtualKeyCode::D), KeyOrButton::Key(VirtualKeyCode::Right)],
 
             pan_modifier_key:    vec![KeyOrButton::Key(VirtualKeyCode::LShift), KeyOrButton::Key(VirtualKeyCode::RShift)],
-            rotate_modifier_key: vec![KeyOrButton::Button(MouseButton::Middle), KeyOrButton::Key(VirtualKeyCode::LAlt), KeyOrButton::Key(VirtualKeyCode::RAlt)],
+            yaw_modifier_key: vec![KeyOrButton::Button(MouseButton::Middle), KeyOrButton::Key(VirtualKeyCode::LAlt), KeyOrButton::Key(VirtualKeyCode::RAlt)],
+            pitch_modifier_key: vec!{KeyOrButton::Key(VirtualKeyCode::K)} //vec![KeyOrButton::Button(MouseButton::Middle), KeyOrButton::Key(VirtualKeyCode::LAlt), KeyOrButton::Key(VirtualKeyCode::RAlt)],
         }
     }
 
