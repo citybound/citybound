@@ -1,7 +1,10 @@
 use std::mem;
 
+/// Something that can allocate memory
 pub trait Allocator {
+    /// Allocate enough memory to store `cap` of `T`
     fn allocate<T>(cap: usize) -> *mut T;
+    /// Free memory from pointer
     unsafe fn deallocate<T>(ptr: *mut T, cap: usize);
 }
 

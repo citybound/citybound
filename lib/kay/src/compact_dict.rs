@@ -2,12 +2,18 @@ use super::allocators::{Allocator, DefaultHeap};
 use super::compact::Compact;
 use super::compact_vec::CompactVec;
 
+/// A dictionary which can be compacted. Will usually contain the data in the dynamic part of the
+/// compacted data structure, but if the size will overflow the dynamic part, it is moved to the
+/// heap instead.
+/// Implemented with 2 vectors, one for the key and one for the data, with linear search performed
+/// to do lookups
 pub struct CompactDict <K: Copy, V: Compact + Clone, A: Allocator = DefaultHeap> {
     keys: CompactVec<K, A>,
     values: CompactVec<V, A>
 }
 
 impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
+    /// Create new, empty dict
     pub fn new() -> Self {
         CompactDict{
             keys: CompactVec::new(),
@@ -15,14 +21,17 @@ impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
         }
     }
 
+    /// Amount of entries in the dict
     pub fn len(&self) -> usize {
         self.keys.len()
     }
 
+    /// Is the dict empty
     pub fn is_empty(&self) -> bool {
         self.keys.is_empty()
     }
 
+    /// Lookup the item in the dict
     pub fn get(&self, query: K) -> Option<&V> {
         for i in 0..self.keys.len() {
             if self.keys[i] == query {
@@ -32,10 +41,12 @@ impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
         None
     }
 
+    /// Lookup the item in the dict, but also swaps the item with the first element so lookup for
+    /// that item will be faster
     pub fn get_mru(&mut self, query: K) -> Option<&V> {
         for i in 0..self.keys.len() {
             if self.keys[i] == query {
-                self.keys.swap(0, i);
+                self.keys.swap(0, i); // TODO: Is is better to swap with the one in front instead of the first?
                 self.values.swap(0, i);
                 return Some(&self.values[0]);
             }
@@ -43,10 +54,12 @@ impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
         None
     }
 
+    /// Checks if dict contains key
     pub fn contains_key(&self, query: K) -> bool {
         self.keys.contains(&query)
     }
 
+    /// Insert new value at key
     pub fn insert(&mut self, query: K, new_value: V) -> Option<V> {
         for i in 0..self.keys.len() {
             if self.keys[i] == query {
@@ -60,6 +73,7 @@ impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
         None
     }
 
+    /// Remove value at key
     pub fn remove(&mut self, query: K) -> Option<V> {
         for i in 0..self.keys.len() {
             if self.keys[i] == query {
@@ -72,18 +86,22 @@ impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
         None
     }
 
+    /// get iterator over keys
     pub fn keys(&self) -> ::std::slice::Iter<K> {
         self.keys.iter()
     }
 
+    /// Get iterator over values
     pub fn values(&self) -> ::std::slice::Iter<V> {
         self.values.iter()
     }
 
+    /// Get mutable iterator over values
     pub fn values_mut(&mut self) -> ::std::slice::IterMut<V> {
         self.values.iter_mut()
     }
 
+    /// Get iterator over key-value pairs
     #[allow(needless_lifetimes)]
     pub fn pairs<'a>(&'a self) -> impl Iterator<Item=(&'a K, &'a V)> + Clone + 'a {
         self.keys().zip(self.values())
@@ -91,6 +109,7 @@ impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
 }
 
 impl <K: Eq + Copy, I: Compact, A1: Allocator, A2: Allocator> CompactDict<K, CompactVec<I, A1>, A2> {
+    /// Push a value to a CompactVec at the key
     pub fn push_at(&mut self, query: K, item: I) {
         for i in 0..self.keys.len() {
             if self.keys[i] == query {
@@ -104,11 +123,13 @@ impl <K: Eq + Copy, I: Compact, A1: Allocator, A2: Allocator> CompactDict<K, Com
         self.values.push(vec);
     }
 
+    /// Get iterator of the CompactVec at the key
     #[allow(needless_lifetimes)]
     pub fn get_iter<'a>(&'a self, query: K) -> impl Iterator<Item=&'a I> + 'a {
         self.get(query).into_iter().flat_map(|vec_in_option| vec_in_option.iter())
     }
 
+    /// Get iterator of the CompactVec at the key, and then remove the item
     #[allow(needless_lifetimes)]
     pub fn remove_iter<'a>(&'a mut self, query: K) -> impl Iterator<Item=I> + 'a {
         self.remove(query).into_iter().flat_map(|vec_in_option| vec_in_option.into_iter())
