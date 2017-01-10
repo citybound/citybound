@@ -5,7 +5,8 @@ use serde_json;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::Path;
+
+use app_dirs;
 
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct Settings {
@@ -45,7 +46,7 @@ impl Settings{
     }
 
     pub fn load() -> Settings{
-        let path = Path::new("config.json");
+        let path = app_dirs::app_root(app_dirs::AppDataType::UserConfig, &::APP_INFO).unwrap().join("config.json");
         let display = path.display();
         let settings = Settings::new();
 

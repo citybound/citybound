@@ -15,6 +15,7 @@ open = "1.1.1"
 serde = "=0.8.16"
 serde_derive = "=0.8.16"
 serde_json = "=0.8.3"
+app_dirs = "1.1.1"
 
 [dependencies.kay]
 path = "./lib/kay/"
