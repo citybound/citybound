@@ -7,14 +7,14 @@ license = "AGPL-3.0"
 [dependencies]
 ordered-float = "0.2.3"
 itertools = "0.5.5"
-clippy = "0.0.96"
+clippy = "0.0.106"
 random = "0.12.2"
 fnv = "1.0.3"
 roaring = "0.4.0"
 open = "1.1.1"
-serde = "=0.8.16"
-serde_derive = "=0.8.16"
-serde_json = "=0.8.3"
+serde = "=0.8.21"
+serde_derive = "=0.8.21"
+serde_json = "=0.8.4"
 app_dirs = "1.1.1"
 
 [dependencies.kay]

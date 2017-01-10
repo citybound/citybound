@@ -26,7 +26,7 @@ pub fn derive_actor(input: TokenStream) -> TokenStream {
 
     // Return the original input struct unmodified, and the
     // generated impl along with it
-    quote!(#ast #expanded).to_string().parse().unwrap()
+    quote!(#expanded).to_string().parse().unwrap()
 }
 
 fn expand_derive_actor(ast: &syn::MacroInput) -> quote::Tokens {
@@ -59,7 +59,7 @@ pub fn derive_compact(input: TokenStream) -> TokenStream {
 
     // Return the original input struct unmodified, and the
     // generated impl along with it
-    quote!(#ast #expanded).to_string().parse().unwrap()
+    quote!(#expanded).to_string().parse().unwrap()
 }
 
 fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
