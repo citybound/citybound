@@ -1,9 +1,14 @@
+/// Specifies the 3 states that the pointer can be in:
+/// 1. Free: On the heap - Stores a pointer
+/// 2. Compact: On the dynamic part - Stores an offset
+/// 3. Null
 enum Inner<T> {
     Free(*mut T),
     Compact(isize),
     Uninitialized
 }
 
+/// See Inner
 pub struct PointerToMaybeCompact <T> {
     inner: Inner<T>
 }
@@ -17,20 +22,24 @@ impl<T> Default for PointerToMaybeCompact<T> {
 }
 
 impl<T> PointerToMaybeCompact <T> {
+    /// Create a new pointer which is initialized to point on the heap
     pub fn new_free(ptr: *mut T) -> Self {
         PointerToMaybeCompact{
             inner: Inner::Free(ptr)
         }
     }
 
+    /// Set the pointer to point on the heap
     pub fn set_to_free(&mut self, ptr: *mut T) {
         self.inner = Inner::Free(ptr)
     } 
 
+    /// Set the pointer to point on the dynamic part of the data structure
     pub fn set_to_compact(&mut self, ptr: *mut T) {
         self.inner = Inner::Compact(ptr as isize - self as *const Self as isize);
     }
 
+    /// Get a raw pointer to wherever it is pointing
     pub unsafe fn ptr(&self) -> *const T {
         match self.inner {
             Inner::Free(ptr) => ptr,
@@ -39,6 +48,7 @@ impl<T> PointerToMaybeCompact <T> {
         }
     }
 
+    /// Get a mut pointer to wherever it is pointing
     pub unsafe fn mut_ptr(&mut self) -> *mut T {
         match self.inner {
             Inner::Free(ptr) => ptr,
@@ -47,6 +57,7 @@ impl<T> PointerToMaybeCompact <T> {
         }
     }
 
+    /// Check to see if pointer is on the dynamic part of the data structure
     pub fn is_compact(&self) -> bool {
         match self.inner {
             Inner::Free(_) => false,
