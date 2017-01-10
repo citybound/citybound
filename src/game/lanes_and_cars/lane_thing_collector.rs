@@ -68,7 +68,7 @@ impl<T: Clone> Recipient<Control> for ThingCollector<T>{
         },
         Control::Remove(id) => {
             self.living_things.remove(id);
-            if let Some(_) = self.frozen_things.remove(id) {
+            if self.frozen_things.remove(id).is_some() {
                 self.cached_frozen_things_dirty = true;
             };
             Fate::Live

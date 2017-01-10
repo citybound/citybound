@@ -1,4 +1,3 @@
-#![feature(proc_macro, proc_macro_lib)]
 #![recursion_limit="100"]
 
 extern crate proc_macro;
@@ -88,7 +87,7 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                         let mut offset: isize = 0;
                         #(
                             let source_field = &source.#fields_ref2;
-                            self.#fields_ref.compact_from(&source_field, new_dynamic_part.offset(offset));
+                            self.#fields_ref.compact_from(source_field, new_dynamic_part.offset(offset));
                             offset += source_field.dynamic_size_bytes() as isize;
                         )*
                     }
@@ -144,7 +143,7 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                             let mut offset: isize = 0;
                             if let #name::#ident(#(ref mut #fields_ref),*) = *self {
                                 #(
-                                    #fields_ref.compact_from(&#source_fields_ref, new_dynamic_part.offset(offset));
+                                    #fields_ref.compact_from(#source_fields_ref, new_dynamic_part.offset(offset));
                                     offset += #source_fields_ref_2.dynamic_size_bytes() as isize;
                                 )*
                             } else {unreachable!()}
@@ -169,12 +168,14 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
             quote! {
                 // generated
                 impl #impl_generics ::kay::Compact for #name #ty_generics #where_clause {
+                    #[allow(match_same_arms)]
                     fn is_still_compact(&self) -> bool {
                         match *self {
                             #(#variants_still_compact),*
                         }
                     }
 
+                    #[allow(match_same_arms)]
                     fn dynamic_size_bytes(&self) -> usize {
                         match *self {
                             #(#variants_dynamic_size),*
@@ -182,12 +183,14 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                     }
 
                     #[allow(unused_assignments)]
+                    #[allow(match_same_arms)]
                     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
                         match *source {
                             #(#variants_compact_from),*
                         }
                     }
 
+                    #[allow(match_same_arms)]
                     unsafe fn decompact(&self) -> Self {
                         match *self {
                             #(#variants_decompact),*
