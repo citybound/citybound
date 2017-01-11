@@ -36,11 +36,11 @@ fn expand_derive_actor(ast: &syn::MacroInput) -> quote::Tokens {
         // generated
         impl #impl_generics ::kay::Actor for #name #ty_generics #where_clause {
             fn id(&self) -> ::kay::ID {
-                self._id
+                self._id.expect("ID not set")
             }
 
             unsafe fn set_id(&mut self, id: ::kay::ID) {
-                self._id = id;
+                self._id = Some(id);
             }
         }
     }

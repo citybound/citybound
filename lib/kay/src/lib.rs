@@ -5,8 +5,11 @@
 #![feature(specialization)]
 #![feature(conservative_impl_trait)]
 #![feature(box_syntax)]
+#![feature(nonzero)]
 #![allow(no_effect)]
 extern crate random;
+extern crate core;
+
 mod pointer_to_maybe_compact;
 mod allocators;
 #[macro_use]

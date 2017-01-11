@@ -3,6 +3,7 @@ use super::messaging::{Message, Actor, Individual, Packet, Recipient};
 use super::inbox::Inbox;
 use super::type_registry::TypeRegistry;
 use std::intrinsics::{type_id, type_name};
+use core::nonzero::NonZero;
 
 /// The single, global actor system for the whole program
 pub static mut THE_SYSTEM: *mut ActorSystem = 0 as *mut ActorSystem;
@@ -11,7 +12,7 @@ pub static mut THE_SYSTEM: *mut ActorSystem = 0 as *mut ActorSystem;
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ID {
     /// The sequentially numbered type ID of the actor within the actor system
-    pub type_id: u16,
+    pub type_id: NonZero<u16>,
     /// The "generation" of the actor, to help debugging as instance_IDs can be reused
     pub version: u8,
     /// The instance of the type used to address a specific actor
@@ -23,20 +24,20 @@ pub struct ID {
 impl ID {
     /// Construct an invalid ID
     /// Used similarly to a null pointer
-    pub fn invalid() -> ID {ID {type_id: u16::max_value(), version: u8::max_value(), instance_id: 0}}
+    pub fn invalid() -> ID {ID {type_id: unsafe {NonZero::new(u16::max_value())}, version: u8::max_value(), instance_id: 0}}
 
     pub fn individual(individual_type_id: usize) -> ID {
-        ID {type_id: individual_type_id as u16, version: 0, instance_id: 0}
+        ID {type_id: unsafe {NonZero::new(individual_type_id as u16)}, version: 0, instance_id: 0}
     }
 
     /// Construct a broadcast ID to the type
     pub fn broadcast(type_id: usize) -> ID {
-        ID {type_id: type_id as u16, version: 0, instance_id: u32::max_value()}
+        ID {type_id: unsafe {NonZero::new(type_id as u16)}, version: 0, instance_id: u32::max_value()}
     }
 
     /// Construct an ID which points to an actor instance in a swarm
     pub fn instance(type_id: usize, instance_id_and_version: (usize, usize)) -> ID {
-        ID {type_id: type_id as u16, version: instance_id_and_version.1 as u8, instance_id: instance_id_and_version.0 as u32}
+        ID {type_id: unsafe {NonZero::new(type_id as u16)}, version: instance_id_and_version.1 as u8, instance_id: instance_id_and_version.0 as u32}
     }
 
     /// Checks if ID is a broadcast ID
@@ -46,7 +47,7 @@ impl ID {
 
     /// Created swarm ID with type ID specified
     pub fn swarm(type_id: usize) -> ID {
-        ID {type_id: type_id as u16, version: 0, instance_id: u32::max_value() - 1}
+        ID {type_id: unsafe {NonZero::new(type_id as u16)}, version: 0, instance_id: u32::max_value() - 1}
     }
 
     /// Checks if ID is a swarm ID
@@ -63,7 +64,7 @@ impl Default for ID {
 
 impl ::std::fmt::Debug for ID {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "ID {}_{}_{}", self.type_id, self.version, self.instance_id)
+        write!(f, "ID {}_{}_{}", *(self.type_id), self.version, self.instance_id)
     }
 }
 
@@ -222,21 +223,21 @@ impl ActorSystem {
 
     /// Get the inbox pointer of a given type from the routing array
     pub fn inbox_for<M: Message>(&mut self, packet: &Packet<M>) -> &mut Inbox<M> {
-        if let Some(inbox_ptr) = self.routing[packet.recipient_id.type_id as usize].as_ref()
+        if let Some(inbox_ptr) = self.routing[*(packet.recipient_id.expect("Recipient ID not set").type_id) as usize].as_ref()
             .expect("Recipient not found")
             .get::<M>() {
                 unsafe{&mut *inbox_ptr}
         } else {
             panic!("Inbox for {} not found for {}",
                 unsafe{type_name::<M>()},
-                self.recipient_registry.get_name(packet.recipient_id.type_id as usize))
+                self.recipient_registry.get_name(*(packet.recipient_id.expect("Recipient ID not set").type_id) as usize))
         }
     }
 
     /// Places message into the inbox of a given type
     fn send<M: Message>(&mut self, recipient: ID, message: M) {
         let packet = Packet{
-            recipient_id: recipient,
+            recipient_id: Some(recipient),
             message: message
         };
         self.inbox_for(&packet).put(packet);

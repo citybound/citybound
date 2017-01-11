@@ -6,14 +6,14 @@ use super::{LaneStroke, CurrentPlan};
 
 #[derive(Actor, Compact, Clone)]
 pub struct LaneStrokeAddable{
-    _id: ID,
+    _id: Option<ID>,
     stroke: LaneStroke
 }
 
 impl LaneStrokeAddable{
     pub fn new(stroke: LaneStroke) -> Self {
         LaneStrokeAddable{
-            _id: ID::invalid(),
+            _id: None,
             stroke: stroke
         }
     }
