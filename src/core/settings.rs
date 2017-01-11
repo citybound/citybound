@@ -10,7 +10,7 @@ use app_dirs;
 
 
 
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, Default)]
 pub struct Settings {
     //Controls
     #[serde(default = "Settings::default_rotation_speed")]
@@ -36,12 +36,33 @@ pub struct Settings {
     pub left_key: Vec<KeyOrButton>,
     #[serde(default = "Settings::default_right_key")]
     pub right_key: Vec<KeyOrButton>,
+
     #[serde(default = "Settings::default_pan_modifier")]
     pub pan_modifier_key: Vec<KeyOrButton>,
     #[serde(default = "Settings::default_yaw_modifier")]
     pub yaw_modifier_key: Vec<KeyOrButton>,
     #[serde(default = "Settings::default_pitch_modifier")]
     pub pitch_modifier_key: Vec<KeyOrButton>,
+
+    #[serde(default = "Settings::default_undo_key")]
+    pub undo_key: Vec<KeyOrButton>,
+    #[serde(default = "Settings::default_undo_modifier")]
+    pub undo_modifier_key: Vec<KeyOrButton>,
+    #[serde(default = "Settings::default_undo_to_redo_modifier")]
+    pub redo_modifier_key: Vec<KeyOrButton>,
+
+    #[serde(default = "Settings::default_car_spawn_key")]
+    pub car_spawning_key: Vec<KeyOrButton>,
+    #[serde(default = "Settings::default_delete_selection_key")]
+    pub delete_selection_key: Vec<KeyOrButton>,
+
+    #[serde(default = "Settings::default_finalize_key")]
+    pub finalize_key: Vec<KeyOrButton>,
+
+    #[serde(default = "Settings::default_grid_key")]
+    pub grid_key: Vec<KeyOrButton>,
+    #[serde(default = "Settings::default_grid_modifier")]
+    pub grid_modifier_key: Vec<KeyOrButton>,
 }
 
 impl Settings{
@@ -61,6 +82,18 @@ impl Settings{
             pan_modifier_key: Settings::default_pan_modifier(),
             yaw_modifier_key: Settings::default_yaw_modifier(),
             pitch_modifier_key: Settings::default_pitch_modifier(),
+
+            undo_key: Settings::default_undo_key(),
+            undo_modifier_key: Settings::default_undo_modifier(),
+            redo_modifier_key: Settings::default_undo_to_redo_modifier(),
+
+            finalize_key: Settings::default_finalize_key(),
+
+            delete_selection_key: Settings::default_delete_selection_key(),
+            car_spawning_key: Settings::default_car_spawn_key(),
+
+            grid_key: Settings::default_grid_key(),
+            grid_modifier_key: Settings::default_grid_modifier(),
         }
     }
 
@@ -112,10 +145,40 @@ impl Settings{
         vec![KeyOrButton::Button(MouseButton::Middle), KeyOrButton::Key(VirtualKeyCode::LAlt), KeyOrButton::Key(VirtualKeyCode::RAlt)]
     }
 
-    pub fn load() -> Settings {
-        let path = app_dirs::app_root(app_dirs::AppDataType::UserConfig, &::APP_INFO)
-            .unwrap()
-            .join("config.json");
+    fn default_undo_key() -> Vec<KeyOrButton>{
+        vec![KeyOrButton::Key(VirtualKeyCode::Z)]
+    }
+
+    fn default_undo_modifier() -> Vec<KeyOrButton>{
+        vec![KeyOrButton::Key(VirtualKeyCode::LControl), KeyOrButton::Key(VirtualKeyCode::RControl), KeyOrButton::Key(VirtualKeyCode::LWin), KeyOrButton::Key(VirtualKeyCode::RWin)]
+    }
+
+    fn default_undo_to_redo_modifier() -> Vec<KeyOrButton>{
+        vec![KeyOrButton::Key(VirtualKeyCode::LShift), KeyOrButton::Key(VirtualKeyCode::RShift)]
+    }
+
+    fn default_delete_selection_key() -> Vec<KeyOrButton>{
+        vec![KeyOrButton::Key(VirtualKeyCode::Escape), KeyOrButton::Key(VirtualKeyCode::Back)]
+    }
+
+    fn default_finalize_key() -> Vec<KeyOrButton>{
+        vec![KeyOrButton::Key(VirtualKeyCode::Return)]
+    }
+
+    fn default_car_spawn_key() -> Vec<KeyOrButton>{
+        vec![KeyOrButton::Key(VirtualKeyCode::C)]
+    }
+
+    fn default_grid_key() -> Vec<KeyOrButton>{
+        vec![KeyOrButton::Key(VirtualKeyCode::C)]
+    }
+
+    fn default_grid_modifier() -> Vec<KeyOrButton>{
+        vec![KeyOrButton::Key(VirtualKeyCode::C)]
+    }
+
+    pub fn load() -> Settings{
+        let path = app_dirs::app_root(app_dirs::AppDataType::UserConfig, &::APP_INFO).unwrap().join("config.json");
         let display = path.display();
         let settings = Settings::new();
 
@@ -125,26 +188,19 @@ impl Settings{
                 match File::create(&path) {
                     Err(why) => panic!("couldn't create {}: {}", display, why.description()),
                     Ok(mut file) => {
-                        let serialized = serde_json::to_string(&settings)
-                            .expect("Could not serialise Settings");
+                        let serialized = serde_json::to_string(&settings).expect("Could not serialise Settings");
                         match file.write_all(serialized.as_bytes()) {
                             Err(why) => {
-                                panic!("couldn't write config to {}: {}",
-                                       display,
-                                       why.description())
-                            }
+                                panic!("couldn't write config to {}: {}", display, why.description())
+                            },
                             Ok(_) => println!("successfully wrote new config to {}", display),
                         }
                         file = match File::open(&path) {
-                            Err(why) => {
-                                panic!("couldn't open {}, which was just written to: {}",
-                                       display,
-                                       why.description())
-                            }
+                            Err(why) => panic!("couldn't open {}, which was just written to: {}", display, why.description()),
                             Ok(file) => file,
                         };
                         file
-                    }
+                    },
                 }
             }
             Ok(file) => file,

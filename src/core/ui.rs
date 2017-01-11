@@ -65,32 +65,15 @@ enum Mouse {
 }
 
 pub struct InputState {
-    forward: bool,
-    backward: bool,
-
-    left: bool,
-    right: bool,
-
-    yaw_mod: bool,
-    pan_mod: bool,
-    pitch_mod: bool,
-
+    keys_down: Vec<KeyOrButton>,
     mouse: Vec<Mouse>,
 }
 
 impl InputState {
     fn new() -> InputState {
         InputState {
-            forward: false,
-            backward: false,
-            left: false,
-            right: false,
-
-            yaw_mod: false,
-            pan_mod: false,
-            pitch_mod: false,
-
-            mouse: vec![],
+            keys_down: Vec::new(),
+            mouse: Vec::new(),
         }
     }
 }
@@ -190,8 +173,8 @@ pub enum Event3d {
     HoverStarted { at: P3 },
     HoverOngoing { at: P3 },
     HoverStopped,
-    KeyDown(VirtualKeyCode),
-    KeyUp(VirtualKeyCode),
+    KeyDown(KeyOrButton),
+    KeyUp(KeyOrButton)
 }
 
 impl Recipient<Mouse> for UserInterface {
@@ -234,6 +217,14 @@ impl Recipient<Mouse> for UserInterface {
                 }
             }
             _ => (),
+            Mouse::Down(button)=> {
+                self.input_state.keys_down.push(KeyOrButton::Button(button))
+            }
+            Mouse::Up(button) => {
+                let index = self.input_state.keys_down.iter().position(|x| *x == KeyOrButton::Button(button)).unwrap();
+                self.input_state.keys_down.remove(index);
+            },
+            _ => ()
         }
         Fate::Live
     }
@@ -248,50 +239,21 @@ enum Key {
 impl Recipient<Key> for UserInterface {
     fn receive(&mut self, msg: &Key) -> Fate {
         match *msg {
-            Key::Down(key_code) |
-            Key::Up(key_code) => {
-                let down = *msg == Key::Down(key_code);
-                if self.settings.forward_key.iter().any(|x| *x == KeyOrButton::Key(key_code)) {
-                    self.input_state.forward = down;
-                };
-                if self.settings.backward_key.iter().any(|x| *x == KeyOrButton::Key(key_code)) {
-                    self.input_state.backward = down;
-                };
-                if self.settings.left_key.iter().any(|x| *x == KeyOrButton::Key(key_code)) {
-                    self.input_state.left = down;
-                };
-                if self.settings.right_key.iter().any(|x| *x == KeyOrButton::Key(key_code)) {
-                    self.input_state.right = down;
-                };
-                if self.settings
-                    .yaw_modifier_key
-                    .iter()
-                    .any(|x| *x == KeyOrButton::Key(key_code)) {
-                    self.input_state.yaw_mod = down;
-                };
-                if self.settings
-                    .pan_modifier_key
-                    .iter()
-                    .any(|x| *x == KeyOrButton::Key(key_code)) {
-                    self.input_state.pan_mod = down;
-                };
-                if self.settings
-                    .pitch_modifier_key
-                    .iter()
-                    .any(|x| *x == KeyOrButton::Key(key_code)) {
-                    self.input_state.pitch_mod = down;
-                };
-
-                self.focused_interactable.map(|interactable| {
-                    interactable <<
-                    if down {
-                        Event3d::KeyDown(key_code)
-                    } else {
-                        Event3d::KeyUp(key_code)
-                    }
-                });
-                ()
+            Key::Down(key_code)=> {
+                if self.input_state.keys_down.iter().position(|x| *x == KeyOrButton::Key(key_code)) == None{
+                    self.input_state.keys_down.push(KeyOrButton::Key(key_code));
+                    self.focused_interactable.map(|interactable|
+                        interactable << Event3d::KeyDown(KeyOrButton::Key(key_code))
+                    );
+                }
             }
+            Key::Up(key_code) => {
+                let index = self.input_state.keys_down.iter().position(|x| *x == KeyOrButton::Key(key_code)).unwrap();
+                self.input_state.keys_down.remove(index);
+                self.focused_interactable.map(|interactable|
+                    interactable << Event3d::KeyUp(KeyOrButton::Key(key_code))
+                );
+            },
         }
         Fate::Live
     }
@@ -337,8 +299,18 @@ impl Recipient<Projected3d> for UserInterface {
     }
 }
 
+/// Return true if there is at least one common element between a and b
+pub fn intersection(a: &[KeyOrButton], b: &[KeyOrButton]) -> bool{
+    for i in a{
+        for j in b{
+            if i == j {return true}
+        }
+    }
+    false
+}
+
 #[derive(Copy, Clone)]
-struct UIUpdate;
+pub struct UIUpdate;
 
 impl Recipient<UIUpdate> for UserInterface {
     fn receive(&mut self, _msg: &UIUpdate) -> Fate {
@@ -347,50 +319,31 @@ impl Recipient<UIUpdate> for UserInterface {
                 Mouse::Moved(position) => {
                     let inverted = if self.settings.invert_y { -1.0 } else { 1.0 };
                     let delta = self.cursor_2d - position;
+                    let yaw_mod = intersection(&self.settings.yaw_modifier_key, &self.input_state.keys_down);
+                    let pan_mod = intersection(&self.settings.pan_modifier_key, &self.input_state.keys_down);
+                    let pitch_mod = intersection(&self.settings.pitch_modifier_key, &self.input_state.keys_down);
 
-                    if self.input_state.yaw_mod || self.input_state.pitch_mod ||
-                       self.input_state.pan_mod {
-                        if self.input_state.yaw_mod {
-                            Renderer::id() <<
-                            MoveEye {
-                                scene_id: 0,
-                                movement: ::monet::Movement::Yaw(-delta.x *
-                                                                 self.settings.rotation_speed *
-                                                                 inverted /
-                                                                 300.0),
+                    if yaw_mod || pitch_mod || pan_mod {
+                        if yaw_mod {
+                            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Yaw(
+                                -delta.x * self.settings.rotation_speed * inverted/ 300.0)
                             };
 
                             self.cursor_2d = position;
                         }
-
-                        if self.input_state.pitch_mod {
-                            Renderer::id() <<
-                            MoveEye {
-                                scene_id: 0,
-                                movement: ::monet::Movement::Pitch(-delta.y *
-                                                                   self.settings.rotation_speed *
-                                                                   inverted /
-                                                                   300.0),
+                        
+                        if pitch_mod {
+                            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Pitch(
+                                -delta.y * self.settings.rotation_speed * inverted / 300.0)
                             };
                             self.cursor_2d = position;
                         }
-
-                        if self.input_state.pan_mod {
-                            Renderer::id() <<
-                            MoveEye {
-                                scene_id: 0,
-                                movement: ::monet::Movement::Shift(V3::new(-delta.y *
-                                                                           self.settings
-                                                                               .move_speed *
-                                                                           inverted /
-                                                                           3.0,
-                                                                           delta.x *
-                                                                           self.settings
-                                                                               .move_speed *
-                                                                           inverted /
-                                                                           3.0,
-                                                                           0.0)),
-                            };
+                        
+                        if pan_mod {
+                            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(
+                                V3::new(-delta.y * self.settings.move_speed * inverted/ 3.0,
+                                        delta.x * self.settings.move_speed * inverted / 3.0, 0.0)
+                            )};
                             self.cursor_2d = position;
                         }
                     } else {
@@ -436,43 +389,21 @@ impl Recipient<UIUpdate> for UserInterface {
                 _ => (),
             }
         }
-        if self.input_state.forward {
-            Renderer::id() <<
-            MoveEye {
-                scene_id: 0,
-                movement: ::monet::Movement::Shift(V3::new(5.0 * self.settings.move_speed,
-                                                           0.0,
-                                                           0.0)),
-            };
+        if intersection(&self.settings.forward_key, &self.input_state.keys_down) {
+            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(5.0 * self.settings.move_speed, 0.0, 0.0))};
         }
-        if self.input_state.backward {
-            Renderer::id() <<
-            MoveEye {
-                scene_id: 0,
-                movement: ::monet::Movement::Shift(V3::new(-5.0 * self.settings.move_speed,
-                                                           0.0,
-                                                           0.0)),
-            };
+        if intersection(&self.settings.backward_key, &self.input_state.keys_down) {
+            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(-5.0 * self.settings.move_speed, 0.0, 0.0))};
         }
-        if self.input_state.left {
-            Renderer::id() <<
-            MoveEye {
-                scene_id: 0,
-                movement: ::monet::Movement::Shift(V3::new(0.0,
-                                                           -5.0 * self.settings.move_speed,
-                                                           0.0)),
-            };
+        if intersection(&self.settings.left_key, &self.input_state.keys_down) {
+            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(0.0, -5.0 * self.settings.move_speed, 0.0))};
         }
-        if self.input_state.right {
-            Renderer::id() <<
-            MoveEye {
-                scene_id: 0,
-                movement: ::monet::Movement::Shift(V3::new(0.0,
-                                                           5.0 * self.settings.move_speed,
-                                                           0.0)),
-            };
+        if intersection(&self.settings.right_key, &self.input_state.keys_down) {
+            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(0.0, 5.0 * self.settings.move_speed, 0.0))};
         }
-
+        self.focused_interactable.map(|interactable|
+            interactable << UIUpdate
+        );
         self.input_state.mouse.clear();
         Fate::Live
     }
