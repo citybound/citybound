@@ -405,7 +405,8 @@ impl Recipient<Select> for CurrentPlan {
                 let stroke = match selection_ref {
                     SelectableStrokeRef::New(node_idx) => &self.preview.delta.new_strokes[node_idx],
                     SelectableStrokeRef::RemainingOld(old_ref) =>
-                        self.preview.current_remaining_old_strokes.mapping.get(old_ref).unwrap()
+                        self.preview.current_remaining_old_strokes.mapping.get(old_ref)
+                            .expect(format!("old_ref {:?} should exist", old_ref).as_str())
                 };
 
                 let start_position = stroke.path().along(start);
@@ -779,6 +780,10 @@ impl Recipient<SimulationResult> for CurrentPlan{
     fn receive(&mut self, msg: &SimulationResult) -> Fate {match *msg{
         SimulationResult{ref remaining_old_strokes, ref result_delta} => {
             self.preview.current_remaining_old_strokes = remaining_old_strokes.clone();
+            // TODO: this is not really a nice solution
+            if self.current.current_remaining_old_strokes.mapping.is_empty() {
+                self.current.current_remaining_old_strokes = remaining_old_strokes.clone();
+            }
             self.preview.current_plan_result_delta = result_delta.clone();
             self.preview.ui_state.dirty = true;
             if self.preview.ui_state.recreate_selectables {
