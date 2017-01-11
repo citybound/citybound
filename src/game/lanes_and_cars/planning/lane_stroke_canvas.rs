@@ -1,13 +1,24 @@
 use kay::{Swarm, ToRandom, Recipient, ActorSystem, Individual, Fate};
 use descartes::{Into2d, P3};
 use core::geometry::AnyShape;
-use core::ui::{UserInterface, VirtualKeyCode};
+use core::ui::{UserInterface, VirtualKeyCode, KeyOrButton, UIUpdate, intersection};
+use core::settings::Settings;
 use super::{CurrentPlan};
 
-#[derive(Copy, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct LaneStrokeCanvas{
-    cmd_pressed: bool,
-    shift_pressed: bool
+    keys_down: Vec<KeyOrButton>,
+    settings: Settings
+}
+
+
+impl LaneStrokeCanvas {
+    fn new() -> LaneStrokeCanvas {
+        LaneStrokeCanvas {
+            keys_down: Vec::new(),
+            settings: Settings::load(),
+        }
+    }
 }
 
 impl Individual for LaneStrokeCanvas{}
@@ -18,81 +29,69 @@ use super::{Commit, Undo, Redo, WithLatestNode, Materialize,
                          SetNLanes, ToggleBothSides};
 
 impl Recipient<Event3d> for LaneStrokeCanvas {
-    fn receive(&mut self, msg: &Event3d) -> Fate {match *msg {
-        Event3d::HoverStarted{at} | Event3d::HoverOngoing{at} => {
-            CurrentPlan::id() << WithLatestNode(at.into_2d(), true);
-            Fate::Live
-        },
-        Event3d::DragStarted{at} => {
-            CurrentPlan::id() << WithLatestNode(at.into_2d(), true);
-            CurrentPlan::id() << Commit(true, at.into_2d());
-            Fate::Live
-        },
-        Event3d::DragFinished{..} => {
-            Fate::Live
-        },
-        Event3d::KeyDown(VirtualKeyCode::Return) => {
-            CurrentPlan::id() << Materialize;
-            Fate::Live
-        },
-        Event3d::KeyDown(VirtualKeyCode::LControl) | Event3d::KeyDown(VirtualKeyCode::RControl)
-            | Event3d::KeyDown(VirtualKeyCode::LWin) | Event3d::KeyDown(VirtualKeyCode::RWin) => {
-            self.cmd_pressed = true;
-            Fate::Live
-        },
-        Event3d::KeyUp(VirtualKeyCode::LControl) | Event3d::KeyUp(VirtualKeyCode::RControl)
-            | Event3d::KeyUp(VirtualKeyCode::LWin) | Event3d::KeyUp(VirtualKeyCode::RWin) => {
-            self.cmd_pressed = false;
-            Fate::Live
-        },
-        Event3d::KeyDown(VirtualKeyCode::LShift) | Event3d::KeyDown(VirtualKeyCode::RShift) => {
-            self.shift_pressed = true;
-            Fate::Live
-        },
-        Event3d::KeyUp(VirtualKeyCode::LShift) | Event3d::KeyUp(VirtualKeyCode::RShift) => {
-            self.shift_pressed = false;
-            Fate::Live
-        },
-        Event3d::KeyDown(VirtualKeyCode::Z) => {
-            if self.cmd_pressed {
-                if self.shift_pressed {
-                    CurrentPlan::id() << Redo;
-                } else {
-                    CurrentPlan::id() << Undo;
-                }
+    fn receive(&mut self, msg: &Event3d) -> Fate {
+        match *msg {
+            Event3d::HoverStarted{at} | Event3d::HoverOngoing{at} => {
+                CurrentPlan::id() << WithLatestNode(at.into_2d(), true);
+            },
+            Event3d::DragStarted{at} => {
+                CurrentPlan::id() << WithLatestNode(at.into_2d(), true);
+                CurrentPlan::id() << Commit(true, at.into_2d());
+            },
+            Event3d::DragFinished{..} => {
+            },
+            Event3d::KeyDown(key_code) => {
+                self.keys_down.push(key_code);
+            },
+            Event3d::KeyUp(key_code) => {
+                let index = self.keys_down.iter().position(|x| *x == key_code).unwrap();
+                self.keys_down.remove(index);
+            },
+            _ => ()
+        }
+        Fate::Live
+    }
+
+}
+
+impl Recipient<UIUpdate> for LaneStrokeCanvas {
+    fn receive(&mut self, _msg: &UIUpdate) -> Fate {
+        if intersection(&self.keys_down, &self.settings.undo_key) && intersection(&self.keys_down, &self.settings.undo_modifier_key) {
+            if intersection(&self.keys_down, &self.settings.redo_modifier_key) {
+                CurrentPlan::id() << Redo;
+            } else {
+                CurrentPlan::id() << Undo;
             }
-            Fate::Live
-        },
-        Event3d::KeyDown(VirtualKeyCode::C) => {
+        }
+        if intersection(&self.keys_down, &self.settings.car_spawning_key) {
             Swarm::<::game::lanes_and_cars::Lane>::all() << ToRandom{
-                n_recipients: 5000,
-                message: Event3d::DragFinished{from: P3::new(0.0, 0.0, 0.0), to: P3::new(0.0, 0.0, 0.0)
-            }};
-            Fate::Live
-        },
-        Event3d::KeyDown(VirtualKeyCode::G) => {
-            CurrentPlan::id() << CreateGrid(if self.shift_pressed {15} else {10});
-            Fate::Live
-        },
-        Event3d::KeyDown(VirtualKeyCode::Back) => {
+            n_recipients: 5000,
+            message: Event3d::DragFinished{from: P3::new(0.0, 0.0, 0.0), to: P3::new(0.0, 0.0, 0.0)}
+            };
+        }
+        if intersection(&self.keys_down, &self.settings.finalize_key) {
+            CurrentPlan::id() << Materialize;
+        }
+        if intersection(&self.keys_down, &self.settings.grid_key) {
+            CurrentPlan::id() << CreateGrid(if intersection(&self.keys_down, &self.settings.grid_modifier_key) {15} else {10});
+        }
+        if intersection(&self.keys_down, &self.settings.delete_selection_key) {
             CurrentPlan::id() << DeleteSelection;
-            Fate::Live
-        },
-        Event3d::KeyDown(VirtualKeyCode::Key1) => {CurrentPlan::id() << SetNLanes(1); Fate::Live},
-        Event3d::KeyDown(VirtualKeyCode::Key2) => {CurrentPlan::id() << SetNLanes(2); Fate::Live},
-        Event3d::KeyDown(VirtualKeyCode::Key3) => {CurrentPlan::id() << SetNLanes(3); Fate::Live},
-        Event3d::KeyDown(VirtualKeyCode::Key4) => {CurrentPlan::id() << SetNLanes(4); Fate::Live},
-        Event3d::KeyDown(VirtualKeyCode::Key5) => {CurrentPlan::id() << SetNLanes(5); Fate::Live},
-        Event3d::KeyDown(VirtualKeyCode::Key6) => {CurrentPlan::id() << SetNLanes(6); Fate::Live},
-        Event3d::KeyDown(VirtualKeyCode::Key7) => {CurrentPlan::id() << SetNLanes(7); Fate::Live},
-        Event3d::KeyDown(VirtualKeyCode::Key8) => {CurrentPlan::id() << SetNLanes(8); Fate::Live},
-        Event3d::KeyDown(VirtualKeyCode::Key9) => {CurrentPlan::id() << SetNLanes(9); Fate::Live},
-        Event3d::KeyUp(VirtualKeyCode::Key0) => {
+        }
+        if self.keys_down.contains(&KeyOrButton::Key(VirtualKeyCode::Key1)) {CurrentPlan::id() << SetNLanes(1)}
+        if self.keys_down.contains(&KeyOrButton::Key(VirtualKeyCode::Key2)) {CurrentPlan::id() << SetNLanes(2)}
+        if self.keys_down.contains(&KeyOrButton::Key(VirtualKeyCode::Key3)) {CurrentPlan::id() << SetNLanes(3)}
+        if self.keys_down.contains(&KeyOrButton::Key(VirtualKeyCode::Key4)) {CurrentPlan::id() << SetNLanes(4)}
+        if self.keys_down.contains(&KeyOrButton::Key(VirtualKeyCode::Key5)) {CurrentPlan::id() << SetNLanes(5)}
+        if self.keys_down.contains(&KeyOrButton::Key(VirtualKeyCode::Key6)) {CurrentPlan::id() << SetNLanes(6)}
+        if self.keys_down.contains(&KeyOrButton::Key(VirtualKeyCode::Key7)) {CurrentPlan::id() << SetNLanes(7)}
+        if self.keys_down.contains(&KeyOrButton::Key(VirtualKeyCode::Key8)) {CurrentPlan::id() << SetNLanes(8)}
+        if self.keys_down.contains(&KeyOrButton::Key(VirtualKeyCode::Key9)) {CurrentPlan::id() << SetNLanes(9)}
+        if self.keys_down.contains(&KeyOrButton::Key(VirtualKeyCode::Key0)) {
             CurrentPlan::id() << ToggleBothSides;
-            Fate::Live
-        },
-        _ => Fate::Live
-    }}
+        }
+        Fate::Live
+    }
 }
 
 use ::monet::EyeMoved;
@@ -128,9 +127,10 @@ impl Recipient<AddToUI> for LaneStrokeCanvas {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add_individual(LaneStrokeCanvas{cmd_pressed: false, shift_pressed: false});
+    system.add_individual(LaneStrokeCanvas::new());
     system.add_inbox::<Event3d, LaneStrokeCanvas>();
     system.add_inbox::<EyeMoved, LaneStrokeCanvas>();
     system.add_inbox::<AddToUI, LaneStrokeCanvas>();
-    LaneStrokeCanvas::id() << AddToUI;    
+    system.add_inbox::<UIUpdate, LaneStrokeCanvas>();
+    LaneStrokeCanvas::id() << AddToUI;
 }
