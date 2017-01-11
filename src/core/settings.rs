@@ -170,11 +170,11 @@ impl Settings{
     }
 
     fn default_grid_key() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Key(VirtualKeyCode::C)]
+        vec![KeyOrButton::Key(VirtualKeyCode::G)]
     }
 
     fn default_grid_modifier() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Key(VirtualKeyCode::C)]
+        vec![KeyOrButton::Key(VirtualKeyCode::LShift), KeyOrButton::Key(VirtualKeyCode::RShift)]
     }
 
     pub fn load() -> Settings{
