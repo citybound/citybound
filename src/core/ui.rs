@@ -330,14 +330,14 @@ impl Recipient<UIUpdate> for UserInterface {
                             };
 
                             self.cursor_2d = position;
-                        }
+                        };
                         
                         if pitch_mod {
                             Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Pitch(
                                 -delta.y * self.settings.rotation_speed * inverted / 300.0)
                             };
                             self.cursor_2d = position;
-                        }
+                        };
                         
                         if pan_mod {
                             Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(
@@ -345,7 +345,7 @@ impl Recipient<UIUpdate> for UserInterface {
                                         delta.x * self.settings.move_speed * inverted / 3.0, 0.0)
                             )};
                             self.cursor_2d = position;
-                        }
+                        };
                     } else {
                         self.cursor_2d = position;
                         Renderer::id() <<
