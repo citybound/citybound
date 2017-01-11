@@ -22,10 +22,6 @@ pub struct ID {
 }
 
 impl ID {
-    /// Construct an invalid ID
-    /// Used similarly to a null pointer
-    pub fn invalid() -> ID {ID {type_id: unsafe {NonZero::new(u16::max_value())}, version: u8::max_value(), instance_id: 0}}
-
     pub fn individual(individual_type_id: usize) -> ID {
         ID {type_id: unsafe {NonZero::new(individual_type_id as u16)}, version: 0, instance_id: 0}
     }
@@ -58,7 +54,7 @@ impl ID {
 
 impl Default for ID {
     fn default() -> Self {
-        ID::invalid()
+        ID{type_id: unsafe{NonZero::new(0)}, version: 0, instance_id: 0} //equal to None
     }
 }
 
