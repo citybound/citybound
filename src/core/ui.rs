@@ -1,5 +1,5 @@
 use ::monet::glium::{DisplayBuild, glutin};
-use kay::{ActorSystem, ID, Individual, Recipient, Fate};
+use kay::{ActorSystem, ID, Individual, Recipient, Fate, CVec};
 use descartes::{N, P2, P3, V3, Into2d, Shape};
 use ::monet::{Renderer, Scene, GlutinFacade, MoveEye};
 use ::monet::glium::glutin::{Event, MouseScrollDelta, ElementState, MouseButton};
@@ -160,7 +160,7 @@ impl Recipient<Focus> for UserInterface {
 
 use ::monet::Project2dTo3d;
 
-#[derive(Copy, Clone)]
+#[derive(Clone, Copy)]
 pub enum Event3d {
     DragStarted {
         at: P3
@@ -181,8 +181,11 @@ pub enum Event3d {
         at: P3
     },
     HoverStopped,
-    KeyDown(KeyOrButton),
-    KeyUp(KeyOrButton)
+}
+
+#[derive(Clone, Compact)]
+pub struct KeysHeld{
+    pub keys: CVec<KeyOrButton>,
 }
 
 impl Recipient<Mouse> for UserInterface {
@@ -214,17 +217,11 @@ impl Recipient<Key> for UserInterface {
             Key::Down(key_code)=> {
                 if self.input_state.keys_down.iter().position(|x| *x == KeyOrButton::Key(key_code)) == None{
                     self.input_state.keys_down.push(KeyOrButton::Key(key_code));
-                    self.focused_interactable.map(|interactable|
-                        interactable << Event3d::KeyDown(KeyOrButton::Key(key_code))
-                    );
                 }
             }
             Key::Up(key_code) => {
                 let index = self.input_state.keys_down.iter().position(|x| *x == KeyOrButton::Key(key_code)).unwrap();
                 self.input_state.keys_down.remove(index);
-                self.focused_interactable.map(|interactable|
-                    interactable << Event3d::KeyUp(KeyOrButton::Key(key_code))
-                );
             },
         }
         Fate::Live
@@ -363,8 +360,10 @@ impl Recipient<UIUpdate> for UserInterface {
         if intersection(&self.settings.right_key, &self.input_state.keys_down) {
             Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(0.0, 5.0 * self.settings.move_speed, 0.0))};
         }
-        self.focused_interactable.map(|interactable|
-            interactable << UIUpdate
+        self.focused_interactable.map(|interactable|{
+            interactable << KeysHeld{keys: CVec::from(self.input_state.keys_down.clone())};
+            interactable << UIUpdate;
+        }
         );
         self.input_state.mouse.clear();
         Fate::Live

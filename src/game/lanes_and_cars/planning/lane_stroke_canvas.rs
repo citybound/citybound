@@ -1,7 +1,7 @@
 use kay::{Swarm, ToRandom, Recipient, ActorSystem, Individual, Fate};
 use descartes::{Into2d, P3};
 use core::geometry::AnyShape;
-use core::ui::{UserInterface, VirtualKeyCode, KeyOrButton, UIUpdate, intersection};
+use core::ui::{UserInterface, VirtualKeyCode, KeyOrButton, intersection};
 use core::settings::Settings;
 use super::{CurrentPlan};
 
@@ -40,19 +40,14 @@ impl Recipient<Event3d> for LaneStrokeCanvas {
             },
             Event3d::DragFinished{..} => {
             },
-            Event3d::KeyDown(key_code) => {
-                self.keys_down.push(key_code);
-            },
-            Event3d::KeyUp(key_code) => {
-                let index = self.keys_down.iter().position(|x| *x == key_code).unwrap();
-                self.keys_down.remove(index);
-            },
             _ => ()
         }
         Fate::Live
     }
 
 }
+
+use core::ui::UIUpdate;
 
 impl Recipient<UIUpdate> for LaneStrokeCanvas {
     fn receive(&mut self, _msg: &UIUpdate) -> Fate {
@@ -94,6 +89,17 @@ impl Recipient<UIUpdate> for LaneStrokeCanvas {
     }
 }
 
+use core::ui::KeysHeld;
+
+impl Recipient<KeysHeld> for LaneStrokeCanvas {
+    fn receive(&mut self, msg: &KeysHeld) -> Fate {
+        self.keys_down.clear();
+        for i in msg.keys.iter() {
+            self.keys_down.push(*i);
+        }
+        Fate::Live
+    }
+}
 use ::monet::EyeMoved;
 
 impl Recipient<EyeMoved> for LaneStrokeCanvas{
@@ -132,5 +138,6 @@ pub fn setup(system: &mut ActorSystem) {
     system.add_inbox::<EyeMoved, LaneStrokeCanvas>();
     system.add_inbox::<AddToUI, LaneStrokeCanvas>();
     system.add_inbox::<UIUpdate, LaneStrokeCanvas>();
+    system.add_inbox::<KeysHeld, LaneStrokeCanvas>();
     LaneStrokeCanvas::id() << AddToUI;
 }
