@@ -1,0 +1,17 @@
+{
+    "version": "0.1.0",
+    "command": "cargo",
+    "isShellCommand": true,
+    "showOutput": "always",
+    "suppressTaskName": true,
+    "tasks": [
+        {
+            "taskName": "build",
+            "args": ["rustc", "--", "-Zincremental=/tmp/"]
+        },
+        {
+            "taskName": "release_build",
+            "args": ["rustc", "--release", "--", "-Zincremental=/tmp/"]
+        }
+    ]
+}

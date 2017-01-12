@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "preLaunchTask": "build",
+            "name": "Debug",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/debug/citybound",
+            "cwd": "${workspaceRoot}",
+            "sourceLanguages": ["rust"],
+            "env": {
+                "RUST_BACKTRACE": 1
+            }
+        },
+        {
+            "preLaunchTask": "release_build",
+            "name": "Debug Release",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/release/citybound",
+            "cwd": "${workspaceRoot}",
+            "sourceLanguages": ["rust"],
+            "env": {
+                "RUST_BACKTRACE": 1
+            }
+        }
+    ]
+}
