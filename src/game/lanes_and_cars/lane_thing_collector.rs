@@ -1,5 +1,6 @@
 use monet::{Thing, Instance};
-use kay::{ID, Individual, Recipient, ActorSystem, CDict, Fate};
+use compact::CDict;
+use kay::{ID, Individual, Recipient, ActorSystem, Fate};
 use ::std::marker::PhantomData;
 use itertools::Itertools;
 

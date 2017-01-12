@@ -1,5 +1,5 @@
 use descartes::{N, RoughlyComparable};
-use kay::{CVec, CDict};
+use compact::{CVec, CDict};
 use core::geometry::CPath;
 use itertools::Itertools;
 use super::{LaneStroke, LaneStrokeNode};
@@ -106,13 +106,13 @@ pub struct PlanResultDelta {
 }
 
 #[derive(Compact, Clone)]
-pub struct ReferencedDelta<Ref: Copy + Eq, T: ::kay::Compact + Clone> {
+pub struct ReferencedDelta<Ref: Copy + Eq, T: ::compact::Compact + Clone> {
     pub to_create: CDict<Ref, T>,
     pub to_destroy: CDict<Ref, T>,
     pub old_to_new: CDict<Ref, Ref>,
 }
 
-impl<Ref: Copy + Eq, T: ::kay::Compact + Clone> ReferencedDelta<Ref, T> {
+impl<Ref: Copy + Eq, T: ::compact::Compact + Clone> ReferencedDelta<Ref, T> {
     pub fn compare<'a, F: Fn(&'a T, &'a T) -> bool>(new: &'a CDict<Ref, T>,
                                                     old: &'a CDict<Ref, T>,
                                                     equivalent: F)
@@ -163,7 +163,7 @@ impl<Ref: Copy + Eq, T: ::kay::Compact + Clone> ReferencedDelta<Ref, T> {
     }
 }
 
-impl<Ref: Copy + Eq, T: ::kay::Compact + Clone> Default for ReferencedDelta<Ref, T> {
+impl<Ref: Copy + Eq, T: ::compact::Compact + Clone> Default for ReferencedDelta<Ref, T> {
     fn default() -> Self {
         ReferencedDelta {
             to_create: CDict::new(),

@@ -1,6 +1,7 @@
 use descartes::{N, P2, V2, Norm, Segment, FiniteCurve, WithUniqueOrthogonal, Curve,
                 RelativeToBasis, RoughlyComparable, Dot};
-use kay::{CVec, CDict, Recipient, Swarm, ActorSystem, Individual, Fate, CreateWith};
+use compact::{CVec, CDict};
+use kay::{Recipient, Swarm, ActorSystem, Individual, Fate, CreateWith};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 

@@ -7,17 +7,13 @@
 #![feature(box_syntax)]
 #![feature(nonzero)]
 #![allow(no_effect)]
+extern crate chunked;
+extern crate compact;
+#[macro_use]
+extern crate compact_macros;
 extern crate random;
 extern crate core;
 
-mod pointer_to_maybe_compact;
-mod allocators;
-#[macro_use]
-mod compact;
-mod compact_vec;
-mod compact_dict;
-// mod compact_sorted_dict;
-mod chunked;
 mod inbox;
 mod slot_map;
 mod swarm;
@@ -25,9 +21,7 @@ mod swarm;
 mod messaging;
 mod type_registry;
 mod actor_system;
-pub use self::compact::Compact;
-pub use self::compact_vec::CompactVec as CVec;
-pub use self::compact_dict::CompactDict as CDict;
+
 pub use self::chunked::MemChunker;
 pub use self::swarm::{Swarm, Create, CreateWith, RecipientAsSwarm, ToRandom, RequestConfirmation,
                       Confirmation};

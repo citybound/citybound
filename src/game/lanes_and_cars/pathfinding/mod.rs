@@ -1,4 +1,5 @@
-use kay::{Actor, CDict, CVec, ID, Individual, Recipient, Fate, ActorSystem, Swarm};
+use compact::{CDict, CVec};
+use kay::{Actor, ID, Individual, Recipient, Fate, ActorSystem, Swarm};
 use core::geometry::AnyShape;
 use descartes::Band;
 use super::{Lane, TransferLane, Interaction, InteractionKind, OverlapKind};

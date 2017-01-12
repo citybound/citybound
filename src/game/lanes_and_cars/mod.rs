@@ -5,7 +5,8 @@ pub mod pathfinding;
 mod intelligent_acceleration;
 use self::intelligent_acceleration::intelligent_acceleration;
 use core::geometry::CPath;
-use kay::{ID, Actor, CVec, Swarm, CreateWith, Recipient, ActorSystem, Fate};
+use compact::CVec;
+use kay::{ID, Actor, Swarm, CreateWith, Recipient, ActorSystem, Fate};
 use descartes::{N, P2, FiniteCurve, RoughlyComparable, Band, Intersect, Curve, Dot,
                 WithUniqueOrthogonal, Path};
 use ordered_float::OrderedFloat;

@@ -1,5 +1,5 @@
 
-use kay::CVec;
+use compact::CVec;
 
 use ::Vertex;
 

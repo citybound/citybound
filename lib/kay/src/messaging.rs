@@ -42,27 +42,8 @@ pub trait Individual: 'static {
     }
 }
 
-#[derive(Clone)]
+#[derive(Compact, Clone)]
 pub struct Packet<M: Message> {
     pub recipient_id: Option<ID>,
     pub message: M,
-}
-
-impl<M: Message> Compact for Packet<M> {
-    fn is_still_compact(&self) -> bool {
-        self.message.is_still_compact()
-    }
-    fn dynamic_size_bytes(&self) -> usize {
-        self.message.dynamic_size_bytes()
-    }
-    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
-        self.recipient_id = source.recipient_id;
-        self.message.compact_from(&source.message, new_dynamic_part);
-    }
-    unsafe fn decompact(&self) -> Packet<M> {
-        Packet {
-            recipient_id: self.recipient_id,
-            message: self.message.decompact(),
-        }
-    }
 }

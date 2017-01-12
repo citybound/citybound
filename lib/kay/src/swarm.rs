@@ -1,4 +1,3 @@
-use super::compact::Compact;
 use super::chunked::{MemChunker, ValueInChunk, SizedChunkedArena, MultiSized};
 use super::slot_map::{SlotIndices, SlotMap};
 use super::messaging::{Actor, Individual, Recipient, Message, Packet, Fate};
@@ -257,29 +256,10 @@ impl <
     }
 }
 
-#[derive(Clone)]
+#[derive(Compact, Clone)]
 pub struct RequestConfirmation<M: Message> {
     pub requester: ID,
     pub message: M,
-}
-
-impl<M: Message> Compact for RequestConfirmation<M> {
-    fn is_still_compact(&self) -> bool {
-        self.message.is_still_compact()
-    }
-    fn dynamic_size_bytes(&self) -> usize {
-        self.message.dynamic_size_bytes()
-    }
-    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
-        self.requester = source.requester;
-        self.message.compact_from(&source.message, new_dynamic_part);
-    }
-    unsafe fn decompact(&self) -> RequestConfirmation<M> {
-        RequestConfirmation {
-            requester: self.requester,
-            message: self.message.decompact(),
-        }
-    }
 }
 
 pub trait NotARequestConfirmationMessage {}
@@ -315,29 +295,10 @@ impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<RequestConfirm
     }
 }
 
-#[derive(Clone)]
+#[derive(Compact, Clone)]
 pub struct ToRandom<M: Message> {
     pub message: M,
     pub n_recipients: usize,
-}
-
-impl<M: Message> Compact for ToRandom<M> {
-    fn is_still_compact(&self) -> bool {
-        self.message.is_still_compact()
-    }
-    fn dynamic_size_bytes(&self) -> usize {
-        self.message.dynamic_size_bytes()
-    }
-    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
-        self.n_recipients = source.n_recipients;
-        self.message.compact_from(&source.message, new_dynamic_part);
-    }
-    unsafe fn decompact(&self) -> ToRandom<M> {
-        ToRandom {
-            message: self.message.decompact(),
-            n_recipients: self.n_recipients,
-        }
-    }
 }
 
 pub trait NotAToRandomMessage {}
@@ -366,23 +327,8 @@ impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<ToRandom<M>> f
     }
 }
 
-#[derive(Clone)]
+#[derive(Compact, Clone)]
 pub struct Create<A: Actor>(pub A);
-
-impl<A: Actor> Compact for Create<A> {
-    fn is_still_compact(&self) -> bool {
-        self.0.is_still_compact()
-    }
-    fn dynamic_size_bytes(&self) -> usize {
-        self.0.dynamic_size_bytes()
-    }
-    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
-        self.0.compact_from(&source.0, new_dynamic_part);
-    }
-    unsafe fn decompact(&self) -> Create<A> {
-        Create(self.0.decompact())
-    }
-}
 
 pub trait NotACreateMessage {}
 
@@ -402,25 +348,8 @@ impl<A: Actor> RecipientAsSwarm<Create<A>> for A {
     }
 }
 
-#[derive(Clone)]
+#[derive(Compact, Clone)]
 pub struct CreateWith<A: Actor, M: Message>(pub A, pub M);
-
-impl<A: Actor, M: Message> Compact for CreateWith<A, M> {
-    fn is_still_compact(&self) -> bool {
-        self.0.is_still_compact() && self.1.is_still_compact()
-    }
-    fn dynamic_size_bytes(&self) -> usize {
-        self.0.dynamic_size_bytes() + self.1.dynamic_size_bytes()
-    }
-    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
-        self.0.compact_from(&source.0, new_dynamic_part);
-        self.1.compact_from(&source.1,
-                            new_dynamic_part.offset(self.0.dynamic_size_bytes() as isize))
-    }
-    unsafe fn decompact(&self) -> CreateWith<A, M> {
-        CreateWith(self.0.decompact(), self.1.decompact())
-    }
-}
 
 impl<M: Message, A: Actor + Recipient<M>> RecipientAsSwarm<CreateWith<A, M>> for A {
     fn receive(swarm: &mut Swarm<A>, msg: &CreateWith<A, M>) -> Fate {

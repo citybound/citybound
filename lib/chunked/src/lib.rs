@@ -1,9 +1,15 @@
+#![feature(plugin)]
+#![plugin(clippy)]
+#![feature(box_syntax)]
+
 use ::std::mem;
 use ::std::mem::transmute;
 use ::std::ptr;
 use ::std::marker::PhantomData;
 use ::std::ops::{Deref, DerefMut};
-use super::allocators::{Allocator, DefaultHeap};
+
+extern crate allocators;
+use allocators::{Allocator, DefaultHeap};
 
 /// Store information and utility functions for the creation of chunks
 pub trait Chunker {

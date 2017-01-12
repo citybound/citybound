@@ -1,4 +1,5 @@
-use kay::{ID, ActorSystem, Recipient, Fate, Individual, CDict, CVec};
+use compact::{CDict, CVec};
+use kay::{ID, ActorSystem, Recipient, Fate, Individual};
 use super::{Plan, PlanResult, PlanDelta, PlanResultDelta, IntersectionRef, TrimmedStrokeRef,
             TransferStrokeRef, RemainingOldStrokes};
 
