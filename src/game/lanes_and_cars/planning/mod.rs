@@ -277,35 +277,64 @@ impl Recipient<WithLatestNode> for CurrentPlan {
                         if (position - start).norm() < FINISH_STROKE_TOLERANCE {
                             DrawingStatus::Nothing(())
                         } else {
-                            let new_node_refs = (0..self.preview.ui_state.n_lanes_per_side).into_iter().flat_map(|lane_idx| {
-                            let offset = (position - start).normalize().orthogonal() * (3.0 + 5.0 * lane_idx as N);
+                            let new_node_refs = (0..self.preview.ui_state.n_lanes_per_side)
+                                .into_iter()
+                                .flat_map(|lane_idx| {
+                                    let offset = (position - start).normalize().orthogonal() *
+                                                 (3.0 + 5.0 * lane_idx as N);
 
-                            let maybe_right_stroke = LaneStroke::new(vec![
-                                LaneStrokeNode{position: start + offset, direction: (position - start).normalize()},
-                                LaneStrokeNode{position: position + offset, direction: (position - start).normalize()}
-                            ].into());
+                                    let maybe_right_stroke = LaneStroke::new(vec![LaneStrokeNode {
+                                                                 position: start + offset,
+                                                                 direction: (position - start)
+                                                                     .normalize(),
+                                                             },
+                                                             LaneStrokeNode {
+                                                                 position: position + offset,
+                                                                 direction: (position - start)
+                                                                     .normalize(),
+                                                             }]
+                                        .into());
 
-                            let maybe_right_lane_node_ref = maybe_right_stroke.ok().map(|right_stroke| {
-                                self.preview.delta.new_strokes.push(right_stroke);
-                                LaneStrokeNodeRef(self.preview.delta.new_strokes.len() - 1, 1)
-                            });
-                            
-                            if self.preview.ui_state.create_both_sides {
-                                let maybe_left_stroke = LaneStroke::new(vec![
-                                    LaneStrokeNode{position: position - offset, direction: (start - position).normalize()},
-                                    LaneStrokeNode{position: start - offset, direction: (start - position).normalize()},
-                                ].into());
+                                    let maybe_right_lane_node_ref = maybe_right_stroke.ok()
+                                        .map(|right_stroke| {
+                                            self.preview.delta.new_strokes.push(right_stroke);
+                                            LaneStrokeNodeRef(self.preview.delta.new_strokes.len() -
+                                                              1,
+                                                              1)
+                                        });
 
-                                let maybe_left_lane_node_ref = maybe_left_stroke.ok().map(|left_stroke| {
-                                    self.preview.delta.new_strokes.push(left_stroke);
-                                    LaneStrokeNodeRef(self.preview.delta.new_strokes.len() - 1, 0)
+                                    if self.preview.ui_state.create_both_sides {
+                                        let maybe_left_stroke =
+                                            LaneStroke::new(vec![LaneStrokeNode {
+                                                                     position: position - offset,
+                                                                     direction: (start - position)
+                                                                         .normalize(),
+                                                                 },
+                                                                 LaneStrokeNode {
+                                                                     position: start - offset,
+                                                                     direction: (start - position)
+                                                                         .normalize(),
+                                                                 }]
+                                                .into());
+
+                                        let maybe_left_lane_node_ref = maybe_left_stroke.ok()
+                                            .map(|left_stroke| {
+                                                self.preview.delta.new_strokes.push(left_stroke);
+                                                LaneStrokeNodeRef(self.preview
+                                                                      .delta
+                                                                      .new_strokes
+                                                                      .len() -
+                                                                  1,
+                                                                  0)
+                                            });
+
+                                        maybe_right_lane_node_ref.into_iter()
+                                            .chain(maybe_left_lane_node_ref)
+                                            .collect::<Vec<_>>()
+                                    } else {
+                                        maybe_right_lane_node_ref.into_iter().collect::<Vec<_>>()
+                                    }
                                 });
-
-                                maybe_right_lane_node_ref.into_iter().chain(maybe_left_lane_node_ref).collect::<Vec<_>>()
-                            } else {
-                                maybe_right_lane_node_ref.into_iter().collect::<Vec<_>>()
-                            }
-                        });
                             DrawingStatus::ContinuingFrom(new_node_refs.collect(), position)
                         }
                     }

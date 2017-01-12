@@ -29,21 +29,30 @@ pub struct Settings {
 
 impl Settings {
     pub fn new() -> Settings {
-        Settings{
+        Settings {
             rotation_speed: 1.0f32,
             zoom_speed: 1.0f32,
             move_speed: 1.0f32,
             invert_y: false,
 
             mouse_main: vec![KeyOrButton::Button(MouseButton::Left)],
-            forward_key: vec![KeyOrButton::Key(VirtualKeyCode::W), KeyOrButton::Key(VirtualKeyCode::Up)],
-            backward_key: vec![KeyOrButton::Key(VirtualKeyCode::S), KeyOrButton::Key(VirtualKeyCode::Down)],
-            left_key: vec![KeyOrButton::Key(VirtualKeyCode::A), KeyOrButton::Key(VirtualKeyCode::Left)],
-            right_key: vec![KeyOrButton::Key(VirtualKeyCode::D), KeyOrButton::Key(VirtualKeyCode::Right)],
+            forward_key: vec![KeyOrButton::Key(VirtualKeyCode::W),
+                              KeyOrButton::Key(VirtualKeyCode::Up)],
+            backward_key: vec![KeyOrButton::Key(VirtualKeyCode::S),
+                               KeyOrButton::Key(VirtualKeyCode::Down)],
+            left_key: vec![KeyOrButton::Key(VirtualKeyCode::A),
+                           KeyOrButton::Key(VirtualKeyCode::Left)],
+            right_key: vec![KeyOrButton::Key(VirtualKeyCode::D),
+                            KeyOrButton::Key(VirtualKeyCode::Right)],
 
-            pan_modifier_key:    vec![KeyOrButton::Key(VirtualKeyCode::LShift), KeyOrButton::Key(VirtualKeyCode::RShift)],
-            yaw_modifier_key: vec![KeyOrButton::Button(MouseButton::Middle), KeyOrButton::Key(VirtualKeyCode::LAlt), KeyOrButton::Key(VirtualKeyCode::RAlt)],
-            pitch_modifier_key: vec![KeyOrButton::Button(MouseButton::Middle), KeyOrButton::Key(VirtualKeyCode::LAlt), KeyOrButton::Key(VirtualKeyCode::RAlt)],
+            pan_modifier_key: vec![KeyOrButton::Key(VirtualKeyCode::LShift),
+                                   KeyOrButton::Key(VirtualKeyCode::RShift)],
+            yaw_modifier_key: vec![KeyOrButton::Button(MouseButton::Middle),
+                                   KeyOrButton::Key(VirtualKeyCode::LAlt),
+                                   KeyOrButton::Key(VirtualKeyCode::RAlt)],
+            pitch_modifier_key: vec![KeyOrButton::Button(MouseButton::Middle),
+                                     KeyOrButton::Key(VirtualKeyCode::LAlt),
+                                     KeyOrButton::Key(VirtualKeyCode::RAlt)],
         }
     }
 
@@ -64,12 +73,18 @@ impl Settings {
                             .expect("Could not serialise Settings");
                         match file.write_all(serialized.as_bytes()) {
                             Err(why) => {
-                                panic!("couldn't write config to {}: {}", display, why.description())
+                                panic!("couldn't write config to {}: {}",
+                                       display,
+                                       why.description())
                             }
                             Ok(_) => println!("successfully wrote new config to {}", display),
                         }
                         file = match File::open(&path) {
-                            Err(why) => panic!("couldn't open {}, which was just written to: {}", display, why.description()),
+                            Err(why) => {
+                                panic!("couldn't open {}, which was just written to: {}",
+                                       display,
+                                       why.description())
+                            }
                             Ok(file) => file,
                         };
                         file

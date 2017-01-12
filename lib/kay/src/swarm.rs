@@ -127,10 +127,9 @@ impl<A: Actor> Swarm<A> {
         where A: Recipient<M>
     {
         let (fate, is_still_compact) = {
-            let actor =
-                self.at_mut(packet.recipient_id
-                    .expect("Recipient ID not set")
-                    .instance_id as usize);
+            let actor = self.at_mut(packet.recipient_id
+                .expect("Recipient ID not set")
+                .instance_id as usize);
             let fate = actor.receive_packet(packet);
             (fate, actor.is_still_compact())
         };
