@@ -373,19 +373,7 @@ pub struct UITick{
 
 impl Recipient<UITick> for UserInterface {
     fn receive(&mut self, msg: &UITick) -> Fate {
-        let button_events: CVec<String> = CVec::new();
-        if intersection(&self.settings.forward_key, &self.input_state.keys_down) {
-            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(5.0 * self.settings.move_speed, 0.0, 0.0))};
-        }
-        if intersection(&self.settings.backward_key, &self.input_state.keys_down) {
-            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(-5.0 * self.settings.move_speed, 0.0, 0.0))};
-        }
-        if intersection(&self.settings.left_key, &self.input_state.keys_down) {
-            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(0.0, -5.0 * self.settings.move_speed, 0.0))};
-        }
-        if intersection(&self.settings.right_key, &self.input_state.keys_down) {
-            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(V3::new(0.0, 5.0 * self.settings.move_speed, 0.0))};
-        }
+        let button_events: CVec<'static str> = CVec::new();
         for (keys, name) in self.settings.key_mappings{
             if keys.triggered(&self.input_state.keys_down){
                 button_events.push(name.clone());
