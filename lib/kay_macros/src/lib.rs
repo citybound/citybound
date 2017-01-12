@@ -86,7 +86,8 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                         let mut offset: isize = 0;
                         #(
                             let source_field = &source.#fields_ref2;
-                            self.#fields_ref.compact_from(source_field, new_dynamic_part.offset(offset));
+                            self.#fields_ref.compact_from(source_field,
+                                                          new_dynamic_part.offset(offset));
                             offset += source_field.dynamic_size_bytes() as isize;
                         )*
                     }
@@ -142,28 +143,41 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                 })
                 .collect();
 
-            let variants_compact_from : &Vec<_> = &data.iter().map(|variant| {
-                if let syn::VariantData::Tuple(ref fields) = variant.data {
-                    let ident = &variant.ident;
-                    let fields : Vec<syn::Ident> = fields.iter().enumerate().map(|(i, _f)| format!("f{}", i).into()).collect();
-                    let source_fields : Vec<syn::Ident> = fields.iter().enumerate().map(|(i, _f)| format!("source_f{}", i).into()).collect();
-                    let fields_ref = &fields;
-                    let source_fields_ref = &source_fields;
-                    let source_fields_ref_2 = &source_fields;
-                    quote! {
+            let variants_compact_from: &Vec<_> = &data.iter()
+                .map(|variant| {
+                    if let syn::VariantData::Tuple(ref fields) = variant.data {
+                        let ident = &variant.ident;
+                        let fields: Vec<syn::Ident> = fields.iter()
+                            .enumerate()
+                            .map(|(i, _f)| format!("f{}", i).into())
+                            .collect();
+                        let source_fields: Vec<syn::Ident> = fields.iter()
+                            .enumerate()
+                            .map(|(i, _f)| format!("source_f{}", i).into())
+                            .collect();
+                        let fields_ref = &fields;
+                        let source_fields_ref = &source_fields;
+                        let source_fields_ref_2 = &source_fields;
+                        quote! {
                         #name::#ident(#(ref #source_fields_ref),*) => {
-                            ::std::ptr::copy_nonoverlapping(source as *const #name, self as *mut #name, 1);
+                            ::std::ptr::copy_nonoverlapping(source as *const #name,
+                                                            self as *mut #name, 1);
                             let mut offset: isize = 0;
                             if let #name::#ident(#(ref mut #fields_ref),*) = *self {
                                 #(
-                                    #fields_ref.compact_from(#source_fields_ref, new_dynamic_part.offset(offset));
+                                    #fields_ref.compact_from(#source_fields_ref,
+                                                             new_dynamic_part
+                                                                .offset(offset));
                                     offset += #source_fields_ref_2.dynamic_size_bytes() as isize;
                                 )*
                             } else {unreachable!()}
                         }
                     }
-                } else {panic!("Only tuple enum variants supported so far");}
-            }).collect();
+                    } else {
+                        panic!("Only tuple enum variants supported so far");
+                    }
+                })
+                .collect();
 
             let variants_decompact: &Vec<_> = &data.iter()
                 .map(|variant| {

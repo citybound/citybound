@@ -191,7 +191,11 @@ impl<K: Copy + Eq, V: Compact + Clone, A: Allocator> Default for CompactDict<K, 
     }
 }
 
-impl <K: Copy + Eq, V: Compact + Clone, A: Allocator> ::std::iter::FromIterator<(K, V)> for CompactDict<K, V, A> {
+impl <
+    K: Copy + Eq,
+    V: Compact + Clone,
+    A: Allocator
+> ::std::iter::FromIterator<(K, V)> for CompactDict<K, V, A> {
     fn from_iter<T: IntoIterator<Item=(K, V)>>(iter: T) -> Self {
         let mut dict = Self::new();
         for (key, value) in iter {
@@ -201,7 +205,11 @@ impl <K: Copy + Eq, V: Compact + Clone, A: Allocator> ::std::iter::FromIterator<
     }
 }
 
-impl <K: Copy + Eq, V: Compact + Clone, A: Allocator> ::std::iter::Extend<(K, V)> for CompactDict<K, V, A> {
+impl <
+    K: Copy + Eq,
+    V: Compact + Clone,
+    A: Allocator
+> ::std::iter::Extend<(K, V)> for CompactDict<K, V, A> {
     fn extend<T: IntoIterator<Item=(K, V)>>(&mut self, iter: T) {
         for (key, value) in iter {
             self.insert(key, value);

@@ -334,9 +334,7 @@ impl Recipient<ShareRoutes> for Lane {
                            new_distance_hops <= IDEAL_LANDMARK_RADIUS ||
                            self.pathfinding_info
                             .as_destination
-                            .map(|self_destination| {
-                                self_destination.landmark == destination.landmark
-                            })
+                            .map(|self_dest| self_dest.landmark == destination.landmark)
                             .unwrap_or(false) {
                             let insert = self.pathfinding_info
                                 .routes

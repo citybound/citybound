@@ -29,7 +29,6 @@ impl Recipient<Event3d> for LaneStrokeCanvas {
                 CurrentPlan::id() << Commit(true, at.into_2d());
                 Fate::Live
             }
-            Event3d::DragFinished { .. } => Fate::Live,
             Event3d::KeyDown(VirtualKeyCode::Return) => {
                 CurrentPlan::id() << Materialize;
                 Fate::Live

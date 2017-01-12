@@ -100,7 +100,8 @@ pub fn trim_strokes_and_add_incoming_outgoing(strokes: &CVec<LaneStroke>,
                 let division_distance = (self_intersection.along_a + self_intersection.along_b) /
                                         2.0;
                 split_strokes.extend(strokes[i].subsection(0.0, division_distance));
-                split_strokes.extend(strokes[i].subsection(division_distance, strokes[i].path().length()));
+                split_strokes.extend(strokes[i].subsection(division_distance,
+                                                           strokes[i].path().length()));
                 strokes.remove(i);
                 something_happened = true;
             }
@@ -189,109 +190,162 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                      .map(|segment| segment.bounding_box().grown_by(6.0)));
     }
 
-    grid.colocated_pairs().into_iter().flat_map(|&(stroke_1_idx, ref stroke_2_idx_bmap)| {
-        let stroke_1 = &trimmed_strokes[stroke_1_idx];
-        stroke_2_idx_bmap.iter().filter(|stroke_2_idx| stroke_1_idx != *stroke_2_idx as usize).flat_map(|stroke_2_idx| {
-            let stroke_2 = &trimmed_strokes[stroke_2_idx as usize];
-            let path_1 = stroke_1.path();
-            let path_2 = stroke_2.path();
-            let aligned_segments = path_1.segments().iter().cartesian_product(path_2.segments().iter()).filter_map(|(segment_1, segment_2)|
-                // TODO: would you look at that horrible mess!
-                match (
-                    segment_2.project(segment_1.start()), segment_2.project(segment_1.end()),
-                    segment_1.project(segment_2.start()), segment_1.project(segment_2.end())
-                ) {
-                    (Some(start_1_on_2_dist), Some(end_1_on_2_dist), _, _) => {
-                        let start_1_on_2 = segment_2.along(start_1_on_2_dist);
-                        let end_1_on_2 = segment_2.along(end_1_on_2_dist);
-                        if start_1_on_2.is_roughly_within(segment_1.start(), 6.0)
-                        && end_1_on_2.is_roughly_within(segment_1.end(), 6.0)
-                        && segment_2.direction_along(start_1_on_2_dist).is_roughly_within(segment_1.start_direction(), 0.05)
-                        && segment_2.direction_along(end_1_on_2_dist).is_roughly_within(segment_1.end_direction(), 0.05) {
-                            Some(Segment::arc_with_direction(
-                                ((segment_1.start().to_vector() + start_1_on_2.to_vector()) / 2.0).to_point(),
-                                segment_1.start_direction(),
-                                ((segment_1.end().to_vector() + end_1_on_2.to_vector()) / 2.0).to_point(),
-                            ))
-                        } else {None}
-                    }
-                    (_, _, Some(start_2_on_1_dist), Some(end_2_on_1_dist)) => {
-                        let start_2_on_1 = segment_1.along(start_2_on_1_dist);
-                        let end_2_on_1 = segment_1.along(end_2_on_1_dist);
-                        if start_2_on_1.is_roughly_within(segment_2.start(), 6.0)
-                        && end_2_on_1.is_roughly_within(segment_2.end(), 6.0)
-                        && segment_1.direction_along(start_2_on_1_dist).is_roughly_within(segment_2.start_direction(), 0.05)
-                        && segment_1.direction_along(end_2_on_1_dist).is_roughly_within(segment_2.end_direction(), 0.05) {
-                            Some(Segment::arc_with_direction(
-                                ((segment_2.start().to_vector() + start_2_on_1.to_vector()) / 2.0).to_point(),
-                                segment_2.start_direction(),
-                                ((segment_2.end().to_vector() + end_2_on_1.to_vector()) / 2.0).to_point(),
-                            ))
-                        } else {None}
-                    },
-                    (None, Some(end_1_on_2_dist), Some(start_2_on_1_dist), _) => {
-                        let start_2_on_1 = segment_1.along(start_2_on_1_dist);
-                        let end_1_on_2 = segment_2.along(end_1_on_2_dist);
-                        if start_2_on_1.is_roughly_within(segment_2.start(), 6.0)
-                        && end_1_on_2.is_roughly_within(segment_1.end(), 6.0)
-                        && !start_2_on_1.to_vector().is_roughly_within(end_1_on_2.to_vector(), 6.0)
-                        && segment_1.direction_along(start_2_on_1_dist).is_roughly_within(segment_2.start_direction(), 0.05)
-                        && segment_2.direction_along(end_1_on_2_dist).is_roughly_within(segment_1.end_direction(), 0.05) {
-                            Some(Segment::arc_with_direction(
-                                ((segment_2.start().to_vector() + start_2_on_1.to_vector()) / 2.0).to_point(),
-                                segment_2.start_direction(),
-                                ((segment_1.end().to_vector() + end_1_on_2.to_vector()) / 2.0).to_point(),
-                            ))
-                        } else {None}
-                    }
-                    (Some(start_1_on_2_dist), None, None, Some(end_2_on_1_dist)) => {
-                        let start_1_on_2 = segment_2.along(start_1_on_2_dist);
-                        let end_2_on_1 = segment_1.along(end_2_on_1_dist);
-                        if start_1_on_2.is_roughly_within(segment_1.start(), 6.0)
-                        && end_2_on_1.is_roughly_within(segment_2.end(), 6.0)
-                        && !start_1_on_2.to_vector().is_roughly_within(end_2_on_1.to_vector(), 6.0)
-                        && segment_2.direction_along(start_1_on_2_dist).is_roughly_within(segment_1.start_direction(), 0.05)
-                        && segment_1.direction_along(end_2_on_1_dist).is_roughly_within(segment_2.end_direction(), 0.05) {
-                            Some(Segment::arc_with_direction(
-                                ((segment_1.start().to_vector() + start_1_on_2.to_vector()) / 2.0).to_point(),
-                                segment_1.start_direction(),
-                                ((segment_2.end().to_vector() + end_2_on_1.to_vector()) / 2.0).to_point(),
-                            ))
-                        } else {None}
-                    }
-                    _ => None
-                }
-            ).collect();
+    grid.colocated_pairs()
+        .into_iter()
+        .flat_map(|&(stroke_1_idx, ref stroke_2_idx_bmap)| {
+            let stroke_1 = &trimmed_strokes[stroke_1_idx];
+            stroke_2_idx_bmap.iter()
+                .filter(|stroke_2_idx| stroke_1_idx != *stroke_2_idx as usize)
+                .flat_map(|stroke_2_idx| {
+                    let stroke_2 = &trimmed_strokes[stroke_2_idx as usize];
+                    let path_1 = stroke_1.path();
+                    let path_2 = stroke_2.path();
+                    let aligned_segments = path_1
+                    .segments()
+                    .iter()
+                    .cartesian_product(path_2.segments().iter())
+                    .filter_map(|(segment_1, segment_2)|
+                    // TODO: would you look at that horrible mess!
+                        match (
+                            segment_2.project(segment_1.start()),
+                            segment_2.project(segment_1.end()),
+                            segment_1.project(segment_2.start()),
+                            segment_1.project(segment_2.end())
+                        ) {
+                            (Some(start_1_on_2_dist), Some(end_1_on_2_dist), _, _) => {
+                                let start_1_on_2 = segment_2.along(start_1_on_2_dist);
+                                let end_1_on_2 = segment_2.along(end_1_on_2_dist);
+                                if start_1_on_2.is_roughly_within(segment_1.start(), 6.0)
+                                && end_1_on_2.is_roughly_within(segment_1.end(), 6.0)
+                                && segment_2.direction_along(start_1_on_2_dist)
+                                    .is_roughly_within(segment_1.start_direction(), 0.05)
+                                && segment_2.direction_along(end_1_on_2_dist)
+                                    .is_roughly_within(segment_1.end_direction(), 0.05)
+                                {
+                                    Some(Segment::arc_with_direction(
+                                        ((segment_1.start().to_vector()
+                                            + start_1_on_2.to_vector()) / 2.0)
+                                            .to_point(),
+                                        segment_1.start_direction(),
+                                        ((segment_1.end().to_vector()
+                                            + end_1_on_2.to_vector()) / 2.0)
+                                            .to_point(),
+                                    ))
+                                } else {None}
+                            }
+                            (_, _, Some(start_2_on_1_dist), Some(end_2_on_1_dist)) => {
+                                let start_2_on_1 = segment_1.along(start_2_on_1_dist);
+                                let end_2_on_1 = segment_1.along(end_2_on_1_dist);
+                                if start_2_on_1.is_roughly_within(segment_2.start(), 6.0)
+                                && end_2_on_1.is_roughly_within(segment_2.end(), 6.0)
+                                && segment_1.direction_along(start_2_on_1_dist)
+                                    .is_roughly_within(segment_2.start_direction(), 0.05)
+                                && segment_1.direction_along(end_2_on_1_dist)
+                                    .is_roughly_within(segment_2.end_direction(), 0.05)
+                                {
+                                    Some(Segment::arc_with_direction(
+                                        ((segment_2.start().to_vector()
+                                            + start_2_on_1.to_vector()) / 2.0)
+                                            .to_point(),
+                                        segment_2.start_direction(),
+                                        ((segment_2.end().to_vector()
+                                            + end_2_on_1.to_vector()) / 2.0)
+                                            .to_point(),
+                                    ))
+                                } else {None}
+                            },
+                            (None, Some(end_1_on_2_dist), Some(start_2_on_1_dist), _) => {
+                                let start_2_on_1 = segment_1.along(start_2_on_1_dist);
+                                let end_1_on_2 = segment_2.along(end_1_on_2_dist);
+                                if start_2_on_1.is_roughly_within(segment_2.start(), 6.0)
+                                && end_1_on_2.is_roughly_within(segment_1.end(), 6.0)
+                                && !start_2_on_1.to_vector()
+                                    .is_roughly_within(end_1_on_2.to_vector(), 6.0)
+                                && segment_1.direction_along(start_2_on_1_dist)
+                                    .is_roughly_within(segment_2.start_direction(), 0.05)
+                                && segment_2.direction_along(end_1_on_2_dist)
+                                    .is_roughly_within(segment_1.end_direction(), 0.05)
+                                {
+                                    Some(Segment::arc_with_direction(
+                                        ((segment_2.start().to_vector()
+                                            + start_2_on_1.to_vector()) / 2.0)
+                                            .to_point(),
+                                        segment_2.start_direction(),
+                                        ((segment_1.end().to_vector()
+                                            + end_1_on_2.to_vector()) / 2.0)
+                                            .to_point(),
+                                    ))
+                                } else {None}
+                            }
+                            (Some(start_1_on_2_dist), None, None, Some(end_2_on_1_dist)) => {
+                                let start_1_on_2 = segment_2.along(start_1_on_2_dist);
+                                let end_2_on_1 = segment_1.along(end_2_on_1_dist);
+                                if start_1_on_2.is_roughly_within(segment_1.start(), 6.0)
+                                && end_2_on_1.is_roughly_within(segment_2.end(), 6.0)
+                                && !start_1_on_2.to_vector()
+                                    .is_roughly_within(end_2_on_1.to_vector(), 6.0)
+                                && segment_2.direction_along(start_1_on_2_dist)
+                                    .is_roughly_within(segment_1.start_direction(), 0.05)
+                                && segment_1.direction_along(end_2_on_1_dist)
+                                    .is_roughly_within(segment_2.end_direction(), 0.05)
+                                {
+                                    Some(Segment::arc_with_direction(
+                                        ((segment_1.start().to_vector()
+                                            + start_1_on_2.to_vector()) / 2.0)
+                                            .to_point(),
+                                        segment_1.start_direction(),
+                                        ((segment_2.end().to_vector()
+                                            + end_2_on_1.to_vector()) / 2.0)
+                                            .to_point(),
+                                    ))
+                                } else {None}
+                            }
+                            _ => None
+                        }
+                    )
+                    .collect();
 
-            let mut aligned_segment_sets = DisjointSets::from_individuals(aligned_segments);
-            aligned_segment_sets.union_all_with(|segment_1, segment_2|
-                segment_1.start().is_roughly_within(segment_2.end(), 0.1)
-                || segment_1.end().is_roughly_within(segment_2.start(), 0.1)
-            );
+                    let mut aligned_segment_sets = DisjointSets::from_individuals(aligned_segments);
+                    aligned_segment_sets.union_all_with(|segment_1, segment_2| {
+                        segment_1.start().is_roughly_within(segment_2.end(), 0.1) ||
+                        segment_1.end().is_roughly_within(segment_2.start(), 0.1)
+                    });
 
-            let aligned_paths = aligned_segment_sets.sets().map(|set| {
-                let mut sorted_segments = set.to_vec();
-                sorted_segments.sort_by(|segment_1, segment_2|
-                    if segment_1.start().is_roughly_within(segment_2.end(), 0.1) {
-                        ::std::cmp::Ordering::Greater
-                    } else if segment_1.end().is_roughly_within(segment_2.start(), 0.1) {
-                        ::std::cmp::Ordering::Less
-                    } else {
-                        ::std::cmp::Ordering::Equal
-                    }
-                );
-                sorted_segments
-            });
+                    let aligned_paths = aligned_segment_sets.sets().map(|set| {
+                        let mut sorted_segments = set.to_vec();
+                        sorted_segments.sort_by(|segment_1, segment_2| if segment_1.start()
+                            .is_roughly_within(segment_2.end(), 0.1) {
+                            ::std::cmp::Ordering::Greater
+                        } else if segment_1.end()
+                            .is_roughly_within(segment_2.start(), 0.1) {
+                            ::std::cmp::Ordering::Less
+                        } else {
+                            ::std::cmp::Ordering::Equal
+                        });
+                        sorted_segments
+                    });
 
-            aligned_paths.flat_map(|segments| LaneStroke::new(
-                segments.iter().map(|segment|
-                    LaneStrokeNode{position: segment.start(), direction: segment.start_direction()}
-                ).chain(Some(
-                    LaneStrokeNode{position: segments.last().unwrap().end(), direction: segments.last().unwrap().end_direction()}
-                ).into_iter()).collect()
-            ).into_iter()).collect::<Vec<_>>()
-        }).collect::<Vec<_>>()
-    }).collect::<Vec<_>>()
+                    aligned_paths.flat_map(|segments| {
+                            LaneStroke::new(segments.iter()
+                                    .map(|segment| {
+                                        LaneStrokeNode {
+                                            position: segment.start(),
+                                            direction: segment.start_direction(),
+                                        }
+                                    })
+                                    .chain(Some(LaneStrokeNode {
+                                            position: segments.last().unwrap().end(),
+                                            direction: segments.last().unwrap().end_direction(),
+                                        })
+                                        .into_iter())
+                                    .collect())
+                                .into_iter()
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>()
 }
 
 const MAX_PARALLEL_INTERSECTION_NODES_OFFSET: f32 = 10.0;
@@ -466,7 +520,8 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
                                 out_max_cliques: &mut Vec<RoaringBitmap<u32>>) {
             let empty_set = RoaringBitmap::<u32>::new();
             let neighbors = |v: u32| neighbors_map.get(&(v as usize)).unwrap_or(&empty_set);
-            // TODO: roaring::RoaringBitmap::is_empty is buggy!! https://github.com/Nemo157/roaring-rs/issues/18
+            // TODO: roaring::RoaringBitmap::is_empty is buggy!!
+            // https://github.com/Nemo157/roaring-rs/issues/18
             // TODO: Blocked by dependency conflict on num_bigint -_-
             if p.len() == 0 && x.len() == 0 {
                 out_max_cliques.push(r);

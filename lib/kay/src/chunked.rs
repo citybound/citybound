@@ -482,7 +482,8 @@ impl<B: SizedChunkedCollection> MultiSized<B> {
 
     /// Get the index of the chunked storage which stores the size of the object
     pub fn size_to_index(&self, size: usize) -> usize {
-        // TODO: the log two part can probably optimized crazily: http://stackoverflow.com/a/11398748
+        // TODO: the log two part can probably optimized crazily:
+        // http://stackoverflow.com/a/11398748
         // ----------- rounding up int div -----------|
         (((size + self.base_size - 1) / self.base_size).next_power_of_two() as f32).log2() as usize
     }

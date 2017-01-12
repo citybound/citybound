@@ -112,8 +112,10 @@ impl InboxMap {
     /// Adds new message type to the InboxMap
     fn add_new<M: Message>(&mut self, pointer: *mut Inbox<M>) {
         let message_type_id = unsafe { type_id::<M>() };
-        let entry_is_for_id =
-            |entry: &&Option<(u64, *mut u8)>| entry.is_some() && entry.unwrap().0 == message_type_id;
+        let entry_is_for_id = |entry: &&Option<(u64, *mut u8)>| {
+            entry.map(|e| e.0 == message_type_id)
+                .unwrap_or(false)
+        };
         assert!(self.entries.iter().find(entry_is_for_id).is_none());
         self.entries[self.length] = Some((message_type_id, pointer as *mut u8));
         self.length += 1;
@@ -169,7 +171,8 @@ impl ActorSystem {
 
     /// Registers a type for use as an actor in the actor system
     pub fn add_individual<I: Individual>(&mut self, individual: I) {
-        // Register type in recipient_registry, and return the short ID of the type (sequential ID starting from 0)
+        // Register type in recipient_registry, and return the short ID
+        // of the type (sequential ID starting from 0)
         let recipient_id = self.recipient_registry.register_new::<I>();
 
         assert!(self.routing[recipient_id].is_none());

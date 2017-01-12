@@ -68,7 +68,8 @@ impl Recipient<Commit> for CurrentPlan {
                         }
                         DrawingStatus::Nothing(()) => {
                         self.preview.ui_state.recreate_selectables = true;
-                        MaterializedReality::id() << Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
+                        MaterializedReality::id() <<
+                        Simulate{requester: Self::id(), delta: self.preview.delta.clone()};
                     }
                         DrawingStatus::WithSelections(_, clear_next_commit) => {
                             if clear_next_commit {
@@ -114,9 +115,12 @@ impl Recipient<Commit> for CurrentPlan {
                                         if start.is_roughly_within(0.0, 6.0) &&
                                            end.is_roughly_within(0.0, 6.0) {
                                             SelectionMeaning::Start
-                                        } else if 
-                                            start.is_roughly_within(stroke.path().length(), 6.0) &&
-                                            end.is_roughly_within(stroke.path().length(), 6.0) {
+                                        } else if start.is_roughly_within(stroke.path()
+                                                                              .length(),
+                                                                          6.0) &&
+                                                  end.is_roughly_within(stroke.path()
+                                                                            .length(),
+                                                                        6.0) {
                                             SelectionMeaning::End
                                         } else {
                                             SelectionMeaning::SubSection
@@ -342,29 +346,47 @@ impl Recipient<WithLatestNode> for CurrentPlan {
                         if (position - previous_add).norm() < FINISH_STROKE_TOLERANCE {
                             DrawingStatus::Nothing(())
                         } else {
-                            let new_current_nodes = current_nodes.clone().iter().map(|&LaneStrokeNodeRef(stroke_idx, node_idx)| {
-                            let stroke = &mut self.preview.delta.new_strokes[stroke_idx];
-                            let node = stroke.nodes()[node_idx];
-                            let relative_position_in_basis = (node.position - previous_add).to_basis(node.direction);
+                            let new_current_nodes = current_nodes.clone()
+                                .iter()
+                                .map(|&LaneStrokeNodeRef(stroke_idx, node_idx)| {
+                                    let stroke = &mut self.preview.delta.new_strokes[stroke_idx];
+                                    let node = stroke.nodes()[node_idx];
+                                    let relative_position_in_basis = (node.position - previous_add)
+                                        .to_basis(node.direction);
 
-                            if node_idx == stroke.nodes().len() - 1 {
-                                // append
-                                let new_direction = Segment::arc_with_direction(previous_add, node.direction, position).end_direction();
-                                stroke.nodes_mut().push(LaneStrokeNode{
-                                    position: position + relative_position_in_basis.from_basis(new_direction),
-                                    direction: new_direction
-                                });
-                                LaneStrokeNodeRef(stroke_idx, stroke.nodes().len() - 1)
-                            } else if node_idx == 0 {
-                                // prepend
-                                let new_direction = -Segment::arc_with_direction(previous_add, -node.direction, position).end_direction();
-                                stroke.nodes_mut().insert(0, LaneStrokeNode{
-                                    position: position + relative_position_in_basis.from_basis(new_direction),
-                                    direction: new_direction
-                                });
-                                LaneStrokeNodeRef(stroke_idx, 0)
-                            } else {unreachable!()}
-                        }).collect();
+                                    if node_idx == stroke.nodes().len() - 1 {
+                                        // append
+                                        let new_direction =
+                                            Segment::arc_with_direction(previous_add,
+                                                                        node.direction,
+                                                                        position)
+                                                .end_direction();
+                                        stroke.nodes_mut().push(LaneStrokeNode{
+                                            position: position
+                                                      + relative_position_in_basis
+                                                            .from_basis(new_direction),
+                                            direction: new_direction
+                                        });
+                                        LaneStrokeNodeRef(stroke_idx, stroke.nodes().len() - 1)
+                                    } else if node_idx == 0 {
+                                        // prepend
+                                        let new_direction =
+                                            -Segment::arc_with_direction(previous_add,
+                                                                         -node.direction,
+                                                                         position)
+                                                .end_direction();
+                                        stroke.nodes_mut().insert(0, LaneStrokeNode{
+                                            position: position
+                                                      + relative_position_in_basis
+                                                            .from_basis(new_direction),
+                                            direction: new_direction
+                                        });
+                                        LaneStrokeNodeRef(stroke_idx, 0)
+                                    } else {
+                                        unreachable!()
+                                    }
+                                })
+                                .collect();
 
                             let mut joined_some = false;
                             let mut new_strokes_to_remove = Vec::new();
@@ -443,7 +465,10 @@ impl Recipient<WithLatestNode> for CurrentPlan {
                                                 if stroke_idx == other_stroke_idx {
                                                     self_join = true;
                                                 }
-                                                &mut self.preview.delta.new_strokes[other_stroke_idx]
+                                                &mut self
+                                                    .preview
+                                                    .delta
+                                                    .new_strokes[other_stroke_idx]
                                             }
                                             SelectableStrokeRef::RemainingOld(old_ref) => {
                                                 let old_stroke = self.preview
@@ -482,7 +507,8 @@ impl Recipient<WithLatestNode> for CurrentPlan {
                                             new_nodes
                                         } else {
                                             let mut new_nodes = other_nodes;
-                                            new_nodes.extend(stroke.nodes().clone().into_iter().skip(1));
+                                            new_nodes.extend(
+                                                stroke.nodes().clone().into_iter().skip(1));
                                             new_nodes
                                         }
                                     }
@@ -596,10 +622,12 @@ impl Recipient<Select> for CurrentPlan {
                                     start_on_other.is_roughly_within(start_position, 60.0) &&
                                     end_on_other.is_roughly_within(end_position, 60.0) &&
                                     if start_on_other_distance < end_on_other_distance {
-                                        start_direction_on_other.is_roughly_within(start_direction, 0.1)
+                                        start_direction_on_other
+                                            .is_roughly_within(start_direction, 0.1)
                                     && end_direction_on_other.is_roughly_within(end_direction, 0.1)
                                     } else if self.preview.ui_state.select_opposite {
-                                        start_direction_on_other.is_roughly_within(-start_direction, 0.1)
+                                        start_direction_on_other
+                                            .is_roughly_within(-start_direction, 0.1)
                                     && end_direction_on_other.is_roughly_within(-end_direction, 0.1)
                                     } else {
                                         false
@@ -709,13 +737,13 @@ impl Recipient<MoveSelection> for CurrentPlan {
                         }
                     }
 
-                    for ((&selection_ref_a,
+                    for ((&ref_a,
                           &(_,
                             ref maybe_before_connector_a,
                             ref new_subsection_a,
                             ref maybe_after_connector_a,
                             _)),
-                         (&selection_ref_b,
+                         (&ref_b,
                           &(_,
                             ref maybe_before_connector_b,
                             ref new_subsection_b,
@@ -728,31 +756,29 @@ impl Recipient<MoveSelection> for CurrentPlan {
                                                   new_subsection_b.get(0)) &&
                            maybe_before_connector_a.is_some() &&
                            maybe_before_connector_b.is_some() {
-                            connector_alignments.push(((selection_ref_a, C::Before), (selection_ref_b, C::Before)));
+                            connector_alignments.push(((ref_a, C::Before), (ref_b, C::Before)));
                         }
                         if a_close_and_right_of_b(new_subsection_a.get(0),
                                                   new_subsection_b.last()) &&
                            maybe_before_connector_a.is_some() &&
                            maybe_after_connector_b.is_some() &&
-                           !connector_alignments.iter().any(|other| {
-                            other == &((selection_ref_b, C::After), (selection_ref_a, C::Before))
-                        }) {
-                            connector_alignments.push(((selection_ref_a, C::Before), (selection_ref_b, C::After)));
+                           !connector_alignments.iter()
+                            .any(|other| other == &((ref_b, C::After), (ref_a, C::Before))) {
+                            connector_alignments.push(((ref_a, C::Before), (ref_b, C::After)));
                         }
                         if a_close_and_right_of_b(new_subsection_a.last(),
                                                   new_subsection_b.last()) &&
                            maybe_after_connector_a.is_some() &&
                            maybe_after_connector_b.is_some() {
-                            connector_alignments.push(((selection_ref_a, C::After), (selection_ref_b, C::After)));
+                            connector_alignments.push(((ref_a, C::After), (ref_b, C::After)));
                         }
                         if a_close_and_right_of_b(new_subsection_a.last(),
                                                   new_subsection_b.get(0)) &&
                            maybe_after_connector_a.is_some() &&
                            maybe_before_connector_b.is_some() &&
-                           !connector_alignments.iter().any(|other| {
-                            other == &((selection_ref_b, C::Before), (selection_ref_a, C::After))
-                        }) {
-                            connector_alignments.push(((selection_ref_a, C::After), (selection_ref_b, C::Before)));
+                           !connector_alignments.iter()
+                            .any(|other| other == &((ref_b, C::Before), (ref_a, C::After))) {
+                            connector_alignments.push(((ref_a, C::After), (ref_b, C::Before)));
                         }
                     }
 
@@ -765,8 +791,10 @@ impl Recipient<MoveSelection> for CurrentPlan {
                             for i in 0..connector_alignments.len() {
                                 let swap = {
                                     let &(_, ref align_a_to) = &connector_alignments[i];
-                                    connector_alignments.iter().position(|&(ref b, _)| align_a_to == b)
-                                    .and_then(|b_idx| if b_idx > i {Some(b_idx)} else {None})
+                                    connector_alignments
+                                        .iter()
+                                        .position(|&(ref b, _)| align_a_to == b)
+                                        .and_then(|b_idx| if b_idx > i {Some(b_idx)} else {None})
                                 };
                                 if let Some(swap_with) = swap {
                                     connector_alignments.swap(i, swap_with);

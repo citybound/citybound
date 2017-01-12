@@ -210,6 +210,7 @@ impl<'a> RoughlyComparable for &'a LaneStrokeNode {
         // && (
         //     (self.direction.is_none() && other.direction.is_none())
         //     || (self.direction.is_some() && other.direction.is_some()
-        //         && self.direction.unwrap().is_roughly_within(other.direction.unwrap(), tolerance)))
+        //         && self.direction.unwrap().is_roughly_within(other.direction.unwrap(),
+        //                                                      tolerance)))
     }
 }

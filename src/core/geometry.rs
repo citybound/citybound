@@ -92,7 +92,9 @@ pub fn band_to_thing<P: Path>(band: &Band<P>, z: N) -> Thing {
             vertices.push(to_vertex(segment.end + band.width / 2.0 * orth_direction, z));
             vertices.push(to_vertex(segment.end - band.width / 2.0 * orth_direction, z));
 
-            indices.extend_from_slice(&[first_new_vertex, first_new_vertex + 1, first_new_vertex + 2]);
+            indices.extend_from_slice(&[first_new_vertex,
+                                        first_new_vertex + 1,
+                                        first_new_vertex + 2]);
             indices.extend_from_slice(&[first_new_vertex + 1,
                                         first_new_vertex + 3,
                                         first_new_vertex + 2]);

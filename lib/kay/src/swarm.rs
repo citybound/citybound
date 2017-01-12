@@ -150,11 +150,13 @@ impl<A: Actor> Swarm<A> {
     fn receive_broadcast<M: Message>(&mut self, packet: &Packet<M>)
         where A: Recipient<M>
     {
-        // this function has to deal with the fact that during the iteration, receivers of the broadcast can be resized
+        // this function has to deal with the fact that during the iteration,
+        // receivers of the broadcast can be resized
         // and thus removed from a collection, swapping in either
         //    - other receivers that didn't receive the broadcast yet
         //    - resized and added receivers that alredy received the broadcast
-        //    - actors that were created during one of the broadcast receive handlers, that shouldn't receive this broadcast
+        //    - actors that were created during one of the broadcast receive handlers,
+        //      that shouldn't receive this broadcast
         // the only assumption is that no actors are immediately completely deleted
 
         let recipients_todo_per_collection: Vec<usize> = {
@@ -182,7 +184,8 @@ impl<A: Actor> Swarm<A> {
                             false
                         } else {
                             self.resize_at_index(index);
-                            // this should also work in the case where the "resized" actor itself is added to the same collection again
+                            // this should also work in the case where the "resized" actor
+                            // itself is added to the same collection again
                             let swapped_in_another_receiver = self.actors.collections[c].len() <
                                                               index_after_last_recipient;
                             if swapped_in_another_receiver {
@@ -195,7 +198,8 @@ impl<A: Actor> Swarm<A> {
                     }
                     Fate::Die => {
                         self.remove_at_index(index, id);
-                        // this should also work in the case where the "resized" actor itself is added to the same collection again
+                        // this should also work in the case where the "resized" actor
+                        // itself is added to the same collection again
                         let swapped_in_another_receiver = self.actors.collections[c].len() <
                                                           index_after_last_recipient;
                         if swapped_in_another_receiver {
@@ -239,7 +243,10 @@ impl<M: Message, A: Actor + RecipientAsSwarm<M>> Recipient<M> for Swarm<A> {
     }
 }
 
-impl <M: Message + NotACreateMessage + NotARequestConfirmationMessage + NotAToRandomMessage, A: Actor + Recipient<M>> RecipientAsSwarm<M> for A {
+impl <
+    M: Message + NotACreateMessage + NotARequestConfirmationMessage + NotAToRandomMessage,
+    A: Actor + Recipient<M>
+> RecipientAsSwarm<M> for A {
     fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<M>) -> Fate {
         if packet.recipient_id.expect("Recipient ID not set").is_broadcast() {
             swarm.receive_broadcast(packet);

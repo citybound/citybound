@@ -175,7 +175,9 @@ impl Recipient<RenderToScene> for Lane {
                 let mut current_offset = 0.0;
                 let mut car_instances = CVec::with_capacity(self.cars.len());
                 for segment in self.path.segments().iter() {
-                    for car in cars_iter.take_while_ref(|car| *car.position - current_offset < segment.length()) {
+                    for car in cars_iter.take_while_ref(
+                        |car| *car.position - current_offset < segment.length()
+                    ) {
                     let position2d = segment.along(*car.position - current_offset);
                     let direction = segment.direction_along(*car.position - current_offset);
                     car_instances.push(Instance{
@@ -183,11 +185,13 @@ impl Recipient<RenderToScene> for Lane {
                         instance_direction: [direction.x, direction.y],
                         instance_color: if DEBUG_VIEW_LANDMARKS {
                             ::core::geometry::RANDOM_COLORS[
-                                car.destination.landmark.instance_id as usize % ::core::geometry::RANDOM_COLORS.len()
+                                car.destination.landmark.instance_id as usize
+                                    % ::core::geometry::RANDOM_COLORS.len()
                             ]
                         } else {
                             ::core::geometry::RANDOM_COLORS[
-                                car.trip.instance_id as usize % ::core::geometry::RANDOM_COLORS.len()
+                                car.trip.instance_id as usize
+                                    % ::core::geometry::RANDOM_COLORS.len()
                             ]
                         }
                     })
@@ -354,8 +358,9 @@ impl Recipient<RenderToScene> for Lane {
                     let (random_color, is_landmark) = if let Some(as_destination) =
                         self.pathfinding_info.as_destination {
                         let random_color : [f32; 3] = ::core::geometry::RANDOM_COLORS[
-                        as_destination.landmark.instance_id as usize % ::core::geometry::RANDOM_COLORS.len()
-                    ];
+                            as_destination.landmark.instance_id as usize
+                                % ::core::geometry::RANDOM_COLORS.len()
+                        ];
                         let weaker_random_color = [(random_color[0] + 1.0) / 2.0,
                                                    (random_color[1] + 1.0) / 2.0,
                                                    (random_color[2] + 1.0) / 2.0];
@@ -389,25 +394,34 @@ impl Recipient<RenderToScene> for TransferLane {
                 let mut current_offset = 0.0;
                 let mut car_instances = CVec::with_capacity(self.cars.len());
                 for segment in self.path.segments().iter() {
-                    for car in cars_iter.take_while_ref(|car| *car.position - current_offset < segment.length()) {
-                    let position2d = segment.along(*car.position - current_offset);
-                    let direction = segment.direction_along(*car.position - current_offset);
-                    let rotated_direction = (direction + 0.3 * car.transfer_velocity * direction.orthogonal()).normalize();
-                    let shifted_position2d = position2d + 2.5 * direction.orthogonal() * car.transfer_position;
-                    car_instances.push(Instance{
-                        instance_position: [shifted_position2d.x, shifted_position2d.y, 0.0],
-                        instance_direction: [rotated_direction.x, rotated_direction.y],
-                        instance_color: if DEBUG_VIEW_LANDMARKS {
-                            ::core::geometry::RANDOM_COLORS[
-                                car.destination.landmark.instance_id as usize % ::core::geometry::RANDOM_COLORS.len()
-                            ]
-                        } else {
-                            ::core::geometry::RANDOM_COLORS[
-                                car.trip.instance_id as usize % ::core::geometry::RANDOM_COLORS.len()
-                            ]
-                        }
-                    })
-                }
+                    for car in cars_iter.take_while_ref(
+                        |car| *car.position - current_offset < segment.length()
+                    ) {
+                        let position2d = segment.along(*car.position - current_offset);
+                        let direction = segment.direction_along(*car.position - current_offset);
+                        let rotated_direction = (direction
+                                                 + 0.3 * car.transfer_velocity
+                                                    * direction.orthogonal())
+                            .normalize();
+                        let shifted_position2d = position2d
+                                                 + 2.5 * direction.orthogonal()
+                                                    * car.transfer_position;
+                        car_instances.push(Instance{
+                            instance_position: [shifted_position2d.x, shifted_position2d.y, 0.0],
+                            instance_direction: [rotated_direction.x, rotated_direction.y],
+                            instance_color: if DEBUG_VIEW_LANDMARKS {
+                                ::core::geometry::RANDOM_COLORS[
+                                    car.destination.landmark.instance_id as usize
+                                        % ::core::geometry::RANDOM_COLORS.len()
+                                ]
+                            } else {
+                                ::core::geometry::RANDOM_COLORS[
+                                    car.trip.instance_id as usize
+                                        % ::core::geometry::RANDOM_COLORS.len()
+                                ]
+                            }
+                        })
+                    }
                     current_offset += segment.length;
                 }
 

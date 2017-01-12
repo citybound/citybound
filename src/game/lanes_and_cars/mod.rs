@@ -268,13 +268,21 @@ impl Recipient<AddObstacles> for TransferLane {
             AddObstacles { ref obstacles, from } => {
                 if let (Some((left_id, _)), Some(_)) = (self.left, self.right) {
                     if left_id == from {
-                        self.left_obstacles = obstacles.iter().map(|obstacle|
-                        obstacle.offset_by(self.interaction_to_self_offset(*obstacle.position, true))
-                    ).collect();
+                        self.left_obstacles = obstacles.iter()
+                            .map(|obstacle| {
+                                obstacle.offset_by(
+                                    self.interaction_to_self_offset(*obstacle.position, true)
+                                )
+                            })
+                            .collect();
                     } else {
-                        self.right_obstacles = obstacles.iter().map(|obstacle|
-                        obstacle.offset_by(self.interaction_to_self_offset(*obstacle.position, false))
-                    ).collect();
+                        self.right_obstacles = obstacles.iter()
+                            .map(|obstacle| {
+                                obstacle.offset_by(
+                                    self.interaction_to_self_offset(*obstacle.position, false)
+                                )
+                            })
+                            .collect();
                     };
                 } else {
                     println!("transfer lane not connected for obstacles yet");
@@ -322,7 +330,7 @@ impl Recipient<Tick> for Lane {
                     self.timings[(current_tick / 25) % self.timings.len()]
                 };
 
-                //                            TODO: this is just a hacky way to update new lanes about existing lane's green
+                // TODO: this is just a hacky way to update new lanes about existing lane's green
                 if old_green != self.green || do_traffic {
                     for interaction in &self.interactions {
                         if let Interaction { kind: InteractionKind::Previous { .. },
@@ -462,66 +470,12 @@ impl Recipient<Tick> for Lane {
 
                 // ASSUMPTION: only one interaction per Lane/Lane pair
                 for interaction in self.interactions.iter() {
-                    let mut cars = self.cars.iter();
+                    let cars = self.cars.iter();
 
                     if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
                        interaction.partner_lane.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
-                        let maybe_obstacles: Option<CVec<_>> =
-                            match *interaction {
-                                Interaction { partner_lane,
-                                              start,
-                                              partner_start,
-                                              kind: Overlap { end, kind, .. },
-                                              .. } => {
-                                    Some(match kind {
-                                        Parallel => {
-                                            cars.skip_while(|car: &&LaneCar| {
-                                                    *car.position + 2.0 * car.velocity < start
-                                                })
-                                                .take_while(|car: &&LaneCar| *car.position < end)
-                                                .map(|car| {
-                                                    car.as_obstacle
-                                                        .offset_by(-start + partner_start)
-                                                })
-                                                .collect()
-                                        }
-                                        Transfer =>
-                                    cars.skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
-                                        .map(|car| car.as_obstacle.offset_by(-start + partner_start))
-                                        .chain(self.obstacles.iter().filter_map(|&(obstacle, id)|
-                                            if id != partner_lane && *obstacle.position + 2.0 * obstacle.velocity > start {
-                                                Some(obstacle.offset_by(-start + partner_start))
-                                            } else {None}
-                                        ))
-                                        .collect(),
-                                        Conflicting => {
-                                            if cars.any(|car: &LaneCar| {
-                                                *car.position + 2.0 * car.velocity > start &&
-                                                *car.position - 2.0 < end
-                                            }) {
-                                                vec![Obstacle {
-                                                         position: OrderedFloat(partner_start),
-                                                         velocity: 0.0,
-                                                         max_velocity: 0.0,
-                                                     }]
-                                                    .into()
-                                            } else {
-                                                CVec::new()
-                                            }
-                                        }
-                                    })
-                                }
-                                Interaction{start, partner_start, kind: Previous, ..} =>
-                            Some(cars.map(|car| &car.as_obstacle)
-                                .chain(self.obstacles.iter().map(|&(ref obstacle, _id)| obstacle))
-                                .find(|car| *car.position >= start - 2.0)
-                                .map(|first_car| first_car.offset_by(-start + partner_start))
-                                .into_iter().collect()),
-                                Interaction { kind: Next { .. }, .. } => {
-                                    None
-                                    // TODO: for looking backwards for merging lanes?
-                                }
-                            };
+                        let maybe_obstacles =
+                            obstacles_for_interaction(interaction, cars, self.obstacles.iter());
 
                         if let Some(obstacles) = maybe_obstacles {
                             interaction.partner_lane <<
@@ -535,6 +489,68 @@ impl Recipient<Tick> for Lane {
 
                 Fate::Live
             }
+        }
+    }
+}
+
+fn obstacles_for_interaction(interaction: &Interaction,
+                             mut cars: ::std::slice::Iter<LaneCar>,
+                             self_obstacles_iter: ::std::slice::Iter<(Obstacle, ID)>)
+                             -> Option<CVec<Obstacle>> {
+    match *interaction {
+        Interaction { partner_lane, start, partner_start, kind: Overlap { end, kind, .. }, .. } => {
+            Some(match kind {
+                Parallel => {
+                    cars.skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
+                        .take_while(|car: &&LaneCar| *car.position < end)
+                        .map(|car| {
+                            car.as_obstacle
+                                .offset_by(-start + partner_start)
+                        })
+                        .collect()
+                }
+                Transfer => {
+                    cars.skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
+                        .map(|car| car.as_obstacle.offset_by(-start + partner_start))
+                        .chain(self_obstacles_iter
+                            .filter_map(|&(obstacle, id)| if id != partner_lane &&
+                                                             *obstacle.position +
+                                                             2.0 * obstacle.velocity >
+                                                             start {
+                                Some(obstacle.offset_by(-start + partner_start))
+                            } else {
+                                None
+                            }))
+                        .collect()
+                }
+                Conflicting => {
+                    let in_overlap = |car: &LaneCar| {
+                        *car.position + 2.0 * car.velocity > start && *car.position - 2.0 < end
+                    };
+                    if cars.any(in_overlap) {
+                        vec![Obstacle {
+                                 position: OrderedFloat(partner_start),
+                                 velocity: 0.0,
+                                 max_velocity: 0.0,
+                             }]
+                            .into()
+                    } else {
+                        CVec::new()
+                    }
+                }
+            })
+        }
+        Interaction { start, partner_start, kind: Previous, .. } => {
+            Some(cars.map(|car| &car.as_obstacle)
+                .chain(self_obstacles_iter.map(|&(ref obstacle, _id)| obstacle))
+                .find(|car| *car.position >= start - 2.0)
+                .map(|first_car| first_car.offset_by(-start + partner_start))
+                .into_iter()
+                .collect())
+        }
+        Interaction { kind: Next { .. }, .. } => {
+            None
+            // TODO: for looking backwards for merging lanes?
         }
     }
 }
@@ -601,8 +617,6 @@ impl Recipient<Tick> for TransferLane {
                                                                1.5;
                             let transfer_before_end_acceleration = transfer_before_end_velocity -
                                                                    car.velocity;
-
-                            // let dangerous = car.velocity > 5.0 && next_obstacle_acceleration < -7.0;
 
                             (next_obstacle_acceleration.min(transfer_before_end_acceleration),
                              dangerous)
@@ -679,11 +693,17 @@ impl Recipient<Tick> for TransferLane {
 
                     if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
                        left.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
-                        let obstacles = self.cars.iter().filter_map(|car|
-                        if car.transfer_position < 0.3 || car.transfer_acceleration < 0.0 {
-                            Some(car.as_obstacle.offset_by(left_start + self.self_to_interaction_offset(*car.position, true)))
-                        } else {None}
-                    ).collect();
+                        let obstacles = self.cars
+                            .iter()
+                            .filter_map(|car| if car.transfer_position < 0.3 ||
+                                                 car.transfer_acceleration < 0.0 {
+                                Some(car.as_obstacle.offset_by(
+                                left_start + self.self_to_interaction_offset(*car.position, true)
+                            ))
+                            } else {
+                                None
+                            })
+                            .collect();
                         left <<
                         AddObstacles {
                             obstacles: obstacles,
@@ -693,11 +713,18 @@ impl Recipient<Tick> for TransferLane {
 
                     if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
                        right.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
-                        let obstacles = self.cars.iter().filter_map(|car|
-                        if car.transfer_position > -0.3 || car.transfer_acceleration > 0.0 {
-                            Some(car.as_obstacle.offset_by(right_start + self.self_to_interaction_offset(*car.position, false)))
-                        } else {None}
-                    ).collect();
+                        let obstacles = self.cars
+                            .iter()
+                            .filter_map(|car| if car.transfer_position > -0.3 ||
+                                                 car.transfer_acceleration > 0.0 {
+                                Some(car.as_obstacle.offset_by(
+                                    right_start + self.self_to_interaction_offset(*car.position,
+                                                                                  false)
+                                ))
+                            } else {
+                                None
+                            })
+                            .collect();
                         right <<
                         AddObstacles {
                             obstacles: obstacles,
@@ -884,7 +911,9 @@ impl Recipient<Connect> for Lane {
 use fnv::FnvHashMap;
 use ::std::cell::UnsafeCell;
 thread_local! (
-    static MEMOIZED_BANDS_OUTLINES: UnsafeCell<FnvHashMap<ID, (Band<CPath>, CPath)>> = UnsafeCell::new(FnvHashMap::default());
+    static MEMOIZED_BANDS_OUTLINES: UnsafeCell<
+        FnvHashMap<ID, (Band<CPath>, CPath)>
+        > = UnsafeCell::new(FnvHashMap::default());
 );
 
 #[derive(Compact, Clone)]
@@ -899,65 +928,89 @@ impl Recipient<ConnectOverlaps> for Lane {
         match *msg {
             ConnectOverlaps { other_id, ref other_path, reply_needed } => {
                 MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
-                let memoized_bands_outlines = unsafe{&mut *memoized_bands_outlines_cell.get()};
-                let &(ref self_band, ref self_outline) = memoized_bands_outlines.entry(self.id()).or_insert_with(|| {
-                    let band = Band::new(self.path.clone(), 4.5);
-                    let outline = band.outline();
-                    (band, outline)
-                }) as &(Band<CPath>, CPath);
+                    let memoized_bands_outlines =
+                        unsafe { &mut *memoized_bands_outlines_cell.get() };
+                    let &(ref self_band, ref self_outline) =
+                        memoized_bands_outlines.entry(self.id())
+                            .or_insert_with(|| {
+                                let band = Band::new(self.path.clone(), 4.5);
+                                let outline = band.outline();
+                                (band, outline)
+                            }) as &(Band<CPath>, CPath);
 
-                let memoized_bands_outlines = unsafe{&mut *memoized_bands_outlines_cell.get()};
-                let &(ref other_band, ref other_outline) = memoized_bands_outlines.entry(other_id).or_insert_with(|| {
-                    let band = Band::new(other_path.clone(), 4.5);
-                    let outline = band.outline();
-                    (band, outline)
-                }) as &(Band<CPath>, CPath);
-                
-                let intersections = (self_outline, other_outline).intersect();
-                if intersections.len() >= 2 {
-                    if let ::itertools::MinMaxResult::MinMax(
-                        (entry_intersection, entry_distance),
-                        (exit_intersection, exit_distance)
-                    ) = intersections.iter().map(
-                        |intersection| (intersection, self_band.outline_distance_to_path_distance(intersection.along_a))
-                    ).minmax_by_key(|&(_, distance)| OrderedFloat(distance)) {
-                        let other_entry_distance = other_band.outline_distance_to_path_distance(entry_intersection.along_b);
-                        let other_exit_distance = other_band.outline_distance_to_path_distance(exit_intersection.along_b);
+                    let memoized_bands_outlines =
+                        unsafe { &mut *memoized_bands_outlines_cell.get() };
+                    let &(ref other_band, ref other_outline) =
+                        memoized_bands_outlines.entry(other_id)
+                            .or_insert_with(|| {
+                                let band = Band::new(other_path.clone(), 4.5);
+                                let outline = band.outline();
+                                (band, outline)
+                            }) as &(Band<CPath>, CPath);
 
-                        let overlap_kind = if other_path.direction_along(other_entry_distance)
-                            .is_roughly_within(self.path.direction_along(entry_distance), 0.1)
-                        || other_path.direction_along(other_exit_distance)
-                            .is_roughly_within(self.path.direction_along(exit_distance), 0.1) {
-                                //::core::geometry::add_debug_path(self.path.subsection(entry_distance, exit_distance).unwrap(), [1.0, 0.5, 0.0], 0.3);
+                    let intersections = (self_outline, other_outline).intersect();
+                    if intersections.len() >= 2 {
+                        if let ::itertools::MinMaxResult::MinMax((entry_intersection,
+                                                                  entry_distance),
+                                                                 (exit_intersection,
+                                                                  exit_distance)) =
+                            intersections.iter()
+                                .map(|intersection| {
+                                    (intersection, self_band
+                                        .outline_distance_to_path_distance(intersection.along_a))
+                                })
+                                .minmax_by_key(|&(_, distance)| OrderedFloat(distance)) {
+                            let other_entry_distance = other_band
+                            .outline_distance_to_path_distance(entry_intersection.along_b);
+                            let other_exit_distance = other_band
+                            .outline_distance_to_path_distance(exit_intersection.along_b);
+
+                            let overlap_kind = if other_path.direction_along(other_entry_distance)
+                                .is_roughly_within(self.path.direction_along(entry_distance),
+                                                   0.1) ||
+                                                  other_path.direction_along(other_exit_distance)
+                                .is_roughly_within(self.path.direction_along(exit_distance), 0.1) {
+                                // ::core::geometry::add_debug_path(
+                                //     self.path.subsection(entry_distance, exit_distance).unwrap(),
+                                //     [1.0, 0.5, 0.0],
+                                //     0.3
+                                // );
                                 OverlapKind::Parallel
                             } else {
-                                //::core::geometry::add_debug_path(self.path.subsection(entry_distance, exit_distance).unwrap(), [1.0, 0.0, 0.0], 0.3);
+                                // ::core::geometry::add_debug_path(
+                                //     self.path.subsection(entry_distance, exit_distance).unwrap(),
+                                //     [1.0, 0.0, 0.0],
+                                //     0.3
+                                // );
                                 OverlapKind::Conflicting
                             };
 
-                        self.interactions.push(Interaction{
-                            partner_lane: other_id,
-                            start: entry_distance,
-                            partner_start: other_entry_distance.min(other_exit_distance),
-                            kind: InteractionKind::Overlap{
-                                end: exit_distance,
-                                partner_end: other_exit_distance.max(other_entry_distance),
-                                kind: overlap_kind
-                            }
-                        });
-                    } else {panic!("both entry and exit should exist")}
-                }
+                            self.interactions.push(Interaction {
+                                partner_lane: other_id,
+                                start: entry_distance,
+                                partner_start: other_entry_distance.min(other_exit_distance),
+                                kind: InteractionKind::Overlap {
+                                    end: exit_distance,
+                                    partner_end: other_exit_distance.max(other_entry_distance),
+                                    kind: overlap_kind,
+                                },
+                            });
+                        } else {
+                            panic!("both entry and exit should exist")
+                        }
+                    }
 
 
-                if reply_needed {
-                    other_id << ConnectOverlaps{
-                        other_id: self.id(),
-                        other_path: self.path.clone(),
-                        reply_needed: false
-                    };
-                }
-                Fate::Live
-            })
+                    if reply_needed {
+                        other_id <<
+                        ConnectOverlaps {
+                            other_id: self.id(),
+                            other_path: self.path.clone(),
+                            reply_needed: false,
+                        };
+                    }
+                    Fate::Live
+                })
             }
         }
     }
@@ -1233,7 +1286,10 @@ pub fn setup(system: &mut ActorSystem) {
     system.add_inbox::<ConfirmDisconnect, Swarm<Lane>>();
 
     system.add_individual(Swarm::<TransferLane>::new());
-    system.add_inbox::<CreateWith<TransferLane, AdvertiseToTransferAndReport>, Swarm<TransferLane>>();
+    system.add_inbox::<
+        CreateWith<TransferLane, AdvertiseToTransferAndReport>,
+        Swarm<TransferLane>
+    >();
     system.add_inbox::<AddCar, Swarm<TransferLane>>();
     system.add_inbox::<AddObstacles, Swarm<TransferLane>>();
     system.add_inbox::<Tick, Swarm<TransferLane>>();
