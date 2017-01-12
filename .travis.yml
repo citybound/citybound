@@ -1,4 +1,6 @@
 language: rust
+rust:
+  - nightly-2017-01-08
 cache: cargo
 before_script: (cargo install rustfmt || true)
 script:
