@@ -120,7 +120,7 @@ impl<A: Actor> Swarm<A> {
     /// Process a message destined for an instance of an actor, potentially mutating the instance
     fn receive_instance<M: Message>(&mut self, packet: &Packet<M>) where A: Recipient<M> {
         let (fate, is_still_compact) = {
-            let actor = self.at_mut(packet.recipient_id.instance_id as usize);
+            let actor = self.at_mut(packet.recipient_id.expect("Recipient ID not set").instance_id as usize);
             let fate = actor.receive_packet(packet);
             (fate, actor.is_still_compact())
         };
@@ -128,10 +128,10 @@ impl<A: Actor> Swarm<A> {
         match fate {
             Fate::Live => {
                 if !is_still_compact {
-                    self.resize(packet.recipient_id.instance_id as usize);
+                    self.resize(packet.recipient_id.expect("Recipient ID not set").instance_id as usize);
                 }
             },
-            Fate::Die => self.remove(packet.recipient_id)
+            Fate::Die => self.remove(packet.recipient_id.expect("Recipient ID not set"))
         }
     }
 
@@ -219,7 +219,7 @@ impl <M: Message, A: Actor + RecipientAsSwarm<M>> Recipient<M> for Swarm<A> {
 
 impl <M: Message + NotACreateMessage + NotARequestConfirmationMessage + NotAToRandomMessage, A: Actor + Recipient<M>> RecipientAsSwarm<M> for A {
     fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<M>) -> Fate {
-        if packet.recipient_id.is_broadcast() {
+        if packet.recipient_id.expect("Recipient ID not set").is_broadcast() {
             swarm.receive_broadcast(packet);
         } else {
             swarm.receive_instance(packet);
@@ -263,7 +263,7 @@ impl<M: Message> Copy for Confirmation<M> { }
 
 impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<RequestConfirmation<M>> for A {
     fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<RequestConfirmation<M>>) -> Fate {
-        let n_recipients = if packet.recipient_id.is_broadcast() {
+        let n_recipients = if packet.recipient_id.expect("Recipient ID not set").is_broadcast() {
             *swarm.n_actors
         } else {
             1
@@ -309,15 +309,15 @@ impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<ToRandom<M>> f
     fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<ToRandom<M>>) -> Fate {
         if swarm.slot_map.len() > 0 {
             let mut new_packet = Packet {
-                recipient_id: ID::invalid(),
+                recipient_id: None,
                 message: packet.message.message.clone()
             };
             for _i in 0..packet.message.n_recipients {
                 let random_id = ID::instance(
-                    packet.recipient_id.type_id as usize,
+                    *(packet.recipient_id.expect("Recipient not set")).type_id as usize,
                     (swarm.slot_map.random_used(), 0)
                 );
-                new_packet.recipient_id = random_id;
+                new_packet.recipient_id = Some(random_id);
                 swarm.receive_packet(&new_packet);
             }
         }
@@ -375,7 +375,7 @@ impl <M: Message, A: Actor + Recipient<M>> RecipientAsSwarm<CreateWith<A, M>> fo
         CreateWith(ref initial_state, ref initial_message) => {
             let id = swarm.add(initial_state);
             let initial_packet = Packet{
-                recipient_id: id,
+                recipient_id: Some(id),
                 message: (*initial_message).clone()
             };
             swarm.receive_instance(&initial_packet);

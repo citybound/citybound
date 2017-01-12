@@ -5,7 +5,7 @@ use super::Destination;
 
 #[derive(Actor, Compact, Clone)]
 struct Trip{
-    _id: ID,
+    _id: Option<ID>,
     source: ID, 
     rough_destination: ID,
     destination: Option<Destination>
@@ -85,7 +85,7 @@ impl Recipient<AddLaneForTrip> for TripCreator {
         AddLaneForTrip(lane_id) => {
             if let Some(source) = self.current_source_lane {
                 Swarm::<Trip>::all() << CreateWith(Trip{
-                    _id: ID::invalid(),
+                    _id: None,
                     source: source,
                     rough_destination: lane_id,
                     destination: None

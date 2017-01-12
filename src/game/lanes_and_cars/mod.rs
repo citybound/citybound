@@ -14,7 +14,7 @@ use ::std::ops::{Deref, DerefMut};
 
 #[derive(Compact, Actor, Clone)]
 pub struct Lane {
-    _id: ID,
+    _id: Option<ID>,
     length: f32,
     path: CPath,
     interactions: CVec<Interaction>,
@@ -36,7 +36,7 @@ pub struct Lane {
 impl Lane {
     pub fn new(path: CPath, on_intersection: bool, timings: CVec<bool>) -> Self {
         Lane {
-            _id: ID::invalid(),
+            _id: None,
             length: path.length(),
             last_spawn_position: path.length()/2.0,
             path: path,
@@ -59,7 +59,7 @@ impl Lane {
 
 #[derive(Compact, Actor, Clone)]
 pub struct TransferLane {
-    _id: ID,
+    _id: Option<ID>,
     length: f32,
     path: CPath,
     left: Option<(ID, f32)>,
@@ -77,7 +77,7 @@ pub struct TransferLane {
 impl TransferLane {
     fn new(path: CPath) -> TransferLane {
         TransferLane{
-            _id: ID::invalid(),
+            _id: None,
             length: path.length(),
             path: path,
             left: None,

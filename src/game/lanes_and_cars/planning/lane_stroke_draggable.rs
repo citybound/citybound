@@ -6,7 +6,7 @@ use super::{SelectableStrokeRef, CurrentPlan};
 
 #[derive(Actor, Compact, Clone)]
 pub struct LaneStrokeDraggable{
-    _id: ID,
+    _id: Option<ID>,
     stroke_ref: SelectableStrokeRef,
     path: CPath
 }
@@ -14,7 +14,7 @@ pub struct LaneStrokeDraggable{
 impl LaneStrokeDraggable{
     pub fn new(stroke_ref: SelectableStrokeRef, path: CPath) -> Self {
         LaneStrokeDraggable{
-            _id: ID::invalid(),
+            _id: None,
             stroke_ref: stroke_ref,
             path: path
         }

@@ -13,7 +13,7 @@ pub struct TypeRegistry {
 impl TypeRegistry {
     pub fn new() -> TypeRegistry {
         TypeRegistry{
-            next_short_id: 0,
+            next_short_id: 1, // Non nullable optimization
             long_to_short_ids: HashMap::new(),
             short_ids_to_names: HashMap::new()
         }

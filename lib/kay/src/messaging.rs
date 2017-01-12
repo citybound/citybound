@@ -42,7 +42,7 @@ pub trait Individual : 'static {
 
 #[derive(Clone)]
 pub struct Packet<M: Message> {
-    pub recipient_id: ID,
+    pub recipient_id: Option<ID>,
     pub message: M
 }
 
