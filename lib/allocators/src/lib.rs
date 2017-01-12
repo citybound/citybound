@@ -1,3 +1,5 @@
+#![feature(plugin)]
+#![plugin(clippy)]
 use std::mem;
 
 /// Something that can allocate memory

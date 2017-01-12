@@ -1,5 +1,6 @@
 use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Norm, Path, Dot, RoughlyComparable};
-use kay::{Actor, CVec, Individual, Recipient, RecipientAsSwarm, ActorSystem, Swarm, Fate};
+use compact::CVec;
+use kay::{Actor, Individual, Recipient, RecipientAsSwarm, ActorSystem, Swarm, Fate};
 use monet::{Instance, Thing, Vertex, UpdateThing};
 use core::geometry::{band_to_thing, dash_path};
 use super::{Lane, TransferLane, InteractionKind};

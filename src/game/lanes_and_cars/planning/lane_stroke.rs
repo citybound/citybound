@@ -1,5 +1,6 @@
 use descartes::{P2, V2, Path, Segment, Band, Curve, FiniteCurve, N, RoughlyComparable};
-use kay::{ID, CVec, Swarm, CreateWith};
+use compact::CVec;
+use kay::{ID, Swarm, CreateWith};
 use monet::Thing;
 use core::geometry::{CPath, band_to_thing};
 use super::materialized_reality::BuildableRef;

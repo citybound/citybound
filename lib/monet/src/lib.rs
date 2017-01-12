@@ -6,8 +6,9 @@ extern crate descartes;
 #[macro_use]
 pub extern crate glium;
 extern crate kay;
+extern crate compact;
 #[macro_use]
-extern crate kay_macros;
+extern crate compact_macros;
 extern crate rusttype;
 extern crate fnv;
 extern crate unicode_normalization;

@@ -25,6 +25,9 @@ pub const APP_INFO: AppInfo = AppInfo {
     author: "ae_play",
 };
 
+extern crate compact;
+#[macro_use]
+extern crate compact_macros;
 extern crate kay;
 #[macro_use]
 extern crate kay_macros;
