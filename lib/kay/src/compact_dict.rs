@@ -41,9 +41,22 @@ impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
         None
     }
 
-    /// Lookup the item in the dict, but also swaps the item with the first element so lookup for
-    /// that item will be faster
+    /// Lookup the item in the dict, but also swaps the item with the first element
+    /// so a repeated lookup for that item will be faster
     pub fn get_mru(&mut self, query: K) -> Option<&V> {
+        for i in 0..self.keys.len() {
+            if self.keys[i] == query {
+                self.keys.swap(0, i);
+                self.values.swap(0, i);
+                return Some(&self.values[0]);
+            }
+        }
+        None
+    }
+
+    /// Lookup the item in the dict, but also swaps the item with the previous item
+    /// so it makes its way to the beginning of the vec upon repeated lookup
+    pub fn get_mfu(&mut self, query: K) -> Option<&V> {
         for i in 0..self.keys.len() {
             if self.keys[i] == query {
                 if i > 0 {
