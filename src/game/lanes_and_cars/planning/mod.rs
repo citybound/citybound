@@ -4,6 +4,7 @@ use compact::{CVec, CDict};
 use kay::{Recipient, Swarm, ActorSystem, Individual, Fate, CreateWith};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
+use ::core::settings::Settings;
 
 // TODO: Clean up this whole mess with more submodules
 
@@ -1298,7 +1299,7 @@ struct ClearDraggables;
 #[derive(Copy, Clone)]
 struct ClearAddables;
 
-pub fn setup(system: &mut ActorSystem) {
+pub fn setup(system: &mut ActorSystem, settings: &mut Settings) {
     system.add_individual(CurrentPlan::default());
     system.add_inbox::<Commit, CurrentPlan>();
     system.add_inbox::<Undo, CurrentPlan>();
@@ -1316,7 +1317,7 @@ pub fn setup(system: &mut ActorSystem) {
     system.add_inbox::<ToggleBothSides, CurrentPlan>();
     system.add_inbox::<SimulationResult, CurrentPlan>();
     self::materialized_reality::setup(system);
-    self::lane_stroke_canvas::setup(system);
+    self::lane_stroke_canvas::setup(system, settings);
     self::lane_stroke_selectable::setup(system);
     self::lane_stroke_draggable::setup(system);
     self::lane_stroke_addable::setup(system);
