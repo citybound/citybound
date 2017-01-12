@@ -13,7 +13,7 @@ pub static mut THE_SYSTEM: *mut ActorSystem = 0 as *mut ActorSystem;
 pub struct ID {
     /// The sequentially numbered type ID of the actor within the actor system
     pub type_id: NonZero<u16>,
-    /// The "generation" of the actor, to help debugging as instance_IDs can be reused
+    /// The "generation" of the ID, to help debugging as instance_IDs can be reused
     pub version: u8,
     /// The instance of the type used to address a specific actor
     /// Is broadcast if equal to `u32::max_value()`
@@ -49,12 +49,6 @@ impl ID {
     /// Checks if ID is a swarm ID
     pub fn is_swarm(&self) -> bool {
         self.instance_id == u32::max_value() - 1
-    }
-}
-
-impl Default for ID {
-    fn default() -> Self {
-        ID{type_id: unsafe{NonZero::new(0)}, version: 0, instance_id: 0} //equal to None
     }
 }
 
