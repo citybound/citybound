@@ -15,9 +15,7 @@ pub struct FontBank {
 
 impl FontBank {
     pub fn new(dpi_factor: f32) -> FontBank {
-        FontBank {
-            dpi_factor: dpi_factor,
-        }
+        FontBank { dpi_factor: dpi_factor }
     }
 
     pub fn font(&self, font: Font) -> FontDescription {

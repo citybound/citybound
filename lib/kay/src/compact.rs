@@ -1,7 +1,7 @@
 use std::mem;
 use std::mem::transmute;
 
-pub trait Compact : Sized + Clone {
+pub trait Compact: Sized + Clone {
     /// Is the object's dynamic part compact
     fn is_still_compact(&self) -> bool;
 
@@ -35,8 +35,12 @@ pub trait Compact : Sized + Clone {
 
 /// Default implementation for sized types
 impl<T: Copy> Compact for T {
-    fn is_still_compact(&self) -> bool {true}
-    fn dynamic_size_bytes(&self) -> usize {0}
+    fn is_still_compact(&self) -> bool {
+        true
+    }
+    fn dynamic_size_bytes(&self) -> usize {
+        0
+    }
     unsafe fn compact_from(&mut self, source: &Self, _new_dynamic_part: *mut u8) {
         *self = *source;
     }

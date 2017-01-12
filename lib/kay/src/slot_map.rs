@@ -6,7 +6,7 @@ pub struct SlotIndices {
     /// Index of sized collection that contains the item
     collection: u8,
     /// The slot within those chunks holding the data
-    slot: u32
+    slot: u32,
 }
 
 impl SlotIndices {
@@ -14,7 +14,7 @@ impl SlotIndices {
     pub fn new(collection: usize, slot: usize) -> SlotIndices {
         SlotIndices {
             collection: collection as u8,
-            slot: slot as u32
+            slot: slot as u32,
         }
     }
 
@@ -22,7 +22,7 @@ impl SlotIndices {
     pub fn invalid() -> SlotIndices {
         SlotIndices {
             collection: u8::max_value(),
-            slot: u32::max_value()
+            slot: u32::max_value(),
         }
     }
 
@@ -38,7 +38,7 @@ impl SlotIndices {
 /// Allows the lockup of the indices by an actor's ID
 pub struct SlotMap {
     entries: ChunkedVec<SlotIndices>,
-    free_ids_with_versions: ChunkedVec<(usize, usize)>
+    free_ids_with_versions: ChunkedVec<(usize, usize)>,
 }
 
 use random::Source;
@@ -48,7 +48,7 @@ impl SlotMap {
     pub fn new(chunker: Box<Chunker>) -> Self {
         SlotMap {
             entries: ChunkedVec::new(chunker.child("_entries")),
-            free_ids_with_versions: ChunkedVec::new(chunker.child("_free_ids_with_versions"))
+            free_ids_with_versions: ChunkedVec::new(chunker.child("_free_ids_with_versions")),
         }
     }
 
@@ -58,8 +58,8 @@ impl SlotMap {
             None => {
                 self.entries.push(SlotIndices::invalid());
                 (self.entries.len() - 1, 0)
-            },
-            Some(free_id) => free_id
+            }
+            Some(free_id) => free_id,
         }
     }
 
@@ -93,7 +93,9 @@ impl SlotMap {
                     is_free = true
                 }
             }
-            if !is_free {return random_id}
+            if !is_free {
+                return random_id;
+            }
         }
     }
 }

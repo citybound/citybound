@@ -65,14 +65,11 @@ pub trait RelativeToBasis {
 
 impl RelativeToBasis for V2 {
     fn to_basis(self, basis_x: V2) -> V2 {
-        V2::new(
-            basis_x.dot(&self),
-            basis_x.orthogonal().dot(&self)
-        )
+        V2::new(basis_x.dot(&self), basis_x.orthogonal().dot(&self))
     }
 
     fn from_basis(self, basis_x: V2) -> V2 {
-        self.x * basis_x +self.y * basis_x.orthogonal()
+        self.x * basis_x + self.y * basis_x.orthogonal()
     }
 }
 
@@ -114,7 +111,7 @@ impl Into3d for P2 {
     }
 }
 
-pub trait RoughlyComparable : Sized {
+pub trait RoughlyComparable: Sized {
     fn is_roughly(&self, other: Self) -> bool {
         self.is_roughly_within(other, ROUGH_TOLERANCE)
     }
@@ -139,20 +136,22 @@ impl RoughlyComparable for V2 {
     }
 }
 
-pub trait Curve : Sized {
+pub trait Curve: Sized {
     fn project_with_max_distance(&self, point: P2, max_distance: N) -> Option<N> {
-        self.project(point).and_then(|offset|
-            if self.distance_to(point) < max_distance {Some(offset)} else {None}
-        )
+        self.project(point).and_then(|offset| if self.distance_to(point) < max_distance {
+            Some(offset)
+        } else {
+            None
+        })
     }
     fn project(&self, point: P2) -> Option<N>;
     fn includes(&self, point: P2) -> bool {
-        self.distance_to(point) < THICKNESS/2.0
+        self.distance_to(point) < THICKNESS / 2.0
     }
     fn distance_to(&self, point: P2) -> N;
 }
 
-pub trait FiniteCurve : Curve {
+pub trait FiniteCurve: Curve {
     fn length(&self) -> N;
     fn along(&self, distance: N) -> P2;
     fn direction_along(&self, distance: N) -> V2;
@@ -176,44 +175,41 @@ pub trait Shape {
 #[derive(Copy, Clone)]
 pub struct BoundingBox {
     pub min: P2,
-    pub max: P2
+    pub max: P2,
 }
 
-impl BoundingBox{
+impl BoundingBox {
     pub fn infinite() -> Self {
-        BoundingBox{
+        BoundingBox {
             min: P2::new(std::f32::INFINITY, std::f32::INFINITY),
             max: P2::new(std::f32::INFINITY, std::f32::INFINITY),
         }
     }
 
     pub fn overlaps(&self, other: &BoundingBox) -> bool {
-        self.max.x >= other.min.x && other.max.x >= self.min.x
-        && self.max.y >= other.min.y && other.max.y >= self.min.y
+        self.max.x >= other.min.x && other.max.x >= self.min.x && self.max.y >= other.min.y &&
+        other.max.y >= self.min.y
     }
 
     pub fn point(p: P2) -> Self {
-        BoundingBox{min: p, max: p}
+        BoundingBox { min: p, max: p }
     }
 
     pub fn grown_by(&self, offset: N) -> Self {
-        BoundingBox{min: self.min - V2::new(offset, offset), max: self.max + V2::new(offset, offset)}
+        BoundingBox {
+            min: self.min - V2::new(offset, offset),
+            max: self.max + V2::new(offset, offset),
+        }
     }
 }
 
 impl ::std::iter::Sum<BoundingBox> for BoundingBox {
-    fn sum<I: IntoIterator<Item=BoundingBox>>(iter: I) -> Self {
+    fn sum<I: IntoIterator<Item = BoundingBox>>(iter: I) -> Self {
         let mut bb = BoundingBox::infinite();
 
         for other_bb in iter {
-            bb.min = P2::new(
-                bb.min.x.min(other_bb.min.x),
-                bb.min.y.min(other_bb.min.y),
-            );
-            bb.max = P2::new(
-                bb.max.x.max(other_bb.max.x),
-                bb.max.y.max(other_bb.max.y),
-            );
+            bb.min = P2::new(bb.min.x.min(other_bb.min.x), bb.min.y.min(other_bb.min.y));
+            bb.max = P2::new(bb.max.x.max(other_bb.max.x), bb.max.y.max(other_bb.max.y));
         }
 
         bb

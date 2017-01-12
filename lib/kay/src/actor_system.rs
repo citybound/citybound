@@ -18,22 +18,34 @@ pub struct ID {
     /// The instance of the type used to address a specific actor
     /// Is broadcast if equal to `u32::max_value()`
     /// Is swarm if equal to `u32::max_value() -1`
-    pub instance_id: u32
+    pub instance_id: u32,
 }
 
 impl ID {
     pub fn individual(individual_type_id: usize) -> ID {
-        ID {type_id: unsafe {NonZero::new(individual_type_id as u16)}, version: 0, instance_id: 0}
+        ID {
+            type_id: unsafe { NonZero::new(individual_type_id as u16) },
+            version: 0,
+            instance_id: 0,
+        }
     }
 
     /// Construct a broadcast ID to the type
     pub fn broadcast(type_id: usize) -> ID {
-        ID {type_id: unsafe {NonZero::new(type_id as u16)}, version: 0, instance_id: u32::max_value()}
+        ID {
+            type_id: unsafe { NonZero::new(type_id as u16) },
+            version: 0,
+            instance_id: u32::max_value(),
+        }
     }
 
     /// Construct an ID which points to an actor instance in a swarm
     pub fn instance(type_id: usize, instance_id_and_version: (usize, usize)) -> ID {
-        ID {type_id: unsafe {NonZero::new(type_id as u16)}, version: instance_id_and_version.1 as u8, instance_id: instance_id_and_version.0 as u32}
+        ID {
+            type_id: unsafe { NonZero::new(type_id as u16) },
+            version: instance_id_and_version.1 as u8,
+            instance_id: instance_id_and_version.0 as u32,
+        }
     }
 
     /// Checks if ID is a broadcast ID
@@ -43,7 +55,11 @@ impl ID {
 
     /// Created swarm ID with type ID specified
     pub fn swarm(type_id: usize) -> ID {
-        ID {type_id: unsafe {NonZero::new(type_id as u16)}, version: 0, instance_id: u32::max_value() - 1}
+        ID {
+            type_id: unsafe { NonZero::new(type_id as u16) },
+            version: 0,
+            instance_id: u32::max_value() - 1,
+        }
     }
 
     /// Checks if ID is a swarm ID
@@ -54,7 +70,11 @@ impl ID {
 
 impl ::std::fmt::Debug for ID {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "ID {}_{}_{}", *(self.type_id), self.version, self.instance_id)
+        write!(f,
+               "ID {}_{}_{}",
+               *(self.type_id),
+               self.version,
+               self.instance_id)
     }
 }
 
@@ -63,11 +83,13 @@ impl<M: Message> ::std::ops::Shl<M> for ID {
     /// The shift left operator is overloaded to use to send messages
     /// e.g. recipient_ID << message
     fn shl(self, rhs: M) {
-        unsafe {(*THE_SYSTEM).send(self, rhs);}
+        unsafe {
+            (*THE_SYSTEM).send(self, rhs);
+        }
     }
 }
 
-const MAX_RECIPIENT_TYPES : usize = 64;
+const MAX_RECIPIENT_TYPES: usize = 64;
 const MAX_MESSAGE_TYPES_PER_RECIPIENT: usize = 32;
 
 #[derive(Clone)]
@@ -75,20 +97,24 @@ struct InboxMap {
     /// Amount of valid entries in the InboxMap
     length: usize,
     /// Entry consists of TypeID of Message type and pointer to inbox
-    entries: [Option<(u64, *mut u8)>; MAX_MESSAGE_TYPES_PER_RECIPIENT]
+    entries: [Option<(u64, *mut u8)>; MAX_MESSAGE_TYPES_PER_RECIPIENT],
 }
 
 impl InboxMap {
     /// Creates an empty InboxMap
     fn new() -> InboxMap {
-        InboxMap{length: 0, entries: [None; MAX_MESSAGE_TYPES_PER_RECIPIENT]}
+        InboxMap {
+            length: 0,
+            entries: [None; MAX_MESSAGE_TYPES_PER_RECIPIENT],
+        }
     }
 
     /// Adds new message type to the InboxMap
     fn add_new<M: Message>(&mut self, pointer: *mut Inbox<M>) {
-        let message_type_id = unsafe{type_id::<M>()};
+        let message_type_id = unsafe { type_id::<M>() };
         let entry_is_for_id = |entry: &&Option<(u64, *mut u8)>| {
-            entry.is_some() && entry.unwrap().0 == message_type_id
+            entry.map(|e| e.0 == message_type_id)
+                .unwrap_or(false)
         };
         assert!(self.entries.iter().find(entry_is_for_id).is_none());
         self.entries[self.length] = Some((message_type_id, pointer as *mut u8));
@@ -97,10 +123,14 @@ impl InboxMap {
 
     /// Gets the inbox pointer of the type specified if there is one
     fn get<M: Message>(&self) -> Option<*mut Inbox<M>> {
-        let message_type_id = unsafe{type_id::<M>()};
-        for entry in &self.entries {if let Some((id, pointer)) = *entry {
-            if id == message_type_id {return Some(pointer as *mut Inbox<M>)}
-        }}
+        let message_type_id = unsafe { type_id::<M>() };
+        for entry in &self.entries {
+            if let Some((id, pointer)) = *entry {
+                if id == message_type_id {
+                    return Some(pointer as *mut Inbox<M>);
+                }
+            }
+        }
         None
     }
 }
@@ -131,17 +161,18 @@ macro_rules! make_array {
 impl ActorSystem {
     pub fn new() -> ActorSystem {
         ActorSystem {
-            routing: unsafe{make_array!(MAX_RECIPIENT_TYPES, |_| None)},
+            routing: unsafe { make_array!(MAX_RECIPIENT_TYPES, |_| None) },
             recipient_registry: TypeRegistry::new(),
             individuals: [None; MAX_RECIPIENT_TYPES],
             update_callbacks: Vec::new(),
-            clear_callbacks: Vec::new()
+            clear_callbacks: Vec::new(),
         }
     }
 
     /// Registers a type for use as an actor in the actor system
     pub fn add_individual<I: Individual>(&mut self, individual: I) {
-        // Register type in recipient_registry, and return the short ID of the type (sequential ID starting from 0)
+        // Register type in recipient_registry, and return the short ID
+        // of the type (sequential ID starting from 0)
         let recipient_id = self.recipient_registry.register_new::<I>();
 
         assert!(self.routing[recipient_id].is_none());
@@ -153,16 +184,16 @@ impl ActorSystem {
     }
 
     /// Add a inbox for a given message type to a individual
-    pub fn add_inbox<M: Message, I: Individual + Recipient<M>> (&mut self) {
+    pub fn add_inbox<M: Message, I: Individual + Recipient<M>>(&mut self) {
         self.add_inbox_helper::<M, I>(true);
     }
 
     /// Add an unclearable inbox for a given message type to a individual
-    pub fn add_unclearable_inbox<M: Message, I: Individual + Recipient<M>> (&mut self) {
+    pub fn add_unclearable_inbox<M: Message, I: Individual + Recipient<M>>(&mut self) {
         self.add_inbox_helper::<M, I>(false);
     }
 
-    fn add_inbox_helper<M: Message, I: Individual + Recipient<M>> (&mut self, clearable: bool) {
+    fn add_inbox_helper<M: Message, I: Individual + Recipient<M>>(&mut self, clearable: bool) {
         let inbox = Inbox::<M>::new();
 
         // Gets short ID of individual
@@ -200,11 +231,15 @@ impl ActorSystem {
     }
 
     pub fn instance_id<A: Actor>(&mut self, instance_id_and_version: (usize, usize)) -> ID {
-        ID::instance(self.recipient_registry.get::<Swarm<A>>(), instance_id_and_version)
+        ID::instance(self.recipient_registry.get::<Swarm<A>>(),
+                     instance_id_and_version)
     }
 
     /// Store the inbox pointer of a given type into the routing array
-    fn store_inbox<M: Message>(&mut self, inbox: Inbox<M>, recipient_type_id: usize) -> *mut Inbox<M> {
+    fn store_inbox<M: Message>(&mut self,
+                               inbox: Inbox<M>,
+                               recipient_type_id: usize)
+                               -> *mut Inbox<M> {
         let inbox_ptr = Box::into_raw(Box::new(inbox));
         // TODO: deallocate inbox at the end of times
         self.routing[recipient_type_id].as_mut().unwrap().add_new(inbox_ptr);
@@ -213,22 +248,27 @@ impl ActorSystem {
 
     /// Get the inbox pointer of a given type from the routing array
     pub fn inbox_for<M: Message>(&mut self, packet: &Packet<M>) -> &mut Inbox<M> {
-        if let Some(inbox_ptr) = self.routing[*(packet.recipient_id.expect("Recipient ID not set").type_id) as usize].as_ref()
+        if let Some(inbox_ptr) = self.routing[*(packet.recipient_id
+                .expect("Recipient ID not set")
+                .type_id) as usize]
+            .as_ref()
             .expect("Recipient not found")
             .get::<M>() {
-                unsafe{&mut *inbox_ptr}
+            unsafe { &mut *inbox_ptr }
         } else {
             panic!("Inbox for {} not found for {}",
-                unsafe{type_name::<M>()},
-                self.recipient_registry.get_name(*(packet.recipient_id.expect("Recipient ID not set").type_id) as usize))
+                   unsafe { type_name::<M>() },
+                   self.recipient_registry.get_name(*(packet.recipient_id
+                       .expect("Recipient ID not set")
+                       .type_id) as usize))
         }
     }
 
     /// Places message into the inbox of a given type
     fn send<M: Message>(&mut self, recipient: ID, message: M) {
-        let packet = Packet{
+        let packet = Packet {
             recipient_id: Some(recipient),
-            message: message
+            message: message,
         };
         self.inbox_for(&packet).put(packet);
     }

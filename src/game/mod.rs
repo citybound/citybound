@@ -1,4 +1,4 @@
-use kay::{ActorSystem};
+use kay::ActorSystem;
 
 pub mod lanes_and_cars;
 

@@ -9,7 +9,7 @@ use ::std::iter::FromIterator;
 /// A vector which can be compacted. Will usually contain the data in the dynamic part of the
 /// compacted data structure, but if the size will overflow the dynamic part, it is moved to the
 /// heap instead
-pub struct CompactVec <T, A: Allocator = DefaultHeap> {
+pub struct CompactVec<T, A: Allocator = DefaultHeap> {
     /// Either a null pointer, an offset to the dynamic part of the data or a pointer to an array
     /// in the heap
     ptr: PointerToMaybeCompact<T>,
@@ -17,7 +17,7 @@ pub struct CompactVec <T, A: Allocator = DefaultHeap> {
     len: usize,
     /// Maximum length before needing to expand the heap
     cap: usize,
-    _alloc: PhantomData<*const A>
+    _alloc: PhantomData<*const A>,
 }
 
 impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
@@ -37,7 +37,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
             ptr: PointerToMaybeCompact::default(),
             len: 0,
             cap: 0,
-            _alloc: PhantomData
+            _alloc: PhantomData,
         }
     }
 
@@ -47,7 +47,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
             ptr: PointerToMaybeCompact::default(),
             len: 0,
             cap: cap,
-            _alloc: PhantomData
+            _alloc: PhantomData,
         };
 
         vec.ptr.set_to_free(A::allocate::<T>(cap));
@@ -56,18 +56,20 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
 
     /// Double the cap by allocating from the heap
     fn double_buf(&mut self) {
-        let new_cap = if self.cap == 0 {1} else {self.cap * 2};
+        let new_cap = if self.cap == 0 { 1 } else { self.cap * 2 };
         let new_ptr = A::allocate::<T>(new_cap);
 
         // items should be decompacted, else internal relative pointers get messed up!
         #[allow(needless_range_loop)]
         for i in 0..self.len() {
-            unsafe {ptr::write(new_ptr.offset(i as isize), self[i].decompact())};
+            unsafe { ptr::write(new_ptr.offset(i as isize), self[i].decompact()) };
         }
 
         // items shouldn't be dropped here, they live on in the new backing store!
         if !self.ptr.is_compact() {
-            unsafe {A::deallocate(self.ptr.mut_ptr(), self.cap);}
+            unsafe {
+                A::deallocate(self.ptr.mut_ptr(), self.cap);
+            }
         }
         self.ptr.set_to_free(new_ptr);
         self.cap = new_cap;
@@ -112,7 +114,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
                 for i in (0..self.len - index).rev() {
                     ptr::write(ptr.offset((i + 1) as isize), self[index + i].decompact());
                 }
-                //ptr::copy(p, p.offset(1), self.len - index);
+                // ptr::copy(p, p.offset(1), self.len - index);
                 ptr::write(ptr, value);
             }
             self.len += 1;
@@ -139,7 +141,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
                 for i in 0..len - index - 1 {
                     ptr::write(ptr.offset(i as isize), self[index + i + 1].decompact())
                 }
-                //ptr::copy(ptr.offset(1), ptr, len - index - 1);
+                // ptr::copy(ptr.offset(1), ptr, len - index - 1);
             }
             self.len -= 1;
             ret
@@ -195,11 +197,11 @@ impl<T, A: Allocator> From<Vec<T>> for CompactVec<T, A> {
 
         ::std::mem::forget(vec);
 
-        CompactVec{
+        CompactVec {
             ptr: PointerToMaybeCompact::new_free(p),
             len: len,
             cap: cap,
-            _alloc: PhantomData 
+            _alloc: PhantomData,
         }
     }
 }
@@ -207,9 +209,11 @@ impl<T, A: Allocator> From<Vec<T>> for CompactVec<T, A> {
 impl<T, A: Allocator> Drop for CompactVec<T, A> {
     /// Deallocate memory and drop elements when dropped
     fn drop(&mut self) {
-        unsafe {ptr::drop_in_place(&mut self[..])};
+        unsafe { ptr::drop_in_place(&mut self[..]) };
         if !self.ptr.is_compact() {
-            unsafe {A::deallocate(self.ptr.mut_ptr(), self.cap);}
+            unsafe {
+                A::deallocate(self.ptr.mut_ptr(), self.cap);
+            }
         }
     }
 }
@@ -218,17 +222,13 @@ impl<T, A: Allocator> Deref for CompactVec<T, A> {
     type Target = [T];
 
     fn deref(&self) -> &[T] {
-        unsafe {
-            ::std::slice::from_raw_parts(self.ptr.ptr(), self.len)
-        }
+        unsafe { ::std::slice::from_raw_parts(self.ptr.ptr(), self.len) }
     }
 }
 
 impl<T, A: Allocator> DerefMut for CompactVec<T, A> {
     fn deref_mut(&mut self) -> &mut [T] {
-        unsafe {
-            ::std::slice::from_raw_parts_mut(self.ptr.mut_ptr(), self.len)
-        }
+        unsafe { ::std::slice::from_raw_parts_mut(self.ptr.mut_ptr(), self.len) }
     }
 }
 
@@ -237,29 +237,36 @@ pub struct IntoIter<T, A: Allocator> {
     len: usize,
     cap: usize,
     index: usize,
-    _alloc: PhantomData<*const A>
+    _alloc: PhantomData<*const A>,
 }
 
-impl<T, A: Allocator> Iterator for IntoIter<T, A>{
-    type Item=T;
+impl<T, A: Allocator> Iterator for IntoIter<T, A> {
+    type Item = T;
 
     fn next(&mut self) -> Option<T> {
         if self.index < self.len {
-            let item = unsafe{ptr::read(self.ptr.ptr().offset(self.index as isize))};
+            let item = unsafe { ptr::read(self.ptr.ptr().offset(self.index as isize)) };
             self.index += 1;
             Some(item)
-        } else {None}
+        } else {
+            None
+        }
     }
 }
 
 impl<T, A: Allocator> Drop for IntoIter<T, A> {
     fn drop(&mut self) {
         // drop all remaining elements
-        unsafe {ptr::drop_in_place(&mut ::std::slice::from_raw_parts(
-            self.ptr.ptr().offset(self.index as isize), self.len
-        ))};
+        unsafe {
+            ptr::drop_in_place(&mut ::std::slice::from_raw_parts(self.ptr
+                                                                     .ptr()
+                                                                     .offset(self.index as isize),
+                                                                 self.len))
+        };
         if !self.ptr.is_compact() {
-            unsafe {A::deallocate(self.ptr.mut_ptr(), self.cap);}
+            unsafe {
+                A::deallocate(self.ptr.mut_ptr(), self.cap);
+            }
         }
     }
 }
@@ -267,14 +274,14 @@ impl<T, A: Allocator> Drop for IntoIter<T, A> {
 impl<T, A: Allocator> IntoIterator for CompactVec<T, A> {
     type Item = T;
     type IntoIter = IntoIter<T, A>;
-    
+
     fn into_iter(self) -> Self::IntoIter {
-        let iter = IntoIter{
-            ptr: unsafe{ptr::read(&self.ptr)},
+        let iter = IntoIter {
+            ptr: unsafe { ptr::read(&self.ptr) },
             len: self.len,
             cap: self.cap,
             index: 0,
-            _alloc: PhantomData
+            _alloc: PhantomData,
         };
         ::std::mem::forget(self);
         iter
@@ -285,14 +292,18 @@ impl<'a, T, A: Allocator> IntoIterator for &'a CompactVec<T, A> {
     type Item = &'a T;
     type IntoIter = ::std::slice::Iter<'a, T>;
 
-    fn into_iter(self) -> Self::IntoIter {self.iter()}
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
 }
 
 impl<'a, T, A: Allocator> IntoIterator for &'a mut CompactVec<T, A> {
     type Item = &'a mut T;
     type IntoIter = ::std::slice::IterMut<'a, T>;
 
-    fn into_iter(self) -> Self::IntoIter {self.iter_mut()}
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
 }
 
 impl<T: Compact + Clone, A: Allocator> Compact for CompactVec<T, A> {
@@ -301,14 +312,15 @@ impl<T: Compact + Clone, A: Allocator> Compact for CompactVec<T, A> {
     }
 
     default fn dynamic_size_bytes(&self) -> usize {
-        self.cap * ::std::mem::size_of::<T>() + self.iter().map(|elem| elem.dynamic_size_bytes()).sum::<usize>()
+        self.cap * ::std::mem::size_of::<T>() +
+        self.iter().map(|elem| elem.dynamic_size_bytes()).sum::<usize>()
     }
 
     default unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
         self.cap = source.cap;
         self.len = source.len;
         self.ptr.set_to_compact(new_dynamic_part as *mut T);
-        
+
         let mut offset = self.cap * ::std::mem::size_of::<T>();
         for i in 0..self.len {
             self[i].compact_from(&source[i], new_dynamic_part.offset(offset as isize));
@@ -320,11 +332,11 @@ impl<T: Compact + Clone, A: Allocator> Compact for CompactVec<T, A> {
         if self.ptr.is_compact() {
             self.clone()
         } else {
-            CompactVec{
+            CompactVec {
                 ptr: ptr::read(&self.ptr as *const PointerToMaybeCompact<T>),
                 len: self.len,
                 cap: self.cap,
-                _alloc: self._alloc
+                _alloc: self._alloc,
             }
             // caller has to make sure that self will not be dropped!
         }
@@ -366,7 +378,7 @@ impl<T: Copy, A: Allocator> Clone for CompactVec<T, A> {
 }
 
 impl<T: Compact + Clone, A: Allocator> FromIterator<T> for CompactVec<T, A> {
-    fn from_iter<I: IntoIterator<Item=T>>(iter: I) -> Self {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let into_iter = iter.into_iter();
         let mut vec = CompactVec::with_capacity(into_iter.size_hint().0);
         for item in into_iter {
@@ -377,7 +389,7 @@ impl<T: Compact + Clone, A: Allocator> FromIterator<T> for CompactVec<T, A> {
 }
 
 impl<T: Compact + Clone, A: Allocator> Extend<T> for CompactVec<T, A> {
-    fn extend<I: IntoIterator<Item=T>>(&mut self, iter: I) {
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for item in iter {
             self.push(item);
         }
