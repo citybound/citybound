@@ -11,8 +11,7 @@ pub struct LaneStrokeCanvas;
 
 impl LaneStrokeCanvas {
     fn new() -> LaneStrokeCanvas {
-        LaneStrokeCanvas {
-        }
+        ()
     }
 }
 
@@ -22,29 +21,24 @@ use core::ui::Event3d;
 use super::{Commit, Undo, Redo, WithLatestNode, Materialize, CreateGrid, DeleteSelection,
             SetSelectionMode, SetNLanes, ToggleBothSides};
 
-impl Recipient<Event3d> for LaneStrokeCanvas {
-    fn receive(&mut self, msg: &Event3d) -> Fate {
-        match *msg {
-            Event3d::HoverStarted{at} | Event3d::HoverOngoing{at} => {
-                CurrentPlan::id() << WithLatestNode(at.into_2d(), true);
-            },
-            Event3d::DragStarted{at} => {
-                CurrentPlan::id() << WithLatestNode(at.into_2d(), true);
-                CurrentPlan::id() << Commit(true, at.into_2d());
-            },
-            Event3d::DragFinished{..} => {
-            },
-            _ => ()
-        }
-        Fate::Live
-    }
-
-}
-
 use core::ui::UIInput;
 
 impl Recipient<UIInput> for LaneStrokeCanvas {
     fn receive(&mut self, msg: &UIInput) -> Fate {
+        for event in msg.mouse_actions.into_iter(){
+            match *event {
+                Event3d::HoverStarted{at} | Event3d::HoverOngoing{at} => {
+                    CurrentPlan::id() << WithLatestNode(at.into_2d(), true);
+                },
+                Event3d::DragStarted{at} => {
+                    CurrentPlan::id() << WithLatestNode(at.into_2d(), true);
+                    CurrentPlan::id() << Commit(true, at.into_2d());
+                },
+                Event3d::DragFinished{..} => {
+                },
+                _ => ()
+            }
+        }
         for name in msg.button_events.into_iter(){
             if name == "Undo"{
                 CurrentPlan::id() << Undo;
