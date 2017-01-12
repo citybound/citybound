@@ -22,12 +22,12 @@ impl LaneStrokeSelectable{
 }
 
 use super::AddToUI;
-use ::core::ui::Add;
+use ::core::ui::AddInteractable;
 
 impl Recipient<AddToUI> for LaneStrokeSelectable {
     fn receive(&mut self, msg: &AddToUI) -> Fate {match *msg{
         AddToUI => {
-            ::core::ui::UserInterface::id() << Add::Interactable3d(
+            ::core::ui::UserInterface::id() << AddInteractable::Interactable3d(
                 self.id(),
                 AnyShape::Band(Band::new(self.path.clone(), 5.0)),
                 1

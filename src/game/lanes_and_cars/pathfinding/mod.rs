@@ -38,13 +38,13 @@ pub struct RoutingInfo{
     fresh: bool
 }
 
-use ::core::ui::Add;
+use ::core::ui::AddInteractable;
 const DEBUG_CARS_ON_LANES : bool  = false;
 
 pub fn on_build(lane: &mut Lane) {
     lane.pathfinding_info.as_destination = None;
     if DEBUG_CARS_ON_LANES {
-        ::core::ui::UserInterface::id() << Add::Interactable3d(lane.id(), AnyShape::Band(Band::new(lane.path.clone(), 3.0)), 5);
+        ::core::ui::UserInterface::id() << AddInteractable::Interactable3d(lane.id(), AnyShape::Band(Band::new(lane.path.clone(), 3.0)), 5);
     }
 }
 

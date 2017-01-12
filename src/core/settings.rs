@@ -1,4 +1,4 @@
-use ::core::ui::KeyOrButton;
+use ::core::ui::{KeyCombination};
 use ::monet::glium::glutin::{MouseButton, VirtualKeyCode};
 use serde_json;
 
@@ -25,44 +25,8 @@ pub struct Settings {
     #[serde(default = "Settings::default_invert_y")]
     pub invert_y: bool,
 
-    #[serde(default = "Settings::default_mouse_main")]
-    pub mouse_main: Vec<KeyOrButton>,
-
-    #[serde(default = "Settings::default_forward_key")]
-    pub forward_key: Vec<KeyOrButton>,
-    #[serde(default = "Settings::default_backward_key")]
-    pub backward_key: Vec<KeyOrButton>,
-    #[serde(default = "Settings::default_left_key")]
-    pub left_key: Vec<KeyOrButton>,
-    #[serde(default = "Settings::default_right_key")]
-    pub right_key: Vec<KeyOrButton>,
-
-    #[serde(default = "Settings::default_pan_modifier")]
-    pub pan_modifier_key: Vec<KeyOrButton>,
-    #[serde(default = "Settings::default_yaw_modifier")]
-    pub yaw_modifier_key: Vec<KeyOrButton>,
-    #[serde(default = "Settings::default_pitch_modifier")]
-    pub pitch_modifier_key: Vec<KeyOrButton>,
-
-    #[serde(default = "Settings::default_undo_key")]
-    pub undo_key: Vec<KeyOrButton>,
-    #[serde(default = "Settings::default_undo_modifier")]
-    pub undo_modifier_key: Vec<KeyOrButton>,
-    #[serde(default = "Settings::default_undo_to_redo_modifier")]
-    pub redo_modifier_key: Vec<KeyOrButton>,
-
-    #[serde(default = "Settings::default_car_spawn_key")]
-    pub car_spawning_key: Vec<KeyOrButton>,
-    #[serde(default = "Settings::default_delete_selection_key")]
-    pub delete_selection_key: Vec<KeyOrButton>,
-
-    #[serde(default = "Settings::default_finalize_key")]
-    pub finalize_key: Vec<KeyOrButton>,
-
-    #[serde(default = "Settings::default_grid_key")]
-    pub grid_key: Vec<KeyOrButton>,
-    #[serde(default = "Settings::default_grid_modifier")]
-    pub grid_modifier_key: Vec<KeyOrButton>,
+    pub key_mappings: Vec<(KeyCombination, &'static str)>,
+    pub mouse_modifier_mappings: Vec<(KeyCombination, &'static str)>,
 }
 
 impl Settings{
@@ -73,27 +37,8 @@ impl Settings{
             move_speed: Settings::default_move_speed(),
             invert_y: Settings::default_invert_y(),
 
-            mouse_main: Settings::default_mouse_main(),
-            forward_key: Settings::default_forward_key(),
-            backward_key: Settings::default_backward_key(),
-            left_key: Settings::default_left_key(),
-            right_key: Settings::default_right_key(),
-
-            pan_modifier_key: Settings::default_pan_modifier(),
-            yaw_modifier_key: Settings::default_yaw_modifier(),
-            pitch_modifier_key: Settings::default_pitch_modifier(),
-
-            undo_key: Settings::default_undo_key(),
-            undo_modifier_key: Settings::default_undo_modifier(),
-            redo_modifier_key: Settings::default_undo_to_redo_modifier(),
-
-            finalize_key: Settings::default_finalize_key(),
-
-            delete_selection_key: Settings::default_delete_selection_key(),
-            car_spawning_key: Settings::default_car_spawn_key(),
-
-            grid_key: Settings::default_grid_key(),
-            grid_modifier_key: Settings::default_grid_modifier(),
+            key_mappings: Vec::new(),
+            mouse_modifier_mappings: Vec::new(),
         }
     }
 
@@ -113,68 +58,12 @@ impl Settings{
         false
     }
 
-    fn default_mouse_main() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Button(MouseButton::Left)]
+    pub fn register_key(&mut self, keys: KeyCombination, name: String){
+        self.key_mappings.push((keys, name))
     }
 
-    fn default_forward_key() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Key(VirtualKeyCode::W), KeyOrButton::Key(VirtualKeyCode::Up)]
-    }
-
-    fn default_backward_key() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Key(VirtualKeyCode::S), KeyOrButton::Key(VirtualKeyCode::Down)]
-    }
-
-    fn default_left_key() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Key(VirtualKeyCode::A), KeyOrButton::Key(VirtualKeyCode::Left)]
-    }
-
-    fn default_right_key() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Key(VirtualKeyCode::D), KeyOrButton::Key(VirtualKeyCode::Right)]
-    }
-
-    fn default_pan_modifier() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Key(VirtualKeyCode::LShift), KeyOrButton::Key(VirtualKeyCode::RShift)]
-    }
-
-    fn default_yaw_modifier() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Button(MouseButton::Middle), KeyOrButton::Key(VirtualKeyCode::LAlt), KeyOrButton::Key(VirtualKeyCode::RAlt)]
-    }
-
-    fn default_pitch_modifier() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Button(MouseButton::Middle), KeyOrButton::Key(VirtualKeyCode::LAlt), KeyOrButton::Key(VirtualKeyCode::RAlt)]
-    }
-
-    fn default_undo_key() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Key(VirtualKeyCode::Z)]
-    }
-
-    fn default_undo_modifier() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Key(VirtualKeyCode::LControl), KeyOrButton::Key(VirtualKeyCode::RControl), KeyOrButton::Key(VirtualKeyCode::LWin), KeyOrButton::Key(VirtualKeyCode::RWin)]
-    }
-
-    fn default_undo_to_redo_modifier() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Key(VirtualKeyCode::LShift), KeyOrButton::Key(VirtualKeyCode::RShift)]
-    }
-
-    fn default_delete_selection_key() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Key(VirtualKeyCode::Escape), KeyOrButton::Key(VirtualKeyCode::Back)]
-    }
-
-    fn default_finalize_key() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Key(VirtualKeyCode::Return)]
-    }
-
-    fn default_car_spawn_key() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Key(VirtualKeyCode::C)]
-    }
-
-    fn default_grid_key() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Key(VirtualKeyCode::G)]
-    }
-
-    fn default_grid_modifier() -> Vec<KeyOrButton>{
-        vec![KeyOrButton::Key(VirtualKeyCode::LShift), KeyOrButton::Key(VirtualKeyCode::RShift)]
+    pub fn register_mouse_modifier(&mut self, keys: KeyCombination, name: String){
+        self.mouse_modifier_mappings.push((keys, name))
     }
 
     pub fn load() -> Settings{
