@@ -5,9 +5,13 @@ use super::messaging::{Actor, Individual, Recipient, Message, Packet, Fate};
 use super::actor_system::{ID};
 use ::std::marker::PhantomData;
 
+/// A collection of many of the same actors, which can have multiple sizes
 pub struct Swarm<Actor> {
+    /// Actor storage
     actors: MultiSized<SizedChunkedArena>,
+    /// Maps the ID of the actor to the chunk size and location where it is stored
     slot_map: SlotMap,
+    /// Number of actors
     n_actors: ValueInChunk<usize>,
     _marker: PhantomData<[Actor]>
 }
@@ -29,19 +33,23 @@ impl<A: Actor> Swarm<A> {
         self.slot_map.allocate_id()
     }
 
+    /// Get the actor at the index
     fn at_index(&self, index: SlotIndices) -> &A {
         unsafe {&*(self.actors.collections[index.collection()].at(index.slot()) as *const A)}
     }
 
+    /// Get the actor at the index mutably
     fn at_index_mut(&mut self, index: SlotIndices) -> &mut A {
         unsafe {&mut *(self.actors.collections[index.collection()].at_mut(index.slot()) as *mut A)}
     }
 
+    /// Get the actor with an ID mutably
     fn at_mut(&mut self, id: usize) -> &mut A {
         let index = *self.slot_map.indices_of(id);
         self.at_index_mut(index)
     }
 
+    /// Add a new actor
     fn add(&mut self, initial_state: &A) -> ID {
         let id = unsafe{(*super::actor_system::THE_SYSTEM).instance_id::<A>(self.allocate_instance_id())};
         self.add_with_id(initial_state, id);
@@ -49,6 +57,7 @@ impl<A: Actor> Swarm<A> {
         id
     }
 
+    /// Add a new actor with a specified ID
     fn add_with_id(&mut self, initial_state: &A, id: ID) {
         let size = initial_state.total_size_bytes();
         let collection_index = self.actors.size_to_index(size);
@@ -65,6 +74,7 @@ impl<A: Actor> Swarm<A> {
         }
     }
 
+    /// A utility function to swap an actor to the end of it's chunk and remove it by its index
     fn swap_remove(&mut self, indices: SlotIndices) -> bool {
         unsafe {
             let collection = &mut self.actors.collections[indices.collection()];
@@ -80,22 +90,26 @@ impl<A: Actor> Swarm<A> {
         }
     }
 
+    /// Remove an actor by ID
     fn remove(&mut self, id: ID) {
         let i = *self.slot_map.indices_of(id.instance_id as usize);
         self.remove_at_index(i, id);
     }
 
+    /// Remove an actor by index and mark the ID as free
     fn remove_at_index(&mut self, i: SlotIndices, id: ID) {
         self.swap_remove(i);
         self.slot_map.free(id.instance_id as usize, id.version as usize);
         *self.n_actors -= 1;
     }
 
+    /// Resize an actor by ID
     fn resize(&mut self, id: usize) -> bool {
         let index = *self.slot_map.indices_of(id);
         self.resize_at_index(index)
     }
 
+    /// Resize an actor by index
     fn resize_at_index(&mut self, old_i: SlotIndices) -> bool {
         let old_actor_ptr = self.at_index(old_i) as *const A;
         let old_actor = unsafe{&*old_actor_ptr};
@@ -103,9 +117,10 @@ impl<A: Actor> Swarm<A> {
         self.swap_remove(old_i)
     }
 
+    /// Process a message destined for an instance of an actor, potentially mutating the instance
     fn receive_instance<M: Message>(&mut self, packet: &Packet<M>) where A: Recipient<M> {
         let (fate, is_still_compact) = {
-            let actor = self.at_mut(packet.recipient_id.instance_id as usize);
+            let actor = self.at_mut(packet.recipient_id.expect("Recipient ID not set").instance_id as usize);
             let fate = actor.receive_packet(packet);
             (fate, actor.is_still_compact())
         };
@@ -113,13 +128,14 @@ impl<A: Actor> Swarm<A> {
         match fate {
             Fate::Live => {
                 if !is_still_compact {
-                    self.resize(packet.recipient_id.instance_id as usize);
+                    self.resize(packet.recipient_id.expect("Recipient ID not set").instance_id as usize);
                 }
             },
-            Fate::Die => self.remove(packet.recipient_id)
+            Fate::Die => self.remove(packet.recipient_id.expect("Recipient ID not set"))
         }
     }
 
+    /// Process a broadcast to all actors of the swarm
     fn receive_broadcast<M: Message>(&mut self, packet: &Packet<M>) where A: Recipient<M> {
         // this function has to deal with the fact that during the iteration, receivers of the broadcast can be resized
         // and thus removed from a collection, swapping in either
@@ -180,6 +196,7 @@ impl<A: Actor> Swarm<A> {
         }
     }
 
+    /// Get the broadcast ID of the current swarm
     pub fn all() -> ID where Self: Sized {
         unsafe{(*super::actor_system::THE_SYSTEM).broadcast_id::<A>()}
     }
@@ -202,7 +219,7 @@ impl <M: Message, A: Actor + RecipientAsSwarm<M>> Recipient<M> for Swarm<A> {
 
 impl <M: Message + NotACreateMessage + NotARequestConfirmationMessage + NotAToRandomMessage, A: Actor + Recipient<M>> RecipientAsSwarm<M> for A {
     fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<M>) -> Fate {
-        if packet.recipient_id.is_broadcast() {
+        if packet.recipient_id.expect("Recipient ID not set").is_broadcast() {
             swarm.receive_broadcast(packet);
         } else {
             swarm.receive_instance(packet);
@@ -246,7 +263,7 @@ impl<M: Message> Copy for Confirmation<M> { }
 
 impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<RequestConfirmation<M>> for A {
     fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<RequestConfirmation<M>>) -> Fate {
-        let n_recipients = if packet.recipient_id.is_broadcast() {
+        let n_recipients = if packet.recipient_id.expect("Recipient ID not set").is_broadcast() {
             *swarm.n_actors
         } else {
             1
@@ -290,17 +307,19 @@ impl <M: Message> !NotAToRandomMessage for ToRandom<M> {}
 
 impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<ToRandom<M>> for A {
     fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<ToRandom<M>>) -> Fate {
-        let mut new_packet = Packet{
-            recipient_id: ID::invalid(),
-            message: packet.message.message.clone()
-        };
-        for _i in 0..packet.message.n_recipients {
-            let random_id = ID::instance(
-                packet.recipient_id.type_id as usize,
-                (swarm.slot_map.random_used(), 0)
-            );
-            new_packet.recipient_id = random_id;
-            swarm.receive_packet(&new_packet);
+        if swarm.slot_map.len() > 0 {
+            let mut new_packet = Packet {
+                recipient_id: None,
+                message: packet.message.message.clone()
+            };
+            for _i in 0..packet.message.n_recipients {
+                let random_id = ID::instance(
+                    *(packet.recipient_id.expect("Recipient not set")).type_id as usize,
+                    (swarm.slot_map.random_used(), 0)
+                );
+                new_packet.recipient_id = Some(random_id);
+                swarm.receive_packet(&new_packet);
+            }
         }
         Fate::Live
     }
@@ -356,7 +375,7 @@ impl <M: Message, A: Actor + Recipient<M>> RecipientAsSwarm<CreateWith<A, M>> fo
         CreateWith(ref initial_state, ref initial_message) => {
             let id = swarm.add(initial_state);
             let initial_packet = Packet{
-                recipient_id: id,
+                recipient_id: Some(id),
                 message: (*initial_message).clone()
             };
             swarm.receive_instance(&initial_packet);

@@ -8,6 +8,8 @@ pub enum Fate{
 }
 
 pub trait Recipient<M: Message> {
+    /// Default implementation to ignore the address
+    /// Overridden by `swarm` to to provide per instance addressing
     fn receive_packet(&mut self, packet: &Packet<M>) -> Fate {
         self.receive(&packet.message)
     }
@@ -40,7 +42,7 @@ pub trait Individual : 'static {
 
 #[derive(Clone)]
 pub struct Packet<M: Message> {
-    pub recipient_id: ID,
+    pub recipient_id: Option<ID>,
     pub message: M
 }
 

@@ -7,8 +7,9 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 glium = "0.15.0"
 rusttype = "0.2.1"
 unicode-normalization = "0.1.2"
-clippy = "0.0.96"
+clippy = "0.0.106"
 fnv = "1.0.3"
+lazy_static = "0.2.2"
 
 [dependencies.kay]
 path = "../kay"
