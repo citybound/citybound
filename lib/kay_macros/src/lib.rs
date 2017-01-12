@@ -8,7 +8,6 @@ extern crate syn;
 #[macro_use]
 extern crate quote;
 
-//
 // DEBUG MACRO EXPANSION LIKE THIS:
 // cargo rustc -- -Z unstable-options --pretty=expanded > output.rs
 //
@@ -67,9 +66,9 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
 
     let tokens = match ast.body {
         syn::Body::Struct(ref data) => {
-            let fields : Vec<_> = data.fields().iter().map(|ref f| &f.ident).collect();
+            let fields: Vec<_> = data.fields().iter().map(|ref f| &f.ident).collect();
             let fields_ref = &fields;
-            let fields_ref2 = &fields;    
+            let fields_ref2 = &fields;
 
             quote! {
                 // generated
@@ -103,31 +102,45 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
             }
         }
         syn::Body::Enum(ref data) => {
-            let variants_still_compact : &Vec<_> = &data.iter().map(|variant| {
-                if let syn::VariantData::Tuple(ref fields) = variant.data {
-                    let ident = &variant.ident;
-                    let fields : Vec<syn::Ident> = fields.iter().enumerate().map(|(i, _f)| format!("f{}", i).into()).collect();
-                    let fields_ref = &fields;
-                    quote! {
+            let variants_still_compact: &Vec<_> = &data.iter()
+                .map(|variant| {
+                    if let syn::VariantData::Tuple(ref fields) = variant.data {
+                        let ident = &variant.ident;
+                        let fields: Vec<syn::Ident> = fields.iter()
+                            .enumerate()
+                            .map(|(i, _f)| format!("f{}", i).into())
+                            .collect();
+                        let fields_ref = &fields;
+                        quote! {
                         #name::#ident(#(ref #fields_ref),*) => {
                             #(#fields_ref.is_still_compact())&&*
                         }
                     }
-                } else {panic!("Only tuple enum variants supported so far");}
-            }).collect();
+                    } else {
+                        panic!("Only tuple enum variants supported so far");
+                    }
+                })
+                .collect();
 
-            let variants_dynamic_size : &Vec<_> = &data.iter().map(|variant| {
-                if let syn::VariantData::Tuple(ref fields) = variant.data {
-                    let ident = &variant.ident;
-                    let fields : Vec<syn::Ident> = fields.iter().enumerate().map(|(i, _f)| format!("f{}", i).into()).collect();
-                    let fields_ref = &fields;
-                    quote! {
+            let variants_dynamic_size: &Vec<_> = &data.iter()
+                .map(|variant| {
+                    if let syn::VariantData::Tuple(ref fields) = variant.data {
+                        let ident = &variant.ident;
+                        let fields: Vec<syn::Ident> = fields.iter()
+                            .enumerate()
+                            .map(|(i, _f)| format!("f{}", i).into())
+                            .collect();
+                        let fields_ref = &fields;
+                        quote! {
                         #name::#ident(#(ref #fields_ref),*) => {
                             #(#fields_ref.dynamic_size_bytes())+*
                         }
                     }
-                } else {panic!("Only tuple enum variants supported so far");}
-            }).collect();
+                    } else {
+                        panic!("Only tuple enum variants supported so far");
+                    }
+                })
+                .collect();
 
             let variants_compact_from : &Vec<_> = &data.iter().map(|variant| {
                 if let syn::VariantData::Tuple(ref fields) = variant.data {
@@ -152,18 +165,25 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                 } else {panic!("Only tuple enum variants supported so far");}
             }).collect();
 
-            let variants_decompact : &Vec<_> = &data.iter().map(|variant| {
-                if let syn::VariantData::Tuple(ref fields) = variant.data {
-                    let ident = &variant.ident;
-                    let fields : Vec<syn::Ident> = fields.iter().enumerate().map(|(i, _f)| format!("f{}", i).into()).collect();
-                    let fields_ref = &fields;
-                    quote! {
+            let variants_decompact: &Vec<_> = &data.iter()
+                .map(|variant| {
+                    if let syn::VariantData::Tuple(ref fields) = variant.data {
+                        let ident = &variant.ident;
+                        let fields: Vec<syn::Ident> = fields.iter()
+                            .enumerate()
+                            .map(|(i, _f)| format!("f{}", i).into())
+                            .collect();
+                        let fields_ref = &fields;
+                        quote! {
                         #name::#ident(#(ref #fields_ref),*) => {
                             #name::#ident(#(#fields_ref.decompact()),*)
                         }
                     }
-                } else {panic!("Only tuple enum variants supported so far");}
-            }).collect();
+                    } else {
+                        panic!("Only tuple enum variants supported so far");
+                    }
+                })
+                .collect();
 
             quote! {
                 // generated
@@ -198,7 +218,7 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                     }
                 }
             }
-        },
+        }
     };
 
     tokens

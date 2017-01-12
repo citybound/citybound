@@ -171,16 +171,11 @@ pub fn add_debug_point(point: P2, color: [f32; 3], z: f32) {
     UpdateThing {
         scene_id: 0,
         thing_id: 12000 + unsafe { LAST_DEBUG_THING },
-        thing: Thing::new(vec![
-                    Vertex{position: [point.x + -0.5, point.y + -0.5, z]},
-                    Vertex{position: [point.x + 0.5, point.y + -0.5, z]},
-                    Vertex{position: [point.x + 0.5, point.y + 0.5, z]},
-                    Vertex{position: [point.x + -0.5, point.y + 0.5, z]}
-                ],
-                          vec![
-                    0, 1, 2,
-                    2, 3, 0
-                ]),
+        thing: Thing::new(vec![Vertex { position: [point.x + -0.5, point.y + -0.5, z] },
+                               Vertex { position: [point.x + 0.5, point.y + -0.5, z] },
+                               Vertex { position: [point.x + 0.5, point.y + 0.5, z] },
+                               Vertex { position: [point.x + -0.5, point.y + 0.5, z] }],
+                          vec![0, 1, 2, 2, 3, 0]),
         instance: Instance::with_color(color),
         is_decal: true,
     };

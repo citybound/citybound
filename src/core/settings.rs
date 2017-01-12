@@ -10,14 +10,14 @@ use app_dirs;
 
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct Settings {
-    //Controls
+    // Controls
     pub rotation_speed: f32,
     pub move_speed: f32,
     pub zoom_speed: f32,
     pub invert_y: bool,
 
     pub mouse_main: Vec<KeyOrButton>,
-    
+
     pub forward_key: Vec<KeyOrButton>,
     pub backward_key: Vec<KeyOrButton>,
     pub left_key: Vec<KeyOrButton>,
@@ -27,8 +27,8 @@ pub struct Settings {
     pub pitch_modifier_key: Vec<KeyOrButton>,
 }
 
-impl Settings{
-    pub fn new() -> Settings{
+impl Settings {
+    pub fn new() -> Settings {
         Settings{
             rotation_speed: 1.0f32,
             zoom_speed: 1.0f32,
@@ -47,8 +47,10 @@ impl Settings{
         }
     }
 
-    pub fn load() -> Settings{
-        let path = app_dirs::app_root(app_dirs::AppDataType::UserConfig, &::APP_INFO).unwrap().join("config.json");
+    pub fn load() -> Settings {
+        let path = app_dirs::app_root(app_dirs::AppDataType::UserConfig, &::APP_INFO)
+            .unwrap()
+            .join("config.json");
         let display = path.display();
         let settings = Settings::new();
 
@@ -58,11 +60,12 @@ impl Settings{
                 match File::create(&path) {
                     Err(why) => panic!("couldn't create {}: {}", display, why.description()),
                     Ok(mut file) => {
-                        let serialized = serde_json::to_string(&settings).expect("Could not serialise Settings");
+                        let serialized = serde_json::to_string(&settings)
+                            .expect("Could not serialise Settings");
                         match file.write_all(serialized.as_bytes()) {
                             Err(why) => {
                                 panic!("couldn't write config to {}: {}", display, why.description())
-                            },
+                            }
                             Ok(_) => println!("successfully wrote new config to {}", display),
                         }
                         file = match File::open(&path) {
@@ -70,7 +73,7 @@ impl Settings{
                             Ok(file) => file,
                         };
                         file
-                    },
+                    }
                 }
             }
             Ok(file) => file,

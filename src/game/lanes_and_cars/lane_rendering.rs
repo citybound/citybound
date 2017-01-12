@@ -55,16 +55,11 @@ impl RecipientAsSwarm<SetupInScene> for Lane {
                 AddBatch {
                     scene_id: scene_id,
                     batch_id: 1333,
-                    thing: Thing::new(vec![
-                    Vertex{position: [-1.0, -1.0, 0.0]},
-                    Vertex{position: [1.0, -1.0, 0.0]},
-                    Vertex{position: [1.0, 1.0, 0.0]},
-                    Vertex{position: [-1.0, 1.0, 0.0]}
-                ],
-                                      vec![
-                    0, 1, 2,
-                    2, 3, 0
-                ]),
+                    thing: Thing::new(vec![Vertex { position: [-1.0, -1.0, 0.0] },
+                                           Vertex { position: [1.0, -1.0, 0.0] },
+                                           Vertex { position: [1.0, 1.0, 0.0] },
+                                           Vertex { position: [-1.0, 1.0, 0.0] }],
+                                      vec![0, 1, 2, 2, 3, 0]),
                 };
 
                 Fate::Live

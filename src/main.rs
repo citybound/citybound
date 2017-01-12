@@ -20,7 +20,10 @@ extern crate serde;
 extern crate app_dirs;
 
 use app_dirs::AppInfo;
-pub const APP_INFO: AppInfo = AppInfo{name: "Citybound", author: "ae_play"};
+pub const APP_INFO: AppInfo = AppInfo {
+    name: "Citybound",
+    author: "ae_play",
+};
 
 extern crate kay;
 #[macro_use]
@@ -60,20 +63,15 @@ fn main() {
     game::setup(&mut system);
     game::setup_ui(&mut system);
 
-    let simulatables = vec![
-        system.broadcast_id::<Lane>(),
-        system.broadcast_id::<TransferLane>()
-    ];
+    let simulatables = vec![system.broadcast_id::<Lane>(), system.broadcast_id::<TransferLane>()];
     core::simulation::setup(&mut system, simulatables);
 
-    let renderables = vec![
-        system.broadcast_id::<Lane>(),
-        system.broadcast_id::<TransferLane>(),
-        system.individual_id::<ThingCollector<LaneAsphalt>>(),
-        system.individual_id::<ThingCollector<LaneMarker>>(),
-        system.individual_id::<ThingCollector<TransferLaneMarkerGaps>>(),
-        system.individual_id::<CurrentPlan>(),
-    ];
+    let renderables = vec![system.broadcast_id::<Lane>(),
+                           system.broadcast_id::<TransferLane>(),
+                           system.individual_id::<ThingCollector<LaneAsphalt>>(),
+                           system.individual_id::<ThingCollector<LaneMarker>>(),
+                           system.individual_id::<ThingCollector<TransferLaneMarkerGaps>>(),
+                           system.individual_id::<CurrentPlan>()];
     let window = core::ui::setup_window_and_renderer(&mut system, renderables);
 
     let mut simulation_panicked: Option<String> = None;
@@ -89,11 +87,17 @@ fn main() {
             text: "0.1.0".chars().collect(),
             color: [0.0, 0.0, 0.0, 1.0],
         };
-        Renderer::id() << AddDebugText {
+        Renderer::id() <<
+        AddDebugText {
             scene_id: 0,
             key: "Frame".chars().collect(),
-            text: format!("{:.2} ms", last_frame.elapsed().as_secs() as f32 * 1000.0 + last_frame.elapsed().subsec_nanos() as f32 / 10.0E5).as_str().chars().collect(),
-            color: [0.0, 0.0, 0.0, 0.5]
+            text: format!("{:.2} ms",
+                          last_frame.elapsed().as_secs() as f32 * 1000.0 +
+                          last_frame.elapsed().subsec_nanos() as f32 / 10.0E5)
+                .as_str()
+                .chars()
+                .collect(),
+            color: [0.0, 0.0, 0.0, 0.5],
         };
         last_frame = std::time::Instant::now();
         if !core::ui::process_events(&window) {

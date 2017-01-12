@@ -5,34 +5,30 @@
 enum Inner<T> {
     Free(*mut T),
     Compact(isize),
-    Uninitialized
+    Uninitialized,
 }
 
 /// See Inner
-pub struct PointerToMaybeCompact <T> {
-    inner: Inner<T>
+pub struct PointerToMaybeCompact<T> {
+    inner: Inner<T>,
 }
 
 impl<T> Default for PointerToMaybeCompact<T> {
     fn default() -> PointerToMaybeCompact<T> {
-        PointerToMaybeCompact {
-            inner: Inner::Uninitialized
-        }
+        PointerToMaybeCompact { inner: Inner::Uninitialized }
     }
 }
 
-impl<T> PointerToMaybeCompact <T> {
+impl<T> PointerToMaybeCompact<T> {
     /// Create a new pointer which is initialized to point on the heap
     pub fn new_free(ptr: *mut T) -> Self {
-        PointerToMaybeCompact{
-            inner: Inner::Free(ptr)
-        }
+        PointerToMaybeCompact { inner: Inner::Free(ptr) }
     }
 
     /// Set the pointer to point on the heap
     pub fn set_to_free(&mut self, ptr: *mut T) {
         self.inner = Inner::Free(ptr)
-    } 
+    }
 
     /// Set the pointer to point on the dynamic part of the data structure
     pub fn set_to_compact(&mut self, ptr: *mut T) {
@@ -44,7 +40,7 @@ impl<T> PointerToMaybeCompact <T> {
         match self.inner {
             Inner::Free(ptr) => ptr,
             Inner::Compact(offset) => (self as *const Self as *const u8).offset(offset) as *const T,
-            Inner::Uninitialized => ::std::ptr::null()
+            Inner::Uninitialized => ::std::ptr::null(),
         }
     }
 
@@ -53,7 +49,7 @@ impl<T> PointerToMaybeCompact <T> {
         match self.inner {
             Inner::Free(ptr) => ptr,
             Inner::Compact(offset) => (self as *mut Self as *mut u8).offset(offset) as *mut T,
-            Inner::Uninitialized => ::std::ptr::null_mut()
+            Inner::Uninitialized => ::std::ptr::null_mut(),
         }
     }
 
@@ -61,7 +57,8 @@ impl<T> PointerToMaybeCompact <T> {
     pub fn is_compact(&self) -> bool {
         match self.inner {
             Inner::Free(_) => false,
-            Inner::Compact(_) | Inner::Uninitialized => true
+            Inner::Compact(_) |
+            Inner::Uninitialized => true,
         }
     }
 }

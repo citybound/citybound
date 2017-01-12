@@ -1,4 +1,4 @@
-use super::compact::{Compact};
+use super::compact::Compact;
 use super::chunked::{MemChunker, MultiSized, SizedChunkedQueue};
 use ::std::marker::PhantomData;
 use super::messaging::{Packet, Message};
@@ -6,19 +6,19 @@ use super::messaging::{Packet, Message};
 /// Stores an ordered list of homogeneously sized messages
 pub struct Inbox<M: Message> {
     queues: MultiSized<SizedChunkedQueue>,
-    message_marker: PhantomData<[M]>
+    message_marker: PhantomData<[M]>,
 }
 
 /// Chunk size in bytes, each chunk of messages
-const CHUNK_SIZE : usize = 4096 * 4096 * 4; // 64MB
+const CHUNK_SIZE: usize = 4096 * 4096 * 4; // 64MB
 
-impl <M: Message> Inbox<M> {
+impl<M: Message> Inbox<M> {
     /// Create new inbox for a given type
     pub fn new() -> Self {
         let chunker = MemChunker::new("", CHUNK_SIZE);
         Inbox {
             queues: MultiSized::new(chunker, M::typical_size()),
-            message_marker: PhantomData
+            message_marker: PhantomData,
         }
     }
 
@@ -46,22 +46,24 @@ impl <M: Message> Inbox<M> {
             queues: &mut self.queues.collections,
             current_sized_queue_index: start_queue_index,
             messages_in_sized_queue_left: 0,
-            message_marker: PhantomData
+            message_marker: PhantomData,
         }
     }
 }
 
 /// once created, reads all messages that are there roughly at the point of creation
 /// that means that once it terminates there might already be new messages in the inbox
-pub struct InboxIterator<'a, M: Message> where M: 'a {
+pub struct InboxIterator<'a, M: Message>
+    where M: 'a
+{
     queues: &'a mut Vec<SizedChunkedQueue>,
     current_sized_queue_index: usize,
     messages_in_sized_queue_left: usize,
-    message_marker: PhantomData<[M]>
+    message_marker: PhantomData<[M]>,
 }
 
 // TODO: is this actually used? only set but not read
-const MAX_MESSAGES_AT_ONCE : usize = 500;
+const MAX_MESSAGES_AT_ONCE: usize = 500;
 
 impl<'a, M: Message> Iterator for InboxIterator<'a, M> {
     type Item = &'a Packet<M>;
@@ -77,7 +79,8 @@ impl<'a, M: Message> Iterator for InboxIterator<'a, M> {
                 self.current_sized_queue_index -= 1;
                 {
                     let next_queue = &self.queues[self.current_sized_queue_index];
-                    self.messages_in_sized_queue_left = *next_queue.write_index - *next_queue.read_index;
+                    self.messages_in_sized_queue_left = *next_queue.write_index -
+                                                        *next_queue.read_index;
                     if self.messages_in_sized_queue_left > MAX_MESSAGES_AT_ONCE {
                         self.messages_in_sized_queue_left = MAX_MESSAGES_AT_ONCE;
                     }
@@ -98,7 +101,7 @@ impl<'a, M: Message> Iterator for InboxIterator<'a, M> {
 impl<'a, M: Message> Drop for InboxIterator<'a, M> {
     fn drop(&mut self) {
         for queue in self.queues.iter_mut() {
-            unsafe{queue.drop_old_chunks()};
+            unsafe { queue.drop_old_chunks() };
         }
     }
 }

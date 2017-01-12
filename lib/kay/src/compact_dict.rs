@@ -7,17 +7,17 @@ use super::compact_vec::CompactVec;
 /// heap instead.
 /// Implemented with 2 vectors, one for the key and one for the data, with linear search performed
 /// to do lookups
-pub struct CompactDict <K: Copy, V: Compact + Clone, A: Allocator = DefaultHeap> {
+pub struct CompactDict<K: Copy, V: Compact + Clone, A: Allocator = DefaultHeap> {
     keys: CompactVec<K, A>,
-    values: CompactVec<V, A>
+    values: CompactVec<V, A>,
 }
 
-impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
+impl<K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
     /// Create new, empty dict
     pub fn new() -> Self {
-        CompactDict{
+        CompactDict {
             keys: CompactVec::new(),
-            values: CompactVec::new()
+            values: CompactVec::new(),
         }
     }
 
@@ -35,7 +35,7 @@ impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
     pub fn get(&self, query: K) -> Option<&V> {
         for i in 0..self.keys.len() {
             if self.keys[i] == query {
-                return Some(&self.values[i])
+                return Some(&self.values[i]);
             }
         }
         None
@@ -60,10 +60,10 @@ impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
         for i in 0..self.keys.len() {
             if self.keys[i] == query {
                 if i > 0 {
-                    self.keys.swap(i-1, i);
-                    self.values.swap(i-1, i);
-                    return Some(&self.values[i-1]);
-                }else{
+                    self.keys.swap(i - 1, i);
+                    self.values.swap(i - 1, i);
+                    return Some(&self.values[i - 1]);
+                } else {
                     return Some(&self.values[0]);
                 }
             }
@@ -120,12 +120,12 @@ impl <K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
 
     /// Get iterator over key-value pairs
     #[allow(needless_lifetimes)]
-    pub fn pairs<'a>(&'a self) -> impl Iterator<Item=(&'a K, &'a V)> + Clone + 'a {
+    pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)> + Clone + 'a {
         self.keys().zip(self.values())
     }
 }
 
-impl <K: Eq + Copy, I: Compact, A1: Allocator, A2: Allocator> CompactDict<K, CompactVec<I, A1>, A2> {
+impl<K: Eq + Copy, I: Compact, A1: Allocator, A2: Allocator> CompactDict<K, CompactVec<I, A1>, A2> {
     /// Push a value to a CompactVec at the key
     pub fn push_at(&mut self, query: K, item: I) {
         for i in 0..self.keys.len() {
@@ -142,18 +142,18 @@ impl <K: Eq + Copy, I: Compact, A1: Allocator, A2: Allocator> CompactDict<K, Com
 
     /// Get iterator of the CompactVec at the key
     #[allow(needless_lifetimes)]
-    pub fn get_iter<'a>(&'a self, query: K) -> impl Iterator<Item=&'a I> + 'a {
+    pub fn get_iter<'a>(&'a self, query: K) -> impl Iterator<Item = &'a I> + 'a {
         self.get(query).into_iter().flat_map(|vec_in_option| vec_in_option.iter())
     }
 
     /// Get iterator of the CompactVec at the key, and then remove the item
     #[allow(needless_lifetimes)]
-    pub fn remove_iter<'a>(&'a mut self, query: K) -> impl Iterator<Item=I> + 'a {
+    pub fn remove_iter<'a>(&'a mut self, query: K) -> impl Iterator<Item = I> + 'a {
         self.remove(query).into_iter().flat_map(|vec_in_option| vec_in_option.into_iter())
     }
-} 
+}
 
-impl <K: Copy, V: Compact + Clone, A: Allocator> Compact for CompactDict<K, V, A> {
+impl<K: Copy, V: Compact + Clone, A: Allocator> Compact for CompactDict<K, V, A> {
     fn is_still_compact(&self) -> bool {
         self.keys.is_still_compact() && self.values.is_still_compact()
     }
@@ -164,27 +164,28 @@ impl <K: Copy, V: Compact + Clone, A: Allocator> Compact for CompactDict<K, V, A
 
     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
         self.keys.compact_from(&source.keys, new_dynamic_part);
-        self.values.compact_from(&source.values, new_dynamic_part.offset(self.keys.dynamic_size_bytes() as isize));
+        self.values.compact_from(&source.values,
+                                 new_dynamic_part.offset(self.keys.dynamic_size_bytes() as isize));
     }
 
     unsafe fn decompact(&self) -> CompactDict<K, V, A> {
-        CompactDict{
+        CompactDict {
             keys: self.keys.decompact(),
-            values: self.values.decompact()
+            values: self.values.decompact(),
         }
     }
 }
 
-impl <K: Copy, V: Compact + Clone, A: Allocator> Clone for CompactDict<K, V, A> {
+impl<K: Copy, V: Compact + Clone, A: Allocator> Clone for CompactDict<K, V, A> {
     fn clone(&self) -> Self {
-        CompactDict{
+        CompactDict {
             keys: self.keys.clone(),
-            values: self.values.clone()
+            values: self.values.clone(),
         }
     }
 }
 
-impl <K: Copy + Eq, V: Compact + Clone, A: Allocator> Default for CompactDict<K, V, A> {
+impl<K: Copy + Eq, V: Compact + Clone, A: Allocator> Default for CompactDict<K, V, A> {
     fn default() -> Self {
         CompactDict::new()
     }
