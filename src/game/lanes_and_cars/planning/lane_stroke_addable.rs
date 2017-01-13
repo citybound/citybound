@@ -20,14 +20,14 @@ impl LaneStrokeAddable {
 }
 
 use super::AddToUI;
-use ::core::ui::Add;
+use ::core::ui::AddInteractable;
 
 impl Recipient<AddToUI> for LaneStrokeAddable {
     fn receive(&mut self, msg: &AddToUI) -> Fate {
         match *msg {
             AddToUI => {
                 ::core::ui::UserInterface::id() <<
-                Add::Interactable3d(self.id(),
+                    AddInteractable::Interactable3d(self.id(),
                                     AnyShape::Band(Band::new(self.stroke.path().clone(), 5.0)),
                                     3);
                 Fate::Live

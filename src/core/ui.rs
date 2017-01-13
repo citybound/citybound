@@ -1,5 +1,6 @@
 use ::monet::glium::{DisplayBuild, glutin};
-use kay::{ActorSystem, ID, Individual, Recipient, Fate, CVec};
+use kay::{ActorSystem, ID, Individual, Recipient, Fate};
+use compact::CVec;
 use descartes::{N, P2, P3, V3, Into2d, Shape};
 use ::monet::{Renderer, Scene, GlutinFacade, MoveEye};
 use ::monet::glium::glutin::{Event, MouseScrollDelta, ElementState, MouseButton};
@@ -12,7 +13,7 @@ use serde;
 use serde::{Serializer, Serialize, Deserialize, Deserializer};
 use std::mem::transmute;
 
-pub static mut USER_INTERFACE: ID = ID::default();
+pub static mut USER_INTERFACE: Option<ID> = None;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct KeyCombination{
@@ -93,7 +94,7 @@ impl Deserialize for KeyOrButton {
 }
 
 #[derive(Copy, Clone, PartialEq)]
-enum Mouse {
+pub enum Mouse {
     Moved(P2),
     Scrolled(P2),
     Down(MouseButton),
@@ -367,62 +368,24 @@ pub struct UITick{
 
 impl Recipient<UITick> for UserInterface {
     fn receive(&mut self, msg: &UITick) -> Fate {
-        let button_events: CVec<'static str> = CVec::new();
+        let button_events: CVec<&String> = CVec::new();
         for (keys, name) in self.settings.key_mappings{
             if keys.triggered(&self.input_state.keys_down){
-                button_events.push(name.clone());
+                button_events.push(&name.clone());
             }
         }
 
-        for mouse_action in &self.input_state.mouse.drain() {
+        let mouse_events: CVec<(Mouse, &String)> = CVec::new();
+
+        for mouse_action in &self.input_state.mouse.clone() {
             match *mouse_action {
                 Mouse::Moved(position) => {
-                    let inverted = if self.settings.invert_y { -1.0 } else { 1.0 };
-                    let delta = self.cursor_2d - position;
-                    let yaw_mod = intersection(&self.settings.yaw_modifier_key, &self.input_state.keys_down);
-                    let pan_mod = intersection(&self.settings.pan_modifier_key, &self.input_state.keys_down);
-                    let pitch_mod = intersection(&self.settings.pitch_modifier_key, &self.input_state.keys_down);
-
-                    if yaw_mod || pitch_mod || pan_mod {
-                        if yaw_mod {
-                            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Yaw(
-                                -delta.x * self.settings.rotation_speed * inverted/ 300.0)
-                            };
-
-                            self.cursor_2d = position;
-                        };
-
-                        if pitch_mod {
-                            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Pitch(
-                                -delta.y * self.settings.rotation_speed * inverted / 300.0)
-                            };
-                            self.cursor_2d = position;
-                        };
-
-                        if pan_mod {
-                            Renderer::id() << MoveEye { scene_id: 0, movement: ::monet::Movement::Shift(
-                                V3::new(-delta.y * self.settings.move_speed * inverted/ 3.0,
-                                        delta.x * self.settings.move_speed * inverted / 3.0, 0.0)
-                            )};
-                            self.cursor_2d = position;
-                        };
-                    } else {
-                        self.cursor_2d = position;
-                        Renderer::id() <<
-                        Project2dTo3d {
-                            scene_id: 0,
-                            position_2d: position,
-                            requester: Self::id(),
-                        };
-                    }
-                }
-                Mouse::Scrolled(delta) => {
-                    Renderer::id() <<
-                    MoveEye {
+                    Renderer::id() << Project2dTo3d {
                         scene_id: 0,
-                        movement: ::monet::Movement::Zoom(delta.y * self.settings.zoom_speed),
+                        position_2d: position,
+                        requester: Self::id()
                     };
-                }
+                },
                 Mouse::Down(MouseButton::Left) => {
                     self.drag_start_2d = Some(self.cursor_2d);
                     self.drag_start_3d = Some(self.cursor_3d);
@@ -432,39 +395,52 @@ impl Recipient<UITick> for UserInterface {
                     if let Some(active_interactable) = self.active_interactable {
                         active_interactable << Event3d::DragStarted { at: self.cursor_3d };
                     }
-                }
+                },
                 Mouse::Up(MouseButton::Left) => {
                     if let Some(active_interactable) = self.active_interactable {
-                        active_interactable <<
-                        Event3d::DragFinished {
-                            from: self.drag_start_3d
-                                .expect("active interactable but no drag start"),
-                            to: self.cursor_3d,
+                        active_interactable << Event3d::DragFinished {
+                            from: self.drag_start_3d.expect("active interactable but no drag start"),
+                            to: self.cursor_3d
                         };
                     }
                     self.drag_start_2d = None;
                     self.drag_start_3d = None;
                     self.active_interactable = None;
+                },
+                _ => ()
+            }
+            for (keys, names) in self.settings.mouse_modifier_mappings{
+                if keys.triggered(&self.input_state.keys_down){
+                    mouse_events.push((*mouse_action, names))
                 }
-                _ => (),
             }
         }
+        if let Some(active_id) = self.active_interactable {
+            let active_message = self.outbox.entry(active_id).or_insert(box UIInput::new());
+            (*active_message).button_events = button_events.clone();
+            (*active_message).mouse_events = mouse_events.clone();
 
-        let active_message = self.outbox.entry(self.active_interactable).or_insert(UIInput::new());
-        (*active_message).button_events = button_events.clone();
+            active_id << active_message;
+            self.outbox.remove(&active_id);
+        }
 
-        self.active_interactable << active_message;
-        self.outbox.remove(self.active_interactable);
 
-        let any_message = self.outbox.entry(self.any_interactable).or_insert(UIInput::new());
-        (*any_message).button_events = button_events.clone();
+        for i in self.active_interactable {
 
-        self.any_interactable << any_message;
-        self.outbox.remove(self.any_interactable);
+            let any_message = self.outbox.entry(i).or_insert(box UIInput::new());
+            (*any_message).button_events = button_events.clone();
 
-        for (k, v) in self.outbox.drain(){
+            i << any_message;
+            self.outbox.remove(i);
+        }
+
+        for (k, v) in self.outbox{
             k << v;
         }
+
+        self.outbox.clear();
+        self.input_state.mouse.clear();
+
         Fate::Live
     }
 }
@@ -480,7 +456,7 @@ pub fn setup_window_and_renderer(system: &mut ActorSystem, renderables: Vec<ID>)
 
     let ui = UserInterface::new();
 
-    USER_INTERFACE = ID{type_id: UserInterface::id(), version: 0, instance_id: 0};
+    USER_INTERFACE = Some(ID{type_id: UserInterface::id(), version: 0, instance_id: 0});
 
     system.add_inbox::<AddInteractable, UserInterface>();
     system.add_inbox::<Remove, UserInterface>();

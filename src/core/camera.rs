@@ -165,8 +165,8 @@ pub fn setup(system: &mut ActorSystem, settings: &mut Settings) {
                                          keys: vec![
                 InterchangeableKeys{
                     keys: vec![KeyOrButton::Key(VirtualKeyCode::LAlt),
-                               KeyOrButton::Key(VirtualKeyCode::RAlt,
-                               KeyOrButton::Button(MouseButton::Middle))]
+                               KeyOrButton::Key(VirtualKeyCode::RAlt),
+                               KeyOrButton::Button(MouseButton::Middle)]
                 },
             ],
                                      },
@@ -176,8 +176,8 @@ pub fn setup(system: &mut ActorSystem, settings: &mut Settings) {
                                          keys: vec![
                 InterchangeableKeys{
                     keys: vec![KeyOrButton::Key(VirtualKeyCode::LAlt),
-                               KeyOrButton::Key(VirtualKeyCode::RAlt,
-                                                KeyOrButton::Button(MouseButton::Middle))]
+                               KeyOrButton::Key(VirtualKeyCode::RAlt),
+                                                KeyOrButton::Button(MouseButton::Middle)]
                 },
             ],
                                      },
