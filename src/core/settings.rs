@@ -1,4 +1,4 @@
-use ::core::ui::{KeyCombination};
+use ::core::ui::KeyCombination;
 use ::monet::glium::glutin::{MouseButton, VirtualKeyCode};
 use serde_json;
 
@@ -8,11 +8,11 @@ use std::io::prelude::*;
 
 use app_dirs;
 
-
+pub static mut SETTINGS: *mut Settings = 0 as *mut Settings;
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Default)]
 pub struct Settings {
-    //Controls
+    // Controls
     #[serde(default = "Settings::default_rotation_speed")]
     pub rotation_speed: f32,
 
@@ -25,13 +25,13 @@ pub struct Settings {
     #[serde(default = "Settings::default_invert_y")]
     pub invert_y: bool,
 
-    pub key_mappings: Vec<(KeyCombination, &'static str)>,
-    pub mouse_modifier_mappings: Vec<(KeyCombination, &'static str)>,
+    pub key_mappings: Vec<(KeyCombination, String)>,
+    pub mouse_modifier_mappings: Vec<(KeyCombination, String)>,
 }
 
-impl Settings{
-    pub fn new() -> Settings{
-        Settings{
+impl Settings {
+    pub fn new() -> Settings {
+        Settings {
             rotation_speed: Settings::default_rotation_speed(),
             zoom_speed: Settings::default_zoom_speed(),
             move_speed: Settings::default_move_speed(),
@@ -42,32 +42,34 @@ impl Settings{
         }
     }
 
-    fn default_rotation_speed() -> f32{
+    fn default_rotation_speed() -> f32 {
         1.0f32
     }
 
-    fn default_zoom_speed() -> f32{
+    fn default_zoom_speed() -> f32 {
         1.0f32
     }
 
-    fn default_move_speed() -> f32{
+    fn default_move_speed() -> f32 {
         1.0f32
     }
 
-    fn default_invert_y() -> bool{
+    fn default_invert_y() -> bool {
         false
     }
 
-    pub fn register_key(&mut self, keys: KeyCombination, name: String){
+    pub fn register_key(&mut self, keys: KeyCombination, name: String) {
         self.key_mappings.push((keys, name))
     }
 
-    pub fn register_mouse_modifier(&mut self, keys: KeyCombination, name: String){
+    pub fn register_mouse_modifier(&mut self, keys: KeyCombination, name: String) {
         self.mouse_modifier_mappings.push((keys, name))
     }
 
-    pub fn load() -> Settings{
-        let path = app_dirs::app_root(app_dirs::AppDataType::UserConfig, &::APP_INFO).unwrap().join("config.json");
+    pub fn load() -> Settings {
+        let path = app_dirs::app_root(app_dirs::AppDataType::UserConfig, &::APP_INFO)
+            .unwrap()
+            .join("config.json");
         let display = path.display();
         let settings = Settings::new();
 
@@ -77,19 +79,26 @@ impl Settings{
                 match File::create(&path) {
                     Err(why) => panic!("couldn't create {}: {}", display, why.description()),
                     Ok(mut file) => {
-                        let serialized = serde_json::to_string(&settings).expect("Could not serialise Settings");
+                        let serialized = serde_json::to_string(&settings)
+                            .expect("Could not serialise Settings");
                         match file.write_all(serialized.as_bytes()) {
                             Err(why) => {
-                                panic!("couldn't write config to {}: {}", display, why.description())
-                            },
+                                panic!("couldn't write config to {}: {}",
+                                       display,
+                                       why.description())
+                            }
                             Ok(_) => println!("successfully wrote new config to {}", display),
                         }
                         file = match File::open(&path) {
-                            Err(why) => panic!("couldn't open {}, which was just written to: {}", display, why.description()),
+                            Err(why) => {
+                                panic!("couldn't open {}, which was just written to: {}",
+                                       display,
+                                       why.description())
+                            }
                             Ok(file) => file,
                         };
                         file
-                    },
+                    }
                 }
             }
             Ok(file) => file,
@@ -98,13 +107,14 @@ impl Settings{
         if let Err(why) = file.read_to_string(&mut s) {
             panic!("couldn't read {}: {}", display, why.description())
         }
-        match serde_json::from_str::<Settings>(&s){
+        match serde_json::from_str::<Settings>(&s) {
             Err(_) => {
-                println!("Config file exists, but cannot be read, removing old config file and using default settings");
+                println!("Config file exists, but cannot be read, removing old config file and \
+                          using default settings");
                 remove_file(&path).expect("couldn't delete old config file");
                 Settings::load()
             }
-            Ok(s) => s
+            Ok(s) => s,
         }
     }
 }

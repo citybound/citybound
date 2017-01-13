@@ -58,6 +58,11 @@ fn main() {
         ::std::fs::File::create(dir).expect("should be able to create tmp file");
     }
 
+    let mut settings = Box::new(core::settings::Settings::new());
+    unsafe {
+        core::settings::SETTINGS = &mut *settings as *mut core::settings::Settings;
+    }
+
     let mut system = Box::new(kay::ActorSystem::new());
     unsafe {
         kay::THE_SYSTEM = &mut *system as *mut kay::ActorSystem;
