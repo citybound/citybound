@@ -1,4 +1,4 @@
-#![feature(custom_derive, plugin, conservative_impl_trait)]
+#![feature(custom_derive, plugin, conservative_impl_trait, box_syntax)]
 #![plugin(clippy)]
 #![allow(dead_code)]
 #![allow(no_effect, unnecessary_operation)]
@@ -56,6 +56,11 @@ fn main() {
             println!("Please open {:?} in your browser!", url);
         };
         ::std::fs::File::create(dir).expect("should be able to create tmp file");
+    }
+
+    let mut settings = Box::new(core::settings::Settings::new());
+    unsafe {
+        core::settings::SETTINGS = &mut *settings as *mut core::settings::Settings;
     }
 
     let mut system = Box::new(kay::ActorSystem::new());

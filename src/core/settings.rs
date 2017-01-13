@@ -1,59 +1,69 @@
-use ::core::ui::KeyOrButton;
+use ::core::ui::KeyCombination;
 use ::monet::glium::glutin::{MouseButton, VirtualKeyCode};
 use serde_json;
 
 use std::error::Error;
-use std::fs::File;
+use std::fs::{File, remove_file};
 use std::io::prelude::*;
 
 use app_dirs;
 
-#[derive(Serialize, Deserialize, PartialEq)]
+pub static mut SETTINGS: *mut Settings = 0 as *mut Settings;
+
+#[derive(Serialize, Deserialize, PartialEq, Clone, Default)]
 pub struct Settings {
     // Controls
+    #[serde(default = "Settings::default_rotation_speed")]
     pub rotation_speed: f32,
+
+    #[serde(default = "Settings::default_move_speed")]
     pub move_speed: f32,
+
+    #[serde(default = "Settings::default_zoom_speed")]
     pub zoom_speed: f32,
+
+    #[serde(default = "Settings::default_invert_y")]
     pub invert_y: bool,
 
-    pub mouse_main: Vec<KeyOrButton>,
-
-    pub forward_key: Vec<KeyOrButton>,
-    pub backward_key: Vec<KeyOrButton>,
-    pub left_key: Vec<KeyOrButton>,
-    pub right_key: Vec<KeyOrButton>,
-    pub pan_modifier_key: Vec<KeyOrButton>,
-    pub yaw_modifier_key: Vec<KeyOrButton>,
-    pub pitch_modifier_key: Vec<KeyOrButton>,
+    pub key_mappings: Vec<(KeyCombination, String)>,
+    pub mouse_modifier_mappings: Vec<(KeyCombination, String)>,
 }
 
 impl Settings {
     pub fn new() -> Settings {
         Settings {
-            rotation_speed: 1.0f32,
-            zoom_speed: 1.0f32,
-            move_speed: 1.0f32,
-            invert_y: false,
+            rotation_speed: Settings::default_rotation_speed(),
+            zoom_speed: Settings::default_zoom_speed(),
+            move_speed: Settings::default_move_speed(),
+            invert_y: Settings::default_invert_y(),
 
-            mouse_main: vec![KeyOrButton::Button(MouseButton::Left)],
-            forward_key: vec![KeyOrButton::Key(VirtualKeyCode::W),
-                              KeyOrButton::Key(VirtualKeyCode::Up)],
-            backward_key: vec![KeyOrButton::Key(VirtualKeyCode::S),
-                               KeyOrButton::Key(VirtualKeyCode::Down)],
-            left_key: vec![KeyOrButton::Key(VirtualKeyCode::A),
-                           KeyOrButton::Key(VirtualKeyCode::Left)],
-            right_key: vec![KeyOrButton::Key(VirtualKeyCode::D),
-                            KeyOrButton::Key(VirtualKeyCode::Right)],
-
-            pan_modifier_key: vec![KeyOrButton::Key(VirtualKeyCode::LShift),
-                                   KeyOrButton::Key(VirtualKeyCode::RShift)],
-            yaw_modifier_key: vec![KeyOrButton::Button(MouseButton::Middle),
-                                   KeyOrButton::Key(VirtualKeyCode::LAlt),
-                                   KeyOrButton::Key(VirtualKeyCode::RAlt)],
-            pitch_modifier_key: vec![KeyOrButton::Button(MouseButton::Middle),
-                                     KeyOrButton::Key(VirtualKeyCode::LAlt),
-                                     KeyOrButton::Key(VirtualKeyCode::RAlt)],
+            key_mappings: Vec::new(),
+            mouse_modifier_mappings: Vec::new(),
         }
+    }
+
+    fn default_rotation_speed() -> f32 {
+        1.0f32
+    }
+
+    fn default_zoom_speed() -> f32 {
+        1.0f32
+    }
+
+    fn default_move_speed() -> f32 {
+        1.0f32
+    }
+
+    fn default_invert_y() -> bool {
+        false
+    }
+
+    pub fn register_key(&mut self, keys: KeyCombination, name: String) {
+        self.key_mappings.push((keys, name))
+    }
+
+    pub fn register_mouse_modifier(&mut self, keys: KeyCombination, name: String) {
+        self.mouse_modifier_mappings.push((keys, name))
     }
 
     pub fn load() -> Settings {
@@ -97,6 +107,14 @@ impl Settings {
         if let Err(why) = file.read_to_string(&mut s) {
             panic!("couldn't read {}: {}", display, why.description())
         }
-        serde_json::from_str::<Settings>(&s).unwrap()
+        match serde_json::from_str::<Settings>(&s) {
+            Err(_) => {
+                println!("Config file exists, but cannot be read, removing old config file and \
+                          using default settings");
+                remove_file(&path).expect("couldn't delete old config file");
+                Settings::load()
+            }
+            Ok(s) => s,
+        }
     }
 }

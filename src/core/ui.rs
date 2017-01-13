@@ -1,5 +1,6 @@
 use ::monet::glium::{DisplayBuild, glutin};
 use kay::{ActorSystem, ID, Individual, Recipient, Fate};
+use compact::CVec;
 use descartes::{N, P2, P3, V3, Into2d, Shape};
 use ::monet::{Renderer, Scene, GlutinFacade, MoveEye};
 use ::monet::glium::glutin::{Event, MouseScrollDelta, ElementState, MouseButton};
@@ -11,6 +12,42 @@ use serde_json;
 use serde;
 use serde::{Serializer, Serialize, Deserialize, Deserializer};
 use std::mem::transmute;
+
+pub static mut USER_INTERFACE: Option<ID> = None;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct KeyCombination{
+    keys: Vec<InterchangeableKeys>,
+}
+
+impl KeyCombination{
+    fn triggered(&self, keys_held: &Vec<KeyOrButton>) -> bool{
+        for i in self.keys{
+            if !i.triggered(keys_held){
+                return false
+            }
+        }
+        true
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct InterchangeableKeys{
+    keys: Vec<KeyOrButton>,
+}
+
+impl InterchangeableKeys{
+    fn triggered(&self, keys_held: &Vec<KeyOrButton>) -> bool{
+        for i in self.keys{
+            for j in keys_held{
+                if i == *j{
+                    return true
+                }
+            }
+        }
+        false
+    }
+}
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum KeyOrButton {
@@ -57,7 +94,7 @@ impl Deserialize for KeyOrButton {
 }
 
 #[derive(Copy, Clone, PartialEq)]
-enum Mouse {
+pub enum Mouse {
     Moved(P2),
     Scrolled(P2),
     Down(MouseButton),
@@ -65,32 +102,15 @@ enum Mouse {
 }
 
 pub struct InputState {
-    forward: bool,
-    backward: bool,
-
-    left: bool,
-    right: bool,
-
-    yaw_mod: bool,
-    pan_mod: bool,
-    pitch_mod: bool,
-
+    keys_down: Vec<KeyOrButton>,
     mouse: Vec<Mouse>,
 }
 
 impl InputState {
     fn new() -> InputState {
         InputState {
-            forward: false,
-            backward: false,
-            left: false,
-            right: false,
-
-            yaw_mod: false,
-            pan_mod: false,
-            pitch_mod: false,
-
-            mouse: vec![],
+            keys_down: Vec::new(),
+            mouse: Vec::new(),
         }
     }
 }
@@ -98,6 +118,10 @@ impl InputState {
 pub struct UserInterface {
     interactables_2d: HashMap<ID, (AnyShape, usize)>,
     interactables_3d: HashMap<ID, (AnyShape, usize)>,
+    /// Interactables which are always in focus e.g. Camera
+    any_interactable: Vec<ID>,
+    outbox: HashMap<ID, Box<UIInput>>,
+
     cursor_2d: P2,
     cursor_3d: P3,
     drag_start_2d: Option<P2>,
@@ -109,11 +133,37 @@ pub struct UserInterface {
     settings: Settings,
 }
 
+#[derive(Compact, Clone)]
+pub struct UIInput{
+    /// Custom button events
+    button_events: CVec<&'static str>,
+    /// Drag and stuff
+    mouse_actions: CVec<Event3d>,
+    /// Mouse move and stuff, with possible key combination
+    mouse_events: CVec<(Mouse, &'static str)>,
+    /// Camera time tick
+    dt: f32,
+    //TypingEvent, //TODO: Actually implement this
+}
+
+impl UIInput{
+    pub fn new() -> UIInput{
+        UIInput {
+            button_events: CVec::new(),
+            mouse_actions: CVec::new(),
+            mouse_events: CVec::new(),
+            dt: 1.0f32/60.0f32,
+        }
+    }
+}
+
 impl Individual for UserInterface {}
 
 impl UserInterface {
     fn new() -> UserInterface {
         UserInterface {
+            any_interactable: Vec::new(),
+            outbox: HashMap::new(),
             interactables_2d: HashMap::new(),
             interactables_3d: HashMap::new(),
             cursor_2d: P2::new(0.0, 0.0),
@@ -130,16 +180,37 @@ impl UserInterface {
 }
 
 #[derive(Compact, Clone)]
-pub enum Add {
+pub enum UpdateCursor {
+    Cursor2D(P2),
+    Cursor3D(P3),
+}
+
+
+impl Recipient<UpdateCursor> for UserInterface {
+    fn receive(&mut self, msg: &UpdateCursor) -> Fate {
+        match *msg{
+            UpdateCursor::Cursor2D(p) => {
+                self.cursor_2d = p
+            }
+            UpdateCursor::Cursor3D(p) => {
+                self.cursor_3d = p
+            }
+        }
+        Fate::Live
+    }
+}
+
+#[derive(Compact, Clone)]
+pub enum AddInteractable {
     Interactable2d(ID, AnyShape, usize),
     Interactable3d(ID, AnyShape, usize),
 }
 
-impl Recipient<Add> for UserInterface {
-    fn receive(&mut self, msg: &Add) -> Fate {
+impl Recipient<AddInteractable> for UserInterface {
+    fn receive(&mut self, msg: &AddInteractable) -> Fate {
         match *msg {
-            Add::Interactable2d(_id, ref _shape, _z_index) => unimplemented!(),
-            Add::Interactable3d(id, ref shape, z_index) => {
+            AddInteractable::Interactable2d(_id, ref _shape, _z_index) => unimplemented!(),
+            AddInteractable::Interactable3d(id, ref shape, z_index) => {
                 self.interactables_3d.insert(id, (shape.clone(), z_index));
                 Fate::Live
             }
@@ -181,7 +252,7 @@ impl Recipient<Focus> for UserInterface {
 
 use ::monet::Project2dTo3d;
 
-#[derive(Copy, Clone)]
+#[derive(Clone, Copy)]
 pub enum Event3d {
     DragStarted { at: P3 },
     DragOngoing { from: P3, to: P3 },
@@ -190,50 +261,25 @@ pub enum Event3d {
     HoverStarted { at: P3 },
     HoverOngoing { at: P3 },
     HoverStopped,
-    KeyDown(VirtualKeyCode),
-    KeyUp(VirtualKeyCode),
+}
+
+#[derive(Clone, Compact)]
+pub struct KeysHeld{
+    pub keys: CVec<KeyOrButton>,
 }
 
 impl Recipient<Mouse> for UserInterface {
     fn receive(&mut self, msg: &Mouse) -> Fate {
         self.input_state.mouse.push(*msg);
         match *msg {
-            Mouse::Down(button) |
-            Mouse::Up(button) => {
-                let down = *msg == Mouse::Down(button);
-                // If you want to bind movement to mouse buttons, who am I to judge
-                if self.settings.forward_key.iter().any(|x| *x == KeyOrButton::Button(button)) {
-                    self.input_state.forward = down;
-                }
-                if self.settings.backward_key.iter().any(|x| *x == KeyOrButton::Button(button)) {
-                    self.input_state.backward = down;
-                }
-                if self.settings.left_key.iter().any(|x| *x == KeyOrButton::Button(button)) {
-                    self.input_state.left = down;
-                }
-                if self.settings.right_key.iter().any(|x| *x == KeyOrButton::Button(button)) {
-                    self.input_state.right = down;
-                }
-                if self.settings
-                    .yaw_modifier_key
-                    .iter()
-                    .any(|x| *x == KeyOrButton::Button(button)) {
-                    self.input_state.yaw_mod = down;
-                }
-                if self.settings
-                    .pan_modifier_key
-                    .iter()
-                    .any(|x| *x == KeyOrButton::Button(button)) {
-                    self.input_state.pan_mod = down;
-                }
-                if self.settings
-                    .pitch_modifier_key
-                    .iter()
-                    .any(|x| *x == KeyOrButton::Button(button)) {
-                    self.input_state.pitch_mod = down;
-                }
+            Mouse::Down(button)=> {
+                self.input_state.keys_down.push(KeyOrButton::Button(button))
             }
-            _ => (),
+            Mouse::Up(button) => {
+                let index = self.input_state.keys_down.iter().position(|x| *x == KeyOrButton::Button(button)).unwrap();
+                self.input_state.keys_down.remove(index);
+            },
+            _ => ()
         }
         Fate::Live
     }
@@ -248,50 +294,15 @@ enum Key {
 impl Recipient<Key> for UserInterface {
     fn receive(&mut self, msg: &Key) -> Fate {
         match *msg {
-            Key::Down(key_code) |
-            Key::Up(key_code) => {
-                let down = *msg == Key::Down(key_code);
-                if self.settings.forward_key.iter().any(|x| *x == KeyOrButton::Key(key_code)) {
-                    self.input_state.forward = down;
-                };
-                if self.settings.backward_key.iter().any(|x| *x == KeyOrButton::Key(key_code)) {
-                    self.input_state.backward = down;
-                };
-                if self.settings.left_key.iter().any(|x| *x == KeyOrButton::Key(key_code)) {
-                    self.input_state.left = down;
-                };
-                if self.settings.right_key.iter().any(|x| *x == KeyOrButton::Key(key_code)) {
-                    self.input_state.right = down;
-                };
-                if self.settings
-                    .yaw_modifier_key
-                    .iter()
-                    .any(|x| *x == KeyOrButton::Key(key_code)) {
-                    self.input_state.yaw_mod = down;
-                };
-                if self.settings
-                    .pan_modifier_key
-                    .iter()
-                    .any(|x| *x == KeyOrButton::Key(key_code)) {
-                    self.input_state.pan_mod = down;
-                };
-                if self.settings
-                    .pitch_modifier_key
-                    .iter()
-                    .any(|x| *x == KeyOrButton::Key(key_code)) {
-                    self.input_state.pitch_mod = down;
-                };
-
-                self.focused_interactable.map(|interactable| {
-                    interactable <<
-                    if down {
-                        Event3d::KeyDown(key_code)
-                    } else {
-                        Event3d::KeyUp(key_code)
-                    }
-                });
-                ()
+            Key::Down(key_code)=> {
+                if self.input_state.keys_down.iter().position(|x| *x == KeyOrButton::Key(key_code)) == None{
+                    self.input_state.keys_down.push(KeyOrButton::Key(key_code));
+                }
             }
+            Key::Up(key_code) => {
+                let index = self.input_state.keys_down.iter().position(|x| *x == KeyOrButton::Key(key_code)).unwrap();
+                self.input_state.keys_down.remove(index);
+            },
         }
         Fate::Live
     }
@@ -305,11 +316,11 @@ impl Recipient<Projected3d> for UserInterface {
             Projected3d { position_3d } => {
                 self.cursor_3d = position_3d;
                 if let Some(active_interactable) = self.active_interactable {
-                    active_interactable <<
-                    Event3d::DragOngoing {
+                    let message = self.outbox.entry(active_interactable).or_insert(box UIInput::new());
+                    (*message).mouse_actions.push(Event3d::DragOngoing {
                         from: self.drag_start_3d.expect("active interactable but no drag start"),
-                        to: position_3d,
-                    };
+                        to: position_3d
+                    });
                 } else {
                     let new_hovered_interactable = self.interactables_3d
                         .iter()
@@ -321,13 +332,16 @@ impl Recipient<Projected3d> for UserInterface {
 
                     if self.hovered_interactable != new_hovered_interactable {
                         if let Some(previous) = self.hovered_interactable {
-                            previous << Event3d::HoverStopped;
+                            let message = self.outbox.entry(previous).or_insert(box UIInput::new());
+                            (*message).mouse_actions.push(Event3d::HoverStopped);
                         }
                         if let Some(next) = new_hovered_interactable {
-                            next << Event3d::HoverStarted { at: self.cursor_3d };
+                            let message = self.outbox.entry(next).or_insert(box UIInput::new());
+                            (*message).mouse_actions.push(Event3d::HoverStarted { at: self.cursor_3d });
                         }
                     } else if let Some(hovered_interactable) = self.hovered_interactable {
-                        hovered_interactable << Event3d::HoverOngoing { at: self.cursor_3d };
+                        let message = self.outbox.entry(hovered_interactable).or_insert(box UIInput::new());
+                        (*message).mouse_actions.push(Event3d::HoverOngoing { at: self.cursor_3d });
                     }
                     self.hovered_interactable = new_hovered_interactable;
                 }
@@ -337,79 +351,41 @@ impl Recipient<Projected3d> for UserInterface {
     }
 }
 
-#[derive(Copy, Clone)]
-struct UIUpdate;
+/// Return true if there is at least one common element between a and b
+pub fn intersection(a: &[KeyOrButton], b: &[KeyOrButton]) -> bool{
+    for i in a{
+        for j in b{
+            if i == j {return true}
+        }
+    }
+    false
+}
 
-impl Recipient<UIUpdate> for UserInterface {
-    fn receive(&mut self, _msg: &UIUpdate) -> Fate {
+#[derive(Copy, Clone)]
+pub struct UITick{
+    dt: f32
+}
+
+impl Recipient<UITick> for UserInterface {
+    fn receive(&mut self, msg: &UITick) -> Fate {
+        let button_events: CVec<&String> = CVec::new();
+        for (keys, name) in self.settings.key_mappings{
+            if keys.triggered(&self.input_state.keys_down){
+                button_events.push(&name.clone());
+            }
+        }
+
+        let mouse_events: CVec<(Mouse, &String)> = CVec::new();
+
         for mouse_action in &self.input_state.mouse.clone() {
             match *mouse_action {
                 Mouse::Moved(position) => {
-                    let inverted = if self.settings.invert_y { -1.0 } else { 1.0 };
-                    let delta = self.cursor_2d - position;
-
-                    if self.input_state.yaw_mod || self.input_state.pitch_mod ||
-                       self.input_state.pan_mod {
-                        if self.input_state.yaw_mod {
-                            Renderer::id() <<
-                            MoveEye {
-                                scene_id: 0,
-                                movement: ::monet::Movement::Yaw(-delta.x *
-                                                                 self.settings.rotation_speed *
-                                                                 inverted /
-                                                                 300.0),
-                            };
-
-                            self.cursor_2d = position;
-                        }
-
-                        if self.input_state.pitch_mod {
-                            Renderer::id() <<
-                            MoveEye {
-                                scene_id: 0,
-                                movement: ::monet::Movement::Pitch(-delta.y *
-                                                                   self.settings.rotation_speed *
-                                                                   inverted /
-                                                                   300.0),
-                            };
-                            self.cursor_2d = position;
-                        }
-
-                        if self.input_state.pan_mod {
-                            Renderer::id() <<
-                            MoveEye {
-                                scene_id: 0,
-                                movement: ::monet::Movement::Shift(V3::new(-delta.y *
-                                                                           self.settings
-                                                                               .move_speed *
-                                                                           inverted /
-                                                                           3.0,
-                                                                           delta.x *
-                                                                           self.settings
-                                                                               .move_speed *
-                                                                           inverted /
-                                                                           3.0,
-                                                                           0.0)),
-                            };
-                            self.cursor_2d = position;
-                        }
-                    } else {
-                        self.cursor_2d = position;
-                        Renderer::id() <<
-                        Project2dTo3d {
-                            scene_id: 0,
-                            position_2d: position,
-                            requester: Self::id(),
-                        };
-                    }
-                }
-                Mouse::Scrolled(delta) => {
-                    Renderer::id() <<
-                    MoveEye {
+                    Renderer::id() << Project2dTo3d {
                         scene_id: 0,
-                        movement: ::monet::Movement::Zoom(delta.y * self.settings.zoom_speed),
+                        position_2d: position,
+                        requester: Self::id()
                     };
-                }
+                },
                 Mouse::Down(MouseButton::Left) => {
                     self.drag_start_2d = Some(self.cursor_2d);
                     self.drag_start_3d = Some(self.cursor_3d);
@@ -419,61 +395,52 @@ impl Recipient<UIUpdate> for UserInterface {
                     if let Some(active_interactable) = self.active_interactable {
                         active_interactable << Event3d::DragStarted { at: self.cursor_3d };
                     }
-                }
+                },
                 Mouse::Up(MouseButton::Left) => {
                     if let Some(active_interactable) = self.active_interactable {
-                        active_interactable <<
-                        Event3d::DragFinished {
-                            from: self.drag_start_3d
-                                .expect("active interactable but no drag start"),
-                            to: self.cursor_3d,
+                        active_interactable << Event3d::DragFinished {
+                            from: self.drag_start_3d.expect("active interactable but no drag start"),
+                            to: self.cursor_3d
                         };
                     }
                     self.drag_start_2d = None;
                     self.drag_start_3d = None;
                     self.active_interactable = None;
+                },
+                _ => ()
+            }
+            for (keys, names) in self.settings.mouse_modifier_mappings{
+                if keys.triggered(&self.input_state.keys_down){
+                    mouse_events.push((*mouse_action, names))
                 }
-                _ => (),
             }
         }
-        if self.input_state.forward {
-            Renderer::id() <<
-            MoveEye {
-                scene_id: 0,
-                movement: ::monet::Movement::Shift(V3::new(5.0 * self.settings.move_speed,
-                                                           0.0,
-                                                           0.0)),
-            };
-        }
-        if self.input_state.backward {
-            Renderer::id() <<
-            MoveEye {
-                scene_id: 0,
-                movement: ::monet::Movement::Shift(V3::new(-5.0 * self.settings.move_speed,
-                                                           0.0,
-                                                           0.0)),
-            };
-        }
-        if self.input_state.left {
-            Renderer::id() <<
-            MoveEye {
-                scene_id: 0,
-                movement: ::monet::Movement::Shift(V3::new(0.0,
-                                                           -5.0 * self.settings.move_speed,
-                                                           0.0)),
-            };
-        }
-        if self.input_state.right {
-            Renderer::id() <<
-            MoveEye {
-                scene_id: 0,
-                movement: ::monet::Movement::Shift(V3::new(0.0,
-                                                           5.0 * self.settings.move_speed,
-                                                           0.0)),
-            };
+        if let Some(active_id) = self.active_interactable {
+            let active_message = self.outbox.entry(active_id).or_insert(box UIInput::new());
+            (*active_message).button_events = button_events.clone();
+            (*active_message).mouse_events = mouse_events.clone();
+
+            active_id << active_message;
+            self.outbox.remove(&active_id);
         }
 
+
+        for i in self.active_interactable {
+
+            let any_message = self.outbox.entry(i).or_insert(box UIInput::new());
+            (*any_message).button_events = button_events.clone();
+
+            i << any_message;
+            self.outbox.remove(i);
+        }
+
+        for (k, v) in self.outbox{
+            k << v;
+        }
+
+        self.outbox.clear();
         self.input_state.mouse.clear();
+
         Fate::Live
     }
 }
@@ -489,14 +456,16 @@ pub fn setup_window_and_renderer(system: &mut ActorSystem, renderables: Vec<ID>)
 
     let ui = UserInterface::new();
 
-    system.add_individual(ui);
-    system.add_inbox::<Add, UserInterface>();
+    USER_INTERFACE = Some(ID{type_id: UserInterface::id(), version: 0, instance_id: 0});
+
+    system.add_inbox::<AddInteractable, UserInterface>();
     system.add_inbox::<Remove, UserInterface>();
     system.add_inbox::<Focus, UserInterface>();
     system.add_unclearable_inbox::<Mouse, UserInterface>();
     system.add_unclearable_inbox::<Key, UserInterface>();
-    system.add_unclearable_inbox::<UIUpdate, UserInterface>();
+    system.add_unclearable_inbox::<UITick, UserInterface>();
     system.add_unclearable_inbox::<Projected3d, UserInterface>();
+    system.add_unclearable_inbox::<UpdateCursor, UserInterface>();
 
     let mut renderer = Renderer::new(window.clone());
     let mut scene = Scene::new();
@@ -536,6 +505,6 @@ pub fn process_events(window: &GlutinFacade) -> bool {
             _ => {}
         }
     }
-    UserInterface::id() << UIUpdate {};
+    UserInterface::id() << UITick {};
     true
 }

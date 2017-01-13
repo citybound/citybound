@@ -1,13 +1,18 @@
 use kay::{Swarm, ToRandom, Recipient, ActorSystem, Individual, Fate};
 use descartes::{Into2d, P3};
 use core::geometry::AnyShape;
-use core::ui::{UserInterface, VirtualKeyCode};
+use core::ui::{UserInterface, VirtualKeyCode, KeyOrButton, KeyCombination, InterchangeableKeys};
+use core::settings::{Settings, SETTINGS};
 use super::CurrentPlan;
 
-#[derive(Copy, Clone, Default)]
-pub struct LaneStrokeCanvas {
-    cmd_pressed: bool,
-    shift_pressed: bool,
+#[derive(Clone, Default)]
+pub struct LaneStrokeCanvas;
+
+
+impl LaneStrokeCanvas {
+    fn new() -> LaneStrokeCanvas {
+        LaneStrokeCanvas {}
+    }
 }
 
 impl Individual for LaneStrokeCanvas {}
@@ -16,58 +21,32 @@ use core::ui::Event3d;
 use super::{Commit, Undo, Redo, WithLatestNode, Materialize, CreateGrid, DeleteSelection,
             SetSelectionMode, SetNLanes, ToggleBothSides};
 
-impl Recipient<Event3d> for LaneStrokeCanvas {
-    fn receive(&mut self, msg: &Event3d) -> Fate {
-        match *msg {
-            Event3d::HoverStarted { at } |
-            Event3d::HoverOngoing { at } => {
-                CurrentPlan::id() << WithLatestNode(at.into_2d(), true);
-                Fate::Live
-            }
-            Event3d::DragStarted { at } => {
-                CurrentPlan::id() << WithLatestNode(at.into_2d(), true);
-                CurrentPlan::id() << Commit(true, at.into_2d());
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Return) => {
-                CurrentPlan::id() << Materialize;
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::LControl) |
-            Event3d::KeyDown(VirtualKeyCode::RControl) |
-            Event3d::KeyDown(VirtualKeyCode::LWin) |
-            Event3d::KeyDown(VirtualKeyCode::RWin) => {
-                self.cmd_pressed = true;
-                Fate::Live
-            }
-            Event3d::KeyUp(VirtualKeyCode::LControl) |
-            Event3d::KeyUp(VirtualKeyCode::RControl) |
-            Event3d::KeyUp(VirtualKeyCode::LWin) |
-            Event3d::KeyUp(VirtualKeyCode::RWin) => {
-                self.cmd_pressed = false;
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::LShift) |
-            Event3d::KeyDown(VirtualKeyCode::RShift) => {
-                self.shift_pressed = true;
-                Fate::Live
-            }
-            Event3d::KeyUp(VirtualKeyCode::LShift) |
-            Event3d::KeyUp(VirtualKeyCode::RShift) => {
-                self.shift_pressed = false;
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Z) => {
-                if self.cmd_pressed {
-                    if self.shift_pressed {
-                        CurrentPlan::id() << Redo;
-                    } else {
-                        CurrentPlan::id() << Undo;
-                    }
+use core::ui::UIInput;
+
+impl Recipient<UIInput> for LaneStrokeCanvas {
+    fn receive(&mut self, msg: &UIInput) -> Fate {
+        for event in msg.mouse_actions.into_iter() {
+            match event {
+                Event3d::HoverStarted { at } |
+                Event3d::HoverOngoing { at } => {
+                    CurrentPlan::id() << WithLatestNode(at.into_2d(), true);
                 }
-                Fate::Live
+                Event3d::DragStarted { at } => {
+                    CurrentPlan::id() << WithLatestNode(at.into_2d(), true);
+                    CurrentPlan::id() << Commit(true, at.into_2d());
+                }
+                Event3d::DragFinished { .. } => {}
+                _ => (),
             }
-            Event3d::KeyDown(VirtualKeyCode::C) => {
+        }
+        for name in msg.button_events.into_iter() {
+            if name == "Undo" {
+                CurrentPlan::id() << Undo;
+            }
+            if name == "Redo" {
+                CurrentPlan::id() << Undo;
+            }
+            if name == "Spawn Cars" {
                 Swarm::<::game::lanes_and_cars::Lane>::all() <<
                 ToRandom {
                     n_recipients: 5000,
@@ -76,58 +55,51 @@ impl Recipient<Event3d> for LaneStrokeCanvas {
                         to: P3::new(0.0, 0.0, 0.0),
                     },
                 };
-                Fate::Live
             }
-            Event3d::KeyDown(VirtualKeyCode::G) => {
-                CurrentPlan::id() << CreateGrid(if self.shift_pressed { 15 } else { 10 });
-                Fate::Live
+            if name == "Finalize" {
+                CurrentPlan::id() << Materialize;
             }
-            Event3d::KeyDown(VirtualKeyCode::Back) => {
+            if name == "Create Grid" {
+                CurrentPlan::id() << CreateGrid(10);
+            }
+            if name == "Create Big Grid" {
+                CurrentPlan::id() << CreateGrid(15);
+            }
+            if name == "Delete Selection" {
                 CurrentPlan::id() << DeleteSelection;
-                Fate::Live
             }
-            Event3d::KeyDown(VirtualKeyCode::Key1) => {
-                CurrentPlan::id() << SetNLanes(1);
-                Fate::Live
+            if name == "Set road to 1 lane" {
+                CurrentPlan::id() << SetNLanes(1)
             }
-            Event3d::KeyDown(VirtualKeyCode::Key2) => {
-                CurrentPlan::id() << SetNLanes(2);
-                Fate::Live
+            if name == "Set road to 2 lane" {
+                CurrentPlan::id() << SetNLanes(2)
             }
-            Event3d::KeyDown(VirtualKeyCode::Key3) => {
-                CurrentPlan::id() << SetNLanes(3);
-                Fate::Live
+            if name == "Set road to 3 lane" {
+                CurrentPlan::id() << SetNLanes(3)
             }
-            Event3d::KeyDown(VirtualKeyCode::Key4) => {
-                CurrentPlan::id() << SetNLanes(4);
-                Fate::Live
+            if name == "Set road to 4 lane" {
+                CurrentPlan::id() << SetNLanes(4)
             }
-            Event3d::KeyDown(VirtualKeyCode::Key5) => {
-                CurrentPlan::id() << SetNLanes(5);
-                Fate::Live
+            if name == "Set road to 5 lane" {
+                CurrentPlan::id() << SetNLanes(5)
             }
-            Event3d::KeyDown(VirtualKeyCode::Key6) => {
-                CurrentPlan::id() << SetNLanes(6);
-                Fate::Live
+            if name == "Set road to 6 lane" {
+                CurrentPlan::id() << SetNLanes(6)
             }
-            Event3d::KeyDown(VirtualKeyCode::Key7) => {
-                CurrentPlan::id() << SetNLanes(7);
-                Fate::Live
+            if name == "Set road to 7 lane" {
+                CurrentPlan::id() << SetNLanes(7)
             }
-            Event3d::KeyDown(VirtualKeyCode::Key8) => {
-                CurrentPlan::id() << SetNLanes(8);
-                Fate::Live
+            if name == "Set road to 8 lane" {
+                CurrentPlan::id() << SetNLanes(8)
             }
-            Event3d::KeyDown(VirtualKeyCode::Key9) => {
-                CurrentPlan::id() << SetNLanes(9);
-                Fate::Live
+            if name == "Set road to 9 lane" {
+                CurrentPlan::id() << SetNLanes(9)
             }
-            Event3d::KeyUp(VirtualKeyCode::Key0) => {
-                CurrentPlan::id() << ToggleBothSides;
-                Fate::Live
+            if name == "Set road to one way" {
+                CurrentPlan::id() << ToggleBothSides
             }
-            _ => Fate::Live,
         }
+        Fate::Live
     }
 }
 
@@ -150,7 +122,7 @@ impl Recipient<EyeMoved> for LaneStrokeCanvas {
     }
 }
 
-use core::ui::Add;
+use core::ui::AddInteractable;
 use core::ui::Focus;
 
 #[derive(Copy, Clone)]
@@ -158,7 +130,8 @@ struct AddToUI;
 
 impl Recipient<AddToUI> for LaneStrokeCanvas {
     fn receive(&mut self, _msg: &AddToUI) -> Fate {
-        UserInterface::id() << Add::Interactable3d(LaneStrokeCanvas::id(), AnyShape::Everywhere, 0);
+        UserInterface::id() <<
+        AddInteractable::Interactable3d(LaneStrokeCanvas::id(), AnyShape::Everywhere, 0);
         UserInterface::id() << Focus(LaneStrokeCanvas::id());
         ::monet::Renderer::id() <<
         ::monet::AddEyeListener {
@@ -170,12 +143,150 @@ impl Recipient<AddToUI> for LaneStrokeCanvas {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add_individual(LaneStrokeCanvas {
-        cmd_pressed: false,
-        shift_pressed: false,
-    });
-    system.add_inbox::<Event3d, LaneStrokeCanvas>();
+    system.add_individual(LaneStrokeCanvas::new());
+    system.add_inbox::<UIInput, LaneStrokeCanvas>();
     system.add_inbox::<EyeMoved, LaneStrokeCanvas>();
-    system.add_inbox::<AddToUI, LaneStrokeCanvas>();
+
+    let mut settings = *SETTINGS;
+
+    settings.register_key(KeyCombination {
+                              keys: vec![InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::Z)],
+                                         },
+                                         InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::LControl),
+                                                        KeyOrButton::Key(VirtualKeyCode::RControl),
+                                                        KeyOrButton::Key(VirtualKeyCode::LWin),
+                                                        KeyOrButton::Key(VirtualKeyCode::RWin)],
+                                         }],
+                          },
+                          "Undo");
+
+    settings.register_key(KeyCombination {
+                              keys: vec![InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::Z)],
+                                         },
+                                         InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::LControl),
+                                                        KeyOrButton::Key(VirtualKeyCode::RControl),
+                                                        KeyOrButton::Key(VirtualKeyCode::LWin),
+                                                        KeyOrButton::Key(VirtualKeyCode::RWin)],
+                                         },
+                                         InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::LShift),
+                                                        KeyOrButton::Key(VirtualKeyCode::RShift)],
+                                         }],
+                          },
+                          "Redo");
+
+    settings.register_key(KeyCombination {
+                              keys: vec![InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::Return)],
+                                         }],
+                          },
+                          "Finalize");
+
+    settings.register_key(KeyCombination {
+                              keys: vec![InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::C)],
+                                         }],
+                          },
+                          "Car Spawning");
+
+    settings.register_key(KeyCombination {
+                              keys: vec![InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::Delete),
+                                                        KeyOrButton::Key(VirtualKeyCode::Back),
+                                                        KeyOrButton::Key(VirtualKeyCode::Escape)],
+                                         }],
+                          },
+                          "Delete Selection");
+
+    settings.register_key(KeyCombination {
+                              keys: vec![InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::G)],
+                                         }],
+                          },
+                          "Create Grid");
+
+    settings.register_key(
+        KeyCombination{
+            keys: vec![
+                InterchangeableKeys{
+                    keys: vec![KeyOrButton::Key(VirtualKeyCode::G)]
+                },
+                InterchangeableKeys{
+                    keys: vec![KeyOrButton::Key(VirtualKeyCode::LShift),
+                               KeyOrButton::Key(VirtualKeyCode::RShift)]
+                },
+            ],
+        },
+        "Create Big Grid" //TODO: How to make this not trigger the create grid as well
+    );
+
+    settings.register_key(KeyCombination {
+                              keys: vec![InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::Key0)],
+                                         }],
+                          },
+                          "Set road to one way");
+
+    // There must be a better way!!!
+    settings.register_key(KeyCombination {
+                              keys: vec![InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::Key1)],
+                                         }],
+                          },
+                          "Set road to 1 lane");
+    settings.register_key(KeyCombination {
+                              keys: vec![InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::Key2)],
+                                         }],
+                          },
+                          "Set road to 2 lane");
+    settings.register_key(KeyCombination {
+                              keys: vec![InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::Key3)],
+                                         }],
+                          },
+                          "Set road to 3 lane");
+    settings.register_key(KeyCombination {
+                              keys: vec![InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::Key4)],
+                                         }],
+                          },
+                          "Set road to 4 lane");
+    settings.register_key(KeyCombination {
+                              keys: vec![InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::Key5)],
+                                         }],
+                          },
+                          "Set road to 5 lane");
+    settings.register_key(KeyCombination {
+                              keys: vec![InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::Key6)],
+                                         }],
+                          },
+                          "Set road to 6 lane");
+    settings.register_key(KeyCombination {
+                              keys: vec![InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::Key7)],
+                                         }],
+                          },
+                          "Set road to 7 lane");
+    settings.register_key(KeyCombination {
+                              keys: vec![InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::Key8)],
+                                         }],
+                          },
+                          "Set road to 8 lane");
+    settings.register_key(KeyCombination {
+                              keys: vec![InterchangeableKeys {
+                                             keys: vec![KeyOrButton::Key(VirtualKeyCode::Key9)],
+                                         }],
+                          },
+                          "Set road to 9 lane".into());
+
+
     LaneStrokeCanvas::id() << AddToUI;
 }
