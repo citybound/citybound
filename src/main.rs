@@ -27,6 +27,7 @@ extern crate kay;
 extern crate kay_macros;
 extern crate monet;
 extern crate descartes;
+extern crate weaver;
 
 mod core;
 mod game;
@@ -56,6 +57,12 @@ fn main() {
     unsafe {
         kay::THE_SYSTEM = &mut *system as *mut kay::ActorSystem;
     }
+
+    let mut weaver = weaver::Weaver::new();
+    // reads the package manifest, and registers the mod.
+    weaver.add_package("mymod").expect("could not add mymod");
+    // actually loads the specified mod into the game.
+    weaver.load_package("mymod", &mut system);
 
     game::setup(&mut system);
     game::setup_ui(&mut system);

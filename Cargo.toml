@@ -17,6 +17,9 @@ serde_derive = "=0.8.21"
 serde_json = "=0.8.4"
 app_dirs = "1.1.1"
 
+weaver = { path = "lib/weaver" }
+mymod = { path = "lib/mymod" }
+
 [dependencies.kay]
 path = "./lib/kay/"
 
