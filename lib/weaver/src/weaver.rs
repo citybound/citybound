@@ -57,7 +57,9 @@ impl Weaver {
                 for error in &parser.errors {
                     let (line, col) = parser.to_linecol(error.lo);
                     println!("TOML parsing error: {}\nLine: {} Col: {}",
-                              &error.desc, line, col);
+                             &error.desc,
+                             line,
+                             col);
                 }
                 let err = io::Error::new(io::ErrorKind::InvalidData, "malformed toml");
                 return Err(err);
@@ -71,11 +73,13 @@ impl Weaver {
 
     fn add_package_(&mut self, package: LocatedPackage) {
         let version = package.package.mod_info.version.clone();
-        if let Some(old_package) = self.packages.insert(package.package.mod_info.name.clone(), package) {
+        if let Some(old_package) =
+            self.packages.insert(package.package.mod_info.name.clone(), package) {
             println!("found package collision, \
                          using newest package. {}, versions: {} and {}",
-                         &old_package.package.mod_info.name, &version,
-                         &old_package.package.mod_info.version);
+                     &old_package.package.mod_info.name,
+                     &version,
+                     &old_package.package.mod_info.version);
 
             if old_package.package.mod_info.version > version {
                 self.packages.insert(old_package.package.mod_info.name.clone(), old_package);
@@ -98,7 +102,7 @@ impl Weaver {
     ///
     /// See `Weaver::load_package` for more information.
     pub fn reset_and_load_packages<'a, I>(&mut self, iter: I, system: &mut ActorSystem)
-        where I: IntoIterator<Item=&'a str>
+        where I: IntoIterator<Item = &'a str>
     {
         let mut old_packs = HashMap::new();
         mem::swap(&mut old_packs, &mut self.loaded);
@@ -125,13 +129,14 @@ impl Weaver {
             let library = Library::new(path).unwrap();
             let mut register = Register::new();
             unsafe {
-                let reg_fn: Symbol<unsafe extern fn(*mut Register)> =
+                let reg_fn: Symbol<unsafe extern "C" fn(*mut Register)> =
                     library.get(b"__register_mod\0").unwrap();
                 reg_fn(&mut register as *mut Register);
             }
 
             if register.mods.len() != 1 {
-                panic!("currently only one mod can be registered at a time. {}", name);
+                panic!("currently only one mod can be registered at a time. {}",
+                       name);
             }
 
             let mod_ = register.mods.remove(0);
@@ -187,9 +192,7 @@ impl Register {
         where M: ModWrapper + 'static
     {
         let index = self.mods.len();
-        let mod_ = Mod {
-            wrapper: Box::new(mod_),
-        };
+        let mod_ = Mod { wrapper: Box::new(mod_) };
 
         self.mods.push(mod_);
         &mut self.mods[index]

@@ -32,8 +32,7 @@ pub struct ModInfo {
 fn de_version<D>(deserializer: &mut D) -> Result<Version, D::Error>
     where D: Deserializer
 {
-    VersionDeserialize::deserialize(deserializer)
-        .map(|v| v.0)
+    VersionDeserialize::deserialize(deserializer).map(|v| v.0)
 }
 
 struct VersionVisitor;
@@ -43,12 +42,12 @@ impl VersionDeserialize {
     fn parse<E>(v: &str) -> Result<VersionDeserialize, E>
         where E: Error
     {
-        Version::parse(v).map_err(|err| {
-            let SemVerError::ParseError(v) = err;
-            Error::custom(v)
-        }).map(|v| {
-            VersionDeserialize(v)
-        })
+        Version::parse(v)
+            .map_err(|err| {
+                let SemVerError::ParseError(v) = err;
+                Error::custom(v)
+            })
+            .map(|v| VersionDeserialize(v))
     }
 }
 
