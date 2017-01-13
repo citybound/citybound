@@ -13,7 +13,9 @@ members = [
     "./lib/descartes",
     "./lib/kay",
     "./lib/kay_macros",
-    "./lib/monet"
+    "./lib/monet",
+    "./lib/weaver",
+    "./lib/mymod",
 ]
 
 [dependencies]
@@ -28,6 +30,9 @@ serde = "=0.8.21"
 serde_derive = "=0.8.21"
 serde_json = "=0.8.4"
 app_dirs = "1.1.1"
+
+weaver = { path = "./lib/weaver" }
+mymod = { path = "./lib/mymod" }
 
 [dependencies.compact]
 path = "./lib/compact/"

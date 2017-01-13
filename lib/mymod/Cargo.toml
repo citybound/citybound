@@ -1,0 +1,12 @@
+[package]
+name = "mymod"
+version = "0.1.0"
+authors = ["The Citybound Developers"]
+
+[lib]
+crate-type = ["dylib"]
+
+[dependencies]
+clippy = "0.0.106"
+
+weaver = { path = "../weaver" }
