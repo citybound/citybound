@@ -1,8 +1,5 @@
-#![feature(plugin, rustc_private)]
+#![feature(plugin)]
 #![plugin(clippy)]
-
-extern crate rustc;
-extern crate rustc_metadata;
 
 extern crate serde;
 #[macro_use]

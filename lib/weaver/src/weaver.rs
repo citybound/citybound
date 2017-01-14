@@ -126,7 +126,7 @@ impl Weaver {
             let package = &self.packages[name];
             let path = self.package_path(package);
 
-            let library = Library::new(path).unwrap();
+            let library = Library::new(&path).unwrap();
             let mut register = Register::new();
             unsafe {
                 let reg_fn: Symbol<unsafe extern "C" fn(*mut Register)> =

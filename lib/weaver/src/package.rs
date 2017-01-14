@@ -47,7 +47,7 @@ impl VersionDeserialize {
                 let SemVerError::ParseError(v) = err;
                 Error::custom(v)
             })
-            .map(|v| VersionDeserialize(v))
+            .map(VersionDeserialize)
     }
 }
 
