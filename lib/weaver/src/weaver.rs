@@ -129,8 +129,8 @@ impl Weaver {
             let library = Library::new(&path).unwrap();
             let mut register = Register::new();
             unsafe {
-                let reg_fn: Symbol<fn(&mut Register)> =
-                    library.get(b"__register_mod\0").unwrap();
+                const FN_NAME: &'static [u8] = b"__register_mod\0";
+                let reg_fn: Symbol<fn(&mut Register)> = library.get(FN_NAME).unwrap();
                 reg_fn(&mut register);
             }
 
