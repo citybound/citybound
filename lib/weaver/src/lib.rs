@@ -25,7 +25,7 @@ macro_rules! register_mod {
         $(,)*
     } => {
         #[no_mangle]
-        pub unsafe extern "C" fn __register_mod(register: *mut $crate::Register) {
+        pub fn __register_mod(register: &mut $crate::Register) {
             struct Wrapper {
                 inner: Option<$mod_>,
             };
@@ -44,7 +44,7 @@ macro_rules! register_mod {
             let wrapper = Wrapper {
                 inner: None,
             };
-            let _mod_ = (&mut *register).register_mod(wrapper);
+            let _mod_ = register.register_mod(wrapper);
         }
     };
 }

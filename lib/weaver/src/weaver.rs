@@ -129,9 +129,9 @@ impl Weaver {
             let library = Library::new(&path).unwrap();
             let mut register = Register::new();
             unsafe {
-                let reg_fn: Symbol<unsafe extern "C" fn(*mut Register)> =
+                let reg_fn: Symbol<fn(&mut Register)> =
                     library.get(b"__register_mod\0").unwrap();
-                reg_fn(&mut register as *mut Register);
+                reg_fn(&mut register);
             }
 
             if register.mods.len() != 1 {
