@@ -15,7 +15,7 @@ mod package;
 mod weaver;
 
 pub use mod_trait::{CityboundMod, ModWrapper};
-pub use package::{Package, ModInfo};
+pub use package::{Package, PackageDesc, ModInfo};
 pub use weaver::{Mod, Register, Weaver};
 
 #[macro_export]
@@ -36,8 +36,12 @@ macro_rules! register_mod {
                     self.inner = Some(m);
                 }
 
-                fn is_loaded(&mut self) -> bool {
+                fn has_instance(&mut self) -> bool {
                     self.inner.is_some()
+                }
+
+                fn drop_instance(&mut self) {
+                    self.inner = None;
                 }
             }
 

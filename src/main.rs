@@ -68,7 +68,7 @@ fn main() {
     // reads the package manifest, and registers the mod.
     weaver.add_package("mymod").expect("could not add mymod");
     // actually loads the specified mod into the game.
-    weaver.load_package("mymod", &mut system);
+    weaver.load_package("mymod", &mut system).expect("could not load mymod");
 
     game::setup(&mut system);
     game::setup_ui(&mut system);

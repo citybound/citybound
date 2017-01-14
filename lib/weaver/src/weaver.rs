@@ -1,5 +1,4 @@
 
-use std::mem;
 use std::collections::HashMap;
 use std::io::{self, Read};
 use std::fs::File;
@@ -7,21 +6,15 @@ use std::path::{PathBuf, Path};
 
 use libloading::{Library, Symbol};
 use kay::ActorSystem;
-use semver::Version;
 use serde::Deserialize;
 use toml;
 
 use ::{Package, ModWrapper};
 
-struct LocatedPackage {
-    package: Package,
-    path: PathBuf,
-}
-
 /// The weaver takes care of loading and keeping track of mods.
 #[derive(Default)]
 pub struct Weaver {
-    packages: HashMap<String, LocatedPackage>,
+    packages: HashMap<String, (PathBuf, Package)>,
     loaded: HashMap<String, LoadedMod>,
 }
 
@@ -32,12 +25,15 @@ impl Weaver {
 
     pub fn add_package<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
         let path = path.as_ref().canonicalize()?;
-        let manifest = Weaver::read_package_manifest(&path)?;
+        let package = Weaver::read_package_manifest(&path)?;
 
-        self.add_package_(LocatedPackage {
-            package: manifest,
-            path: path,
-        });
+        let old = self.packages.insert(package.ident().to_owned(), (path.clone(), package));
+        if let Some(old) = old {
+            println!("found package collision \"{}\"\n  {:?}\n  {:?}\n",
+                     old.1.ident(),
+                     &path,
+                     &old.0);
+        }
         Ok(())
     }
 
@@ -67,105 +63,105 @@ impl Weaver {
         };
 
         let mut decoder = toml::Decoder::new(toml::Value::Table(table));
-        Deserialize::deserialize(&mut decoder)
-            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))
+        let desc = Deserialize::deserialize(&mut decoder)
+            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+
+        Package::new(desc).map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))
     }
 
-    fn add_package_(&mut self, package: LocatedPackage) {
-        let version = package.package.mod_info.version.clone();
-        if let Some(old_package) =
-            self.packages.insert(package.package.mod_info.name.clone(), package) {
-            println!("found package collision, \
-                         using newest package. {}, versions: {} and {}",
-                     &old_package.package.mod_info.name,
-                     &version,
-                     &old_package.package.mod_info.version);
-
-            if old_package.package.mod_info.version > version {
-                self.packages.insert(old_package.package.mod_info.name.clone(), old_package);
-            } else if old_package.package.mod_info.version == version {
-                println!("could not resolve, both version equal");
-            }
+    /// Drops all currently loaded packages.
+    pub fn drop_packages(&mut self) {
+        for (_, ref mut module) in &mut self.loaded {
+            module.wrapper.drop_instance();
         }
     }
 
     /// Loads a package into the game.
     ///
-    /// Looks for a dylib named `{name}.module` in the
-    /// root of the package folder.
-    pub fn load_package(&mut self, name: &str, system: &mut ActorSystem) {
-        self.load_package_(name, system);
-    }
+    /// `name` can either be an ident or just the name of the mod,
+    /// in case of the latter, the latest version will be chosen.
+    pub fn load_package(&mut self, name: &str, system: &mut ActorSystem) -> Result<(), String> {
+        let ident = match self.resolve_package_ident(name) {
+            Some(ident) => ident,
+            None => return Err(format!("could not resolve package \"{}\"", name)),
+        };
 
-    /// Used when loading another save, and we want to reset
-    /// every mod. Unloads all mods not in iter.
-    ///
-    /// See `Weaver::load_package` for more information.
-    pub fn reset_and_load_packages<'a, I>(&mut self, iter: I, system: &mut ActorSystem)
-        where I: IntoIterator<Item = &'a str>
-    {
-        let mut old_packs = HashMap::new();
-        mem::swap(&mut old_packs, &mut self.loaded);
-
-        for package in iter {
-            if let Some(mut mod_) = old_packs.remove(package) {
-                Weaver::setup_mod(&mut mod_, system);
-                self.loaded.insert(package.to_owned(), mod_);
-            } else {
-                self.load_package_(package, system);
-            }
-        }
-    }
-
-    fn setup_mod(mod_: &mut LoadedMod, system: &mut ActorSystem) {
-        mod_.wrapper.setup(system);
-    }
-
-    fn load_package_(&mut self, name: &str, system: &mut ActorSystem) {
-        if !self.loaded.contains_key(name) {
-            let package = &self.packages[name];
-            let path = self.package_path(package);
-
-            let library = Library::new(&path).unwrap();
-            let mut register = Register::new();
-            unsafe {
-                const FN_NAME: &'static [u8] = b"__register_mod\0";
-                let reg_fn: Symbol<fn(&mut Register)> = library.get(FN_NAME).unwrap();
-                reg_fn(&mut register);
-            }
-
-            if register.mods.len() != 1 {
-                panic!("currently only one mod can be registered at a time. {}",
-                       name);
-            }
-
-            let mod_ = register.mods.remove(0);
-            let mut loaded_mod = LoadedMod {
+        if !self.loaded.contains_key(&ident) {
+            let package = &self.packages[&ident];
+            let (library, module) = self.try_load_module(package)?;
+            let loaded_mod = LoadedMod {
                 _library: library,
-                version: package.package.mod_info.version.clone(),
-                wrapper: mod_.wrapper,
+                wrapper: module.wrapper,
             };
 
-            Weaver::setup_mod(&mut loaded_mod, system);
-            self.loaded.insert(package.package.mod_info.name.to_owned(), loaded_mod);
+            self.loaded.insert(ident.clone(), loaded_mod);
+        }
+
+        let module = self.loaded.get_mut(&ident).unwrap();
+        module.wrapper.setup(system);
+        Ok(())
+    }
+
+    fn resolve_package_ident(&self, name: &str) -> Option<String> {
+        // check if name is a valid ident.
+        if name.contains(':') {
+            if self.packages.contains_key(name) {
+                Some(name.to_owned())
+            } else {
+                None
+            }
+        } else {
+            // if it isn't, find the latest version
+            let mut versions = self.packages
+                .iter()
+                .filter(|&(n, _)| n.split(':').next().map(|n| n == name).unwrap())
+                .collect::<Vec<_>>();
+            versions.sort_by_key(|&(_, &(_, ref p))| p.version());
+            versions.first().map(|&(n, _)| n.to_owned())
         }
     }
 
-    fn package_path(&self, package: &LocatedPackage) -> PathBuf {
+    fn try_load_module(&self, package: &(PathBuf, Package)) -> Result<(Library, Mod), String> {
+        let path = self.module_path(package)?;
+
+        let library = Library::new(&path).unwrap();
+        let mut register = Register::new();
+        unsafe {
+            const FN_NAME: &'static [u8] = b"__register_mod\0";
+            let reg_fn: Symbol<fn(&mut Register)> = library.get(FN_NAME).unwrap();
+            reg_fn(&mut register);
+        }
+
+        if register.mods.len() != 1 {
+            return Err(format!("currently, only one mod can be registered at a time. {}",
+                               package.1.ident()));
+        }
+
+        Ok((library, register.mods.remove(0)))
+    }
+
+    fn module_path(&self,
+                   &(ref path, ref package): &(PathBuf, Package))
+                   -> Result<PathBuf, String> {
         const EXT: &'static str = "module";
 
-        let name = &package.package.mod_info.name;
-        let mut path = package.path.clone();
-
-        path.push(name);
+        let mut path = path.clone();
+        path.push(package.name());
         path.set_extension(EXT);
-        path
+
+        if !path.exists() {
+            return Err(format!("module does not exist {:?}", path));
+        }
+        if !path.is_file() {
+            return Err(format!("module does not a file {:?}", path));
+        }
+
+        Ok(path)
     }
 }
 
 struct LoadedMod {
     _library: Library,
-    version: Version,
     wrapper: Box<ModWrapper>,
 }
 

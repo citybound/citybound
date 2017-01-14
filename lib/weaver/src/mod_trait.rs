@@ -10,5 +10,7 @@ pub trait CityboundMod: Sized {
 #[doc(hidden)]
 pub trait ModWrapper {
     fn setup(&mut self, &mut ActorSystem);
-    fn is_loaded(&mut self) -> bool;
+
+    fn has_instance(&mut self) -> bool;
+    fn drop_instance(&mut self);
 }
