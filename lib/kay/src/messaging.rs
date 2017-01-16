@@ -1,4 +1,4 @@
-use super::actor_system::ID;
+use super::id::ID;
 use super::compact::Compact;
 use ::std::mem::size_of;
 
@@ -38,7 +38,7 @@ pub trait Individual: 'static {
     fn id() -> ID
         where Self: Sized
     {
-        unsafe { (*super::actor_system::THE_SYSTEM).individual_id::<Self>() }
+        unsafe { (*super::THE_SYSTEM).individual_id::<Self>() }
     }
 }
 

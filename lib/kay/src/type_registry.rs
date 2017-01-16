@@ -32,13 +32,28 @@ impl TypeRegistry {
 
     /// Get the sequential, internal type IDs (short IDs) from a type
     pub fn get<T: 'static>(&self) -> usize {
-        *self.long_to_short_ids
+        if let Some(&short_id) = self.long_to_short_ids.get(&unsafe { type_id::<T>() }) {
+            short_id
+        } else {
+            panic!("{:?} not known.", &unsafe { type_name::<T>() })
+        }
+    }
+
+    pub fn get_or_register<T: 'static>(&mut self) -> usize {
+        self.long_to_short_ids
             .get(&unsafe { type_id::<T>() })
-            .expect((format!("{:?} not known.", &unsafe { type_name::<T>() })).as_str())
+            .cloned()
+            .unwrap_or_else(|| self.register_new::<T>())
     }
 
     /// Get the human readable type name from the sequential, internal type IDs (short IDs)
     pub fn get_name(&self, short_id: usize) -> &String {
         &self.short_ids_to_names[&short_id]
+    }
+}
+
+impl Default for TypeRegistry {
+    fn default() -> Self {
+        Self::new()
     }
 }

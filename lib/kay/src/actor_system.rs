@@ -1,151 +1,20 @@
 use super::swarm::Swarm;
 use super::messaging::{Message, Actor, Individual, Packet, Recipient};
 use super::inbox::Inbox;
+use super::id::ID;
 use super::type_registry::TypeRegistry;
-use std::intrinsics::{type_id, type_name};
-use core::nonzero::NonZero;
 
-/// The single, global actor system for the whole program
 pub static mut THE_SYSTEM: *mut ActorSystem = 0 as *mut ActorSystem;
 
-/// The ID used to specify a specific object within the actor system
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct ID {
-    /// The sequentially numbered type ID of the actor within the actor system
-    pub type_id: NonZero<u16>,
-    /// The "generation" of the ID, to help debugging as instance_IDs can be reused
-    pub version: u8,
-    /// The instance of the type used to address a specific actor
-    /// Is broadcast if equal to `u32::max_value()`
-    /// Is swarm if equal to `u32::max_value() -1`
-    pub instance_id: u32,
-}
-
-impl ID {
-    pub fn individual(individual_type_id: usize) -> ID {
-        ID {
-            type_id: unsafe { NonZero::new(individual_type_id as u16) },
-            version: 0,
-            instance_id: 0,
-        }
-    }
-
-    /// Construct a broadcast ID to the type
-    pub fn broadcast(type_id: usize) -> ID {
-        ID {
-            type_id: unsafe { NonZero::new(type_id as u16) },
-            version: 0,
-            instance_id: u32::max_value(),
-        }
-    }
-
-    /// Construct an ID which points to an actor instance in a swarm
-    pub fn instance(type_id: usize, instance_id_and_version: (usize, usize)) -> ID {
-        ID {
-            type_id: unsafe { NonZero::new(type_id as u16) },
-            version: instance_id_and_version.1 as u8,
-            instance_id: instance_id_and_version.0 as u32,
-        }
-    }
-
-    /// Checks if ID is a broadcast ID
-    pub fn is_broadcast(&self) -> bool {
-        self.instance_id == u32::max_value()
-    }
-
-    /// Created swarm ID with type ID specified
-    pub fn swarm(type_id: usize) -> ID {
-        ID {
-            type_id: unsafe { NonZero::new(type_id as u16) },
-            version: 0,
-            instance_id: u32::max_value() - 1,
-        }
-    }
-
-    /// Checks if ID is a swarm ID
-    pub fn is_swarm(&self) -> bool {
-        self.instance_id == u32::max_value() - 1
-    }
-}
-
-impl ::std::fmt::Debug for ID {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f,
-               "ID {}_{}_{}",
-               *(self.type_id),
-               self.version,
-               self.instance_id)
-    }
-}
-
-impl<M: Message> ::std::ops::Shl<M> for ID {
-    type Output = ();
-    /// The shift left operator is overloaded to use to send messages
-    /// e.g. recipient_ID << message
-    fn shl(self, rhs: M) {
-        unsafe {
-            (*THE_SYSTEM).send(self, rhs);
-        }
-    }
-}
-
 const MAX_RECIPIENT_TYPES: usize = 64;
-const MAX_MESSAGE_TYPES_PER_RECIPIENT: usize = 32;
-
-#[derive(Clone)]
-struct InboxMap {
-    /// Amount of valid entries in the InboxMap
-    length: usize,
-    /// Entry consists of TypeID of Message type and pointer to inbox
-    entries: [Option<(u64, *mut u8)>; MAX_MESSAGE_TYPES_PER_RECIPIENT],
-}
-
-impl InboxMap {
-    /// Creates an empty InboxMap
-    fn new() -> InboxMap {
-        InboxMap {
-            length: 0,
-            entries: [None; MAX_MESSAGE_TYPES_PER_RECIPIENT],
-        }
-    }
-
-    /// Adds new message type to the InboxMap
-    fn add_new<M: Message>(&mut self, pointer: *mut Inbox<M>) {
-        let message_type_id = unsafe { type_id::<M>() };
-        let entry_is_for_id = |entry: &&Option<(u64, *mut u8)>| {
-            entry.map(|e| e.0 == message_type_id)
-                .unwrap_or(false)
-        };
-        assert!(self.entries.iter().find(entry_is_for_id).is_none());
-        self.entries[self.length] = Some((message_type_id, pointer as *mut u8));
-        self.length += 1;
-    }
-
-    /// Gets the inbox pointer of the type specified if there is one
-    fn get<M: Message>(&self) -> Option<*mut Inbox<M>> {
-        let message_type_id = unsafe { type_id::<M>() };
-        for entry in &self.entries {
-            if let Some((id, pointer)) = *entry {
-                if id == message_type_id {
-                    return Some(pointer as *mut Inbox<M>);
-                }
-            }
-        }
-        None
-    }
-}
+const MAX_MESSAGE_TYPES: usize = 128;
 
 pub struct ActorSystem {
-    /// Stores the inboxes of all the individuals
-    routing: [Option<InboxMap>; MAX_RECIPIENT_TYPES],
-    /// Stores the rust TypeID to internal ID and type name mapping
+    inboxes: [Option<Inbox>; MAX_RECIPIENT_TYPES],
     recipient_registry: TypeRegistry,
-    /// Stores all individuals
     individuals: [Option<*mut u8>; MAX_RECIPIENT_TYPES],
-    /// Closures to process and clear messages
-    update_callbacks: Vec<Box<Fn()>>,
-    /// Closures to clear messages
-    clear_callbacks: Vec<Box<Fn()>>,
+    message_registry: TypeRegistry,
+    handlers: [[Option<Box<Fn(*const u8)>>; MAX_MESSAGE_TYPES]; MAX_RECIPIENT_TYPES],
 }
 
 macro_rules! make_array {
@@ -161,64 +30,79 @@ macro_rules! make_array {
 impl ActorSystem {
     pub fn new() -> ActorSystem {
         ActorSystem {
-            routing: unsafe { make_array!(MAX_RECIPIENT_TYPES, |_| None) },
+            inboxes: unsafe { make_array!(MAX_RECIPIENT_TYPES, |_| None) },
             recipient_registry: TypeRegistry::new(),
+            message_registry: TypeRegistry::new(),
             individuals: [None; MAX_RECIPIENT_TYPES],
-            update_callbacks: Vec::new(),
-            clear_callbacks: Vec::new(),
+            handlers: unsafe {
+                make_array!(MAX_RECIPIENT_TYPES,
+                            |_| make_array!(MAX_MESSAGE_TYPES, |_| None))
+            },
         }
     }
 
-    /// Registers a type for use as an actor in the actor system
     pub fn add_individual<I: Individual>(&mut self, individual: I) {
-        // Register type in recipient_registry, and return the short ID
-        // of the type (sequential ID starting from 0)
         let recipient_id = self.recipient_registry.register_new::<I>();
-
-        assert!(self.routing[recipient_id].is_none());
-
-        self.routing[recipient_id] = Some(InboxMap::new());
-
+        assert!(self.inboxes[recipient_id].is_none());
+        self.inboxes[recipient_id] = Some(Inbox::new());
         // Store pointer to the individual
         self.individuals[recipient_id] = Some(Box::into_raw(Box::new(individual)) as *mut u8);
     }
 
-    /// Add a inbox for a given message type to a individual
     pub fn add_inbox<M: Message, I: Individual + Recipient<M>>(&mut self) {
-        self.add_inbox_helper::<M, I>(true);
-    }
-
-    /// Add an unclearable inbox for a given message type to a individual
-    pub fn add_unclearable_inbox<M: Message, I: Individual + Recipient<M>>(&mut self) {
-        self.add_inbox_helper::<M, I>(false);
-    }
-
-    fn add_inbox_helper<M: Message, I: Individual + Recipient<M>>(&mut self, clearable: bool) {
-        let inbox = Inbox::<M>::new();
-
-        // Gets short ID of individual
         let recipient_id = self.recipient_registry.get::<I>();
+        let message_id = self.message_registry.get_or_register::<M>();
 
-        let inbox_ptr = self.store_inbox(inbox, recipient_id);
         let individual_ptr = self.individuals[recipient_id].unwrap() as *mut I;
 
-        // Create closure to process messages
-        self.update_callbacks.push(Box::new(move || {
+        self.handlers[recipient_id][message_id] = Some(Box::new(move |packet_ptr: *const u8| {
             unsafe {
-                for packet in (*inbox_ptr).empty() {
-                    (*individual_ptr).receive_packet(packet);
-                }
+                let packet = &*(packet_ptr as *const Packet<M>);
+                (*individual_ptr).receive_packet(packet);
             }
         }));
+    }
 
-        // Create closure to empty messages without processing
-        if clearable {
-            self.clear_callbacks.push(Box::new(move || {
-                unsafe {
-                    for _packet in (*inbox_ptr).empty() {
+    pub fn add_unclearable_inbox<M: Message, I: Individual + Recipient<M>>(&mut self) {
+        self.add_inbox::<M, I>();
+    }
+
+    pub fn send<M: Message>(&mut self, recipient: ID, message: M) {
+        let packet = Packet {
+            recipient_id: Some(recipient),
+            message: message,
+        };
+
+        self.inboxes[*recipient.type_id as usize]
+            .as_mut()
+            //.expect("Inbox not found")
+            .unwrap()
+            .put(packet, &self.message_registry);
+    }
+
+    pub fn process_messages(&mut self) {
+        for (recipient_type, maybe_inbox) in self.inboxes.iter_mut().enumerate() {
+            if let Some(inbox) = maybe_inbox.as_mut() {
+                for (message_type, ptr) in inbox.empty() {
+                    if let Some(handler) = self.handlers[recipient_type][message_type].as_mut() {
+                        handler(ptr);
+                    } else {
+                        panic!("Handler not found ({} << {})",
+                               self.recipient_registry.get_name(recipient_type),
+                               self.message_registry.get_name(message_type));
                     }
                 }
-            }));
+            }
+        }
+    }
+
+    pub fn clear_all_clearable_messages(&mut self) {
+        // NOP
+    }
+
+    pub fn process_all_messages(&mut self) {
+        for _i in 0..1000 {
+            self.process_messages();
         }
     }
 
@@ -233,65 +117,6 @@ impl ActorSystem {
     pub fn instance_id<A: Actor>(&mut self, instance_id_and_version: (usize, usize)) -> ID {
         ID::instance(self.recipient_registry.get::<Swarm<A>>(),
                      instance_id_and_version)
-    }
-
-    /// Store the inbox pointer of a given type into the routing array
-    fn store_inbox<M: Message>(&mut self,
-                               inbox: Inbox<M>,
-                               recipient_type_id: usize)
-                               -> *mut Inbox<M> {
-        let inbox_ptr = Box::into_raw(Box::new(inbox));
-        // TODO: deallocate inbox at the end of times
-        self.routing[recipient_type_id].as_mut().unwrap().add_new(inbox_ptr);
-        inbox_ptr
-    }
-
-    /// Get the inbox pointer of a given type from the routing array
-    pub fn inbox_for<M: Message>(&mut self, packet: &Packet<M>) -> &mut Inbox<M> {
-        if let Some(inbox_ptr) = self.routing[*(packet.recipient_id
-                .expect("Recipient ID not set")
-                .type_id) as usize]
-            .as_ref()
-            .expect("Recipient not found")
-            .get::<M>() {
-            unsafe { &mut *inbox_ptr }
-        } else {
-            panic!("Inbox for {} not found for {}",
-                   unsafe { type_name::<M>() },
-                   self.recipient_registry.get_name(*(packet.recipient_id
-                       .expect("Recipient ID not set")
-                       .type_id) as usize))
-        }
-    }
-
-    /// Places message into the inbox of a given type
-    fn send<M: Message>(&mut self, recipient: ID, message: M) {
-        let packet = Packet {
-            recipient_id: Some(recipient),
-            message: message,
-        };
-        self.inbox_for(&packet).put(packet);
-    }
-
-    /// Process all messages and clears all inboxes
-    pub fn process_messages(&mut self) {
-        for callback in &self.update_callbacks {
-            callback();
-        }
-    }
-
-    /// Clear all inboxes without processing
-    pub fn clear_all_clearable_messages(&mut self) {
-        for callback in &self.clear_callbacks {
-            callback();
-        }
-    }
-
-    /// Process messages, up to 1000 layers of recursion
-    pub fn process_all_messages(&mut self) {
-        for _i in 0..1000 {
-            self.process_messages();
-        }
     }
 }
 
