@@ -1,4 +1,4 @@
-#![feature(custom_derive, plugin, conservative_impl_trait)]
+#![feature(custom_derive, plugin, conservative_impl_trait, link_args)]
 #![plugin(clippy)]
 #![allow(dead_code)]
 #![allow(no_effect, unnecessary_operation)]
@@ -6,6 +6,11 @@
 // and for much better stacktraces for memory issues
 // ![feature(alloc_system)]
 // extern crate alloc_system;
+
+// Adds runpath to the ELF on supported operating systems.
+// This is so that we can have local shared objects on Linux.
+#[link_args = "-Wl,-enable-new-dtags,-rpath,$ORIGIN/deps"]
+extern "C" {}
 
 extern crate ordered_float;
 extern crate itertools;

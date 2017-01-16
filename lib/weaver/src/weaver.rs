@@ -160,9 +160,15 @@ impl Weaver {
     }
 }
 
+// Please note, that the order of drops here is extremely important!
+// Things loaded from the library **must** be dropped before the
+// library itself. Otherwise the instructions to do the drop might
+// be unloaded, causing segfaults and other weird errors.
+//
+// Consider to manually implement the `Drop` trait.
 struct LoadedMod {
-    _library: Library,
     wrapper: Box<ModWrapper>,
+    _library: Library,
 }
 
 /// Used to register mods into the engine.
