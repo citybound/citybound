@@ -108,12 +108,14 @@ impl RenderContext {
             window.get_inner_size_pixels().unwrap().0
         };
 
-        let text = scene.debug_text
+        let text = scene.persistent_debug_text
             .iter()
+            .chain(scene.debug_text.iter())
             .map(|(key, &(ref text, _))| format!("{}:\n{}\n", key, text))
             .collect::<String>() + render_debug_text;
-        let formatting = scene.debug_text
+        let formatting = scene.persistent_debug_text
             .iter()
+            .chain(scene.debug_text.iter())
             .map(|(key, &(ref text, ref color))| {
                 Formatting {
                     len: key.len() + text.len() + 3,

@@ -139,14 +139,20 @@ pub struct AddDebugText {
     pub key: CVec<char>,
     pub text: CVec<char>,
     pub color: [f32; 4],
+    pub persistent: bool,
 }
 
 impl Recipient<AddDebugText> for Renderer {
     fn receive(&mut self, msg: &AddDebugText) -> Fate {
         match *msg {
-            AddDebugText { scene_id, ref key, ref text, ref color } => {
-                self.scenes[scene_id].debug_text.insert(key.iter().cloned().collect(),
-                                                        (text.iter().cloned().collect(), *color));
+            AddDebugText { scene_id, ref key, ref text, ref color, persistent } => {
+                let target = if persistent {
+                    &mut self.scenes[scene_id].persistent_debug_text
+                } else {
+                    &mut self.scenes[scene_id].debug_text
+                };
+                target.insert(key.iter().cloned().collect(),
+                              (text.iter().cloned().collect(), *color));
                 Fate::Live
             }
         }

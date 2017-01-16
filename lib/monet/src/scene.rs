@@ -23,6 +23,7 @@ pub struct Scene {
     pub batches: FnvHashMap<u16, Batch>,
     pub renderables: Vec<ID>,
     pub debug_text: BTreeMap<String, (String, [f32; 4])>,
+    pub persistent_debug_text: BTreeMap<String, (String, [f32; 4])>,
 }
 
 impl Scene {
@@ -38,6 +39,7 @@ impl Scene {
             batches: FnvHashMap::default(),
             renderables: Vec::new(),
             debug_text: BTreeMap::new(),
+            persistent_debug_text: BTreeMap::new(),
         }
     }
 }
