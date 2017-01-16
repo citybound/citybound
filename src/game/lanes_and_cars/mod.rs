@@ -6,7 +6,7 @@ mod intelligent_acceleration;
 use self::intelligent_acceleration::intelligent_acceleration;
 use core::geometry::CPath;
 use compact::CVec;
-use kay::{ID, Actor, Swarm, CreateWith, Recipient, ActorSystem, Fate};
+use kay::{ID, Actor, Swarm, CreateWith, Recipient, ActorSystem, Individual, Fate};
 use descartes::{N, P2, FiniteCurve, RoughlyComparable, Band, Intersect, Curve, Dot,
                 WithUniqueOrthogonal, Path};
 use ordered_float::OrderedFloat;
@@ -1272,32 +1272,29 @@ impl Recipient<ConfirmDisconnect> for TransferLane {
 
 pub fn setup(system: &mut ActorSystem) {
     system.add_individual(Swarm::<Lane>::new());
-    system.add_inbox::<CreateWith<Lane, AdvertiseToTransferAndReport>, Swarm<Lane>>();
-    system.add_inbox::<AdvertiseForOverlaps, Swarm<Lane>>();
-    system.add_inbox::<AddCar, Swarm<Lane>>();
-    system.add_inbox::<AddObstacles, Swarm<Lane>>();
-    system.add_inbox::<Tick, Swarm<Lane>>();
-    system.add_inbox::<SignalChanged, Swarm<Lane>>();
-    system.add_inbox::<Connect, Swarm<Lane>>();
-    system.add_inbox::<ConnectToTransfer, Swarm<Lane>>();
-    system.add_inbox::<ConnectOverlaps, Swarm<Lane>>();
-    system.add_inbox::<AddTransferLaneInteraction, Swarm<Lane>>();
-    system.add_inbox::<Disconnect, Swarm<Lane>>();
-    system.add_inbox::<Unbuild, Swarm<Lane>>();
-    system.add_inbox::<ConfirmDisconnect, Swarm<Lane>>();
+    Swarm::<Lane>::handle::<CreateWith<Lane, AdvertiseToTransferAndReport>>();
+    Swarm::<Lane>::handle::<AdvertiseForOverlaps>();
+    Swarm::<Lane>::handle::<AddCar>();
+    Swarm::<Lane>::handle::<AddObstacles>();
+    Swarm::<Lane>::handle::<Tick>();
+    Swarm::<Lane>::handle::<SignalChanged>();
+    Swarm::<Lane>::handle::<Connect>();
+    Swarm::<Lane>::handle::<ConnectToTransfer>();
+    Swarm::<Lane>::handle::<ConnectOverlaps>();
+    Swarm::<Lane>::handle::<AddTransferLaneInteraction>();
+    Swarm::<Lane>::handle::<Disconnect>();
+    Swarm::<Lane>::handle::<Unbuild>();
+    Swarm::<Lane>::handle::<ConfirmDisconnect>();
 
     system.add_individual(Swarm::<TransferLane>::new());
-    system.add_inbox::<
-        CreateWith<TransferLane, AdvertiseToTransferAndReport>,
-        Swarm<TransferLane>
-    >();
-    system.add_inbox::<AddCar, Swarm<TransferLane>>();
-    system.add_inbox::<AddObstacles, Swarm<TransferLane>>();
-    system.add_inbox::<Tick, Swarm<TransferLane>>();
-    system.add_inbox::<ConnectTransferToNormal, Swarm<TransferLane>>();
-    system.add_inbox::<Disconnect, Swarm<TransferLane>>();
-    system.add_inbox::<Unbuild, Swarm<TransferLane>>();
-    system.add_inbox::<ConfirmDisconnect, Swarm<TransferLane>>();
+    Swarm::<TransferLane>::handle::<CreateWith<TransferLane, AdvertiseToTransferAndReport>>();
+    Swarm::<TransferLane>::handle::<AddCar>();
+    Swarm::<TransferLane>::handle::<AddObstacles>();
+    Swarm::<TransferLane>::handle::<Tick>();
+    Swarm::<TransferLane>::handle::<ConnectTransferToNormal>();
+    Swarm::<TransferLane>::handle::<Disconnect>();
+    Swarm::<TransferLane>::handle::<Unbuild>();
+    Swarm::<TransferLane>::handle::<ConfirmDisconnect>();
 
     self::pathfinding::setup(system);
 }

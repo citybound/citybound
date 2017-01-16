@@ -282,8 +282,8 @@ impl Default for MaterializedReality {
 
 pub fn setup(system: &mut ActorSystem) {
     system.add_individual(MaterializedReality::default());
-    system.add_inbox::<Simulate, MaterializedReality>();
-    system.add_inbox::<Apply, MaterializedReality>();
-    system.add_inbox::<ReportLaneBuilt, MaterializedReality>();
-    system.add_inbox::<ReportLaneUnbuilt, MaterializedReality>();
+    MaterializedReality::handle::<Simulate>();
+    MaterializedReality::handle::<Apply>();
+    MaterializedReality::handle::<ReportLaneBuilt>();
+    MaterializedReality::handle::<ReportLaneUnbuilt>();
 }

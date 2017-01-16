@@ -34,11 +34,21 @@ pub trait Actor: Compact + StorageAware + 'static {
     unsafe fn set_id(&mut self, id: ID);
 }
 
-pub trait Individual: 'static {
-    fn id() -> ID
-        where Self: Sized
-    {
+pub trait Individual: 'static + Sized {
+    fn id() -> ID {
         unsafe { (*super::THE_SYSTEM).individual_id::<Self>() }
+    }
+
+    fn handle<M: Message>()
+        where Self: Recipient<M>
+    {
+        unsafe { (*super::THE_SYSTEM).add_handler::<M, Self>() }
+    }
+
+    fn handle_critically<M: Message>()
+        where Self: Recipient<M>
+    {
+        unsafe { (*super::THE_SYSTEM).add_critical_handler::<M, Self>() }
     }
 }
 

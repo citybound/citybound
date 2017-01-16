@@ -174,8 +174,8 @@ pub fn setup(system: &mut ActorSystem) {
         cmd_pressed: false,
         shift_pressed: false,
     });
-    system.add_inbox::<Event3d, LaneStrokeCanvas>();
-    system.add_inbox::<EyeMoved, LaneStrokeCanvas>();
-    system.add_inbox::<AddToUI, LaneStrokeCanvas>();
+    LaneStrokeCanvas::handle::<Event3d>();
+    LaneStrokeCanvas::handle::<EyeMoved>();
+    LaneStrokeCanvas::handle::<AddToUI>();
     LaneStrokeCanvas::id() << AddToUI;
 }

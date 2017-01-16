@@ -49,7 +49,7 @@ impl ActorSystem {
         self.individuals[recipient_id] = Some(Box::into_raw(Box::new(individual)) as *mut u8);
     }
 
-    pub fn add_inbox<M: Message, I: Individual + Recipient<M>>(&mut self) {
+    pub fn add_handler<M: Message, I: Individual + Recipient<M>>(&mut self) {
         let recipient_id = self.recipient_registry.get::<I>();
         let message_id = self.message_registry.get_or_register::<M>();
 
@@ -63,8 +63,8 @@ impl ActorSystem {
         }));
     }
 
-    pub fn add_unclearable_inbox<M: Message, I: Individual + Recipient<M>>(&mut self) {
-        self.add_inbox::<M, I>();
+    pub fn add_critical_handler<M: Message, I: Individual + Recipient<M>>(&mut self) {
+        self.add_handler::<M, I>();
     }
 
     pub fn send<M: Message>(&mut self, recipient: ID, message: M) {
@@ -73,11 +73,12 @@ impl ActorSystem {
             message: message,
         };
 
-        self.inboxes[*recipient.type_id as usize]
-            .as_mut()
-            //.expect("Inbox not found")
-            .unwrap()
-            .put(packet, &self.message_registry);
+        if let Some(inbox) = self.inboxes[*recipient.type_id as usize].as_mut() {
+            inbox.put(packet, &self.message_registry);
+        } else {
+            panic!("No inbox for {}",
+                   self.recipient_registry.get_name(*recipient.type_id as usize));
+        }
     }
 
     pub fn process_messages(&mut self) {

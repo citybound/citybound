@@ -191,7 +191,7 @@ pub fn setup<T: Clone + 'static>(system: &mut ActorSystem,
         n_total_groups: 0,
         _marker: PhantomData,
     });
-    system.add_inbox::<Control, ThingCollector<T>>();
-    system.add_inbox::<SetupInScene, ThingCollector<T>>();
-    system.add_inbox::<RenderToScene, ThingCollector<T>>();
+    ThingCollector::<T>::handle::<Control>();
+    ThingCollector::<T>::handle::<SetupInScene>();
+    ThingCollector::<T>::handle::<RenderToScene>();
 }

@@ -36,5 +36,5 @@ pub fn setup(system: &mut ActorSystem, simulatables: Vec<ID>) {
         simulatables: simulatables,
         current_tick: 0,
     });
-    system.add_inbox::<Tick, Simulation>();
+    Simulation::handle::<Tick>();
 }

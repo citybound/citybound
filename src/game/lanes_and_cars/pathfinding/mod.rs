@@ -475,16 +475,16 @@ impl Recipient<QueryAsDestination> for Lane {
 use kay::ToRandom;
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add_inbox::<JoinLandmark, Swarm<Lane>>();
-    system.add_inbox::<JoinLandmark, Swarm<TransferLane>>();
-    system.add_inbox::<QueryRoutes, Swarm<Lane>>();
-    system.add_inbox::<QueryRoutes, Swarm<TransferLane>>();
-    system.add_inbox::<ShareRoutes, Swarm<Lane>>();
-    system.add_inbox::<ShareRoutes, Swarm<TransferLane>>();
-    system.add_inbox::<ForgetRoutes, Swarm<Lane>>();
-    system.add_inbox::<ForgetRoutes, Swarm<TransferLane>>();
-    system.add_inbox::<QueryAsDestination, Swarm<Lane>>();
-    system.add_inbox::<ToRandom<::core::ui::Event3d>, Swarm<Lane>>();
+    Swarm::<Lane>::handle::<JoinLandmark>();
+    Swarm::<TransferLane>::handle::<JoinLandmark>();
+    Swarm::<Lane>::handle::<QueryRoutes>();
+    Swarm::<TransferLane>::handle::<QueryRoutes>();
+    Swarm::<Lane>::handle::<ShareRoutes>();
+    Swarm::<TransferLane>::handle::<ShareRoutes>();
+    Swarm::<Lane>::handle::<ForgetRoutes>();
+    Swarm::<TransferLane>::handle::<ForgetRoutes>();
+    Swarm::<Lane>::handle::<QueryAsDestination>();
+    Swarm::<Lane>::handle::<ToRandom<::core::ui::Event3d>>();
 
     trip::setup(system);
 }
