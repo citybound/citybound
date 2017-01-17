@@ -9,7 +9,7 @@ script:
   rustfmt --write-mode=diff ./src/main.rs ./lib/*/src/lib.rs
 after_success:
 - |
-#  test $TRAVIS_BRANCH = "master" && \
+  # test $TRAVIS_BRANCH = "master" && \
   cargo doc --package allocators --no-deps && \
   cargo doc --package chunked --no-deps && \
   cargo doc --package compact --no-deps && \

@@ -10,7 +10,8 @@
 //! This is used in `Kay` for:
 //!
 //!   * Storing actor state compactly in one place for cache coherency and easy persistence
-//!   * Sending complex, dynamically-sized messages over boundaries such as actors, threads and the network
+//!   * Sending complex, dynamically-sized messages over boundaries
+//!     such as actors, threads and the network
 
 #![warn(missing_docs)]
 #![feature(plugin)]

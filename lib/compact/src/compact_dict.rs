@@ -2,7 +2,8 @@ use super::allocators::{Allocator, DefaultHeap};
 use super::compact::Compact;
 use super::compact_vec::CompactVec;
 
-/// A simple linear-search key-value dictionary, implemented using two `CompactVec`'s, one for keys, one for values.
+/// A simple linear-search key-value dictionary,
+/// implemented using two `CompactVec`'s, one for keys, one for values.
 ///
 /// The API loosely follows that of `std::collections::HashMap`.
 /// Spilling behaviour using `Allocator` is equivalent to `CompactVec`.

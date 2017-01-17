@@ -36,7 +36,8 @@ pub trait Compact: Sized + Clone {
     /// *Note:* if the dynamic part was already stored freely, the calling environment
     /// has to make sure that old self will not be dropped, as this might lead to a double free!
     ///
-    /// This is mostly used internally to correctly implement `Compact` datastructures that contain `Compact` elements.
+    /// This is mostly used internally to correctly implement
+    /// `Compact` datastructures that contain `Compact` elements.
     unsafe fn decompact(&self) -> Self;
 }
 

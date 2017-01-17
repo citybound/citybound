@@ -1,8 +1,10 @@
 //! This crate offers an abstraction over allocating fixed-size chunks of memory
-//! and different low-level collection types making use of these chunks to emulate "infinite" dynamically growing storage.
+//! and different low-level collection types making use of these chunks to emulate
+//! "infinite" dynamically growing storage.
 //!
-//! Its purpose is being able to abstract storage of entity-collections (such as actors in `Kay`)
-//! over both temporary heap memory and persistent mmap'ed memory used for both runtime and savegames.
+//! Its purpose is being able to abstract storage of entity-collections
+//! (such as actors in `Kay`) over both temporary heap memory and persistent
+//! mmap'ed memory used for both runtime and savegames.
 
 #![warn(missing_docs)]
 #![feature(plugin)]
@@ -36,16 +38,19 @@ pub trait Chunker {
     fn child(&self, suffix: &str) -> Box<Chunker>;
     /// Create a new chunk with the set chunk size
     fn create_chunk(&mut self) -> *mut u8;
-    /// Load a persisted chunk that was previously created by this chunker, given an index to identify the particular chunk.
+    /// Load a persisted chunk that was previously created by this chunker,
+    /// given an index to identify the particular chunk.
     /// *Note:* the default implementation just creates a new, empty chunk
     // TODO: Actually load the chunks
     // TODO: Report back if chunk existed or not
     fn load_chunk(&mut self, _index: usize) -> *mut u8 {
         self.create_chunk()
     }
-    /// Destroys a chunk that was created by this chunker as well as any persisted representation of the chunk.
+    /// Destroys a chunk that was created by this chunker
+    /// as well as any persisted representation of the chunk.
     ///
-    /// Undefined behaviour if passed a string that was not created by `create_chunk` or `load_chunk`
+    /// Undefined behaviour if passed a string that was not
+    /// created by `create_chunk` or `load_chunk`
     unsafe fn destroy_chunk(&mut self, ptr: *mut u8);
 }
 
@@ -116,7 +121,8 @@ pub struct ValueInChunk<T> {
 }
 
 impl<T> ValueInChunk<T> {
-    /// Create a new value with a given default that is used if no persisted chunk for this value was found.
+    /// Create a new value with a given default.
+    /// The default is used if no persisted chunk for this value was found.
     pub fn new(chunker: Box<Chunker>, default: T) -> ValueInChunk<T> {
         let mut chunker = chunker.with_chunk_size(mem::size_of::<T>());
         // TODO: try to load an existing chunk
@@ -157,7 +163,8 @@ impl<T> Drop for ValueInChunk<T> {
 
 /// Any kind of dynamically-growing collection of fixed-size items that uses chunks
 ///
-/// Exists so `MultiSized` can be built generically using any kind of fixed-size collection (see `MultiSized`)
+/// Exists so `MultiSized` can be built generically using
+/// any kind of fixed-size collection (see `MultiSized`)
 pub trait SizedChunkedCollection {
     /// Create a new collection based on a chunker and item size
     fn new(chunker: Box<Chunker>, item_size: usize) -> Self;
@@ -222,7 +229,8 @@ impl SizedChunkedArena {
         }
     }
 
-    /// Remove the item at index, by swapping it with the last item and then popping, returning the removed item, if it existed.
+    /// Remove the item at index, by swapping it with the last item
+    /// and then popping, returning the removed item, if it existed.
     ///
     /// This is a O(1) way of removing an item if the order of items doesn't matter.
     pub unsafe fn swap_remove(&mut self, index: usize) -> Option<*const u8> {

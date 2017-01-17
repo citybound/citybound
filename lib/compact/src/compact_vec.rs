@@ -73,7 +73,8 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         self.cap = new_cap;
     }
 
-    /// Push an item onto the vector, spills onto the heap if the capacity in compact storage is insufficient
+    /// Push an item onto the vector, spills onto the heap
+    /// if the capacity in compact storage is insufficient
     pub fn push(&mut self, value: T) {
         if self.len == self.cap {
             self.double_buf();
