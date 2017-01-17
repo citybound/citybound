@@ -1,3 +1,5 @@
+//! Automatic `#[derive(Compact)]` macro for structs whose fields are all `Compact`
+
 #![recursion_limit="100"]
 
 extern crate proc_macro;

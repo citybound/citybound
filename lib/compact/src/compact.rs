@@ -1,39 +1,46 @@
 use std::mem;
 use std::mem::transmute;
 
+/// A trait for objects with a statically-sized part and a potential dynamically-sized part
+/// that can be stored both compactly in consecutive memory or freely on the heap
 pub trait Compact: Sized + Clone {
-    /// Is the object's dynamic part compact
+    /// Is the object's dynamic part stored compactly?
     fn is_still_compact(&self) -> bool;
 
-    /// The size of the dynamic part
+    /// Size of the dynamic part in bytes
     fn dynamic_size_bytes(&self) -> usize;
 
-    /// Total size
+    /// Total size of the object (static part + dynamic part)
     fn total_size_bytes(&self) -> usize {
         self.dynamic_size_bytes() + mem::size_of::<Self>()
     }
 
-    /// Move static+dynamic+heap part of `source` to the static+dynamic part of `self`
+    /// Copy the static part of `source` to `self` and compactly store
+    /// the dynamic part of `source` as the new dynamic part of `self` at `new_dynamic_part`.
     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8);
 
-    /// Get pointer to the start of the dynamic part
+    /// Get a pointer to behind the static part of `self` (commonly used place for the dynamic part)
     unsafe fn behind(&mut self) -> *mut u8 {
         let behind_self = (self as *mut Self).offset(1);
         transmute(behind_self)
     }
 
-    /// Compact the dynamic+heap part of the `source` into the dynamic part
+    /// Like `compact_from` with `new_dynamic_part` set to `self.behind()`
     unsafe fn compact_behind_from(&mut self, source: &Self) {
         let behind_self = Self::behind(self);
         self.compact_from(source, behind_self)
     }
 
-    // caller has to make sure that self will not be dropped!
-    /// Leave only the static+heap part, no dynamic part
+    /// Creates a clone of self with the dynamic part guaranteed to be stored freely.
+    ///
+    /// *Note:* if the dynamic part was already stored freely, the calling environment
+    /// has to make sure that old self will not be dropped, as this might lead to a double free!
+    ///
+    /// This is mostly used internally to correctly implement `Compact` datastructures that contain `Compact` elements.
     unsafe fn decompact(&self) -> Self;
 }
 
-/// Default implementation for sized types
+/// Trivial implementation for fixed-sized, `Copy` types (no dynamic part)
 impl<T: Copy> Compact for T {
     fn is_still_compact(&self) -> bool {
         true
@@ -48,17 +55,3 @@ impl<T: Copy> Compact for T {
         *self
     }
 }
-
-// TODO: figure out why this doesn't work
-// impl<A: Compact, B: Compact> Compact for (A, B) {
-//     fn is_still_compact(&self) -> bool {
-//         self.0.is_still_compact() && self.1.is_still_compact()
-//     }
-//     fn dynamic_size_bytes(&self) -> usize {
-//         self.0.dynamic_size_bytes() + self.1.dynamic_size_bytes()
-//     }
-//     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
-//         self.0.compact_from(&source.0, new_dynamic_part);
-//         self.1.compact_from(&source.1, new_dynamic_part);
-//     }
-// }

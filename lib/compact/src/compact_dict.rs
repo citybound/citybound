@@ -2,18 +2,17 @@ use super::allocators::{Allocator, DefaultHeap};
 use super::compact::Compact;
 use super::compact_vec::CompactVec;
 
-/// A dictionary which can be compacted. Will usually contain the data in the dynamic part of the
-/// compacted data structure, but if the size will overflow the dynamic part, it is moved to the
-/// heap instead.
-/// Implemented with 2 vectors, one for the key and one for the data, with linear search performed
-/// to do lookups
+/// A simple linear-search key-value dictionary, implemented using two `CompactVec`'s, one for keys, one for values.
+///
+/// The API loosely follows that of `std::collections::HashMap`.
+/// Spilling behaviour using `Allocator` is equivalent to `CompactVec`.
 pub struct CompactDict<K: Copy, V: Compact + Clone, A: Allocator = DefaultHeap> {
     keys: CompactVec<K, A>,
     values: CompactVec<V, A>,
 }
 
 impl<K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
-    /// Create new, empty dict
+    /// Create new, empty dictionary
     pub fn new() -> Self {
         CompactDict {
             keys: CompactVec::new(),
@@ -21,17 +20,17 @@ impl<K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
         }
     }
 
-    /// Amount of entries in the dict
+    /// Amount of entries in the dictionary
     pub fn len(&self) -> usize {
         self.keys.len()
     }
 
-    /// Is the dict empty
+    /// Is the dictionary empty?
     pub fn is_empty(&self) -> bool {
         self.keys.is_empty()
     }
 
-    /// Lookup the item in the dict
+    /// Look up the value for key `query`, if it exists
     pub fn get(&self, query: K) -> Option<&V> {
         for i in 0..self.keys.len() {
             if self.keys[i] == query {
@@ -41,8 +40,8 @@ impl<K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
         None
     }
 
-    /// Lookup the item in the dict, but also swaps the item with the first element
-    /// so a repeated lookup for that item will be faster
+    /// Lookup up the value for key `query`, if it exists, but also swap the entry
+    /// to the beginning of the key/value vectors, so a repeated lookup for that item will be faster
     pub fn get_mru(&mut self, query: K) -> Option<&V> {
         for i in 0..self.keys.len() {
             if self.keys[i] == query {
@@ -54,8 +53,9 @@ impl<K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
         None
     }
 
-    /// Lookup the item in the dict, but also swaps the item with the previous item
-    /// so it makes its way to the beginning of the vec upon repeated lookup
+    /// Lookup up the value for key `query`, if it exists, but also swap the entry
+    /// one index towards the beginning of the key/value vectors, so frequently repeated lookups
+    /// for that item will be faster
     pub fn get_mfu(&mut self, query: K) -> Option<&V> {
         for i in 0..self.keys.len() {
             if self.keys[i] == query {
@@ -71,12 +71,12 @@ impl<K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
         None
     }
 
-    /// Checks if dict contains key
+    /// Does the dictionary contain a value for `query`?
     pub fn contains_key(&self, query: K) -> bool {
         self.keys.contains(&query)
     }
 
-    /// Insert new value at key
+    /// Insert new value at key `query` and return the previous value at that key, if any existed
     pub fn insert(&mut self, query: K, new_value: V) -> Option<V> {
         for i in 0..self.keys.len() {
             if self.keys[i] == query {
@@ -90,7 +90,7 @@ impl<K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
         None
     }
 
-    /// Remove value at key
+    /// Remove value at key `query` and return it, if it existed
     pub fn remove(&mut self, query: K) -> Option<V> {
         for i in 0..self.keys.len() {
             if self.keys[i] == query {
@@ -103,22 +103,22 @@ impl<K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
         None
     }
 
-    /// get iterator over keys
+    /// Iterator over all keys in the dictionary
     pub fn keys(&self) -> ::std::slice::Iter<K> {
         self.keys.iter()
     }
 
-    /// Get iterator over values
+    /// Iterator over all values in the dictionary
     pub fn values(&self) -> ::std::slice::Iter<V> {
         self.values.iter()
     }
 
-    /// Get mutable iterator over values
+    /// Iterator over mutable references to all values in the dictionary
     pub fn values_mut(&mut self) -> ::std::slice::IterMut<V> {
         self.values.iter_mut()
     }
 
-    /// Get iterator over key-value pairs
+    /// Iterator over all key-value pairs in the dictionary
     #[allow(needless_lifetimes)]
     pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)> + Clone + 'a {
         self.keys().zip(self.values())
@@ -126,7 +126,7 @@ impl<K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
 }
 
 impl<K: Eq + Copy, I: Compact, A1: Allocator, A2: Allocator> CompactDict<K, CompactVec<I, A1>, A2> {
-    /// Push a value to a CompactVec at the key
+    /// Push a value onto the `CompactVec` at the key `query`
     pub fn push_at(&mut self, query: K, item: I) {
         for i in 0..self.keys.len() {
             if self.keys[i] == query {
@@ -140,13 +140,13 @@ impl<K: Eq + Copy, I: Compact, A1: Allocator, A2: Allocator> CompactDict<K, Comp
         self.values.push(vec);
     }
 
-    /// Get iterator of the CompactVec at the key
+    /// Iterator over the `CompactVec` at the key `query`
     #[allow(needless_lifetimes)]
     pub fn get_iter<'a>(&'a self, query: K) -> impl Iterator<Item = &'a I> + 'a {
         self.get(query).into_iter().flat_map(|vec_in_option| vec_in_option.iter())
     }
 
-    /// Get iterator of the CompactVec at the key, and then remove the item
+    /// Remove the `CompactVec` at the key `query` and iterate over its elements (if it existed)
     #[allow(needless_lifetimes)]
     pub fn remove_iter<'a>(&'a mut self, query: K) -> impl Iterator<Item = I> + 'a {
         self.remove(query).into_iter().flat_map(|vec_in_option| vec_in_option.into_iter())
@@ -191,11 +191,10 @@ impl<K: Copy + Eq, V: Compact + Clone, A: Allocator> Default for CompactDict<K, 
     }
 }
 
-impl <
-    K: Copy + Eq,
-    V: Compact + Clone,
-    A: Allocator
-> ::std::iter::FromIterator<(K, V)> for CompactDict<K, V, A> {
+impl <K: Copy + Eq, V: Compact + Clone, A: Allocator>
+    ::std::iter::FromIterator<(K, V)>
+    for CompactDict<K, V, A> {
+/// Construct a compact dictionary from an interator over key-value pairs
     fn from_iter<T: IntoIterator<Item=(K, V)>>(iter: T) -> Self {
         let mut dict = Self::new();
         for (key, value) in iter {
@@ -210,6 +209,7 @@ impl <
     V: Compact + Clone,
     A: Allocator
 > ::std::iter::Extend<(K, V)> for CompactDict<K, V, A> {
+/// Extend a compact dictionary from an iterator over key-value pairs
     fn extend<T: IntoIterator<Item=(K, V)>>(&mut self, iter: T) {
         for (key, value) in iter {
             self.insert(key, value);

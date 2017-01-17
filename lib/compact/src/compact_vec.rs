@@ -6,22 +6,20 @@ use ::std::ptr;
 use ::std::ops::{Deref, DerefMut};
 use ::std::iter::FromIterator;
 
-/// A vector which can be compacted. Will usually contain the data in the dynamic part of the
-/// compacted data structure, but if the size will overflow the dynamic part, it is moved to the
-/// heap instead
+/// A dynamically-sized vector that can be stored in compact sequential storage and
+/// automatically spills over into free heap storage using `Allocator`.
+/// Tries to closely follow the API of `std::vec::Vec`, but is not complete.
 pub struct CompactVec<T, A: Allocator = DefaultHeap> {
-    /// Either a null pointer, an offset to the dynamic part of the data or a pointer to an array
-    /// in the heap
+    /// Points to either compact or free storage
     ptr: PointerToMaybeCompact<T>,
-    /// Current length
     len: usize,
-    /// Maximum length before needing to expand the heap
+    /// Maximum capacity before needing to spill onto the heap
     cap: usize,
     _alloc: PhantomData<*const A>,
 }
 
 impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
-    /// Get the length of the vector
+    /// Get the number of elements in the vector
     pub fn len(&self) -> usize {
         self.len
     }
@@ -41,7 +39,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         }
     }
 
-    /// Initialize the vector with a set capacity
+    /// Create a new, empty vector with a given capacity
     pub fn with_capacity(cap: usize) -> CompactVec<T, A> {
         let mut vec = CompactVec {
             ptr: PointerToMaybeCompact::default(),
@@ -54,7 +52,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         vec
     }
 
-    /// Double the cap by allocating from the heap
+    /// Double the capacity of the vector by spilling onto the heap
     fn double_buf(&mut self) {
         let new_cap = if self.cap == 0 { 1 } else { self.cap * 2 };
         let new_ptr = A::allocate::<T>(new_cap);
@@ -75,7 +73,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         self.cap = new_cap;
     }
 
-    /// Push new data to the end of the vector
+    /// Push an item onto the vector, spills onto the heap if the capacity in compact storage is insufficient
     pub fn push(&mut self, value: T) {
         if self.len == self.cap {
             self.double_buf();
@@ -88,7 +86,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         }
     }
 
-    /// Remove and return the last element
+    /// Pop and return the last element, if the vector wasn't empty
     pub fn pop(&mut self) -> Option<T> {
         if self.len == 0 {
             None
@@ -100,7 +98,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         }
     }
 
-    /// Insert an value at the index, pushing the values behind it back
+    /// Insert a value at `index`, copying the elements after `index` upwards
     pub fn insert(&mut self, index: usize, value: T) {
         if self.len == self.cap {
             self.double_buf();
@@ -110,18 +108,17 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
             // infallible
             {
                 let ptr = self.as_mut_ptr().offset(index as isize);
-                // items should be decompacted, else internal relative pointers get messed up!
+                // elements should be decompacted, else internal relative pointers get messed up!
                 for i in (0..self.len - index).rev() {
                     ptr::write(ptr.offset((i + 1) as isize), self[index + i].decompact());
                 }
-                // ptr::copy(p, p.offset(1), self.len - index);
                 ptr::write(ptr, value);
             }
             self.len += 1;
         }
     }
 
-    /// Remove the item at the index, with the items at the back being copied forward
+    /// Remove the element at `index`, copying the elements after `index` downwards
     pub fn remove(&mut self, index: usize) -> T {
         let len = self.len;
         assert!(index < len);
@@ -136,20 +133,19 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
                 ret = ptr::read(ptr);
 
                 // Shift everything down to fill in that spot.
-                // items should be decompacted, else internal relative pointers get messed up!
+                // elements should be decompacted, else internal relative pointers get messed up!
                 #[allow(needless_range_loop)]
                 for i in 0..len - index - 1 {
                     ptr::write(ptr.offset(i as isize), self[index + i + 1].decompact())
                 }
-                // ptr::copy(ptr.offset(1), ptr, len - index - 1);
             }
             self.len -= 1;
             ret
         }
     }
 
-    /// Take a function which returns if the value should be kept, and removes all elements
-    /// from the list which are not kept
+    /// Take a function which returns whether an element should be kept,
+    /// and mutably removes all elements from the vector which are not kept
     pub fn retain<F: FnMut(&T) -> bool>(&mut self, mut keep: F) {
         let mut del = 0;
         let len = self.len();
@@ -171,7 +167,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         }
     }
 
-    /// Truncate the vector to the length desired
+    /// Truncate the vector to the given length
     pub fn truncate(&mut self, desired_len: usize) {
         unsafe {
             while desired_len < self.len {
@@ -182,14 +178,15 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         }
     }
 
-    /// Empty the array
+    /// Clear the vector
     pub fn clear(&mut self) {
         self.truncate(0);
     }
 }
 
 impl<T, A: Allocator> From<Vec<T>> for CompactVec<T, A> {
-    /// Utility function to convert from `Vec` to `CompactVec`
+    /// Create a `CompactVec` from a normal `Vec`,
+    /// directly using the backing storage as free heap storage
     fn from(mut vec: Vec<T>) -> Self {
         let p = vec.as_mut_ptr();
         let len = vec.len();
@@ -207,7 +204,7 @@ impl<T, A: Allocator> From<Vec<T>> for CompactVec<T, A> {
 }
 
 impl<T, A: Allocator> Drop for CompactVec<T, A> {
-    /// Deallocate memory and drop elements when dropped
+    /// Drop elements and deallocate free heap storage, if any is allocated
     fn drop(&mut self) {
         unsafe { ptr::drop_in_place(&mut self[..]) };
         if !self.ptr.is_compact() {

@@ -19,7 +19,7 @@ const CHUNK_SIZE: usize = 4096 * 4096 * 4;
 
 impl<A: Actor> Swarm<A> {
     pub fn new() -> Self {
-        let chunker = MemChunker::new("", CHUNK_SIZE);
+        let chunker = MemChunker::from_settings("", CHUNK_SIZE);
         Swarm {
             actors: MultiSized::new(chunker.child("_actors"), A::typical_size()),
             n_actors: ValueInChunk::new(chunker.child("_n_actors"), 0),
@@ -34,14 +34,12 @@ impl<A: Actor> Swarm<A> {
 
     /// Get the actor at the index
     fn at_index(&self, index: SlotIndices) -> &A {
-        unsafe { &*(self.actors.collections[index.collection()].at(index.slot()) as *const A) }
+        unsafe { &*(self.actors.bins[index.bin()].at(index.slot()) as *const A) }
     }
 
     /// Get the actor at the index mutably
     fn at_index_mut(&mut self, index: SlotIndices) -> &mut A {
-        unsafe {
-            &mut *(self.actors.collections[index.collection()].at_mut(index.slot()) as *mut A)
-        }
+        unsafe { &mut *(self.actors.bins[index.bin()].at_mut(index.slot()) as *mut A) }
     }
 
     /// Get the actor with an ID mutably
@@ -61,13 +59,12 @@ impl<A: Actor> Swarm<A> {
     /// Add a new actor with a specified ID
     fn add_with_id(&mut self, initial_state: &A, id: ID) {
         let size = initial_state.total_size_bytes();
-        let collection_index = self.actors.size_to_index(size);
-        let collection = &mut self.actors.sized_for_mut(size);
-        let (ptr, index) = collection.push();
+        let bin_index = self.actors.size_to_index(size);
+        let bin = &mut self.actors.bin_for_size_mut(size);
+        let (ptr, index) = bin.push();
 
-        self.slot_map.associate(id.instance_id as usize,
-                                SlotIndices::new(collection_index, index));
-        assert!(self.slot_map.indices_of(id.instance_id as usize).collection() == collection_index);
+        self.slot_map.associate(id.instance_id as usize, SlotIndices::new(bin_index, index));
+        assert!(self.slot_map.indices_of(id.instance_id as usize).bin() == bin_index);
 
         unsafe {
             let actor_in_slot = &mut *(ptr as *mut A);
@@ -79,8 +76,8 @@ impl<A: Actor> Swarm<A> {
     /// A utility function to swap an actor to the end of it's chunk and remove it by its index
     fn swap_remove(&mut self, indices: SlotIndices) -> bool {
         unsafe {
-            let collection = &mut self.actors.collections[indices.collection()];
-            match collection.swap_remove(indices.slot()) {
+            let bin = &mut self.actors.bins[indices.bin()];
+            match bin.swap_remove(indices.slot()) {
                 Some(ptr) => {
                     let swapped_actor = &*(ptr as *mut A);
                     self.slot_map.associate(swapped_actor.id().instance_id as usize, indices);
@@ -149,21 +146,20 @@ impl<A: Actor> Swarm<A> {
     {
         // this function has to deal with the fact that during the iteration,
         // receivers of the broadcast can be resized
-        // and thus removed from a collection, swapping in either
+        // and thus removed from a bin, swapping in either
         //    - other receivers that didn't receive the broadcast yet
         //    - resized and added receivers that alredy received the broadcast
         //    - actors that were created during one of the broadcast receive handlers,
         //      that shouldn't receive this broadcast
         // the only assumption is that no actors are immediately completely deleted
 
-        let recipients_todo_per_collection: Vec<usize> = {
-            self.actors.collections.iter().map(|collection| collection.len()).collect()
+        let recipients_todo_per_bin: Vec<usize> = {
+            self.actors.bins.iter().map(|bin| bin.len()).collect()
         };
 
-        let n_collections = self.actors.collections.len();
+        let n_bins = self.actors.bins.len();
 
-        for (c, recipients_todo) in
-            recipients_todo_per_collection.iter().enumerate().take(n_collections) {
+        for (c, recipients_todo) in recipients_todo_per_bin.iter().enumerate().take(n_bins) {
             let mut slot = 0;
             let mut index_after_last_recipient = *recipients_todo;
 
@@ -182,8 +178,8 @@ impl<A: Actor> Swarm<A> {
                         } else {
                             self.resize_at_index(index);
                             // this should also work in the case where the "resized" actor
-                            // itself is added to the same collection again
-                            let swapped_in_another_receiver = self.actors.collections[c].len() <
+                            // itself is added to the same bin again
+                            let swapped_in_another_receiver = self.actors.bins[c].len() <
                                                               index_after_last_recipient;
                             if swapped_in_another_receiver {
                                 index_after_last_recipient -= 1;
@@ -196,8 +192,8 @@ impl<A: Actor> Swarm<A> {
                     Fate::Die => {
                         self.remove_at_index(index, id);
                         // this should also work in the case where the "resized" actor
-                        // itself is added to the same collection again
-                        let swapped_in_another_receiver = self.actors.collections[c].len() <
+                        // itself is added to the same bin again
+                        let swapped_in_another_receiver = self.actors.bins[c].len() <
                                                           index_after_last_recipient;
                         if swapped_in_another_receiver {
                             index_after_last_recipient -= 1;
