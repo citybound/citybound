@@ -7,9 +7,10 @@
 // ![feature(alloc_system)]
 // extern crate alloc_system;
 
-// Adds runpath to the ELF on supported operating systems.
+// Adds DT_RUNPATH to the ELF on supported operating systems.
 // This is so that we can have local shared objects on Linux.
-#[link_args = "-Wl,-enable-new-dtags,-rpath,$ORIGIN/deps"]
+#[cfg_attr(all(unix, not(target_os = "macos")),
+    link_args = "-Wl,-enable-new-dtags,-rpath,$ORIGIN/deps")]
 extern "C" {}
 
 extern crate ordered_float;
@@ -69,9 +70,13 @@ fn main() {
         kay::THE_SYSTEM = &mut *system as *mut kay::ActorSystem;
     }
 
+    let mut installation_path = ::std::env::current_exe().unwrap();
+    installation_path.set_file_name("mods");
+    installation_path.push("mymod");
+
     let mut weaver = weaver::Weaver::new();
     // reads the package manifest, and registers the mod.
-    weaver.add_package("mymod").expect("could not add mymod");
+    weaver.add_package(installation_path).expect("could not add mymod");
     // actually loads the specified mod into the game.
     weaver.load_package("mymod", &mut system).expect("could not load mymod");
 

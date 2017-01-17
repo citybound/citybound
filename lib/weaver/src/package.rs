@@ -111,6 +111,12 @@ impl Package {
     pub fn version(&self) -> &Version {
         &self.version
     }
+
+    #[inline]
+    #[allow(needless_lifetimes)]
+    pub fn dependencies<'a>(&'a self) -> impl Iterator<Item = (&'a str, &'a Dependency)> {
+        self.dependencies.iter().map(|(n, d)| (n.as_str(), d))
+    }
 }
 
 fn de_version<D>(deserializer: &mut D) -> Result<Version, D::Error>

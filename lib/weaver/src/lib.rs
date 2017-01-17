@@ -1,4 +1,4 @@
-#![feature(plugin)]
+#![feature(plugin, conservative_impl_trait)]
 #![plugin(clippy)]
 
 extern crate serde;
@@ -16,7 +16,7 @@ mod weaver;
 
 pub use mod_trait::{CityboundMod, ModWrapper};
 pub use package::{Package, PackageDesc, ModInfo};
-pub use weaver::{Mod, Register, Weaver};
+pub use weaver::{Mod, Register, Weaver, LoadingPackage};
 
 #[macro_export]
 macro_rules! register_mod {
@@ -34,6 +34,18 @@ macro_rules! register_mod {
                 fn setup(&mut self, system: &mut $crate::kay::ActorSystem) {
                     let m = <$mod_ as $crate::CityboundMod>::setup(system);
                     self.inner = Some(m);
+                }
+
+                fn dependant_loading(&mut self,
+                                     loading: &mut $crate::LoadingPackage,
+                                     system: &mut ActorSystem)
+                                     -> Result<(), String>
+                {
+                    match self.inner {
+                        Some(ref mut mod_) =>
+                        mod_.dependant_loading(loading, system),
+                        None => panic!("mod not loaded"),
+                    }
                 }
 
                 fn has_instance(&mut self) -> bool {
