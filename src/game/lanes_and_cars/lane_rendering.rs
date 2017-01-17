@@ -562,15 +562,15 @@ pub struct LaneMarker;
 pub struct TransferLaneMarkerGaps;
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add_inbox::<SetupInScene, Swarm<Lane>>();
-    system.add_inbox::<RenderToCollector, Swarm<Lane>>();
-    system.add_inbox::<RenderToScene, Swarm<Lane>>();
+    Swarm::<Lane>::handle::<SetupInScene>();
+    Swarm::<Lane>::handle::<RenderToCollector>();
+    Swarm::<Lane>::handle::<RenderToScene>();
     super::lane_thing_collector::setup::<LaneAsphalt>(system, [0.7, 0.7, 0.7], 2000, false);
     super::lane_thing_collector::setup::<LaneMarker>(system, [1.0, 1.0, 1.0], 2100, true);
 
-    system.add_inbox::<SetupInScene, Swarm<TransferLane>>();
-    system.add_inbox::<RenderToCollector, Swarm<TransferLane>>();
-    system.add_inbox::<RenderToScene, Swarm<TransferLane>>();
+    Swarm::<TransferLane>::handle::<SetupInScene>();
+    Swarm::<TransferLane>::handle::<RenderToCollector>();
+    Swarm::<TransferLane>::handle::<RenderToScene>();
     super::lane_thing_collector::setup::<TransferLaneMarkerGaps>(system,
                                                                  [0.7, 0.7, 0.7],
                                                                  2200,

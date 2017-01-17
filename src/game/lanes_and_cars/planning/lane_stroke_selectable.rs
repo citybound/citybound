@@ -108,7 +108,7 @@ impl Recipient<Event3d> for LaneStrokeSelectable {
 
 pub fn setup(system: &mut ActorSystem) {
     system.add_individual(Swarm::<LaneStrokeSelectable>::new());
-    system.add_inbox::<CreateWith<LaneStrokeSelectable, AddToUI>, Swarm<LaneStrokeSelectable>>();
-    system.add_inbox::<ClearSelectables, Swarm<LaneStrokeSelectable>>();
-    system.add_inbox::<Event3d, Swarm<LaneStrokeSelectable>>();
+    Swarm::<LaneStrokeSelectable>::handle::<CreateWith<LaneStrokeSelectable, AddToUI>>();
+    Swarm::<LaneStrokeSelectable>::handle::<ClearSelectables>();
+    Swarm::<LaneStrokeSelectable>::handle::<Event3d>();
 }

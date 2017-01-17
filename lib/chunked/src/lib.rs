@@ -241,76 +241,6 @@ impl SizedChunkedCollection for SizedChunkedArena {
     }
 }
 
-// struct SizedChunkedArenaChunkIter {
-//     item: *mut u8,
-//     chunk_end: *mut u8,
-//     item_size: usize
-// }
-
-// impl SizedChunkedArenaChunkIter {
-//     fn uninitialized() -> Self {
-//         SizedChunkedArenaChunkIter{
-//             item: ::std::ptr::null_mut(),
-//             chunk_end: ::std::ptr::null_mut(),
-//             item_size: 0
-//         }
-//     }
-// }
-
-// impl Iterator for SizedChunkedArenaChunkIter {
-//     type Item = *mut u8;
-//     fn next(&mut self) -> Option<*mut u8> {
-//         if self.item < self.chunk_end {
-//             let item = self.item;
-//             self.item = item.offset(self.item_size as isize);
-//             Some(item)
-//         } else {
-//             None
-//         }
-//     }
-// }
-
-// struct SizedChunkedArenaIter {
-//     chunks_iterator: ::std::vec::IntoIter<*mut u8>,
-//     iterator_in_chunk: SizedChunkedArenaChunkIter,
-//     chunk_size: usize,
-//     item_size: usize
-// }
-
-// impl Iterator for SizedChunkedArenaIter {
-//     type Item = *mut u8;
-//     fn next(&mut self) -> Option<Self::Item> {
-//         match self.iterator_in_chunk.next() {
-//             None => match self.chunks_iterator.next() {
-//                 Some(chunk) => {
-//                     self.iterator_in_chunk = SizedChunkedArenaChunkIter{
-//                         item: chunk,
-//                         chunk_end: chunk.offset(self.chunk_size as isize),
-//                         item_size: self.item_size
-//                     };
-//                     self.next()
-//                 },
-//                 None => None
-//             },
-//             Some(item) => Some(item)
-//         }
-//     }
-// }
-
-// impl<'a> IntoIterator for &'a mut SizedChunkedArena {
-//     type Item = *mut u8;
-//     type IntoIter = SizedChunkedArenaIter;
-
-//     fn into_iter(self) -> Self::IntoIter {
-//         SizedChunkedArenaIter{
-//             chunks_iterator: self.chunks.into_iter(),
-//             iterator_in_chunk: SizedChunkedArenaChunkIter::uninitialized(),
-//             chunk_size: self.chunker.chunk_size(),
-//             item_size: self.item_size
-//         }
-//     }
-// }
-
 /// A vector which stores the data in chunks
 pub struct ChunkedVec<Item: Clone> {
     arena: SizedChunkedArena,
@@ -363,60 +293,101 @@ impl<Item: Clone> ChunkedVec<Item> {
     }
 }
 
-/// A FIFO queue which stores a single data type, implemented in chunks
+/// A FIFO queue which stores a heterogeneously sized items, implemented in chunks
 // TODO: replace this by concurrent MPSC queue
-// add write_done and read_done indices
-// if one thread finishes writing out-of-order,
-// let it busy wait for the slower thread then
-// increase the write_done counter
-pub struct SizedChunkedQueue {
+//       add write_done and read_done indices
+//       if one thread finishes writing out-of-order,
+//       let it busy wait for the slower thread then
+//       increase the write_done counter
+pub struct ChunkedQueue {
     chunker: Box<Chunker>,
     chunks: Vec<*mut u8>,
-    item_size: usize,
-    start_index: ValueInChunk<usize>,
-    pub read_index: ValueInChunk<usize>,
-    pub write_index: ValueInChunk<usize>,
-    end_index: ValueInChunk<usize>,
+    start_offset: ValueInChunk<usize>,
+    pub read_offset: ValueInChunk<usize>,
+    pub write_offset: ValueInChunk<usize>,
+    end_offset: ValueInChunk<usize>,
+    len: ValueInChunk<usize>,
     chunks_to_drop: Vec<*mut u8>,
-    n_dropped_chunks: ValueInChunk<usize>,
 }
 
-impl SizedChunkedQueue {
-    /// Calculates the amount of items that can fit in a single chunk, rounding down
-    fn items_per_chunk(&self) -> usize {
-        self.chunker.chunk_size() / self.item_size
+// TODO invent a container struct with NonZero instead
+const JUMP_TO_NEXT_CHUNK: usize = 0;
+
+impl ChunkedQueue {
+    pub fn new(chunker: Box<Chunker>) -> Self {
+        let mut queue = ChunkedQueue {
+            start_offset: ValueInChunk::new(chunker.child("_start"), 0),
+            read_offset: ValueInChunk::new(chunker.child("_read"), 0),
+            write_offset: ValueInChunk::new(chunker.child("_write"), 0),
+            end_offset: ValueInChunk::new(chunker.child("_end"), 0),
+            len: ValueInChunk::new(chunker.child("_len"), 0),
+            chunker: chunker,
+            chunks: Vec::new(),
+            chunks_to_drop: Vec::new(),
+        };
+
+        let mut chunk_index = *queue.start_offset;
+        while chunk_index < *queue.end_offset {
+            queue.chunks.push(queue.chunker.load_chunk(chunk_index));
+            chunk_index += queue.chunker.chunk_size();
+        }
+
+        if queue.chunks.is_empty() {
+            queue.chunks.push(queue.chunker.create_chunk());
+            *queue.end_offset = queue.chunker.chunk_size();
+        }
+
+        queue
+    }
+
+    pub fn len(&self) -> usize {
+        *self.len
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Gets a pointer to the back of the queue
-    // TODO: separate into enqueue_start and enqueue_done
-    // or return done_guard
-    pub unsafe fn enqueue(&mut self) -> *mut u8 {
-        if *self.write_index >= *self.end_index {
+    // TODO: return done_guard to mark as concurrently readable
+    pub unsafe fn enqueue(&mut self, size: usize) -> *mut u8 {
+        let total_size = size + mem::size_of::<usize>();
+        let offset = *self.write_offset % self.chunker.chunk_size();
+        let ptr = self.chunks.last_mut().unwrap().offset(offset as isize);
+        if *self.write_offset + total_size >= *self.end_offset {
+            *(ptr as *mut usize) = JUMP_TO_NEXT_CHUNK;
             self.chunks.push(self.chunker.create_chunk());
-            *self.end_index += self.items_per_chunk();
+            *self.write_offset = *self.end_offset;
+            *self.end_offset += self.chunker.chunk_size();
+            self.enqueue(size)
+        } else {
+            *(ptr as *mut usize) = total_size;
+            let payload_ptr = ptr.offset(mem::size_of::<usize>() as isize);
+            *self.write_offset += total_size;
+            *self.len += 1;
+            payload_ptr
         }
-
-        let offset = ((*self.write_index % self.items_per_chunk()) * self.item_size) as isize;
-        let ptr = self.chunks.last_mut().unwrap().offset(offset);
-        *self.write_index += 1;
-        ptr
     }
 
     /// Gets a pointer to the front of the queue, queuing chunks at the front for deletion
-    // TODO: separate into dequeue_start and dequeue_done
-    // or return done_guard
+    // TODO: return done_guard to mark as droppable
     pub unsafe fn dequeue(&mut self) -> Option<*const u8> {
-        if *self.read_index == *self.write_index {
+        if *self.read_offset == *self.write_offset {
             None
         } else {
-            let offset = ((*self.read_index % self.items_per_chunk()) * self.item_size) as isize;
-            let ptr = self.chunks[0].offset(offset);
-            *self.read_index += 1;
-            if *self.read_index >= (*self.n_dropped_chunks + 1) * self.items_per_chunk() {
+            let offset = *self.read_offset % self.chunker.chunk_size();
+            let ptr = self.chunks[0].offset(offset as isize);
+            let total_size = *(ptr as *mut usize);
+            if total_size == JUMP_TO_NEXT_CHUNK {
+                *self.read_offset += self.chunker.chunk_size() - offset;
                 self.chunks_to_drop.push(self.chunks.remove(0));
-                *self.n_dropped_chunks += 1;
+                self.dequeue()
+            } else {
+                let payload_ptr = ptr.offset(mem::size_of::<usize>() as isize);
+                *self.read_offset += total_size;
+                *self.len -= 1;
+                Some(payload_ptr)
             }
-            Some(ptr)
         }
     }
 
@@ -425,32 +396,6 @@ impl SizedChunkedQueue {
         for chunk in self.chunks_to_drop.drain(..) {
             self.chunker.destroy_chunk(chunk);
         }
-    }
-}
-
-impl SizedChunkedCollection for SizedChunkedQueue {
-    fn new(chunker: Box<Chunker>, item_size: usize) -> Self {
-        assert!(chunker.chunk_size() >= item_size);
-
-        let mut queue = SizedChunkedQueue {
-            start_index: ValueInChunk::new(chunker.child("_start"), 0),
-            read_index: ValueInChunk::new(chunker.child("_read"), 0),
-            write_index: ValueInChunk::new(chunker.child("_write"), 0),
-            end_index: ValueInChunk::new(chunker.child("_end"), 0),
-            n_dropped_chunks: ValueInChunk::new(chunker.child("_n_dropped"), 0),
-            chunker: chunker,
-            chunks: Vec::new(),
-            chunks_to_drop: Vec::new(),
-            item_size: item_size,
-        };
-
-        let mut chunk_index = *queue.start_index;
-        while chunk_index < *queue.end_index {
-            queue.chunks.push(queue.chunker.load_chunk(chunk_index));
-            chunk_index += queue.chunker.chunk_size();
-        }
-
-        queue
     }
 }
 

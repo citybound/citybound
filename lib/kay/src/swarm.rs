@@ -1,7 +1,7 @@
 use super::chunked::{MemChunker, ValueInChunk, SizedChunkedArena, MultiSized};
 use super::slot_map::{SlotIndices, SlotMap};
 use super::messaging::{Actor, Individual, Recipient, Message, Packet, Fate};
-use super::actor_system::ID;
+use super::id::ID;
 use ::std::marker::PhantomData;
 
 /// A collection of many of the same actors, which can have multiple sizes
@@ -52,9 +52,7 @@ impl<A: Actor> Swarm<A> {
 
     /// Add a new actor
     fn add(&mut self, initial_state: &A) -> ID {
-        let id = unsafe {
-            (*super::actor_system::THE_SYSTEM).instance_id::<A>(self.allocate_instance_id())
-        };
+        let id = unsafe { (*super::THE_SYSTEM).instance_id::<A>(self.allocate_instance_id()) };
         self.add_with_id(initial_state, id);
         *self.n_actors += 1;
         id
@@ -221,7 +219,7 @@ impl<A: Actor> Swarm<A> {
     pub fn all() -> ID
         where Self: Sized
     {
-        unsafe { (*super::actor_system::THE_SYSTEM).broadcast_id::<A>() }
+        unsafe { (*super::THE_SYSTEM).broadcast_id::<A>() }
     }
 }
 
@@ -314,10 +312,7 @@ impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<ToRandom<M>> f
             };
             for _i in 0..packet.message.n_recipients {
                 let random_id =
-                    ID::instance(*(packet.recipient_id
-                                         .expect("Recipient \
-                                                  not set"))
-                                     .type_id as usize,
+                    ID::instance(packet.recipient_id.expect("Recipient not set").type_id,
                                  (swarm.slot_map.random_used(), 0));
                 new_packet.recipient_id = Some(random_id);
                 swarm.receive_packet(&new_packet);

@@ -135,12 +135,12 @@ impl Recipient<Event3d> for Lane {
 
 pub fn setup(system: &mut ActorSystem) {
     system.add_individual(Swarm::<Trip>::new());
-    system.add_inbox::<TripResult, Swarm<Trip>>();
-    system.add_inbox::<CreateWith<Trip, Start>, Swarm<Trip>>();
-    system.add_inbox::<TellAsDestination, Swarm<Trip>>();
+    Swarm::<Trip>::handle::<TripResult>();
+    Swarm::<Trip>::handle::<CreateWith<Trip, Start>>();
+    Swarm::<Trip>::handle::<TellAsDestination>();
 
     system.add_individual(TripCreator { current_source_lane: None });
-    system.add_inbox::<AddLaneForTrip, TripCreator>();
+    TripCreator::handle::<AddLaneForTrip>();
 
-    system.add_inbox::<Event3d, Swarm<Lane>>();
+    Swarm::<Lane>::handle::<Event3d>();
 }

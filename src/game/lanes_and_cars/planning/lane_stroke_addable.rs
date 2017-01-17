@@ -73,7 +73,7 @@ impl Recipient<Event3d> for LaneStrokeAddable {
 
 pub fn setup(system: &mut ActorSystem) {
     system.add_individual(Swarm::<LaneStrokeAddable>::new());
-    system.add_inbox::<CreateWith<LaneStrokeAddable, AddToUI>, Swarm<LaneStrokeAddable>>();
-    system.add_inbox::<ClearDraggables, Swarm<LaneStrokeAddable>>();
-    system.add_inbox::<Event3d, Swarm<LaneStrokeAddable>>();
+    Swarm::<LaneStrokeAddable>::handle::<CreateWith<LaneStrokeAddable, AddToUI>>();
+    Swarm::<LaneStrokeAddable>::handle::<ClearDraggables>();
+    Swarm::<LaneStrokeAddable>::handle::<Event3d>();
 }

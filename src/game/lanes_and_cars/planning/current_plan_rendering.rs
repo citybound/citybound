@@ -1,4 +1,4 @@
-use kay::{Recipient, Fate, ActorSystem};
+use kay::{Recipient, Fate, ActorSystem, Individual};
 use descartes::{Band, Path, FiniteCurve};
 use monet::{Thing, Instance};
 use ::core::geometry::band_to_thing;
@@ -178,6 +178,6 @@ impl Recipient<RenderToScene> for CurrentPlan {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add_inbox::<SetupInScene, CurrentPlan>();
-    system.add_inbox::<RenderToScene, CurrentPlan>();
+    CurrentPlan::handle::<SetupInScene>();
+    CurrentPlan::handle::<RenderToScene>();
 }
