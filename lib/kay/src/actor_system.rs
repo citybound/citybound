@@ -1,8 +1,8 @@
 use super::swarm::Swarm;
 use super::messaging::{Message, Actor, Individual, Packet, Recipient};
-use super::inbox::Inbox;
+use super::inbox::{Inbox, DispatchablePacket};
 use super::id::ID;
-use super::type_registry::TypeRegistry;
+use super::type_registry::{ShortTypeId, TypeRegistry};
 use std::any::Any;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -12,7 +12,7 @@ const MAX_RECIPIENT_TYPES: usize = 64;
 const MAX_MESSAGE_TYPES: usize = 128;
 
 struct Handler {
-    function: Box<Fn(*const u8)>,
+    function: Box<Fn(*const ())>,
     critical: bool,
 }
 
@@ -54,20 +54,21 @@ impl ActorSystem {
 
     pub fn add_individual<I: Individual>(&mut self, individual: I) {
         let recipient_id = self.recipient_registry.register_new::<I>();
-        assert!(self.inboxes[recipient_id].is_none());
-        self.inboxes[recipient_id] = Some(Inbox::new());
+        assert!(self.inboxes[recipient_id.as_usize()].is_none());
+        self.inboxes[recipient_id.as_usize()] = Some(Inbox::new());
         // Store pointer to the individual
-        self.individuals[recipient_id] = Some(Box::into_raw(Box::new(individual)) as *mut u8);
+        self.individuals[recipient_id.as_usize()] =
+            Some(Box::into_raw(Box::new(individual)) as *mut u8);
     }
 
     fn add_handler_helper<M: Message, I: Individual + Recipient<M>>(&mut self, critical: bool) {
         let recipient_id = self.recipient_registry.get::<I>();
         let message_id = self.message_registry.get_or_register::<M>();
 
-        let individual_ptr = self.individuals[recipient_id].unwrap() as *mut I;
+        let individual_ptr = self.individuals[recipient_id.as_usize()].unwrap() as *mut I;
 
-        self.handlers[recipient_id][message_id] = Some(Handler {
-            function: Box::new(move |packet_ptr: *const u8| {
+        self.handlers[recipient_id.as_usize()][message_id.as_usize()] = Some(Handler {
+            function: Box::new(move |packet_ptr: *const ()| {
                 unsafe {
                     let packet = &*(packet_ptr as *const Packet<M>);
                     (*individual_ptr).receive_packet(packet);
@@ -95,17 +96,19 @@ impl ActorSystem {
             inbox.put(packet, &self.message_registry);
         } else {
             panic!("No inbox for {}",
-                   self.recipient_registry.get_name(*recipient.type_id as usize));
+                   self.recipient_registry.get_name(recipient.type_id));
         }
     }
 
     fn single_message_cycle(&mut self) {
-        for (recipient_type, maybe_inbox) in self.inboxes.iter_mut().enumerate() {
+        for (recipient_type_idx, maybe_inbox) in self.inboxes.iter_mut().enumerate() {
+            let recipient_type = ShortTypeId::new(recipient_type_idx as u16);
             if let Some(inbox) = maybe_inbox.as_mut() {
-                for (message_type, ptr) in inbox.empty() {
-                    if let Some(handler) = self.handlers[recipient_type][message_type].as_mut() {
+                for DispatchablePacket { message_type, packet_ptr } in inbox.empty() {
+                    if let Some(handler) =
+                        self.handlers[recipient_type.as_usize()][message_type.as_usize()].as_mut() {
                         if handler.critical || !self.panic_happened {
-                            (handler.function)(ptr);
+                            (handler.function)(packet_ptr);
                         }
                     } else {
                         panic!("Handler not found ({} << {})",

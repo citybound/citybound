@@ -1,7 +1,7 @@
 use super::compact::Compact;
 use super::messaging::{Packet, Message};
 use super::chunked::{MemChunker, ChunkedQueue};
-use super::type_registry::TypeRegistry;
+use super::type_registry::{ShortTypeId, TypeRegistry};
 
 pub struct Inbox {
     queue: ChunkedQueue,
@@ -18,7 +18,7 @@ impl Inbox {
 
     pub fn put<M: Message>(&mut self, packet: Packet<M>, message_registry: &TypeRegistry) {
         let packet_size = packet.total_size_bytes();
-        let total_size = ::std::mem::size_of::<usize>() + packet_size;
+        let total_size = ::std::mem::size_of::<ShortTypeId>() + packet_size;
 
         unsafe {
 
@@ -26,9 +26,9 @@ impl Inbox {
             let queue_ptr = self.queue.enqueue(total_size);
 
             // Write message type
-            *(queue_ptr as *mut usize) = message_registry.get::<M>();
+            *(queue_ptr as *mut ShortTypeId) = message_registry.get::<M>();
 
-            let payload_ptr = queue_ptr.offset(::std::mem::size_of::<usize>() as isize);
+            let payload_ptr = queue_ptr.offset(::std::mem::size_of::<ShortTypeId>() as isize);
 
             // Get the address of the location in the queue
             let packet_in_queue = &mut *(payload_ptr as *mut Packet<M>);
@@ -51,20 +51,27 @@ pub struct InboxIterator<'a> {
     n_messages_to_read: usize,
 }
 
-impl<'a> Iterator for InboxIterator<'a> {
-    // TODO: create a type for this called DispatchableMessage or something
-    type Item = (usize, *const u8);
+pub struct DispatchablePacket {
+    pub message_type: super::type_registry::ShortTypeId,
+    pub packet_ptr: *const (),
+}
 
-    fn next(&mut self) -> Option<(usize, *const u8)> {
+impl<'a> Iterator for InboxIterator<'a> {
+    type Item = DispatchablePacket;
+
+    fn next(&mut self) -> Option<DispatchablePacket> {
         if self.n_messages_to_read == 0 {
             None
         } else {
             unsafe {
                 let ptr = self.queue.dequeue().expect("should have something left for sure");
-                let message_type = *(ptr as *mut usize);
-                let payload_ptr = ptr.offset(::std::mem::size_of::<usize>() as isize);
+                let message_type = *(ptr as *mut ShortTypeId);
+                let payload_ptr = ptr.offset(::std::mem::size_of::<ShortTypeId>() as isize);
                 self.n_messages_to_read -= 1;
-                Some((message_type, payload_ptr))
+                Some(DispatchablePacket {
+                    message_type: message_type,
+                    packet_ptr: payload_ptr as *const (),
+                })
             }
         }
     }

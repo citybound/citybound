@@ -1,12 +1,12 @@
 use super::THE_SYSTEM;
 use super::messaging::Message;
-use core::nonzero::NonZero;
+use super::type_registry::ShortTypeId;
 
 /// The ID used to specify a specific object within the actor system
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ID {
     /// The sequentially numbered type ID of the actor within the actor system
-    pub type_id: NonZero<u16>,
+    pub type_id: ShortTypeId,
     /// The "generation" of the ID, to help debugging as instance_IDs can be reused
     pub version: u8,
     /// The instance of the type used to address a specific actor
@@ -16,27 +16,27 @@ pub struct ID {
 }
 
 impl ID {
-    pub fn individual(individual_type_id: usize) -> ID {
+    pub fn individual(individual_type_id: ShortTypeId) -> ID {
         ID {
-            type_id: unsafe { NonZero::new(individual_type_id as u16) },
+            type_id: individual_type_id,
             version: 0,
             instance_id: 0,
         }
     }
 
     /// Construct a broadcast ID to the type
-    pub fn broadcast(type_id: usize) -> ID {
+    pub fn broadcast(type_id: ShortTypeId) -> ID {
         ID {
-            type_id: unsafe { NonZero::new(type_id as u16) },
+            type_id: type_id,
             version: 0,
             instance_id: u32::max_value(),
         }
     }
 
     /// Construct an ID which points to an actor instance in a swarm
-    pub fn instance(type_id: usize, instance_id_and_version: (usize, usize)) -> ID {
+    pub fn instance(type_id: ShortTypeId, instance_id_and_version: (usize, usize)) -> ID {
         ID {
-            type_id: unsafe { NonZero::new(type_id as u16) },
+            type_id: type_id,
             version: instance_id_and_version.1 as u8,
             instance_id: instance_id_and_version.0 as u32,
         }
@@ -48,9 +48,9 @@ impl ID {
     }
 
     /// Created swarm ID with type ID specified
-    pub fn swarm(type_id: usize) -> ID {
+    pub fn swarm(type_id: ShortTypeId) -> ID {
         ID {
-            type_id: unsafe { NonZero::new(type_id as u16) },
+            type_id: type_id,
             version: 0,
             instance_id: u32::max_value() - 1,
         }

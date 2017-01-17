@@ -312,10 +312,7 @@ impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<ToRandom<M>> f
             };
             for _i in 0..packet.message.n_recipients {
                 let random_id =
-                    ID::instance(*(packet.recipient_id
-                                         .expect("Recipient \
-                                                  not set"))
-                                     .type_id as usize,
+                    ID::instance(packet.recipient_id.expect("Recipient not set").type_id,
                                  (swarm.slot_map.random_used(), 0));
                 new_packet.recipient_id = Some(random_id);
                 swarm.receive_packet(&new_packet);
