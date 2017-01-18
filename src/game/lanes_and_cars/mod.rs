@@ -601,15 +601,12 @@ impl Recipient<Tick> for TransferLane {
                                 .chain(maybe_next_left_obstacle)
                                 .chain(maybe_next_right_obstacle)
                                 .chain(&[Obstacle::far_ahead()])
-                                .filter_map(|obstacle| {
-                                    if *obstacle.position < *car.position + 0.1 {
-                                        dangerous = true;
-                                        None
-                                    } else {
-                                        Some(OrderedFloat(intelligent_acceleration(car,
-                                                                                   obstacle,
-                                                                                   1.0)))
-                                    }
+                                .filter_map(|obstacle| if *obstacle.position <
+                                                          *car.position + 0.1 {
+                                    dangerous = true;
+                                    None
+                                } else {
+                                    Some(OrderedFloat(intelligent_acceleration(car, obstacle, 1.0)))
                                 })
                                 .min()
                                 .unwrap();

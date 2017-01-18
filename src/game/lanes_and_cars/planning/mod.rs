@@ -138,43 +138,46 @@ impl Recipient<Commit> for CurrentPlan {
                                         delta: self.preview.delta.clone(),
                                     };
                                 } else {
-                                    let current_nodes = meanings.iter()
-                                        .filter(|meaning| **meaning != SelectionMeaning::SubSection)
-                                        .zip(selections.keys())
-                                        .map(|(meaning, selection_ref)| {
-                                            let stroke_idx = match *selection_ref {
-                                                SelectableStrokeRef::New(usize) => usize,
-                                                SelectableStrokeRef::RemainingOld(old_ref) => {
-                                                    let old_stroke = self.preview
-                                                        .current_remaining_old_strokes
-                                                        .mapping
-                                                        .get(old_ref)
-                                                        .unwrap();
-                                                    self.preview
-                                                        .delta
-                                                        .strokes_to_destroy
-                                                        .insert(old_ref, old_stroke.clone());
-                                                    self.preview
-                                                        .delta
-                                                        .new_strokes
-                                                        .push(old_stroke.clone());
-                                                    self.preview.delta.new_strokes.len() - 1
-                                                }
-                                            };
+                                    let current_nodes =
+                                        meanings.iter()
+                                            .filter(|meaning| {
+                                                **meaning != SelectionMeaning::SubSection
+                                            })
+                                            .zip(selections.keys())
+                                            .map(|(meaning, selection_ref)| {
+                                                let stroke_idx = match *selection_ref {
+                                                    SelectableStrokeRef::New(usize) => usize,
+                                                    SelectableStrokeRef::RemainingOld(old_ref) => {
+                                                        let old_stroke = self.preview
+                                                            .current_remaining_old_strokes
+                                                            .mapping
+                                                            .get(old_ref)
+                                                            .unwrap();
+                                                        self.preview
+                                                            .delta
+                                                            .strokes_to_destroy
+                                                            .insert(old_ref, old_stroke.clone());
+                                                        self.preview
+                                                            .delta
+                                                            .new_strokes
+                                                            .push(old_stroke.clone());
+                                                        self.preview.delta.new_strokes.len() - 1
+                                                    }
+                                                };
 
-                                            let node_idx = match *meaning {
-                                                SelectionMeaning::Start => 0,
-                                                SelectionMeaning::End => {
-                                                    self.preview.delta.new_strokes[stroke_idx]
-                                                        .nodes()
-                                                        .len() -
-                                                    1
-                                                }
-                                                _ => unreachable!(),
-                                            };
-                                            LaneStrokeNodeRef(stroke_idx, node_idx)
-                                        })
-                                        .collect();
+                                                let node_idx = match *meaning {
+                                                    SelectionMeaning::Start => 0,
+                                                    SelectionMeaning::End => {
+                                                        self.preview.delta.new_strokes[stroke_idx]
+                                                            .nodes()
+                                                            .len() -
+                                                        1
+                                                    }
+                                                    _ => unreachable!(),
+                                                };
+                                                LaneStrokeNodeRef(stroke_idx, node_idx)
+                                            })
+                                            .collect();
 
                                     let previous_add = at;
                                     self.preview.ui_state.drawing_status =
@@ -466,10 +469,10 @@ impl Recipient<WithLatestNode> for CurrentPlan {
                                                 if stroke_idx == other_stroke_idx {
                                                     self_join = true;
                                                 }
-                                                &mut self
-                                                    .preview
+                                                &mut self.preview
                                                     .delta
-                                                    .new_strokes[other_stroke_idx]
+                                                    .new_strokes
+                                                         [other_stroke_idx]
                                             }
                                             SelectableStrokeRef::RemainingOld(old_ref) => {
                                                 let old_stroke = self.preview
@@ -792,10 +795,13 @@ impl Recipient<MoveSelection> for CurrentPlan {
                             for i in 0..connector_alignments.len() {
                                 let swap = {
                                     let &(_, ref align_a_to) = &connector_alignments[i];
-                                    connector_alignments
-                                        .iter()
+                                    connector_alignments.iter()
                                         .position(|&(ref b, _)| align_a_to == b)
-                                        .and_then(|b_idx| if b_idx > i {Some(b_idx)} else {None})
+                                        .and_then(|b_idx| if b_idx > i {
+                                            Some(b_idx)
+                                        } else {
+                                            None
+                                        })
                                 };
                                 if let Some(swap_with) = swap {
                                     connector_alignments.swap(i, swap_with);
@@ -1185,8 +1191,8 @@ impl CurrentPlan {
                 let end_position = stroke.path().along(end);
                 let end_direction = stroke.path().direction_along(end);
 
-                let is_right_of_stroke = |other_stroke: &LaneStroke| {
-                    if let Some(start_on_other_distance) =
+                let is_right_of_stroke =
+                    |other_stroke: &LaneStroke| if let Some(start_on_other_distance) =
                         other_stroke.path().project(start_position) {
                         let start_on_other = other_stroke.path().along(start_on_other_distance);
                         start_on_other.is_roughly_within(start_position, 6.0) &&
@@ -1198,8 +1204,7 @@ impl CurrentPlan {
                         (end_on_other - end_position).dot(&end_direction.orthogonal()) > 0.0
                     } else {
                         false
-                    }
-                };
+                    };
 
                 let mut all_strokes = self.preview
                     .delta

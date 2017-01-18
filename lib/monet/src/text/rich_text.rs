@@ -50,12 +50,12 @@ impl RichText {
                 let gl_rect = rusttype::Rect {
                     min: origin +
                          (rusttype::vector(screen_rect.min.x as f32 / screen_width - 0.5,
-                                           1.0 - screen_rect.min.y as f32 / screen_height - 0.5)) *
-                         2.0,
+                                           1.0 - screen_rect.min.y as f32 / screen_height -
+                                           0.5)) * 2.0,
                     max: origin +
                          (rusttype::vector(screen_rect.max.x as f32 / screen_width - 0.5,
-                                           1.0 - screen_rect.max.y as f32 / screen_height - 0.5)) *
-                         2.0,
+                                           1.0 - screen_rect.max.y as f32 / screen_height -
+                                           0.5)) * 2.0,
                 };
 
                 vec![TextVertex {
