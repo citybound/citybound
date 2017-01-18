@@ -6,6 +6,8 @@ Make sure you read: [how to report bugs](https://github.com/citybound/citybound/
 
 ## Make sure to <a href="https://www.clahub.com/agreements/citybound/citybound">sign the Contributor License Agreement</a>.
 
+## [Have a look at the documentation](http://citybound.github.io/citybound)
+
 ## Compiling Citybound from source 
 
 Currently Citybound is built with Rust `nightly-2017-01-08`
