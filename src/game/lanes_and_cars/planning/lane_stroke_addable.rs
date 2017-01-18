@@ -1,10 +1,10 @@
-use kay::{ID, Recipient, Actor, Individual, Swarm, ActorSystem, Fate, CreateWith};
+use kay::{ID, Recipient, SubActor, Individual, Swarm, ActorSystem, Fate, CreateWith};
 use descartes::{Band, P2};
 use ::core::geometry::AnyShape;
 
 use super::{LaneStroke, CurrentPlan};
 
-#[derive(Actor, Compact, Clone)]
+#[derive(SubActor, Compact, Clone)]
 pub struct LaneStrokeAddable {
     _id: Option<ID>,
     stroke: LaneStroke,

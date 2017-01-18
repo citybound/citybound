@@ -1,9 +1,9 @@
-use kay::{ID, Recipient, Individual, Actor, ActorSystem, Swarm, CreateWith, Fate};
+use kay::{ID, Recipient, Individual, SubActor, ActorSystem, Swarm, CreateWith, Fate};
 use ordered_float::OrderedFloat;
 
 use super::Destination;
 
-#[derive(Actor, Compact, Clone)]
+#[derive(SubActor, Compact, Clone)]
 struct Trip {
     _id: Option<ID>,
     source: ID,

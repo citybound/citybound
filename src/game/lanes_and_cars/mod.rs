@@ -6,7 +6,7 @@ mod intelligent_acceleration;
 use self::intelligent_acceleration::intelligent_acceleration;
 use core::geometry::CPath;
 use compact::CVec;
-use kay::{ID, Actor, Swarm, CreateWith, Recipient, ActorSystem, Individual, Fate};
+use kay::{ID, SubActor, Swarm, CreateWith, Recipient, ActorSystem, Individual, Fate};
 use descartes::{N, P2, FiniteCurve, RoughlyComparable, Band, Intersect, Curve, Dot,
                 WithUniqueOrthogonal, Path};
 use ordered_float::OrderedFloat;
@@ -14,7 +14,7 @@ use itertools::Itertools;
 use ::std::f32::INFINITY;
 use ::std::ops::{Deref, DerefMut};
 
-#[derive(Compact, Actor, Clone)]
+#[derive(Compact, SubActor, Clone)]
 pub struct Lane {
     _id: Option<ID>,
     length: f32,
@@ -59,7 +59,7 @@ impl Lane {
     }
 }
 
-#[derive(Compact, Actor, Clone)]
+#[derive(Compact, SubActor, Clone)]
 pub struct TransferLane {
     _id: Option<ID>,
     length: f32,

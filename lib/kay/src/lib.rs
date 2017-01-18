@@ -24,7 +24,7 @@ mod id;
 mod actor_system;
 
 pub use self::chunked::MemChunker;
-pub use self::swarm::{Swarm, Actor, Create, CreateWith, RecipientAsSwarm, ToRandom,
+pub use self::swarm::{Swarm, SubActor, Create, CreateWith, RecipientAsSwarm, ToRandom,
                       RequestConfirmation, Confirmation};
 pub use self::inbox::Inbox;
 pub use self::messaging::{Message, Packet, Recipient, Fate};

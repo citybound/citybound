@@ -1,10 +1,10 @@
-use kay::{ID, Recipient, Actor, Individual, Swarm, ActorSystem, Fate, CreateWith};
+use kay::{ID, Recipient, SubActor, Individual, Swarm, ActorSystem, Fate, CreateWith};
 use descartes::{Band, Curve, Into2d, FiniteCurve, Path};
 use ::core::geometry::{CPath, AnyShape};
 
 use super::{SelectableStrokeRef, CurrentPlan};
 
-#[derive(Actor, Compact, Clone)]
+#[derive(SubActor, Compact, Clone)]
 pub struct LaneStrokeSelectable {
     _id: Option<ID>,
     stroke_ref: SelectableStrokeRef,

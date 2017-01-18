@@ -9,14 +9,13 @@ use ::std::mem::size_of;
 
 pub trait StorageAware: Sized {
     fn typical_size() -> usize {
-        // TODO: create versions of containers for 0 size messages & actors
         let size = size_of::<Self>();
         if size == 0 { 1 } else { size }
     }
 }
 impl<T> StorageAware for T {}
 
-pub trait Actor: Compact + StorageAware + 'static {
+pub trait SubActor: Compact + StorageAware + 'static {
     fn id(&self) -> ID;
     unsafe fn set_id(&mut self, id: ID);
 }
@@ -25,25 +24,25 @@ fn broadcast_instance_id() -> u32 {
     u32::max_value()
 }
 
-/// A collection of many of the same actors, which can have multiple sizes
-pub struct Swarm<Actor> {
-    /// Actor storage
-    actors: MultiSized<SizedChunkedArena>,
+/// A collection of many of the same sub actors, which can have multiple sizes
+pub struct Swarm<SubActor> {
+    /// SubActor storage
+    sub_actors: MultiSized<SizedChunkedArena>,
     /// Maps the ID of the actor to the chunk size and location where it is stored
     slot_map: SlotMap,
-    /// Number of actors
-    n_actors: ValueInChunk<usize>,
-    _marker: PhantomData<[Actor]>,
+    /// Number of sub_actors
+    n_sub_actors: ValueInChunk<usize>,
+    _marker: PhantomData<[SubActor]>,
 }
 
 const CHUNK_SIZE: usize = 4096 * 4096 * 4;
 
-impl<A: Actor> Swarm<A> {
+impl<SA: SubActor> Swarm<SA> {
     pub fn new() -> Self {
         let chunker = MemChunker::from_settings("", CHUNK_SIZE);
         Swarm {
-            actors: MultiSized::new(chunker.child("_actors"), A::typical_size()),
-            n_actors: ValueInChunk::new(chunker.child("_n_actors"), 0),
+            sub_actors: MultiSized::new(chunker.child("_sub_actors"), SA::typical_size()),
+            n_sub_actors: ValueInChunk::new(chunker.child("_n_sub_actors"), 0),
             slot_map: SlotMap::new(chunker.child("_slot_map")),
             _marker: PhantomData,
         }
@@ -54,44 +53,44 @@ impl<A: Actor> Swarm<A> {
     }
 
     /// Get the actor at the index
-    fn at_index(&self, index: SlotIndices) -> &A {
-        unsafe { &*(self.actors.bins[index.bin()].at(index.slot()) as *const A) }
+    fn at_index(&self, index: SlotIndices) -> &SA {
+        unsafe { &*(self.sub_actors.bins[index.bin()].at(index.slot()) as *const SA) }
     }
 
     /// Get the actor at the index mutably
-    fn at_index_mut(&mut self, index: SlotIndices) -> &mut A {
-        unsafe { &mut *(self.actors.bins[index.bin()].at_mut(index.slot()) as *mut A) }
+    fn at_index_mut(&mut self, index: SlotIndices) -> &mut SA {
+        unsafe { &mut *(self.sub_actors.bins[index.bin()].at_mut(index.slot()) as *mut SA) }
     }
 
     /// Get the actor with an ID mutably
-    fn at_mut(&mut self, id: usize) -> &mut A {
+    fn at_mut(&mut self, id: usize) -> &mut SA {
         let index = *self.slot_map.indices_of(id);
         self.at_index_mut(index)
     }
 
     /// Add a new actor
-    fn add(&mut self, initial_state: &A) -> ID {
+    fn add(&mut self, initial_state: &SA) -> ID {
         let (instance_id, version) = self.allocate_instance_id();
         let id = ID::new(unsafe { (*super::THE_SYSTEM).short_id::<Self>() },
                          instance_id as u32,
                          version as u8);
         self.add_with_id(initial_state, id);
-        *self.n_actors += 1;
+        *self.n_sub_actors += 1;
         id
     }
 
     /// Add a new actor with a specified ID
-    fn add_with_id(&mut self, initial_state: &A, id: ID) {
+    fn add_with_id(&mut self, initial_state: &SA, id: ID) {
         let size = initial_state.total_size_bytes();
-        let bin_index = self.actors.size_to_index(size);
-        let bin = &mut self.actors.bin_for_size_mut(size);
+        let bin_index = self.sub_actors.size_to_index(size);
+        let bin = &mut self.sub_actors.bin_for_size_mut(size);
         let (ptr, index) = bin.push();
 
         self.slot_map.associate(id.instance_id as usize, SlotIndices::new(bin_index, index));
         assert!(self.slot_map.indices_of(id.instance_id as usize).bin() == bin_index);
 
         unsafe {
-            let actor_in_slot = &mut *(ptr as *mut A);
+            let actor_in_slot = &mut *(ptr as *mut SA);
             actor_in_slot.compact_behind_from(initial_state);
             actor_in_slot.set_id(id)
         }
@@ -100,10 +99,10 @@ impl<A: Actor> Swarm<A> {
     /// A utility function to swap an actor to the end of it's chunk and remove it by its index
     fn swap_remove(&mut self, indices: SlotIndices) -> bool {
         unsafe {
-            let bin = &mut self.actors.bins[indices.bin()];
+            let bin = &mut self.sub_actors.bins[indices.bin()];
             match bin.swap_remove(indices.slot()) {
                 Some(ptr) => {
-                    let swapped_actor = &*(ptr as *mut A);
+                    let swapped_actor = &*(ptr as *mut SA);
                     self.slot_map.associate(swapped_actor.id().instance_id as usize, indices);
                     true
                 }
@@ -123,7 +122,7 @@ impl<A: Actor> Swarm<A> {
     fn remove_at_index(&mut self, i: SlotIndices, id: ID) {
         self.swap_remove(i);
         self.slot_map.free(id.instance_id as usize, id.version as usize);
-        *self.n_actors -= 1;
+        *self.n_sub_actors -= 1;
     }
 
     /// Resize an actor by ID
@@ -134,7 +133,7 @@ impl<A: Actor> Swarm<A> {
 
     /// Resize an actor by index
     fn resize_at_index(&mut self, old_i: SlotIndices) -> bool {
-        let old_actor_ptr = self.at_index(old_i) as *const A;
+        let old_actor_ptr = self.at_index(old_i) as *const SA;
         let old_actor = unsafe { &*old_actor_ptr };
         self.add_with_id(old_actor, old_actor.id());
         self.swap_remove(old_i)
@@ -142,7 +141,7 @@ impl<A: Actor> Swarm<A> {
 
     /// Process a message destined for an instance of an actor, potentially mutating the instance
     fn receive_instance<M: Message>(&mut self, packet: &Packet<M>)
-        where A: Recipient<M>
+        where SA: Recipient<M>
     {
         let (fate, is_still_compact) = {
             let actor = self.at_mut(packet.recipient_id
@@ -164,24 +163,24 @@ impl<A: Actor> Swarm<A> {
         }
     }
 
-    /// Process a broadcast to all actors of the swarm
+    /// Process a broadcast to all sub_actors of the swarm
     fn receive_broadcast<M: Message>(&mut self, packet: &Packet<M>)
-        where A: Recipient<M>
+        where SA: Recipient<M>
     {
         // this function has to deal with the fact that during the iteration,
         // receivers of the broadcast can be resized
         // and thus removed from a bin, swapping in either
         //    - other receivers that didn't receive the broadcast yet
         //    - resized and added receivers that alredy received the broadcast
-        //    - actors that were created during one of the broadcast receive handlers,
+        //    - sub actors that were created during one of the broadcast receive handlers,
         //      that shouldn't receive this broadcast
-        // the only assumption is that no actors are immediately completely deleted
+        // the only assumption is that no sub actors are immediately completely deleted
 
         let recipients_todo_per_bin: Vec<usize> = {
-            self.actors.bins.iter().map(|bin| bin.len()).collect()
+            self.sub_actors.bins.iter().map(|bin| bin.len()).collect()
         };
 
-        let n_bins = self.actors.bins.len();
+        let n_bins = self.sub_actors.bins.len();
 
         for (c, recipients_todo) in recipients_todo_per_bin.iter().enumerate().take(n_bins) {
             let mut slot = 0;
@@ -203,7 +202,7 @@ impl<A: Actor> Swarm<A> {
                             self.resize_at_index(index);
                             // this should also work in the case where the "resized" actor
                             // itself is added to the same bin again
-                            let swapped_in_another_receiver = self.actors.bins[c].len() <
+                            let swapped_in_another_receiver = self.sub_actors.bins[c].len() <
                                                               index_after_last_recipient;
                             if swapped_in_another_receiver {
                                 index_after_last_recipient -= 1;
@@ -217,7 +216,7 @@ impl<A: Actor> Swarm<A> {
                         self.remove_at_index(index, id);
                         // this should also work in the case where the "resized" actor
                         // itself is added to the same bin again
-                        let swapped_in_another_receiver = self.actors.bins[c].len() <
+                        let swapped_in_another_receiver = self.sub_actors.bins[c].len() <
                                                           index_after_last_recipient;
                         if swapped_in_another_receiver {
                             index_after_last_recipient -= 1;
@@ -245,7 +244,7 @@ impl<A: Actor> Swarm<A> {
     }
 }
 
-impl<A: Actor> Individual for Swarm<A> {}
+impl<SA: SubActor> Individual for Swarm<SA> {}
 
 pub trait RecipientAsSwarm<M: Message>: Sized {
     fn receive_packet(swarm: &mut Swarm<Self>, packet: &Packet<M>) -> Fate {
@@ -256,17 +255,17 @@ pub trait RecipientAsSwarm<M: Message>: Sized {
     }
 }
 
-impl<M: Message, A: Actor + RecipientAsSwarm<M>> Recipient<M> for Swarm<A> {
+impl<M: Message, SA: SubActor + RecipientAsSwarm<M>> Recipient<M> for Swarm<SA> {
     fn receive_packet(&mut self, packet: &Packet<M>) -> Fate {
-        A::receive_packet(self, packet)
+        SA::receive_packet(self, packet)
     }
 }
 
 impl <
     M: Message + NotACreateMessage + NotARequestConfirmationMessage + NotAToRandomMessage,
-    A: Actor + Recipient<M>
-> RecipientAsSwarm<M> for A {
-    fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<M>) -> Fate {
+    SA: SubActor + Recipient<M>
+> RecipientAsSwarm<M> for SA {
+    fn receive_packet(swarm: &mut Swarm<SA>, packet: &Packet<M>) -> Fate {
         if packet.recipient_id.expect("Recipient ID not set")
             .instance_id == broadcast_instance_id() {
             swarm.receive_broadcast(packet);
@@ -295,20 +294,21 @@ pub struct Confirmation<M: Message> {
 
 impl<M: Message> Copy for Confirmation<M> {}
 
-impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<RequestConfirmation<M>> for A {
-    fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<RequestConfirmation<M>>) -> Fate {
+impl<M: Message, SA: SubActor + RecipientAsSwarm<M>> RecipientAsSwarm<RequestConfirmation<M>>
+    for SA {
+    fn receive_packet(swarm: &mut Swarm<SA>, packet: &Packet<RequestConfirmation<M>>) -> Fate {
         let n_recipients = if packet.recipient_id
             .expect("Recipient ID not set")
             .instance_id == broadcast_instance_id() {
-            *swarm.n_actors
+            *swarm.n_sub_actors
         } else {
             1
         };
-        let fate = A::receive_packet(swarm,
-                                     &Packet {
-                                         recipient_id: packet.recipient_id,
-                                         message: packet.message.message.clone(),
-                                     });
+        let fate = SA::receive_packet(swarm,
+                                      &Packet {
+                                          recipient_id: packet.recipient_id,
+                                          message: packet.message.message.clone(),
+                                      });
         packet.message.requester <<
         Confirmation::<M> {
             n_recipients: n_recipients,
@@ -328,15 +328,15 @@ pub trait NotAToRandomMessage {}
 impl NotAToRandomMessage for .. {}
 impl<M: Message> !NotAToRandomMessage for ToRandom<M> {}
 
-impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<ToRandom<M>> for A {
-    fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<ToRandom<M>>) -> Fate {
+impl<M: Message, SA: SubActor + RecipientAsSwarm<M>> RecipientAsSwarm<ToRandom<M>> for SA {
+    fn receive_packet(swarm: &mut Swarm<SA>, packet: &Packet<ToRandom<M>>) -> Fate {
         if swarm.slot_map.len() > 0 {
             let mut new_packet = Packet {
                 recipient_id: None,
                 message: packet.message.message.clone(),
             };
             for _i in 0..packet.message.n_recipients {
-                let random_id = ID::new(unsafe { (*super::THE_SYSTEM).short_id::<Swarm<A>>() },
+                let random_id = ID::new(unsafe { (*super::THE_SYSTEM).short_id::<Swarm<SA>>() },
                                         swarm.slot_map.random_used() as u32,
                                         0);
                 new_packet.recipient_id = Some(random_id);
@@ -348,17 +348,17 @@ impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<ToRandom<M>> f
 }
 
 #[derive(Compact, Clone)]
-pub struct Create<A: Actor>(pub A);
+pub struct Create<SA: SubActor>(pub SA);
 
 pub trait NotACreateMessage {}
 
 impl NotACreateMessage for .. {}
 
-impl<A: Actor> !NotACreateMessage for Create<A> {}
-impl<A: Actor, M: Message> !NotACreateMessage for CreateWith<A, M> {}
+impl<SA: SubActor> !NotACreateMessage for Create<SA> {}
+impl<SA: SubActor, M: Message> !NotACreateMessage for CreateWith<SA, M> {}
 
-impl<A: Actor> RecipientAsSwarm<Create<A>> for A {
-    fn receive(swarm: &mut Swarm<A>, msg: &Create<A>) -> Fate {
+impl<SA: SubActor> RecipientAsSwarm<Create<SA>> for SA {
+    fn receive(swarm: &mut Swarm<SA>, msg: &Create<SA>) -> Fate {
         match *msg {
             Create(ref initial_state) => {
                 swarm.add(initial_state);
@@ -369,10 +369,10 @@ impl<A: Actor> RecipientAsSwarm<Create<A>> for A {
 }
 
 #[derive(Compact, Clone)]
-pub struct CreateWith<A: Actor, M: Message>(pub A, pub M);
+pub struct CreateWith<SA: SubActor, M: Message>(pub SA, pub M);
 
-impl<M: Message, A: Actor + Recipient<M>> RecipientAsSwarm<CreateWith<A, M>> for A {
-    fn receive(swarm: &mut Swarm<A>, msg: &CreateWith<A, M>) -> Fate {
+impl<M: Message, SA: SubActor + Recipient<M>> RecipientAsSwarm<CreateWith<SA, M>> for SA {
+    fn receive(swarm: &mut Swarm<SA>, msg: &CreateWith<SA, M>) -> Fate {
         match *msg {
             CreateWith(ref initial_state, ref initial_message) => {
                 let id = swarm.add(initial_state);
