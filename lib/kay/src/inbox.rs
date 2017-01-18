@@ -12,7 +12,7 @@ const CHUNK_SIZE: usize = 4096 * 4096 * 4; // 64MB
 
 impl Inbox {
     pub fn new() -> Self {
-        let chunker = MemChunker::new("", CHUNK_SIZE);
+        let chunker = MemChunker::from_settings("", CHUNK_SIZE);
         Inbox { queue: ChunkedQueue::new(chunker) }
     }
 

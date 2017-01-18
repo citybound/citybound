@@ -57,8 +57,8 @@ impl ActorSystem {
         assert!(self.inboxes[recipient_id.as_usize()].is_none());
         self.inboxes[recipient_id.as_usize()] = Some(Inbox::new());
         // Store pointer to the individual
-        self.individuals[recipient_id.as_usize()] =
-            Some(Box::into_raw(Box::new(individual)) as *mut u8);
+        self.individuals[recipient_id.as_usize()] = Some(Box::into_raw(Box::new(individual)) as
+                                                         *mut u8);
     }
 
     fn add_handler_helper<M: Message, I: Individual + Recipient<M>>(&mut self, critical: bool) {
@@ -68,11 +68,9 @@ impl ActorSystem {
         let individual_ptr = self.individuals[recipient_id.as_usize()].unwrap() as *mut I;
 
         self.handlers[recipient_id.as_usize()][message_id.as_usize()] = Some(Handler {
-            function: Box::new(move |packet_ptr: *const ()| {
-                unsafe {
-                    let packet = &*(packet_ptr as *const Packet<M>);
-                    (*individual_ptr).receive_packet(packet);
-                }
+            function: Box::new(move |packet_ptr: *const ()| unsafe {
+                let packet = &*(packet_ptr as *const Packet<M>);
+                (*individual_ptr).receive_packet(packet);
             }),
             critical: critical,
         });
@@ -105,8 +103,9 @@ impl ActorSystem {
             let recipient_type = ShortTypeId::new(recipient_type_idx as u16);
             if let Some(inbox) = maybe_inbox.as_mut() {
                 for DispatchablePacket { message_type, packet_ptr } in inbox.empty() {
-                    if let Some(handler) =
-                        self.handlers[recipient_type.as_usize()][message_type.as_usize()].as_mut() {
+                    if let Some(handler) = self.handlers[recipient_type.as_usize()]
+                                               [message_type.as_usize()]
+                        .as_mut() {
                         if handler.critical || !self.panic_happened {
                             (handler.function)(packet_ptr);
                         }
@@ -121,10 +120,8 @@ impl ActorSystem {
     }
 
     pub fn process_all_messages(&mut self) {
-        let result = catch_unwind(AssertUnwindSafe(|| {
-            for _i in 0..1000 {
-                self.single_message_cycle();
-            }
+        let result = catch_unwind(AssertUnwindSafe(|| for _i in 0..1000 {
+            self.single_message_cycle();
         }));
 
         if result.is_err() {

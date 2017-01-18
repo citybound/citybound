@@ -65,16 +65,14 @@ fn find_intersection_points(strokes: &CVec<LaneStroke>) -> Vec<P2> {
         .into_iter()
         .flat_map(|&(stroke_idx_a, ref stroke_idx_b_bmap)| {
             stroke_idx_b_bmap.iter()
-                .flat_map(|stroke_idx_b| {
-                    if stroke_idx_a != stroke_idx_b as usize {
-                        (&bands[stroke_idx_a], strokes[stroke_idx_b as usize].path())
-                            .intersect()
-                            .iter()
-                            .map(|intersection| intersection.position)
-                            .collect::<Vec<_>>()
-                    } else {
-                        vec![]
-                    }
+                .flat_map(|stroke_idx_b| if stroke_idx_a != stroke_idx_b as usize {
+                    (&bands[stroke_idx_a], strokes[stroke_idx_b as usize].path())
+                        .intersect()
+                        .iter()
+                        .map(|intersection| intersection.position)
+                        .collect::<Vec<_>>()
+                } else {
+                    vec![]
                 })
                 .collect::<Vec<_>>()
         })
@@ -200,11 +198,10 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                     let stroke_2 = &trimmed_strokes[stroke_2_idx as usize];
                     let path_1 = stroke_1.path();
                     let path_2 = stroke_2.path();
-                    let aligned_segments = path_1
-                    .segments()
-                    .iter()
-                    .cartesian_product(path_2.segments().iter())
-                    .filter_map(|(segment_1, segment_2)|
+                    let aligned_segments = path_1.segments()
+                        .iter()
+                        .cartesian_product(path_2.segments().iter())
+                        .filter_map(|(segment_1, segment_2)|
                     // TODO: would you look at that horrible mess!
                         match (
                             segment_2.project(segment_1.start()),
@@ -301,9 +298,8 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                                 } else {None}
                             }
                             _ => None
-                        }
-                    )
-                    .collect();
+                        })
+                        .collect();
 
                     let mut aligned_segment_sets = DisjointSets::from_individuals(aligned_segments);
                     aligned_segment_sets.union_all_with(|segment_1, segment_2| {

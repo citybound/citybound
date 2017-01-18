@@ -3,17 +3,17 @@ use super::chunked::{Chunker, ChunkedVec};
 /// The index into a `MultiSized<SizedChunkedArena>`
 #[derive(Clone, Copy)]
 pub struct SlotIndices {
-    /// Index of sized collection that contains the item
-    collection: u8,
+    /// Index of sized bin that contains the item
+    bin: u8,
     /// The slot within those chunks holding the data
     slot: u32,
 }
 
 impl SlotIndices {
     /// Create a new indices
-    pub fn new(collection: usize, slot: usize) -> SlotIndices {
+    pub fn new(bin: usize, slot: usize) -> SlotIndices {
         SlotIndices {
-            collection: collection as u8,
+            bin: bin as u8,
             slot: slot as u32,
         }
     }
@@ -21,13 +21,13 @@ impl SlotIndices {
     /// Create a new, invalid indices
     pub fn invalid() -> SlotIndices {
         SlotIndices {
-            collection: u8::max_value(),
+            bin: u8::max_value(),
             slot: u32::max_value(),
         }
     }
 
-    pub fn collection(&self) -> usize {
-        self.collection as usize
+    pub fn bin(&self) -> usize {
+        self.bin as usize
     }
 
     pub fn slot(&self) -> usize {

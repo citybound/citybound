@@ -358,10 +358,10 @@ impl Recipient<RenderToScene> for Lane {
                 if DEBUG_VIEW_LANDMARKS && self.pathfinding_info.routes_changed {
                     let (random_color, is_landmark) = if let Some(as_destination) =
                         self.pathfinding_info.as_destination {
-                        let random_color : [f32; 3] = ::core::geometry::RANDOM_COLORS[
-                            as_destination.landmark.instance_id as usize
-                                % ::core::geometry::RANDOM_COLORS.len()
-                        ];
+                        let random_color: [f32; 3] =
+                            ::core::geometry::RANDOM_COLORS[as_destination.landmark
+                                .instance_id as usize %
+                            ::core::geometry::RANDOM_COLORS.len()];
                         let weaker_random_color = [(random_color[0] + 1.0) / 2.0,
                                                    (random_color[1] + 1.0) / 2.0,
                                                    (random_color[2] + 1.0) / 2.0];
