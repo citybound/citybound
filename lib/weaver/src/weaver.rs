@@ -1,7 +1,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Read};
-use std::fs::File;
+use std::fs::{self, File};
 use std::path::{PathBuf, Path};
 
 use libloading::{Library, Symbol};
@@ -35,6 +35,24 @@ impl Weaver {
                      &old.0);
         }
         Ok(())
+    }
+
+    pub fn add_folder<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
+        for dir in fs::read_dir(path)? {
+            let path = dir?.path();
+            if Weaver::is_mod_dir(&path) {
+                self.add_package(path)?;
+            } else {
+                println!("no Mod.toml found in {:?}", path);
+            }
+        }
+        Ok(())
+    }
+
+    fn is_mod_dir<P: AsRef<Path>>(path: P) -> bool {
+        let mut manifest = path.as_ref().to_owned();
+        manifest.push("Mod.toml");
+        manifest.is_file()
     }
 
     fn read_package_manifest<P: AsRef<Path>>(path: P) -> io::Result<Package> {

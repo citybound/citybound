@@ -70,13 +70,11 @@ fn main() {
         kay::THE_SYSTEM = &mut *system as *mut kay::ActorSystem;
     }
 
-    let mut installation_path = ::std::env::current_exe().unwrap();
-    installation_path.set_file_name("mods");
-    installation_path.push("mymod");
+    let mut mods_path = ::std::env::current_exe().unwrap();
+    mods_path.set_file_name("mods");
 
     let mut weaver = weaver::Weaver::new();
-    // reads the package manifest, and registers the mod.
-    weaver.add_package(installation_path).expect("could not add mymod");
+    weaver.add_folder(mods_path).expect("mods folder was not found");
     // actually loads the specified mod into the game.
     weaver.load_package("mymod", &mut system).expect("could not load mymod");
 

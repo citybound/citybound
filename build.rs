@@ -13,17 +13,22 @@ fn build(name: &str) {
 
     let manifest_path = format!("./lib/{}/Cargo.toml", name);
     let target_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/lib/.target");
+    let dbg_or_rel = debug_or_release();
+
+    let mut args = vec!["build", "--manifest-path", &manifest_path];
+    if dbg_or_rel == "release" {
+        args.push("--release");
+    }
 
     let output = Command::new("cargo")
         .env("CARGO_HOME", concat!(env!("CARGO_MANIFEST_DIR"), "/.cargo"))
         .env("CARGO_TARGET_DIR", target_dir)
-        .args(&["build", "--manifest-path", &manifest_path])
+        .args(&args)
         .status().unwrap();
     if !output.success() {
         panic!("compilation failed");
     }
 
-    let dbg_or_rel = debug_or_release();
     fs::create_dir_all(&format!("./target/{}/mods/{}", dbg_or_rel, name)).unwrap();
 
     fs::copy(&format!("{}/{}/{}", target_dir, dbg_or_rel, lib_path(name)),
