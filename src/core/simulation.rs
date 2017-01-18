@@ -1,4 +1,4 @@
-use ::kay::{ActorSystem, Recipient, ID, Actor, Fate};
+use ::kay::{Recipient, ID, Actor, Fate};
 
 #[derive(Copy, Clone)]
 pub struct Tick {
@@ -31,8 +31,8 @@ impl Recipient<Tick> for Simulation {
     }
 }
 
-pub fn setup(system: &mut ActorSystem, simulatables: Vec<ID>) {
-    system.add_actor(Simulation {
+pub fn setup(simulatables: Vec<ID>) {
+    Simulation::register_with_state(Simulation {
         simulatables: simulatables,
         current_tick: 0,
     });

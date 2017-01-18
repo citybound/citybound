@@ -1,4 +1,4 @@
-use kay::{ID, Recipient, Actor, ActorSystem, Fate};
+use kay::{ID, Recipient, Actor, Fate};
 use kay::swarm::{Swarm, SubActor, CreateWith};
 use ordered_float::OrderedFloat;
 
@@ -134,13 +134,13 @@ impl Recipient<Event3d> for Lane {
     }
 }
 
-pub fn setup(system: &mut ActorSystem) {
-    system.add_actor(Swarm::<Trip>::new());
+pub fn setup() {
+    Swarm::<Trip>::register_default();
     Swarm::<Trip>::handle::<TripResult>();
     Swarm::<Trip>::handle::<CreateWith<Trip, Start>>();
     Swarm::<Trip>::handle::<TellAsDestination>();
 
-    system.add_actor(TripCreator { current_source_lane: None });
+    TripCreator::register_with_state(TripCreator { current_source_lane: None });
     TripCreator::handle::<AddLaneForTrip>();
 
     Swarm::<Lane>::handle::<Event3d>();

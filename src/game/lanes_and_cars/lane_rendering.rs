@@ -1,6 +1,6 @@
 use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Norm, Path, Dot, RoughlyComparable};
 use compact::CVec;
-use kay::{Actor, Recipient, ActorSystem, Fate};
+use kay::{Actor, Recipient, Fate};
 use kay::swarm::{Swarm, SubActor, RecipientAsSwarm};
 use monet::{Instance, Thing, Vertex, UpdateThing};
 use core::geometry::{band_to_thing, dash_path};
@@ -562,20 +562,17 @@ pub struct LaneMarker;
 #[derive(Clone)]
 pub struct TransferLaneMarkerGaps;
 
-pub fn setup(system: &mut ActorSystem) {
+pub fn setup() {
     Swarm::<Lane>::handle::<SetupInScene>();
     Swarm::<Lane>::handle::<RenderToCollector>();
     Swarm::<Lane>::handle::<RenderToScene>();
-    super::lane_thing_collector::setup::<LaneAsphalt>(system, [0.7, 0.7, 0.7], 2000, false);
-    super::lane_thing_collector::setup::<LaneMarker>(system, [1.0, 1.0, 1.0], 2100, true);
+    super::lane_thing_collector::setup::<LaneAsphalt>([0.7, 0.7, 0.7], 2000, false);
+    super::lane_thing_collector::setup::<LaneMarker>([1.0, 1.0, 1.0], 2100, true);
 
     Swarm::<TransferLane>::handle::<SetupInScene>();
     Swarm::<TransferLane>::handle::<RenderToCollector>();
     Swarm::<TransferLane>::handle::<RenderToScene>();
-    super::lane_thing_collector::setup::<TransferLaneMarkerGaps>(system,
-                                                                 [0.7, 0.7, 0.7],
-                                                                 2200,
-                                                                 true);
+    super::lane_thing_collector::setup::<TransferLaneMarkerGaps>([0.7, 0.7, 0.7], 2200, true);
 
-    super::planning::setup(system);
+    super::planning::setup();
 }

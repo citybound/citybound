@@ -1,4 +1,4 @@
-use kay::{Recipient, Fate, ActorSystem, Actor};
+use kay::{Recipient, Fate, Actor};
 use descartes::{Band, Path, FiniteCurve};
 use monet::{Thing, Instance};
 use ::core::geometry::band_to_thing;
@@ -177,7 +177,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
     }
 }
 
-pub fn setup(system: &mut ActorSystem) {
+pub fn setup() {
     CurrentPlan::handle::<SetupInScene>();
     CurrentPlan::handle::<RenderToScene>();
 }

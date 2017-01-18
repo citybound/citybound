@@ -60,7 +60,7 @@ fn main() {
         ::std::fs::File::create(dir).expect("should be able to create tmp file");
     }
 
-    let mut system = kay::ActorSystem::create_and_register(Box::new(|error: Box<Any>| {
+    let mut system = kay::ActorSystem::create_the_system(Box::new(|error: Box<Any>| {
         let message = match error.downcast::<String>() {
             Ok(string) => (*string),
             Err(any) => {
@@ -81,11 +81,11 @@ fn main() {
         };
     }));
 
-    game::setup(&mut system);
-    game::setup_ui(&mut system);
+    game::setup();
+    game::setup_ui();
 
     let simulatables = vec![Swarm::<Lane>::all(), Swarm::<TransferLane>::all()];
-    core::simulation::setup(&mut system, simulatables);
+    core::simulation::setup(simulatables);
 
     let renderables = vec![Swarm::<Lane>::all(),
                            Swarm::<TransferLane>::all(),
@@ -93,7 +93,7 @@ fn main() {
                            ThingCollector::<LaneMarker>::id(),
                            ThingCollector::<TransferLaneMarkerGaps>::id(),
                            CurrentPlan::id()];
-    let window = core::ui::setup_window_and_renderer(&mut system, renderables);
+    let window = core::ui::setup_window_and_renderer(renderables);
 
     let mut last_frame = std::time::Instant::now();
 

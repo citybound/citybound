@@ -1,4 +1,4 @@
-use kay::{Recipient, ActorSystem, Actor, Fate};
+use kay::{Recipient, Actor, Fate};
 use kay::swarm::{Swarm, ToRandom};
 use descartes::{Into2d, P3};
 use core::geometry::AnyShape;
@@ -170,8 +170,8 @@ impl Recipient<AddToUI> for LaneStrokeCanvas {
     }
 }
 
-pub fn setup(system: &mut ActorSystem) {
-    system.add_actor(LaneStrokeCanvas {
+pub fn setup() {
+    LaneStrokeCanvas::register_with_state(LaneStrokeCanvas {
         cmd_pressed: false,
         shift_pressed: false,
     });

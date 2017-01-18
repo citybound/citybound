@@ -1,4 +1,4 @@
-use kay::{ID, Recipient, Actor, ActorSystem, Fate};
+use kay::{ID, Recipient, Actor, Fate};
 use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::{Band, Into2d, RoughlyComparable};
 use ::core::geometry::{CPath, AnyShape};
@@ -89,8 +89,8 @@ impl Recipient<Event3d> for LaneStrokeDraggable {
     }
 }
 
-pub fn setup(system: &mut ActorSystem) {
-    system.add_actor(Swarm::<LaneStrokeDraggable>::new());
+pub fn setup() {
+    Swarm::<LaneStrokeDraggable>::register_default();
     Swarm::<LaneStrokeDraggable>::handle::<CreateWith<LaneStrokeDraggable, AddToUI>>();
     Swarm::<LaneStrokeDraggable>::handle::<Become>();
     Swarm::<LaneStrokeDraggable>::handle::<ClearDraggables>();

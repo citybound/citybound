@@ -16,20 +16,30 @@ struct Handler {
 }
 
 pub trait Actor: 'static + Sized {
+    fn register_with_state(initial_state: Self) {
+        unsafe { (*THE_SYSTEM).add_actor(initial_state) };
+    }
+
+    fn register_default()
+        where Self: Default
+    {
+        Self::register_with_state(Self::default());
+    }
+
     fn id() -> ID {
-        ID::new(unsafe { (*super::THE_SYSTEM).short_id::<Self>() }, 0, 0)
+        ID::new(unsafe { (*THE_SYSTEM).short_id::<Self>() }, 0, 0)
     }
 
     fn handle<M: Message>()
         where Self: Recipient<M>
     {
-        unsafe { (*super::THE_SYSTEM).add_handler::<M, Self>() }
+        unsafe { (*THE_SYSTEM).add_handler::<M, Self>() }
     }
 
     fn handle_critically<M: Message>()
         where Self: Recipient<M>
     {
-        unsafe { (*super::THE_SYSTEM).add_critical_handler::<M, Self>() }
+        unsafe { (*THE_SYSTEM).add_critical_handler::<M, Self>() }
     }
 }
 
@@ -54,7 +64,7 @@ macro_rules! make_array {
 }
 
 impl ActorSystem {
-    pub fn create_and_register(panic_callback: Box<Fn(Box<Any>)>) -> Box<ActorSystem> {
+    pub fn create_the_system(panic_callback: Box<Fn(Box<Any>)>) -> Box<ActorSystem> {
         let mut system = Box::new(ActorSystem {
             panic_happened: false,
             panic_callback: panic_callback,
@@ -75,7 +85,7 @@ impl ActorSystem {
         system
     }
 
-    pub fn add_actor<A: Actor>(&mut self, actor: A) {
+    fn add_actor<A: Actor>(&mut self, actor: A) {
         let actor_id = self.actor_registry.register_new::<A>();
         assert!(self.inboxes[actor_id.as_usize()].is_none());
         self.inboxes[actor_id.as_usize()] = Some(Inbox::new());
@@ -98,11 +108,11 @@ impl ActorSystem {
         });
     }
 
-    pub fn add_handler<M: Message, A: Actor + Recipient<M>>(&mut self) {
+    fn add_handler<M: Message, A: Actor + Recipient<M>>(&mut self) {
         self.add_handler_helper::<M, A>(false);
     }
 
-    pub fn add_critical_handler<M: Message, A: Actor + Recipient<M>>(&mut self) {
+    fn add_critical_handler<M: Message, A: Actor + Recipient<M>>(&mut self) {
         self.add_handler_helper::<M, A>(true);
     }
 

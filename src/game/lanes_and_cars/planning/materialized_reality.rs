@@ -1,5 +1,5 @@
 use compact::{CDict, CVec};
-use kay::{ID, ActorSystem, Recipient, Fate, Actor};
+use kay::{ID, Recipient, Fate, Actor};
 use super::{Plan, PlanResult, PlanDelta, PlanResultDelta, IntersectionRef, TrimmedStrokeRef,
             TransferStrokeRef, RemainingOldStrokes};
 
@@ -280,8 +280,8 @@ impl Default for MaterializedReality {
     }
 }
 
-pub fn setup(system: &mut ActorSystem) {
-    system.add_actor(MaterializedReality::default());
+pub fn setup() {
+    MaterializedReality::register_default();
     MaterializedReality::handle::<Simulate>();
     MaterializedReality::handle::<Apply>();
     MaterializedReality::handle::<ReportLaneBuilt>();
