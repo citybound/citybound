@@ -1,5 +1,6 @@
 use compact::{CDict, CVec};
-use kay::{SubActor, ID, Actor, Recipient, Fate, ActorSystem, Swarm};
+use kay::{ID, Actor, Recipient, Fate, ActorSystem};
+use kay::swarm::{Swarm, SubActor};
 use core::geometry::AnyShape;
 use descartes::Band;
 use super::{Lane, TransferLane, Interaction, InteractionKind, OverlapKind};
@@ -472,7 +473,7 @@ impl Recipient<QueryAsDestination> for Lane {
     }
 }
 
-use kay::ToRandom;
+use kay::swarm::ToRandom;
 
 pub fn setup(system: &mut ActorSystem) {
     Swarm::<Lane>::handle::<JoinLandmark>();

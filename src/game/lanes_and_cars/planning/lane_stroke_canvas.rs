@@ -1,4 +1,5 @@
-use kay::{Swarm, ToRandom, Recipient, ActorSystem, Actor, Fate};
+use kay::{Recipient, ActorSystem, Actor, Fate};
+use kay::swarm::{Swarm, ToRandom};
 use descartes::{Into2d, P3};
 use core::geometry::AnyShape;
 use core::ui::{UserInterface, VirtualKeyCode};

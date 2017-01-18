@@ -6,7 +6,8 @@ mod intelligent_acceleration;
 use self::intelligent_acceleration::intelligent_acceleration;
 use core::geometry::CPath;
 use compact::CVec;
-use kay::{ID, SubActor, Swarm, CreateWith, Recipient, ActorSystem, Actor, Fate};
+use kay::{ID, Recipient, ActorSystem, Actor, Fate};
+use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::{N, P2, FiniteCurve, RoughlyComparable, Band, Intersect, Curve, Dot,
                 WithUniqueOrthogonal, Path};
 use ordered_float::OrderedFloat;

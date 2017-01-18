@@ -1,4 +1,5 @@
-use kay::{ID, Recipient, SubActor, Actor, Swarm, ActorSystem, Fate, CreateWith};
+use kay::{ID, Recipient, Actor, ActorSystem, Fate};
+use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::{Band, Into2d, RoughlyComparable};
 use ::core::geometry::{CPath, AnyShape};
 

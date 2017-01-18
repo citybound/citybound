@@ -16,17 +16,13 @@ extern crate core;
 
 mod inbox;
 mod slot_map;
-mod swarm;
+pub mod swarm;
 #[macro_use]
 mod messaging;
 mod type_registry;
 mod id;
 mod actor_system;
 
-pub use self::chunked::MemChunker;
-pub use self::swarm::{Swarm, SubActor, Create, CreateWith, RecipientAsSwarm, ToRandom,
-                      RequestConfirmation, Confirmation};
-pub use self::inbox::Inbox;
 pub use self::messaging::{Message, Packet, Recipient, Fate};
 pub use self::id::ID;
 pub use self::actor_system::{THE_SYSTEM, ActorSystem, Actor};

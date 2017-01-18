@@ -33,7 +33,7 @@ fn expand_derive_actor(ast: &syn::MacroInput) -> quote::Tokens {
 
     quote! {
         // generated
-        impl #impl_generics ::kay::SubActor for #name #ty_generics #where_clause {
+        impl #impl_generics ::kay::swarm::SubActor for #name #ty_generics #where_clause {
             fn id(&self) -> ::kay::ID {
                 self._id.expect("ID not set")
             }

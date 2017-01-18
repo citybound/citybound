@@ -1,4 +1,5 @@
-use kay::{ID, Recipient, Actor, SubActor, ActorSystem, Swarm, CreateWith, Fate};
+use kay::{ID, Recipient, Actor, ActorSystem, Fate};
+use kay::swarm::{Swarm, SubActor, CreateWith};
 use ordered_float::OrderedFloat;
 
 use super::Destination;
