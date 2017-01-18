@@ -54,8 +54,8 @@ macro_rules! make_array {
 }
 
 impl ActorSystem {
-    pub fn new(panic_callback: Box<Fn(Box<Any>)>) -> ActorSystem {
-        ActorSystem {
+    pub fn create_and_register(panic_callback: Box<Fn(Box<Any>)>) -> Box<ActorSystem> {
+        let mut system = Box::new(ActorSystem {
             panic_happened: false,
             panic_callback: panic_callback,
             inboxes: unsafe { make_array!(MAX_RECIPIENT_TYPES, |_| None) },
@@ -66,7 +66,13 @@ impl ActorSystem {
                 make_array!(MAX_RECIPIENT_TYPES,
                             |_| make_array!(MAX_MESSAGE_TYPES, |_| None))
             },
+        });
+
+        unsafe {
+            THE_SYSTEM = &mut *system as *mut ActorSystem;
         }
+
+        system
     }
 
     pub fn add_individual<I: Individual>(&mut self, individual: I) {

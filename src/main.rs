@@ -59,7 +59,7 @@ fn main() {
         ::std::fs::File::create(dir).expect("should be able to create tmp file");
     }
 
-    let mut system = Box::new(kay::ActorSystem::new(Box::new(|error: Box<Any>| {
+    let mut system = kay::ActorSystem::create_and_register(Box::new(|error: Box<Any>| {
         let message = match error.downcast::<String>() {
             Ok(string) => (*string),
             Err(any) => {
@@ -78,10 +78,7 @@ fn main() {
             color: [1.0, 0.0, 0.0, 1.0],
             persistent: true,
         };
-    })));
-    unsafe {
-        kay::THE_SYSTEM = &mut *system as *mut kay::ActorSystem;
-    }
+    }));
 
     game::setup(&mut system);
     game::setup_ui(&mut system);
