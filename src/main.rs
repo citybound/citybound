@@ -43,7 +43,7 @@ use game::lanes_and_cars::{Lane, TransferLane};
 use game::lanes_and_cars::lane_rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use game::lanes_and_cars::lane_thing_collector::ThingCollector;
 use game::lanes_and_cars::planning::CurrentPlan;
-use kay::{Individual, Swarm};
+use kay::{Actor, Swarm};
 use std::any::Any;
 
 const SECONDS_PER_TICK: f32 = 1.0 / 20.0;

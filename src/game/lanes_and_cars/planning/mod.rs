@@ -1,7 +1,7 @@
 use descartes::{N, P2, V2, Norm, Segment, FiniteCurve, WithUniqueOrthogonal, Curve,
                 RelativeToBasis, RoughlyComparable, Dot};
 use compact::{CVec, CDict};
-use kay::{Recipient, Swarm, ActorSystem, Individual, Fate, CreateWith};
+use kay::{Recipient, Swarm, ActorSystem, Actor, Fate, CreateWith};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
@@ -43,7 +43,7 @@ pub struct CurrentPlan {
     current: PlanState,
     preview: PlanState,
 }
-impl Individual for CurrentPlan {}
+impl Actor for CurrentPlan {}
 
 const FINISH_STROKE_TOLERANCE: f32 = 5.0;
 
@@ -1304,7 +1304,7 @@ struct ClearDraggables;
 struct ClearAddables;
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add_individual(CurrentPlan::default());
+    system.add_actor(CurrentPlan::default());
     CurrentPlan::handle::<Commit>();
     CurrentPlan::handle::<Undo>();
     CurrentPlan::handle::<Redo>();

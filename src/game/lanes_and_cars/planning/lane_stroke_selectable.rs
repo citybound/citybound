@@ -1,4 +1,4 @@
-use kay::{ID, Recipient, SubActor, Individual, Swarm, ActorSystem, Fate, CreateWith};
+use kay::{ID, Recipient, SubActor, Actor, Swarm, ActorSystem, Fate, CreateWith};
 use descartes::{Band, Curve, Into2d, FiniteCurve, Path};
 use ::core::geometry::{CPath, AnyShape};
 
@@ -107,7 +107,7 @@ impl Recipient<Event3d> for LaneStrokeSelectable {
 
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add_individual(Swarm::<LaneStrokeSelectable>::new());
+    system.add_actor(Swarm::<LaneStrokeSelectable>::new());
     Swarm::<LaneStrokeSelectable>::handle::<CreateWith<LaneStrokeSelectable, AddToUI>>();
     Swarm::<LaneStrokeSelectable>::handle::<ClearSelectables>();
     Swarm::<LaneStrokeSelectable>::handle::<Event3d>();

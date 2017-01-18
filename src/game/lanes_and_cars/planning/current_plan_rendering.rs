@@ -1,4 +1,4 @@
-use kay::{Recipient, Fate, ActorSystem, Individual};
+use kay::{Recipient, Fate, ActorSystem, Actor};
 use descartes::{Band, Path, FiniteCurve};
 use monet::{Thing, Instance};
 use ::core::geometry::band_to_thing;

@@ -2,7 +2,7 @@ use super::chunked::{MemChunker, ValueInChunk, SizedChunkedArena, MultiSized};
 use super::compact::Compact;
 use super::slot_map::{SlotIndices, SlotMap};
 use super::messaging::{Recipient, Message, Packet, Fate};
-use super::actor_system::Individual;
+use super::actor_system::Actor;
 use super::id::ID;
 use ::std::marker::PhantomData;
 use ::std::mem::size_of;
@@ -244,7 +244,7 @@ impl<SA: SubActor> Swarm<SA> {
     }
 }
 
-impl<SA: SubActor> Individual for Swarm<SA> {}
+impl<SA: SubActor> Actor for Swarm<SA> {}
 
 pub trait RecipientAsSwarm<M: Message>: Sized {
     fn receive_packet(swarm: &mut Swarm<Self>, packet: &Packet<M>) -> Fate {

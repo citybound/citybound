@@ -1,5 +1,5 @@
 use compact::{CDict, CVec};
-use kay::{ID, ActorSystem, Recipient, Fate, Individual};
+use kay::{ID, ActorSystem, Recipient, Fate, Actor};
 use super::{Plan, PlanResult, PlanDelta, PlanResultDelta, IntersectionRef, TrimmedStrokeRef,
             TransferStrokeRef, RemainingOldStrokes};
 
@@ -16,7 +16,7 @@ pub enum MaterializedReality {
     Ready(MaterializedRealityState),
     WaitingForUnbuild(ID, CVec<ID>, MaterializedRealityState, Plan, PlanResult, PlanResultDelta),
 }
-impl Individual for MaterializedReality {}
+impl Actor for MaterializedReality {}
 use self::MaterializedReality::{Ready, WaitingForUnbuild};
 
 #[derive(Compact, Clone)]
@@ -281,7 +281,7 @@ impl Default for MaterializedReality {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add_individual(MaterializedReality::default());
+    system.add_actor(MaterializedReality::default());
     MaterializedReality::handle::<Simulate>();
     MaterializedReality::handle::<Apply>();
     MaterializedReality::handle::<ReportLaneBuilt>();

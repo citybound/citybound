@@ -15,7 +15,7 @@ struct Handler {
     critical: bool,
 }
 
-pub trait Individual: 'static + Sized {
+pub trait Actor: 'static + Sized {
     fn id() -> ID {
         ID::new(unsafe { (*super::THE_SYSTEM).short_id::<Self>() }, 0, 0)
     }
@@ -37,8 +37,8 @@ pub struct ActorSystem {
     panic_happened: bool,
     panic_callback: Box<Fn(Box<Any>)>,
     inboxes: [Option<Inbox>; MAX_RECIPIENT_TYPES],
-    recipient_registry: TypeRegistry,
-    individuals: [Option<*mut u8>; MAX_RECIPIENT_TYPES],
+    actor_registry: TypeRegistry,
+    actors: [Option<*mut u8>; MAX_RECIPIENT_TYPES],
     message_registry: TypeRegistry,
     handlers: [[Option<Handler>; MAX_MESSAGE_TYPES]; MAX_RECIPIENT_TYPES],
 }
@@ -59,9 +59,9 @@ impl ActorSystem {
             panic_happened: false,
             panic_callback: panic_callback,
             inboxes: unsafe { make_array!(MAX_RECIPIENT_TYPES, |_| None) },
-            recipient_registry: TypeRegistry::new(),
+            actor_registry: TypeRegistry::new(),
             message_registry: TypeRegistry::new(),
-            individuals: [None; MAX_RECIPIENT_TYPES],
+            actors: [None; MAX_RECIPIENT_TYPES],
             handlers: unsafe {
                 make_array!(MAX_RECIPIENT_TYPES,
                             |_| make_array!(MAX_MESSAGE_TYPES, |_| None))
@@ -75,36 +75,35 @@ impl ActorSystem {
         system
     }
 
-    pub fn add_individual<I: Individual>(&mut self, individual: I) {
-        let recipient_id = self.recipient_registry.register_new::<I>();
-        assert!(self.inboxes[recipient_id.as_usize()].is_none());
-        self.inboxes[recipient_id.as_usize()] = Some(Inbox::new());
-        // Store pointer to the individual
-        self.individuals[recipient_id.as_usize()] = Some(Box::into_raw(Box::new(individual)) as
-                                                         *mut u8);
+    pub fn add_actor<A: Actor>(&mut self, actor: A) {
+        let actor_id = self.actor_registry.register_new::<A>();
+        assert!(self.inboxes[actor_id.as_usize()].is_none());
+        self.inboxes[actor_id.as_usize()] = Some(Inbox::new());
+        // Store pointer to the actor
+        self.actors[actor_id.as_usize()] = Some(Box::into_raw(Box::new(actor)) as *mut u8);
     }
 
-    fn add_handler_helper<M: Message, I: Individual + Recipient<M>>(&mut self, critical: bool) {
-        let recipient_id = self.recipient_registry.get::<I>();
+    fn add_handler_helper<M: Message, A: Actor + Recipient<M>>(&mut self, critical: bool) {
+        let actor_id = self.actor_registry.get::<A>();
         let message_id = self.message_registry.get_or_register::<M>();
 
-        let individual_ptr = self.individuals[recipient_id.as_usize()].unwrap() as *mut I;
+        let actor_ptr = self.actors[actor_id.as_usize()].unwrap() as *mut A;
 
-        self.handlers[recipient_id.as_usize()][message_id.as_usize()] = Some(Handler {
+        self.handlers[actor_id.as_usize()][message_id.as_usize()] = Some(Handler {
             function: Box::new(move |packet_ptr: *const ()| unsafe {
                 let packet = &*(packet_ptr as *const Packet<M>);
-                (*individual_ptr).receive_packet(packet);
+                (*actor_ptr).receive_packet(packet);
             }),
             critical: critical,
         });
     }
 
-    pub fn add_handler<M: Message, I: Individual + Recipient<M>>(&mut self) {
-        self.add_handler_helper::<M, I>(false);
+    pub fn add_handler<M: Message, A: Actor + Recipient<M>>(&mut self) {
+        self.add_handler_helper::<M, A>(false);
     }
 
-    pub fn add_critical_handler<M: Message, I: Individual + Recipient<M>>(&mut self) {
-        self.add_handler_helper::<M, I>(true);
+    pub fn add_critical_handler<M: Message, A: Actor + Recipient<M>>(&mut self) {
+        self.add_handler_helper::<M, A>(true);
     }
 
     pub fn send<M: Message>(&mut self, recipient: ID, message: M) {
@@ -117,7 +116,7 @@ impl ActorSystem {
             inbox.put(packet, &self.message_registry);
         } else {
             panic!("No inbox for {}",
-                   self.recipient_registry.get_name(recipient.type_id));
+                   self.actor_registry.get_name(recipient.type_id));
         }
     }
 
@@ -134,7 +133,7 @@ impl ActorSystem {
                         }
                     } else {
                         panic!("Handler not found ({} << {})",
-                               self.recipient_registry.get_name(recipient_type),
+                               self.actor_registry.get_name(recipient_type),
                                self.message_registry.get_name(message_type));
                     }
                 }
@@ -153,7 +152,7 @@ impl ActorSystem {
         }
     }
 
-    pub fn short_id<I: Individual>(&self) -> ShortTypeId {
-        self.recipient_registry.get::<I>()
+    pub fn short_id<A: Actor>(&self) -> ShortTypeId {
+        self.actor_registry.get::<A>()
     }
 }

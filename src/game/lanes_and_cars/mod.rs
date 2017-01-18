@@ -6,7 +6,7 @@ mod intelligent_acceleration;
 use self::intelligent_acceleration::intelligent_acceleration;
 use core::geometry::CPath;
 use compact::CVec;
-use kay::{ID, SubActor, Swarm, CreateWith, Recipient, ActorSystem, Individual, Fate};
+use kay::{ID, SubActor, Swarm, CreateWith, Recipient, ActorSystem, Actor, Fate};
 use descartes::{N, P2, FiniteCurve, RoughlyComparable, Band, Intersect, Curve, Dot,
                 WithUniqueOrthogonal, Path};
 use ordered_float::OrderedFloat;
@@ -1268,7 +1268,7 @@ impl Recipient<ConfirmDisconnect> for TransferLane {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add_individual(Swarm::<Lane>::new());
+    system.add_actor(Swarm::<Lane>::new());
     Swarm::<Lane>::handle::<CreateWith<Lane, AdvertiseToTransferAndReport>>();
     Swarm::<Lane>::handle::<AdvertiseForOverlaps>();
     Swarm::<Lane>::handle::<AddCar>();
@@ -1283,7 +1283,7 @@ pub fn setup(system: &mut ActorSystem) {
     Swarm::<Lane>::handle::<Unbuild>();
     Swarm::<Lane>::handle::<ConfirmDisconnect>();
 
-    system.add_individual(Swarm::<TransferLane>::new());
+    system.add_actor(Swarm::<TransferLane>::new());
     Swarm::<TransferLane>::handle::<CreateWith<TransferLane, AdvertiseToTransferAndReport>>();
     Swarm::<TransferLane>::handle::<AddCar>();
     Swarm::<TransferLane>::handle::<AddObstacles>();

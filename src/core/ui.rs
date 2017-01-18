@@ -1,5 +1,5 @@
 use ::monet::glium::{DisplayBuild, glutin};
-use kay::{ActorSystem, ID, Individual, Recipient, Fate};
+use kay::{ActorSystem, ID, Actor, Recipient, Fate};
 use descartes::{N, P2, P3, V3, Into2d, Shape};
 use ::monet::{Renderer, Scene, GlutinFacade, MoveEye};
 use ::monet::glium::glutin::{Event, MouseScrollDelta, ElementState, MouseButton};
@@ -109,7 +109,7 @@ pub struct UserInterface {
     settings: Settings,
 }
 
-impl Individual for UserInterface {}
+impl Actor for UserInterface {}
 
 impl UserInterface {
     fn new() -> UserInterface {
@@ -489,7 +489,7 @@ pub fn setup_window_and_renderer(system: &mut ActorSystem, renderables: Vec<ID>)
 
     let ui = UserInterface::new();
 
-    system.add_individual(ui);
+    system.add_actor(ui);
     UserInterface::handle::<Add>();
     UserInterface::handle::<Remove>();
     UserInterface::handle::<Focus>();

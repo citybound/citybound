@@ -29,4 +29,4 @@ pub use self::swarm::{Swarm, SubActor, Create, CreateWith, RecipientAsSwarm, ToR
 pub use self::inbox::Inbox;
 pub use self::messaging::{Message, Packet, Recipient, Fate};
 pub use self::id::ID;
-pub use self::actor_system::{THE_SYSTEM, ActorSystem, Individual};
+pub use self::actor_system::{THE_SYSTEM, ActorSystem, Actor};
