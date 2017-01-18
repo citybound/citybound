@@ -312,7 +312,7 @@ impl Recipient<Tick> for Lane {
                 self.in_construction += dt * 400.0;
 
                 let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING ==
-                                 self.id().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
+                                 self.id().sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
                 let old_green = self.green;
                 self.yellow_to_red = if self.timings.is_empty() {
@@ -347,7 +347,7 @@ impl Recipient<Tick> for Lane {
                 }
 
                 if current_tick % PATHFINDING_THROTTLING ==
-                   self.id().instance_id as usize % PATHFINDING_THROTTLING {
+                   self.id().sub_actor_id as usize % PATHFINDING_THROTTLING {
                     self::pathfinding::tick(self);
                 }
 
@@ -474,7 +474,7 @@ impl Recipient<Tick> for Lane {
                     let cars = self.cars.iter();
 
                     if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
-                       interaction.partner_lane.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
+                       interaction.partner_lane.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING {
                         let maybe_obstacles =
                             obstacles_for_interaction(interaction, cars, self.obstacles.iter());
 
@@ -563,7 +563,7 @@ impl Recipient<Tick> for TransferLane {
                 self.in_construction += dt * 400.0;
 
                 let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING ==
-                                 self.id().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
+                                 self.id().sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
                 if do_traffic {
                     // TODO: optimize using BinaryHeap?
@@ -690,7 +690,7 @@ impl Recipient<Tick> for TransferLane {
                     }
 
                     if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
-                       left.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
+                       left.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING {
                         let obstacles = self.cars
                             .iter()
                             .filter_map(|car| if car.transfer_position < 0.3 ||
@@ -710,7 +710,7 @@ impl Recipient<Tick> for TransferLane {
                     }
 
                     if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
-                       right.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
+                       right.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING {
                         let obstacles = self.cars
                             .iter()
                             .filter_map(|car| if car.transfer_position > -0.3 ||

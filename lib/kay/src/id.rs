@@ -12,15 +12,15 @@ pub struct ID {
     /// The instance of the type used to address a specific actor
     /// Is broadcast if equal to `u32::max_value()`
     /// Is swarm if equal to `u32::max_value() -1`
-    pub instance_id: u32,
+    pub sub_actor_id: u32,
 }
 
 impl ID {
-    pub fn new(type_id: ShortTypeId, instance_id: u32, version: u8) -> Self {
+    pub fn new(type_id: ShortTypeId, sub_actor_id: u32, version: u8) -> Self {
         ID {
             type_id: type_id,
             version: version,
-            instance_id: instance_id,
+            sub_actor_id: sub_actor_id,
         }
     }
 }
@@ -31,7 +31,7 @@ impl ::std::fmt::Debug for ID {
                "ID {}_{}_{}",
                *(self.type_id),
                self.version,
-               self.instance_id)
+               self.sub_actor_id)
     }
 }
 

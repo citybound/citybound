@@ -20,7 +20,7 @@ pub trait SubActor: Compact + StorageAware + 'static {
     unsafe fn set_id(&mut self, id: ID);
 }
 
-fn broadcast_instance_id() -> u32 {
+fn broadcast_sub_actor_id() -> u32 {
     u32::max_value()
 }
 
@@ -48,7 +48,7 @@ impl<SA: SubActor> Swarm<SA> {
         }
     }
 
-    fn allocate_instance_id(&mut self) -> (usize, usize) {
+    fn allocate_sub_actor_id(&mut self) -> (usize, usize) {
         self.slot_map.allocate_id()
     }
 
@@ -70,9 +70,9 @@ impl<SA: SubActor> Swarm<SA> {
 
     /// Add a new actor
     fn add(&mut self, initial_state: &SA) -> ID {
-        let (instance_id, version) = self.allocate_instance_id();
+        let (sub_actor_id, version) = self.allocate_sub_actor_id();
         let id = ID::new(unsafe { (*super::THE_SYSTEM).short_id::<Self>() },
-                         instance_id as u32,
+                         sub_actor_id as u32,
                          version as u8);
         self.add_with_id(initial_state, id);
         *self.n_sub_actors += 1;
@@ -86,8 +86,8 @@ impl<SA: SubActor> Swarm<SA> {
         let bin = &mut self.sub_actors.bin_for_size_mut(size);
         let (ptr, index) = bin.push();
 
-        self.slot_map.associate(id.instance_id as usize, SlotIndices::new(bin_index, index));
-        assert!(self.slot_map.indices_of(id.instance_id as usize).bin() == bin_index);
+        self.slot_map.associate(id.sub_actor_id as usize, SlotIndices::new(bin_index, index));
+        assert!(self.slot_map.indices_of(id.sub_actor_id as usize).bin() == bin_index);
 
         unsafe {
             let actor_in_slot = &mut *(ptr as *mut SA);
@@ -103,7 +103,7 @@ impl<SA: SubActor> Swarm<SA> {
             match bin.swap_remove(indices.slot()) {
                 Some(ptr) => {
                     let swapped_actor = &*(ptr as *mut SA);
-                    self.slot_map.associate(swapped_actor.id().instance_id as usize, indices);
+                    self.slot_map.associate(swapped_actor.id().sub_actor_id as usize, indices);
                     true
                 }
                 None => false,
@@ -114,14 +114,14 @@ impl<SA: SubActor> Swarm<SA> {
 
     /// Remove an actor by ID
     fn remove(&mut self, id: ID) {
-        let i = *self.slot_map.indices_of(id.instance_id as usize);
+        let i = *self.slot_map.indices_of(id.sub_actor_id as usize);
         self.remove_at_index(i, id);
     }
 
     /// Remove an actor by index and mark the ID as free
     fn remove_at_index(&mut self, i: SlotIndices, id: ID) {
         self.swap_remove(i);
-        self.slot_map.free(id.instance_id as usize, id.version as usize);
+        self.slot_map.free(id.sub_actor_id as usize, id.version as usize);
         *self.n_sub_actors -= 1;
     }
 
@@ -146,7 +146,7 @@ impl<SA: SubActor> Swarm<SA> {
         let (fate, is_still_compact) = {
             let actor = self.at_mut(packet.recipient_id
                 .expect("Recipient ID not set")
-                .instance_id as usize);
+                .sub_actor_id as usize);
             let fate = actor.receive_packet(packet);
             (fate, actor.is_still_compact())
         };
@@ -156,7 +156,7 @@ impl<SA: SubActor> Swarm<SA> {
                 if !is_still_compact {
                     self.resize(packet.recipient_id
                         .expect("Recipient ID not set")
-                        .instance_id as usize);
+                        .sub_actor_id as usize);
                 }
             }
             Fate::Die => self.remove(packet.recipient_id.expect("Recipient ID not set")),
@@ -239,7 +239,7 @@ impl<SA: SubActor> Swarm<SA> {
         where Self: Sized
     {
         ID::new(unsafe { (*super::THE_SYSTEM).short_id::<Self>() },
-                broadcast_instance_id(),
+                broadcast_sub_actor_id(),
                 0)
     }
 }
@@ -267,7 +267,7 @@ impl <
 > RecipientAsSwarm<M> for SA {
     fn receive_packet(swarm: &mut Swarm<SA>, packet: &Packet<M>) -> Fate {
         if packet.recipient_id.expect("Recipient ID not set")
-            .instance_id == broadcast_instance_id() {
+            .sub_actor_id == broadcast_sub_actor_id() {
             swarm.receive_broadcast(packet);
         } else {
             swarm.receive_instance(packet);
@@ -299,7 +299,7 @@ impl<M: Message, SA: SubActor + RecipientAsSwarm<M>> RecipientAsSwarm<RequestCon
     fn receive_packet(swarm: &mut Swarm<SA>, packet: &Packet<RequestConfirmation<M>>) -> Fate {
         let n_recipients = if packet.recipient_id
             .expect("Recipient ID not set")
-            .instance_id == broadcast_instance_id() {
+            .sub_actor_id == broadcast_sub_actor_id() {
             *swarm.n_sub_actors
         } else {
             1

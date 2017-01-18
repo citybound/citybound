@@ -214,7 +214,7 @@ impl Recipient<JoinLandmark> for Lane {
                         join_as != self_destination &&
                         (if self_destination.is_landmark() {
                             hops_from_landmark < IDEAL_LANDMARK_RADIUS &&
-                            join_as.landmark.instance_id < self.id().instance_id
+                            join_as.landmark.sub_actor_id < self.id().sub_actor_id
                         } else {
                             hops_from_landmark < self.pathfinding_info.hops_from_landmark ||
                             self.pathfinding_info
