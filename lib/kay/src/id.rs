@@ -16,49 +16,12 @@ pub struct ID {
 }
 
 impl ID {
-    pub fn individual(individual_type_id: ShortTypeId) -> ID {
-        ID {
-            type_id: individual_type_id,
-            version: 0,
-            instance_id: 0,
-        }
-    }
-
-    /// Construct a broadcast ID to the type
-    pub fn broadcast(type_id: ShortTypeId) -> ID {
+    pub fn new(type_id: ShortTypeId, instance_id: u32, version: u8) -> Self {
         ID {
             type_id: type_id,
-            version: 0,
-            instance_id: u32::max_value(),
+            version: version,
+            instance_id: instance_id,
         }
-    }
-
-    /// Construct an ID which points to an actor instance in a swarm
-    pub fn instance(type_id: ShortTypeId, instance_id_and_version: (usize, usize)) -> ID {
-        ID {
-            type_id: type_id,
-            version: instance_id_and_version.1 as u8,
-            instance_id: instance_id_and_version.0 as u32,
-        }
-    }
-
-    /// Checks if ID is a broadcast ID
-    pub fn is_broadcast(&self) -> bool {
-        self.instance_id == u32::max_value()
-    }
-
-    /// Created swarm ID with type ID specified
-    pub fn swarm(type_id: ShortTypeId) -> ID {
-        ID {
-            type_id: type_id,
-            version: 0,
-            instance_id: u32::max_value() - 1,
-        }
-    }
-
-    /// Checks if ID is a swarm ID
-    pub fn is_swarm(&self) -> bool {
-        self.instance_id == u32::max_value() - 1
     }
 }
 

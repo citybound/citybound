@@ -1,6 +1,5 @@
 use super::id::ID;
 use super::compact::Compact;
-use ::std::mem::size_of;
 
 pub enum Fate {
     Live,
@@ -18,39 +17,8 @@ pub trait Recipient<M: Message> {
     }
 }
 
-pub trait StorageAware: Sized {
-    fn typical_size() -> usize {
-        // TODO: create versions of containers for 0 size messages & actors
-        let size = size_of::<Self>();
-        if size == 0 { 1 } else { size }
-    }
-}
-impl<T> StorageAware for T {}
-
-pub trait Message: Compact + StorageAware + 'static {}
+pub trait Message: Compact + 'static {}
 impl<T: Compact + 'static> Message for T {}
-pub trait Actor: Compact + StorageAware + 'static {
-    fn id(&self) -> ID;
-    unsafe fn set_id(&mut self, id: ID);
-}
-
-pub trait Individual: 'static + Sized {
-    fn id() -> ID {
-        unsafe { (*super::THE_SYSTEM).individual_id::<Self>() }
-    }
-
-    fn handle<M: Message>()
-        where Self: Recipient<M>
-    {
-        unsafe { (*super::THE_SYSTEM).add_handler::<M, Self>() }
-    }
-
-    fn handle_critically<M: Message>()
-        where Self: Recipient<M>
-    {
-        unsafe { (*super::THE_SYSTEM).add_critical_handler::<M, Self>() }
-    }
-}
 
 #[derive(Compact, Clone)]
 pub struct Packet<M: Message> {

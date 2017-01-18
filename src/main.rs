@@ -43,7 +43,7 @@ use game::lanes_and_cars::{Lane, TransferLane};
 use game::lanes_and_cars::lane_rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use game::lanes_and_cars::lane_thing_collector::ThingCollector;
 use game::lanes_and_cars::planning::CurrentPlan;
-use kay::Individual;
+use kay::{Individual, Swarm};
 use std::any::Any;
 
 const SECONDS_PER_TICK: f32 = 1.0 / 20.0;
@@ -86,15 +86,15 @@ fn main() {
     game::setup(&mut system);
     game::setup_ui(&mut system);
 
-    let simulatables = vec![system.broadcast_id::<Lane>(), system.broadcast_id::<TransferLane>()];
+    let simulatables = vec![Swarm::<Lane>::all(), Swarm::<TransferLane>::all()];
     core::simulation::setup(&mut system, simulatables);
 
-    let renderables = vec![system.broadcast_id::<Lane>(),
-                           system.broadcast_id::<TransferLane>(),
-                           system.individual_id::<ThingCollector<LaneAsphalt>>(),
-                           system.individual_id::<ThingCollector<LaneMarker>>(),
-                           system.individual_id::<ThingCollector<TransferLaneMarkerGaps>>(),
-                           system.individual_id::<CurrentPlan>()];
+    let renderables = vec![Swarm::<Lane>::all(),
+                           Swarm::<TransferLane>::all(),
+                           ThingCollector::<LaneAsphalt>::id(),
+                           ThingCollector::<LaneMarker>::id(),
+                           ThingCollector::<TransferLaneMarkerGaps>::id(),
+                           CurrentPlan::id()];
     let window = core::ui::setup_window_and_renderer(&mut system, renderables);
 
     let mut last_frame = std::time::Instant::now();

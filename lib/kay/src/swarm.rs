@@ -1,8 +1,29 @@
 use super::chunked::{MemChunker, ValueInChunk, SizedChunkedArena, MultiSized};
+use super::compact::Compact;
 use super::slot_map::{SlotIndices, SlotMap};
-use super::messaging::{Actor, Individual, Recipient, Message, Packet, Fate};
+use super::messaging::{Recipient, Message, Packet, Fate};
+use super::actor_system::Individual;
 use super::id::ID;
 use ::std::marker::PhantomData;
+use ::std::mem::size_of;
+
+pub trait StorageAware: Sized {
+    fn typical_size() -> usize {
+        // TODO: create versions of containers for 0 size messages & actors
+        let size = size_of::<Self>();
+        if size == 0 { 1 } else { size }
+    }
+}
+impl<T> StorageAware for T {}
+
+pub trait Actor: Compact + StorageAware + 'static {
+    fn id(&self) -> ID;
+    unsafe fn set_id(&mut self, id: ID);
+}
+
+fn broadcast_instance_id() -> u32 {
+    u32::max_value()
+}
 
 /// A collection of many of the same actors, which can have multiple sizes
 pub struct Swarm<Actor> {
@@ -50,7 +71,10 @@ impl<A: Actor> Swarm<A> {
 
     /// Add a new actor
     fn add(&mut self, initial_state: &A) -> ID {
-        let id = unsafe { (*super::THE_SYSTEM).instance_id::<A>(self.allocate_instance_id()) };
+        let (instance_id, version) = self.allocate_instance_id();
+        let id = ID::new(unsafe { (*super::THE_SYSTEM).short_id::<Self>() },
+                         instance_id as u32,
+                         version as u8);
         self.add_with_id(initial_state, id);
         *self.n_actors += 1;
         id
@@ -215,7 +239,9 @@ impl<A: Actor> Swarm<A> {
     pub fn all() -> ID
         where Self: Sized
     {
-        unsafe { (*super::THE_SYSTEM).broadcast_id::<A>() }
+        ID::new(unsafe { (*super::THE_SYSTEM).short_id::<Self>() },
+                broadcast_instance_id(),
+                0)
     }
 }
 
@@ -241,7 +267,8 @@ impl <
     A: Actor + Recipient<M>
 > RecipientAsSwarm<M> for A {
     fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<M>) -> Fate {
-        if packet.recipient_id.expect("Recipient ID not set").is_broadcast() {
+        if packet.recipient_id.expect("Recipient ID not set")
+            .instance_id == broadcast_instance_id() {
             swarm.receive_broadcast(packet);
         } else {
             swarm.receive_instance(packet);
@@ -270,7 +297,9 @@ impl<M: Message> Copy for Confirmation<M> {}
 
 impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<RequestConfirmation<M>> for A {
     fn receive_packet(swarm: &mut Swarm<A>, packet: &Packet<RequestConfirmation<M>>) -> Fate {
-        let n_recipients = if packet.recipient_id.expect("Recipient ID not set").is_broadcast() {
+        let n_recipients = if packet.recipient_id
+            .expect("Recipient ID not set")
+            .instance_id == broadcast_instance_id() {
             *swarm.n_actors
         } else {
             1
@@ -307,9 +336,9 @@ impl<M: Message, A: Actor + RecipientAsSwarm<M>> RecipientAsSwarm<ToRandom<M>> f
                 message: packet.message.message.clone(),
             };
             for _i in 0..packet.message.n_recipients {
-                let random_id =
-                    ID::instance(packet.recipient_id.expect("Recipient not set").type_id,
-                                 (swarm.slot_map.random_used(), 0));
+                let random_id = ID::new(unsafe { (*super::THE_SYSTEM).short_id::<Swarm<A>>() },
+                                        swarm.slot_map.random_used() as u32,
+                                        0);
                 new_packet.recipient_id = Some(random_id);
                 swarm.receive_packet(&new_packet);
             }

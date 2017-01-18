@@ -1,5 +1,4 @@
-use super::swarm::Swarm;
-use super::messaging::{Message, Actor, Individual, Packet, Recipient};
+use super::messaging::{Message, Packet, Recipient};
 use super::inbox::{Inbox, DispatchablePacket};
 use super::id::ID;
 use super::type_registry::{ShortTypeId, TypeRegistry};
@@ -14,6 +13,24 @@ const MAX_MESSAGE_TYPES: usize = 128;
 struct Handler {
     function: Box<Fn(*const ())>,
     critical: bool,
+}
+
+pub trait Individual: 'static + Sized {
+    fn id() -> ID {
+        ID::new(unsafe { (*super::THE_SYSTEM).short_id::<Self>() }, 0, 0)
+    }
+
+    fn handle<M: Message>()
+        where Self: Recipient<M>
+    {
+        unsafe { (*super::THE_SYSTEM).add_handler::<M, Self>() }
+    }
+
+    fn handle_critically<M: Message>()
+        where Self: Recipient<M>
+    {
+        unsafe { (*super::THE_SYSTEM).add_critical_handler::<M, Self>() }
+    }
 }
 
 pub struct ActorSystem {
@@ -130,16 +147,7 @@ impl ActorSystem {
         }
     }
 
-    pub fn individual_id<I: Individual>(&mut self) -> ID {
-        ID::individual(self.recipient_registry.get::<I>())
-    }
-
-    pub fn broadcast_id<A: Actor>(&mut self) -> ID {
-        ID::broadcast(self.recipient_registry.get::<Swarm<A>>())
-    }
-
-    pub fn instance_id<A: Actor>(&mut self, instance_id_and_version: (usize, usize)) -> ID {
-        ID::instance(self.recipient_registry.get::<Swarm<A>>(),
-                     instance_id_and_version)
+    pub fn short_id<I: Individual>(&self) -> ShortTypeId {
+        self.recipient_registry.get::<I>()
     }
 }
