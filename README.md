@@ -9,6 +9,8 @@ Find out more about Citybound [on the wiki](https://github.com/aeickhoff/citybou
 
 ## [Contributing & Development](CONTRIBUTING.md)
 
+## [Developer Chat on Gitter](https://gitter.im/citybound/Lobby)
+
 ## License
 
 Citybound is licensed under AGPL (see [LICENSE.txt](LICENSE.txt)), for interest in commercial licenses please contact me.
