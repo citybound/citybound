@@ -432,11 +432,13 @@ impl Recipient<ForgetRoutes> for Lane {
                     if forget {
                         self.pathfinding.routes.remove(*destination_to_forget);
                         if destination_to_forget.is_landmark() {
-                            self.cars.retain(|car| {
+                            self.microtraffic.cars.retain(|car| {
                                 car.destination.landmark != destination_to_forget.landmark
                             })
                         } else {
-                            self.cars.retain(|car| &car.destination != destination_to_forget)
+                            self.microtraffic
+                                .cars
+                                .retain(|car| &car.destination != destination_to_forget)
                         }
                         forgotten.push(*destination_to_forget);
                     }

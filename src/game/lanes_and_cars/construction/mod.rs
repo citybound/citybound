@@ -123,7 +123,8 @@ impl Recipient<Connect> for Lane {
 
                 let mut connected = false;
 
-                if other_start.is_roughly_within(self.construction.path.end(), CONNECTION_TOLERANCE) {
+                if other_start.is_roughly_within(self.construction.path.end(),
+                                                 CONNECTION_TOLERANCE) {
                     connected = true;
 
                     if !self.connectivity.interactions.iter().any(|interaction| match *interaction {
@@ -143,7 +144,8 @@ impl Recipient<Connect> for Lane {
                     super::pathfinding::on_connect(self);
                 }
 
-                if other_end.is_roughly_within(self.construction.path.start(), CONNECTION_TOLERANCE) {
+                if other_end.is_roughly_within(self.construction.path.start(),
+                                               CONNECTION_TOLERANCE) {
                     connected = true;
 
                     if !self.connectivity.interactions.iter().any(|interaction| match *interaction {
@@ -238,19 +240,26 @@ impl Recipient<ConnectOverlaps> for Lane {
                             .outline_distance_to_path_distance(exit_intersection.along_b);
 
                             let overlap_kind = if other_path.direction_along(other_entry_distance)
-                                .is_roughly_within(self.construction.path.direction_along(entry_distance),
+                                .is_roughly_within(self.construction
+                                                       .path
+                                                       .direction_along(entry_distance),
                                                    0.1) ||
                                                   other_path.direction_along(other_exit_distance)
-                                .is_roughly_within(self.construction.path.direction_along(exit_distance), 0.1) {
+                                .is_roughly_within(self.construction
+                                                       .path
+                                                       .direction_along(exit_distance),
+                                                   0.1) {
                                 // ::core::geometry::add_debug_path(
-                                //     self.construction.path.subsection(entry_distance, exit_distance).unwrap(),
+                                //     self.construction.path
+                                //         .subsection(entry_distance, exit_distance).unwrap(),
                                 //     [1.0, 0.5, 0.0],
                                 //     0.3
                                 // );
                                 OverlapKind::Parallel
                             } else {
                                 // ::core::geometry::add_debug_path(
-                                //     self.construction.path.subsection(entry_distance, exit_distance).unwrap(),
+                                //     self.construction.path
+                                //         .subsection(entry_distance, exit_distance).unwrap(),
                                 //     [1.0, 0.0, 0.0],
                                 //     0.3
                                 // );
@@ -328,8 +337,14 @@ impl Recipient<ConnectTransferToNormal> for TransferLane {
                         let self_start_on_other = other_path.along(self_start_on_other_distance);
                         let self_end_on_other = other_path.along(self_end_on_other_distance);
 
-                        if self_start_on_other.is_roughly_within(self.construction.path.start(), 3.0) &&
-                           self_end_on_other.is_roughly_within(self.construction.path.end(), 3.0) {
+                        if self_start_on_other.is_roughly_within(self.construction
+                                                                     .path
+                                                                     .start(),
+                                                                 3.0) &&
+                           self_end_on_other.is_roughly_within(self.construction
+                                                                   .path
+                                                                   .end(),
+                                                               3.0) {
                             other_id <<
                             AddTransferLaneInteraction(Interaction {
                                 partner_lane: self.id(),
@@ -343,7 +358,8 @@ impl Recipient<ConnectTransferToNormal> for TransferLane {
                             });
 
                             let mut distance_covered = 0.0;
-                            let distance_map = self.construction.path
+                            let distance_map = self.construction
+                                .path
                                 .segments()
                                 .iter()
                                 .map(|segment| {
@@ -356,15 +372,18 @@ impl Recipient<ConnectTransferToNormal> for TransferLane {
                                 })
                                 .collect();
 
-                            let other_is_right = (self_start_on_other - self.construction.path.start())
+                            let other_is_right = (self_start_on_other -
+                                                  self.construction.path.start())
                                 .dot(&self.construction.path.start_direction().orthogonal()) >
                                                  0.0;
 
                             if other_is_right {
-                                self.connectivity.right = Some((other_id, self_start_on_other_distance));
+                                self.connectivity.right = Some((other_id,
+                                                                self_start_on_other_distance));
                                 self.connectivity.right_distance_map = distance_map;
                             } else {
-                                self.connectivity.left = Some((other_id, self_start_on_other_distance));
+                                self.connectivity.left = Some((other_id,
+                                                               self_start_on_other_distance));
                                 self.connectivity.left_distance_map = distance_map;
                             }
                         }
@@ -418,10 +437,10 @@ impl Recipient<Disconnect> for Lane {
                     })
                     .collect::<Vec<_>>();
                 // TODO: Cancel trip
-                self.cars.retain(|car| {
+                self.microtraffic.cars.retain(|car| {
                     !interaction_indices_to_remove.contains(&(car.next_hop_interaction as usize))
                 });
-                self.obstacles.retain(|&(_obstacle, from_id)| from_id != other_id);
+                self.microtraffic.obstacles.retain(|&(_obstacle, from_id)| from_id != other_id);
                 for idx in interaction_indices_to_remove.into_iter().rev() {
                     self.connectivity.interactions.remove(idx);
                 }

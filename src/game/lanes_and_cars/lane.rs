@@ -4,9 +4,9 @@ use kay::swarm::Swarm;
 use descartes::{N, FiniteCurve};
 use ::core::geometry::CPath;
 
-use super::microtraffic::{Obstacle, LaneCar, TransferringLaneCar};
 use super::construction::ConstructionInfo;
 use super::connectivity::{ConnectivityInfo, TransferConnectivityInfo};
+use super::microtraffic::{Microtraffic, TransferringMicrotraffic};
 use super::pathfinding::PathfindingInfo;
 
 #[derive(Compact, SubActor, Clone)]
@@ -14,12 +14,7 @@ pub struct Lane {
     _id: Option<ID>,
     pub construction: ConstructionInfo,
     pub connectivity: ConnectivityInfo,
-    pub obstacles: CVec<(Obstacle, ID)>,
-    pub cars: CVec<LaneCar>,
-    pub timings: CVec<bool>,
-    pub green: bool,
-    pub yellow_to_green: bool,
-    pub yellow_to_red: bool,
+    pub microtraffic: Microtraffic,
     pub pathfinding: PathfindingInfo,
     pub hovered: bool,
     pub last_spawn_position: N,
@@ -32,12 +27,7 @@ impl Lane {
             last_spawn_position: path.length() / 2.0,
             construction: ConstructionInfo::from_path(path),
             connectivity: ConnectivityInfo::new(on_intersection),
-            obstacles: CVec::new(),
-            cars: CVec::new(),
-            timings: timings,
-            green: false,
-            yellow_to_green: false,
-            yellow_to_red: false,
+            microtraffic: Microtraffic::new(timings),
             pathfinding: PathfindingInfo::default(),
             hovered: false,
         }
@@ -49,9 +39,7 @@ pub struct TransferLane {
     _id: Option<ID>,
     pub construction: ConstructionInfo,
     pub connectivity: TransferConnectivityInfo,
-    pub left_obstacles: CVec<Obstacle>,
-    pub right_obstacles: CVec<Obstacle>,
-    pub cars: CVec<TransferringLaneCar>,
+    pub microtraffic: TransferringMicrotraffic,
 }
 
 impl TransferLane {
@@ -60,9 +48,7 @@ impl TransferLane {
             _id: None,
             construction: ConstructionInfo::from_path(path),
             connectivity: TransferConnectivityInfo::default(),
-            left_obstacles: CVec::new(),
-            right_obstacles: CVec::new(),
-            cars: CVec::new(),
+            microtraffic: TransferringMicrotraffic::default(),
         }
     }
 

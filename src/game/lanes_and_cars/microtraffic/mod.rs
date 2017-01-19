@@ -12,6 +12,36 @@ use super::pathfinding;
 mod intelligent_acceleration;
 use self::intelligent_acceleration::intelligent_acceleration;
 
+#[derive(Compact, Clone)]
+pub struct Microtraffic {
+    pub obstacles: CVec<(Obstacle, ID)>,
+    pub cars: CVec<LaneCar>,
+    timings: CVec<bool>,
+    pub green: bool,
+    pub yellow_to_green: bool,
+    pub yellow_to_red: bool,
+}
+
+impl Microtraffic {
+    pub fn new(timings: CVec<bool>) -> Self {
+        Microtraffic {
+            obstacles: CVec::new(),
+            cars: CVec::new(),
+            timings: timings,
+            green: false,
+            yellow_to_green: false,
+            yellow_to_red: false,
+        }
+    }
+}
+
+#[derive(Compact, Clone, Default)]
+pub struct TransferringMicrotraffic {
+    pub left_obstacles: CVec<Obstacle>,
+    pub right_obstacles: CVec<Obstacle>,
+    pub cars: CVec<TransferringLaneCar>,
+}
+
 #[derive(Copy, Clone)]
 pub struct Obstacle {
     pub position: OrderedFloat<f32>,
@@ -159,12 +189,15 @@ impl Recipient<AddCar> for Lane {
                     };
 
                     // TODO: optimize using BinaryHeap?
-                    let maybe_next_car_position = self.cars.iter().position(|other_car| {
-                        other_car.as_obstacle.position > car.as_obstacle.position
-                    });
+                    let maybe_next_car_position =
+                        self.microtraffic.cars.iter().position(|other_car| {
+                            other_car.as_obstacle.position > car.as_obstacle.position
+                        });
                     match maybe_next_car_position {
-                        Some(next_car_position) => self.cars.insert(next_car_position, routed_car),
-                        None => self.cars.push(routed_car),
+                        Some(next_car_position) => {
+                            self.microtraffic.cars.insert(next_car_position, routed_car)
+                        }
+                        None => self.microtraffic.cars.push(routed_car),
                     }
                 } else {
                     // TODO: cancel trip
@@ -183,7 +216,7 @@ impl Recipient<AddCar> for TransferLane {
                 let from_left = from == self.connectivity.left.expect("should have a left lane").0;
                 let side_multiplier = if from_left { -1.0 } else { 1.0 };
                 let offset = self.interaction_to_self_offset(*car.position, from_left);
-                self.cars.push(TransferringLaneCar {
+                self.microtraffic.cars.push(TransferringLaneCar {
                     as_lane_car: car.offset_by(offset),
                     transfer_position: 1.0 * side_multiplier,
                     transfer_velocity: 0.0,
@@ -191,7 +224,7 @@ impl Recipient<AddCar> for TransferLane {
                     cancelling: false,
                 });
                 // TODO: optimize using BinaryHeap?
-                self.cars.sort_by_key(|car| car.as_obstacle.position);
+                self.microtraffic.cars.sort_by_key(|car| car.as_obstacle.position);
                 Fate::Live
             }
             AddCar { from: None, .. } => {
@@ -205,8 +238,10 @@ impl Recipient<AddObstacles> for Lane {
     fn receive(&mut self, msg: &AddObstacles) -> Fate {
         match *msg {
             AddObstacles { ref obstacles, from } => {
-                self.obstacles.retain(|&(_, received_from)| received_from != from);
-                self.obstacles.extend(obstacles.iter().map(|obstacle| (*obstacle, from)));
+                self.microtraffic.obstacles.retain(|&(_, received_from)| received_from != from);
+                self.microtraffic
+                    .obstacles
+                    .extend(obstacles.iter().map(|obstacle| (*obstacle, from)));
                 Fate::Live
             }
         }
@@ -220,7 +255,7 @@ impl Recipient<AddObstacles> for TransferLane {
                 if let (Some((left_id, _)), Some(_)) =
                     (self.connectivity.left, self.connectivity.right) {
                     if left_id == from {
-                        self.left_obstacles = obstacles.iter()
+                        self.microtraffic.left_obstacles = obstacles.iter()
                             .map(|obstacle| {
                                 obstacle.offset_by(
                                     self.interaction_to_self_offset(*obstacle.position, true)
@@ -228,7 +263,7 @@ impl Recipient<AddObstacles> for TransferLane {
                             })
                             .collect();
                     } else {
-                        self.right_obstacles = obstacles.iter()
+                        self.microtraffic.right_obstacles = obstacles.iter()
                             .map(|obstacle| {
                                 obstacle.offset_by(
                                     self.interaction_to_self_offset(*obstacle.position, false)
@@ -265,25 +300,27 @@ impl Recipient<Tick> for Lane {
                 let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING ==
                                  self.id().sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
-                let old_green = self.green;
-                self.yellow_to_red = if self.timings.is_empty() {
+                let old_green = self.microtraffic.green;
+                self.microtraffic.yellow_to_red = if self.microtraffic.timings.is_empty() {
                     true
                 } else {
-                    !self.timings[((current_tick + 100) / 25) % self.timings.len()]
+                    !self.microtraffic.timings[((current_tick + 100) / 25) %
+                     self.microtraffic.timings.len()]
                 };
-                self.yellow_to_green = if self.timings.is_empty() {
+                self.microtraffic.yellow_to_green = if self.microtraffic.timings.is_empty() {
                     true
                 } else {
-                    self.timings[((current_tick + 100) / 25) % self.timings.len()]
+                    self.microtraffic.timings[((current_tick + 100) / 25) %
+                    self.microtraffic.timings.len()]
                 };
-                self.green = if self.timings.is_empty() {
+                self.microtraffic.green = if self.microtraffic.timings.is_empty() {
                     true
                 } else {
-                    self.timings[(current_tick / 25) % self.timings.len()]
+                    self.microtraffic.timings[(current_tick / 25) % self.microtraffic.timings.len()]
                 };
 
                 // TODO: this is just a hacky way to update new lanes about existing lane's green
-                if old_green != self.green || do_traffic {
+                if old_green != self.microtraffic.green || do_traffic {
                     for interaction in &self.connectivity.interactions {
                         if let Interaction { kind: InteractionKind::Previous { .. },
                                              partner_lane,
@@ -291,7 +328,7 @@ impl Recipient<Tick> for Lane {
                             partner_lane <<
                             SignalChanged {
                                 from: self.id(),
-                                green: self.green,
+                                green: self.microtraffic.green,
                             }
                         }
                     }
@@ -304,16 +341,20 @@ impl Recipient<Tick> for Lane {
 
                 if do_traffic {
                     // TODO: optimize using BinaryHeap?
-                    self.obstacles.sort_by_key(|&(ref obstacle, _id)| obstacle.position);
+                    self.microtraffic
+                        .obstacles
+                        .sort_by_key(|&(ref obstacle, _id)| obstacle.position);
 
-                    let mut obstacles = self.obstacles.iter().map(|&(ref obstacle, _id)| obstacle);
+                    let mut obstacles =
+                        self.microtraffic.obstacles.iter().map(|&(ref obstacle, _id)| obstacle);
                     let mut maybe_next_obstacle = obstacles.next();
 
-                    for c in 0..self.cars.len() {
-                        let next_obstacle = self.cars
+                    for c in 0..self.microtraffic.cars.len() {
+                        let next_obstacle = self.microtraffic
+                            .cars
                             .get(c + 1)
                             .map_or(Obstacle::far_ahead(), |car| car.as_obstacle);
-                        let car = &mut self.cars[c];
+                        let car = &mut self.microtraffic.cars[c];
                         let next_car_acceleration =
                             intelligent_acceleration(car, &next_obstacle, 2.0);
 
@@ -352,30 +393,34 @@ impl Recipient<Tick> for Lane {
                     }
                 }
 
-                for car in &mut self.cars {
+                for car in &mut self.microtraffic.cars {
                     *car.position += dt * car.velocity;
                     car.velocity =
                         (car.velocity + dt * car.acceleration).min(car.max_velocity).max(0.0);
                 }
 
-                for &mut (ref mut obstacle, _id) in &mut self.obstacles {
+                for &mut (ref mut obstacle, _id) in &mut self.microtraffic.obstacles {
                     *obstacle.position += dt * obstacle.velocity;
                 }
 
-                if self.cars.len() > 1 {
-                    for i in (0..self.cars.len() - 1).rev() {
-                        self.cars[i].position = OrderedFloat((*self.cars[i].position)
-                            .min(*self.cars[i + 1].position));
+                if self.microtraffic.cars.len() > 1 {
+                    for i in (0..self.microtraffic.cars.len() - 1).rev() {
+                        self.microtraffic.cars[i].position =
+                            OrderedFloat((*self.microtraffic.cars[i].position)
+                                .min(*self.microtraffic.cars[i + 1].position));
                     }
                 }
 
                 loop {
-                    let maybe_switch_car = self.cars
+                    let maybe_switch_car = self.microtraffic
+                        .cars
                         .iter()
                         .enumerate()
                         .rev()
                         .filter_map(|(i, &car)| {
-                            let interaction = self.connectivity.interactions[car.next_hop_interaction as usize];
+                            let interaction = self.connectivity
+                                .interactions
+                                                  [car.next_hop_interaction as usize];
 
                             match interaction.kind {
                                 InteractionKind::Overlap { end,
@@ -407,7 +452,7 @@ impl Recipient<Tick> for Lane {
 
                     if let Some((idx_to_remove, next_lane, start, partner_start)) =
                         maybe_switch_car {
-                        let car = self.cars.remove(idx_to_remove);
+                        let car = self.microtraffic.cars.remove(idx_to_remove);
                         if self.id() != car.destination.node {
                             next_lane <<
                             AddCar {
@@ -422,12 +467,14 @@ impl Recipient<Tick> for Lane {
 
                 // ASSUMPTION: only one interaction per Lane/Lane pair
                 for interaction in self.connectivity.interactions.iter() {
-                    let cars = self.cars.iter();
+                    let cars = self.microtraffic.cars.iter();
 
                     if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
                        interaction.partner_lane.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING {
                         let maybe_obstacles =
-                            obstacles_for_interaction(interaction, cars, self.obstacles.iter());
+                            obstacles_for_interaction(interaction,
+                                                      cars,
+                                                      self.microtraffic.obstacles.iter());
 
                         if let Some(obstacles) = maybe_obstacles {
                             interaction.partner_lane <<
@@ -522,20 +569,22 @@ impl Recipient<Tick> for TransferLane {
 
                 if do_traffic {
                     // TODO: optimize using BinaryHeap?
-                    self.left_obstacles.sort_by_key(|obstacle| obstacle.position);
-                    self.right_obstacles.sort_by_key(|obstacle| obstacle.position);
+                    self.microtraffic.left_obstacles.sort_by_key(|obstacle| obstacle.position);
+                    self.microtraffic.right_obstacles.sort_by_key(|obstacle| obstacle.position);
 
-                    for c in 0..self.cars.len() {
+                    for c in 0..self.microtraffic.cars.len() {
                         let (acceleration, dangerous) = {
-                            let car = &self.cars[c];
-                            let next_car = self.cars
+                            let car = &self.microtraffic.cars[c];
+                            let next_car = self.microtraffic
+                                .cars
                                 .iter()
                                 .find(|other_car| *other_car.position > *car.position)
                                 .map(|other_car| &other_car.as_obstacle);
 
                             let maybe_next_left_obstacle = if car.transfer_position < 0.3 ||
                                                               car.transfer_acceleration < 0.0 {
-                                self.left_obstacles
+                                self.microtraffic
+                                    .left_obstacles
                                     .iter()
                                     .find(|obstacle| *obstacle.position + 5.0 > *car.position)
                             } else {
@@ -544,7 +593,8 @@ impl Recipient<Tick> for TransferLane {
 
                             let maybe_next_right_obstacle = if car.transfer_position > -0.3 ||
                                                                car.transfer_acceleration > 0.0 {
-                                self.right_obstacles
+                                self.microtraffic
+                                    .right_obstacles
                                     .iter()
                                     .find(|obstacle| *obstacle.position + 5.0 > *car.position)
                             } else {
@@ -575,7 +625,7 @@ impl Recipient<Tick> for TransferLane {
                              dangerous)
                         };
 
-                        let car = &mut self.cars[c];
+                        let car = &mut self.microtraffic.cars[c];
                         car.acceleration = acceleration;
 
                         if dangerous && !car.cancelling {
@@ -585,7 +635,7 @@ impl Recipient<Tick> for TransferLane {
                     }
                 }
 
-                for car in &mut self.cars {
+                for car in &mut self.microtraffic.cars {
                     *car.position += dt * car.velocity;
                     car.velocity =
                         (car.velocity + dt * car.acceleration).min(car.max_velocity).max(0.0);
@@ -597,16 +647,18 @@ impl Recipient<Tick> for TransferLane {
                     }
                 }
 
-                for obstacle in self.left_obstacles
+                for obstacle in self.microtraffic
+                    .left_obstacles
                     .iter_mut()
-                    .chain(self.right_obstacles.iter_mut()) {
+                    .chain(self.microtraffic.right_obstacles.iter_mut()) {
                     *obstacle.position += dt * obstacle.velocity;
                 }
 
-                if self.cars.len() > 1 {
-                    for i in (0..self.cars.len() - 1).rev() {
-                        if self.cars[i].position > self.cars[i + 1].position {
-                            self.cars.swap(i, i + 1);
+                if self.microtraffic.cars.len() > 1 {
+                    for i in (0..self.microtraffic.cars.len() - 1).rev() {
+                        if self.microtraffic.cars[i].position >
+                           self.microtraffic.cars[i + 1].position {
+                            self.microtraffic.cars.swap(i, i + 1);
                         }
                     }
                 }
@@ -615,39 +667,41 @@ impl Recipient<Tick> for TransferLane {
                     (self.connectivity.left, self.connectivity.right) {
                     let mut i = 0;
                     loop {
-                        let (should_remove, done) = if let Some(car) = self.cars.get(i) {
-                            if car.transfer_position > 1.0 ||
-                               (*car.position > self.construction.length &&
-                                car.transfer_acceleration > 0.0) {
-                                right << AddCar{car: car.as_lane_car.offset_by(
+                        let (should_remove, done) =
+                            if let Some(car) = self.microtraffic.cars.get(i) {
+                                if car.transfer_position > 1.0 ||
+                                   (*car.position > self.construction.length &&
+                                    car.transfer_acceleration > 0.0) {
+                                    right << AddCar{car: car.as_lane_car.offset_by(
                                 right_start + self.self_to_interaction_offset(*car.position, false)
                             ), from: Some(self.id())};
-                                (true, false)
-                            } else if car.transfer_position < -1.0 ||
-                                      (*car.position > self.construction.length &&
-                                       car.transfer_acceleration <= 0.0) {
-                                left << AddCar{car: car.as_lane_car.offset_by(
+                                    (true, false)
+                                } else if car.transfer_position < -1.0 ||
+                                          (*car.position > self.construction.length &&
+                                           car.transfer_acceleration <= 0.0) {
+                                    left << AddCar{car: car.as_lane_car.offset_by(
                                 left_start + self.self_to_interaction_offset(*car.position, true)
                             ), from: Some(self.id())};
-                                (true, false)
+                                    (true, false)
+                                } else {
+                                    i += 1;
+                                    (false, false)
+                                }
                             } else {
-                                i += 1;
-                                (false, false)
-                            }
-                        } else {
-                            (false, true)
-                        };
+                                (false, true)
+                            };
                         if done {
                             break;
                         }
                         if should_remove {
-                            self.cars.remove(i);
+                            self.microtraffic.cars.remove(i);
                         }
                     }
 
                     if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
                        left.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING {
-                        let obstacles = self.cars
+                        let obstacles = self.microtraffic
+                            .cars
                             .iter()
                             .filter_map(|car| if car.transfer_position < 0.3 ||
                                                  car.transfer_acceleration < 0.0 {
@@ -667,7 +721,8 @@ impl Recipient<Tick> for TransferLane {
 
                     if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
                        right.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING {
-                        let obstacles = self.cars
+                        let obstacles = self.microtraffic
+                            .cars
                             .iter()
                             .filter_map(|car| if car.transfer_position > -0.3 ||
                                                  car.transfer_acceleration > 0.0 {

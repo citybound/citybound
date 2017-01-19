@@ -184,9 +184,9 @@ impl Recipient<RenderToScene> for Lane {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {
         match *msg {
             RenderToScene { renderer_id, scene_id } => {
-                let mut cars_iter = self.cars.iter();
+                let mut cars_iter = self.microtraffic.cars.iter();
                 let mut current_offset = 0.0;
-                let mut car_instances = CVec::with_capacity(self.cars.len());
+                let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
                 for segment in self.construction.path.segments().iter() {
                     for car in cars_iter.take_while_ref(
                         |car| *car.position - current_offset < segment.length()
@@ -213,7 +213,7 @@ impl Recipient<RenderToScene> for Lane {
                 }
 
                 if DEBUG_VIEW_OBSTACLES {
-                    for &(obstacle, _id) in &self.obstacles {
+                    for &(obstacle, _id) in &self.microtraffic.obstacles {
                         let position2d = if *obstacle.position < self.construction.length {
                             self.construction.path.along(*obstacle.position)
                         } else {
@@ -275,7 +275,7 @@ impl Recipient<RenderToScene> for Lane {
                         },
                     };
 
-                    if self.yellow_to_red && self.green {
+                    if self.microtraffic.yellow_to_red && self.microtraffic.green {
                         renderer_id <<
                         AddInstance {
                             scene_id: scene_id,
@@ -286,7 +286,7 @@ impl Recipient<RenderToScene> for Lane {
                                 instance_color: [1.0, 0.8, 0.0],
                             },
                         }
-                    } else if self.green {
+                    } else if self.microtraffic.green {
                         renderer_id <<
                         AddInstance {
                             scene_id: scene_id,
@@ -299,7 +299,7 @@ impl Recipient<RenderToScene> for Lane {
                         }
                     }
 
-                    if !self.green {
+                    if !self.microtraffic.green {
                         renderer_id <<
                         AddInstance {
                             scene_id: scene_id,
@@ -311,7 +311,7 @@ impl Recipient<RenderToScene> for Lane {
                             },
                         };
 
-                        if self.yellow_to_green {
+                        if self.microtraffic.yellow_to_green {
                             renderer_id <<
                             AddInstance {
                                 scene_id: scene_id,
@@ -332,8 +332,8 @@ impl Recipient<RenderToScene> for Lane {
                         scene_id: scene_id,
                         thing_id: 4000 + self.id().sub_actor_id as u16,
                         thing: band_to_thing(&Band::new(self.construction.path.clone(), 0.3),
-                                             if self.green { 0.4 } else { 0.2 }),
-                        instance: Instance::with_color(if self.green {
+                                             if self.microtraffic.green { 0.4 } else { 0.2 }),
+                        instance: Instance::with_color(if self.microtraffic.green {
                             [0.0, 1.0, 0.0]
                         } else {
                             [1.0, 0.0, 0.0]
@@ -414,9 +414,9 @@ impl Recipient<RenderToScene> for TransferLane {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {
         match *msg {
             RenderToScene { renderer_id, scene_id } => {
-                let mut cars_iter = self.cars.iter();
+                let mut cars_iter = self.microtraffic.cars.iter();
                 let mut current_offset = 0.0;
-                let mut car_instances = CVec::with_capacity(self.cars.len());
+                let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
                 for segment in self.construction.path.segments().iter() {
                     for car in cars_iter.take_while_ref(
                         |car| *car.position - current_offset < segment.length()
@@ -450,7 +450,7 @@ impl Recipient<RenderToScene> for TransferLane {
                 }
 
                 if DEBUG_VIEW_TRANSFER_OBSTACLES {
-                    for obstacle in &self.left_obstacles {
+                    for obstacle in &self.microtraffic.left_obstacles {
                         let position2d =
                             if *obstacle.position < self.construction.length {
                                 self.construction.path.along(*obstacle.position)
@@ -470,7 +470,7 @@ impl Recipient<RenderToScene> for TransferLane {
                         });
                     }
 
-                    for obstacle in &self.right_obstacles {
+                    for obstacle in &self.microtraffic.right_obstacles {
                         let position2d =
                             if *obstacle.position < self.construction.length {
                                 self.construction.path.along(*obstacle.position)
