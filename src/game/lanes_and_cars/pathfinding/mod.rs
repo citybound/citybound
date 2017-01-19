@@ -3,7 +3,8 @@ use kay::{ID, Actor, Recipient, Fate};
 use kay::swarm::{Swarm, SubActor};
 use core::geometry::AnyShape;
 use descartes::Band;
-use super::{Lane, TransferLane, Interaction, InteractionKind, OverlapKind};
+use super::lane::{Lane, TransferLane};
+use super::connectivity::{Interaction, InteractionKind, OverlapKind};
 
 pub mod trip;
 

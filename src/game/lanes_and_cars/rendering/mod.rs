@@ -4,7 +4,8 @@ use kay::{Actor, Recipient, Fate};
 use kay::swarm::{Swarm, SubActor, RecipientAsSwarm};
 use monet::{Instance, Thing, Vertex, UpdateThing};
 use core::geometry::{band_to_thing, dash_path};
-use super::{Lane, TransferLane, InteractionKind};
+use super::lane::{Lane, TransferLane};
+use super::connectivity::InteractionKind;
 use itertools::Itertools;
 
 #[path = "./resources/car.rs"]
@@ -13,7 +14,8 @@ mod car;
 #[path = "./resources/traffic_light.rs"]
 mod traffic_light;
 
-use super::lane_thing_collector::ThingCollector;
+pub mod lane_thing_collector;
+use self::lane_thing_collector::ThingCollector;
 
 use ::monet::SetupInScene;
 use ::monet::AddBatch;
@@ -78,8 +80,8 @@ impl RecipientAsSwarm<SetupInScene> for TransferLane {
     }
 }
 
-use super::lane_thing_collector::RenderToCollector;
-use super::lane_thing_collector::Control::{Update, Freeze};
+use self::lane_thing_collector::RenderToCollector;
+use self::lane_thing_collector::Control::{Update, Freeze};
 
 const CONSTRUCTION_ANIMATION_DELAY: f32 = 120.0;
 
@@ -508,7 +510,7 @@ impl Recipient<RenderToScene> for TransferLane {
     }
 }
 
-use super::lane_thing_collector::Control::Remove;
+use self::lane_thing_collector::Control::Remove;
 
 pub fn on_build(lane: &Lane) {
     lane.id() << RenderToCollector(ThingCollector::<LaneAsphalt>::id());
@@ -566,13 +568,11 @@ pub fn setup() {
     Swarm::<Lane>::handle::<SetupInScene>();
     Swarm::<Lane>::handle::<RenderToCollector>();
     Swarm::<Lane>::handle::<RenderToScene>();
-    super::lane_thing_collector::setup::<LaneAsphalt>([0.7, 0.7, 0.7], 2000, false);
-    super::lane_thing_collector::setup::<LaneMarker>([1.0, 1.0, 1.0], 2100, true);
+    self::lane_thing_collector::setup::<LaneAsphalt>([0.7, 0.7, 0.7], 2000, false);
+    self::lane_thing_collector::setup::<LaneMarker>([1.0, 1.0, 1.0], 2100, true);
 
     Swarm::<TransferLane>::handle::<SetupInScene>();
     Swarm::<TransferLane>::handle::<RenderToCollector>();
     Swarm::<TransferLane>::handle::<RenderToScene>();
-    super::lane_thing_collector::setup::<TransferLaneMarkerGaps>([0.7, 0.7, 0.7], 2200, true);
-
-    super::planning::setup();
+    self::lane_thing_collector::setup::<TransferLaneMarkerGaps>([0.7, 0.7, 0.7], 2200, true);
 }

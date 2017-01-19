@@ -69,7 +69,7 @@ impl Recipient<Event3d> for LaneStrokeCanvas {
                 Fate::Live
             }
             Event3d::KeyDown(VirtualKeyCode::C) => {
-                Swarm::<::game::lanes_and_cars::Lane>::all() <<
+                Swarm::<::game::lanes_and_cars::lane::Lane>::all() <<
                 ToRandom {
                     n_recipients: 5000,
                     message: Event3d::DragFinished {

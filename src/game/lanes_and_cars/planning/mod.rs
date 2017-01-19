@@ -15,7 +15,6 @@ mod lane_stroke_selectable;
 mod lane_stroke_draggable;
 mod lane_stroke_addable;
 pub mod plan_result_steps;
-pub mod materialized_reality;
 pub mod current_plan_rendering;
 
 pub use self::plan::{Plan, LaneStrokeRef, Intersection, IntersectionRef, TrimmedStrokeRef,
@@ -26,7 +25,7 @@ pub use self::lane_stroke_canvas::LaneStrokeCanvas;
 use self::lane_stroke_selectable::LaneStrokeSelectable;
 use self::lane_stroke_draggable::LaneStrokeDraggable;
 use self::lane_stroke_addable::LaneStrokeAddable;
-use self::materialized_reality::MaterializedReality;
+use super::construction::materialized_reality::MaterializedReality;
 pub use self::lane_stroke::MIN_NODE_DISTANCE;
 
 #[derive(Compact, Clone, Default)]
@@ -48,8 +47,8 @@ impl Actor for CurrentPlan {}
 
 const FINISH_STROKE_TOLERANCE: f32 = 5.0;
 
-use self::materialized_reality::Simulate;
-use self::materialized_reality::Apply;
+use super::construction::materialized_reality::Simulate;
+use super::construction::materialized_reality::Apply;
 
 #[derive(Copy, Clone)]
 struct Commit(bool, P2);
@@ -1097,7 +1096,7 @@ impl Recipient<ToggleBothSides> for CurrentPlan {
     }
 }
 
-use self::materialized_reality::SimulationResult;
+use super::construction::materialized_reality::SimulationResult;
 
 impl Recipient<SimulationResult> for CurrentPlan {
     fn receive(&mut self, msg: &SimulationResult) -> Fate {
@@ -1321,7 +1320,6 @@ pub fn setup() {
     CurrentPlan::handle::<SetNLanes>();
     CurrentPlan::handle::<ToggleBothSides>();
     CurrentPlan::handle::<SimulationResult>();
-    self::materialized_reality::setup();
     self::lane_stroke_canvas::setup();
     self::lane_stroke_selectable::setup();
     self::lane_stroke_draggable::setup();
