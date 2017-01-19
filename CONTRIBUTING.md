@@ -37,6 +37,10 @@ Recommended setup:
 * For debugging (Linux/MacOS): Install the [LLDB Debugger Extension](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb)
 * Now everything should just work, since configuration is part of the repo in `.vscode`! (fingers crossed)
 
+## Have a question? Want to discuss something?
+
+Join me and the other contributors in the [Gitter community for Citybound](https://gitter.im/citybound/Lobby) and ask/discuss away!
+
 ## State of the code & organization
 
 The code is in a pretty messy state after a rushed first release, but will become much more modular and well-documented over time.
