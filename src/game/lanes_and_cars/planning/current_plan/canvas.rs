@@ -6,18 +6,18 @@ use core::ui::{UserInterface, VirtualKeyCode};
 use super::CurrentPlan;
 
 #[derive(Copy, Clone, Default)]
-pub struct LaneStrokeCanvas {
+pub struct Canvas {
     cmd_pressed: bool,
     shift_pressed: bool,
 }
 
-impl Actor for LaneStrokeCanvas {}
+impl Actor for Canvas {}
 
 use core::ui::Event3d;
 use super::{Commit, Undo, Redo, WithLatestNode, Materialize, CreateGrid, DeleteSelection,
             SetSelectionMode, SetNLanes, ToggleBothSides};
 
-impl Recipient<Event3d> for LaneStrokeCanvas {
+impl Recipient<Event3d> for Canvas {
     fn receive(&mut self, msg: &Event3d) -> Fate {
         match *msg {
             Event3d::HoverStarted { at } |
@@ -69,7 +69,7 @@ impl Recipient<Event3d> for LaneStrokeCanvas {
                 Fate::Live
             }
             Event3d::KeyDown(VirtualKeyCode::C) => {
-                Swarm::<::game::lanes_and_cars::Lane>::all() <<
+                Swarm::<::game::lanes_and_cars::lane::Lane>::all() <<
                 ToRandom {
                     n_recipients: 5000,
                     message: Event3d::DragFinished {
@@ -134,7 +134,7 @@ impl Recipient<Event3d> for LaneStrokeCanvas {
 
 use ::monet::EyeMoved;
 
-impl Recipient<EyeMoved> for LaneStrokeCanvas {
+impl Recipient<EyeMoved> for Canvas {
     fn receive(&mut self, msg: &EyeMoved) -> Fate {
         match *msg {
             EyeMoved { eye, .. } => {
@@ -157,10 +157,10 @@ use core::ui::Focus;
 #[derive(Copy, Clone)]
 struct AddToUI;
 
-impl Recipient<AddToUI> for LaneStrokeCanvas {
+impl Recipient<AddToUI> for Canvas {
     fn receive(&mut self, _msg: &AddToUI) -> Fate {
-        UserInterface::id() << Add::Interactable3d(LaneStrokeCanvas::id(), AnyShape::Everywhere, 0);
-        UserInterface::id() << Focus(LaneStrokeCanvas::id());
+        UserInterface::id() << Add::Interactable3d(Canvas::id(), AnyShape::Everywhere, 0);
+        UserInterface::id() << Focus(Canvas::id());
         ::monet::Renderer::id() <<
         ::monet::AddEyeListener {
             scene_id: 0,
@@ -171,12 +171,12 @@ impl Recipient<AddToUI> for LaneStrokeCanvas {
 }
 
 pub fn setup() {
-    LaneStrokeCanvas::register_with_state(LaneStrokeCanvas {
+    Canvas::register_with_state(Canvas {
         cmd_pressed: false,
         shift_pressed: false,
     });
-    LaneStrokeCanvas::handle::<Event3d>();
-    LaneStrokeCanvas::handle::<EyeMoved>();
-    LaneStrokeCanvas::handle::<AddToUI>();
-    LaneStrokeCanvas::id() << AddToUI;
+    Canvas::handle::<Event3d>();
+    Canvas::handle::<EyeMoved>();
+    Canvas::handle::<AddToUI>();
+    Canvas::id() << AddToUI;
 }

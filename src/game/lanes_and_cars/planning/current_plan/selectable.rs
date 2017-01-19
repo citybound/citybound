@@ -6,15 +6,15 @@ use ::core::geometry::{CPath, AnyShape};
 use super::{SelectableStrokeRef, CurrentPlan};
 
 #[derive(SubActor, Compact, Clone)]
-pub struct LaneStrokeSelectable {
+pub struct Selectable {
     _id: Option<ID>,
     stroke_ref: SelectableStrokeRef,
     path: CPath,
 }
 
-impl LaneStrokeSelectable {
+impl Selectable {
     pub fn new(stroke_ref: SelectableStrokeRef, path: CPath) -> Self {
-        LaneStrokeSelectable {
+        Selectable {
             _id: None,
             stroke_ref: stroke_ref,
             path: path,
@@ -25,7 +25,7 @@ impl LaneStrokeSelectable {
 use super::AddToUI;
 use ::core::ui::Add;
 
-impl Recipient<AddToUI> for LaneStrokeSelectable {
+impl Recipient<AddToUI> for Selectable {
     fn receive(&mut self, msg: &AddToUI) -> Fate {
         match *msg {
             AddToUI => {
@@ -42,7 +42,7 @@ impl Recipient<AddToUI> for LaneStrokeSelectable {
 use super::ClearSelectables;
 use ::core::ui::Remove;
 
-impl Recipient<ClearSelectables> for LaneStrokeSelectable {
+impl Recipient<ClearSelectables> for Selectable {
     fn receive(&mut self, msg: &ClearSelectables) -> Fate {
         match *msg {
             ClearSelectables => {
@@ -56,7 +56,7 @@ impl Recipient<ClearSelectables> for LaneStrokeSelectable {
 use ::core::ui::Event3d;
 use super::{Select, Commit};
 
-impl Recipient<Event3d> for LaneStrokeSelectable {
+impl Recipient<Event3d> for Selectable {
     fn receive(&mut self, msg: &Event3d) -> Fate {
         match *msg {
             Event3d::DragStarted { at } => {
@@ -108,8 +108,8 @@ impl Recipient<Event3d> for LaneStrokeSelectable {
 
 
 pub fn setup() {
-    Swarm::<LaneStrokeSelectable>::register_default();
-    Swarm::<LaneStrokeSelectable>::handle::<CreateWith<LaneStrokeSelectable, AddToUI>>();
-    Swarm::<LaneStrokeSelectable>::handle::<ClearSelectables>();
-    Swarm::<LaneStrokeSelectable>::handle::<Event3d>();
+    Swarm::<Selectable>::register_default();
+    Swarm::<Selectable>::handle::<CreateWith<Selectable, AddToUI>>();
+    Swarm::<Selectable>::handle::<ClearSelectables>();
+    Swarm::<Selectable>::handle::<Event3d>();
 }

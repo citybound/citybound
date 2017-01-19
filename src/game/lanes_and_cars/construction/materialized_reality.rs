@@ -1,7 +1,7 @@
 use compact::{CDict, CVec};
 use kay::{ID, Recipient, Fate, Actor};
-use super::{Plan, PlanResult, PlanDelta, PlanResultDelta, IntersectionRef, TrimmedStrokeRef,
-            TransferStrokeRef, RemainingOldStrokes};
+use super::super::planning::plan::{Plan, PlanResult, PlanDelta, PlanResultDelta, IntersectionRef,
+                                   TrimmedStrokeRef, TransferStrokeRef, RemainingOldStrokes};
 
 #[derive(Clone)]
 pub struct MaterializedRealityState {
@@ -59,7 +59,7 @@ pub struct Apply {
     pub delta: PlanDelta,
 }
 
-use super::super::Unbuild;
+use super::super::construction::Unbuild;
 
 impl Recipient<Apply> for MaterializedReality {
     #[inline(never)]
@@ -123,7 +123,7 @@ pub enum BuildableRef {
 
 #[derive(Copy, Clone)]
 pub struct ReportLaneBuilt(pub ID, pub BuildableRef);
-use super::super::AdvertiseForOverlaps;
+use super::AdvertiseForOverlaps;
 
 impl Recipient<ReportLaneBuilt> for MaterializedReality {
     fn receive(&mut self, msg: &ReportLaneBuilt) -> Fate {

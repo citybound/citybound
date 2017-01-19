@@ -6,15 +6,15 @@ use ::core::geometry::{CPath, AnyShape};
 use super::{SelectableStrokeRef, CurrentPlan};
 
 #[derive(SubActor, Compact, Clone)]
-pub struct LaneStrokeDraggable {
+pub struct Draggable {
     _id: Option<ID>,
     stroke_ref: SelectableStrokeRef,
     path: CPath,
 }
 
-impl LaneStrokeDraggable {
+impl Draggable {
     pub fn new(stroke_ref: SelectableStrokeRef, path: CPath) -> Self {
-        LaneStrokeDraggable {
+        Draggable {
             _id: None,
             stroke_ref: stroke_ref,
             path: path,
@@ -25,7 +25,7 @@ impl LaneStrokeDraggable {
 #[derive(Copy, Clone)]
 pub struct Become(SelectableStrokeRef);
 
-impl Recipient<Become> for LaneStrokeDraggable {
+impl Recipient<Become> for Draggable {
     fn receive(&mut self, msg: &Become) -> Fate {
         match *msg {
             Become(stroke_ref) => {
@@ -39,7 +39,7 @@ impl Recipient<Become> for LaneStrokeDraggable {
 use super::AddToUI;
 use ::core::ui::Add;
 
-impl Recipient<AddToUI> for LaneStrokeDraggable {
+impl Recipient<AddToUI> for Draggable {
     fn receive(&mut self, msg: &AddToUI) -> Fate {
         match *msg {
             AddToUI => {
@@ -56,7 +56,7 @@ impl Recipient<AddToUI> for LaneStrokeDraggable {
 use super::ClearDraggables;
 use ::core::ui::Remove;
 
-impl Recipient<ClearDraggables> for LaneStrokeDraggable {
+impl Recipient<ClearDraggables> for Draggable {
     fn receive(&mut self, msg: &ClearDraggables) -> Fate {
         match *msg {
             ClearDraggables => {
@@ -70,7 +70,7 @@ impl Recipient<ClearDraggables> for LaneStrokeDraggable {
 use ::core::ui::Event3d;
 use super::{MoveSelection, MaximizeSelection, Commit};
 
-impl Recipient<Event3d> for LaneStrokeDraggable {
+impl Recipient<Event3d> for Draggable {
     fn receive(&mut self, msg: &Event3d) -> Fate {
         match *msg {
             Event3d::DragOngoing { from, to } => {
@@ -90,9 +90,9 @@ impl Recipient<Event3d> for LaneStrokeDraggable {
 }
 
 pub fn setup() {
-    Swarm::<LaneStrokeDraggable>::register_default();
-    Swarm::<LaneStrokeDraggable>::handle::<CreateWith<LaneStrokeDraggable, AddToUI>>();
-    Swarm::<LaneStrokeDraggable>::handle::<Become>();
-    Swarm::<LaneStrokeDraggable>::handle::<ClearDraggables>();
-    Swarm::<LaneStrokeDraggable>::handle::<Event3d>();
+    Swarm::<Draggable>::register_default();
+    Swarm::<Draggable>::handle::<CreateWith<Draggable, AddToUI>>();
+    Swarm::<Draggable>::handle::<Become>();
+    Swarm::<Draggable>::handle::<ClearDraggables>();
+    Swarm::<Draggable>::handle::<Event3d>();
 }

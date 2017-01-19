@@ -24,7 +24,7 @@ impl Recipient<Start> for Trip {
 }
 
 use super::TellAsDestination;
-use super::super::{AddCar, LaneCar, Obstacle};
+use super::super::microtraffic::{AddCar, LaneCar, Obstacle};
 
 impl Recipient<TellAsDestination> for Trip {
     fn receive(&mut self, msg: &TellAsDestination) -> Fate {
@@ -109,7 +109,7 @@ impl Recipient<AddLaneForTrip> for TripCreator {
     }
 }
 
-use super::super::Lane;
+use super::super::lane::Lane;
 use ::core::ui::Event3d;
 
 impl Recipient<Event3d> for Lane {
@@ -124,7 +124,7 @@ impl Recipient<Event3d> for Lane {
                 Fate::Live
             }
             Event3d::DragFinished { .. } => {
-                if !self.on_intersection {
+                if !self.connectivity.on_intersection {
                     TripCreator::id() << AddLaneForTrip(self.id());
                 }
                 Fate::Live

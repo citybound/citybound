@@ -39,10 +39,10 @@ mod game;
 
 use monet::{Renderer, Control, AddDebugText};
 use core::simulation::{Simulation, Tick};
-use game::lanes_and_cars::{Lane, TransferLane};
-use game::lanes_and_cars::lane_rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
-use game::lanes_and_cars::lane_thing_collector::ThingCollector;
-use game::lanes_and_cars::planning::CurrentPlan;
+use game::lanes_and_cars::lane::{Lane, TransferLane};
+use game::lanes_and_cars::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
+use game::lanes_and_cars::rendering::lane_thing_collector::ThingCollector;
+use game::lanes_and_cars::planning::current_plan::CurrentPlan;
 use kay::Actor;
 use kay::swarm::Swarm;
 use std::any::Any;
