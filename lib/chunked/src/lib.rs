@@ -406,7 +406,8 @@ impl ChunkedQueue {
         let total_size = size + mem::size_of::<usize>();
         let offset = *self.write_offset % self.chunker.chunk_size();
         let ptr = self.chunks.last_mut().unwrap().offset(offset as isize);
-        if *self.write_offset + total_size < *self.end_offset {
+        // one more size marker needs to fit, even if it will just be a jump marker!
+        if *self.write_offset + total_size + mem::size_of::<usize>() < *self.end_offset {
             // store the item size as a header
             *(ptr as *mut usize) = total_size;
             let payload_ptr = ptr.offset(mem::size_of::<usize>() as isize);
