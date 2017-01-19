@@ -112,21 +112,23 @@ impl Recipient<AddCar> for Lane {
                 // TODO: horrible hack to encode it like this
                 let car_forcibly_spawned = *car.as_obstacle.position < 0.0;
 
-                let maybe_next_hop_interaction = self.pathfinding_info
+                let maybe_next_hop_interaction = self.pathfinding
                     .routes
                     .get(car.destination)
-                    .or(self.pathfinding_info.routes.get(car.destination.landmark_destination()))
+                    .or(self.pathfinding
+                        .routes
+                        .get(car.destination.landmark_destination()))
                     .or_else(|| {
                         println!("NO ROUTE!");
-                        if car_forcibly_spawned || self.pathfinding_info.routes.is_empty() {
+                        if car_forcibly_spawned || self.pathfinding.routes.is_empty() {
                             None
                         } else {
                             // pseudorandom, lol
-                            self.pathfinding_info
+                            self.pathfinding
                                 .routes
                                 .values()
                                 .nth((car.velocity * 10000.0) as usize %
-                                     self.pathfinding_info.routes.len())
+                                     self.pathfinding.routes.len())
                         }
                     })
                     .map(|&RoutingInfo { outgoing_idx, .. }| outgoing_idx as usize);
@@ -257,7 +259,7 @@ impl Recipient<Tick> for Lane {
     fn receive(&mut self, msg: &Tick) -> Fate {
         match *msg {
             Tick { dt, current_tick } => {
-                self.in_construction += dt * 400.0;
+                self.construction.progress += dt * 400.0;
 
                 let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING ==
                                  self.id().sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING;
@@ -512,7 +514,7 @@ impl Recipient<Tick> for TransferLane {
     fn receive(&mut self, msg: &Tick) -> Fate {
         match *msg {
             Tick { dt, current_tick } => {
-                self.in_construction += dt * 400.0;
+                self.construction.progress += dt * 400.0;
 
                 let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING ==
                                  self.id().sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING;
@@ -563,8 +565,8 @@ impl Recipient<Tick> for TransferLane {
                                 .min()
                                 .unwrap();
 
-                            let transfer_before_end_velocity = (self.length + 1.0 - *car.position) /
-                                                               1.5;
+                            let transfer_before_end_velocity =
+                                (self.construction.length + 1.0 - *car.position) / 1.5;
                             let transfer_before_end_acceleration = transfer_before_end_velocity -
                                                                    car.velocity;
 
@@ -614,13 +616,14 @@ impl Recipient<Tick> for TransferLane {
                     loop {
                         let (should_remove, done) = if let Some(car) = self.cars.get(i) {
                             if car.transfer_position > 1.0 ||
-                               (*car.position > self.length && car.transfer_acceleration > 0.0) {
+                               (*car.position > self.construction.length &&
+                                car.transfer_acceleration > 0.0) {
                                 right << AddCar{car: car.as_lane_car.offset_by(
                                 right_start + self.self_to_interaction_offset(*car.position, false)
                             ), from: Some(self.id())};
                                 (true, false)
                             } else if car.transfer_position < -1.0 ||
-                                      (*car.position > self.length &&
+                                      (*car.position > self.construction.length &&
                                        car.transfer_acceleration <= 0.0) {
                                 left << AddCar{car: car.as_lane_car.offset_by(
                                 left_start + self.self_to_interaction_offset(*car.position, true)

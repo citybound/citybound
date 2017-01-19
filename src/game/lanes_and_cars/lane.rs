@@ -6,25 +6,22 @@ use ::core::geometry::CPath;
 
 use super::connectivity::Interaction;
 use super::microtraffic::{Obstacle, LaneCar, TransferringLaneCar};
+use super::construction::ConstructionInfo;
 
 #[derive(Compact, SubActor, Clone)]
 pub struct Lane {
     _id: Option<ID>,
-    pub length: f32,
-    pub path: CPath,
+    pub construction: ConstructionInfo,
     pub interactions: CVec<Interaction>,
     pub obstacles: CVec<(Obstacle, ID)>,
     pub cars: CVec<LaneCar>,
-    pub in_construction: f32,
     pub on_intersection: bool,
     pub timings: CVec<bool>,
     pub green: bool,
     pub yellow_to_green: bool,
     pub yellow_to_red: bool,
-    pub pathfinding_info: super::pathfinding::PathfindingInfo,
+    pub pathfinding: super::pathfinding::PathfindingInfo,
     pub hovered: bool,
-    pub unbuilding_for: Option<ID>,
-    pub disconnects_remaining: u8,
     pub last_spawn_position: N,
 }
 
@@ -32,22 +29,18 @@ impl Lane {
     pub fn new(path: CPath, on_intersection: bool, timings: CVec<bool>) -> Self {
         Lane {
             _id: None,
-            length: path.length(),
             last_spawn_position: path.length() / 2.0,
-            path: path,
+            construction: ConstructionInfo::from_path(path),
             interactions: CVec::new(),
             obstacles: CVec::new(),
             cars: CVec::new(),
-            in_construction: 0.0,
             on_intersection: on_intersection,
             timings: timings,
             green: false,
             yellow_to_green: false,
             yellow_to_red: false,
-            pathfinding_info: super::pathfinding::PathfindingInfo::default(),
+            pathfinding: super::pathfinding::PathfindingInfo::default(),
             hovered: false,
-            unbuilding_for: None,
-            disconnects_remaining: 0,
         }
     }
 }
@@ -55,8 +48,7 @@ impl Lane {
 #[derive(Compact, SubActor, Clone)]
 pub struct TransferLane {
     _id: Option<ID>,
-    pub length: f32,
-    pub path: CPath,
+    pub construction: super::construction::ConstructionInfo,
     pub left: Option<(ID, f32)>,
     pub right: Option<(ID, f32)>,
     pub left_obstacles: CVec<Obstacle>,
@@ -64,17 +56,13 @@ pub struct TransferLane {
     pub left_distance_map: CVec<(N, N)>,
     pub right_distance_map: CVec<(N, N)>,
     pub cars: CVec<TransferringLaneCar>,
-    pub in_construction: f32,
-    pub unbuilding_for: Option<ID>,
-    pub disconnects_remaining: u8,
 }
 
 impl TransferLane {
     pub fn new(path: CPath) -> TransferLane {
         TransferLane {
             _id: None,
-            length: path.length(),
-            path: path,
+            construction: ConstructionInfo::from_path(path),
             left: None,
             right: None,
             left_obstacles: CVec::new(),
@@ -82,9 +70,6 @@ impl TransferLane {
             left_distance_map: CVec::new(),
             right_distance_map: CVec::new(),
             cars: CVec::new(),
-            in_construction: 0.0,
-            unbuilding_for: None,
-            disconnects_remaining: 0,
         }
     }
 

@@ -54,21 +54,21 @@ use ::core::ui::Add;
 const DEBUG_CARS_ON_LANES: bool = false;
 
 pub fn on_build(lane: &mut Lane) {
-    lane.pathfinding_info.as_destination = None;
+    lane.pathfinding.as_destination = None;
     if DEBUG_CARS_ON_LANES {
         ::core::ui::UserInterface::id() <<
         Add::Interactable3d(lane.id(),
-                            AnyShape::Band(Band::new(lane.path.clone(), 3.0)),
+                            AnyShape::Band(Band::new(lane.construction.path.clone(), 3.0)),
                             5);
     }
 }
 
 pub fn on_connect(lane: &mut Lane) {
-    lane.pathfinding_info.routing_timeout = ROUTING_TIMEOUT_AFTER_CHANGE;
+    lane.pathfinding.routing_timeout = ROUTING_TIMEOUT_AFTER_CHANGE;
 }
 
 pub fn on_disconnect(lane: &mut Lane, disconnected_id: ID) {
-    let new_routes = lane.pathfinding_info
+    let new_routes = lane.pathfinding
         .routes
         .pairs()
         .filter_map(|(destination, route)| if route.learned_from == disconnected_id {
@@ -77,16 +77,16 @@ pub fn on_disconnect(lane: &mut Lane, disconnected_id: ID) {
             Some((*destination, *route))
         })
         .collect();
-    lane.pathfinding_info.routes = new_routes;
-    lane.pathfinding_info.routes_changed = true;
-    lane.pathfinding_info.query_routes_next_tick = true;
+    lane.pathfinding.routes = new_routes;
+    lane.pathfinding.routes_changed = true;
+    lane.pathfinding.query_routes_next_tick = true;
 }
 
 const MIN_LANDMARK_INCOMING: usize = 3;
 const ROUTING_TIMEOUT_AFTER_CHANGE: u16 = 15;
 
 pub fn tick(lane: &mut Lane) {
-    if let Some(as_destination) = lane.pathfinding_info.as_destination {
+    if let Some(as_destination) = lane.pathfinding.as_destination {
         for successor in successors(lane) {
             successor <<
             JoinLandmark {
@@ -95,11 +95,11 @@ pub fn tick(lane: &mut Lane) {
                     landmark: as_destination.landmark,
                     node: successor,
                 },
-                hops_from_landmark: lane.pathfinding_info.hops_from_landmark + 1,
+                hops_from_landmark: lane.pathfinding.hops_from_landmark + 1,
             }
         }
     } else if !lane.on_intersection && predecessors(lane).count() >= MIN_LANDMARK_INCOMING {
-        lane.pathfinding_info = PathfindingInfo {
+        lane.pathfinding = PathfindingInfo {
             as_destination: Some(Destination::landmark(lane.id())),
             hops_from_landmark: 0,
             learned_landmark_from: Some(lane.id()),
@@ -111,10 +111,10 @@ pub fn tick(lane: &mut Lane) {
         }
     }
 
-    if lane.pathfinding_info.routing_timeout > 0 {
-        lane.pathfinding_info.routing_timeout -= 1;
+    if lane.pathfinding.routing_timeout > 0 {
+        lane.pathfinding.routing_timeout -= 1;
     } else {
-        if lane.pathfinding_info.query_routes_next_tick {
+        if lane.pathfinding.query_routes_next_tick {
             for successor in successors(lane) {
                 successor <<
                 QueryRoutes {
@@ -122,26 +122,26 @@ pub fn tick(lane: &mut Lane) {
                     is_transfer: false,
                 };
             }
-            lane.pathfinding_info.query_routes_next_tick = false;
+            lane.pathfinding.query_routes_next_tick = false;
         }
 
-        if !lane.pathfinding_info.tell_to_forget_next_tick.is_empty() {
+        if !lane.pathfinding.tell_to_forget_next_tick.is_empty() {
             for (_, predecessor, _) in predecessors(lane) {
                 predecessor <<
                 ForgetRoutes {
-                    forget: lane.pathfinding_info.tell_to_forget_next_tick.clone(),
+                    forget: lane.pathfinding.tell_to_forget_next_tick.clone(),
                     from: lane.id(),
                 }
             }
-            lane.pathfinding_info.tell_to_forget_next_tick.clear();
+            lane.pathfinding.tell_to_forget_next_tick.clear();
         }
 
-        if lane.pathfinding_info.routes_changed {
+        if lane.pathfinding.routes_changed {
             for (_, predecessor, is_transfer) in predecessors(lane) {
-                let self_cost = if is_transfer { 0.0 } else { lane.length };
+                let self_cost = if is_transfer { 0.0 } else { lane.construction.length };
                 predecessor <<
                 ShareRoutes {
-                    new_routes: lane.pathfinding_info
+                    new_routes: lane.pathfinding
                         .routes
                         .pairs()
                         .filter_map(|(&destination,
@@ -157,7 +157,7 @@ pub fn tick(lane: &mut Lane) {
                         .chain(if lane.on_intersection {
                             None
                         } else {
-                            lane.pathfinding_info
+                            lane.pathfinding
                                 .as_destination
                                 .map(|destination| (destination, (self_cost, 0)))
                         })
@@ -165,10 +165,10 @@ pub fn tick(lane: &mut Lane) {
                     from: lane.id(),
                 };
             }
-            for routing_info in lane.pathfinding_info.routes.values_mut() {
+            for routing_info in lane.pathfinding.routes.values_mut() {
                 routing_info.fresh = false;
             }
-            lane.pathfinding_info.routes_changed = false;
+            lane.pathfinding.routes_changed = false;
         }
     }
 }
@@ -210,7 +210,7 @@ impl Recipient<JoinLandmark> for Lane {
     fn receive(&mut self, msg: &JoinLandmark) -> Fate {
         match *msg {
             JoinLandmark { join_as, hops_from_landmark, from } => {
-                let join = self.pathfinding_info
+                let join = self.pathfinding
                     .as_destination
                     .map(|self_destination| {
                         join_as != self_destination &&
@@ -218,8 +218,8 @@ impl Recipient<JoinLandmark> for Lane {
                             hops_from_landmark < IDEAL_LANDMARK_RADIUS &&
                             join_as.landmark.sub_actor_id < self.id().sub_actor_id
                         } else {
-                            hops_from_landmark < self.pathfinding_info.hops_from_landmark ||
-                            self.pathfinding_info
+                            hops_from_landmark < self.pathfinding.hops_from_landmark ||
+                            self.pathfinding
                                 .learned_landmark_from
                                 .map(|learned_from| learned_from == from)
                                 .unwrap_or(false)
@@ -227,18 +227,18 @@ impl Recipient<JoinLandmark> for Lane {
                     })
                     .unwrap_or(true);
                 if join {
-                    self.pathfinding_info = PathfindingInfo {
+                    self.pathfinding = PathfindingInfo {
                         as_destination: Some(join_as),
                         learned_landmark_from: Some(from),
                         hops_from_landmark: hops_from_landmark,
                         routes: CDict::new(),
                         routes_changed: true,
                         query_routes_next_tick: true,
-                        tell_to_forget_next_tick: self.pathfinding_info
+                        tell_to_forget_next_tick: self.pathfinding
                             .routes
                             .keys()
                             .cloned()
-                            .chain(self.pathfinding_info.as_destination.into_iter())
+                            .chain(self.pathfinding.as_destination.into_iter())
                             .collect(),
                         routing_timeout: ROUTING_TIMEOUT_AFTER_CHANGE,
                     };
@@ -278,10 +278,10 @@ impl Recipient<QueryRoutes> for Lane {
     fn receive(&mut self, msg: &QueryRoutes) -> Fate {
         match *msg {
             QueryRoutes { requester, is_transfer } => {
-                let self_cost = if is_transfer { 0.0 } else { self.length };
+                let self_cost = if is_transfer { 0.0 } else { self.construction.length };
                 requester <<
                 ShareRoutes {
-                    new_routes: self.pathfinding_info
+                    new_routes: self.pathfinding
                         .routes
                         .pairs()
                         .map(|(&destination, &RoutingInfo { distance, distance_hops, .. })| {
@@ -290,7 +290,7 @@ impl Recipient<QueryRoutes> for Lane {
                         .chain(if self.on_intersection {
                             None
                         } else {
-                            self.pathfinding_info
+                            self.pathfinding
                                 .as_destination
                                 .map(|destination| (destination, (self_cost, 0)))
                         })
@@ -335,17 +335,17 @@ impl Recipient<ShareRoutes> for Lane {
                     for (&destination, &(new_distance, new_distance_hops)) in new_routes.pairs() {
                         if destination.is_landmark() ||
                            new_distance_hops <= IDEAL_LANDMARK_RADIUS ||
-                           self.pathfinding_info
+                           self.pathfinding
                             .as_destination
                             .map(|self_dest| self_dest.landmark == destination.landmark)
                             .unwrap_or(false) {
-                            let insert = self.pathfinding_info
+                            let insert = self.pathfinding
                                 .routes
                                 .get_mru(destination)
                                 .map(|&RoutingInfo { distance, .. }| new_distance < distance)
                                 .unwrap_or(true);
                             if insert {
-                                self.pathfinding_info
+                                self.pathfinding
                                     .routes
                                     .insert(destination,
                                             RoutingInfo {
@@ -355,7 +355,7 @@ impl Recipient<ShareRoutes> for Lane {
                                                 learned_from: from,
                                                 fresh: true,
                                             });
-                                self.pathfinding_info.routes_changed = true;
+                                self.pathfinding.routes_changed = true;
                             }
                         }
                     }
@@ -410,13 +410,13 @@ impl Recipient<ForgetRoutes> for Lane {
                 let mut forgotten = CVec::<Destination>::new();
                 for destination_to_forget in forget.iter() {
                     let forget = if let Some(routing_info) =
-                        self.pathfinding_info.routes.get(*destination_to_forget) {
+                        self.pathfinding.routes.get(*destination_to_forget) {
                         routing_info.learned_from == from
                     } else {
                         false
                     };
                     if forget {
-                        self.pathfinding_info.routes.remove(*destination_to_forget);
+                        self.pathfinding.routes.remove(*destination_to_forget);
                         if destination_to_forget.is_landmark() {
                             self.cars.retain(|car| {
                                 car.destination.landmark != destination_to_forget.landmark
@@ -427,7 +427,7 @@ impl Recipient<ForgetRoutes> for Lane {
                         forgotten.push(*destination_to_forget);
                     }
                 }
-                self.pathfinding_info.tell_to_forget_next_tick = forgotten;
+                self.pathfinding.tell_to_forget_next_tick = forgotten;
                 Fate::Live
             }
         }
@@ -466,7 +466,7 @@ impl Recipient<QueryAsDestination> for Lane {
                 requester <<
                 TellAsDestination {
                     id: self.id(),
-                    as_destination: self.pathfinding_info.as_destination,
+                    as_destination: self.pathfinding.as_destination,
                 };
                 Fate::Live
             }

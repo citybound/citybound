@@ -13,6 +13,27 @@ use super::connectivity::{Interaction, InteractionKind, OverlapKind};
 pub mod materialized_reality;
 use self::materialized_reality::BuildableRef;
 
+#[derive(Compact, Clone)]
+pub struct ConstructionInfo {
+    pub length: f32,
+    pub path: CPath,
+    pub progress: f32,
+    unbuilding_for: Option<ID>,
+    disconnects_remaining: u8,
+}
+
+impl ConstructionInfo {
+    pub fn from_path(path: CPath) -> Self {
+        ConstructionInfo {
+            length: path.length(),
+            path: path,
+            progress: 0.0,
+            unbuilding_for: None,
+            disconnects_remaining: 0,
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct AdvertiseToTransferAndReport(pub ID, pub BuildableRef);
 
@@ -25,15 +46,15 @@ impl Recipient<AdvertiseToTransferAndReport> for Lane {
                 Swarm::<Lane>::all() <<
                 Connect {
                     other_id: self.id(),
-                    other_start: self.path.start(),
-                    other_end: self.path.end(),
-                    other_length: self.path.length(),
+                    other_start: self.construction.path.start(),
+                    other_end: self.construction.path.end(),
+                    other_length: self.construction.path.length(),
                     reply_needed: true,
                 };
                 Swarm::<TransferLane>::all() <<
                 ConnectTransferToNormal {
                     other_id: self.id(),
-                    other_path: self.path.clone(),
+                    other_path: self.construction.path.clone(),
                 };
                 report_to << ReportLaneBuilt(self.id(), report_as);
                 super::rendering::on_build(self);
@@ -70,7 +91,7 @@ impl Recipient<AdvertiseForOverlaps> for Lane {
                     lane <<
                     ConnectOverlaps {
                         other_id: self.id(),
-                        other_path: self.path.clone(),
+                        other_path: self.construction.path.clone(),
                         reply_needed: true,
                     };
                 }
@@ -102,7 +123,7 @@ impl Recipient<Connect> for Lane {
 
                 let mut connected = false;
 
-                if other_start.is_roughly_within(self.path.end(), CONNECTION_TOLERANCE) {
+                if other_start.is_roughly_within(self.construction.path.end(), CONNECTION_TOLERANCE) {
                     connected = true;
 
                     if !self.interactions.iter().any(|interaction| match *interaction {
@@ -113,7 +134,7 @@ impl Recipient<Connect> for Lane {
                     }) {
                         self.interactions.push(Interaction {
                             partner_lane: other_id,
-                            start: self.length,
+                            start: self.construction.length,
                             partner_start: 0.0,
                             kind: InteractionKind::Next { green: false },
                         });
@@ -122,7 +143,7 @@ impl Recipient<Connect> for Lane {
                     super::pathfinding::on_connect(self);
                 }
 
-                if other_end.is_roughly_within(self.path.start(), CONNECTION_TOLERANCE) {
+                if other_end.is_roughly_within(self.construction.path.start(), CONNECTION_TOLERANCE) {
                     connected = true;
 
                     if !self.interactions.iter().any(|interaction| match *interaction {
@@ -146,9 +167,9 @@ impl Recipient<Connect> for Lane {
                     other_id <<
                     Connect {
                         other_id: self.id(),
-                        other_start: self.path.start(),
-                        other_end: self.path.end(),
-                        other_length: self.path.length(),
+                        other_start: self.construction.path.start(),
+                        other_end: self.construction.path.end(),
+                        other_length: self.construction.path.length(),
                         reply_needed: false,
                     };
                 }
@@ -184,7 +205,7 @@ impl Recipient<ConnectOverlaps> for Lane {
                     let &(ref self_band, ref self_outline) =
                         memoized_bands_outlines.entry(self.id())
                             .or_insert_with(|| {
-                                let band = Band::new(self.path.clone(), 4.5);
+                                let band = Band::new(self.construction.path.clone(), 4.5);
                                 let outline = band.outline();
                                 (band, outline)
                             }) as &(Band<CPath>, CPath);
@@ -217,19 +238,19 @@ impl Recipient<ConnectOverlaps> for Lane {
                             .outline_distance_to_path_distance(exit_intersection.along_b);
 
                             let overlap_kind = if other_path.direction_along(other_entry_distance)
-                                .is_roughly_within(self.path.direction_along(entry_distance),
+                                .is_roughly_within(self.construction.path.direction_along(entry_distance),
                                                    0.1) ||
                                                   other_path.direction_along(other_exit_distance)
-                                .is_roughly_within(self.path.direction_along(exit_distance), 0.1) {
+                                .is_roughly_within(self.construction.path.direction_along(exit_distance), 0.1) {
                                 // ::core::geometry::add_debug_path(
-                                //     self.path.subsection(entry_distance, exit_distance).unwrap(),
+                                //     self.construction.path.subsection(entry_distance, exit_distance).unwrap(),
                                 //     [1.0, 0.5, 0.0],
                                 //     0.3
                                 // );
                                 OverlapKind::Parallel
                             } else {
                                 // ::core::geometry::add_debug_path(
-                                //     self.path.subsection(entry_distance, exit_distance).unwrap(),
+                                //     self.construction.path.subsection(entry_distance, exit_distance).unwrap(),
                                 //     [1.0, 0.0, 0.0],
                                 //     0.3
                                 // );
@@ -256,7 +277,7 @@ impl Recipient<ConnectOverlaps> for Lane {
                         other_id <<
                         ConnectOverlaps {
                             other_id: self.id(),
-                            other_path: self.path.clone(),
+                            other_path: self.construction.path.clone(),
                             reply_needed: false,
                         };
                     }
@@ -279,7 +300,7 @@ impl Recipient<ConnectToTransfer> for Lane {
                 other_id <<
                 ConnectTransferToNormal {
                     other_id: self.id(),
-                    other_path: self.path.clone(),
+                    other_path: self.construction.path.clone(),
                 };
                 Fate::Live
             }
@@ -298,8 +319,8 @@ impl Recipient<ConnectTransferToNormal> for TransferLane {
     fn receive(&mut self, msg: &ConnectTransferToNormal) -> Fate {
         match *msg {
             ConnectTransferToNormal { other_id, ref other_path } => {
-                let projections = (other_path.project(self.path.start()),
-                                   other_path.project(self.path.end()));
+                let projections = (other_path.project(self.construction.path.start()),
+                                   other_path.project(self.construction.path.end()));
                 if let (Some(self_start_on_other_distance), Some(self_end_on_other_distance)) =
                     projections {
                     if self_start_on_other_distance < self_end_on_other_distance &&
@@ -307,22 +328,22 @@ impl Recipient<ConnectTransferToNormal> for TransferLane {
                         let self_start_on_other = other_path.along(self_start_on_other_distance);
                         let self_end_on_other = other_path.along(self_end_on_other_distance);
 
-                        if self_start_on_other.is_roughly_within(self.path.start(), 3.0) &&
-                           self_end_on_other.is_roughly_within(self.path.end(), 3.0) {
+                        if self_start_on_other.is_roughly_within(self.construction.path.start(), 3.0) &&
+                           self_end_on_other.is_roughly_within(self.construction.path.end(), 3.0) {
                             other_id <<
                             AddTransferLaneInteraction(Interaction {
                                 partner_lane: self.id(),
                                 start: self_start_on_other_distance,
                                 partner_start: 0.0,
                                 kind: InteractionKind::Overlap {
-                                    end: self_start_on_other_distance + self.length,
-                                    partner_end: self.length,
+                                    end: self_start_on_other_distance + self.construction.length,
+                                    partner_end: self.construction.length,
                                     kind: OverlapKind::Transfer,
                                 },
                             });
 
                             let mut distance_covered = 0.0;
-                            let distance_map = self.path
+                            let distance_map = self.construction.path
                                 .segments()
                                 .iter()
                                 .map(|segment| {
@@ -335,8 +356,8 @@ impl Recipient<ConnectTransferToNormal> for TransferLane {
                                 })
                                 .collect();
 
-                            let other_is_right = (self_start_on_other - self.path.start())
-                                .dot(&self.path.start_direction().orthogonal()) >
+                            let other_is_right = (self_start_on_other - self.construction.path.start())
+                                .dot(&self.construction.path.start_direction().orthogonal()) >
                                                  0.0;
 
                             if other_is_right {
@@ -460,8 +481,8 @@ impl Recipient<Unbuild> for Lane {
                     report_to << ReportLaneUnbuilt(Some(self.id()));
                     Fate::Die
                 } else {
-                    self.disconnects_remaining = disconnects_remaining;
-                    self.unbuilding_for = Some(report_to);
+                    self.construction.disconnects_remaining = disconnects_remaining;
+                    self.construction.unbuilding_for = Some(report_to);
                     Fate::Live
                 }
             }
@@ -484,9 +505,9 @@ impl Recipient<Unbuild> for TransferLane {
                     report_to << ReportLaneUnbuilt(Some(self.id()));
                     Fate::Die
                 } else {
-                    self.disconnects_remaining =
+                    self.construction.disconnects_remaining =
                         self.left.into_iter().chain(self.right).count() as u8;
-                    self.unbuilding_for = Some(report_to);
+                    self.construction.unbuilding_for = Some(report_to);
                     Fate::Live
                 }
             }
@@ -496,9 +517,9 @@ impl Recipient<Unbuild> for TransferLane {
 
 impl Recipient<ConfirmDisconnect> for Lane {
     fn receive(&mut self, _msg: &ConfirmDisconnect) -> Fate {
-        self.disconnects_remaining -= 1;
-        if self.disconnects_remaining == 0 {
-            self.unbuilding_for.expect("should be unbuilding") <<
+        self.construction.disconnects_remaining -= 1;
+        if self.construction.disconnects_remaining == 0 {
+            self.construction.unbuilding_for.expect("should be unbuilding") <<
             ReportLaneUnbuilt(Some(self.id()));
             Fate::Die
         } else {
@@ -509,9 +530,9 @@ impl Recipient<ConfirmDisconnect> for Lane {
 
 impl Recipient<ConfirmDisconnect> for TransferLane {
     fn receive(&mut self, _msg: &ConfirmDisconnect) -> Fate {
-        self.disconnects_remaining -= 1;
-        if self.disconnects_remaining == 0 {
-            self.unbuilding_for.expect("should be unbuilding") <<
+        self.construction.disconnects_remaining -= 1;
+        if self.construction.disconnects_remaining == 0 {
+            self.construction.unbuilding_for.expect("should be unbuilding") <<
             ReportLaneUnbuilt(Some(self.id()));
             Fate::Die
         } else {
