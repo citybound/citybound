@@ -98,7 +98,8 @@ pub fn tick(lane: &mut Lane) {
                 hops_from_landmark: lane.pathfinding.hops_from_landmark + 1,
             }
         }
-    } else if !lane.on_intersection && predecessors(lane).count() >= MIN_LANDMARK_INCOMING {
+    } else if !lane.connectivity.on_intersection &&
+              predecessors(lane).count() >= MIN_LANDMARK_INCOMING {
         lane.pathfinding = PathfindingInfo {
             as_destination: Some(Destination::landmark(lane.id())),
             hops_from_landmark: 0,
@@ -138,7 +139,11 @@ pub fn tick(lane: &mut Lane) {
 
         if lane.pathfinding.routes_changed {
             for (_, predecessor, is_transfer) in predecessors(lane) {
-                let self_cost = if is_transfer { 0.0 } else { lane.construction.length };
+                let self_cost = if is_transfer {
+                    0.0
+                } else {
+                    lane.construction.length
+                };
                 predecessor <<
                 ShareRoutes {
                     new_routes: lane.pathfinding
@@ -154,7 +159,7 @@ pub fn tick(lane: &mut Lane) {
                                 None
                             }
                         })
-                        .chain(if lane.on_intersection {
+                        .chain(if lane.connectivity.on_intersection {
                             None
                         } else {
                             lane.pathfinding
@@ -175,7 +180,7 @@ pub fn tick(lane: &mut Lane) {
 
 #[allow(needless_lifetimes)]
 fn successors<'a>(lane: &'a Lane) -> impl Iterator<Item = ID> + 'a {
-    lane.interactions.iter().filter_map(|interaction| match *interaction {
+    lane.connectivity.interactions.iter().filter_map(|interaction| match *interaction {
         Interaction { partner_lane,
                       kind: InteractionKind::Overlap { kind: OverlapKind::Transfer, .. },
                       .. } |
@@ -186,15 +191,19 @@ fn successors<'a>(lane: &'a Lane) -> impl Iterator<Item = ID> + 'a {
 
 #[allow(needless_lifetimes)]
 fn predecessors<'a>(lane: &'a Lane) -> impl Iterator<Item = (u8, ID, bool)> + 'a {
-    lane.interactions.iter().enumerate().filter_map(|(i, interaction)| match *interaction {
-        Interaction { partner_lane,
+    lane.connectivity
+        .interactions
+        .iter()
+        .enumerate()
+        .filter_map(|(i, interaction)| match *interaction {
+            Interaction { partner_lane,
                       kind: InteractionKind::Overlap { kind: OverlapKind::Transfer, .. },
                       .. } => Some((i as u8, partner_lane, true)),
-        Interaction { partner_lane, kind: InteractionKind::Previous { .. }, .. } => {
-            Some((i as u8, partner_lane, false))
-        }
-        _ => None,
-    })
+            Interaction { partner_lane, kind: InteractionKind::Previous { .. }, .. } => {
+                Some((i as u8, partner_lane, false))
+            }
+            _ => None,
+        })
 }
 
 #[derive(Copy, Clone)]
@@ -278,7 +287,11 @@ impl Recipient<QueryRoutes> for Lane {
     fn receive(&mut self, msg: &QueryRoutes) -> Fate {
         match *msg {
             QueryRoutes { requester, is_transfer } => {
-                let self_cost = if is_transfer { 0.0 } else { self.construction.length };
+                let self_cost = if is_transfer {
+                    0.0
+                } else {
+                    self.construction.length
+                };
                 requester <<
                 ShareRoutes {
                     new_routes: self.pathfinding
@@ -287,7 +300,7 @@ impl Recipient<QueryRoutes> for Lane {
                         .map(|(&destination, &RoutingInfo { distance, distance_hops, .. })| {
                             (destination, (distance + self_cost, distance_hops + 1))
                         })
-                        .chain(if self.on_intersection {
+                        .chain(if self.connectivity.on_intersection {
                             None
                         } else {
                             self.pathfinding
@@ -329,7 +342,8 @@ impl Recipient<ShareRoutes> for Lane {
         match *msg {
             ShareRoutes { ref new_routes, from } => {
                 if let Some(from_interaction_idx) =
-                    self.interactions
+                    self.connectivity
+                        .interactions
                         .iter()
                         .position(|interaction| interaction.partner_lane == from) {
                     for (&destination, &(new_distance, new_distance_hops)) in new_routes.pairs() {
@@ -381,7 +395,7 @@ impl Recipient<ShareRoutes> for TransferLane {
                         .map(|(&destination, &(distance, hops))| {
                             (destination,
                              (distance +
-                              if from == self.left.expect("should have left").0 {
+                              if from == self.connectivity.left.expect("should have left").0 {
                                   LANE_CHANGE_COST_RIGHT
                               } else {
                                   LANE_CHANGE_COST_LEFT

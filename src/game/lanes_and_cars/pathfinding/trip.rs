@@ -124,7 +124,7 @@ impl Recipient<Event3d> for Lane {
                 Fate::Live
             }
             Event3d::DragFinished { .. } => {
-                if !self.on_intersection {
+                if !self.connectivity.on_intersection {
                     TripCreator::id() << AddLaneForTrip(self.id());
                 }
                 Fate::Live

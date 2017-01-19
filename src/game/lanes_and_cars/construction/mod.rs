@@ -126,13 +126,13 @@ impl Recipient<Connect> for Lane {
                 if other_start.is_roughly_within(self.construction.path.end(), CONNECTION_TOLERANCE) {
                     connected = true;
 
-                    if !self.interactions.iter().any(|interaction| match *interaction {
+                    if !self.connectivity.interactions.iter().any(|interaction| match *interaction {
                         Interaction { partner_lane, kind: InteractionKind::Next { .. }, .. } => {
                             partner_lane == other_id
                         }
                         _ => false,
                     }) {
-                        self.interactions.push(Interaction {
+                        self.connectivity.interactions.push(Interaction {
                             partner_lane: other_id,
                             start: self.construction.length,
                             partner_start: 0.0,
@@ -146,13 +146,13 @@ impl Recipient<Connect> for Lane {
                 if other_end.is_roughly_within(self.construction.path.start(), CONNECTION_TOLERANCE) {
                     connected = true;
 
-                    if !self.interactions.iter().any(|interaction| match *interaction {
+                    if !self.connectivity.interactions.iter().any(|interaction| match *interaction {
                         Interaction { partner_lane,
                                       kind: InteractionKind::Previous { .. },
                                       .. } => partner_lane == other_id,
                         _ => false,
                     }) {
-                        self.interactions.push(Interaction {
+                        self.connectivity.interactions.push(Interaction {
                             partner_lane: other_id,
                             start: 0.0,
                             partner_start: other_length,
@@ -257,7 +257,7 @@ impl Recipient<ConnectOverlaps> for Lane {
                                 OverlapKind::Conflicting
                             };
 
-                            self.interactions.push(Interaction {
+                            self.connectivity.interactions.push(Interaction {
                                 partner_lane: other_id,
                                 start: entry_distance,
                                 partner_start: other_entry_distance.min(other_exit_distance),
@@ -361,11 +361,11 @@ impl Recipient<ConnectTransferToNormal> for TransferLane {
                                                  0.0;
 
                             if other_is_right {
-                                self.right = Some((other_id, self_start_on_other_distance));
-                                self.right_distance_map = distance_map;
+                                self.connectivity.right = Some((other_id, self_start_on_other_distance));
+                                self.connectivity.right_distance_map = distance_map;
                             } else {
-                                self.left = Some((other_id, self_start_on_other_distance));
-                                self.left_distance_map = distance_map;
+                                self.connectivity.left = Some((other_id, self_start_on_other_distance));
+                                self.connectivity.left_distance_map = distance_map;
                             }
                         }
                     }
@@ -383,10 +383,11 @@ impl Recipient<AddTransferLaneInteraction> for Lane {
     fn receive(&mut self, msg: &AddTransferLaneInteraction) -> Fate {
         match *msg {
             AddTransferLaneInteraction(interaction) => {
-                if !self.interactions
+                if !self.connectivity
+                    .interactions
                     .iter()
                     .any(|existing| existing.partner_lane == interaction.partner_lane) {
-                    self.interactions.push(interaction);
+                    self.connectivity.interactions.push(interaction);
                     super::pathfinding::on_connect(self);
                 }
                 Fate::Live
@@ -406,7 +407,8 @@ impl Recipient<Disconnect> for Lane {
     fn receive(&mut self, msg: &Disconnect) -> Fate {
         match *msg {
             Disconnect { other_id } => {
-                let interaction_indices_to_remove = self.interactions
+                let interaction_indices_to_remove = self.connectivity
+                    .interactions
                     .iter()
                     .enumerate()
                     .filter_map(|(i, interaction)| if interaction.partner_lane == other_id {
@@ -421,7 +423,7 @@ impl Recipient<Disconnect> for Lane {
                 });
                 self.obstacles.retain(|&(_obstacle, from_id)| from_id != other_id);
                 for idx in interaction_indices_to_remove.into_iter().rev() {
-                    self.interactions.remove(idx);
+                    self.connectivity.interactions.remove(idx);
                 }
                 super::pathfinding::on_disconnect(self, other_id);
                 other_id << ConfirmDisconnect;
@@ -435,12 +437,15 @@ impl Recipient<Disconnect> for TransferLane {
     fn receive(&mut self, msg: &Disconnect) -> Fate {
         match *msg {
             Disconnect { other_id } => {
-                self.left = self.left.and_then(|(left_id, left_start)| if left_id == other_id {
-                    None
-                } else {
-                    Some((left_id, left_start))
-                });
-                self.right = self.right
+                self.connectivity.left = self.connectivity
+                    .left
+                    .and_then(|(left_id, left_start)| if left_id == other_id {
+                        None
+                    } else {
+                        Some((left_id, left_start))
+                    });
+                self.connectivity.right = self.connectivity
+                    .right
                     .and_then(|(right_id, right_start)| if right_id == other_id {
                         None
                     } else {
@@ -464,7 +469,8 @@ impl Recipient<Unbuild> for Lane {
         match *msg {
             Unbuild { report_to } => {
                 let mut disconnects_remaining = 0;
-                for id in self.interactions
+                for id in self.connectivity
+                    .interactions
                     .iter()
                     .map(|interaction| interaction.partner_lane)
                     .unique() {
@@ -494,19 +500,23 @@ impl Recipient<Unbuild> for TransferLane {
     fn receive(&mut self, msg: &Unbuild) -> Fate {
         match *msg {
             Unbuild { report_to } => {
-                if let Some((left_id, _)) = self.left {
+                if let Some((left_id, _)) = self.connectivity.left {
                     left_id << Disconnect { other_id: self.id() };
                 }
-                if let Some((right_id, _)) = self.right {
+                if let Some((right_id, _)) = self.connectivity.right {
                     right_id << Disconnect { other_id: self.id() };
                 }
                 super::rendering::on_unbuild_transfer(self);
-                if self.left.is_none() && self.right.is_none() {
+                if self.connectivity.left.is_none() && self.connectivity.right.is_none() {
                     report_to << ReportLaneUnbuilt(Some(self.id()));
                     Fate::Die
                 } else {
-                    self.construction.disconnects_remaining =
-                        self.left.into_iter().chain(self.right).count() as u8;
+                    self.construction.disconnects_remaining = self.connectivity
+                        .left
+                        .into_iter()
+                        .chain(self.connectivity.right)
+                        .count() as
+                                                              u8;
                     self.construction.unbuilding_for = Some(report_to);
                     Fate::Live
                 }

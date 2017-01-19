@@ -4,23 +4,23 @@ use kay::swarm::Swarm;
 use descartes::{N, FiniteCurve};
 use ::core::geometry::CPath;
 
-use super::connectivity::Interaction;
 use super::microtraffic::{Obstacle, LaneCar, TransferringLaneCar};
 use super::construction::ConstructionInfo;
+use super::connectivity::{ConnectivityInfo, TransferConnectivityInfo};
+use super::pathfinding::PathfindingInfo;
 
 #[derive(Compact, SubActor, Clone)]
 pub struct Lane {
     _id: Option<ID>,
     pub construction: ConstructionInfo,
-    pub interactions: CVec<Interaction>,
+    pub connectivity: ConnectivityInfo,
     pub obstacles: CVec<(Obstacle, ID)>,
     pub cars: CVec<LaneCar>,
-    pub on_intersection: bool,
     pub timings: CVec<bool>,
     pub green: bool,
     pub yellow_to_green: bool,
     pub yellow_to_red: bool,
-    pub pathfinding: super::pathfinding::PathfindingInfo,
+    pub pathfinding: PathfindingInfo,
     pub hovered: bool,
     pub last_spawn_position: N,
 }
@@ -31,15 +31,14 @@ impl Lane {
             _id: None,
             last_spawn_position: path.length() / 2.0,
             construction: ConstructionInfo::from_path(path),
-            interactions: CVec::new(),
+            connectivity: ConnectivityInfo::new(on_intersection),
             obstacles: CVec::new(),
             cars: CVec::new(),
-            on_intersection: on_intersection,
             timings: timings,
             green: false,
             yellow_to_green: false,
             yellow_to_red: false,
-            pathfinding: super::pathfinding::PathfindingInfo::default(),
+            pathfinding: PathfindingInfo::default(),
             hovered: false,
         }
     }
@@ -48,13 +47,10 @@ impl Lane {
 #[derive(Compact, SubActor, Clone)]
 pub struct TransferLane {
     _id: Option<ID>,
-    pub construction: super::construction::ConstructionInfo,
-    pub left: Option<(ID, f32)>,
-    pub right: Option<(ID, f32)>,
+    pub construction: ConstructionInfo,
+    pub connectivity: TransferConnectivityInfo,
     pub left_obstacles: CVec<Obstacle>,
     pub right_obstacles: CVec<Obstacle>,
-    pub left_distance_map: CVec<(N, N)>,
-    pub right_distance_map: CVec<(N, N)>,
     pub cars: CVec<TransferringLaneCar>,
 }
 
@@ -63,21 +59,18 @@ impl TransferLane {
         TransferLane {
             _id: None,
             construction: ConstructionInfo::from_path(path),
-            left: None,
-            right: None,
+            connectivity: TransferConnectivityInfo::default(),
             left_obstacles: CVec::new(),
             right_obstacles: CVec::new(),
-            left_distance_map: CVec::new(),
-            right_distance_map: CVec::new(),
             cars: CVec::new(),
         }
     }
 
     pub fn other_side(&self, side: ID) -> ID {
-        if side == self.left.expect("should have a left lane").0 {
-            self.right.expect("should have a right lane").0
+        if side == self.connectivity.left.expect("should have a left lane").0 {
+            self.connectivity.right.expect("should have a right lane").0
         } else {
-            self.left.expect("should have a left lane").0
+            self.connectivity.left.expect("should have a left lane").0
         }
     }
 
@@ -86,9 +79,9 @@ impl TransferLane {
                                       came_from_left: bool)
                                       -> N {
         let map = if came_from_left {
-            &self.left_distance_map
+            &self.connectivity.left_distance_map
         } else {
-            &self.right_distance_map
+            &self.connectivity.right_distance_map
         };
         #[allow(needless_range_loop)]
         for i in 0..map.len() {
@@ -106,9 +99,9 @@ impl TransferLane {
 
     pub fn self_to_interaction_offset(&self, distance_on_self: N, going_to_left: bool) -> N {
         let map = if going_to_left {
-            &self.left_distance_map
+            &self.connectivity.left_distance_map
         } else {
-            &self.right_distance_map
+            &self.connectivity.right_distance_map
         };
         #[allow(needless_range_loop)]
         for i in 0..map.len() {

@@ -180,7 +180,7 @@ impl Recipient<AddCar> for TransferLane {
     fn receive(&mut self, msg: &AddCar) -> Fate {
         match *msg {
             AddCar { car, from: Some(from) } => {
-                let from_left = from == self.left.expect("should have a left lane").0;
+                let from_left = from == self.connectivity.left.expect("should have a left lane").0;
                 let side_multiplier = if from_left { -1.0 } else { 1.0 };
                 let offset = self.interaction_to_self_offset(*car.position, from_left);
                 self.cars.push(TransferringLaneCar {
@@ -217,7 +217,8 @@ impl Recipient<AddObstacles> for TransferLane {
     fn receive(&mut self, msg: &AddObstacles) -> Fate {
         match *msg {
             AddObstacles { ref obstacles, from } => {
-                if let (Some((left_id, _)), Some(_)) = (self.left, self.right) {
+                if let (Some((left_id, _)), Some(_)) =
+                    (self.connectivity.left, self.connectivity.right) {
                     if left_id == from {
                         self.left_obstacles = obstacles.iter()
                             .map(|obstacle| {
@@ -283,7 +284,7 @@ impl Recipient<Tick> for Lane {
 
                 // TODO: this is just a hacky way to update new lanes about existing lane's green
                 if old_green != self.green || do_traffic {
-                    for interaction in &self.interactions {
+                    for interaction in &self.connectivity.interactions {
                         if let Interaction { kind: InteractionKind::Previous { .. },
                                              partner_lane,
                                              .. } = *interaction {
@@ -335,7 +336,7 @@ impl Recipient<Tick> for Lane {
                         car.acceleration = next_car_acceleration.min(next_obstacle_acceleration);
 
                         if let Interaction { start, kind: InteractionKind::Next { green }, .. } =
-                            self.interactions[car.next_hop_interaction as usize] {
+                            self.connectivity.interactions[car.next_hop_interaction as usize] {
                             if !green {
                                 car.acceleration = car.acceleration
                                     .min(intelligent_acceleration(car,
@@ -374,7 +375,7 @@ impl Recipient<Tick> for Lane {
                         .enumerate()
                         .rev()
                         .filter_map(|(i, &car)| {
-                            let interaction = self.interactions[car.next_hop_interaction as usize];
+                            let interaction = self.connectivity.interactions[car.next_hop_interaction as usize];
 
                             match interaction.kind {
                                 InteractionKind::Overlap { end,
@@ -420,7 +421,7 @@ impl Recipient<Tick> for Lane {
                 }
 
                 // ASSUMPTION: only one interaction per Lane/Lane pair
-                for interaction in self.interactions.iter() {
+                for interaction in self.connectivity.interactions.iter() {
                     let cars = self.cars.iter();
 
                     if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
@@ -611,7 +612,7 @@ impl Recipient<Tick> for TransferLane {
                 }
 
                 if let (Some((left, left_start)), Some((right, right_start))) =
-                    (self.left, self.right) {
+                    (self.connectivity.left, self.connectivity.right) {
                     let mut i = 0;
                     loop {
                         let (should_remove, done) = if let Some(car) = self.cars.get(i) {
@@ -697,12 +698,15 @@ impl Recipient<SignalChanged> for Lane {
         match *msg {
             SignalChanged { from, green } => {
                 if let Some(interaction) =
-                    self.interactions.iter_mut().find(|interaction| match **interaction {
-                        Interaction { partner_lane, kind: InteractionKind::Next { .. }, .. } => {
-                            partner_lane == from
-                        }
-                        _ => false,
-                    }) {
+                    self.connectivity
+                        .interactions
+                        .iter_mut()
+                        .find(|interaction| match **interaction {
+                            Interaction { partner_lane,
+                                          kind: InteractionKind::Next { .. },
+                                          .. } => partner_lane == from,
+                            _ => false,
+                        }) {
                     interaction.kind = InteractionKind::Next { green: green }
                 } else {
                     println!("Lane doesn't know about next lane yet");
