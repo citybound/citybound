@@ -1,3 +1,12 @@
+//! `Kay` is a high-performance actor system, suitable for simulating millions of entities.
+//!
+//! In `Kay`, actors concurrently send and receive asynchronous messages, but are
+//! otherwise completely isloated from each other. Actors can only mutate their own state.
+//!
+//! Have a look at [`Actor`](trait.Actor.html), [`Recipient`](trait.Recipient.html)
+//! and [`Swarm`](struct.Swarm.html) to understand the main abstractions.
+
+#![warn(missing_docs)]
 #![feature(plugin)]
 #![plugin(clippy)]
 #![feature(core_intrinsics)]

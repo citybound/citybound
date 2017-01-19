@@ -1,3 +1,5 @@
+//! Automatic `#[derive(SubActor)]` macro for structs which have an `_id: ID` field.
+
 #![recursion_limit="100"]
 
 extern crate proc_macro;

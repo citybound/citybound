@@ -23,9 +23,6 @@ impl Deref for ShortTypeId {
     }
 }
 
-/// Provides lookups between:
-/// 1. Rust `TypeId`s (long IDs) and sequential, internal type IDs (short IDs)
-/// 2. sequential, internal type IDs (short IDs) to the human readable name of the type
 pub struct TypeRegistry {
     next_short_id: ShortTypeId,
     long_to_short_ids: HashMap<u64, ShortTypeId>,
@@ -41,7 +38,6 @@ impl TypeRegistry {
         }
     }
 
-    /// register a new type in the registry
     pub fn register_new<T: 'static>(&mut self) -> ShortTypeId {
         let short_id = self.next_short_id;
         let long_id = unsafe { type_id::<T>() };
@@ -52,7 +48,6 @@ impl TypeRegistry {
         short_id
     }
 
-    /// Get the sequential, internal type IDs (short IDs) from a type
     pub fn get<T: 'static>(&self) -> ShortTypeId {
         if let Some(&short_id) = self.long_to_short_ids.get(&unsafe { type_id::<T>() }) {
             short_id
@@ -68,7 +63,6 @@ impl TypeRegistry {
             .unwrap_or_else(|| self.register_new::<T>())
     }
 
-    /// Get the human readable type name from the sequential, internal type IDs (short IDs)
     pub fn get_name(&self, short_id: ShortTypeId) -> &String {
         &self.short_ids_to_names[&short_id]
     }
