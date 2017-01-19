@@ -1,3 +1,5 @@
+//! Automatic `#[derive(SubActor)]` macro for structs which have an `_id: ID` field.
+
 #![recursion_limit="100"]
 
 extern crate proc_macro;
@@ -12,7 +14,7 @@ extern crate quote;
 // cargo rustc -- -Z unstable-options --pretty=expanded > output.rs
 //
 
-#[proc_macro_derive(Actor)]
+#[proc_macro_derive(SubActor)]
 pub fn derive_actor(input: TokenStream) -> TokenStream {
     let source = input.to_string();
 
@@ -33,7 +35,7 @@ fn expand_derive_actor(ast: &syn::MacroInput) -> quote::Tokens {
 
     quote! {
         // generated
-        impl #impl_generics ::kay::Actor for #name #ty_generics #where_clause {
+        impl #impl_generics ::kay::swarm::SubActor for #name #ty_generics #where_clause {
             fn id(&self) -> ::kay::ID {
                 self._id.expect("ID not set")
             }

@@ -1,10 +1,11 @@
-use kay::{ID, Recipient, Actor, Individual, Swarm, ActorSystem, Fate, CreateWith};
+use kay::{ID, Recipient, Actor, Fate};
+use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::{Band, P2};
 use ::core::geometry::AnyShape;
 
 use super::{LaneStroke, CurrentPlan};
 
-#[derive(Actor, Compact, Clone)]
+#[derive(SubActor, Compact, Clone)]
 pub struct LaneStrokeAddable {
     _id: Option<ID>,
     stroke: LaneStroke,
@@ -71,8 +72,8 @@ impl Recipient<Event3d> for LaneStrokeAddable {
 }
 
 
-pub fn setup(system: &mut ActorSystem) {
-    system.add_individual(Swarm::<LaneStrokeAddable>::new());
+pub fn setup() {
+    Swarm::<LaneStrokeAddable>::register_default();
     Swarm::<LaneStrokeAddable>::handle::<CreateWith<LaneStrokeAddable, AddToUI>>();
     Swarm::<LaneStrokeAddable>::handle::<ClearDraggables>();
     Swarm::<LaneStrokeAddable>::handle::<Event3d>();

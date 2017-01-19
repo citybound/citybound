@@ -1,7 +1,8 @@
 use descartes::{N, P2, V2, Norm, Segment, FiniteCurve, WithUniqueOrthogonal, Curve,
                 RelativeToBasis, RoughlyComparable, Dot};
 use compact::{CVec, CDict};
-use kay::{Recipient, Swarm, ActorSystem, Individual, Fate, CreateWith};
+use kay::{Recipient, Actor, Fate};
+use kay::swarm::{Swarm, CreateWith};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
@@ -43,7 +44,7 @@ pub struct CurrentPlan {
     current: PlanState,
     preview: PlanState,
 }
-impl Individual for CurrentPlan {}
+impl Actor for CurrentPlan {}
 
 const FINISH_STROKE_TOLERANCE: f32 = 5.0;
 
@@ -1303,8 +1304,8 @@ struct ClearDraggables;
 #[derive(Copy, Clone)]
 struct ClearAddables;
 
-pub fn setup(system: &mut ActorSystem) {
-    system.add_individual(CurrentPlan::default());
+pub fn setup() {
+    CurrentPlan::register_default();
     CurrentPlan::handle::<Commit>();
     CurrentPlan::handle::<Undo>();
     CurrentPlan::handle::<Redo>();
@@ -1320,9 +1321,9 @@ pub fn setup(system: &mut ActorSystem) {
     CurrentPlan::handle::<SetNLanes>();
     CurrentPlan::handle::<ToggleBothSides>();
     CurrentPlan::handle::<SimulationResult>();
-    self::materialized_reality::setup(system);
-    self::lane_stroke_canvas::setup(system);
-    self::lane_stroke_selectable::setup(system);
-    self::lane_stroke_draggable::setup(system);
-    self::lane_stroke_addable::setup(system);
+    self::materialized_reality::setup();
+    self::lane_stroke_canvas::setup();
+    self::lane_stroke_selectable::setup();
+    self::lane_stroke_draggable::setup();
+    self::lane_stroke_addable::setup();
 }

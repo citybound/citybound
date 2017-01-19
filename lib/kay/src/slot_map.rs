@@ -1,16 +1,12 @@
 use super::chunked::{Chunker, ChunkedVec};
 
-/// The index into a `MultiSized<SizedChunkedArena>`
 #[derive(Clone, Copy)]
 pub struct SlotIndices {
-    /// Index of sized bin that contains the item
     bin: u8,
-    /// The slot within those chunks holding the data
     slot: u32,
 }
 
 impl SlotIndices {
-    /// Create a new indices
     pub fn new(bin: usize, slot: usize) -> SlotIndices {
         SlotIndices {
             bin: bin as u8,
@@ -18,7 +14,6 @@ impl SlotIndices {
         }
     }
 
-    /// Create a new, invalid indices
     pub fn invalid() -> SlotIndices {
         SlotIndices {
             bin: u8::max_value(),
@@ -35,7 +30,6 @@ impl SlotIndices {
     }
 }
 
-/// Allows the lockup of the indices by an actor's ID
 pub struct SlotMap {
     entries: ChunkedVec<SlotIndices>,
     free_ids_with_versions: ChunkedVec<(usize, usize)>,
@@ -44,7 +38,6 @@ pub struct SlotMap {
 use random::Source;
 
 impl SlotMap {
-    /// Create a new `SlotMap`
     pub fn new(chunker: Box<Chunker>) -> Self {
         SlotMap {
             entries: ChunkedVec::new(chunker.child("_entries")),
@@ -52,7 +45,6 @@ impl SlotMap {
         }
     }
 
-    /// Allocate a ID either by allocating a new entry or using an existing, free one
     pub fn allocate_id(&mut self) -> (usize, usize) {
         match self.free_ids_with_versions.pop() {
             None => {
@@ -63,18 +55,15 @@ impl SlotMap {
         }
     }
 
-    /// Set the indices at the ID
     pub fn associate(&mut self, id: usize, new_entry: SlotIndices) {
         let entry = self.entries.at_mut(id);
         entry.clone_from(&new_entry);
     }
 
-    /// Lookup the indices at the ID
     pub fn indices_of(&self, id: usize) -> &SlotIndices {
         self.entries.at(id)
     }
 
-    /// Mark an ID as free for reuse
     pub fn free(&mut self, id: usize, version: usize) {
         self.free_ids_with_versions.push((id, version + 1));
     }
@@ -83,7 +72,6 @@ impl SlotMap {
         self.entries.len()
     }
 
-    /// Get an ID which is currently in use for messages with random recipients
     pub fn random_used(&self) -> usize {
         loop {
             let random_id = ::random::default().read::<usize>() % self.entries.len();

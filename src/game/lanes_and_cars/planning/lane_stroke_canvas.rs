@@ -1,4 +1,5 @@
-use kay::{Swarm, ToRandom, Recipient, ActorSystem, Individual, Fate};
+use kay::{Recipient, Actor, Fate};
+use kay::swarm::{Swarm, ToRandom};
 use descartes::{Into2d, P3};
 use core::geometry::AnyShape;
 use core::ui::{UserInterface, VirtualKeyCode};
@@ -10,7 +11,7 @@ pub struct LaneStrokeCanvas {
     shift_pressed: bool,
 }
 
-impl Individual for LaneStrokeCanvas {}
+impl Actor for LaneStrokeCanvas {}
 
 use core::ui::Event3d;
 use super::{Commit, Undo, Redo, WithLatestNode, Materialize, CreateGrid, DeleteSelection,
@@ -169,8 +170,8 @@ impl Recipient<AddToUI> for LaneStrokeCanvas {
     }
 }
 
-pub fn setup(system: &mut ActorSystem) {
-    system.add_individual(LaneStrokeCanvas {
+pub fn setup() {
+    LaneStrokeCanvas::register_with_state(LaneStrokeCanvas {
         cmd_pressed: false,
         shift_pressed: false,
     });

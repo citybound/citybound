@@ -1,10 +1,11 @@
-use kay::{ID, Recipient, Actor, Individual, Swarm, ActorSystem, Fate, CreateWith};
+use kay::{ID, Recipient, Actor, Fate};
+use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::{Band, Curve, Into2d, FiniteCurve, Path};
 use ::core::geometry::{CPath, AnyShape};
 
 use super::{SelectableStrokeRef, CurrentPlan};
 
-#[derive(Actor, Compact, Clone)]
+#[derive(SubActor, Compact, Clone)]
 pub struct LaneStrokeSelectable {
     _id: Option<ID>,
     stroke_ref: SelectableStrokeRef,
@@ -106,8 +107,8 @@ impl Recipient<Event3d> for LaneStrokeSelectable {
 }
 
 
-pub fn setup(system: &mut ActorSystem) {
-    system.add_individual(Swarm::<LaneStrokeSelectable>::new());
+pub fn setup() {
+    Swarm::<LaneStrokeSelectable>::register_default();
     Swarm::<LaneStrokeSelectable>::handle::<CreateWith<LaneStrokeSelectable, AddToUI>>();
     Swarm::<LaneStrokeSelectable>::handle::<ClearSelectables>();
     Swarm::<LaneStrokeSelectable>::handle::<Event3d>();

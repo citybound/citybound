@@ -1,6 +1,6 @@
 use descartes::{Path, Band, Segment, P2, N, FiniteCurve, WithUniqueOrthogonal};
 use compact::{CVec, Compact};
-use kay::Individual;
+use kay::Actor;
 use monet::{Thing, Vertex, Renderer, UpdateThing, Instance};
 
 #[derive(Compact, Clone)]

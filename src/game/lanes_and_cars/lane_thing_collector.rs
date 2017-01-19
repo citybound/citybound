@@ -1,6 +1,6 @@
 use monet::{Thing, Instance};
 use compact::CDict;
-use kay::{ID, Individual, Recipient, ActorSystem, Fate};
+use kay::{ID, Actor, Recipient, Fate};
 use ::std::marker::PhantomData;
 use itertools::Itertools;
 
@@ -24,7 +24,7 @@ pub struct ThingCollector<T: Clone> {
     _marker: PhantomData<*const T>,
 }
 
-impl<T: 'static + Clone> Individual for ThingCollector<T> {}
+impl<T: 'static + Clone> Actor for ThingCollector<T> {}
 
 use ::monet::SetupInScene;
 
@@ -176,11 +176,8 @@ impl<T: Clone + 'static> Recipient<RenderToScene> for ThingCollector<T> {
     }
 }
 
-pub fn setup<T: Clone + 'static>(system: &mut ActorSystem,
-                                 instance_color: [f32; 3],
-                                 base_thing_id: u16,
-                                 is_decal: bool) {
-    system.add_individual(ThingCollector::<T> {
+pub fn setup<T: Clone + 'static>(instance_color: [f32; 3], base_thing_id: u16, is_decal: bool) {
+    ThingCollector::register_with_state(ThingCollector::<T> {
         instance_color: instance_color,
         base_thing_id: base_thing_id,
         is_decal: is_decal,

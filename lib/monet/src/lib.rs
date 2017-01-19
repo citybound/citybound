@@ -15,7 +15,7 @@ extern crate unicode_normalization;
 #[macro_use]
 extern crate lazy_static;
 
-use kay::{ActorSystem, Individual};
+use kay::Actor;
 
 mod geometry;
 mod renderer;
@@ -36,8 +36,8 @@ pub use thing::Thing;
 pub use text::{TextRenderer, TextVertex, Font, FontBank, RichText, FontDescription, Formatting,
                Glyph, GlyphIter};
 
-pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
-    system.add_individual(renderer);
+pub fn setup(renderer: Renderer) {
+    Renderer::register_with_state(renderer);
     Renderer::handle_critically::<Control>();
     Renderer::handle_critically::<AddBatch>();
     Renderer::handle_critically::<AddInstance>();

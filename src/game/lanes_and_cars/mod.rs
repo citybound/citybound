@@ -6,7 +6,8 @@ mod intelligent_acceleration;
 use self::intelligent_acceleration::intelligent_acceleration;
 use core::geometry::CPath;
 use compact::CVec;
-use kay::{ID, Actor, Swarm, CreateWith, Recipient, ActorSystem, Individual, Fate};
+use kay::{ID, Recipient, Actor, Fate};
+use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::{N, P2, FiniteCurve, RoughlyComparable, Band, Intersect, Curve, Dot,
                 WithUniqueOrthogonal, Path};
 use ordered_float::OrderedFloat;
@@ -14,7 +15,7 @@ use itertools::Itertools;
 use ::std::f32::INFINITY;
 use ::std::ops::{Deref, DerefMut};
 
-#[derive(Compact, Actor, Clone)]
+#[derive(Compact, SubActor, Clone)]
 pub struct Lane {
     _id: Option<ID>,
     length: f32,
@@ -59,7 +60,7 @@ impl Lane {
     }
 }
 
-#[derive(Compact, Actor, Clone)]
+#[derive(Compact, SubActor, Clone)]
 pub struct TransferLane {
     _id: Option<ID>,
     length: f32,
@@ -312,7 +313,7 @@ impl Recipient<Tick> for Lane {
                 self.in_construction += dt * 400.0;
 
                 let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING ==
-                                 self.id().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
+                                 self.id().sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
                 let old_green = self.green;
                 self.yellow_to_red = if self.timings.is_empty() {
@@ -347,7 +348,7 @@ impl Recipient<Tick> for Lane {
                 }
 
                 if current_tick % PATHFINDING_THROTTLING ==
-                   self.id().instance_id as usize % PATHFINDING_THROTTLING {
+                   self.id().sub_actor_id as usize % PATHFINDING_THROTTLING {
                     self::pathfinding::tick(self);
                 }
 
@@ -474,7 +475,7 @@ impl Recipient<Tick> for Lane {
                     let cars = self.cars.iter();
 
                     if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
-                       interaction.partner_lane.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
+                       interaction.partner_lane.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING {
                         let maybe_obstacles =
                             obstacles_for_interaction(interaction, cars, self.obstacles.iter());
 
@@ -563,7 +564,7 @@ impl Recipient<Tick> for TransferLane {
                 self.in_construction += dt * 400.0;
 
                 let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING ==
-                                 self.id().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
+                                 self.id().sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
                 if do_traffic {
                     // TODO: optimize using BinaryHeap?
@@ -690,7 +691,7 @@ impl Recipient<Tick> for TransferLane {
                     }
 
                     if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
-                       left.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
+                       left.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING {
                         let obstacles = self.cars
                             .iter()
                             .filter_map(|car| if car.transfer_position < 0.3 ||
@@ -710,7 +711,7 @@ impl Recipient<Tick> for TransferLane {
                     }
 
                     if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
-                       right.instance_id as usize % TRAFFIC_LOGIC_THROTTLING {
+                       right.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING {
                         let obstacles = self.cars
                             .iter()
                             .filter_map(|car| if car.transfer_position > -0.3 ||
@@ -1267,8 +1268,8 @@ impl Recipient<ConfirmDisconnect> for TransferLane {
     }
 }
 
-pub fn setup(system: &mut ActorSystem) {
-    system.add_individual(Swarm::<Lane>::new());
+pub fn setup() {
+    Swarm::<Lane>::register_default();
     Swarm::<Lane>::handle::<CreateWith<Lane, AdvertiseToTransferAndReport>>();
     Swarm::<Lane>::handle::<AdvertiseForOverlaps>();
     Swarm::<Lane>::handle::<AddCar>();
@@ -1283,7 +1284,7 @@ pub fn setup(system: &mut ActorSystem) {
     Swarm::<Lane>::handle::<Unbuild>();
     Swarm::<Lane>::handle::<ConfirmDisconnect>();
 
-    system.add_individual(Swarm::<TransferLane>::new());
+    Swarm::<TransferLane>::register_default();
     Swarm::<TransferLane>::handle::<CreateWith<TransferLane, AdvertiseToTransferAndReport>>();
     Swarm::<TransferLane>::handle::<AddCar>();
     Swarm::<TransferLane>::handle::<AddObstacles>();
@@ -1293,7 +1294,7 @@ pub fn setup(system: &mut ActorSystem) {
     Swarm::<TransferLane>::handle::<Unbuild>();
     Swarm::<TransferLane>::handle::<ConfirmDisconnect>();
 
-    self::pathfinding::setup(system);
+    self::pathfinding::setup();
 }
 
 #[derive(Copy, Clone)]

@@ -1,5 +1,6 @@
 use compact::{CDict, CVec};
-use kay::{Actor, ID, Individual, Recipient, Fate, ActorSystem, Swarm};
+use kay::{ID, Actor, Recipient, Fate};
+use kay::swarm::{Swarm, SubActor};
 use core::geometry::AnyShape;
 use descartes::Band;
 use super::{Lane, TransferLane, Interaction, InteractionKind, OverlapKind};
@@ -214,7 +215,7 @@ impl Recipient<JoinLandmark> for Lane {
                         join_as != self_destination &&
                         (if self_destination.is_landmark() {
                             hops_from_landmark < IDEAL_LANDMARK_RADIUS &&
-                            join_as.landmark.instance_id < self.id().instance_id
+                            join_as.landmark.sub_actor_id < self.id().sub_actor_id
                         } else {
                             hops_from_landmark < self.pathfinding_info.hops_from_landmark ||
                             self.pathfinding_info
@@ -472,9 +473,9 @@ impl Recipient<QueryAsDestination> for Lane {
     }
 }
 
-use kay::ToRandom;
+use kay::swarm::ToRandom;
 
-pub fn setup(system: &mut ActorSystem) {
+pub fn setup() {
     Swarm::<Lane>::handle::<JoinLandmark>();
     Swarm::<TransferLane>::handle::<JoinLandmark>();
     Swarm::<Lane>::handle::<QueryRoutes>();
@@ -486,5 +487,5 @@ pub fn setup(system: &mut ActorSystem) {
     Swarm::<Lane>::handle::<QueryAsDestination>();
     Swarm::<Lane>::handle::<ToRandom<::core::ui::Event3d>>();
 
-    trip::setup(system);
+    trip::setup();
 }

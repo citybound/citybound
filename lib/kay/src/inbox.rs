@@ -7,7 +7,6 @@ pub struct Inbox {
     queue: ChunkedQueue,
 }
 
-/// Chunk size in bytes, each chunk of messages
 const CHUNK_SIZE: usize = 4096 * 4096 * 4; // 64MB
 
 impl Inbox {

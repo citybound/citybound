@@ -1,6 +1,7 @@
 use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Norm, Path, Dot, RoughlyComparable};
 use compact::CVec;
-use kay::{Actor, Individual, Recipient, RecipientAsSwarm, ActorSystem, Swarm, Fate};
+use kay::{Actor, Recipient, Fate};
+use kay::swarm::{Swarm, SubActor, RecipientAsSwarm};
 use monet::{Instance, Thing, Vertex, UpdateThing};
 use core::geometry::{band_to_thing, dash_path};
 use super::{Lane, TransferLane, InteractionKind};
@@ -186,12 +187,12 @@ impl Recipient<RenderToScene> for Lane {
                         instance_direction: [direction.x, direction.y],
                         instance_color: if DEBUG_VIEW_LANDMARKS {
                             ::core::geometry::RANDOM_COLORS[
-                                car.destination.landmark.instance_id as usize
+                                car.destination.landmark.sub_actor_id as usize
                                     % ::core::geometry::RANDOM_COLORS.len()
                             ]
                         } else {
                             ::core::geometry::RANDOM_COLORS[
-                                car.trip.instance_id as usize
+                                car.trip.sub_actor_id as usize
                                     % ::core::geometry::RANDOM_COLORS.len()
                             ]
                         }
@@ -311,7 +312,7 @@ impl Recipient<RenderToScene> for Lane {
                     renderer_id <<
                     UpdateThing {
                         scene_id: scene_id,
-                        thing_id: 4000 + self.id().instance_id as u16,
+                        thing_id: 4000 + self.id().sub_actor_id as u16,
                         thing: band_to_thing(&Band::new(self.path.clone(), 0.3),
                                              if self.green { 0.4 } else { 0.2 }),
                         instance: Instance::with_color(if self.green {
@@ -360,7 +361,7 @@ impl Recipient<RenderToScene> for Lane {
                         self.pathfinding_info.as_destination {
                         let random_color: [f32; 3] =
                             ::core::geometry::RANDOM_COLORS[as_destination.landmark
-                                .instance_id as usize %
+                                .sub_actor_id as usize %
                             ::core::geometry::RANDOM_COLORS.len()];
                         let weaker_random_color = [(random_color[0] + 1.0) / 2.0,
                                                    (random_color[1] + 1.0) / 2.0,
@@ -373,7 +374,7 @@ impl Recipient<RenderToScene> for Lane {
                     renderer_id <<
                     UpdateThing {
                         scene_id: scene_id,
-                        thing_id: 4000 + self.id().instance_id as u16,
+                        thing_id: 4000 + self.id().sub_actor_id as u16,
                         thing: band_to_thing(&Band::new(self.path.clone(),
                                                         if is_landmark { 2.5 } else { 1.0 }),
                                              0.4),
@@ -412,12 +413,12 @@ impl Recipient<RenderToScene> for TransferLane {
                             instance_direction: [rotated_direction.x, rotated_direction.y],
                             instance_color: if DEBUG_VIEW_LANDMARKS {
                                 ::core::geometry::RANDOM_COLORS[
-                                    car.destination.landmark.instance_id as usize
+                                    car.destination.landmark.sub_actor_id as usize
                                         % ::core::geometry::RANDOM_COLORS.len()
                                 ]
                             } else {
                                 ::core::geometry::RANDOM_COLORS[
-                                    car.trip.instance_id as usize
+                                    car.trip.sub_actor_id as usize
                                         % ::core::geometry::RANDOM_COLORS.len()
                                 ]
                             }
@@ -531,7 +532,7 @@ pub fn on_unbuild(lane: &Lane) {
         ::monet::Renderer::id() <<
         UpdateThing {
             scene_id: 0,
-            thing_id: 4000 + lane.id().instance_id as u16,
+            thing_id: 4000 + lane.id().sub_actor_id as u16,
             thing: Thing::new(vec![], vec![]),
             instance: Instance::with_color([0.0, 0.0, 0.0]),
             is_decal: true,
@@ -542,7 +543,7 @@ pub fn on_unbuild(lane: &Lane) {
         ::monet::Renderer::id() <<
         UpdateThing {
             scene_id: 0,
-            thing_id: 4000 + lane.id().instance_id as u16,
+            thing_id: 4000 + lane.id().sub_actor_id as u16,
             thing: Thing::new(vec![], vec![]),
             instance: Instance::with_color([0.0, 0.0, 0.0]),
             is_decal: true,
@@ -561,20 +562,17 @@ pub struct LaneMarker;
 #[derive(Clone)]
 pub struct TransferLaneMarkerGaps;
 
-pub fn setup(system: &mut ActorSystem) {
+pub fn setup() {
     Swarm::<Lane>::handle::<SetupInScene>();
     Swarm::<Lane>::handle::<RenderToCollector>();
     Swarm::<Lane>::handle::<RenderToScene>();
-    super::lane_thing_collector::setup::<LaneAsphalt>(system, [0.7, 0.7, 0.7], 2000, false);
-    super::lane_thing_collector::setup::<LaneMarker>(system, [1.0, 1.0, 1.0], 2100, true);
+    super::lane_thing_collector::setup::<LaneAsphalt>([0.7, 0.7, 0.7], 2000, false);
+    super::lane_thing_collector::setup::<LaneMarker>([1.0, 1.0, 1.0], 2100, true);
 
     Swarm::<TransferLane>::handle::<SetupInScene>();
     Swarm::<TransferLane>::handle::<RenderToCollector>();
     Swarm::<TransferLane>::handle::<RenderToScene>();
-    super::lane_thing_collector::setup::<TransferLaneMarkerGaps>(system,
-                                                                 [0.7, 0.7, 0.7],
-                                                                 2200,
-                                                                 true);
+    super::lane_thing_collector::setup::<TransferLaneMarkerGaps>([0.7, 0.7, 0.7], 2200, true);
 
-    super::planning::setup(system);
+    super::planning::setup();
 }
