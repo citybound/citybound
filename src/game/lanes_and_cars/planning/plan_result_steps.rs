@@ -5,7 +5,8 @@ use core::geometry::CPath;
 use core::disjoint_sets::DisjointSets;
 use ordered_float::OrderedFloat;
 use itertools::Itertools;
-use super::{LaneStroke, LaneStrokeNode, Intersection, LaneStrokeRef};
+use super::plan::{LaneStrokeRef, Intersection};
+use super::lane_stroke::{LaneStroke, LaneStrokeNode};
 
 const STROKE_INTERSECTION_WIDTH: N = 4.0;
 const INTERSECTION_GROUPING_RADIUS: N = 30.0;

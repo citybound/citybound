@@ -17,5 +17,4 @@ pub fn setup() {
 pub fn setup_ui() {
     rendering::setup();
     planning::setup();
-    planning::current_plan_rendering::setup();
 }

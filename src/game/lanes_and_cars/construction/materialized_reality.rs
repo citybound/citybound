@@ -1,7 +1,7 @@
 use compact::{CDict, CVec};
 use kay::{ID, Recipient, Fate, Actor};
-use super::super::planning::{Plan, PlanResult, PlanDelta, PlanResultDelta, IntersectionRef,
-                             TrimmedStrokeRef, TransferStrokeRef, RemainingOldStrokes};
+use super::super::planning::plan::{Plan, PlanResult, PlanDelta, PlanResultDelta, IntersectionRef,
+                                   TrimmedStrokeRef, TransferStrokeRef, RemainingOldStrokes};
 
 #[derive(Clone)]
 pub struct MaterializedRealityState {

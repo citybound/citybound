@@ -2,7 +2,7 @@ use descartes::{N, RoughlyComparable};
 use compact::{CVec, CDict};
 use core::geometry::CPath;
 use itertools::Itertools;
-use super::{LaneStroke, LaneStrokeNode};
+use super::lane_stroke::{LaneStroke, LaneStrokeNode};
 
 #[derive(Clone, Compact)]
 pub struct Plan {
