@@ -4,7 +4,7 @@ use super::compact::Compact;
 /// Return type of message handling functions, signifying if
 /// an `Actor`/`SubActor` should live on after receiving a certain message type.
 ///
-/// Note: so far only has an affect on `SubActor`s in `Swarm`s
+/// Note: so far only has an effect on `SubActor`s in `Swarm`s
 pub enum Fate {
     /// Means: the `Actor`/`SubActor` should live on
     Live,
