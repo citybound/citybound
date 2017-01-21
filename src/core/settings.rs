@@ -1,14 +1,41 @@
-use ::core::ui::KeyOrButton;
-use ::monet::glium::glutin::{MouseButton, VirtualKeyCode};
+use core::ui::{KeyOrButton, KeyCombination, Mouse};
+use monet::glium::glutin::{MouseButton, VirtualKeyCode};
+use kay::ID;
+
 use serde_json;
 
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
+use std::collections::hash_map::HashMap;
+use std::sync::Arc;
+use std::vec::Vec;
 
 use app_dirs;
 
-#[derive(Serialize, Deserialize, PartialEq)]
+//TODO: FIX THIS UGLY AND UNSAFE HACK
+pub static mut SETTINGS: *mut Settings = 0 as *mut Settings;
+
+#[derive(Compact, Clone)]
+pub struct KeyAction {
+    pub action_id: usize,
+}
+
+#[derive(Compact, Clone)]
+pub struct MouseAction {
+    pub action_id: usize,
+    pub mouse: Mouse,
+}
+
+#[derive(Compact, Clone)]
+pub enum Action{
+    KeyHeld(KeyAction),
+    KeyDown(KeyAction),
+    KeyUp(KeyAction),
+    Mouse(MouseAction),
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Settings {
     // Controls
     pub rotation_speed: f32,
@@ -16,15 +43,8 @@ pub struct Settings {
     pub zoom_speed: f32,
     pub invert_y: bool,
 
-    pub mouse_main: Vec<KeyOrButton>,
-
-    pub forward_key: Vec<KeyOrButton>,
-    pub backward_key: Vec<KeyOrButton>,
-    pub left_key: Vec<KeyOrButton>,
-    pub right_key: Vec<KeyOrButton>,
-    pub pan_modifier_key: Vec<KeyOrButton>,
-    pub yaw_modifier_key: Vec<KeyOrButton>,
-    pub pitch_modifier_key: Vec<KeyOrButton>,
+    pub key_triggers: HashMap<KeyCombination, usize>,
+    pub mouse_triggers: HashMap<KeyCombination, usize>,
 }
 
 impl Settings {
@@ -35,25 +55,68 @@ impl Settings {
             move_speed: 1.0f32,
             invert_y: false,
 
-            mouse_main: vec![KeyOrButton::Button(MouseButton::Left)],
-            forward_key: vec![KeyOrButton::Key(VirtualKeyCode::W),
-                              KeyOrButton::Key(VirtualKeyCode::Up)],
-            backward_key: vec![KeyOrButton::Key(VirtualKeyCode::S),
-                               KeyOrButton::Key(VirtualKeyCode::Down)],
-            left_key: vec![KeyOrButton::Key(VirtualKeyCode::A),
-                           KeyOrButton::Key(VirtualKeyCode::Left)],
-            right_key: vec![KeyOrButton::Key(VirtualKeyCode::D),
-                            KeyOrButton::Key(VirtualKeyCode::Right)],
-
-            pan_modifier_key: vec![KeyOrButton::Key(VirtualKeyCode::LShift),
-                                   KeyOrButton::Key(VirtualKeyCode::RShift)],
-            yaw_modifier_key: vec![KeyOrButton::Button(MouseButton::Middle),
-                                   KeyOrButton::Key(VirtualKeyCode::LAlt),
-                                   KeyOrButton::Key(VirtualKeyCode::RAlt)],
-            pitch_modifier_key: vec![KeyOrButton::Button(MouseButton::Middle),
-                                     KeyOrButton::Key(VirtualKeyCode::LAlt),
-                                     KeyOrButton::Key(VirtualKeyCode::RAlt)],
+            key_triggers: HashMap::new(),
+            mouse_triggers: HashMap::new(),
         }
+    }
+
+    fn initialize() {
+        unsafe {
+            let mut settings = Box::new(Settings::new());
+            SETTINGS = &mut *settings as *mut Settings;
+        }
+    }
+
+    pub fn register_key(trigger: KeyCombination) -> usize {
+        unsafe {
+            let id = (*SETTINGS).key_triggers.len();
+            (*SETTINGS).key_triggers.insert(trigger, id);
+            id
+        }
+    }
+
+    pub fn register_mouse(trigger: KeyCombination) -> usize {
+        unsafe {
+            let id = (*SETTINGS).mouse_triggers.len();
+            (*SETTINGS).mouse_triggers.insert(trigger, id);
+            id
+        }
+    }
+
+    pub fn send(id: ID, keys: &Vec<KeyOrButton>, mouse: &Vec<Mouse>) {
+        unsafe {
+            for (comb, action_id) in (*SETTINGS).key_triggers.clone() {
+                if Settings::comb_intersection(keys, comb) {
+                    id << Action::KeyHeld(KeyAction { action_id: action_id })
+                }
+            }
+            for (comb, action_id) in (*SETTINGS).key_triggers.clone() {
+                if Settings::comb_intersection(keys, comb) {
+                    for &m in mouse {
+                        id << Action::Mouse(MouseAction { action_id: action_id, mouse: m })
+                    }
+                }
+            }
+        }
+    }
+
+    fn intersection(a: &Vec<KeyOrButton>, b: &Vec<KeyOrButton>) -> bool {
+        for k1 in a {
+            for k2 in a {
+                if k2 == k1 {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn comb_intersection(keys: &Vec<KeyOrButton>, comb: KeyCombination) -> bool {
+        let mut hit = true;
+        for interchangeable_keys in comb.keys {
+            hit = hit && Settings::intersection(&interchangeable_keys, keys);
+        }
+        hit
     }
 
     pub fn load() -> Settings {
@@ -98,5 +161,29 @@ impl Settings {
             panic!("couldn't read {}: {}", display, why.description())
         }
         serde_json::from_str::<Settings>(&s).unwrap()
+    }
+
+    pub fn get_rotation_speed() -> f32 {
+        unsafe {
+            (*SETTINGS).rotation_speed
+        }
+    }
+
+    pub fn get_zoom_speed() -> f32 {
+        unsafe {
+            (*SETTINGS).zoom_speed
+        }
+    }
+
+    pub fn get_move_speed() -> f32 {
+        unsafe {
+            (*SETTINGS).move_speed
+        }
+    }
+
+    pub fn get_invert_y() -> f32 {
+        unsafe {
+            if (*SETTINGS).invert_y { -1.0f32 } else { 1.0f32 }
+        }
     }
 }

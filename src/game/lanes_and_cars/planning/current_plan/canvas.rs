@@ -2,7 +2,8 @@ use kay::{Recipient, Actor, Fate};
 use kay::swarm::{Swarm, ToRandom};
 use descartes::{Into2d, P3};
 use core::geometry::AnyShape;
-use core::ui::{UserInterface, VirtualKeyCode};
+use core::ui::VirtualKeyCode;
+use core::user_interface::UserInterface;
 use super::CurrentPlan;
 
 #[derive(Copy, Clone, Default)]
@@ -13,7 +14,7 @@ pub struct Canvas {
 
 impl Actor for Canvas {}
 
-use core::ui::Event3d;
+use core::user_interface::Event3d;
 use super::{Commit, Undo, Redo, WithLatestNode, Materialize, CreateGrid, DeleteSelection,
             SetSelectionMode, SetNLanes, ToggleBothSides};
 
@@ -132,7 +133,7 @@ impl Recipient<Event3d> for Canvas {
     }
 }
 
-use ::monet::EyeMoved;
+use monet::EyeMoved;
 
 impl Recipient<EyeMoved> for Canvas {
     fn receive(&mut self, msg: &EyeMoved) -> Fate {
@@ -151,8 +152,8 @@ impl Recipient<EyeMoved> for Canvas {
     }
 }
 
-use core::ui::Add;
-use core::ui::Focus;
+use core::user_interface::Add;
+use core::user_interface::Focus;
 
 #[derive(Copy, Clone)]
 struct AddToUI;

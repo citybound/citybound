@@ -11,11 +11,11 @@
 #![plugin(clippy)]
 #![feature(box_syntax)]
 
-use ::std::mem;
-use ::std::mem::transmute;
-use ::std::ptr;
-use ::std::marker::PhantomData;
-use ::std::ops::{Deref, DerefMut};
+use std::mem;
+use std::mem::transmute;
+use std::ptr;
+use std::marker::PhantomData;
+use std::ops::{Deref, DerefMut};
 
 extern crate allocators;
 use allocators::{Allocator, DefaultHeap};

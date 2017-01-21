@@ -1,4 +1,4 @@
-#![feature(custom_derive, plugin, conservative_impl_trait)]
+#![feature(custom_derive, plugin, conservative_impl_trait, drop_types_in_const)]
 #![plugin(clippy)]
 #![allow(dead_code)]
 #![allow(no_effect, unnecessary_operation)]

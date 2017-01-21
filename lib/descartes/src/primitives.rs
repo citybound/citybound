@@ -1,6 +1,6 @@
 use super::{N, P2, V2, THICKNESS, Curve, FiniteCurve, WithUniqueOrthogonal, angle_along_to,
             RoughlyComparable, Intersect, Intersection, HasBoundingBox, BoundingBox};
-use ::nalgebra::{Dot, Norm, rotate, Vector1, Rotation2};
+use nalgebra::{Dot, Norm, rotate, Vector1, Rotation2};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Circle {

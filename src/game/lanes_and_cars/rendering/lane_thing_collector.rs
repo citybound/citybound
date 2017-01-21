@@ -1,7 +1,7 @@
 use monet::{Thing, Instance};
 use compact::CDict;
 use kay::{ID, Actor, Recipient, Fate};
-use ::std::marker::PhantomData;
+use std::marker::PhantomData;
 use itertools::Itertools;
 
 #[derive(Copy, Clone)]
@@ -26,7 +26,7 @@ pub struct ThingCollector<T: Clone> {
 
 impl<T: 'static + Clone> Actor for ThingCollector<T> {}
 
-use ::monet::SetupInScene;
+use monet::SetupInScene;
 
 impl<T: Clone> Recipient<SetupInScene> for ThingCollector<T> {
     fn receive(&mut self, _msg: &SetupInScene) -> Fate {
@@ -79,8 +79,8 @@ impl<T: Clone> Recipient<Control> for ThingCollector<T> {
     }
 }
 
-use ::monet::RenderToScene;
-use ::monet::UpdateThing;
+use monet::RenderToScene;
+use monet::UpdateThing;
 
 #[derive(Copy, Clone)]
 pub struct RenderToCollector(pub ID);

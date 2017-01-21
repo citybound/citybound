@@ -1,4 +1,4 @@
-use ::kay::{Recipient, ID, Actor, Fate};
+use kay::{Recipient, ID, Actor, Fate};
 
 #[derive(Copy, Clone)]
 pub struct Tick {

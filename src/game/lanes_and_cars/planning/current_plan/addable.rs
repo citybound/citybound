@@ -1,7 +1,7 @@
 use kay::{ID, Recipient, Actor, Fate};
 use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::{Band, P2};
-use ::core::geometry::AnyShape;
+use core::geometry::AnyShape;
 
 use super::CurrentPlan;
 use super::super::lane_stroke::LaneStroke;
@@ -22,13 +22,13 @@ impl Addable {
 }
 
 use super::AddToUI;
-use ::core::ui::Add;
+use core::user_interface::Add;
 
 impl Recipient<AddToUI> for Addable {
     fn receive(&mut self, msg: &AddToUI) -> Fate {
         match *msg {
             AddToUI => {
-                ::core::ui::UserInterface::id() <<
+                ::core::user_interface::UserInterface::id() <<
                 Add::Interactable3d(self.id(),
                                     AnyShape::Band(Band::new(self.stroke.path().clone(), 5.0)),
                                     3);
@@ -39,20 +39,20 @@ impl Recipient<AddToUI> for Addable {
 }
 
 use super::ClearDraggables;
-use ::core::ui::Remove;
+use core::user_interface::Remove;
 
 impl Recipient<ClearDraggables> for Addable {
     fn receive(&mut self, msg: &ClearDraggables) -> Fate {
         match *msg {
             ClearDraggables => {
-                ::core::ui::UserInterface::id() << Remove::Interactable3d(self.id());
+                ::core::user_interface::UserInterface::id() << Remove::Interactable3d(self.id());
                 Fate::Die
             }
         }
     }
 }
 
-use ::core::ui::Event3d;
+use core::user_interface::Event3d;
 use super::{AddStroke, Commit};
 
 impl Recipient<Event3d> for Addable {

@@ -1,7 +1,7 @@
 use kay::{ID, Recipient, Actor, Fate};
 use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::{Band, Into2d, RoughlyComparable};
-use ::core::geometry::{CPath, AnyShape};
+use core::geometry::{CPath, AnyShape};
 
 use super::{SelectableStrokeRef, CurrentPlan};
 
@@ -37,13 +37,13 @@ impl Recipient<Become> for Draggable {
 }
 
 use super::AddToUI;
-use ::core::ui::Add;
+use core::user_interface::Add;
 
 impl Recipient<AddToUI> for Draggable {
     fn receive(&mut self, msg: &AddToUI) -> Fate {
         match *msg {
             AddToUI => {
-                ::core::ui::UserInterface::id() <<
+                ::core::user_interface::UserInterface::id() <<
                 Add::Interactable3d(self.id(),
                                     AnyShape::Band(Band::new(self.path.clone(), 5.0)),
                                     2);
@@ -54,20 +54,20 @@ impl Recipient<AddToUI> for Draggable {
 }
 
 use super::ClearDraggables;
-use ::core::ui::Remove;
+use core::user_interface::Remove;
 
 impl Recipient<ClearDraggables> for Draggable {
     fn receive(&mut self, msg: &ClearDraggables) -> Fate {
         match *msg {
             ClearDraggables => {
-                ::core::ui::UserInterface::id() << Remove::Interactable3d(self.id());
+                ::core::user_interface::UserInterface::id() << Remove::Interactable3d(self.id());
                 Fate::Die
             }
         }
     }
 }
 
-use ::core::ui::Event3d;
+use core::user_interface::Event3d;
 use super::{MoveSelection, MaximizeSelection, Commit};
 
 impl Recipient<Event3d> for Draggable {

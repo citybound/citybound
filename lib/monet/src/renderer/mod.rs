@@ -6,7 +6,7 @@ use kay::{ID, Recipient, Actor, Fate};
 
 use glium::backend::glutin_backend::GlutinFacade;
 
-use ::{Batch, Instance, Scene, Thing, RenderContext};
+use {Batch, Instance, Scene, Thing, RenderContext};
 
 mod control;
 mod movement;
