@@ -1,6 +1,6 @@
-use ::descartes::{N, BoundingBox};
-use ::fnv::{FnvHashMap, FnvHashSet};
-use ::roaring::RoaringBitmap;
+use descartes::{N, BoundingBox};
+use fnv::{FnvHashMap, FnvHashSet};
+use roaring::RoaringBitmap;
 
 pub struct GridAccelerator {
     cells: FnvHashMap<(isize, isize), RoaringBitmap<u32>>,

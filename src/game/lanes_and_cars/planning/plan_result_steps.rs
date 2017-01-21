@@ -45,7 +45,7 @@ pub fn find_intersections(strokes: &CVec<LaneStroke>) -> CVec<Intersection> {
         .collect::<CVec<_>>()
 }
 
-use ::core::grid_accelerator::GridAccelerator;
+use core::grid_accelerator::GridAccelerator;
 
 #[allow(let_and_return)]
 // stupid lifetime complaining otherwise
@@ -471,7 +471,7 @@ fn connect_as_much_as_possible(incoming_group: &Vec<(&LaneStrokeRef, &LaneStroke
 }
 
 pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
-    use ::roaring::RoaringBitmap;
+    use roaring::RoaringBitmap;
 
     for intersection in intersections.iter_mut() {
         // find maximal cliques of compatible lanes using Bron-Kerbosch
@@ -492,7 +492,7 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
 
         }
 
-        use ::fnv::FnvHashMap;
+        use fnv::FnvHashMap;
 
         let mut compatabilities = FnvHashMap::<usize, RoaringBitmap<u32>>::default();
 
@@ -604,7 +604,7 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
 
         const SIGNAL_TIMING_BUFFER: usize = 4;
         const MIN_CLIQUE_DURATION: usize = 6;
-        use ::std::cmp::max;
+        use std::cmp::max;
 
         let total_cycle_duration =
             stroke_idx_max_cliques.iter()

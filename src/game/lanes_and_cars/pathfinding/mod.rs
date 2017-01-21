@@ -50,7 +50,7 @@ pub struct RoutingInfo {
     fresh: bool,
 }
 
-use ::core::ui::Add;
+use core::user_interface::Add;
 const DEBUG_CARS_ON_LANES: bool = false;
 
 pub fn on_build(lane: &mut Lane) {

@@ -17,8 +17,8 @@ mod traffic_light;
 pub mod lane_thing_collector;
 use self::lane_thing_collector::ThingCollector;
 
-use ::monet::SetupInScene;
-use ::monet::AddBatch;
+use monet::SetupInScene;
+use monet::AddBatch;
 
 impl RecipientAsSwarm<SetupInScene> for Lane {
     fn receive(_swarm: &mut Swarm<Self>, msg: &SetupInScene) -> Fate {
@@ -171,9 +171,9 @@ impl Recipient<RenderToCollector> for TransferLane {
     }
 }
 
-use ::monet::RenderToScene;
-use ::monet::AddInstance;
-use ::monet::AddSeveralInstances;
+use monet::RenderToScene;
+use monet::AddInstance;
+use monet::AddSeveralInstances;
 
 const DEBUG_VIEW_LANDMARKS: bool = false;
 const DEBUG_VIEW_SIGNALS: bool = false;

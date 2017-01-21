@@ -1,7 +1,7 @@
 use kay::{ID, Recipient, Actor, Fate};
 use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::{Band, Curve, Into2d, FiniteCurve, Path};
-use ::core::geometry::{CPath, AnyShape};
+use core::geometry::{CPath, AnyShape};
 
 use super::{SelectableStrokeRef, CurrentPlan};
 
@@ -23,7 +23,7 @@ impl Selectable {
 }
 
 use super::AddToUI;
-use ::core::ui::Add;
+use core::user_interface::Add;
 
 impl Recipient<AddToUI> for Selectable {
     fn receive(&mut self, msg: &AddToUI) -> Fate {
@@ -40,7 +40,7 @@ impl Recipient<AddToUI> for Selectable {
 }
 
 use super::ClearSelectables;
-use ::core::ui::Remove;
+use core::user_interface::Remove;
 
 impl Recipient<ClearSelectables> for Selectable {
     fn receive(&mut self, msg: &ClearSelectables) -> Fate {
@@ -53,7 +53,7 @@ impl Recipient<ClearSelectables> for Selectable {
     }
 }
 
-use ::core::ui::Event3d;
+use core::user_interface::Event3d;
 use super::{Select, Commit};
 
 impl Recipient<Event3d> for Selectable {

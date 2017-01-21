@@ -1,4 +1,4 @@
-#![feature(custom_derive, plugin, conservative_impl_trait)]
+#![feature(custom_derive, plugin, conservative_impl_trait, relaxed_adts)]
 #![plugin(clippy)]
 #![allow(dead_code)]
 #![allow(no_effect, unnecessary_operation)]

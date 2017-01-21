@@ -1,7 +1,7 @@
 use kay::{ID, Recipient, Actor, Fate};
 use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::{Band, P2};
-use ::core::geometry::AnyShape;
+use core::geometry::AnyShape;
 
 use super::CurrentPlan;
 use super::super::lane_stroke::LaneStroke;
@@ -22,7 +22,7 @@ impl Addable {
 }
 
 use super::AddToUI;
-use ::core::ui::Add;
+use core::user_interface::Add;
 
 impl Recipient<AddToUI> for Addable {
     fn receive(&mut self, msg: &AddToUI) -> Fate {
@@ -39,7 +39,7 @@ impl Recipient<AddToUI> for Addable {
 }
 
 use super::ClearDraggables;
-use ::core::ui::Remove;
+use core::user_interface::Remove;
 
 impl Recipient<ClearDraggables> for Addable {
     fn receive(&mut self, msg: &ClearDraggables) -> Fate {
@@ -52,7 +52,7 @@ impl Recipient<ClearDraggables> for Addable {
     }
 }
 
-use ::core::ui::Event3d;
+use core::user_interface::Event3d;
 use super::{AddStroke, Commit};
 
 impl Recipient<Event3d> for Addable {

@@ -1,7 +1,7 @@
 use kay::{Recipient, Fate, Actor};
 use descartes::{Band, Path, FiniteCurve};
 use monet::{Thing, Instance};
-use ::core::geometry::band_to_thing;
+use core::geometry::band_to_thing;
 use super::{CurrentPlan, DrawingStatus, SelectableStrokeRef};
 use super::super::lane_stroke::LaneStroke;
 

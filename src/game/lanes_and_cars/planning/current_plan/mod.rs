@@ -1,5 +1,5 @@
-use descartes::{N, P2, V2, Norm, Segment, FiniteCurve, WithUniqueOrthogonal, Curve,
-                RelativeToBasis, RoughlyComparable, Dot};
+use descartes::{N, P2, V2, Norm, Segment, FiniteCurve, WithUniqueOrthogonal, Curve, RelativeToBasis,
+                RoughlyComparable, Dot};
 use compact::{CVec, CDict};
 use kay::{Recipient, Actor, Fate};
 use kay::swarm::{Swarm, CreateWith};
@@ -129,46 +129,45 @@ impl Recipient<Commit> for CurrentPlan {
                                         delta: self.preview.delta.clone(),
                                     };
                                 } else {
-                                    let current_nodes =
-                                        meanings.iter()
-                                            .filter(|meaning| {
-                                                **meaning != SelectionMeaning::SubSection
-                                            })
-                                            .zip(selections.keys())
-                                            .map(|(meaning, selection_ref)| {
-                                                let stroke_idx = match *selection_ref {
-                                                    SelectableStrokeRef::New(usize) => usize,
-                                                    SelectableStrokeRef::RemainingOld(old_ref) => {
-                                                        let old_stroke = self.preview
-                                                            .current_remaining_old_strokes
-                                                            .mapping
-                                                            .get(old_ref)
-                                                            .unwrap();
-                                                        self.preview
-                                                            .delta
-                                                            .strokes_to_destroy
-                                                            .insert(old_ref, old_stroke.clone());
-                                                        self.preview
-                                                            .delta
-                                                            .new_strokes
-                                                            .push(old_stroke.clone());
-                                                        self.preview.delta.new_strokes.len() - 1
-                                                    }
-                                                };
+                                    let current_nodes = meanings.iter()
+                                        .filter(|meaning| {
+                                            **meaning != SelectionMeaning::SubSection
+                                        })
+                                        .zip(selections.keys())
+                                        .map(|(meaning, selection_ref)| {
+                                            let stroke_idx = match *selection_ref {
+                                                SelectableStrokeRef::New(usize) => usize,
+                                                SelectableStrokeRef::RemainingOld(old_ref) => {
+                                                    let old_stroke = self.preview
+                                                        .current_remaining_old_strokes
+                                                        .mapping
+                                                        .get(old_ref)
+                                                        .unwrap();
+                                                    self.preview
+                                                        .delta
+                                                        .strokes_to_destroy
+                                                        .insert(old_ref, old_stroke.clone());
+                                                    self.preview
+                                                        .delta
+                                                        .new_strokes
+                                                        .push(old_stroke.clone());
+                                                    self.preview.delta.new_strokes.len() - 1
+                                                }
+                                            };
 
-                                                let node_idx = match *meaning {
-                                                    SelectionMeaning::Start => 0,
-                                                    SelectionMeaning::End => {
-                                                        self.preview.delta.new_strokes[stroke_idx]
-                                                            .nodes()
-                                                            .len() -
-                                                        1
-                                                    }
-                                                    _ => unreachable!(),
-                                                };
-                                                LaneStrokeNodeRef(stroke_idx, node_idx)
-                                            })
-                                            .collect();
+                                            let node_idx = match *meaning {
+                                                SelectionMeaning::Start => 0,
+                                                SelectionMeaning::End => {
+                                                    self.preview.delta.new_strokes[stroke_idx]
+                                                        .nodes()
+                                                        .len() -
+                                                    1
+                                                }
+                                                _ => unreachable!(),
+                                            };
+                                            LaneStrokeNodeRef(stroke_idx, node_idx)
+                                        })
+                                        .collect();
 
                                     let previous_add = at;
                                     self.preview.ui_state.drawing_status =

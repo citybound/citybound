@@ -6,8 +6,8 @@ use super::slot_map::{SlotIndices, SlotMap};
 use super::messaging::{Recipient, Message, Packet, Fate};
 use super::actor_system::Actor;
 use super::id::ID;
-use ::std::marker::PhantomData;
-use ::std::mem::size_of;
+use std::marker::PhantomData;
+use std::mem::size_of;
 
 /// Trait that allows dynamically sized `SubActors` to provide
 /// a "typical size" hint to optimize their storage in a `Swarm`

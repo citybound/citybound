@@ -1,10 +1,10 @@
 use super::allocators::{Allocator, DefaultHeap};
 use super::pointer_to_maybe_compact::PointerToMaybeCompact;
 use super::compact::Compact;
-use ::std::marker::PhantomData;
-use ::std::ptr;
-use ::std::ops::{Deref, DerefMut};
-use ::std::iter::FromIterator;
+use std::marker::PhantomData;
+use std::ptr;
+use std::ops::{Deref, DerefMut};
+use std::iter::FromIterator;
 
 /// A dynamically-sized vector that can be stored in compact sequential storage and
 /// automatically spills over into free heap storage using `Allocator`.
