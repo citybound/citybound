@@ -14,7 +14,7 @@ use ::{Package, ModWrapper};
 /// The weaver takes care of loading and keeping track of mods.
 #[derive(Default)]
 pub struct Weaver {
-    packages: HashMap<String, (PathBuf, Package)>,
+    packages: HashMap<String, LocalPackage>,
     loaded: HashMap<String, LoadedModule>,
 }
 
@@ -23,30 +23,63 @@ impl Weaver {
         Weaver::default()
     }
 
-    pub fn add_package<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
+    fn add_package<P: AsRef<Path>>(&mut self, path: P, ty: LocalPackageType) -> io::Result<()> {
         let path = path.as_ref().canonicalize()?;
-        let package = Weaver::read_package_manifest(&path)?;
+        let pack = Weaver::read_package_manifest(&path)?;
+        let package = LocalPackage {
+            path: path.clone(),
+            pack: pack,
+            ty: ty,
+        };
 
-        let old = self.packages.insert(package.ident().to_owned(), (path.clone(), package));
-        if let Some(old) = old {
-            println!("found package collision '{}'\n  {:?}\n  {:?}\n",
-                     old.1.ident(),
-                     &path,
-                     &old.0);
+        use self::LocalPackageType as LPT;
+        let old = self.packages.insert(package.pack.ident().to_owned(), package);
+        match old {
+            Some(ref old) if old.ty != LPT::System || ty != LPT::Source => {
+                println!("found package collision '{}'\n  {:?}\n  {:?}\n",
+                         old.pack.ident(),
+                         &path,
+                         &old.path);
+                Ok(())
+            }
+            Some(old) => {
+                self.packages.insert(old.pack.ident().to_owned(), old);
+                Ok(())
+            }
+            _ => Ok(()),
         }
-        Ok(())
     }
 
-    pub fn add_folder<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
+    fn add_folder<P: AsRef<Path>>(&mut self, path: P, ty: LocalPackageType) -> io::Result<()> {
         for dir in fs::read_dir(path)? {
             let path = dir?.path();
             if Weaver::is_mod_dir(&path) {
-                self.add_package(path)?;
+                self.add_package(path, ty)?;
             } else {
                 println!("no Mod.toml found in {:?}", path);
             }
         }
         Ok(())
+    }
+
+    /// The system mods are a bit special, they are mods shipped
+    /// with the game and usually enables some basic functionality.
+    ///
+    /// Mods in this folder can be replaced by passing a source
+    /// folder to weaver.
+    pub fn add_system_mods<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
+        self.add_folder(path, LocalPackageType::System)
+    }
+
+    /// Folder containing the source of system mods.
+    /// Useful for development.
+    pub fn add_source_mods<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
+        self.add_folder(path, LocalPackageType::Source)
+    }
+
+    /// Adds a folder containing normal mods by namespace.
+    pub fn add_namespaced_mods<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
+        unimplemented!();
     }
 
     fn is_mod_dir<P: AsRef<Path>>(path: P) -> bool {
@@ -116,7 +149,7 @@ impl Weaver {
     }
 
     fn load_package_<'a>(ident: &str,
-                         packages: &HashMap<String, (PathBuf, Package)>,
+                         packages: &HashMap<String, LocalPackage>,
                          loaded: &'a mut HashMap<String, LoadedModule>,
                          system: &mut ActorSystem,
                          parents: &mut HashSet<String>)
@@ -133,12 +166,12 @@ impl Weaver {
             let path = Weaver::module_path(package)?;
             let mut loading = LoadingPackage {
                 ident: ident,
-                path: &package.0,
-                package: &package.1,
+                path: &package.path,
+                package: &package.pack,
                 module_path: path,
             };
 
-            for (name, _dep) in package.1.dependencies() {
+            for (name, _dep) in package.pack.dependencies() {
                 // TODO: do ident resolution with version as well.
                 let ident;
                 match Weaver::resolve_package_ident(name, packages) {
@@ -162,7 +195,7 @@ impl Weaver {
     }
 
     fn resolve_package_ident(name: &str,
-                             packages: &HashMap<String, (PathBuf, Package)>)
+                             packages: &HashMap<String, LocalPackage>)
                              -> Option<String> {
         // check if name is a valid ident.
         if name.contains(':') {
@@ -176,7 +209,7 @@ impl Weaver {
             let mut versions = packages.iter()
                 .filter(|&(n, _)| n.split(':').next().map(|n| n == name).unwrap())
                 .collect::<Vec<_>>();
-            versions.sort_by_key(|&(_, &(_, ref p))| p.version());
+            versions.sort_by_key(|&(_, p)| p.pack.version());
             versions.first().map(|&(n, _)| n.to_owned())
         }
     }
@@ -202,11 +235,11 @@ impl Weaver {
         })
     }
 
-    fn module_path(&(ref path, ref package): &(PathBuf, Package)) -> Result<PathBuf, String> {
+    fn module_path(package: &LocalPackage) -> Result<PathBuf, String> {
         const EXT: &'static str = "module";
 
-        let mut path = path.clone();
-        path.push(package.name());
+        let mut path = package.path.clone();
+        path.push(package.pack.name());
         path.set_extension(EXT);
 
         if !path.exists() {
@@ -220,8 +253,22 @@ impl Weaver {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum LocalPackageType {
+    System,
+    Source,
+    Normal,
+}
+
+struct LocalPackage {
+    path: PathBuf,
+    pack: Package,
+    ty: LocalPackageType,
+}
+
 /// This is the description sent to dependants of this package,
 /// before the module is actually loaded.
+#[derive(Debug)]
 pub struct LoadingPackage<'a> {
     ident: &'a str,
     path: &'a Path,

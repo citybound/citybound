@@ -7,7 +7,7 @@ extern crate weaver;
 use weaver::CityboundMod;
 use weaver::kay::ActorSystem;
 
-pub struct MyMod;
+struct MyMod;
 
 impl CityboundMod for MyMod {
     fn setup(_system: &mut ActorSystem) -> MyMod {

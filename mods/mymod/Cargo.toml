@@ -9,4 +9,4 @@ crate-type = ["dylib"]
 [dependencies]
 clippy = "0.0.106"
 
-weaver = { path = "../weaver" }
+weaver = { path = "../../lib/weaver" }

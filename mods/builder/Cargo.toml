@@ -1,0 +1,13 @@
+[package]
+name = "builder"
+version = "0.1.0"
+authors = ["The Citybound Developers"]
+
+[lib]
+crate-type = ["dylib"]
+
+[dependencies]
+clippy = "0.0.106"
+cargo = "0.15.0"
+
+weaver = { path = "../../lib/weaver" }

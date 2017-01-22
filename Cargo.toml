@@ -17,7 +17,9 @@ members = [
     "./lib/kay_macros",
     "./lib/monet",
     "./lib/weaver",
-    "./lib/mymod",
+
+    "./mods/mymod",
+    "./mods/builder",
 ]
 
 [dependencies]
@@ -33,26 +35,16 @@ serde_derive = "=0.8.21"
 serde_json = "=0.8.4"
 app_dirs = "1.1.1"
 
+compact = { path = "./lib/compact" }
+compact_macros = { path = "./lib/compact_macros" }
+kay = { path = "./lib/kay" }
+kay_macros = { path = "./lib/kay_macros" }
+descartes = { path = "./lib/descartes" }
+monet = { path = "./lib/monet" }
 weaver = { path = "./lib/weaver" }
-mymod = { path = "./lib/mymod" }
 
-[dependencies.compact]
-path = "./lib/compact/"
-
-[dependencies.compact_macros]
-path = "./lib/compact_macros/"
-
-[dependencies.kay]
-path = "./lib/kay/"
-
-[dependencies.kay_macros]
-path = "./lib/kay_macros/"
-
-[dependencies.descartes]
-path = "./lib/descartes/"
-
-[dependencies.monet]
-path = "./lib/monet/"
+[build-dependencies]
+builder = { path = "./mods/builder" }
 
 [profile.dev]
 opt-level = 1

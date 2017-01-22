@@ -28,7 +28,7 @@ macro_rules! register_mod {
         pub fn __register_mod(register: &mut $crate::Register) {
             struct Wrapper {
                 inner: Option<$mod_>,
-            };
+            }
 
             impl $crate::ModWrapper for Wrapper {
                 fn setup(&mut self, system: &mut $crate::kay::ActorSystem) {
@@ -38,12 +38,12 @@ macro_rules! register_mod {
 
                 fn dependant_loading(&mut self,
                                      loading: &mut $crate::LoadingPackage,
-                                     system: &mut ActorSystem)
-                                     -> Result<(), String>
+                                     system: &mut $crate::kay::ActorSystem)
+                                     -> ::std::result::Result<(), String>
                 {
                     match self.inner {
                         Some(ref mut mod_) =>
-                        mod_.dependant_loading(loading, system),
+                            <$mod_ as $crate::CityboundMod>::dependant_loading(mod_, loading, system),
                         None => panic!("mod not loaded"),
                     }
                 }

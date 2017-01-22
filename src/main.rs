@@ -74,7 +74,7 @@ fn main() {
     mods_path.set_file_name("mods");
 
     let mut weaver = weaver::Weaver::new();
-    weaver.add_folder(mods_path).expect("mods folder was not found");
+    weaver.add_system_mods(mods_path).expect("system mods folder could not be loaded");
     // actually loads the specified mod into the game.
     weaver.load_package("mymod", &mut system).expect("could not load mymod");
 
