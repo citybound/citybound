@@ -64,7 +64,7 @@ impl Deserialize for KeyOrButton {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Mouse {
     Moved(P2),
     Scrolled(P2),

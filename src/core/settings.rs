@@ -8,26 +8,27 @@ use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::collections::hash_map::HashMap;
-use std::sync::Arc;
+use std::sync::RwLock;
 use std::vec::Vec;
 
 use app_dirs;
 
-//TODO: FIX THIS UGLY AND UNSAFE HACK
-pub static mut SETTINGS: *mut Settings = 0 as *mut Settings;
+lazy_static!{
+    pub static ref SETTINGS: RwLock<Settings> = RwLock::new(Settings::new());
+}
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Debug)]
 pub struct KeyAction {
     pub action_id: usize,
 }
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Debug)]
 pub struct MouseAction {
     pub action_id: usize,
     pub mouse: Mouse,
 }
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Debug)]
 pub enum Action{
     KeyHeld(KeyAction),
     KeyDown(KeyAction),
@@ -35,7 +36,7 @@ pub enum Action{
     Mouse(MouseAction),
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct Settings {
     // Controls
     pub rotation_speed: f32,
@@ -60,42 +61,34 @@ impl Settings {
         }
     }
 
-    pub fn initialize() {
-        unsafe {
-            let mut settings = Box::new(Settings::new());
-            SETTINGS = &mut *settings as *mut Settings;
-        }
-    }
-
     pub fn register_key(trigger: KeyCombination) -> usize {
-        unsafe {
-            let id = (*SETTINGS).key_triggers.len();
-            (*SETTINGS).key_triggers.insert(trigger, id);
-            id
-        }
+        let mut settings = SETTINGS.write().unwrap();
+        let id = settings.key_triggers.len();
+        settings.key_triggers.insert(trigger, id);
+        id
     }
 
     pub fn register_mouse(trigger: KeyCombination) -> usize {
-        unsafe {
-            let id = (*SETTINGS).mouse_triggers.len();
-            (*SETTINGS).mouse_triggers.insert(trigger, id);
-            id
-        }
+        let mut settings = SETTINGS.write().unwrap();
+        let id = settings.mouse_triggers.len();
+        settings.mouse_triggers.insert(trigger, id);
+        id
     }
 
     pub fn send(id: ID, keys: &Vec<KeyOrButton>, mouse: &Vec<Mouse>) {
-        unsafe {
-            for (comb, action_id) in &(*SETTINGS).key_triggers {
-                if Settings::comb_intersection(keys, (*comb).clone()) {
-                    id << Action::KeyHeld(KeyAction { action_id: *action_id })
-                }
+        let mut settings = SETTINGS.write().unwrap();
+        println!("{:?}", *settings);
+        for (comb, action_id) in &settings.key_triggers {
+            if Settings::comb_intersection(keys, (*comb).clone()) {
+                println!("YAY!");
+                id << Action::KeyHeld(KeyAction { action_id: *action_id })
             }
+        }
 
-            for (comb, action_id) in &(*SETTINGS).key_triggers {
-                if Settings::comb_intersection(keys, (*comb).clone()) {
-                    for &m in mouse {
-                        id << Action::Mouse(MouseAction { action_id: *action_id, mouse: m })
-                    }
+        for (comb, action_id) in &settings.key_triggers {
+            if Settings::comb_intersection(keys, (*comb).clone()) {
+                for &m in mouse {
+                    id << Action::Mouse(MouseAction { action_id: *action_id, mouse: m })
                 }
             }
         }
@@ -103,7 +96,7 @@ impl Settings {
 
     fn intersection(a: &Vec<KeyOrButton>, b: &Vec<KeyOrButton>) -> bool {
         for k1 in a {
-            for k2 in a {
+            for k2 in b {
                 if k2 == k1 {
                     return true;
                 }
@@ -165,26 +158,22 @@ impl Settings {
     }
 
     pub fn get_rotation_speed() -> f32 {
-        unsafe {
-            (*SETTINGS).rotation_speed
-        }
+        let settings = SETTINGS.read().unwrap();
+        settings.rotation_speed
     }
 
     pub fn get_zoom_speed() -> f32 {
-        unsafe {
-            (*SETTINGS).zoom_speed
-        }
+        let settings = SETTINGS.read().unwrap();
+        settings.zoom_speed
     }
 
     pub fn get_move_speed() -> f32 {
-        unsafe {
-            (*SETTINGS).move_speed
-        }
+        let settings = SETTINGS.read().unwrap();
+        settings.move_speed
     }
 
     pub fn get_invert_y() -> f32 {
-        unsafe {
-            if (*SETTINGS).invert_y { -1.0f32 } else { 1.0f32 }
-        }
+        let settings = SETTINGS.read().unwrap();
+        if settings.invert_y { -1.0f32 } else { 1.0f32 }
     }
 }

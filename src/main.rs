@@ -14,6 +14,8 @@ extern crate fnv;
 extern crate roaring;
 extern crate open;
 #[macro_use]
+extern crate lazy_static;
+#[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
 extern crate serde;
@@ -82,7 +84,6 @@ fn main() {
             persistent: true,
         };
     }));
-    Settings::initialize();
 
     game::setup();
     game::setup_ui();

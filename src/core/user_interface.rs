@@ -51,62 +51,52 @@ impl UserInterface {
             active_interactable: None,
             focused_interactable: None,
 
-            backward_action_id: None,
-            forward_action_id: None,
-            left_action_id: None,
-            right_action_id: None,
+            forward_action_id : Some(Settings::register_key(KeyCombination{
+                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::W),
+                                KeyOrButton::Key(VirtualKeyCode::Up)]],
+            })),
+            backward_action_id : Some(Settings::register_key(KeyCombination{
+                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::W),
+                                KeyOrButton::Key(VirtualKeyCode::Up)]],
+            })),
+            left_action_id : Some(Settings::register_key(KeyCombination{
+                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::A),
+                                KeyOrButton::Key(VirtualKeyCode::Left)]],
+            })),
+            right_action_id : Some(Settings::register_key(KeyCombination{
+                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::D),
+                                KeyOrButton::Key(VirtualKeyCode::Right)]],
+            })),
 
-            zoom_modifier: None,
-            mouse_modifier: None,
-            yaw_modifier: None,
-            pan_modifier: None,
-            pitch_modifier: None,
 
-            mouse_drag: None,
+            zoom_modifier : Some(Settings::register_key(KeyCombination{
+                keys: vec![],
+            })),
+            mouse_modifier : Some(Settings::register_key(KeyCombination{
+                keys: vec![],
+            })),
+            yaw_modifier : Some(Settings::register_key(KeyCombination{
+                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::LAlt),
+                                KeyOrButton::Key(VirtualKeyCode::RAlt),
+                                KeyOrButton::Button(MouseButton::Middle),
+                ]],
+            })),
+            pan_modifier : Some(Settings::register_key(KeyCombination{
+                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::LShift),
+                                KeyOrButton::Key(VirtualKeyCode::RShift),
+                ]],
+            })),
+            pitch_modifier : Some(Settings::register_key(KeyCombination{
+                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::LAlt),
+                                KeyOrButton::Key(VirtualKeyCode::RAlt),
+                                KeyOrButton::Button(MouseButton::Middle),
+                ]],
+            })),
+
+            mouse_drag : Some(Settings::register_key(KeyCombination{
+                keys: vec![vec![KeyOrButton::Button(MouseButton::Left)]],
+            })),
         }
-    }
-
-    fn setup(&mut self) {
-        self.forward_action_id = Some(Settings::register_key(KeyCombination{
-            keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::W),
-                            KeyOrButton::Key(VirtualKeyCode::Up)]],
-        }));
-        self.backward_action_id = Some(Settings::register_key(KeyCombination{
-            keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::W),
-                            KeyOrButton::Key(VirtualKeyCode::Up)]],
-        }));
-        self.forward_action_id = Some(Settings::register_key(KeyCombination{
-            keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::W),
-                            KeyOrButton::Key(VirtualKeyCode::Up)]],
-        }));
-        self.forward_action_id = Some(Settings::register_key(KeyCombination{
-            keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::W),
-                            KeyOrButton::Key(VirtualKeyCode::Up)]],
-        }));
-
-
-        self.zoom_modifier = Some(Settings::register_key(KeyCombination{
-            keys: vec![],
-        }));
-        self.mouse_modifier = Some(Settings::register_key(KeyCombination{
-            keys: vec![],
-        }));
-        self.yaw_modifier = Some(Settings::register_key(KeyCombination{
-            keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::LAlt),
-                            KeyOrButton::Key(VirtualKeyCode::RAlt),
-                            KeyOrButton::Button(MouseButton::Middle),
-            ]],
-        }));
-        self.yaw_modifier = Some(Settings::register_key(KeyCombination{
-            keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::LAlt),
-                            KeyOrButton::Key(VirtualKeyCode::RAlt),
-                            KeyOrButton::Button(MouseButton::Middle),
-            ]],
-        }));
-
-        self.mouse_drag = Some(Settings::register_key(KeyCombination{
-            keys: vec![vec![KeyOrButton::Button(MouseButton::Left)]],
-        }));
     }
 }
 
@@ -223,6 +213,7 @@ impl Recipient<Projected3d> for UserInterface {
 
 impl Recipient<Action> for UserInterface {
     fn receive(&mut self, msg: &Action) -> Fate {
+        print!("{:?}", msg);
         match *msg {
             Action::Mouse(MouseAction{action_id: id, mouse: Mouse::Moved(position)}) => {
                 let delta = self.cursor_2d - position;
