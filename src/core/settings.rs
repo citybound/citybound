@@ -60,7 +60,7 @@ impl Settings {
         }
     }
 
-    fn initialize() {
+    pub fn initialize() {
         unsafe {
             let mut settings = Box::new(Settings::new());
             SETTINGS = &mut *settings as *mut Settings;
@@ -85,15 +85,16 @@ impl Settings {
 
     pub fn send(id: ID, keys: &Vec<KeyOrButton>, mouse: &Vec<Mouse>) {
         unsafe {
-            for (comb, action_id) in (*SETTINGS).key_triggers.clone() {
-                if Settings::comb_intersection(keys, comb) {
-                    id << Action::KeyHeld(KeyAction { action_id: action_id })
+            for (comb, action_id) in &(*SETTINGS).key_triggers {
+                if Settings::comb_intersection(keys, (*comb).clone()) {
+                    id << Action::KeyHeld(KeyAction { action_id: *action_id })
                 }
             }
-            for (comb, action_id) in (*SETTINGS).key_triggers.clone() {
-                if Settings::comb_intersection(keys, comb) {
+
+            for (comb, action_id) in &(*SETTINGS).key_triggers {
+                if Settings::comb_intersection(keys, (*comb).clone()) {
                     for &m in mouse {
-                        id << Action::Mouse(MouseAction { action_id: action_id, mouse: m })
+                        id << Action::Mouse(MouseAction { action_id: *action_id, mouse: m })
                     }
                 }
             }

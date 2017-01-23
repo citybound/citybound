@@ -39,6 +39,8 @@ mod game;
 
 use monet::{Renderer, Control, AddDebugText};
 use core::simulation::{Simulation, Tick};
+use core::ui::KeyOrButton;
+use core::settings::Settings;
 use game::lanes_and_cars::lane::{Lane, TransferLane};
 use game::lanes_and_cars::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use game::lanes_and_cars::rendering::lane_thing_collector::ThingCollector;
@@ -80,6 +82,7 @@ fn main() {
             persistent: true,
         };
     }));
+    Settings::initialize();
 
     game::setup();
     game::setup_ui();
@@ -108,6 +111,8 @@ fn main() {
 
     system.process_all_messages();
 
+    let mut keys_down = Vec::<KeyOrButton>::new();
+
     loop {
         Renderer::id() <<
         AddDebugText {
@@ -123,7 +128,7 @@ fn main() {
             persistent: false,
         };
         last_frame = std::time::Instant::now();
-        if !core::ui::process_events(&window) {
+        if !core::ui::process_events(&window, &mut keys_down) {
             return;
         }
 

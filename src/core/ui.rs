@@ -100,50 +100,42 @@ pub fn setup_window_and_renderer(renderables: Vec<ID>) -> GlutinFacade {
     window
 }
 
-//TODO: FIX THIS UGLY AND UNSAFE HACK
-static mut KEYS_DOWN: *mut Vec<KeyOrButton> = 0usize as *mut Vec<KeyOrButton>;
-
-pub fn process_events(window: &GlutinFacade) -> bool {
-    unsafe {
-        if transmute::<*mut Vec<KeyOrButton>, usize>(KEYS_DOWN) == 0 {
-            let mut keys_down = Box::new(Vec::new());
-            KEYS_DOWN = &mut *keys_down as *mut Vec<KeyOrButton>;
-        }
-        let mut mouse = Vec::<Mouse>::new();
-        for event in window.poll_events().collect::<Vec<_>>() {
-            match event {
-                Event::Closed => return false,
-                Event::MouseWheel(delta, _) => {
-                    mouse.push(Mouse::Scrolled(match delta {
-                        MouseScrollDelta::LineDelta(x, y) => P2::new(x * 50 as N, y * 50 as N),
-                        MouseScrollDelta::PixelDelta(x, y) => P2::new(x as N, y as N)
-                    }))
-                }
-                Event::MouseMoved(x, y) => {
-                    mouse.push(Mouse::Moved(P2::new(x as N, y as N)));
-                },
-                Event::MouseInput(ElementState::Pressed, button) => {
-                    mouse.push(Mouse::Down(button));
-                    (*KEYS_DOWN).push(KeyOrButton::Button(button));
-                }
-                Event::MouseInput(ElementState::Released, button) => {
-                    mouse.push(Mouse::Up(button));
-                    if let Some(index) = (*KEYS_DOWN).iter().position(|x| *x == KeyOrButton::Button(button)) {
-                        (*KEYS_DOWN).remove(index);
-                    }
-                }
-                Event::KeyboardInput(ElementState::Pressed, _, Some(key_code)) => {
-                    (*KEYS_DOWN).push(KeyOrButton::Key(key_code))
-                }
-                Event::KeyboardInput(ElementState::Released, _, Some(key_code)) => {
-                     if let Some(index) = (*KEYS_DOWN).iter().position(|x| *x == KeyOrButton::Key(key_code)) {
-                         (*KEYS_DOWN).remove(index);
-                    }
-                }
-                _ => {}
+pub fn process_events(window: &GlutinFacade, keys_down: &mut Vec<KeyOrButton>) -> bool {
+    let mut mouse = Vec::<Mouse>::new();
+    for event in window.poll_events().collect::<Vec<_>>() {
+        match event {
+            Event::Closed => return false,
+            Event::MouseWheel(delta, _) => {
+                mouse.push(Mouse::Scrolled(match delta {
+                    MouseScrollDelta::LineDelta(x, y) => P2::new(x * 50 as N, y * 50 as N),
+                    MouseScrollDelta::PixelDelta(x, y) => P2::new(x as N, y as N)
+                }))
             }
+            Event::MouseMoved(x, y) => {
+                mouse.push(Mouse::Moved(P2::new(x as N, y as N)));
+            },
+            Event::MouseInput(ElementState::Pressed, button) => {
+                mouse.push(Mouse::Down(button));
+                keys_down.push(KeyOrButton::Button(button));
+            }
+            Event::MouseInput(ElementState::Released, button) => {
+                mouse.push(Mouse::Up(button));
+                if let Some(index) = keys_down.iter().position(|x| *x == KeyOrButton::Button(button)) {
+                    keys_down.remove(index);
+                }
+            }
+            Event::KeyboardInput(ElementState::Pressed, _, Some(key_code)) => {
+                keys_down.push(KeyOrButton::Key(key_code))
+            }
+            Event::KeyboardInput(ElementState::Released, _, Some(key_code)) => {
+                 if let Some(index) = keys_down.iter().position(|x| *x == KeyOrButton::Key(key_code)) {
+                     keys_down.remove(index);
+                }
+            }
+            _ => {}
         }
-        UserInterface::id() << UIUpdate {};
-        true
     }
+    Settings::send(UserInterface::id(), &keys_down, &mouse);
+    UserInterface::id() << UIUpdate {};
+    true
 }
