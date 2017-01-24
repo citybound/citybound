@@ -1,4 +1,5 @@
 use core::ui::{KeyOrButton, KeyCombination, Mouse};
+use core::user_interface::Event3d;
 use monet::glium::glutin::{MouseButton, VirtualKeyCode};
 use kay::ID;
 
@@ -17,23 +18,25 @@ lazy_static!{
     pub static ref SETTINGS: RwLock<Settings> = RwLock::new(Settings::new());
 }
 
-#[derive(Compact, Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub struct KeyAction {
     pub action_id: usize,
 }
 
-#[derive(Compact, Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub struct MouseAction {
     pub action_id: usize,
     pub mouse: Mouse,
 }
 
-#[derive(Compact, Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub enum Action{
     KeyHeld(KeyAction),
     KeyDown(KeyAction),
     KeyUp(KeyAction),
     Mouse(MouseAction),
+
+    Event3d(Event3d),
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
@@ -75,14 +78,37 @@ impl Settings {
         id
     }
 
-    pub fn send(id: ID, keys: &Vec<KeyOrButton>, mouse: &Vec<Mouse>) {
-        let mut settings = SETTINGS.write().unwrap();
+    pub fn send_helper(keys: &Vec<KeyOrButton>, settings: &mut Settings) -> Vec<usize> {
+        let mut ret = Vec::<usize>::new();
         println!("{:?}", *settings);
         for (comb, action_id) in &settings.key_triggers {
             if Settings::comb_intersection(keys, (*comb).clone()) {
-                println!("YAY!");
-                id << Action::KeyHeld(KeyAction { action_id: *action_id })
+                ret.push(*action_id)
             }
+        }
+        ret.clone()
+    }
+
+    pub fn send(id: ID, keys: &Vec<KeyOrButton>, new_keys: &Vec<KeyOrButton>, mouse: &Vec<Mouse>) {
+        let mut settings = SETTINGS.write().unwrap();
+        let mut total = Vec::<KeyOrButton>::new();
+        total.extend(keys);
+        total.extend(new_keys);
+
+        let mut all_events = Settings::send_helper(&total, &mut settings);
+        let mut original_events = Settings::send_helper(&keys, &mut settings);
+        let mut new_events = Vec::<usize>::new();
+        for i in &all_events {
+            if !original_events.contains(i) {
+                new_events.push(*i)
+            }
+        }
+
+        for i in &all_events {
+            id << Action::KeyHeld(KeyAction { action_id: *i});
+        }
+        for i in &new_events {
+            id << Action::KeyDown(KeyAction { action_id: *i});
         }
 
         for (comb, action_id) in &settings.key_triggers {

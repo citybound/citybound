@@ -158,7 +158,7 @@ impl Recipient<Focus> for UserInterface {
 
 use monet::Project2dTo3d;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Event3d {
     DragStarted { at: P3 },
     DragOngoing { from: P3, to: P3 },
@@ -213,7 +213,10 @@ impl Recipient<Projected3d> for UserInterface {
 
 impl Recipient<Action> for UserInterface {
     fn receive(&mut self, msg: &Action) -> Fate {
-        print!("{:?}", msg);
+        println!("{:?}", msg);
+        if let Some(active_interactable) = self.active_interactable {
+            active_interactable << *msg
+        }
         match *msg {
             Action::Mouse(MouseAction{action_id: id, mouse: Mouse::Moved(position)}) => {
                 let delta = self.cursor_2d - position;
