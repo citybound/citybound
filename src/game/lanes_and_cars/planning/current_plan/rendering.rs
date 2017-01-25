@@ -1,9 +1,10 @@
 use kay::{ID, Recipient, Fate, Actor};
-use descartes::{Band, Path, FiniteCurve};
+use compact::CDict;
+use descartes::{N, Band, Path, FiniteCurve};
 use monet::{Thing, Instance};
 use ::core::geometry::band_to_thing;
-use super::CurrentPlan;
-use super::super::plan::{PlanDelta, PlanResultDelta};
+use super::{CurrentPlan, SelectableStrokeRef};
+use super::super::plan::{PlanDelta, BuiltStrokes, PlanResultDelta};
 use super::super::lane_stroke::LaneStroke;
 
 use monet::SetupInScene;
@@ -24,6 +25,10 @@ impl Recipient<RenderToScene> for CurrentPlan {
                 if self.preview.is_none() {
                     let preview = self.update_preview();
                     render_strokes(&preview.plan_delta, renderer_id, scene_id);
+
+                }
+                if !self.interactables_valid {
+                    self.update_interactables();
                 }
                 if let Some(ref result_delta) = self.preview_result_delta {
                     // TODO: add something like prepare-render to monet to make sure
@@ -36,6 +41,14 @@ impl Recipient<RenderToScene> for CurrentPlan {
                         render_transfer_lanes(result_delta, renderer_id, scene_id);
                     }
                 }
+                if let Some(ref still_built_strokes) = self.still_built_strokes {
+                    render_selections(&self.preview.as_ref().unwrap().selections,
+                                      &self.preview.as_ref().unwrap().plan_delta,
+                                      still_built_strokes,
+                                      renderer_id,
+                                      scene_id);
+                }
+
                 Fate::Live
             }
         }
@@ -131,6 +144,29 @@ fn render_transfer_lanes(result_delta: &PlanResultDelta, renderer_id: ID, scene_
         thing_id: 5503,
         thing: transfer_strokes_thing,
         instance: Instance::with_color([1.0, 0.5, 0.0]),
+        is_decal: true,
+    };
+}
+
+fn render_selections(selections: &CDict<SelectableStrokeRef, (N, N)>,
+                     plan_delta: &PlanDelta,
+                     still_built_strokes: &BuiltStrokes,
+                     renderer_id: ID,
+                     scene_id: usize) {
+    let selection_thing = selections.pairs()
+        .filter_map(|(&selection_ref, &(start, end))| {
+            let stroke = selection_ref.get_stroke(plan_delta, still_built_strokes);
+            stroke.path()
+                .subsection(start, end)
+                .map(|subsection| band_to_thing(&Band::new(subsection, 5.0), 0.1))
+        })
+        .sum();
+    renderer_id <<
+    UpdateThing {
+        scene_id: scene_id,
+        thing_id: 5504,
+        thing: selection_thing,
+        instance: Instance::with_color([0.0, 0.0, 1.0]),
         is_decal: true,
     };
 }

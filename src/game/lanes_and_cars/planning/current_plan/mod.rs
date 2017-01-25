@@ -1,14 +1,18 @@
 use kay::{Actor, Recipient, Fate};
+use kay::swarm::{Swarm, CreateWith};
 use compact::{CVec, CDict};
-use descartes::{N, P2};
+use descartes::{N, P2, FiniteCurve};
 
 use super::super::construction::materialized_reality::MaterializedReality;
+use super::lane_stroke::LaneStroke;
 use super::plan::{PlanDelta, PlanResultDelta, BuiltStrokes, LaneStrokeRef};
 
 mod intent;
 use self::intent::{Intent, apply_intent};
 mod rendering;
 mod stroke_canvas;
+mod selectable;
+use self::selectable::Selectable;
 
 #[derive(Compact, Clone, Default)]
 pub struct PlanStep {
@@ -21,6 +25,22 @@ pub struct PlanStep {
 pub enum SelectableStrokeRef {
     New(usize),
     Built(LaneStrokeRef),
+}
+
+impl SelectableStrokeRef {
+    pub fn get_stroke<'a>(&self,
+                          plan_delta: &'a PlanDelta,
+                          still_built_strokes: &'a BuiltStrokes)
+                          -> &'a LaneStroke {
+        match *self {
+            SelectableStrokeRef::New(node_idx) => &plan_delta.new_strokes[node_idx],
+            SelectableStrokeRef::Built(old_ref) => {
+                still_built_strokes.mapping
+                    .get(old_ref)
+                    .unwrap()
+            }
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -86,6 +106,33 @@ impl CurrentPlan {
             self.preview = Some(preview);
         }
         self.preview.as_ref().unwrap()
+    }
+
+    pub fn update_interactables(&mut self) {
+        if let Some(ref still_built_strokes) = self.still_built_strokes {
+            Swarm::<Selectable>::all() << ClearInteractable;
+            for (i, stroke) in self.current.plan_delta.new_strokes.iter().enumerate() {
+                let selectable = Selectable::new(SelectableStrokeRef::New(i),
+                                                 stroke.path().clone());
+                Swarm::<Selectable>::id() << CreateWith(selectable, InitInteractable);
+            }
+            //     for (&selection_ref, &(start, end)) in self.current.selections.pairs() {
+            //         let stroke =
+            //             selection_ref.get_stroke(&self.current.plan_delta, still_built_strokes);
+            //         if let Some(subsection) = stroke.path().subsection(start, end) {
+            //             let selectable = Selectable::new(selection_ref, subsection);
+            //             Swarm::<Selectable>::id() << CreateWith(selectable, InitInteractable);
+            //         }
+            //     }
+
+            self.interactables_valid = true;
+        } else {
+            MaterializedReality::id() <<
+            Simulate {
+                requester: Self::id(),
+                delta: self.update_preview().plan_delta.clone(),
+            }
+        }
     }
 
     fn commit(&mut self) {
@@ -160,14 +207,7 @@ impl Recipient<Stroke> for CurrentPlan {
     }
 }
 
-#[derive(Copy, Clone)]
-enum SelectionState {
-    Ongoing,
-    Finished,
-}
-
-#[derive(Copy, Clone)]
-pub struct Select(SelectableStrokeRef, N, N, SelectionState);
+use self::selectable::{Select, SelectionState};
 
 impl Recipient<Select> for CurrentPlan {
     fn receive(&mut self, msg: &Select) -> Fate {
@@ -203,12 +243,19 @@ impl Recipient<SimulationResult> for CurrentPlan {
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct InitInteractable;
+#[derive(Copy, Clone)]
+pub struct ClearInteractable;
+
 pub fn setup() {
     CurrentPlan::register_default();
     CurrentPlan::handle::<Undo>();
     CurrentPlan::handle::<Redo>();
     CurrentPlan::handle::<Stroke>();
     CurrentPlan::handle::<SimulationResult>();
+    CurrentPlan::handle::<Select>();
     self::rendering::setup();
     self::stroke_canvas::setup();
+    self::selectable::setup();
 }

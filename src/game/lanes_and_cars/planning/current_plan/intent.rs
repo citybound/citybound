@@ -184,20 +184,6 @@ fn apply_continue_road(continue_from: &CVec<(LaneStrokeRef, ContinuationMode)>,
     }
 }
 
-fn get_stroke<'a>(selection_ref: SelectableStrokeRef,
-                  current: &'a PlanStep,
-                  still_built_strokes: &'a BuiltStrokes)
-                  -> &'a LaneStroke {
-    match selection_ref {
-        SelectableStrokeRef::New(node_idx) => &current.plan_delta.new_strokes[node_idx],
-        SelectableStrokeRef::Built(old_ref) => {
-            still_built_strokes.mapping
-                .get(old_ref)
-                .unwrap()
-        }
-    }
-}
-
 fn apply_select(selection_ref: SelectableStrokeRef,
                 start: N,
                 end: N,
@@ -208,7 +194,7 @@ fn apply_select(selection_ref: SelectableStrokeRef,
     let mut new_selections = current.selections.clone();
     new_selections.insert(selection_ref, (start, end));
     if settings.select_parallel {
-        let stroke = get_stroke(selection_ref, current, still_built_strokes);
+        let stroke = selection_ref.get_stroke(&current.plan_delta, still_built_strokes);
 
         let start_position = stroke.path().along(start);
         let start_direction = stroke.path().direction_along(start);
@@ -275,7 +261,7 @@ fn apply_maximize_selection(current: &PlanStep, still_built_strokes: &BuiltStrok
     let new_selections = current.selections
         .pairs()
         .map(|(selection_ref, _)| {
-            let stroke = get_stroke(*selection_ref, current, still_built_strokes);
+            let stroke = selection_ref.get_stroke(&current.plan_delta, still_built_strokes);
             (*selection_ref, (0.0, stroke.path().length()))
         })
         .collect();
@@ -292,7 +278,7 @@ fn apply_move_selection(delta: V2,
     let mut with_subsections_moved = current.selections
         .pairs()
         .map(|(&selection_ref, &(start, end))| {
-            let stroke = get_stroke(selection_ref, current, still_built_strokes);
+            let stroke = selection_ref.get_stroke(&current.plan_delta, still_built_strokes);
             (selection_ref, stroke.with_subsection_moved(start, end, delta))
         })
         .collect::<::fnv::FnvHashMap<_, _>>();
@@ -451,7 +437,7 @@ fn apply_delete_selection(current: &PlanStep, still_built_strokes: &BuiltStrokes
     let mut new_strokes = Vec::new();
 
     for (&selection_ref, &(start, end)) in current.selections.pairs() {
-        let stroke = get_stroke(selection_ref, current, still_built_strokes);
+        let stroke = selection_ref.get_stroke(&current.plan_delta, still_built_strokes);
         if let Some(before) = stroke.subsection(0.0, start) {
             new_strokes.push(before);
         }
@@ -481,7 +467,7 @@ fn apply_create_next_lane(current: &PlanStep, still_built_strokes: &BuiltStrokes
     let selected_subsections = current.selections
         .pairs()
         .filter_map(|(&selection_ref, &(start, end))| {
-            let stroke = get_stroke(selection_ref, current, still_built_strokes);
+            let stroke = selection_ref.get_stroke(&current.plan_delta, still_built_strokes);
             stroke.subsection(start, end)
         })
         .collect::<Vec<_>>();
