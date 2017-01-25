@@ -67,25 +67,30 @@ impl Recipient<ClearDraggables> for Draggable {
     }
 }
 
+use core::settings::Action;
 use core::user_interface::Event3d;
 use super::{MoveSelection, MaximizeSelection, Commit};
 
-impl Recipient<Event3d> for Draggable {
-    fn receive(&mut self, msg: &Event3d) -> Fate {
+impl Recipient<Action> for Draggable {
+    fn receive(&mut self, msg: &Action) -> Fate {
         match *msg {
-            Event3d::DragOngoing { from, to } => {
-                CurrentPlan::id() << MoveSelection(to.into_2d() - from.into_2d());
-                Fate::Live
-            }
-            Event3d::DragFinished { from, to } => {
-                if from.into_2d().is_roughly_within(to.into_2d(), 3.0) {
-                    CurrentPlan::id() << MaximizeSelection;
+            Action::Event3d(event_3d) => {
+                match event_3d {
+                    Event3d::DragOngoing { from, to } => {
+                        CurrentPlan::id() << MoveSelection(to.into_2d() - from.into_2d());
+                    }
+                    Event3d::DragFinished { from, to } => {
+                        if from.into_2d().is_roughly_within(to.into_2d(), 3.0) {
+                            CurrentPlan::id() << MaximizeSelection;
+                        }
+                        CurrentPlan::id() << Commit(true, to.into_2d());
+                    }
+                _ => (),
                 }
-                CurrentPlan::id() << Commit(true, to.into_2d());
-                Fate::Live
             }
-            _ => Fate::Live,
+            _ => (),
         }
+        Fate::Live
     }
 }
 
@@ -94,5 +99,5 @@ pub fn setup() {
     Swarm::<Draggable>::handle::<CreateWith<Draggable, AddToUI>>();
     Swarm::<Draggable>::handle::<Become>();
     Swarm::<Draggable>::handle::<ClearDraggables>();
-    Swarm::<Draggable>::handle::<Event3d>();
+    Swarm::<Draggable>::handle::<Action>();
 }

@@ -47,8 +47,9 @@ pub struct Settings {
     pub zoom_speed: f32,
     pub invert_y: bool,
 
-    pub key_triggers: HashMap<KeyCombination, usize>,
-    pub mouse_triggers: HashMap<KeyCombination, usize>,
+    pub key_triggers: Vec<(KeyCombination, usize)>,
+    pub key_excludes: Vec<(usize, usize)>,
+    pub mouse_triggers: Vec<(KeyCombination, usize)>,
 }
 
 impl Settings {
@@ -59,31 +60,48 @@ impl Settings {
             move_speed: 1.0f32,
             invert_y: false,
 
-            key_triggers: HashMap::new(),
-            mouse_triggers: HashMap::new(),
+            key_triggers: Vec::new(),
+            mouse_triggers: Vec::new(),
+            key_excludes: Vec::new()
         }
     }
 
     pub fn register_key(trigger: KeyCombination) -> usize {
         let mut settings = SETTINGS.write().unwrap();
         let id = settings.key_triggers.len();
-        settings.key_triggers.insert(trigger, id);
+        settings.key_triggers.push((trigger, id));
         id
+    }
+
+    pub fn register_exclusiveness(a: usize, b: usize) {
+        let mut settings = SETTINGS.write().unwrap();
+        settings.key_excludes.push((a, b));
+    }
+
+    pub fn filter_events(events: &mut Vec<usize>, settings: &mut Settings) {
+        let mut exc = Vec::<usize>::new();
+        for i in events.clone() {
+            for e in &settings.key_excludes {
+                if e.0 == i {
+                    exc.push(e.1)
+                }
+            }
+        }
+        events.retain(|x| !exc.contains(x));
     }
 
     pub fn register_mouse(trigger: KeyCombination) -> usize {
         let mut settings = SETTINGS.write().unwrap();
         let id = settings.mouse_triggers.len();
-        settings.mouse_triggers.insert(trigger, id);
+        settings.mouse_triggers.push((trigger, id));
         id
     }
 
     pub fn send_helper(keys: &Vec<KeyOrButton>, settings: &mut Settings) -> Vec<usize> {
         let mut ret = Vec::<usize>::new();
-        println!("{:?}", *settings);
-        for (comb, action_id) in &settings.key_triggers {
-            if Settings::comb_intersection(keys, (*comb).clone()) {
-                ret.push(*action_id)
+        for tup in &settings.key_triggers {
+            if Settings::comb_intersection(keys, tup.0.clone()) {
+                ret.push(tup.1)
             }
         }
         ret.clone()
@@ -96,7 +114,13 @@ impl Settings {
         total.extend(new_keys);
 
         let mut all_events = Settings::send_helper(&total, &mut settings);
+        //println!("All events: {:?}", all_events);
+        Settings::filter_events(&mut all_events, &mut settings);
+        //println!("All filtered events: {:?}", all_events);
         let mut original_events = Settings::send_helper(&keys, &mut settings);
+        //println!("All original events{:?}", original_events);
+        Settings::filter_events(&mut original_events, &mut settings);
+        //println!("All filtered events{:?}", original_events);
         let mut new_events = Vec::<usize>::new();
         for i in &all_events {
             if !original_events.contains(i) {
@@ -111,10 +135,10 @@ impl Settings {
             id << Action::KeyDown(KeyAction { action_id: *i});
         }
 
-        for (comb, action_id) in &settings.key_triggers {
-            if Settings::comb_intersection(keys, (*comb).clone()) {
+        for tup in &settings.mouse_triggers {
+            if Settings::comb_intersection(keys, tup.0.clone()) {
                 for &m in mouse {
-                    id << Action::Mouse(MouseAction { action_id: *action_id, mouse: m })
+                    id << Action::Mouse(MouseAction { action_id: tup.1, mouse: m })
                 }
             }
         }

@@ -96,6 +96,9 @@ impl Canvas {
         canvas.set_lane_width_action_id[9] = Some(Settings::register_key(KeyCombination {
             keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::Key9)]],
         }));
+
+        Settings::register_exclusiveness(canvas.big_grid_action_id.unwrap(), canvas.grid_action_id.unwrap());
+        Settings::register_exclusiveness(canvas.redo_action_id.unwrap(), canvas.undo_action_id.unwrap());
         canvas
     }
 }
@@ -128,9 +131,11 @@ impl Recipient<Action> for Canvas {
                     CurrentPlan::id() << Materialize;
                 }
                 if Some(id) == self.undo_action_id {
+                    println!("Undo");
                     CurrentPlan::id() << Undo;
                 }
                 if Some(id) == self.redo_action_id {
+                    println!("Redo");
                     CurrentPlan::id() << Redo;
                 }
                 if Some(id) == self.spawn_cars_action_id {
@@ -145,10 +150,12 @@ impl Recipient<Action> for Canvas {
                 }
 
                 if Some(id) == self.grid_action_id {
+                    println!("Grid");
                     CurrentPlan::id() << CreateGrid(10);
                 }
 
                 if Some(id) == self.big_grid_action_id {
+                    println!("Grid");
                     CurrentPlan::id() << CreateGrid(15);
                 }
 

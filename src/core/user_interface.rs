@@ -56,8 +56,8 @@ impl UserInterface {
                                 KeyOrButton::Key(VirtualKeyCode::Up)]],
             })),
             backward_action_id : Some(Settings::register_key(KeyCombination{
-                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::W),
-                                KeyOrButton::Key(VirtualKeyCode::Up)]],
+                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::S),
+                                KeyOrButton::Key(VirtualKeyCode::Down)]],
             })),
             left_action_id : Some(Settings::register_key(KeyCombination{
                 keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::A),
@@ -69,24 +69,24 @@ impl UserInterface {
             })),
 
 
-            zoom_modifier : Some(Settings::register_key(KeyCombination{
+            zoom_modifier : Some(Settings::register_mouse(KeyCombination{
                 keys: vec![],
             })),
-            mouse_modifier : Some(Settings::register_key(KeyCombination{
+            mouse_modifier : Some(Settings::register_mouse(KeyCombination{
                 keys: vec![],
             })),
-            yaw_modifier : Some(Settings::register_key(KeyCombination{
+            yaw_modifier : Some(Settings::register_mouse(KeyCombination{
                 keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::LAlt),
                                 KeyOrButton::Key(VirtualKeyCode::RAlt),
                                 KeyOrButton::Button(MouseButton::Middle),
                 ]],
             })),
-            pan_modifier : Some(Settings::register_key(KeyCombination{
+            pan_modifier : Some(Settings::register_mouse(KeyCombination{
                 keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::LShift),
                                 KeyOrButton::Key(VirtualKeyCode::RShift),
                 ]],
             })),
-            pitch_modifier : Some(Settings::register_key(KeyCombination{
+            pitch_modifier : Some(Settings::register_mouse(KeyCombination{
                 keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::LAlt),
                                 KeyOrButton::Key(VirtualKeyCode::RAlt),
                                 KeyOrButton::Button(MouseButton::Middle),
@@ -175,16 +175,18 @@ use monet::Projected3d;
 
 impl Recipient<Projected3d> for UserInterface {
     fn receive(&mut self, msg: &Projected3d) -> Fate {
+        // println!("received event3d");
         match *msg {
             Projected3d { position_3d } => {
                 self.cursor_3d = position_3d;
                 if let Some(active_interactable) = self.active_interactable {
                     active_interactable <<
-                        Event3d::DragOngoing {
+                        Action::Event3d(Event3d::DragOngoing {
                             from: self.drag_start_3d.expect("active interactable but no drag start"),
                             to: position_3d,
-                        };
-                } else {
+                        });
+                }
+                {
                     let new_hovered_interactable = self.interactables_3d
                         .iter()
                         .filter(|&(_id, &(ref shape, _z_index))| {
@@ -192,16 +194,17 @@ impl Recipient<Projected3d> for UserInterface {
                         })
                         .max_by_key(|&(_id, &(ref _shape, z_index))| z_index)
                         .map(|(id, _shape)| *id);
-
+                    // println!("hovered interactable new/old: {:?}/{:?}", new_hovered_interactable, self.hovered_interactable);
                     if self.hovered_interactable != new_hovered_interactable {
                         if let Some(previous) = self.hovered_interactable {
-                            previous << Event3d::HoverStopped;
+                            previous << Action::Event3d(Event3d::HoverStopped);
                         }
                         if let Some(next) = new_hovered_interactable {
-                            next << Event3d::HoverStarted { at: self.cursor_3d };
+                            next << Action::Event3d(Event3d::HoverStarted { at: self.cursor_3d });
                         }
                     } else if let Some(hovered_interactable) = self.hovered_interactable {
-                        hovered_interactable << Event3d::HoverOngoing { at: self.cursor_3d };
+                        // println!("hover");
+                        hovered_interactable << Action::Event3d(Event3d::HoverOngoing { at: self.cursor_3d });
                     }
                     self.hovered_interactable = new_hovered_interactable;
                 }
@@ -220,6 +223,9 @@ impl Recipient<Action> for UserInterface {
         match *msg {
             Action::Mouse(MouseAction{action_id: id, mouse: Mouse::Moved(position)}) => {
                 let delta = self.cursor_2d - position;
+
+                println!("{}, {}, {}", self.mouse_modifier.unwrap(), self.yaw_modifier.unwrap(), self.pitch_modifier.unwrap());
+
                 if Some(id) == self.yaw_modifier {
                     Renderer::id() << MoveEye {
                         scene_id: 0,
@@ -242,12 +248,13 @@ impl Recipient<Action> for UserInterface {
                         };
                 }
                 if Some(id) == self.mouse_modifier {
+                    // println!("Send request");
                     self.cursor_2d = position;
                     Renderer::id() <<
                         Project2dTo3d {
                             scene_id: 0,
                             position_2d: position,
-                            requester: Self::id(),
+                            requester: Self::id()
                         };
                 }
             }
@@ -306,18 +313,18 @@ impl Recipient<Action> for UserInterface {
                     self.receive(&Projected3d { position_3d: cursor_3d });
                     self.active_interactable = self.hovered_interactable;
                     if let Some(active_interactable) = self.active_interactable {
-                        active_interactable << Event3d::DragStarted { at: self.cursor_3d };
+                        active_interactable << Action::Event3d(Event3d::DragStarted { at: self.cursor_3d });
                     }
                 }
             }
             Action::KeyUp(KeyAction{action_id: id}) => {
                 if let Some(active_interactable) = self.active_interactable {
                     active_interactable <<
-                        Event3d::DragFinished {
+                        Action::Event3d(Event3d::DragFinished {
                             from: self.drag_start_3d
                                 .expect("active interactable but no drag start"),
                             to: self.cursor_3d,
-                        };
+                        });
                 }
                 self.drag_start_2d = None;
                 self.drag_start_3d = None;

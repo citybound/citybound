@@ -103,6 +103,8 @@ pub fn setup_window_and_renderer(renderables: Vec<ID>) -> GlutinFacade {
 pub fn process_events(window: &GlutinFacade, keys_down: &mut Vec<KeyOrButton>) -> bool {
     let mut mouse = Vec::<Mouse>::new();
     let mut new_keys = Vec::<KeyOrButton>::new();
+    println!("Frame start:");
+    println!("Current keys down: {:?}", keys_down);
     for event in window.poll_events().collect::<Vec<_>>() {
         match event {
             Event::Closed => return false,
@@ -129,19 +131,20 @@ pub fn process_events(window: &GlutinFacade, keys_down: &mut Vec<KeyOrButton>) -
                 }
             }
             Event::KeyboardInput(ElementState::Pressed, _, Some(key_code)) => {
-                new_keys.push(KeyOrButton::Key(key_code))
+                // to deal with key repeat
+                if !keys_down.contains(&KeyOrButton::Key(key_code)) &&
+                   !new_keys.contains(&KeyOrButton::Key(key_code)) {
+                    new_keys.push(KeyOrButton::Key(key_code))
+                }
             }
             Event::KeyboardInput(ElementState::Released, _, Some(key_code)) => {
-                if let Some(index) = keys_down.iter().position(|x| *x == KeyOrButton::Key(key_code)) {
-                     keys_down.remove(index);
-                }
-                if let Some(index) = new_keys.iter().position(|x| *x == KeyOrButton::Key(key_code)) {
-                    new_keys.remove(index);
-                }
+                keys_down.retain(|x| *x != KeyOrButton::Key(key_code));
+                new_keys.retain(|x| *x != KeyOrButton::Key(key_code));
             }
             _ => {}
         }
     }
+    println!("New keys: {:?}", new_keys);
     Settings::send(UserInterface::id(), &keys_down, &new_keys, &mouse);
     keys_down.extend(new_keys);
     UserInterface::id() << UIUpdate {};
