@@ -1,40 +1,32 @@
 use kay::{Actor, Recipient, Fate};
 use compact::{CVec, CDict};
-use descartes::P2;
+use descartes::{N, P2};
 
 use super::super::construction::materialized_reality::MaterializedReality;
 use super::plan::{PlanDelta, PlanResultDelta, BuiltStrokes, LaneStrokeRef};
-use super::lane_stroke::{LaneStroke, LaneStrokeNode, LaneStrokeNodeRef};
 
-mod apply_intent;
-use self::apply_intent::apply_intent;
+mod intent;
+use self::intent::{Intent, apply_intent};
 mod rendering;
 mod stroke_canvas;
 
 #[derive(Compact, Clone, Default)]
 pub struct PlanStep {
     plan_delta: PlanDelta,
-    selections: CVec<()>,
+    selections: CDict<SelectableStrokeRef, (N, N)>,
     intent: Intent,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+pub enum SelectableStrokeRef {
+    New(usize),
+    Built(LaneStrokeRef),
 }
 
 #[derive(Copy, Clone)]
 pub enum ContinuationMode {
     Append,
     Prepend,
-}
-
-#[derive(Compact, Clone)]
-pub enum Intent {
-    None,
-    NewRoad(CVec<P2>),
-    ContinueRoad(CVec<(LaneStrokeRef, ContinuationMode)>, CVec<P2>, P2),
-}
-
-impl Default for Intent {
-    fn default() -> Self {
-        Intent::None
-    }
 }
 
 #[derive(Compact, Clone)]
@@ -83,7 +75,9 @@ impl CurrentPlan {
 
     pub fn update_preview(&mut self) -> &PlanStep {
         if self.preview.is_none() {
-            let preview = apply_intent(&self.current, &self.settings);
+            let preview = apply_intent(&self.current,
+                                       self.still_built_strokes.as_ref(),
+                                       &self.settings);
             MaterializedReality::id() <<
             Simulate {
                 requester: Self::id(),
@@ -96,7 +90,9 @@ impl CurrentPlan {
 
     fn commit(&mut self) {
         self.undo_history.push(self.current.clone());
-        self.current = apply_intent(&self.current, &self.settings);
+        self.current = apply_intent(&self.current,
+                                    self.still_built_strokes.as_ref(),
+                                    &self.settings);
         self.invalidate_preview();
         self.invalidate_interactables();
     }
@@ -155,6 +151,34 @@ impl Recipient<Stroke> for CurrentPlan {
                         self.commit_substep();
                     }
                     StrokeState::Finished => {
+                        self.commit();
+                    }
+                }
+                Fate::Live
+            }
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+enum SelectionState {
+    Ongoing,
+    Finished,
+}
+
+#[derive(Copy, Clone)]
+pub struct Select(SelectableStrokeRef, N, N, SelectionState);
+
+impl Recipient<Select> for CurrentPlan {
+    fn receive(&mut self, msg: &Select) -> Fate {
+        match *msg {
+            Select(selection_ref, start, end, state) => {
+                self.current.intent = Intent::Select(selection_ref, start, end);
+                match state {
+                    SelectionState::Ongoing => {
+                        self.invalidate_preview();
+                    }
+                    SelectionState::Finished => {
                         self.commit();
                     }
                 }
