@@ -184,13 +184,13 @@ impl Default for PlanResultDelta {
 }
 
 #[derive(Compact, Clone)]
-pub struct RemainingOldStrokes {
+pub struct BuiltStrokes {
     pub mapping: CDict<LaneStrokeRef, LaneStroke>,
 }
 
-impl Default for RemainingOldStrokes {
+impl Default for BuiltStrokes {
     fn default() -> Self {
-        RemainingOldStrokes { mapping: CDict::new() }
+        BuiltStrokes { mapping: CDict::new() }
     }
 }
 
@@ -199,8 +199,8 @@ use super::plan_result_steps::{find_intersections, trim_strokes_and_add_incoming
                                determine_signal_timings};
 
 impl Plan {
-    pub fn with_delta(&self, delta: &PlanDelta) -> (Plan, RemainingOldStrokes) {
-        let remaining_old_refs_and_strokes = self.strokes
+    pub fn with_delta(&self, delta: &PlanDelta) -> (Plan, BuiltStrokes) {
+        let built_old_refs_and_strokes = self.strokes
             .iter()
             .enumerate()
             .filter_map(|(i, stroke)| if delta.strokes_to_destroy.contains_key(LaneStrokeRef(i)) {
@@ -210,12 +210,12 @@ impl Plan {
             })
             .collect::<CDict<_, _>>();
         let new_plan = Plan {
-            strokes: remaining_old_refs_and_strokes.values()
+            strokes: built_old_refs_and_strokes.values()
                 .chain(delta.new_strokes.iter())
                 .cloned()
                 .collect(),
         };
-        (new_plan, RemainingOldStrokes { mapping: remaining_old_refs_and_strokes })
+        (new_plan, BuiltStrokes { mapping: built_old_refs_and_strokes })
     }
 
     pub fn get_result(&self) -> PlanResult {

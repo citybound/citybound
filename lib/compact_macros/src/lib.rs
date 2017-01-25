@@ -29,6 +29,21 @@ pub fn derive_compact(input: TokenStream) -> TokenStream {
     quote!(#expanded).to_string().parse().unwrap()
 }
 
+fn get_field_idents(variant_data: &syn::VariantData,
+                    tuple_prefix: &'static str)
+                    -> Vec<syn::Ident> {
+    match *variant_data {
+        syn::VariantData::Tuple(ref fields) => {
+            fields.iter()
+                .enumerate()
+                .map(|(i, _f)| format!("{}{}", tuple_prefix, i).into())
+                .collect()
+        }
+        syn::VariantData::Unit => Vec::new(),
+        syn::VariantData::Struct(_) => panic!("struct variants in enums not supported yet"),
+    }
+}
+
 fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
     let name = &ast.ident;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
@@ -87,90 +102,97 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
         }
         syn::Body::Enum(ref data) => {
             let variants_still_compact: &Vec<_> = &data.iter()
-                .map(|variant| if let syn::VariantData::Tuple(ref fields) = variant.data {
+                .map(|variant| {
                     let ident = &variant.ident;
-                    let fields: Vec<syn::Ident> = fields.iter()
-                        .enumerate()
-                        .map(|(i, _f)| format!("f{}", i).into())
-                        .collect();
+                    let fields = get_field_idents(&variant.data, "f");
                     let fields_ref = &fields;
-                    quote! {
-                        #name::#ident(#(ref #fields_ref),*) => {
-                            #(#fields_ref.is_still_compact())&&*
+
+                    if fields.is_empty() {
+                        quote! {
+                            #name::#ident => true
+                        }
+                    } else {
+                        quote! {
+                            #name::#ident(#(ref #fields_ref),*) => {
+                                #(#fields_ref.is_still_compact())&&*
+                            }
                         }
                     }
-                } else {
-                    panic!("Only tuple enum variants supported so far");
                 })
                 .collect();
 
             let variants_dynamic_size: &Vec<_> = &data.iter()
-                .map(|variant| if let syn::VariantData::Tuple(ref fields) = variant.data {
+                .map(|variant| {
                     let ident = &variant.ident;
-                    let fields: Vec<syn::Ident> = fields.iter()
-                        .enumerate()
-                        .map(|(i, _f)| format!("f{}", i).into())
-                        .collect();
+                    let fields = get_field_idents(&variant.data, "f");
                     let fields_ref = &fields;
-                    quote! {
-                        #name::#ident(#(ref #fields_ref),*) => {
-                            #(#fields_ref.dynamic_size_bytes())+*
+
+                    if fields.is_empty() {
+                        quote! {
+                            #name::#ident => 0
+                        }
+                    } else {
+                        quote! {
+                            #name::#ident(#(ref #fields_ref),*) => {
+                                #(#fields_ref.dynamic_size_bytes())+*
+                            }
                         }
                     }
-                } else {
-                    panic!("Only tuple enum variants supported so far");
                 })
                 .collect();
 
             let variants_compact_from: &Vec<_> = &data.iter()
-                .map(|variant| if let syn::VariantData::Tuple(ref fields) = variant.data {
+                .map(|variant| {
                     let ident = &variant.ident;
-                    let fields: Vec<syn::Ident> = fields.iter()
-                        .enumerate()
-                        .map(|(i, _f)| format!("f{}", i).into())
-                        .collect();
-                    let source_fields: Vec<syn::Ident> = fields.iter()
-                        .enumerate()
-                        .map(|(i, _f)| format!("source_f{}", i).into())
-                        .collect();
+                    let fields = get_field_idents(&variant.data, "f");
+                    let source_fields = get_field_idents(&variant.data, "source_f");
                     let fields_ref = &fields;
                     let source_fields_ref = &source_fields;
                     let source_fields_ref_2 = &source_fields;
-                    quote! {
-                        #name::#ident(#(ref #source_fields_ref),*) => {
-                            ::std::ptr::copy_nonoverlapping(source as *const #name,
-                                                            self as *mut #name, 1);
-                            let mut offset: isize = 0;
-                            if let #name::#ident(#(ref mut #fields_ref),*) = *self {
-                                #(
-                                    #fields_ref.compact_from(#source_fields_ref,
-                                                             new_dynamic_part
-                                                                .offset(offset));
-                                    offset += #source_fields_ref_2.dynamic_size_bytes() as isize;
-                                )*
-                            } else {unreachable!()}
+
+                    if fields.is_empty() {
+                        quote! {
+                            #name::#ident => {
+                                *self = #name::#ident;
+                            }
+                        }
+                    } else {
+                        quote! {
+                            #name::#ident(#(ref #source_fields_ref),*) => {
+                                ::std::ptr::copy_nonoverlapping(source as *const #name,
+                                                                self as *mut #name, 1);
+                                let mut offset: isize = 0;
+                                if let #name::#ident(#(ref mut #fields_ref),*) = *self {
+                                    #(
+                                        #fields_ref.compact_from(#source_fields_ref,
+                                                                new_dynamic_part
+                                                                    .offset(offset));
+                                        offset += #source_fields_ref_2.dynamic_size_bytes() as isize;
+                                    )*
+                                } else {unreachable!()}
+                            }
                         }
                     }
-                } else {
-                    panic!("Only tuple enum variants supported so far");
                 })
                 .collect();
 
             let variants_decompact: &Vec<_> = &data.iter()
-                .map(|variant| if let syn::VariantData::Tuple(ref fields) = variant.data {
+                .map(|variant| {
                     let ident = &variant.ident;
-                    let fields: Vec<syn::Ident> = fields.iter()
-                        .enumerate()
-                        .map(|(i, _f)| format!("f{}", i).into())
-                        .collect();
+                    let fields = get_field_idents(&variant.data, "f");
                     let fields_ref = &fields;
-                    quote! {
-                        #name::#ident(#(ref #fields_ref),*) => {
-                            #name::#ident(#(#fields_ref.decompact()),*)
+
+                    if fields.is_empty() {
+                        quote! {
+                            #name::#ident => #name::#ident
+                        }
+                    } else {
+                        quote! {
+                            #name::#ident(#(ref #fields_ref),*) => {
+                                #name::#ident(#(#fields_ref.decompact()),*)
+                            }
                         }
                     }
-                } else {
-                    panic!("Only tuple enum variants supported so far");
                 })
                 .collect();
 

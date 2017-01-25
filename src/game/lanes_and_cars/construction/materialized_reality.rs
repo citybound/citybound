@@ -1,7 +1,7 @@
 use compact::{CDict, CVec};
 use kay::{ID, Recipient, Fate, Actor};
 use super::super::planning::plan::{Plan, PlanResult, PlanDelta, PlanResultDelta, IntersectionRef,
-                                   TrimmedStrokeRef, TransferStrokeRef, RemainingOldStrokes};
+                                   TrimmedStrokeRef, TransferStrokeRef, BuiltStrokes};
 
 #[derive(Clone)]
 pub struct MaterializedRealityState {
@@ -27,7 +27,7 @@ pub struct Simulate {
 
 #[derive(Compact, Clone)]
 pub struct SimulationResult {
-    pub remaining_old_strokes: RemainingOldStrokes,
+    pub still_built_strokes: BuiltStrokes,
     pub result_delta: PlanResultDelta,
 }
 
@@ -39,12 +39,12 @@ impl Recipient<Simulate> for MaterializedReality {
                     Ready(ref state) |
                     WaitingForUnbuild(_, _, ref state, _, _, _) => state,
                 };
-                let (new_plan, remaining_old_strokes) = state.current_plan.with_delta(delta);
+                let (new_plan, still_built_strokes) = state.current_plan.with_delta(delta);
                 let result = new_plan.get_result();
                 let result_delta = result.delta(&state.current_result);
                 requester <<
                 SimulationResult {
-                    remaining_old_strokes: remaining_old_strokes,
+                    still_built_strokes: still_built_strokes,
                     result_delta: result_delta,
                 };
                 Fate::Live
