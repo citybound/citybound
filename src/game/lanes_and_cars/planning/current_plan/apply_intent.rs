@@ -59,6 +59,8 @@ pub fn apply_intent(current: &PlanStep,
 
         Intent::DeleteSelection => apply_delete_selection(current, still_built_strokes()),
 
+        Intent::Deselect => apply_deselect(current),
+
         Intent::CreateNextLane => apply_create_next_lane(current, still_built_strokes()),
     }
 }
@@ -620,7 +622,7 @@ fn apply_move_selection(delta: V2,
     PlanStep {
         plan_delta: new_plan_delta,
         selections: new_selections,
-        ..current.clone()
+        intent: Intent::None,
     }
 }
 
@@ -653,6 +655,13 @@ fn apply_delete_selection(current: &PlanStep, still_built_strokes: &BuiltStrokes
         plan_delta: new_plan_delta,
         selections: CDict::new(),
         intent: Intent::None,
+    }
+}
+
+fn apply_deselect(current: &PlanStep) -> PlanStep {
+    PlanStep {
+        selections: CDict::new(),
+        ..current.clone()
     }
 }
 

@@ -30,7 +30,7 @@ impl Recipient<InitInteractable> for Selectable {
         ::core::ui::UserInterface::id() <<
         Add::Interactable3d(self.id(),
                             AnyShape::Band(Band::new(self.path.clone(), 5.0)),
-                            1);
+                            2);
         Fate::Live
     }
 }
@@ -51,7 +51,7 @@ use super::{ChangeIntent, Intent, IntentProgress, ContinuationMode};
 const START_END_SNAP_DISTANCE: N = 10.0;
 const SEGMENT_SNAP_DISTANCE: N = 5.0;
 const CONTINUE_DISTANCE: N = 6.0;
-const MAXIMIZE_DISTANCE: N = 0.5;
+const MIN_SELECTION_SIZE: N = 2.0;
 
 impl Recipient<Event3d> for Selectable {
     fn receive(&mut self, msg: &Event3d) -> Fate {
@@ -71,8 +71,8 @@ impl Recipient<Event3d> for Selectable {
             Event3d::DragFinished { from, to } => {
                 if let (Some(selection_start), Some(selection_end)) =
                     (self.path.project(from.into_2d()), self.path.project(to.into_2d())) {
-                    let start = selection_start.min(selection_end);
-                    let end = selection_end.max(selection_start);
+                    let mut start = selection_start.min(selection_end);
+                    let mut end = selection_end.max(selection_start);
                     if end < CONTINUE_DISTANCE {
                         CurrentPlan::id() <<
                         ChangeIntent(Intent::ContinueRoadAround(self.stroke_ref,
@@ -85,9 +85,13 @@ impl Recipient<Event3d> for Selectable {
                                                                 ContinuationMode::Append,
                                                                 to.into_2d()),
                                      IntentProgress::Finished);
-                    } else if start.is_roughly_within(end, MAXIMIZE_DISTANCE) {
+                    } else {
+                        snap_start_end(&mut start, &mut end, &self.path);
+                        start = start.min(end - MIN_SELECTION_SIZE).max(0.0);
+                        end = end.max(start + MIN_SELECTION_SIZE).min(self.path.length());
                         CurrentPlan::id() <<
-                        ChangeIntent(Intent::MaximizeSelection, IntentProgress::Finished);
+                        ChangeIntent(Intent::Select(self.stroke_ref, start, end),
+                                     IntentProgress::Finished);
                     }
                 }
                 Fate::Live

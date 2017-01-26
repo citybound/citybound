@@ -1,7 +1,7 @@
 use kay::{Actor, Recipient, Fate};
 use kay::swarm::{Swarm, CreateWith};
 use compact::{CVec, CDict};
-use descartes::{V2, N, P2};
+use descartes::{V2, N, P2, FiniteCurve};
 
 use super::super::construction::materialized_reality::MaterializedReality;
 use super::lane_stroke::LaneStroke;
@@ -13,6 +13,10 @@ mod rendering;
 mod stroke_canvas;
 mod selectable;
 use self::selectable::Selectable;
+mod deselecter;
+use self::deselecter::Deselecter;
+mod draggable;
+use self::draggable::Draggable;
 
 #[derive(Compact, Clone, Default)]
 pub struct PlanStep {
@@ -59,6 +63,7 @@ pub enum Intent {
     MaximizeSelection,
     MoveSelection(V2),
     DeleteSelection,
+    Deselect,
     CreateNextLane,
 }
 
@@ -128,22 +133,26 @@ impl CurrentPlan {
     }
 
     pub fn update_interactables(&mut self) {
+        Swarm::<Selectable>::all() << ClearInteractable;
+        Swarm::<Draggable>::all() << ClearInteractable;
+        Deselecter::id() << ClearInteractable;
         if let Some(ref still_built_strokes) = self.still_built_strokes {
-            Swarm::<Selectable>::all() << ClearInteractable;
             for (i, stroke) in self.current.plan_delta.new_strokes.iter().enumerate() {
                 let selectable = Selectable::new(SelectableStrokeRef::New(i),
                                                  stroke.path().clone());
                 Swarm::<Selectable>::id() << CreateWith(selectable, InitInteractable);
             }
-            //     for (&selection_ref, &(start, end)) in self.current.selections.pairs() {
-            //         let stroke =
-            //             selection_ref.get_stroke(&self.current.plan_delta, still_built_strokes);
-            //         if let Some(subsection) = stroke.path().subsection(start, end) {
-            //             let selectable = Selectable::new(selection_ref, subsection);
-            //             Swarm::<Selectable>::id() << CreateWith(selectable, InitInteractable);
-            //         }
-            //     }
-
+            if !self.current.selections.is_empty() {
+                Deselecter::id() << InitInteractable;
+            }
+            for (&selection_ref, &(start, end)) in self.current.selections.pairs() {
+                let stroke =
+                    selection_ref.get_stroke(&self.current.plan_delta, still_built_strokes);
+                if let Some(subsection) = stroke.path().subsection(start, end) {
+                    let draggable = Draggable::new(selection_ref, subsection);
+                    Swarm::<Draggable>::id() << CreateWith(draggable, InitInteractable);
+                }
+            }
             self.interactables_valid = true;
         } else {
             MaterializedReality::id() <<
@@ -304,4 +313,6 @@ pub fn setup() {
     self::rendering::setup();
     self::stroke_canvas::setup();
     self::selectable::setup();
+    self::deselecter::setup();
+    self::draggable::setup();
 }
