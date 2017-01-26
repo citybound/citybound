@@ -1,14 +1,14 @@
 use kay::{Actor, Recipient, Fate};
 use kay::swarm::{Swarm, CreateWith};
 use compact::{CVec, CDict};
-use descartes::{N, P2, FiniteCurve};
+use descartes::{V2, N, P2};
 
 use super::super::construction::materialized_reality::MaterializedReality;
 use super::lane_stroke::LaneStroke;
 use super::plan::{PlanDelta, PlanResultDelta, BuiltStrokes, LaneStrokeRef};
 
-mod intent;
-use self::intent::{Intent, apply_intent};
+mod apply_intent;
+use self::apply_intent::apply_intent;
 mod rendering;
 mod stroke_canvas;
 mod selectable;
@@ -47,6 +47,25 @@ impl SelectableStrokeRef {
 pub enum ContinuationMode {
     Append,
     Prepend,
+}
+
+#[derive(Compact, Clone)]
+pub enum Intent {
+    None,
+    NewRoad(CVec<P2>),
+    ContinueRoad(CVec<(SelectableStrokeRef, ContinuationMode)>, CVec<P2>, P2),
+    ContinueRoadAround(SelectableStrokeRef, ContinuationMode, P2),
+    Select(SelectableStrokeRef, N, N),
+    MaximizeSelection,
+    MoveSelection(V2),
+    DeleteSelection,
+    CreateNextLane,
+}
+
+impl Default for Intent {
+    fn default() -> Self {
+        Intent::None
+    }
 }
 
 #[derive(Compact, Clone)]
@@ -144,7 +163,7 @@ impl CurrentPlan {
         self.invalidate_interactables();
     }
 
-    // just the Intent or selections changed, not the underlying PlanDelta
+    // just the Intent changed, not the PlanDelta or selections
     fn commit_substep(&mut self) {
         self.undo_history.push(self.current.clone());
         self.invalidate_preview();
@@ -182,22 +201,29 @@ impl Recipient<Redo> for CurrentPlan {
     }
 }
 
-use self::stroke_canvas::Stroke;
-use self::stroke_canvas::StrokeState;
+#[derive(Copy, Clone)]
+pub enum IntentProgress {
+    Preview,
+    SubStep,
+    Finished,
+}
 
-impl Recipient<Stroke> for CurrentPlan {
-    fn receive(&mut self, msg: &Stroke) -> Fate {
+#[derive(Compact, Clone)]
+pub struct ChangeIntent(pub Intent, pub IntentProgress);
+
+impl Recipient<ChangeIntent> for CurrentPlan {
+    fn receive(&mut self, msg: &ChangeIntent) -> Fate {
         match *msg {
-            Stroke(ref points, state) => {
-                self.current.intent = Intent::NewRoad(points.clone());
-                match state {
-                    StrokeState::Preview => {
+            ChangeIntent(ref intent, progress) => {
+                self.current.intent = intent.clone();
+                match progress {
+                    IntentProgress::Preview => {
                         self.invalidate_preview();
                     }
-                    StrokeState::Intermediate => {
+                    IntentProgress::SubStep => {
                         self.commit_substep();
                     }
-                    StrokeState::Finished => {
+                    IntentProgress::Finished => {
                         self.commit();
                     }
                 }
@@ -207,20 +233,40 @@ impl Recipient<Stroke> for CurrentPlan {
     }
 }
 
-use self::selectable::{Select, SelectionState};
+use self::stroke_canvas::{Stroke, StrokeState};
 
-impl Recipient<Select> for CurrentPlan {
-    fn receive(&mut self, msg: &Select) -> Fate {
+impl Recipient<Stroke> for CurrentPlan {
+    fn receive(&mut self, msg: &Stroke) -> Fate {
         match *msg {
-            Select(selection_ref, start, end, state) => {
-                self.current.intent = Intent::Select(selection_ref, start, end);
-                match state {
-                    SelectionState::Ongoing => {
-                        self.invalidate_preview();
+            Stroke(ref points, state) => {
+                let maybe_new_intent = match self.current.intent {
+                    Intent::ContinueRoad(ref continue_from, _, start_reference_point) => {
+                        Some(Intent::ContinueRoad(continue_from.clone(),
+                                                  points.clone(),
+                                                  start_reference_point))
                     }
-                    SelectionState::Finished => {
-                        self.commit();
+                    _ => {
+                        if points.len() >= 2 {
+                            Some(Intent::NewRoad(points.clone()))
+                        } else {
+                            None
+                        }
                     }
+                };
+                if let Some(new_intent) = maybe_new_intent {
+                    self.current.intent = new_intent;
+                    match state {
+                        StrokeState::Preview => {
+                            self.invalidate_preview();
+                        }
+                        StrokeState::Intermediate => {
+                            self.commit_substep();
+                        }
+                        StrokeState::Finished => {
+                            self.commit();
+                        }
+                    }
+
                 }
                 Fate::Live
             }
@@ -252,9 +298,9 @@ pub fn setup() {
     CurrentPlan::register_default();
     CurrentPlan::handle::<Undo>();
     CurrentPlan::handle::<Redo>();
+    CurrentPlan::handle::<ChangeIntent>();
     CurrentPlan::handle::<Stroke>();
     CurrentPlan::handle::<SimulationResult>();
-    CurrentPlan::handle::<Select>();
     self::rendering::setup();
     self::stroke_canvas::setup();
     self::selectable::setup();

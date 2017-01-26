@@ -45,54 +45,75 @@ impl Recipient<ClearInteractable> for Selectable {
     }
 }
 
-#[derive(Copy, Clone)]
-pub enum SelectionState {
-    Ongoing,
-    Finished,
-}
-
-#[derive(Copy, Clone)]
-pub struct Select(pub SelectableStrokeRef, pub N, pub N, pub SelectionState);
-
 use core::ui::Event3d;
+use super::{ChangeIntent, Intent, IntentProgress, ContinuationMode};
 
 const START_END_SNAP_DISTANCE: N = 10.0;
 const SEGMENT_SNAP_DISTANCE: N = 5.0;
+const CONTINUE_DISTANCE: N = 6.0;
+const MAXIMIZE_DISTANCE: N = 0.5;
 
 impl Recipient<Event3d> for Selectable {
     fn receive(&mut self, msg: &Event3d) -> Fate {
         match *msg {
             Event3d::DragOngoing { from, to } => {
-                println!("drag ongoing");
                 if let (Some(selection_start), Some(selection_end)) =
                     (self.path.project(from.into_2d()), self.path.project(to.into_2d())) {
-                    println!("{:?} {:?}", selection_start, selection_end);
                     let mut start = selection_start.min(selection_end);
                     let mut end = selection_end.max(selection_start);
-                    if start < START_END_SNAP_DISTANCE {
-                        start = 0.0
-                    }
-                    if end > self.path.length() - START_END_SNAP_DISTANCE {
-                        end = self.path.length()
-                    }
-                    let mut offset = 0.0;
-                    for segment in self.path.segments() {
-                        let next_offset = offset + segment.length();
-                        if start.is_roughly_within(offset, SEGMENT_SNAP_DISTANCE) {
-                            start = offset
-                        }
-                        if end.is_roughly_within(next_offset, SEGMENT_SNAP_DISTANCE) {
-                            end = next_offset
-                        }
-                        offset = next_offset;
-                    }
+                    snap_start_end(&mut start, &mut end, &self.path);
                     CurrentPlan::id() <<
-                    Select(self.stroke_ref, start, end, SelectionState::Ongoing);
+                    ChangeIntent(Intent::Select(self.stroke_ref, start, end),
+                                 IntentProgress::Preview);
+                }
+                Fate::Live
+            }
+            Event3d::DragFinished { from, to } => {
+                if let (Some(selection_start), Some(selection_end)) =
+                    (self.path.project(from.into_2d()), self.path.project(to.into_2d())) {
+                    let start = selection_start.min(selection_end);
+                    let end = selection_end.max(selection_start);
+                    if end < CONTINUE_DISTANCE {
+                        CurrentPlan::id() <<
+                        ChangeIntent(Intent::ContinueRoadAround(self.stroke_ref,
+                                                                ContinuationMode::Prepend,
+                                                                to.into_2d()),
+                                     IntentProgress::Finished);
+                    } else if start > self.path.length() - CONTINUE_DISTANCE {
+                        CurrentPlan::id() <<
+                        ChangeIntent(Intent::ContinueRoadAround(self.stroke_ref,
+                                                                ContinuationMode::Append,
+                                                                to.into_2d()),
+                                     IntentProgress::Finished);
+                    } else if start.is_roughly_within(end, MAXIMIZE_DISTANCE) {
+                        CurrentPlan::id() <<
+                        ChangeIntent(Intent::MaximizeSelection, IntentProgress::Finished);
+                    }
                 }
                 Fate::Live
             }
             _ => Fate::Live,
         }
+    }
+}
+
+fn snap_start_end(start: &mut N, end: &mut N, path: &CPath) {
+    if *start < START_END_SNAP_DISTANCE {
+        *start = 0.0
+    }
+    if *end > path.length() - START_END_SNAP_DISTANCE {
+        *end = path.length()
+    }
+    let mut offset = 0.0;
+    for segment in path.segments() {
+        let next_offset = offset + segment.length();
+        if start.is_roughly_within(offset, SEGMENT_SNAP_DISTANCE) {
+            *start = offset
+        }
+        if end.is_roughly_within(next_offset, SEGMENT_SNAP_DISTANCE) {
+            *end = next_offset
+        }
+        offset = next_offset;
     }
 }
 

@@ -10,23 +10,7 @@ use itertools::Itertools;
 const LANE_DISTANCE: N = 5.0;
 const CENTER_LANE_DISTANCE: N = 6.0;
 
-#[derive(Compact, Clone)]
-pub enum Intent {
-    None,
-    NewRoad(CVec<P2>),
-    ContinueRoad(CVec<(LaneStrokeRef, ContinuationMode)>, CVec<P2>, P2),
-    Select(SelectableStrokeRef, N, N),
-    MaximizeSelection,
-    MoveSelection(V2),
-    DeleteSelection,
-    CreateNextLane,
-}
-
-impl Default for Intent {
-    fn default() -> Self {
-        Intent::None
-    }
-}
+use super::Intent;
 
 pub fn apply_intent(current: &PlanStep,
                     maybe_still_built_strokes: Option<&BuiltStrokes>,
@@ -44,7 +28,17 @@ pub fn apply_intent(current: &PlanStep,
             apply_continue_road(continue_from,
                                 additional_points,
                                 start_reference_point,
-                                current)
+                                current,
+                                still_built_strokes())
+        }
+
+        Intent::ContinueRoadAround(selection_ref, continuation_mode, start_reference_point) => {
+            apply_continue_road_around(selection_ref,
+                                       continuation_mode,
+                                       start_reference_point,
+                                       current,
+                                       still_built_strokes(),
+                                       settings)
         }
 
         Intent::Select(selection_ref, start, end) => {
@@ -70,7 +64,7 @@ fn apply_new_road(points: &CVec<P2>, current: &PlanStep, settings: &Settings) ->
     // drawing a new road is equivalent to continuing a road
     // that consists of only its start points
     let mut one_point_strokes = CVec::<LaneStroke>::new();
-    let mut continue_from = CVec::new();
+    let mut continue_from = Vec::new();
     let base_idx = current.plan_delta.new_strokes.len();
     let direction = (points[1] - points[0]).normalize();
     let n_per_side = settings.n_lanes_per_side;
@@ -100,24 +94,49 @@ fn apply_new_road(points: &CVec<P2>, current: &PlanStep, settings: &Settings) ->
     let mut new_new_strokes = current.plan_delta.new_strokes.clone();
     new_new_strokes.extend(one_point_strokes);
 
-    let current_with_new_strokes = PlanStep {
-        plan_delta: PlanDelta { new_strokes: new_new_strokes, ..current.plan_delta.clone() },
-        ..current.clone()
-    };
+    let plan_delta_with_new_strokes =
+        PlanDelta { new_strokes: new_new_strokes, ..current.plan_delta.clone() };
 
-    apply_continue_road(&continue_from,
-                        &points[1..],
-                        points[0],
-                        &current_with_new_strokes)
+    continue_new_road(&continue_from,
+                      &points[1..],
+                      points[0],
+                      plan_delta_with_new_strokes)
 }
 
-fn apply_continue_road(continue_from: &CVec<(LaneStrokeRef, ContinuationMode)>,
+fn apply_continue_road(continue_from: &[(SelectableStrokeRef, ContinuationMode)],
                        additional_points: &[P2],
                        start_reference_point: P2,
-                       current: &PlanStep)
+                       current: &PlanStep,
+                       still_built_strokes: &BuiltStrokes)
                        -> PlanStep {
-    let mut previous_reference_point = start_reference_point;
     let mut new_plan_delta = current.plan_delta.clone();
+
+    let only_new_continue_from = continue_from.iter()
+        .map(|&(selectable_ref, continuation_mode)| match selectable_ref {
+            SelectableStrokeRef::Built(old_ref) => {
+                let old_stroke =
+                    still_built_strokes.mapping.get(old_ref).expect("old_ref should exist");
+                new_plan_delta.new_strokes.push(old_stroke.clone());
+                new_plan_delta.strokes_to_destroy.insert(old_ref, old_stroke.clone());
+                (LaneStrokeRef(new_plan_delta.new_strokes.len() - 1), continuation_mode)
+            }
+            SelectableStrokeRef::New(idx) => (LaneStrokeRef(idx), continuation_mode),
+        })
+        .collect::<Vec<_>>();
+
+    continue_new_road(&only_new_continue_from,
+                      additional_points,
+                      start_reference_point,
+                      new_plan_delta)
+}
+
+fn continue_new_road(continue_from: &[(LaneStrokeRef, ContinuationMode)],
+                     additional_points: &[P2],
+                     start_reference_point: P2,
+                     mut new_plan_delta: PlanDelta)
+                     -> PlanStep {
+    let mut previous_reference_point = start_reference_point;
+
 
     for next_reference_point in additional_points {
         // TODO: not really nice that we have to care about that here...
@@ -184,6 +203,50 @@ fn apply_continue_road(continue_from: &CVec<(LaneStrokeRef, ContinuationMode)>,
     }
 }
 
+const CONTINUE_PARALLEL_MAX_OFFSET: N = 0.5;
+
+fn apply_continue_road_around(selection_ref: SelectableStrokeRef,
+                              continuation_mode: ContinuationMode,
+                              start_reference_point: P2,
+                              current: &PlanStep,
+                              still_built_strokes: &BuiltStrokes,
+                              settings: &Settings)
+                              -> PlanStep {
+    let stroke = selection_ref.get_stroke(&current.plan_delta, still_built_strokes);
+    let (continued_point, direction_on_selected) = match continuation_mode {
+        ContinuationMode::Append => (stroke.path().end(), stroke.path().end_direction()),
+        ContinuationMode::Prepend => (stroke.path().start(), stroke.path().start_direction()),
+    };
+
+    let mut continue_from = vec![(selection_ref, continuation_mode)];
+
+    if settings.select_parallel {
+        for (other_ref, other_stroke) in all_strokes(&current.plan_delta, still_built_strokes) {
+            if other_ref != selection_ref {
+                if let Some(on_other) = other_stroke.path()
+                    .project_with_tolerance(continued_point, CONTINUE_PARALLEL_MAX_OFFSET) {
+                    let direction_on_other = other_stroke.path().direction_along(on_other);
+                    if direction_on_other.is_roughly_within(direction_on_selected, 0.1) ||
+                       (settings.select_opposite &&
+                        direction_on_other.is_roughly_within(-direction_on_selected, 0.1)) {
+                        if on_other < CONTINUE_PARALLEL_MAX_OFFSET {
+                            continue_from.push((other_ref, ContinuationMode::Prepend))
+                        } else if on_other >
+                                  other_stroke.path().length() - CONTINUE_PARALLEL_MAX_OFFSET {
+                            continue_from.push((other_ref, ContinuationMode::Append))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    PlanStep {
+        intent: Intent::ContinueRoad(continue_from.into(), CVec::new(), start_reference_point),
+        ..current.clone()
+    }
+}
+
 fn apply_select(selection_ref: SelectableStrokeRef,
                 start: N,
                 end: N,
@@ -203,16 +266,7 @@ fn apply_select(selection_ref: SelectableStrokeRef,
 
         let mut additional_selections = Vec::new();
 
-        let all_strokes = current.plan_delta
-            .new_strokes
-            .iter()
-            .enumerate()
-            .map(|(new_idx, new_stroke)| (SelectableStrokeRef::New(new_idx), new_stroke))
-            .chain(still_built_strokes.mapping
-                .pairs()
-                .map(|(old_ref, old_stroke)| (SelectableStrokeRef::Built(*old_ref), old_stroke)));
-
-        for (other_ref, other_stroke) in all_strokes {
+        for (other_ref, other_stroke) in all_strokes(&current.plan_delta, still_built_strokes) {
             if other_ref != selection_ref {
                 if let (Some(start_on_other_distance), Some(end_on_other_distance)) =
                     (other_stroke.path().project(start_position),
@@ -255,6 +309,18 @@ fn apply_select(selection_ref: SelectableStrokeRef,
         intent: Intent::None,
         ..current.clone()
     }
+}
+
+fn all_strokes<'a>(plan_delta: &'a PlanDelta,
+                   still_built_strokes: &'a BuiltStrokes)
+                   -> impl Iterator<Item = (SelectableStrokeRef, &'a LaneStroke)> + 'a {
+    plan_delta.new_strokes
+        .iter()
+        .enumerate()
+        .map(|(new_idx, new_stroke)| (SelectableStrokeRef::New(new_idx), new_stroke))
+        .chain(still_built_strokes.mapping
+            .pairs()
+            .map(|(old_ref, old_stroke)| (SelectableStrokeRef::Built(*old_ref), old_stroke)))
 }
 
 fn apply_maximize_selection(current: &PlanStep, still_built_strokes: &BuiltStrokes) -> PlanStep {

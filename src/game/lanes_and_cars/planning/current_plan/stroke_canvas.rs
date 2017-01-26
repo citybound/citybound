@@ -30,11 +30,9 @@ impl Recipient<Event3d> for StrokeCanvas {
         match *msg {
             Event3d::HoverStarted { at } |
             Event3d::HoverOngoing { at } => {
-                if !self.points.is_empty() {
-                    let mut preview_points = self.points.clone();
-                    preview_points.push(at.into_2d());
-                    CurrentPlan::id() << Stroke(preview_points, StrokeState::Preview);
-                }
+                let mut preview_points = self.points.clone();
+                preview_points.push(at.into_2d());
+                CurrentPlan::id() << Stroke(preview_points, StrokeState::Preview);
                 Fate::Live
             }
             Event3d::DragStarted { at } => {
