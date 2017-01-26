@@ -6,6 +6,7 @@ use super::{PlanStep, Settings, LaneStrokeRef, SelectableStrokeRef, Continuation
 use super::super::plan::{PlanDelta, BuiltStrokes};
 use super::super::lane_stroke::{LaneStroke, LaneStrokeNode};
 use itertools::Itertools;
+use ordered_float::OrderedFloat;
 
 const LANE_DISTANCE: N = 5.0;
 const CENTER_LANE_DISTANCE: N = 6.0;
@@ -22,7 +23,9 @@ pub fn apply_intent(current: &PlanStep,
     match current.intent {
         Intent::None => current.clone(),
 
-        Intent::NewRoad(ref points) => apply_new_road(points, current, settings),
+        Intent::NewRoad(ref points) => {
+            apply_new_road(points, current, still_built_strokes(), settings)
+        }
 
         Intent::ContinueRoad(ref continue_from, ref additional_points, start_reference_point) => {
             apply_continue_road(continue_from,
@@ -60,7 +63,11 @@ pub fn apply_intent(current: &PlanStep,
     }
 }
 
-fn apply_new_road(points: &CVec<P2>, current: &PlanStep, settings: &Settings) -> PlanStep {
+fn apply_new_road(points: &CVec<P2>,
+                  current: &PlanStep,
+                  still_built_strokes: &BuiltStrokes,
+                  settings: &Settings)
+                  -> PlanStep {
     // drawing a new road is equivalent to continuing a road
     // that consists of only its start points
     let mut one_point_strokes = CVec::<LaneStroke>::new();
@@ -100,7 +107,8 @@ fn apply_new_road(points: &CVec<P2>, current: &PlanStep, settings: &Settings) ->
     continue_new_road(&continue_from,
                       &points[1..],
                       points[0],
-                      plan_delta_with_new_strokes)
+                      plan_delta_with_new_strokes,
+                      still_built_strokes)
 }
 
 fn apply_continue_road(continue_from: &[(SelectableStrokeRef, ContinuationMode)],
@@ -127,13 +135,15 @@ fn apply_continue_road(continue_from: &[(SelectableStrokeRef, ContinuationMode)]
     continue_new_road(&only_new_continue_from,
                       additional_points,
                       start_reference_point,
-                      new_plan_delta)
+                      new_plan_delta,
+                      still_built_strokes)
 }
 
 fn continue_new_road(continue_from: &[(LaneStrokeRef, ContinuationMode)],
                      additional_points: &[P2],
                      start_reference_point: P2,
-                     mut new_plan_delta: PlanDelta)
+                     mut new_plan_delta: PlanDelta,
+                     still_built_strokes: &BuiltStrokes)
                      -> PlanStep {
     let mut previous_reference_point = start_reference_point;
 
@@ -141,8 +151,8 @@ fn continue_new_road(continue_from: &[(LaneStrokeRef, ContinuationMode)],
     for next_reference_point in additional_points {
         // TODO: not really nice that we have to care about that here...
         if next_reference_point.is_roughly_within(previous_reference_point, ::descartes::MIN_START_TO_END) {
-                    continue;
-                }
+            continue;
+        }
 
         for &(LaneStrokeRef(stroke_idx), mode) in continue_from {
             let stroke = &mut new_plan_delta.new_strokes[stroke_idx];
@@ -194,6 +204,123 @@ fn continue_new_road(continue_from: &[(LaneStrokeRef, ContinuationMode)],
         }
 
         previous_reference_point = *next_reference_point;
+    }
+
+    let mut joined_some = false;
+    let mut new_strokes_to_remove = Vec::new();
+
+    for &(LaneStrokeRef(stroke_idx), mode) in continue_from {
+
+        let (maybe_join_with, is_end) = {
+            let stroke = &new_plan_delta.new_strokes[stroke_idx];
+            let (node, is_end) = match mode {
+                ContinuationMode::Prepend => (&stroke.nodes()[0], false),
+                ContinuationMode::Append => (stroke.nodes().last().unwrap(), true),
+            };
+
+            let maybe_join_with = all_strokes(&new_plan_delta, still_built_strokes)
+                .filter(|&(other_ref, other_stroke)| match other_ref {
+                    SelectableStrokeRef::New(other_idx) => {
+                        // only allow self joins if self has > 2 nodes
+                        other_idx != stroke_idx || other_stroke.nodes().len() > 2
+                    }
+                    SelectableStrokeRef::Built(_) => true,
+                })
+                .map(|(stroke_ref, stroke)| {
+                    if is_end {
+                        let mut distance = (stroke.nodes()[0].position - node.position).norm();
+                        if !stroke.nodes()[0]
+                            .direction
+                            .is_roughly_within(node.direction, 0.5) {
+                            // prevent unaligned connects
+                            distance = ::std::f32::INFINITY
+                        }
+                        (stroke_ref, distance)
+                    } else {
+                        let mut distance =
+                            (stroke.nodes().last().unwrap().position - node.position).norm();
+                        if !stroke.nodes()
+                            .last()
+                            .unwrap()
+                            .direction
+                            .is_roughly_within(node.direction, 0.5) {
+                            // prevent unaligned connects
+                            distance = ::std::f32::INFINITY
+                        }
+                        (stroke_ref, distance)
+                    }
+                })
+                .min_by_key(|&(_, distance)| OrderedFloat(distance))
+                .and_then(|(stroke_ref, distance)| if distance < 6.0 {
+                    Some(stroke_ref)
+                } else {
+                    None
+                });
+
+            (maybe_join_with, is_end)
+        };
+
+        if let Some(join_with_ref) = maybe_join_with {
+            joined_some = true;
+            let mut self_join = false;
+
+            let stroke = new_plan_delta.new_strokes[stroke_idx].clone();
+
+            {
+                let other_stroke = match join_with_ref {
+                    SelectableStrokeRef::New(other_stroke_idx) => {
+                        if stroke_idx == other_stroke_idx {
+                            self_join = true;
+                        }
+                        &mut new_plan_delta.new_strokes[other_stroke_idx]
+                    }
+                    SelectableStrokeRef::Built(old_ref) => {
+                        let old_stroke = still_built_strokes.mapping
+                            .get(old_ref)
+                            .unwrap();
+                        new_plan_delta.strokes_to_destroy
+                            .insert(old_ref, old_stroke.clone());
+                        new_plan_delta.new_strokes
+                            .push(old_stroke.clone());
+                        new_plan_delta.new_strokes.last_mut().unwrap()
+                    }
+                };
+
+                let other_nodes = other_stroke.nodes().clone();
+
+                *other_stroke.nodes_mut() = if self_join {
+                    let mut new_nodes = stroke.nodes().clone();
+                    if is_end {
+                        new_nodes.pop();
+                        new_nodes.push(other_nodes[0]);
+                    } else {
+                        new_nodes.remove(0);
+                        new_nodes.insert(0, *other_nodes.last().unwrap());
+                    }
+                    new_nodes
+                } else if is_end {
+                    let mut new_nodes = stroke.nodes().clone();
+                    new_nodes.pop();
+                    new_nodes.extend(other_nodes.into_iter());
+                    new_nodes
+                } else {
+                    let mut new_nodes = other_nodes;
+                    new_nodes.extend(stroke.nodes().clone().into_iter().skip(1));
+                    new_nodes
+                }
+            }
+
+            if !self_join {
+                new_strokes_to_remove.push(stroke_idx);
+            }
+        }
+    }
+
+    if joined_some {
+        new_strokes_to_remove.sort();
+        for idx_to_remove in new_strokes_to_remove.into_iter().rev() {
+            new_plan_delta.new_strokes.remove(idx_to_remove);
+        }
     }
 
     PlanStep {
