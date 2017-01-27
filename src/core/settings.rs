@@ -30,7 +30,7 @@ pub struct MouseAction {
 }
 
 #[derive(Clone, Debug, Copy)]
-pub enum Action{
+pub enum Action {
     KeyHeld(KeyAction),
     KeyDown(KeyAction),
     KeyUp(KeyAction),
@@ -62,7 +62,7 @@ impl Settings {
 
             key_triggers: Vec::new(),
             mouse_triggers: Vec::new(),
-            key_excludes: Vec::new()
+            key_excludes: Vec::new(),
         }
     }
 
@@ -107,11 +107,14 @@ impl Settings {
         ret.clone()
     }
 
-    pub fn send(id: ID, keys: &Vec<KeyOrButton>, new_keys: &Vec<KeyOrButton>, mouse: &Vec<Mouse>) {
+    pub fn send(id: ID,
+                keys: &Vec<KeyOrButton>,
+                keys_down: &Vec<KeyOrButton>,
+                mouse: &Vec<Mouse>) {
         let mut settings = SETTINGS.write().unwrap();
         let mut total = Vec::<KeyOrButton>::new();
         total.extend(keys);
-        total.extend(new_keys);
+        total.extend(keys_down);
 
         let mut all_events = Settings::send_helper(&total, &mut settings);
         //println!("All events: {:?}", all_events);
@@ -129,16 +132,20 @@ impl Settings {
         }
 
         for i in &all_events {
-            id << Action::KeyHeld(KeyAction { action_id: *i});
+            id << Action::KeyHeld(KeyAction { action_id: *i });
         }
         for i in &new_events {
-            id << Action::KeyDown(KeyAction { action_id: *i});
+            id << Action::KeyDown(KeyAction { action_id: *i });
         }
 
         for tup in &settings.mouse_triggers {
             if Settings::comb_intersection(keys, tup.0.clone()) {
                 for &m in mouse {
-                    id << Action::Mouse(MouseAction { action_id: tup.1, mouse: m })
+                    id <<
+                    Action::Mouse(MouseAction {
+                        action_id: tup.1,
+                        mouse: m,
+                    })
                 }
             }
         }

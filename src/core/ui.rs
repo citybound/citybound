@@ -102,7 +102,7 @@ pub fn setup_window_and_renderer(renderables: Vec<ID>) -> GlutinFacade {
 
 pub fn process_events(window: &GlutinFacade, keys_held: &mut Vec<KeyOrButton>) -> bool {
     let mut mouse = Vec::<Mouse>::new();
-    let mut new_keys = Vec::<KeyOrButton>::new();
+    let mut keys_down = Vec::<KeyOrButton>::new();
     println!("Frame start:");
     println!("Current keys held: {:?}", keys_held);
     for event in window.poll_events().collect::<Vec<_>>() {
@@ -119,7 +119,7 @@ pub fn process_events(window: &GlutinFacade, keys_held: &mut Vec<KeyOrButton>) -
             }
             Event::MouseInput(ElementState::Pressed, button) => {
                 mouse.push(Mouse::Down(button));
-                new_keys.push(KeyOrButton::Button(button));
+                keys_down.push(KeyOrButton::Button(button));
             }
             Event::MouseInput(ElementState::Released, button) => {
                 mouse.push(Mouse::Up(button));
@@ -127,28 +127,28 @@ pub fn process_events(window: &GlutinFacade, keys_held: &mut Vec<KeyOrButton>) -
                     .position(|x| *x == KeyOrButton::Button(button)) {
                     keys_held.remove(index);
                 }
-                if let Some(index) = new_keys.iter()
+                if let Some(index) = keys_down.iter()
                     .position(|x| *x == KeyOrButton::Button(button)) {
-                    new_keys.remove(index);
+                    keys_down.remove(index);
                 }
             }
             Event::KeyboardInput(ElementState::Pressed, _, Some(key_code)) => {
                 // to deal with key repeat
                 if !keys_held.contains(&KeyOrButton::Key(key_code)) &&
-                   !new_keys.contains(&KeyOrButton::Key(key_code)) {
-                    new_keys.push(KeyOrButton::Key(key_code))
+                   !keys_down.contains(&KeyOrButton::Key(key_code)) {
+                    keys_down.push(KeyOrButton::Key(key_code))
                 }
             }
             Event::KeyboardInput(ElementState::Released, _, Some(key_code)) => {
                 keys_held.retain(|x| *x != KeyOrButton::Key(key_code));
-                new_keys.retain(|x| *x != KeyOrButton::Key(key_code));
+                keys_down.retain(|x| *x != KeyOrButton::Key(key_code));
             }
             _ => {}
         }
     }
-    println!("New keys: {:?}", new_keys);
-    Settings::send(UserInterface::id(), &keys_held, &new_keys, &mouse);
-    keys_held.extend(new_keys);
+    println!("New keys: {:?}", keys_down);
+    Settings::send(UserInterface::id(), &keys_held, &keys_down, &mouse);
+    keys_held.extend(keys_down);
     UserInterface::id() << UIUpdate {};
     true
 }
