@@ -64,15 +64,12 @@ impl Recipient<Event3d> for StrokeCanvas {
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct AddToUI;
-
+use super::InitInteractable;
 use core::ui::{UserInterface, Add, Focus};
 
-impl Recipient<AddToUI> for StrokeCanvas {
-    fn receive(&mut self, _msg: &AddToUI) -> Fate {
-        UserInterface::id() << Add::Interactable3d(StrokeCanvas::id(), AnyShape::Everywhere, 0);
-        UserInterface::id() << Focus(StrokeCanvas::id());
+impl Recipient<InitInteractable> for StrokeCanvas {
+    fn receive(&mut self, _msg: &InitInteractable) -> Fate {
+        UserInterface::id() << Add::Interactable3d(StrokeCanvas::id(), AnyShape::Everywhere, 1);
         Fate::Live
     }
 }
@@ -80,6 +77,6 @@ impl Recipient<AddToUI> for StrokeCanvas {
 pub fn setup() {
     StrokeCanvas::register_default();
     StrokeCanvas::handle::<Event3d>();
-    StrokeCanvas::handle::<AddToUI>();
-    StrokeCanvas::id() << AddToUI;
+    StrokeCanvas::handle::<InitInteractable>();
+    StrokeCanvas::id() << InitInteractable;
 }

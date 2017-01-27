@@ -27,11 +27,10 @@ use core::ui::Add;
 
 impl Recipient<InitInteractable> for Draggable {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {
-        println!("draggable created");
         ::core::ui::UserInterface::id() <<
         Add::Interactable3d(self.id(),
                             AnyShape::Band(Band::new(self.path.clone(), 5.0)),
-                            3);
+                            4);
         Fate::Live
     }
 }

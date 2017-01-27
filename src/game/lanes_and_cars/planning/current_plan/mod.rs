@@ -17,6 +17,8 @@ mod deselecter;
 use self::deselecter::Deselecter;
 mod draggable;
 use self::draggable::Draggable;
+mod interaction;
+use self::interaction::Interaction;
 
 #[derive(Compact, Clone, Default)]
 pub struct PlanStep {
@@ -103,6 +105,7 @@ pub struct CurrentPlan {
     preview_result_delta_rendered: bool,
     interactables_valid: bool,
     settings: Settings,
+    interaction: Interaction,
 }
 impl Actor for CurrentPlan {}
 
@@ -283,6 +286,32 @@ impl Recipient<Stroke> for CurrentPlan {
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct SetNLanes(usize);
+
+impl Recipient<SetNLanes> for CurrentPlan {
+    fn receive(&mut self, msg: &SetNLanes) -> Fate {
+        match *msg {
+            SetNLanes(n_lanes) => {
+                self.settings.n_lanes_per_side = n_lanes;
+                self.invalidate_preview();
+                Fate::Live
+            }
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct ToggleBothSides;
+
+impl Recipient<ToggleBothSides> for CurrentPlan {
+    fn receive(&mut self, _msg: &ToggleBothSides) -> Fate {
+        self.settings.create_both_sides = !self.settings.create_both_sides;
+        self.invalidate_preview();
+        Fate::Live
+    }
+}
+
 use super::super::construction::materialized_reality::SimulationResult;
 
 impl Recipient<SimulationResult> for CurrentPlan {
@@ -309,10 +338,13 @@ pub fn setup() {
     CurrentPlan::handle::<Redo>();
     CurrentPlan::handle::<ChangeIntent>();
     CurrentPlan::handle::<Stroke>();
+    CurrentPlan::handle::<SetNLanes>();
+    CurrentPlan::handle::<ToggleBothSides>();
     CurrentPlan::handle::<SimulationResult>();
     self::rendering::setup();
     self::stroke_canvas::setup();
     self::selectable::setup();
     self::deselecter::setup();
     self::draggable::setup();
+    self::interaction::setup();
 }

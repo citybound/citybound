@@ -30,7 +30,7 @@ impl Recipient<InitInteractable> for Selectable {
         ::core::ui::UserInterface::id() <<
         Add::Interactable3d(self.id(),
                             AnyShape::Band(Band::new(self.path.clone(), 5.0)),
-                            2);
+                            3);
         Fate::Live
     }
 }
