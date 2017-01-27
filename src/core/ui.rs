@@ -100,53 +100,55 @@ pub fn setup_window_and_renderer(renderables: Vec<ID>) -> GlutinFacade {
     window
 }
 
-pub fn process_events(window: &GlutinFacade, keys_down: &mut Vec<KeyOrButton>) -> bool {
+pub fn process_events(window: &GlutinFacade, keys_held: &mut Vec<KeyOrButton>) -> bool {
     let mut mouse = Vec::<Mouse>::new();
     let mut new_keys = Vec::<KeyOrButton>::new();
     println!("Frame start:");
-    println!("Current keys down: {:?}", keys_down);
+    println!("Current keys held: {:?}", keys_held);
     for event in window.poll_events().collect::<Vec<_>>() {
         match event {
             Event::Closed => return false,
             Event::MouseWheel(delta, _) => {
                 mouse.push(Mouse::Scrolled(match delta {
                     MouseScrollDelta::LineDelta(x, y) => P2::new(x * 50 as N, y * 50 as N),
-                    MouseScrollDelta::PixelDelta(x, y) => P2::new(x as N, y as N)
+                    MouseScrollDelta::PixelDelta(x, y) => P2::new(x as N, y as N),
                 }))
             }
             Event::MouseMoved(x, y) => {
                 mouse.push(Mouse::Moved(P2::new(x as N, y as N)));
-            },
+            }
             Event::MouseInput(ElementState::Pressed, button) => {
                 mouse.push(Mouse::Down(button));
                 new_keys.push(KeyOrButton::Button(button));
             }
             Event::MouseInput(ElementState::Released, button) => {
                 mouse.push(Mouse::Up(button));
-                if let Some(index) = keys_down.iter().position(|x| *x == KeyOrButton::Button(button)) {
-                    keys_down.remove(index);
+                if let Some(index) = keys_held.iter()
+                    .position(|x| *x == KeyOrButton::Button(button)) {
+                    keys_held.remove(index);
                 }
-                if let Some(index) = new_keys.iter().position(|x| *x == KeyOrButton::Button(button)) {
+                if let Some(index) = new_keys.iter()
+                    .position(|x| *x == KeyOrButton::Button(button)) {
                     new_keys.remove(index);
                 }
             }
             Event::KeyboardInput(ElementState::Pressed, _, Some(key_code)) => {
                 // to deal with key repeat
-                if !keys_down.contains(&KeyOrButton::Key(key_code)) &&
+                if !keys_held.contains(&KeyOrButton::Key(key_code)) &&
                    !new_keys.contains(&KeyOrButton::Key(key_code)) {
                     new_keys.push(KeyOrButton::Key(key_code))
                 }
             }
             Event::KeyboardInput(ElementState::Released, _, Some(key_code)) => {
-                keys_down.retain(|x| *x != KeyOrButton::Key(key_code));
+                keys_held.retain(|x| *x != KeyOrButton::Key(key_code));
                 new_keys.retain(|x| *x != KeyOrButton::Key(key_code));
             }
             _ => {}
         }
     }
     println!("New keys: {:?}", new_keys);
-    Settings::send(UserInterface::id(), &keys_down, &new_keys, &mouse);
-    keys_down.extend(new_keys);
+    Settings::send(UserInterface::id(), &keys_held, &new_keys, &mouse);
+    keys_held.extend(new_keys);
     UserInterface::id() << UIUpdate {};
     true
 }

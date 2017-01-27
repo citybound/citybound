@@ -112,7 +112,7 @@ fn main() {
 
     system.process_all_messages();
 
-    let mut keys_down = Vec::<KeyOrButton>::new();
+    let mut keys_held = Vec::<KeyOrButton>::new();
 
     loop {
         Renderer::id() <<
@@ -129,7 +129,7 @@ fn main() {
             persistent: false,
         };
         last_frame = std::time::Instant::now();
-        if !core::ui::process_events(&window, &mut keys_down) {
+        if !core::ui::process_events(&window, &mut keys_held) {
             return;
         }
 
