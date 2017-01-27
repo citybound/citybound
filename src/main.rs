@@ -1,4 +1,4 @@
-#![feature(custom_derive, plugin, conservative_impl_trait)]
+#![feature(custom_derive, plugin, conservative_impl_trait, drop_types_in_const)]
 #![plugin(clippy)]
 #![allow(dead_code)]
 #![allow(no_effect, unnecessary_operation)]
@@ -13,6 +13,8 @@ extern crate random;
 extern crate fnv;
 extern crate roaring;
 extern crate open;
+#[macro_use]
+extern crate lazy_static;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
@@ -39,6 +41,8 @@ mod game;
 
 use monet::{Renderer, Control, AddDebugText};
 use core::simulation::{Simulation, Tick};
+use core::ui::KeyOrButton;
+use core::settings::Settings;
 use game::lanes_and_cars::lane::{Lane, TransferLane};
 use game::lanes_and_cars::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use game::lanes_and_cars::rendering::lane_thing_collector::ThingCollector;
@@ -108,6 +112,8 @@ fn main() {
 
     system.process_all_messages();
 
+    let mut keys_held = Vec::<KeyOrButton>::new();
+
     loop {
         Renderer::id() <<
         AddDebugText {
@@ -123,7 +129,7 @@ fn main() {
             persistent: false,
         };
         last_frame = std::time::Instant::now();
-        if !core::ui::process_events(&window) {
+        if !core::ui::process_events(&window, &mut keys_held) {
             return;
         }
 

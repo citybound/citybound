@@ -3,7 +3,7 @@ pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, In
                     WithUniqueOrthogonal, Inverse, Rotate};
 use kay::{ID, Recipient, Fate};
 
-use ::Renderer;
+use Renderer;
 
 #[derive(Copy, Clone)]
 pub struct Project2dTo3d {

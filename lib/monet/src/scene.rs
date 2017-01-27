@@ -7,7 +7,7 @@ use compact::CVec;
 use kay::ID;
 use fnv::FnvHashMap;
 
-use ::Batch;
+use Batch;
 
 #[derive(Copy, Clone)]
 pub struct Eye {

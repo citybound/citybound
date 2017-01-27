@@ -13,7 +13,7 @@
 //    0---------3      0.0
 // -0.6----X----0.6
 
-use ::monet::Vertex;
+use monet::Vertex;
 
 pub fn create() -> ::monet::Thing {
     ::monet::Thing::new(vec![Vertex { position: [-0.6, -0.6, 0.0] }, // 0

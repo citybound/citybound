@@ -9,7 +9,7 @@
 //
 // -2.25-----------X----------2.25
 
-use ::monet::Vertex;
+use monet::Vertex;
 
 pub fn create() -> ::monet::Thing {
     ::monet::Thing::new(vec![Vertex { position: [-2.25, -0.9, 0.00] }, // 0

@@ -23,11 +23,11 @@ impl Draggable {
 }
 
 use super::InitInteractable;
-use core::ui::Add;
+use core::user_interface::Add;
 
 impl Recipient<InitInteractable> for Draggable {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {
-        ::core::ui::UserInterface::id() <<
+        ::core::user_interface::UserInterface::id() <<
         Add::Interactable3d(self.id(),
                             AnyShape::Band(Band::new(self.path.clone(), 5.0)),
                             4);
@@ -36,39 +36,45 @@ impl Recipient<InitInteractable> for Draggable {
 }
 
 use super::ClearInteractable;
-use core::ui::Remove;
+use core::user_interface::Remove;
 
 impl Recipient<ClearInteractable> for Draggable {
     fn receive(&mut self, _msg: &ClearInteractable) -> Fate {
-        ::core::ui::UserInterface::id() << Remove::Interactable3d(self.id());
+        ::core::user_interface::UserInterface::id() << Remove::Interactable3d(self.id());
         Fate::Die
     }
 }
 
-use core::ui::Event3d;
-use super::{ChangeIntent, Intent, IntentProgress};
-
 const MAXIMIZE_DISTANCE: N = 0.5;
 
-impl Recipient<Event3d> for Draggable {
-    fn receive(&mut self, msg: &Event3d) -> Fate {
+use core::settings::Action;
+use core::user_interface::Event3d;
+use super::{ChangeIntent, Intent, IntentProgress};
+
+impl Recipient<Action> for Draggable {
+    fn receive(&mut self, msg: &Action) -> Fate {
         match *msg {
-            Event3d::DragOngoing { from, to } => {
-                CurrentPlan::id() <<
-                ChangeIntent(Intent::MoveSelection(to.into_2d() - from.into_2d()),
-                             IntentProgress::Preview);
-                Fate::Live
-            }
-            Event3d::DragFinished { from, to } => {
-                let delta = to.into_2d() - from.into_2d();
-                if delta.norm() < MAXIMIZE_DISTANCE {
-                    CurrentPlan::id() <<
-                    ChangeIntent(Intent::MaximizeSelection, IntentProgress::Finished);
-                } else {
-                    CurrentPlan::id() <<
-                    ChangeIntent(Intent::MoveSelection(delta), IntentProgress::Finished);
+            Action::Event3d(event_3d) => {
+                match event_3d {
+                    Event3d::DragOngoing { from, to } => {
+                        CurrentPlan::id() <<
+                        ChangeIntent(Intent::MoveSelection(to.into_2d() - from.into_2d()),
+                                     IntentProgress::Preview);
+                        Fate::Live
+                    }
+                    Event3d::DragFinished { from, to } => {
+                        let delta = to.into_2d() - from.into_2d();
+                        if delta.norm() < MAXIMIZE_DISTANCE {
+                            CurrentPlan::id() <<
+                            ChangeIntent(Intent::MaximizeSelection, IntentProgress::Finished);
+                        } else {
+                            CurrentPlan::id() <<
+                            ChangeIntent(Intent::MoveSelection(delta), IntentProgress::Finished);
+                        }
+                        Fate::Live
+                    }
+                    _ => Fate::Live,
                 }
-                Fate::Live
             }
             _ => Fate::Live,
         }
@@ -79,5 +85,5 @@ pub fn setup() {
     Swarm::<Draggable>::register_default();
     Swarm::<Draggable>::handle::<CreateWith<Draggable, InitInteractable>>();
     Swarm::<Draggable>::handle::<ClearInteractable>();
-    Swarm::<Draggable>::handle::<Event3d>();
+    Swarm::<Draggable>::handle::<Action>();
 }
