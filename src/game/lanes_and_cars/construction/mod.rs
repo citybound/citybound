@@ -4,8 +4,8 @@ use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::{N, P2, Dot, Band, Curve, FiniteCurve, Path, RoughlyComparable, Intersect,
                 WithUniqueOrthogonal};
 use itertools::Itertools;
-use ::core::geometry::CPath;
-use ::ordered_float::OrderedFloat;
+use core::geometry::CPath;
+use ordered_float::OrderedFloat;
 
 use super::lane::{Lane, TransferLane};
 use super::connectivity::{Interaction, InteractionKind, OverlapKind};
@@ -183,7 +183,7 @@ impl Recipient<Connect> for Lane {
 }
 
 use fnv::FnvHashMap;
-use ::std::cell::UnsafeCell;
+use std::cell::UnsafeCell;
 thread_local! (
     static MEMOIZED_BANDS_OUTLINES: UnsafeCell<
         FnvHashMap<ID, (Band<CPath>, CPath)>

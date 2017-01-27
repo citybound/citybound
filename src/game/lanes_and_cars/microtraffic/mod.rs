@@ -2,8 +2,8 @@ use kay::{ID, Recipient, Actor, Fate};
 use kay::swarm::{Swarm, SubActor};
 use compact::CVec;
 use ordered_float::OrderedFloat;
-use ::std::f32::INFINITY;
-use ::std::ops::{Deref, DerefMut};
+use std::f32::INFINITY;
+use std::ops::{Deref, DerefMut};
 
 use super::lane::{Lane, TransferLane};
 use super::connectivity::{Interaction, InteractionKind, OverlapKind};

@@ -50,13 +50,13 @@ pub struct RoutingInfo {
     fresh: bool,
 }
 
-use ::core::ui::Add;
+use core::user_interface::Add;
 const DEBUG_CARS_ON_LANES: bool = false;
 
 pub fn on_build(lane: &mut Lane) {
     lane.pathfinding.as_destination = None;
     if DEBUG_CARS_ON_LANES {
-        ::core::ui::UserInterface::id() <<
+        ::core::user_interface::UserInterface::id() <<
         Add::Interactable3d(lane.id(),
                             AnyShape::Band(Band::new(lane.construction.path.clone(), 3.0)),
                             5);
@@ -502,7 +502,7 @@ pub fn setup() {
     Swarm::<Lane>::handle::<ForgetRoutes>();
     Swarm::<TransferLane>::handle::<ForgetRoutes>();
     Swarm::<Lane>::handle::<QueryAsDestination>();
-    Swarm::<Lane>::handle::<ToRandom<::core::ui::Event3d>>();
+    Swarm::<Lane>::handle::<ToRandom<::core::user_interface::Event3d>>();
 
     trip::setup();
 }

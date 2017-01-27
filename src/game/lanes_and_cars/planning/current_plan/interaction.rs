@@ -1,16 +1,105 @@
 use kay::{Recipient, Actor, Fate};
+use core::ui::{KeyOrButton, KeyCombination, VirtualKeyCode};
+use core::settings::{Settings, KeyAction};
 use super::CurrentPlan;
 use core::geometry::AnyShape;
 
-#[derive(Default)]
 pub struct Interaction {
-    cmd_pressed: bool,
-    shift_pressed: bool,
+    materialize_action_id: Option<usize>,
+    undo_action_id: Option<usize>,
+    redo_action_id: Option<usize>,
+    grid_action_id: Option<usize>,
+    big_grid_action_id: Option<usize>,
+    toggle_single_sided_action_id: Option<usize>,
+    spawn_cars_action_id: Option<usize>,
+    cancel_selection_action_id: Option<usize>,
+
+    set_lane_width_action_id: [Option<usize>; 10],
+}
+
+impl Default for Interaction {
+    fn default() -> Interaction {
+        let mut interaction = Interaction {
+            materialize_action_id: Some(Settings::register_key(KeyCombination {
+                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::Return)]],
+            })),
+            undo_action_id: Some(Settings::register_key(KeyCombination {
+                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::LControl),
+                                KeyOrButton::Key(VirtualKeyCode::RControl),
+                                KeyOrButton::Key(VirtualKeyCode::LWin),
+                                KeyOrButton::Key(VirtualKeyCode::RWin)],
+                           vec![KeyOrButton::Key(VirtualKeyCode::Z)]],
+            })),
+            redo_action_id: Some(Settings::register_key(KeyCombination {
+                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::LControl),
+                                KeyOrButton::Key(VirtualKeyCode::RControl),
+                                KeyOrButton::Key(VirtualKeyCode::LWin),
+                                KeyOrButton::Key(VirtualKeyCode::RWin)],
+                           vec![KeyOrButton::Key(VirtualKeyCode::LShift),
+                                KeyOrButton::Key(VirtualKeyCode::RShift)],
+                           vec![KeyOrButton::Key(VirtualKeyCode::Z)]],
+            })),
+            grid_action_id: Some(Settings::register_key(KeyCombination {
+                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::G)]],
+            })),
+            big_grid_action_id: Some(Settings::register_key(KeyCombination {
+                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::G)],
+                           vec![KeyOrButton::Key(VirtualKeyCode::LShift),
+                                KeyOrButton::Key(VirtualKeyCode::RShift)]],
+            })),
+            spawn_cars_action_id: Some(Settings::register_key(KeyCombination {
+                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::C)]],
+            })),
+            cancel_selection_action_id: Some(Settings::register_key(KeyCombination {
+                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::Escape),
+                                KeyOrButton::Key(VirtualKeyCode::Back)]],
+            })),
+
+            toggle_single_sided_action_id: Some(Settings::register_key(KeyCombination {
+                keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::Key0)]],
+            })),
+
+            set_lane_width_action_id: [None; 10],
+        };
+        interaction.set_lane_width_action_id[1] = Some(Settings::register_key(KeyCombination {
+            keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::Key1)]],
+        }));
+        interaction.set_lane_width_action_id[2] = Some(Settings::register_key(KeyCombination {
+            keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::Key2)]],
+        }));
+        interaction.set_lane_width_action_id[3] = Some(Settings::register_key(KeyCombination {
+            keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::Key3)]],
+        }));
+        interaction.set_lane_width_action_id[4] = Some(Settings::register_key(KeyCombination {
+            keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::Key4)]],
+        }));
+        interaction.set_lane_width_action_id[5] = Some(Settings::register_key(KeyCombination {
+            keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::Key5)]],
+        }));
+        interaction.set_lane_width_action_id[6] = Some(Settings::register_key(KeyCombination {
+            keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::Key6)]],
+        }));
+        interaction.set_lane_width_action_id[7] = Some(Settings::register_key(KeyCombination {
+            keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::Key7)]],
+        }));
+        interaction.set_lane_width_action_id[8] = Some(Settings::register_key(KeyCombination {
+            keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::Key8)]],
+        }));
+        interaction.set_lane_width_action_id[9] = Some(Settings::register_key(KeyCombination {
+            keys: vec![vec![KeyOrButton::Key(VirtualKeyCode::Key9)]],
+        }));
+
+        Settings::register_exclusiveness(interaction.big_grid_action_id.unwrap(),
+                                         interaction.grid_action_id.unwrap());
+        Settings::register_exclusiveness(interaction.redo_action_id.unwrap(),
+                                         interaction.undo_action_id.unwrap());
+        interaction
+    }
 }
 
 use super::InitInteractable;
 use monet::{Renderer, AddEyeListener};
-use core::ui::{UserInterface, Add, Focus};
+use core::user_interface::{UserInterface, Add, Focus};
 
 impl Recipient<InitInteractable> for CurrentPlan {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {
@@ -47,117 +136,75 @@ impl Recipient<EyeMoved> for CurrentPlan {
     }
 }
 
-use core::ui::{Event3d, VirtualKeyCode};
+use core::settings::Action;
+use core::user_interface::Event3d;
 use super::{Intent, ChangeIntent, IntentProgress, Undo, Redo, SetNLanes, ToggleBothSides};
 
-impl Recipient<Event3d> for CurrentPlan {
-    fn receive(&mut self, msg: &Event3d) -> Fate {
+impl Recipient<Action> for CurrentPlan {
+    fn receive(&mut self, msg: &Action) -> Fate {
         match *msg {
-            Event3d::KeyDown(VirtualKeyCode::Return) => {
-                //CurrentPlan::id() << Materialize;
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::LControl) |
-            Event3d::KeyDown(VirtualKeyCode::RControl) |
-            Event3d::KeyDown(VirtualKeyCode::LWin) |
-            Event3d::KeyDown(VirtualKeyCode::RWin) => {
-                self.interaction.cmd_pressed = true;
-                Fate::Live
-            }
-            Event3d::KeyUp(VirtualKeyCode::LControl) |
-            Event3d::KeyUp(VirtualKeyCode::RControl) |
-            Event3d::KeyUp(VirtualKeyCode::LWin) |
-            Event3d::KeyUp(VirtualKeyCode::RWin) => {
-                self.interaction.cmd_pressed = false;
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::LShift) |
-            Event3d::KeyDown(VirtualKeyCode::RShift) => {
-                self.interaction.shift_pressed = true;
-                Fate::Live
-            }
-            Event3d::KeyUp(VirtualKeyCode::LShift) |
-            Event3d::KeyUp(VirtualKeyCode::RShift) => {
-                self.interaction.shift_pressed = false;
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Z) => {
-                if self.interaction.cmd_pressed {
-                    if self.interaction.shift_pressed {
-                        CurrentPlan::id() << Redo;
-                    } else {
-                        CurrentPlan::id() << Undo;
+            Action::KeyDown(KeyAction { action_id: id }) => {
+                println!("key down in interaction!");
+                if Some(id) == self.interaction.materialize_action_id {
+                    //CurrentPlan::id() << Materialize;
+                }
+                if Some(id) == self.interaction.undo_action_id {
+                    println!("Undo");
+                    CurrentPlan::id() << Undo;
+                }
+                if Some(id) == self.interaction.redo_action_id {
+                    println!("Redo");
+                    CurrentPlan::id() << Redo;
+                }
+                if Some(id) == self.interaction.spawn_cars_action_id {
+                    //  Swarm::<::game::lanes_and_cars::lane::Lane>::all() <<
+                    //     ToRandom {
+                    //         n_recipients: 5000,
+                    //         message: Event3d::DragFinished {
+                    //             from: P3::new(0.0, 0.0, 0.0),
+                    //             to: P3::new(0.0, 0.0, 0.0),
+                    //         },
+                    //     };
+                }
+
+                if Some(id) == self.interaction.grid_action_id {
+                    // println!("Grid");
+                    // CurrentPlan::id() << CreateGrid(10);
+                }
+
+                if Some(id) == self.interaction.big_grid_action_id {
+                    // println!("Grid");
+                    // CurrentPlan::id() << CreateGrid(15);
+                }
+
+                if Some(id) == self.interaction.cancel_selection_action_id {
+                    CurrentPlan::id() <<
+                    ChangeIntent(Intent::DeleteSelection, IntentProgress::Finished);
+                }
+
+                for (n, n_lane_id) in self.interaction
+                    .set_lane_width_action_id
+                    .iter()
+                    .enumerate() {
+                    if Some(id) == *n_lane_id {
+                        CurrentPlan::id() << SetNLanes(n)
                     }
                 }
-                Fate::Live
+
+                if Some(id) == self.interaction.toggle_single_sided_action_id {
+                    CurrentPlan::id() << ToggleBothSides;
+                }
             }
-            Event3d::KeyDown(VirtualKeyCode::C) => {
-                // Swarm::<::game::lanes_and_cars::lane::Lane>::all() <<
-                // ToRandom {
-                //     n_recipients: 5000,
-                //     message: Event3d::DragFinished {
-                //         from: P3::new(0.0, 0.0, 0.0),
-                //         to: P3::new(0.0, 0.0, 0.0),
-                //     },
-                // };
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::G) => {
-                // CurrentPlan::id() << CreateGrid(if self.interaction.shift_pressed { 15 } else { 10 });
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Back) => {
-                Self::id() << ChangeIntent(Intent::DeleteSelection, IntentProgress::Finished);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key1) => {
-                Self::id() << SetNLanes(1);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key2) => {
-                Self::id() << SetNLanes(2);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key3) => {
-                Self::id() << SetNLanes(3);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key4) => {
-                Self::id() << SetNLanes(4);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key5) => {
-                Self::id() << SetNLanes(5);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key6) => {
-                Self::id() << SetNLanes(6);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key7) => {
-                Self::id() << SetNLanes(7);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key8) => {
-                Self::id() << SetNLanes(8);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key9) => {
-                Self::id() << SetNLanes(9);
-                Fate::Live
-            }
-            Event3d::KeyUp(VirtualKeyCode::Key0) => {
-                Self::id() << ToggleBothSides;
-                Fate::Live
-            }
-            _ => Fate::Live,
+
+            _ => (),
         }
+        Fate::Live
     }
 }
 
 pub fn setup() {
     CurrentPlan::handle::<InitInteractable>();
     CurrentPlan::handle::<EyeMoved>();
-    CurrentPlan::handle::<Event3d>();
+    CurrentPlan::handle::<Action>();
     CurrentPlan::id() << InitInteractable;
 }

@@ -5,7 +5,7 @@ pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, In
 use glium::{self, index};
 use glium::backend::glutin_backend::GlutinFacade;
 
-use ::Thing;
+use Thing;
 
 pub struct Batch {
     pub vertices: glium::VertexBuffer<Vertex>,
