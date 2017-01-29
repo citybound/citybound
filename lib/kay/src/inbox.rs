@@ -1,107 +1,89 @@
 use super::compact::Compact;
-use super::chunked::{MemChunker, MultiSized, SizedChunkedQueue};
-use ::std::marker::PhantomData;
 use super::messaging::{Packet, Message};
+use super::chunked::{MemChunker, ChunkedQueue};
+use super::type_registry::{ShortTypeId, TypeRegistry};
 
-/// Stores an ordered list of homogeneously sized messages
-pub struct Inbox<M: Message> {
-    queues: MultiSized<SizedChunkedQueue>,
-    message_marker: PhantomData<[M]>,
+pub struct Inbox {
+    queue: ChunkedQueue,
 }
 
-/// Chunk size in bytes, each chunk of messages
 const CHUNK_SIZE: usize = 4096 * 4096 * 4; // 64MB
 
-impl<M: Message> Inbox<M> {
-    /// Create new inbox for a given type
+impl Inbox {
     pub fn new() -> Self {
-        let chunker = MemChunker::new("", CHUNK_SIZE);
-        Inbox {
-            queues: MultiSized::new(chunker, M::typical_size()),
-            message_marker: PhantomData,
-        }
+        let chunker = MemChunker::from_settings("", CHUNK_SIZE);
+        Inbox { queue: ChunkedQueue::new(chunker) }
     }
 
-    /// Place a new message in the Inbox
-    pub fn put(&mut self, package: Packet<M>) {
-        let required_size = package.total_size_bytes();
+    pub fn put<M: Message>(&mut self, packet: Packet<M>, message_registry: &TypeRegistry) {
+        let packet_size = packet.total_size_bytes();
+        let total_size = ::std::mem::size_of::<ShortTypeId>() + packet_size;
 
         unsafe {
-            // "Allocate" the space in the array
-            let raw_ptr = self.queues.sized_for_mut(required_size).enqueue();
 
-            // Get the address of the location in the array
-            let message_in_slot = &mut *(raw_ptr as *mut Packet<M>);
+            // "Allocate" the space in the queue
+            let queue_ptr = self.queue.enqueue(total_size);
 
-            // Write the message to the array
-            message_in_slot.compact_behind_from(&package);
+            // Write message type
+            *(queue_ptr as *mut ShortTypeId) = message_registry.get::<M>();
+
+            let payload_ptr = queue_ptr.offset(::std::mem::size_of::<ShortTypeId>() as isize);
+
+            // Get the address of the location in the queue
+            let packet_in_queue = &mut *(payload_ptr as *mut Packet<M>);
+
+            // Write the packet into the queue
+            packet_in_queue.compact_behind_from(&packet);
         }
     }
 
-    /// Create an iterator which iterates through all messages and deletes them
-    pub fn empty(&mut self) -> InboxIterator<M> {
-        // one higher than last index, first next() will init messages left
-        let start_queue_index = self.queues.collections.len();
+    pub fn empty(&mut self) -> InboxIterator {
         InboxIterator {
-            queues: &mut self.queues.collections,
-            current_sized_queue_index: start_queue_index,
-            messages_in_sized_queue_left: 0,
-            message_marker: PhantomData,
+            n_messages_to_read: self.queue.len(),
+            queue: &mut self.queue,
         }
     }
 }
 
-/// once created, reads all messages that are there roughly at the point of creation
-/// that means that once it terminates there might already be new messages in the inbox
-pub struct InboxIterator<'a, M: Message>
-    where M: 'a
-{
-    queues: &'a mut Vec<SizedChunkedQueue>,
-    current_sized_queue_index: usize,
-    messages_in_sized_queue_left: usize,
-    message_marker: PhantomData<[M]>,
+pub struct InboxIterator<'a> {
+    queue: &'a mut ChunkedQueue,
+    n_messages_to_read: usize,
 }
 
-// TODO: is this actually used? only set but not read
-const MAX_MESSAGES_AT_ONCE: usize = 500;
+pub struct DispatchablePacket {
+    pub message_type: super::type_registry::ShortTypeId,
+    pub packet_ptr: *const (),
+}
 
-impl<'a, M: Message> Iterator for InboxIterator<'a, M> {
-    type Item = &'a Packet<M>;
+impl<'a> Iterator for InboxIterator<'a> {
+    type Item = DispatchablePacket;
 
-    fn next(&mut self) -> Option<&'a Packet<M>> {
-        if self.messages_in_sized_queue_left == 0 {
-            // Sized queue empty
-            if self.current_sized_queue_index == 0 {
-                // Completely empty
-                None
-            } else {
-                // Get index of the next sized queue
-                self.current_sized_queue_index -= 1;
-                {
-                    let next_queue = &self.queues[self.current_sized_queue_index];
-                    self.messages_in_sized_queue_left = *next_queue.write_index -
-                                                        *next_queue.read_index;
-                    if self.messages_in_sized_queue_left > MAX_MESSAGES_AT_ONCE {
-                        self.messages_in_sized_queue_left = MAX_MESSAGES_AT_ONCE;
-                    }
-                }
-                self.next()
-            }
+    fn next(&mut self) -> Option<DispatchablePacket> {
+        if self.n_messages_to_read == 0 {
+            None
         } else {
             unsafe {
-                let raw_ptr = self.queues[self.current_sized_queue_index].dequeue().unwrap();
-                let message_ref = &*(raw_ptr as *const Packet<M>);
-                self.messages_in_sized_queue_left -= 1;
-                Some(message_ref)
+                let ptr = self.queue.dequeue().expect("should have something left for sure");
+                let message_type = *(ptr as *mut ShortTypeId);
+                let payload_ptr = ptr.offset(::std::mem::size_of::<ShortTypeId>() as isize);
+                self.n_messages_to_read -= 1;
+                Some(DispatchablePacket {
+                    message_type: message_type,
+                    packet_ptr: payload_ptr as *const (),
+                })
             }
         }
     }
 }
 
-impl<'a, M: Message> Drop for InboxIterator<'a, M> {
+impl<'a> Drop for InboxIterator<'a> {
     fn drop(&mut self) {
-        for queue in self.queues.iter_mut() {
-            unsafe { queue.drop_old_chunks() };
-        }
+        unsafe { self.queue.drop_old_chunks() };
+    }
+}
+
+impl Default for Inbox {
+    fn default() -> Self {
+        Self::new()
     }
 }

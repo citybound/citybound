@@ -6,6 +6,8 @@ Make sure you read: [how to report bugs](https://github.com/citybound/citybound/
 
 ## Make sure to <a href="https://www.clahub.com/agreements/citybound/citybound">sign the Contributor License Agreement</a>.
 
+## [Have a look at the documentation](http://citybound.github.io/citybound)
+
 ## Compiling Citybound from source 
 
 Currently Citybound is built with Rust `nightly-2017-01-08`
@@ -30,10 +32,17 @@ Recommended setup:
 ## Getting the recommended dev environment
 
 * Install [Visual Studio Code](https://code.visualstudio.com)
+  * Visual Studio Code has nothing to do with Visual Studio!
+  * It's (cross-platform + JS-based + rich plugin ecosystem) like Atom, only implemented better.
+  * Yes it's actually cool, because Microsoft has started to be cool.
 * Install [the RustyCode Extension and its dependencies](https://marketplace.visualstudio.com/items?itemName=saviorisdead.RustyCode)
 * Make sure to set up `"rust.cargoHomePath"`, `"rust.racerPath"` and `"rust.rustLangSrcPath"` in the VS Code settings
 * For debugging (Linux/MacOS): Install the [LLDB Debugger Extension](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb)
 * Now everything should just work, since configuration is part of the repo in `.vscode`! (fingers crossed)
+
+## Have a question? Want to discuss something?
+
+Join me and the other contributors in the [Gitter community for Citybound](https://gitter.im/citybound/Lobby) and ask/discuss away!
 
 ## State of the code & organization
 

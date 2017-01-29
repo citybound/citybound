@@ -1,151 +1,81 @@
-use super::swarm::Swarm;
-use super::messaging::{Message, Actor, Individual, Packet, Recipient};
-use super::inbox::Inbox;
-use super::type_registry::TypeRegistry;
-use std::intrinsics::{type_id, type_name};
-use core::nonzero::NonZero;
+use super::messaging::{Message, Packet, Recipient};
+use super::inbox::{Inbox, DispatchablePacket};
+use super::id::ID;
+use super::type_registry::{ShortTypeId, TypeRegistry};
+use std::any::Any;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 
-/// The single, global actor system for the whole program
+/// Global pointer to the singleton instance of `ActorSystem`.
+/// Set by `ActorSystem::create_the_system`.
 pub static mut THE_SYSTEM: *mut ActorSystem = 0 as *mut ActorSystem;
 
-/// The ID used to specify a specific object within the actor system
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct ID {
-    /// The sequentially numbered type ID of the actor within the actor system
-    pub type_id: NonZero<u16>,
-    /// The "generation" of the ID, to help debugging as instance_IDs can be reused
-    pub version: u8,
-    /// The instance of the type used to address a specific actor
-    /// Is broadcast if equal to `u32::max_value()`
-    /// Is swarm if equal to `u32::max_value() -1`
-    pub instance_id: u32,
-}
-
-impl ID {
-    pub fn individual(individual_type_id: usize) -> ID {
-        ID {
-            type_id: unsafe { NonZero::new(individual_type_id as u16) },
-            version: 0,
-            instance_id: 0,
-        }
-    }
-
-    /// Construct a broadcast ID to the type
-    pub fn broadcast(type_id: usize) -> ID {
-        ID {
-            type_id: unsafe { NonZero::new(type_id as u16) },
-            version: 0,
-            instance_id: u32::max_value(),
-        }
-    }
-
-    /// Construct an ID which points to an actor instance in a swarm
-    pub fn instance(type_id: usize, instance_id_and_version: (usize, usize)) -> ID {
-        ID {
-            type_id: unsafe { NonZero::new(type_id as u16) },
-            version: instance_id_and_version.1 as u8,
-            instance_id: instance_id_and_version.0 as u32,
-        }
-    }
-
-    /// Checks if ID is a broadcast ID
-    pub fn is_broadcast(&self) -> bool {
-        self.instance_id == u32::max_value()
-    }
-
-    /// Created swarm ID with type ID specified
-    pub fn swarm(type_id: usize) -> ID {
-        ID {
-            type_id: unsafe { NonZero::new(type_id as u16) },
-            version: 0,
-            instance_id: u32::max_value() - 1,
-        }
-    }
-
-    /// Checks if ID is a swarm ID
-    pub fn is_swarm(&self) -> bool {
-        self.instance_id == u32::max_value() - 1
-    }
-}
-
-impl ::std::fmt::Debug for ID {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f,
-               "ID {}_{}_{}",
-               *(self.type_id),
-               self.version,
-               self.instance_id)
-    }
-}
-
-impl<M: Message> ::std::ops::Shl<M> for ID {
-    type Output = ();
-    /// The shift left operator is overloaded to use to send messages
-    /// e.g. recipient_ID << message
-    fn shl(self, rhs: M) {
-        unsafe {
-            (*THE_SYSTEM).send(self, rhs);
-        }
-    }
-}
-
 const MAX_RECIPIENT_TYPES: usize = 64;
-const MAX_MESSAGE_TYPES_PER_RECIPIENT: usize = 32;
+const MAX_MESSAGE_TYPES: usize = 128;
 
-#[derive(Clone)]
-struct InboxMap {
-    /// Amount of valid entries in the InboxMap
-    length: usize,
-    /// Entry consists of TypeID of Message type and pointer to inbox
-    entries: [Option<(u64, *mut u8)>; MAX_MESSAGE_TYPES_PER_RECIPIENT],
+struct Handler {
+    function: Box<Fn(*const ())>,
+    critical: bool,
 }
 
-impl InboxMap {
-    /// Creates an empty InboxMap
-    fn new() -> InboxMap {
-        InboxMap {
-            length: 0,
-            entries: [None; MAX_MESSAGE_TYPES_PER_RECIPIENT],
-        }
+/// Any Rust data structure can become an actor by:
+///
+///  * Deriving `Actor`
+///  * Deriving `Recipient<M>` for all message types that this actor will handle
+///  * Registering itself and all handled messages with the actor system
+pub trait Actor: 'static + Sized {
+    /// Register an `Actor` with the system, using the given instance
+    /// of the actor type as the initial state for the actor.
+    ///
+    /// After this call, the Actor has an ID (see `id()`) and can receive messages
+    /// (if according message handlers have been registered with `handle` or `handle_critically`)
+    fn register_with_state(initial_state: Self) {
+        unsafe { (*THE_SYSTEM).add_actor(initial_state) };
     }
 
-    /// Adds new message type to the InboxMap
-    fn add_new<M: Message>(&mut self, pointer: *mut Inbox<M>) {
-        let message_type_id = unsafe { type_id::<M>() };
-        let entry_is_for_id = |entry: &&Option<(u64, *mut u8)>| {
-            entry.map(|e| e.0 == message_type_id)
-                .unwrap_or(false)
-        };
-        assert!(self.entries.iter().find(entry_is_for_id).is_none());
-        self.entries[self.length] = Some((message_type_id, pointer as *mut u8));
-        self.length += 1;
+    /// Like `register_with_state`, using the default value for `Actor`s that implement `Default`
+    fn register_default()
+        where Self: Default
+    {
+        Self::register_with_state(Self::default());
     }
 
-    /// Gets the inbox pointer of the type specified if there is one
-    fn get<M: Message>(&self) -> Option<*mut Inbox<M>> {
-        let message_type_id = unsafe { type_id::<M>() };
-        for entry in &self.entries {
-            if let Some((id, pointer)) = *entry {
-                if id == message_type_id {
-                    return Some(pointer as *mut Inbox<M>);
-                }
-            }
-        }
-        None
+    /// Get the `ID` of an `Actor` (only works after the actor has been registered)
+    fn id() -> ID {
+        ID::new(unsafe { (*THE_SYSTEM).short_id::<Self>() }, 0, 0)
+    }
+
+    /// Register a message handler for a message `M` for an `Actor`,
+    /// which is defined in the implementation of `Recipient<M> for this actor.
+    fn handle<M: Message>()
+        where Self: Recipient<M>
+    {
+        unsafe { (*THE_SYSTEM).add_handler::<M, Self>() }
+    }
+
+    /// Like `handle`, but marks this message type as *critical* for `Actor`,
+    /// which means that this actor will still receive such messages even
+    /// after a panic occured in the `ActorSystem`
+    ///
+    /// This makes it possible to keep for example rendering, debug message display
+    /// and camera movement alive, even after an otherwise fatal panic.
+    fn handle_critically<M: Message>()
+        where Self: Recipient<M>
+    {
+        unsafe { (*THE_SYSTEM).add_critical_handler::<M, Self>() }
     }
 }
 
+/// An `ActorSystem` contains the states of all registered actors,
+/// message inboxes (queues) for each registered actor,
+/// and message handlers for each registered (`Actor`,`Message`) pair.
 pub struct ActorSystem {
-    /// Stores the inboxes of all the individuals
-    routing: [Option<InboxMap>; MAX_RECIPIENT_TYPES],
-    /// Stores the rust TypeID to internal ID and type name mapping
-    recipient_registry: TypeRegistry,
-    /// Stores all individuals
-    individuals: [Option<*mut u8>; MAX_RECIPIENT_TYPES],
-    /// Closures to process and clear messages
-    update_callbacks: Vec<Box<Fn()>>,
-    /// Closures to clear messages
-    clear_callbacks: Vec<Box<Fn()>>,
+    panic_happened: bool,
+    panic_callback: Box<Fn(Box<Any>)>,
+    inboxes: [Option<Inbox>; MAX_RECIPIENT_TYPES],
+    actor_registry: TypeRegistry,
+    actors: [Option<*mut u8>; MAX_RECIPIENT_TYPES],
+    message_registry: TypeRegistry,
+    handlers: [[Option<Handler>; MAX_MESSAGE_TYPES]; MAX_RECIPIENT_TYPES],
 }
 
 macro_rules! make_array {
@@ -159,144 +89,126 @@ macro_rules! make_array {
 }
 
 impl ActorSystem {
-    pub fn new() -> ActorSystem {
-        ActorSystem {
-            routing: unsafe { make_array!(MAX_RECIPIENT_TYPES, |_| None) },
-            recipient_registry: TypeRegistry::new(),
-            individuals: [None; MAX_RECIPIENT_TYPES],
-            update_callbacks: Vec::new(),
-            clear_callbacks: Vec::new(),
+    /// Create the global singleton instance of `ActorSystem`.
+    /// Sets `THE_SYSTEM`. Expects to get a panic callback as a parameter
+    /// that is called when an actor panics during message handling
+    /// and can thus be used to for example display the panic error message.
+    ///
+    /// Note that after an actor panicking, the whole `ActorSystem` switches
+    /// to a panicked state and only passes messages anymore which have been
+    /// marked as *critical* using `Actor::handle_critically`.
+    pub fn create_the_system(panic_callback: Box<Fn(Box<Any>)>) -> Box<ActorSystem> {
+        let mut system = Box::new(ActorSystem {
+            panic_happened: false,
+            panic_callback: panic_callback,
+            inboxes: unsafe { make_array!(MAX_RECIPIENT_TYPES, |_| None) },
+            actor_registry: TypeRegistry::new(),
+            message_registry: TypeRegistry::new(),
+            actors: [None; MAX_RECIPIENT_TYPES],
+            handlers: unsafe {
+                make_array!(MAX_RECIPIENT_TYPES,
+                            |_| make_array!(MAX_MESSAGE_TYPES, |_| None))
+            },
+        });
+
+        unsafe {
+            THE_SYSTEM = &mut *system as *mut ActorSystem;
         }
+
+        system
     }
 
-    /// Registers a type for use as an actor in the actor system
-    pub fn add_individual<I: Individual>(&mut self, individual: I) {
-        // Register type in recipient_registry, and return the short ID
-        // of the type (sequential ID starting from 0)
-        let recipient_id = self.recipient_registry.register_new::<I>();
-
-        assert!(self.routing[recipient_id].is_none());
-
-        self.routing[recipient_id] = Some(InboxMap::new());
-
-        // Store pointer to the individual
-        self.individuals[recipient_id] = Some(Box::into_raw(Box::new(individual)) as *mut u8);
+    fn add_actor<A: Actor>(&mut self, actor: A) {
+        let actor_id = self.actor_registry.register_new::<A>();
+        assert!(self.inboxes[actor_id.as_usize()].is_none());
+        self.inboxes[actor_id.as_usize()] = Some(Inbox::new());
+        // Store pointer to the actor
+        self.actors[actor_id.as_usize()] = Some(Box::into_raw(Box::new(actor)) as *mut u8);
     }
 
-    /// Add a inbox for a given message type to a individual
-    pub fn add_inbox<M: Message, I: Individual + Recipient<M>>(&mut self) {
-        self.add_inbox_helper::<M, I>(true);
+    fn add_handler_helper<M: Message, A: Actor + Recipient<M>>(&mut self, critical: bool) {
+        let actor_id = self.actor_registry.get::<A>();
+        let message_id = self.message_registry.get_or_register::<M>();
+
+        let actor_ptr = self.actors[actor_id.as_usize()].unwrap() as *mut A;
+
+        self.handlers[actor_id.as_usize()][message_id.as_usize()] = Some(Handler {
+            function: Box::new(move |packet_ptr: *const ()| unsafe {
+                let packet = &*(packet_ptr as *const Packet<M>);
+                (*actor_ptr).receive_packet(packet);
+            }),
+            critical: critical,
+        });
     }
 
-    /// Add an unclearable inbox for a given message type to a individual
-    pub fn add_unclearable_inbox<M: Message, I: Individual + Recipient<M>>(&mut self) {
-        self.add_inbox_helper::<M, I>(false);
+    fn add_handler<M: Message, A: Actor + Recipient<M>>(&mut self) {
+        self.add_handler_helper::<M, A>(false);
     }
 
-    fn add_inbox_helper<M: Message, I: Individual + Recipient<M>>(&mut self, clearable: bool) {
-        let inbox = Inbox::<M>::new();
-
-        // Gets short ID of individual
-        let recipient_id = self.recipient_registry.get::<I>();
-
-        let inbox_ptr = self.store_inbox(inbox, recipient_id);
-        let individual_ptr = self.individuals[recipient_id].unwrap() as *mut I;
-
-        // Create closure to process messages
-        self.update_callbacks.push(Box::new(move || {
-            unsafe {
-                for packet in (*inbox_ptr).empty() {
-                    (*individual_ptr).receive_packet(packet);
-                }
-            }
-        }));
-
-        // Create closure to empty messages without processing
-        if clearable {
-            self.clear_callbacks.push(Box::new(move || {
-                unsafe {
-                    for _packet in (*inbox_ptr).empty() {
-                    }
-                }
-            }));
-        }
+    fn add_critical_handler<M: Message, A: Actor + Recipient<M>>(&mut self) {
+        self.add_handler_helper::<M, A>(true);
     }
 
-    pub fn individual_id<I: Individual>(&mut self) -> ID {
-        ID::individual(self.recipient_registry.get::<I>())
-    }
-
-    pub fn broadcast_id<A: Actor>(&mut self) -> ID {
-        ID::broadcast(self.recipient_registry.get::<Swarm<A>>())
-    }
-
-    pub fn instance_id<A: Actor>(&mut self, instance_id_and_version: (usize, usize)) -> ID {
-        ID::instance(self.recipient_registry.get::<Swarm<A>>(),
-                     instance_id_and_version)
-    }
-
-    /// Store the inbox pointer of a given type into the routing array
-    fn store_inbox<M: Message>(&mut self,
-                               inbox: Inbox<M>,
-                               recipient_type_id: usize)
-                               -> *mut Inbox<M> {
-        let inbox_ptr = Box::into_raw(Box::new(inbox));
-        // TODO: deallocate inbox at the end of times
-        self.routing[recipient_type_id].as_mut().unwrap().add_new(inbox_ptr);
-        inbox_ptr
-    }
-
-    /// Get the inbox pointer of a given type from the routing array
-    pub fn inbox_for<M: Message>(&mut self, packet: &Packet<M>) -> &mut Inbox<M> {
-        if let Some(inbox_ptr) = self.routing[*(packet.recipient_id
-                .expect("Recipient ID not set")
-                .type_id) as usize]
-            .as_ref()
-            .expect("Recipient not found")
-            .get::<M>() {
-            unsafe { &mut *inbox_ptr }
-        } else {
-            panic!("Inbox for {} not found for {}",
-                   unsafe { type_name::<M>() },
-                   self.recipient_registry.get_name(*(packet.recipient_id
-                       .expect("Recipient ID not set")
-                       .type_id) as usize))
-        }
-    }
-
-    /// Places message into the inbox of a given type
-    fn send<M: Message>(&mut self, recipient: ID, message: M) {
+    /// Send a message to the actor with a given `ID`. This is usually never called directly,
+    /// instead, [`ID << Message`](struct.ID.html#method.shl) is used to send messages.
+    pub fn send<M: Message>(&mut self, recipient: ID, message: M) {
         let packet = Packet {
             recipient_id: Some(recipient),
             message: message,
         };
-        self.inbox_for(&packet).put(packet);
-    }
 
-    /// Process all messages and clears all inboxes
-    pub fn process_messages(&mut self) {
-        for callback in &self.update_callbacks {
-            callback();
+        if let Some(inbox) = self.inboxes[*recipient.type_id as usize].as_mut() {
+            inbox.put(packet, &self.message_registry);
+        } else {
+            panic!("No inbox for {}",
+                   self.actor_registry.get_name(recipient.type_id));
         }
     }
 
-    /// Clear all inboxes without processing
-    pub fn clear_all_clearable_messages(&mut self) {
-        for callback in &self.clear_callbacks {
-            callback();
+    fn single_message_cycle(&mut self) {
+        for (recipient_type_idx, maybe_inbox) in self.inboxes.iter_mut().enumerate() {
+            let recipient_type = ShortTypeId::new(recipient_type_idx as u16);
+            if let Some(inbox) = maybe_inbox.as_mut() {
+                for DispatchablePacket { message_type, packet_ptr } in inbox.empty() {
+                    if let Some(handler) = self.handlers[recipient_type.as_usize()]
+                                               [message_type.as_usize()]
+                        .as_mut() {
+                        if handler.critical || !self.panic_happened {
+                            (handler.function)(packet_ptr);
+                        }
+                    } else {
+                        panic!("Handler not found ({} << {})",
+                               self.actor_registry.get_name(recipient_type),
+                               self.message_registry.get_name(message_type));
+                    }
+                }
+            }
         }
     }
 
-    /// Process messages, up to 1000 layers of recursion
+    /// Processes all sent messages, and messages which are in turn sent
+    /// during the handling of messages, up to a recursion depth of 1000.
+    ///
+    /// This is typically called in the main loop of an application.
+    ///
+    /// By sending different "top-level commands" in to the system and calling
+    /// `process_all_messages` inbetween, different aspects of an application
+    /// (for example, UI, simulation, rendering) can be run isolated from each other,
+    /// in a fixed order during each loop iteration.
     pub fn process_all_messages(&mut self) {
-        for _i in 0..1000 {
-            self.process_messages();
+        let result = catch_unwind(AssertUnwindSafe(|| for _i in 0..1000 {
+            self.single_message_cycle();
+        }));
+
+        if result.is_err() {
+            self.panic_happened = true;
+            (self.panic_callback)(result.unwrap_err());
         }
     }
-}
 
-impl Default for ActorSystem {
-    fn default() -> Self {
-        Self::new()
+    /// Get the short type id for an `Actor`. Ususally never called directly,
+    /// use `Actor::id()` instead to get the full ID of a registered Actor.
+    pub fn short_id<A: Actor>(&self) -> ShortTypeId {
+        self.actor_registry.get::<A>()
     }
 }

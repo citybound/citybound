@@ -1,6 +1,6 @@
 use descartes::{Path, Band, Segment, P2, N, FiniteCurve, WithUniqueOrthogonal};
 use compact::{CVec, Compact};
-use kay::Individual;
+use kay::Actor;
 use monet::{Thing, Vertex, Renderer, UpdateThing, Instance};
 
 #[derive(Compact, Clone)]
@@ -101,8 +101,8 @@ pub fn band_to_thing<P: Path>(band: &Band<P>, z: N) -> Thing {
                                         first_new_vertex + 2]);
         } else {
             let angle_span = segment.length / segment.radius();
-            let subdivisions =
-                (angle_span / CURVE_LINEARIZATION_MAX_ANGLE).max(1.0).floor() as usize;
+            let subdivisions = (angle_span / CURVE_LINEARIZATION_MAX_ANGLE).max(1.0).floor() as
+                               usize;
             let distance_per_subdivision = segment.length / (subdivisions as f32);
 
             let position = segment.start;

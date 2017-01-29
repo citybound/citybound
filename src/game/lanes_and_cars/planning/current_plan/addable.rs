@@ -1,18 +1,20 @@
-use kay::{ID, Recipient, Actor, Individual, Swarm, ActorSystem, Fate, CreateWith};
+use kay::{ID, Recipient, Actor, Fate};
+use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::{Band, P2};
 use ::core::geometry::AnyShape;
 
-use super::{LaneStroke, CurrentPlan};
+use super::CurrentPlan;
+use super::super::lane_stroke::LaneStroke;
 
-#[derive(Actor, Compact, Clone)]
-pub struct LaneStrokeAddable {
+#[derive(SubActor, Compact, Clone)]
+pub struct Addable {
     _id: Option<ID>,
     stroke: LaneStroke,
 }
 
-impl LaneStrokeAddable {
+impl Addable {
     pub fn new(stroke: LaneStroke) -> Self {
-        LaneStrokeAddable {
+        Addable {
             _id: None,
             stroke: stroke,
         }
@@ -22,7 +24,7 @@ impl LaneStrokeAddable {
 use super::AddToUI;
 use ::core::ui::Add;
 
-impl Recipient<AddToUI> for LaneStrokeAddable {
+impl Recipient<AddToUI> for Addable {
     fn receive(&mut self, msg: &AddToUI) -> Fate {
         match *msg {
             AddToUI => {
@@ -39,7 +41,7 @@ impl Recipient<AddToUI> for LaneStrokeAddable {
 use super::ClearDraggables;
 use ::core::ui::Remove;
 
-impl Recipient<ClearDraggables> for LaneStrokeAddable {
+impl Recipient<ClearDraggables> for Addable {
     fn receive(&mut self, msg: &ClearDraggables) -> Fate {
         match *msg {
             ClearDraggables => {
@@ -53,7 +55,7 @@ impl Recipient<ClearDraggables> for LaneStrokeAddable {
 use ::core::ui::Event3d;
 use super::{AddStroke, Commit};
 
-impl Recipient<Event3d> for LaneStrokeAddable {
+impl Recipient<Event3d> for Addable {
     fn receive(&mut self, msg: &Event3d) -> Fate {
         match *msg {
             Event3d::HoverStarted { .. } |
@@ -71,9 +73,9 @@ impl Recipient<Event3d> for LaneStrokeAddable {
 }
 
 
-pub fn setup(system: &mut ActorSystem) {
-    system.add_individual(Swarm::<LaneStrokeAddable>::new());
-    system.add_inbox::<CreateWith<LaneStrokeAddable, AddToUI>, Swarm<LaneStrokeAddable>>();
-    system.add_inbox::<ClearDraggables, Swarm<LaneStrokeAddable>>();
-    system.add_inbox::<Event3d, Swarm<LaneStrokeAddable>>();
+pub fn setup() {
+    Swarm::<Addable>::register_default();
+    Swarm::<Addable>::handle::<CreateWith<Addable, AddToUI>>();
+    Swarm::<Addable>::handle::<ClearDraggables>();
+    Swarm::<Addable>::handle::<Event3d>();
 }

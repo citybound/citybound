@@ -15,7 +15,7 @@ extern crate unicode_normalization;
 #[macro_use]
 extern crate lazy_static;
 
-use kay::{ActorSystem, Individual};
+use kay::Actor;
 
 mod geometry;
 mod renderer;
@@ -36,17 +36,17 @@ pub use thing::Thing;
 pub use text::{TextRenderer, TextVertex, Font, FontBank, RichText, FontDescription, Formatting,
                Glyph, GlyphIter};
 
-pub fn setup(system: &mut ActorSystem, renderer: Renderer) {
-    system.add_individual(renderer);
-    system.add_unclearable_inbox::<Control, Renderer>();
-    system.add_unclearable_inbox::<AddBatch, Renderer>();
-    system.add_unclearable_inbox::<AddInstance, Renderer>();
-    system.add_unclearable_inbox::<AddSeveralInstances, Renderer>();
-    system.add_unclearable_inbox::<MoveEye, Renderer>();
-    system.add_unclearable_inbox::<AddEyeListener, Renderer>();
-    system.add_unclearable_inbox::<AddDebugText, Renderer>();
-    system.add_unclearable_inbox::<UpdateThing, Renderer>();
-    system.add_unclearable_inbox::<Project2dTo3d, Renderer>();
+pub fn setup(renderer: Renderer) {
+    Renderer::register_with_state(renderer);
+    Renderer::handle_critically::<Control>();
+    Renderer::handle_critically::<AddBatch>();
+    Renderer::handle_critically::<AddInstance>();
+    Renderer::handle_critically::<AddSeveralInstances>();
+    Renderer::handle_critically::<MoveEye>();
+    Renderer::handle_critically::<AddEyeListener>();
+    Renderer::handle_critically::<AddDebugText>();
+    Renderer::handle_critically::<UpdateThing>();
+    Renderer::handle_critically::<Project2dTo3d>();
 
     Renderer::id() << Control::Setup;
 }

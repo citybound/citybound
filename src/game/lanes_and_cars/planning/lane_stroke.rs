@@ -1,10 +1,12 @@
 use descartes::{P2, V2, Path, Segment, Band, Curve, FiniteCurve, N, RoughlyComparable};
 use compact::CVec;
-use kay::{ID, Swarm, CreateWith};
+use kay::ID;
+use kay::swarm::{Swarm, CreateWith};
 use monet::Thing;
 use core::geometry::{CPath, band_to_thing};
-use super::materialized_reality::BuildableRef;
-use super::super::{Lane, TransferLane, AdvertiseToTransferAndReport};
+use super::super::construction::materialized_reality::BuildableRef;
+use super::super::lane::{Lane, TransferLane};
+use super::super::construction::AdvertiseToTransferAndReport;
 
 #[derive(Compact, Clone)]
 pub struct LaneStroke {

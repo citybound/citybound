@@ -46,11 +46,13 @@ mod game;
 
 use monet::{Renderer, Control, AddDebugText};
 use core::simulation::{Simulation, Tick};
-use game::lanes_and_cars::{Lane, TransferLane};
-use game::lanes_and_cars::lane_rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
-use game::lanes_and_cars::lane_thing_collector::ThingCollector;
-use game::lanes_and_cars::planning::CurrentPlan;
-use kay::Individual;
+use game::lanes_and_cars::lane::{Lane, TransferLane};
+use game::lanes_and_cars::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
+use game::lanes_and_cars::rendering::lane_thing_collector::ThingCollector;
+use game::lanes_and_cars::planning::current_plan::CurrentPlan;
+use kay::Actor;
+use kay::swarm::Swarm;
+use std::any::Any;
 
 const SECONDS_PER_TICK: f32 = 1.0 / 20.0;
 
@@ -65,10 +67,26 @@ fn main() {
         ::std::fs::File::create(dir).expect("should be able to create tmp file");
     }
 
-    let mut system = Box::new(kay::ActorSystem::new());
-    unsafe {
-        kay::THE_SYSTEM = &mut *system as *mut kay::ActorSystem;
-    }
+    let mut system = kay::ActorSystem::create_the_system(Box::new(|error: Box<Any>| {
+        let message = match error.downcast::<String>() {
+            Ok(string) => (*string),
+            Err(any) => {
+                match any.downcast::<&'static str>() {
+                    Ok(static_str) => (*static_str).to_string(),
+                    Err(_) => "Weird error type".to_string(),
+                }
+            }
+        };
+        println!("Simulation Panic!\n{:?}", message);
+        Renderer::id() <<
+        AddDebugText {
+            scene_id: 0,
+            key: "SIMULATION PANIC".chars().collect(),
+            text: message.as_str().chars().collect(),
+            color: [1.0, 0.0, 0.0, 1.0],
+            persistent: true,
+        };
+    }));
 
     let mut mods_path = ::std::env::current_exe().unwrap();
     mods_path.set_file_name("mods");
@@ -78,33 +96,34 @@ fn main() {
     // actually loads the specified mod into the game.
     weaver.load_package("//system/mymod", &mut system).expect("could not load mymod");
 
-    game::setup(&mut system);
-    game::setup_ui(&mut system);
+    game::setup();
+    game::setup_ui();
 
-    let simulatables = vec![system.broadcast_id::<Lane>(), system.broadcast_id::<TransferLane>()];
-    core::simulation::setup(&mut system, simulatables);
+    let simulatables = vec![Swarm::<Lane>::all(), Swarm::<TransferLane>::all()];
+    core::simulation::setup(simulatables);
 
-    let renderables = vec![system.broadcast_id::<Lane>(),
-                           system.broadcast_id::<TransferLane>(),
-                           system.individual_id::<ThingCollector<LaneAsphalt>>(),
-                           system.individual_id::<ThingCollector<LaneMarker>>(),
-                           system.individual_id::<ThingCollector<TransferLaneMarkerGaps>>(),
-                           system.individual_id::<CurrentPlan>()];
-    let window = core::ui::setup_window_and_renderer(&mut system, renderables);
+    let renderables = vec![Swarm::<Lane>::all(),
+                           Swarm::<TransferLane>::all(),
+                           ThingCollector::<LaneAsphalt>::id(),
+                           ThingCollector::<LaneMarker>::id(),
+                           ThingCollector::<TransferLaneMarkerGaps>::id(),
+                           CurrentPlan::id()];
+    let window = core::ui::setup_window_and_renderer(renderables);
 
-    let mut simulation_panicked: Option<String> = None;
     let mut last_frame = std::time::Instant::now();
+
+    Renderer::id() <<
+    AddDebugText {
+        scene_id: 0,
+        key: "Version".chars().collect(),
+        text: "0.1.0".chars().collect(),
+        color: [0.0, 0.0, 0.0, 1.0],
+        persistent: true,
+    };
 
     system.process_all_messages();
 
     loop {
-        Renderer::id() <<
-        AddDebugText {
-            scene_id: 0,
-            key: "Version".chars().collect(),
-            text: "0.1.0".chars().collect(),
-            color: [0.0, 0.0, 0.0, 1.0],
-        };
         Renderer::id() <<
         AddDebugText {
             scene_id: 0,
@@ -116,53 +135,26 @@ fn main() {
                 .chars()
                 .collect(),
             color: [0.0, 0.0, 0.0, 0.5],
+            persistent: false,
         };
         last_frame = std::time::Instant::now();
         if !core::ui::process_events(&window) {
             return;
         }
 
-        if let Some(error) = simulation_panicked.clone() {
-            system.clear_all_clearable_messages();
-            system.process_all_messages();
-            Renderer::id() <<
-            AddDebugText {
-                scene_id: 0,
-                key: "SIMULATION PANIC".chars().collect(),
-                text: error.as_str().chars().collect(),
-                color: [1.0, 0.0, 0.0, 1.0],
-            };
-        } else {
-            let simulation_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                system.process_all_messages();
+        system.process_all_messages();
 
-                Simulation::id() <<
-                Tick {
-                    dt: SECONDS_PER_TICK,
-                    current_tick: 0,
-                };
+        Simulation::id() <<
+        Tick {
+            dt: SECONDS_PER_TICK,
+            current_tick: 0,
+        };
 
-                system.process_all_messages();
+        system.process_all_messages();
 
-                Renderer::id() << Control::Render;
+        Renderer::id() << Control::Render;
 
-                system.process_all_messages();
-            }));
-            if simulation_result.is_err() {
-                system.clear_all_clearable_messages();
-                let msg = match simulation_result.unwrap_err().downcast::<String>() {
-                    Ok(string) => (*string),
-                    Err(any) => {
-                        match any.downcast::<&'static str>() {
-                            Ok(static_str) => (*static_str).to_string(),
-                            Err(_) => "Weird error type".to_string(),
-                        }
-                    }
-                };
-                println!("Simulation Panic!\n{:?}", msg);
-                simulation_panicked = Some(msg);
-            }
-        }
+        system.process_all_messages();
 
         Renderer::id() << Control::Submit;
 

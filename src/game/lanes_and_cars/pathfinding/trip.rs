@@ -1,9 +1,10 @@
-use kay::{ID, Recipient, Individual, Actor, ActorSystem, Swarm, CreateWith, Fate};
+use kay::{ID, Recipient, Actor, Fate};
+use kay::swarm::{Swarm, SubActor, CreateWith};
 use ordered_float::OrderedFloat;
 
 use super::Destination;
 
-#[derive(Actor, Compact, Clone)]
+#[derive(SubActor, Compact, Clone)]
 struct Trip {
     _id: Option<ID>,
     source: ID,
@@ -23,7 +24,7 @@ impl Recipient<Start> for Trip {
 }
 
 use super::TellAsDestination;
-use super::super::{AddCar, LaneCar, Obstacle};
+use super::super::microtraffic::{AddCar, LaneCar, Obstacle};
 
 impl Recipient<TellAsDestination> for Trip {
     fn receive(&mut self, msg: &TellAsDestination) -> Fate {
@@ -80,7 +81,7 @@ pub struct TripCreator {
     current_source_lane: Option<ID>,
 }
 
-impl Individual for TripCreator {}
+impl Actor for TripCreator {}
 
 #[derive(Copy, Clone)]
 pub struct AddLaneForTrip(ID);
@@ -108,7 +109,7 @@ impl Recipient<AddLaneForTrip> for TripCreator {
     }
 }
 
-use super::super::Lane;
+use super::super::lane::Lane;
 use ::core::ui::Event3d;
 
 impl Recipient<Event3d> for Lane {
@@ -123,7 +124,7 @@ impl Recipient<Event3d> for Lane {
                 Fate::Live
             }
             Event3d::DragFinished { .. } => {
-                if !self.on_intersection {
+                if !self.connectivity.on_intersection {
                     TripCreator::id() << AddLaneForTrip(self.id());
                 }
                 Fate::Live
@@ -133,14 +134,14 @@ impl Recipient<Event3d> for Lane {
     }
 }
 
-pub fn setup(system: &mut ActorSystem) {
-    system.add_individual(Swarm::<Trip>::new());
-    system.add_inbox::<TripResult, Swarm<Trip>>();
-    system.add_inbox::<CreateWith<Trip, Start>, Swarm<Trip>>();
-    system.add_inbox::<TellAsDestination, Swarm<Trip>>();
+pub fn setup() {
+    Swarm::<Trip>::register_default();
+    Swarm::<Trip>::handle::<TripResult>();
+    Swarm::<Trip>::handle::<CreateWith<Trip, Start>>();
+    Swarm::<Trip>::handle::<TellAsDestination>();
 
-    system.add_individual(TripCreator { current_source_lane: None });
-    system.add_inbox::<AddLaneForTrip, TripCreator>();
+    TripCreator::register_with_state(TripCreator { current_source_lane: None });
+    TripCreator::handle::<AddLaneForTrip>();
 
-    system.add_inbox::<Event3d, Swarm<Lane>>();
+    Swarm::<Lane>::handle::<Event3d>();
 }

@@ -1,5 +1,5 @@
 use ::monet::glium::{DisplayBuild, glutin};
-use kay::{ActorSystem, ID, Individual, Recipient, Fate};
+use kay::{ID, Actor, Recipient, Fate};
 use descartes::{N, P2, P3, V3, Into2d, Shape};
 use ::monet::{Renderer, Scene, GlutinFacade, MoveEye};
 use ::monet::glium::glutin::{Event, MouseScrollDelta, ElementState, MouseButton};
@@ -109,7 +109,7 @@ pub struct UserInterface {
     settings: Settings,
 }
 
-impl Individual for UserInterface {}
+impl Actor for UserInterface {}
 
 impl UserInterface {
     fn new() -> UserInterface {
@@ -126,6 +126,12 @@ impl UserInterface {
             input_state: InputState::new(),
             settings: Settings::load(),
         }
+    }
+}
+
+impl Default for UserInterface {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -478,7 +484,7 @@ impl Recipient<UIUpdate> for UserInterface {
     }
 }
 
-pub fn setup_window_and_renderer(system: &mut ActorSystem, renderables: Vec<ID>) -> GlutinFacade {
+pub fn setup_window_and_renderer(renderables: Vec<ID>) -> GlutinFacade {
     let window = glutin::WindowBuilder::new()
         .with_title("Citybound".to_string())
         .with_dimensions(1024, 512)
@@ -487,16 +493,14 @@ pub fn setup_window_and_renderer(system: &mut ActorSystem, renderables: Vec<ID>)
         .build_glium()
         .unwrap();
 
-    let ui = UserInterface::new();
-
-    system.add_individual(ui);
-    system.add_inbox::<Add, UserInterface>();
-    system.add_inbox::<Remove, UserInterface>();
-    system.add_inbox::<Focus, UserInterface>();
-    system.add_unclearable_inbox::<Mouse, UserInterface>();
-    system.add_unclearable_inbox::<Key, UserInterface>();
-    system.add_unclearable_inbox::<UIUpdate, UserInterface>();
-    system.add_unclearable_inbox::<Projected3d, UserInterface>();
+    UserInterface::register_default();
+    UserInterface::handle::<Add>();
+    UserInterface::handle::<Remove>();
+    UserInterface::handle::<Focus>();
+    UserInterface::handle_critically::<Mouse>();
+    UserInterface::handle_critically::<Key>();
+    UserInterface::handle_critically::<UIUpdate>();
+    UserInterface::handle_critically::<Projected3d>();
 
     let mut renderer = Renderer::new(window.clone());
     let mut scene = Scene::new();
@@ -504,7 +508,7 @@ pub fn setup_window_and_renderer(system: &mut ActorSystem, renderables: Vec<ID>)
     scene.renderables = renderables;
     renderer.scenes.insert(0, scene);
 
-    ::monet::setup(system, renderer);
+    ::monet::setup(renderer);
 
     window
 }

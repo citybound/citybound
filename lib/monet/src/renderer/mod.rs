@@ -2,7 +2,7 @@
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
                     WithUniqueOrthogonal, Inverse, Rotate};
 use compact::CVec;
-use kay::{ID, Recipient, Individual, Fate};
+use kay::{ID, Recipient, Actor, Fate};
 
 use glium::backend::glutin_backend::GlutinFacade;
 
@@ -30,7 +30,7 @@ impl Renderer {
     }
 }
 
-impl Individual for Renderer {}
+impl Actor for Renderer {}
 
 #[derive(Copy, Clone)]
 pub struct AddEyeListener {
@@ -139,14 +139,20 @@ pub struct AddDebugText {
     pub key: CVec<char>,
     pub text: CVec<char>,
     pub color: [f32; 4],
+    pub persistent: bool,
 }
 
 impl Recipient<AddDebugText> for Renderer {
     fn receive(&mut self, msg: &AddDebugText) -> Fate {
         match *msg {
-            AddDebugText { scene_id, ref key, ref text, ref color } => {
-                self.scenes[scene_id].debug_text.insert(key.iter().cloned().collect(),
-                                                        (text.iter().cloned().collect(), *color));
+            AddDebugText { scene_id, ref key, ref text, ref color, persistent } => {
+                let target = if persistent {
+                    &mut self.scenes[scene_id].persistent_debug_text
+                } else {
+                    &mut self.scenes[scene_id].debug_text
+                };
+                target.insert(key.iter().cloned().collect(),
+                              (text.iter().cloned().collect(), *color));
                 Fate::Live
             }
         }

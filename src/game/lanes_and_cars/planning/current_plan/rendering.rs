@@ -1,8 +1,9 @@
-use kay::{Recipient, Fate, ActorSystem};
+use kay::{Recipient, Fate, Actor};
 use descartes::{Band, Path, FiniteCurve};
 use monet::{Thing, Instance};
 use ::core::geometry::band_to_thing;
-use super::{CurrentPlan, LaneStroke, DrawingStatus, SelectableStrokeRef};
+use super::{CurrentPlan, DrawingStatus, SelectableStrokeRef};
+use super::super::lane_stroke::LaneStroke;
 
 use monet::SetupInScene;
 
@@ -177,7 +178,7 @@ impl Recipient<RenderToScene> for CurrentPlan {
     }
 }
 
-pub fn setup(system: &mut ActorSystem) {
-    system.add_inbox::<SetupInScene, CurrentPlan>();
-    system.add_inbox::<RenderToScene, CurrentPlan>();
+pub fn setup() {
+    CurrentPlan::handle::<SetupInScene>();
+    CurrentPlan::handle::<RenderToScene>();
 }
