@@ -76,7 +76,7 @@ fn main() {
     let mut weaver = weaver::Weaver::new();
     weaver.add_system_mods(mods_path).expect("system mods folder could not be loaded");
     // actually loads the specified mod into the game.
-    weaver.load_package("mymod", &mut system).expect("could not load mymod");
+    weaver.load_package("//system/mymod", &mut system).expect("could not load mymod");
 
     game::setup(&mut system);
     game::setup_ui(&mut system);

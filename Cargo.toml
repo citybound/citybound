@@ -18,8 +18,8 @@ members = [
     "./lib/monet",
     "./lib/weaver",
 
-    "./mods/mymod",
-    "./mods/builder",
+    "./lib/mymod",
+    "./lib/builder",
 ]
 
 [dependencies]
@@ -44,7 +44,7 @@ monet = { path = "./lib/monet" }
 weaver = { path = "./lib/weaver" }
 
 [build-dependencies]
-builder = { path = "./mods/builder" }
+builder = { path = "./lib/builder" }
 
 [profile.dev]
 opt-level = 1

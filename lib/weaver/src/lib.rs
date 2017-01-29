@@ -1,6 +1,30 @@
 #![feature(plugin, conservative_impl_trait)]
 #![plugin(clippy)]
 
+//! Crate for loading and defining mods.
+//!
+//! ```
+//! # #[macro_use] extern crate weaver;
+//! # use weaver::CityboundMod;
+//! # use weaver::kay::ActorSystem;
+//! #
+//! struct MyMod;
+//!
+//! impl CityboundMod for MyMod {
+//!    fn setup(_system: &mut ActorSystem) -> MyMod {
+//!        // todo: setup my mod using the actor system.
+//!        MyMod
+//!    }
+//! }
+//!
+//! register_mod! {
+//!     cb_mod: MyMod,
+//! }
+//! #
+//! # // make rustdoc happy
+//! # fn main() {}
+//! ```
+
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
@@ -10,14 +34,16 @@ extern crate libloading;
 
 pub extern crate kay;
 
-mod mod_trait;
-mod package;
+pub mod package;
+pub mod modules;
 mod weaver;
 
-pub use mod_trait::{CityboundMod, ModWrapper};
-pub use package::{Package, PackageDesc, ModInfo};
-pub use weaver::{Mod, Register, Weaver, LoadingPackage};
+pub use modules::{CityboundMod, ModWrapper};
+pub use package::Package;
+pub use weaver::Weaver;
 
+/// This macro helps to create the right functions for registering
+/// this crate as a mod when the crate is loaded by weaver.
 #[macro_export]
 macro_rules! register_mod {
     {
@@ -25,7 +51,8 @@ macro_rules! register_mod {
         $(,)*
     } => {
         #[no_mangle]
-        pub fn __register_mod(register: &mut $crate::Register) {
+        #[doc(hidden)]
+        pub fn __register_mod(register: &mut $crate::modules::Register) {
             struct Wrapper {
                 inner: Option<$mod_>,
             }
@@ -37,13 +64,15 @@ macro_rules! register_mod {
                 }
 
                 fn dependant_loading(&mut self,
-                                     loading: &mut $crate::LoadingPackage,
+                                     loading: &mut $crate::modules::LoadingPackage,
                                      system: &mut $crate::kay::ActorSystem)
                                      -> ::std::result::Result<(), String>
                 {
                     match self.inner {
                         Some(ref mut mod_) =>
-                            <$mod_ as $crate::CityboundMod>::dependant_loading(mod_, loading, system),
+                            <$mod_ as $crate::CityboundMod>::dependant_loading(mod_,
+                                                                               loading,
+                                                                               system),
                         None => panic!("mod not loaded"),
                     }
                 }
@@ -63,26 +92,4 @@ macro_rules! register_mod {
             let _mod_ = register.register_mod(wrapper);
         }
     };
-}
-
-#[cfg(test)]
-mod tests {
-    use ::CityboundMod;
-    use kay::ActorSystem;
-
-    #[test]
-    #[allow(private_no_mangle_fns)]
-    fn test_macro() {
-        struct M;
-
-        impl CityboundMod for M {
-            fn setup(_system: &mut ActorSystem) -> M {
-                M
-            }
-        }
-
-        register_mod! {
-            cb_mod: M,
-        }
-    }
 }

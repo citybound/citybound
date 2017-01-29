@@ -1,4 +1,3 @@
-
 extern crate builder;
 
 use std::env;
@@ -8,10 +7,7 @@ use std::path::{Path, PathBuf};
 
 use builder::{BuildMode, BuildOptions};
 
-const SYSTEM_MODS: &'static [&'static str] = &[
-    "builder",
-    "mymod",
-];
+const SYSTEM_MODS: &'static [&'static str] = &["builder", "mymod"];
 
 fn main() {
     let home_dir = env::var("OUT_DIR").unwrap();
@@ -22,11 +18,10 @@ fn main() {
         let opts = BuildOptions {
             home: home_dir.to_owned().into(),
             name: mod_.into(),
-            path: format!("./mods/{}", mod_).into(),
+            path: format!("./lib/{}", mod_).into(),
             mode: mode,
         };
-        let result = builder::build(&opts)
-            .expect(&format!("mod failed to build {:?}", mod_));
+        let result = builder::build(&opts).expect(&format!("mod failed to build {:?}", mod_));
 
         let mut dir = target_dir.clone();
         dir.push("mods");
@@ -37,25 +32,22 @@ fn main() {
         {
             let mut module = dir.clone();
             module.push(format!("{}.module", mod_));
-            fs::copy(result.module, module)
-                .expect("couldn't copy module");
+            fs::copy(result.module, module).expect("couldn't copy module");
         }
 
         {
             let mut manifest = dir.clone();
             manifest.push("Mod.toml");
-            fs::copy(opts.manifest_path().unwrap(), manifest)
-                .expect("couldn't copy manifest");
+            fs::copy(opts.manifest_path().unwrap(), manifest).expect("couldn't copy manifest");
         }
     }
 
     depend_src_dir("lib");
-    depend_src_dir("mods");
 }
 
 fn link_libs<P: AsRef<Path>>(home: P) -> io::Result<()> {
     let dst = {
-        let mut dst = home.as_ref().canonicalize()?;
+        let mut dst = home.as_ref().to_owned();
         dst.push("lib");
         dst
     };
@@ -66,7 +58,9 @@ fn link_libs<P: AsRef<Path>>(home: P) -> io::Result<()> {
         src
     };
 
-    fs::remove_file(&dst)?;
+    if dst.exists() {
+        fs::remove_file(&dst)?;
+    }
 
     #[cfg(unix)]
     let res = ::std::os::unix::fs::symlink(src, dst);
@@ -108,7 +102,8 @@ fn target_dir() -> (PathBuf, BuildMode) {
     } else if out_dir.ends_with("release") {
         mode = BuildMode::Release;
     } else {
-        panic!("out dir does not seem to be in debug or release, {:?}", out_dir);
+        panic!("out dir does not seem to be in debug or release, {:?}",
+               out_dir);
     }
 
     (out_dir, mode)

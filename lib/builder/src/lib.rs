@@ -1,3 +1,13 @@
+//! The builder takes care of compiling mods and their
+//! libraries in a reliable manner.
+//!
+//! Builder does all its work in a special directory.
+//! This directory must contain a `lib` folder with all
+//! available libraries. A `Cargo.lock` for specifying
+//! the versions of all crates used when building the game.
+//! This is very important so that we can guarantee
+//! compatability when mods send data in between each other.
+
 #![feature(plugin)]
 #![plugin(clippy)]
 
@@ -5,15 +15,16 @@
 extern crate weaver;
 extern crate cargo;
 
-use std::io::{self, Error, ErrorKind};
+use std::io::{self, Error, ErrorKind, Write};
 use std::fs;
 use std::path::{PathBuf, Path};
 
 use cargo::core::{Workspace, shell, MultiShell, Shell};
 use cargo::ops::{self, CompileOptions};
-use cargo::util::{Config};
+use cargo::util::Config;
 
-use weaver::{CityboundMod, LoadingPackage};
+use weaver::CityboundMod;
+use weaver::modules::LoadingPackage;
 use weaver::kay::ActorSystem;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -46,6 +57,7 @@ pub struct BuildResult {
 /// The caller needs to make sure that the home path contains
 /// a lib folder with libraries.
 pub fn build(options: &BuildOptions) -> io::Result<BuildResult> {
+    create_workspace(options)?;
     clean_mod_dir(&options.home)?;
     link_mod(options, &options.path)?;
 
@@ -83,15 +95,30 @@ pub fn build(options: &BuildOptions) -> io::Result<BuildResult> {
 
     match ops::compile(&workspace, &compile_options) {
         Ok(result) => {
-            println!("libs: {:?}", result.libraries);
-            println!("binaries: {:?}", result.binaries);
-            println!("deps: {:?}", result.deps_output);
-            panic!();
+            let module = result.libraries
+                .iter()
+                .filter(|&(id, _)| id.name() == options.name)
+                .map(|(_, lib)| lib[0].1.clone())
+                .next()
+                .unwrap();
+            Ok(BuildResult { module: module })
         }
-        Err(err) => {
-            Err(io::Error::new(io::ErrorKind::Other, format!("{:?}", err)))
-        }
+        Err(err) => Err(io::Error::new(io::ErrorKind::Other, format!("{:?}", err))),
     }
+}
+
+fn create_workspace(options: &BuildOptions) -> io::Result<()> {
+    let path = {
+        let mut path = options.home.clone();
+        path.push("Cargo.toml");
+        path
+    };
+
+    let mut f = fs::File::create(path)?;
+    write!(&mut f,
+           "[workspace]\nmembers=['./mods/{}']\n",
+           &options.name)?;
+    Ok(())
 }
 
 fn clean_mod_dir<P: AsRef<Path>>(path: P) -> io::Result<()> {
@@ -101,6 +128,7 @@ fn clean_mod_dir<P: AsRef<Path>>(path: P) -> io::Result<()> {
         path
     };
 
+    fs::create_dir_all(&path)?;
     for dir in fs::read_dir(&path)? {
         let path = dir?.path();
         fs::remove_file(path)?;
@@ -109,17 +137,15 @@ fn clean_mod_dir<P: AsRef<Path>>(path: P) -> io::Result<()> {
     Ok(())
 }
 
-fn link_mod<P: AsRef<Path>>(options: &BuildOptions, path: P) -> io::Result<()> {
+fn link_mod<P: AsRef<Path>>(options: &BuildOptions, src: P) -> io::Result<()> {
     let dst = {
-        let mut dst = options.home.canonicalize()?;
+        let mut dst = options.home.clone();
         dst.push("mods");
-        fs::create_dir_all(&dst)?;
-
         dst.push(&options.name);
         dst
     };
 
-    let src = path.as_ref().canonicalize()?;
+    let src = src.as_ref().canonicalize()?;
 
     #[cfg(unix)]
     let res = ::std::os::unix::fs::symlink(&src, &dst);
@@ -160,12 +186,10 @@ impl BuildOptions {
             Ok(path)
         } else if path.exists() {
             Err(Error::new(ErrorKind::NotFound,
-                           format!("the manifest 'Mod.toml' was not found in {:?}",
-                                   &path)))
+                           format!("the manifest 'Mod.toml' was not found in {:?}", &path)))
         } else {
             Err(Error::new(ErrorKind::NotFound,
-                           format!("the manifest is not a file {:?}",
-                                   &path)))
+                           format!("the manifest is not a file {:?}", &path)))
         }
     }
 
@@ -210,7 +234,10 @@ impl CityboundMod for BuilderMod {
         BuilderMod
     }
 
-    fn dependant_loading(&mut self, loading: &mut LoadingPackage, _system: &mut ActorSystem) -> Result<(), String> {
+    fn dependant_loading(&mut self,
+                         loading: &mut LoadingPackage,
+                         _system: &mut ActorSystem)
+                         -> Result<(), String> {
         println!("detected {:?}", loading);
         Ok(())
     }

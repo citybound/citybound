@@ -6,4 +6,4 @@ before_script: (cargo install rustfmt || true)
 script:
 - |
   export PATH=$PATH:~/.cargo/bin &&
-  rustfmt --write-mode=diff ./src/main.rs ./lib/*/src/lib.rs
+  rustfmt --write-mode=diff ./src/main.rs ./build.rs ./lib/*/src/lib.rs
