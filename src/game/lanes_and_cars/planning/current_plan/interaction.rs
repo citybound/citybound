@@ -95,14 +95,22 @@ impl Recipient<Event3d> for CurrentPlan {
                 Fate::Live
             }
             Event3d::KeyDown(VirtualKeyCode::C) => {
-                // Swarm::<::game::lanes_and_cars::lane::Lane>::all() <<
-                // ToRandom {
-                //     n_recipients: 5000,
-                //     message: Event3d::DragFinished {
-                //         from: P3::new(0.0, 0.0, 0.0),
-                //         to: P3::new(0.0, 0.0, 0.0),
-                //     },
-                // };
+                // TODO: this is not supposed to be here!
+                //       *but we have only one focusable!*
+                //       WTF?! what's wrong with your UI model?
+                //       *I uh.. I guess I should actually write a good one*
+                //       When will you finally?!
+                //       *Uh.. next week maybe?*
+                use kay::swarm::{Swarm, ToRandom};
+                use descartes::P3;
+                Swarm::<::game::lanes_and_cars::lane::Lane>::all() <<
+                ToRandom {
+                    n_recipients: 5000,
+                    message: Event3d::DragFinished {
+                        from: P3::new(0.0, 0.0, 0.0),
+                        to: P3::new(0.0, 0.0, 0.0),
+                    },
+                };
                 Fate::Live
             }
             Event3d::KeyDown(VirtualKeyCode::G) => {
