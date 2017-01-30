@@ -192,6 +192,7 @@ impl CurrentPlan {
 
     fn commit(&mut self) {
         self.undo_history.push(self.current.clone());
+        self.redo_history.clear();
         self.current = apply_intent(&self.current,
                                     self.still_built_strokes().as_ref(),
                                     &self.settings);
@@ -202,6 +203,7 @@ impl CurrentPlan {
     // just the Intent changed, not the PlanDelta or selections
     fn commit_substep(&mut self) {
         self.undo_history.push(self.current.clone());
+        self.redo_history.clear();
         self.invalidate_preview();
         self.invalidate_interactables();
     }
@@ -209,15 +211,21 @@ impl CurrentPlan {
 
 #[derive(Copy, Clone)]
 pub struct Undo;
+use self::stroke_canvas::{StrokeCanvas, SetPoints};
 
 impl Recipient<Undo> for CurrentPlan {
     fn receive(&mut self, _msg: &Undo) -> Fate {
-        if let Some(previous_state) = self.undo_history.pop() {
-            self.redo_history.push(self.current.clone());
-            self.current = previous_state;
-            self.invalidate_preview();
-            self.invalidate_interactables();
-        }
+        let previous_state = self.undo_history.pop().unwrap_or_default();
+        self.redo_history.push(self.current.clone());
+        self.current = previous_state;
+        StrokeCanvas::id() <<
+        SetPoints(match self.current.intent {
+            Intent::ContinueRoad(_, ref points, _) |
+            Intent::NewRoad(ref points) => points.clone(),
+            _ => CVec::new(),
+        });
+        self.invalidate_preview();
+        self.invalidate_interactables();
         Fate::Live
     }
 }
@@ -230,6 +238,12 @@ impl Recipient<Redo> for CurrentPlan {
         if let Some(next_state) = self.redo_history.pop() {
             self.undo_history.push(self.current.clone());
             self.current = next_state;
+            StrokeCanvas::id() <<
+            SetPoints(match self.current.intent {
+                Intent::ContinueRoad(_, ref points, _) |
+                Intent::NewRoad(ref points) => points.clone(),
+                _ => CVec::new(),
+            });
             self.invalidate_preview();
             self.invalidate_interactables();
         }

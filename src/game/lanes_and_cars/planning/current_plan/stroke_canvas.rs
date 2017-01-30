@@ -64,6 +64,20 @@ impl Recipient<Event3d> for StrokeCanvas {
     }
 }
 
+#[derive(Compact, Clone)]
+pub struct SetPoints(pub CVec<P2>);
+
+impl Recipient<SetPoints> for StrokeCanvas {
+    fn receive(&mut self, msg: &SetPoints) -> Fate {
+        match *msg {
+            SetPoints(ref points) => {
+                self.points = points.clone();
+                Fate::Live
+            }
+        }
+    }
+}
+
 use super::InitInteractable;
 use core::ui::{UserInterface, Add, Focus};
 
@@ -77,6 +91,7 @@ impl Recipient<InitInteractable> for StrokeCanvas {
 pub fn setup() {
     StrokeCanvas::register_default();
     StrokeCanvas::handle::<Event3d>();
+    StrokeCanvas::handle::<SetPoints>();
     StrokeCanvas::handle::<InitInteractable>();
     StrokeCanvas::id() << InitInteractable;
 }
