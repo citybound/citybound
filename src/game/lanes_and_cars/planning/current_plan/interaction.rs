@@ -1,6 +1,7 @@
 use kay::{Recipient, Actor, Fate};
 use super::CurrentPlan;
 use core::geometry::AnyShape;
+use descartes::{N, P2};
 
 #[derive(Default)]
 pub struct Interaction {
@@ -50,6 +51,7 @@ impl Recipient<EyeMoved> for CurrentPlan {
 use core::ui::{Event3d, VirtualKeyCode};
 use super::{Intent, ChangeIntent, IntentProgress, Materialize, Undo, Redo, SetNLanes,
             ToggleBothSides};
+use super::stroke_canvas::{Stroke, StrokeState};
 
 impl Recipient<Event3d> for CurrentPlan {
     fn receive(&mut self, msg: &Event3d) -> Fate {
@@ -104,7 +106,28 @@ impl Recipient<Event3d> for CurrentPlan {
                 Fate::Live
             }
             Event3d::KeyDown(VirtualKeyCode::G) => {
-                // CurrentPlan::id() << CreateGrid(if self.interaction.shift_pressed { 15 } else { 10 });
+                const GRID_SPACING: N = 1000.0;
+                let grid_size = if self.interaction.shift_pressed {
+                    15usize
+                } else {
+                    10usize
+                };
+                for x in 0..grid_size {
+                    Self::id() <<
+                    Stroke(vec![P2::new((x as f32 + 0.5) * GRID_SPACING, 0.0),
+                                P2::new((x as f32 + 0.5) * GRID_SPACING,
+                                        grid_size as f32 * GRID_SPACING)]
+                               .into(),
+                           StrokeState::Finished);
+                }
+                for y in 0..grid_size {
+                    Self::id() <<
+                    Stroke(vec![P2::new(0.0, (y as f32 + 0.5) * GRID_SPACING),
+                                P2::new(grid_size as f32 * GRID_SPACING,
+                                        (y as f32 + 0.5) * GRID_SPACING)]
+                               .into(),
+                           StrokeState::Finished);
+                }
                 Fate::Live
             }
             Event3d::KeyDown(VirtualKeyCode::Back) => {
