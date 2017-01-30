@@ -137,14 +137,18 @@ impl RoughlyComparable for V2 {
 }
 
 pub trait Curve: Sized {
-    fn project_with_max_distance(&self, point: P2, max_distance: N) -> Option<N> {
-        self.project(point).and_then(|offset| if self.distance_to(point) < max_distance {
-            Some(offset)
-        } else {
-            None
-        })
+    fn project_with_max_distance(&self, point: P2, max_distance: N, tolerance: N) -> Option<N> {
+        self.project_with_tolerance(point, tolerance)
+            .and_then(|offset| if self.distance_to(point) < max_distance {
+                Some(offset)
+            } else {
+                None
+            })
     }
-    fn project(&self, point: P2) -> Option<N>;
+    fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<N>;
+    fn project(&self, point: P2) -> Option<N> {
+        self.project_with_tolerance(point, THICKNESS)
+    }
     fn includes(&self, point: P2) -> bool {
         self.distance_to(point) < THICKNESS / 2.0
     }

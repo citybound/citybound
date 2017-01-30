@@ -99,7 +99,13 @@ impl<T: Path> FiniteCurve for T {
     fn direction_along(&self, distance: N) -> V2 {
         match self.find_on_segment(distance) {
             Some((segment, distance_on_segment)) => segment.direction_along(distance_on_segment),
-            None => self.segments()[0].direction_along(0.0),
+            None => {
+                if distance < 0.0 {
+                    self.segments()[0].start_direction()
+                } else {
+                    self.segments().last().unwrap().end_direction()
+                }
+            }
         }
     }
 
@@ -176,11 +182,11 @@ impl<T: Path> FiniteCurve for T {
 
 impl<T: Path> Curve for T {
     // TODO: this can be really buggy/unexpected
-    fn project(&self, point: P2) -> Option<N> {
+    fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<N> {
         self.segments_with_start_offsets()
             .filter_map(|pair: (&Segment, N)| {
                 let (segment, start_offset) = pair;
-                segment.project(point).map(|offset| offset + start_offset)
+                segment.project_with_tolerance(point, tolerance).map(|offset| offset + start_offset)
             })
             .min_by_key(|offset| OrderedFloat((self.along(*offset) - point).norm()))
     }

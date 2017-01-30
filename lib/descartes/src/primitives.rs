@@ -1,4 +1,4 @@
-use super::{N, P2, V2, THICKNESS, Curve, FiniteCurve, WithUniqueOrthogonal, angle_along_to,
+use super::{N, P2, V2, Curve, FiniteCurve, WithUniqueOrthogonal, angle_along_to,
             RoughlyComparable, Intersect, Intersection, HasBoundingBox, BoundingBox};
 use ::nalgebra::{Dot, Norm, rotate, Vector1, Rotation2};
 
@@ -9,7 +9,7 @@ pub struct Circle {
 }
 
 impl Curve for Circle {
-    fn project(&self, point: P2) -> Option<N> {
+    fn project_with_tolerance(&self, point: P2, _tolerance: N) -> Option<N> {
         Some(self.radius *
              angle_along_to(V2::new(1.0, 0.0), V2::new(0.0, 1.0), (point - self.center)))
     }
@@ -26,7 +26,7 @@ pub struct Line {
 }
 
 impl Curve for Line {
-    fn project(&self, point: P2) -> Option<N> {
+    fn project_with_tolerance(&self, point: P2, _tolerance: N) -> Option<N> {
         Some((point - self.start).dot(&self.direction))
     }
 
@@ -289,11 +289,11 @@ impl FiniteCurve for Segment {
 const MIN_TOLERANCE_ANGLE: N = 0.005;
 
 impl Curve for Segment {
-    fn project(&self, point: P2) -> Option<N> {
+    fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<N> {
         if self.is_linear() {
             let direction = self.center_or_direction;
             let line_offset = direction.dot(&(point - self.start));
-            if line_offset > -THICKNESS && line_offset < self.length + THICKNESS {
+            if line_offset > -tolerance && line_offset < self.length + tolerance {
                 Some(line_offset.max(0.0).min(self.length))
             } else {
                 None
@@ -303,12 +303,12 @@ impl Curve for Segment {
                                                       self.start_direction(),
                                                       point - self.center());
 
-            let tolerance = (THICKNESS / self.radius()).max(MIN_TOLERANCE_ANGLE);
+            let tolerance_angle = (tolerance / self.radius()).max(MIN_TOLERANCE_ANGLE);
             let angle_span = self.length / self.radius();
 
-            if angle_start_to_point <= angle_span + tolerance {
+            if angle_start_to_point <= angle_span + tolerance_angle {
                 Some((angle_start_to_point * self.radius()).min(self.length))
-            } else if angle_start_to_point >= 2.0 * ::std::f32::consts::PI - tolerance {
+            } else if angle_start_to_point >= 2.0 * ::std::f32::consts::PI - tolerance_angle {
                 Some(0.0)
             } else {
                 None

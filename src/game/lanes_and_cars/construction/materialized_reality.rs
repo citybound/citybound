@@ -1,7 +1,7 @@
 use compact::{CDict, CVec};
 use kay::{ID, Recipient, Fate, Actor};
 use super::super::planning::plan::{Plan, PlanResult, PlanDelta, PlanResultDelta, IntersectionRef,
-                                   TrimmedStrokeRef, TransferStrokeRef, RemainingOldStrokes};
+                                   TrimmedStrokeRef, TransferStrokeRef, BuiltStrokes};
 
 #[derive(Clone)]
 pub struct MaterializedRealityState {
@@ -26,10 +26,12 @@ pub struct Simulate {
 }
 
 #[derive(Compact, Clone)]
-pub struct SimulationResult {
-    pub remaining_old_strokes: RemainingOldStrokes,
-    pub result_delta: PlanResultDelta,
-}
+pub struct SimulationResult(pub PlanResultDelta);
+
+#[derive(Compact, Clone)]
+pub struct BuiltStrokesChanged(pub BuiltStrokes);
+
+use super::super::planning::plan::LaneStrokeRef;
 
 impl Recipient<Simulate> for MaterializedReality {
     fn receive(&mut self, msg: &Simulate) -> Fate {
@@ -39,14 +41,10 @@ impl Recipient<Simulate> for MaterializedReality {
                     Ready(ref state) |
                     WaitingForUnbuild(_, _, ref state, _, _, _) => state,
                 };
-                let (new_plan, remaining_old_strokes) = state.current_plan.with_delta(delta);
+                let (new_plan, _) = state.current_plan.with_delta(delta);
                 let result = new_plan.get_result();
                 let result_delta = result.delta(&state.current_result);
-                requester <<
-                SimulationResult {
-                    remaining_old_strokes: remaining_old_strokes,
-                    result_delta: result_delta,
-                };
+                requester << SimulationResult(result_delta);
                 Fate::Live
             }
         }
@@ -240,11 +238,15 @@ impl Recipient<ReportLaneUnbuilt> for MaterializedReality {
                                 })
                                 .collect();
 
-                            Self::id() <<
-                            Simulate {
-                                requester: requester,
-                                delta: PlanDelta::default(),
+                            let built_strokes = BuiltStrokes {
+                                mapping: new_plan.strokes
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(idx, stroke)| (LaneStrokeRef(idx), stroke.clone()))
+                                    .collect(),
                             };
+
+                            requester << BuiltStrokesChanged(built_strokes);
 
                             Some(Ready(MaterializedRealityState {
                                 current_plan: new_plan.clone(),

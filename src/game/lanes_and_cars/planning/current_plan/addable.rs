@@ -1,70 +1,66 @@
 use kay::{ID, Recipient, Actor, Fate};
 use kay::swarm::{Swarm, SubActor, CreateWith};
-use descartes::{Band, P2};
-use ::core::geometry::AnyShape;
+use descartes::Band;
+use ::core::geometry::{CPath, AnyShape};
 
 use super::CurrentPlan;
-use super::super::lane_stroke::LaneStroke;
 
 #[derive(SubActor, Compact, Clone)]
 pub struct Addable {
     _id: Option<ID>,
-    stroke: LaneStroke,
+    path: CPath,
 }
 
 impl Addable {
-    pub fn new(stroke: LaneStroke) -> Self {
+    pub fn new(path: CPath) -> Self {
         Addable {
             _id: None,
-            stroke: stroke,
+            path: path,
         }
     }
 }
 
-use super::AddToUI;
-use ::core::ui::Add;
+use super::InitInteractable;
+use core::ui::Add;
 
-impl Recipient<AddToUI> for Addable {
-    fn receive(&mut self, msg: &AddToUI) -> Fate {
-        match *msg {
-            AddToUI => {
-                ::core::ui::UserInterface::id() <<
-                Add::Interactable3d(self.id(),
-                                    AnyShape::Band(Band::new(self.stroke.path().clone(), 5.0)),
-                                    3);
-                Fate::Live
-            }
-        }
+impl Recipient<InitInteractable> for Addable {
+    fn receive(&mut self, _msg: &InitInteractable) -> Fate {
+        ::core::ui::UserInterface::id() <<
+        Add::Interactable3d(self.id(),
+                            AnyShape::Band(Band::new(self.path.clone(), 5.0)),
+                            3);
+        Fate::Live
     }
 }
 
-use super::ClearDraggables;
-use ::core::ui::Remove;
+use super::ClearInteractable;
+use core::ui::Remove;
 
-impl Recipient<ClearDraggables> for Addable {
-    fn receive(&mut self, msg: &ClearDraggables) -> Fate {
-        match *msg {
-            ClearDraggables => {
-                ::core::ui::UserInterface::id() << Remove::Interactable3d(self.id());
-                Fate::Die
-            }
-        }
+impl Recipient<ClearInteractable> for Addable {
+    fn receive(&mut self, _msg: &ClearInteractable) -> Fate {
+        ::core::ui::UserInterface::id() << Remove::Interactable3d(self.id());
+        Fate::Die
     }
 }
 
-use ::core::ui::Event3d;
-use super::{AddStroke, Commit};
+use core::ui::Event3d;
+use super::{ChangeIntent, Intent, IntentProgress};
 
 impl Recipient<Event3d> for Addable {
     fn receive(&mut self, msg: &Event3d) -> Fate {
         match *msg {
             Event3d::HoverStarted { .. } |
             Event3d::HoverOngoing { .. } => {
-                CurrentPlan::id() << AddStroke { stroke: self.stroke.clone() };
+                CurrentPlan::id() << ChangeIntent(Intent::CreateNextLane, IntentProgress::Preview);
                 Fate::Live
             }
-            Event3d::DragFinished { .. } => {
-                CurrentPlan::id() << Commit(true, P2::new(0.0, 0.0));
+            Event3d::HoverStopped => {
+                CurrentPlan::id() << ChangeIntent(Intent::None, IntentProgress::Preview);
+                Fate::Live
+            }
+            Event3d::DragStarted { .. } => {
+                CurrentPlan::id() <<
+                ChangeIntent(Intent::CreateNextLane, IntentProgress::Immediate);
                 Fate::Live
             }
             _ => Fate::Live,
@@ -72,10 +68,9 @@ impl Recipient<Event3d> for Addable {
     }
 }
 
-
 pub fn setup() {
     Swarm::<Addable>::register_default();
-    Swarm::<Addable>::handle::<CreateWith<Addable, AddToUI>>();
-    Swarm::<Addable>::handle::<ClearDraggables>();
+    Swarm::<Addable>::handle::<CreateWith<Addable, InitInteractable>>();
+    Swarm::<Addable>::handle::<ClearInteractable>();
     Swarm::<Addable>::handle::<Event3d>();
 }

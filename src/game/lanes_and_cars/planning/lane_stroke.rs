@@ -27,16 +27,23 @@ pub enum LaneStrokeError {
 
 impl LaneStroke {
     pub fn new(nodes: CVec<LaneStrokeNode>) -> Result<Self, LaneStrokeError> {
-        if nodes.windows(2).any(|window|
-            window[0].position.is_roughly_within(window[1].position, MIN_NODE_DISTANCE)
-            //::core::geometry::add_debug_point(window[0].position, [1.0, 0.0, 1.0], 0.5);
-            //::core::geometry::add_debug_point(window[1].position, [1.0, 0.0, 1.0], 0.5);
-        ) {
+        let stroke = LaneStroke {
+            nodes: nodes,
+            _memoized_path: CPath::new(vec![]),
+        };
+        if !stroke.well_formed() {
             Result::Err(LaneStrokeError::NodesTooClose)
-        } else if nodes.len() <= 1 {
+        } else if stroke.nodes.len() <= 1 {
             Result::Err(LaneStrokeError::LessThanTwoNodes)
         } else {
-            Result::Ok(LaneStroke{nodes: nodes, _memoized_path: CPath::new(vec![])})
+            Result::Ok(stroke)
+        }
+    }
+
+    pub fn with_single_node(node: LaneStrokeNode) -> Self {
+        LaneStroke {
+            nodes: vec![node].into(),
+            _memoized_path: CPath::new(vec![]),
         }
     }
 
@@ -47,6 +54,14 @@ impl LaneStroke {
     pub fn nodes_mut(&mut self) -> &mut CVec<LaneStrokeNode> {
         self._memoized_path = CPath::new(vec![]);
         &mut self.nodes
+    }
+
+    pub fn well_formed(&self) -> bool {
+        !self.nodes.windows(2).any(|window|
+            window[0].position.is_roughly_within(window[1].position, MIN_NODE_DISTANCE)
+            //::core::geometry::add_debug_point(window[0].position, [1.0, 0.0, 1.0], 0.5);
+            //::core::geometry::add_debug_point(window[1].position, [1.0, 0.0, 1.0], 0.5);
+        )
     }
 
     pub fn path(&self) -> &CPath {

@@ -1,6 +1,6 @@
 use kay::{ID, Recipient, Actor, Fate};
 use kay::swarm::{Swarm, SubActor, CreateWith};
-use descartes::{Band, Curve, Into2d, FiniteCurve, Path};
+use descartes::{N, Band, Curve, Into2d, FiniteCurve, Path, RoughlyComparable};
 use ::core::geometry::{CPath, AnyShape};
 
 use super::{SelectableStrokeRef, CurrentPlan};
@@ -22,83 +22,78 @@ impl Selectable {
     }
 }
 
-use super::AddToUI;
-use ::core::ui::Add;
+use super::InitInteractable;
+use core::ui::Add;
 
-impl Recipient<AddToUI> for Selectable {
-    fn receive(&mut self, msg: &AddToUI) -> Fate {
-        match *msg {
-            AddToUI => {
-                ::core::ui::UserInterface::id() <<
-                Add::Interactable3d(self.id(),
-                                    AnyShape::Band(Band::new(self.path.clone(), 5.0)),
-                                    1);
-                Fate::Live
-            }
-        }
+impl Recipient<InitInteractable> for Selectable {
+    fn receive(&mut self, _msg: &InitInteractable) -> Fate {
+        ::core::ui::UserInterface::id() <<
+        Add::Interactable3d(self.id(),
+                            AnyShape::Band(Band::new(self.path.clone(), 5.0)),
+                            3);
+        Fate::Live
     }
 }
 
-use super::ClearSelectables;
-use ::core::ui::Remove;
+use super::ClearInteractable;
+use core::ui::Remove;
 
-impl Recipient<ClearSelectables> for Selectable {
-    fn receive(&mut self, msg: &ClearSelectables) -> Fate {
-        match *msg {
-            ClearSelectables => {
-                ::core::ui::UserInterface::id() << Remove::Interactable3d(self.id());
-                Fate::Die
-            }
-        }
+impl Recipient<ClearInteractable> for Selectable {
+    fn receive(&mut self, _msg: &ClearInteractable) -> Fate {
+        ::core::ui::UserInterface::id() << Remove::Interactable3d(self.id());
+        Fate::Die
     }
 }
 
-use ::core::ui::Event3d;
-use super::{Select, Commit};
+use core::ui::Event3d;
+use super::{ChangeIntent, Intent, IntentProgress, ContinuationMode};
+
+const START_END_SNAP_DISTANCE: N = 10.0;
+const SEGMENT_SNAP_DISTANCE: N = 5.0;
+const CONTINUE_DISTANCE: N = 6.0;
+const MIN_SELECTION_SIZE: N = 2.0;
 
 impl Recipient<Event3d> for Selectable {
     fn receive(&mut self, msg: &Event3d) -> Fate {
         match *msg {
-            Event3d::DragStarted { at } => {
-                if let Some(selection_start) = self.path.project(at.into_2d()) {
-                    CurrentPlan::id() <<
-                    Select(self.stroke_ref,
-                           (selection_start - 1.5).max(0.1),
-                           (selection_start + 1.5).min(self.path.length() - 0.1));
-                }
-                Fate::Live
-            }
             Event3d::DragOngoing { from, to } => {
                 if let (Some(selection_start), Some(selection_end)) =
                     (self.path.project(from.into_2d()), self.path.project(to.into_2d())) {
                     let mut start = selection_start.min(selection_end);
                     let mut end = selection_end.max(selection_start);
-                    if start < 10.0 {
-                        start = 0.0
-                    }
-                    if end > self.path.length() - 10.0 {
-                        end = self.path.length()
-                    }
-                    let mut offset = 0.0;
-                    for segment in self.path.segments() {
-                        let next_offset = offset + segment.length();
-                        if start > offset - 5.0 && start < offset + 5.0 {
-                            start = offset
-                        }
-                        if end > next_offset - 5.0 && end < next_offset + 5.0 {
-                            end = next_offset
-                        }
-                        offset = next_offset;
-                    }
+                    snap_start_end(&mut start, &mut end, &self.path);
                     CurrentPlan::id() <<
-                    Select(self.stroke_ref,
-                           start.min(end - 1.5).max(0.1),
-                           end.max(start + 1.5).min(self.path.length() - 0.1));
+                    ChangeIntent(Intent::Select(self.stroke_ref, start, end),
+                                 IntentProgress::Preview);
                 }
                 Fate::Live
             }
-            Event3d::DragFinished { to, .. } => {
-                CurrentPlan::id() << Commit(true, to.into_2d());
+            Event3d::DragFinished { from, to } => {
+                if let (Some(selection_start), Some(selection_end)) =
+                    (self.path.project(from.into_2d()), self.path.project(to.into_2d())) {
+                    let mut start = selection_start.min(selection_end);
+                    let mut end = selection_end.max(selection_start);
+                    if end < CONTINUE_DISTANCE {
+                        CurrentPlan::id() <<
+                        ChangeIntent(Intent::ContinueRoadAround(self.stroke_ref,
+                                                                ContinuationMode::Prepend,
+                                                                to.into_2d()),
+                                     IntentProgress::Finished);
+                    } else if start > self.path.length() - CONTINUE_DISTANCE {
+                        CurrentPlan::id() <<
+                        ChangeIntent(Intent::ContinueRoadAround(self.stroke_ref,
+                                                                ContinuationMode::Append,
+                                                                to.into_2d()),
+                                     IntentProgress::Finished);
+                    } else {
+                        snap_start_end(&mut start, &mut end, &self.path);
+                        start = start.min(end - MIN_SELECTION_SIZE).max(0.0);
+                        end = end.max(start + MIN_SELECTION_SIZE).min(self.path.length());
+                        CurrentPlan::id() <<
+                        ChangeIntent(Intent::Select(self.stroke_ref, start, end),
+                                     IntentProgress::Immediate);
+                    }
+                }
                 Fate::Live
             }
             _ => Fate::Live,
@@ -106,10 +101,29 @@ impl Recipient<Event3d> for Selectable {
     }
 }
 
+fn snap_start_end(start: &mut N, end: &mut N, path: &CPath) {
+    if *start < START_END_SNAP_DISTANCE {
+        *start = 0.0
+    }
+    if *end > path.length() - START_END_SNAP_DISTANCE {
+        *end = path.length()
+    }
+    let mut offset = 0.0;
+    for segment in path.segments() {
+        let next_offset = offset + segment.length();
+        if start.is_roughly_within(offset, SEGMENT_SNAP_DISTANCE) {
+            *start = offset
+        }
+        if end.is_roughly_within(next_offset, SEGMENT_SNAP_DISTANCE) {
+            *end = next_offset
+        }
+        offset = next_offset;
+    }
+}
 
 pub fn setup() {
     Swarm::<Selectable>::register_default();
-    Swarm::<Selectable>::handle::<CreateWith<Selectable, AddToUI>>();
-    Swarm::<Selectable>::handle::<ClearSelectables>();
+    Swarm::<Selectable>::handle::<CreateWith<Selectable, InitInteractable>>();
+    Swarm::<Selectable>::handle::<ClearInteractable>();
     Swarm::<Selectable>::handle::<Event3d>();
 }
