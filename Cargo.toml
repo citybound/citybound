@@ -45,6 +45,7 @@ weaver = { path = "./lib/weaver" }
 
 [build-dependencies]
 builder = { path = "./lib/builder" }
+uuid = { version = "0.3", features = ["v4"] }
 
 [profile.dev]
 opt-level = 1

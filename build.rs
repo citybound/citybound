@@ -1,4 +1,5 @@
 extern crate builder;
+extern crate uuid;
 
 use std::env;
 use std::fs;
@@ -7,17 +8,20 @@ use std::path::{Path, PathBuf};
 
 use builder::{BuildMode, BuildOptions};
 
+use uuid::Uuid;
+
 const SYSTEM_MODS: &'static [&'static str] = &["builder", "mymod"];
 
 fn main() {
     let home_dir = env::var("OUT_DIR").unwrap();
     let (target_dir, mode) = target_dir();
     link_libs(&home_dir).expect("couldn't link lib");
+    copy_lock().expect("couldn't copy Cargo.lock");
 
     for &mod_ in SYSTEM_MODS {
         let opts = BuildOptions {
             home: home_dir.to_owned().into(),
-            name: mod_.into(),
+            name: Uuid::new_v4().hyphenated().to_string(),
             path: format!("./lib/{}", mod_).into(),
             mode: mode,
         };
@@ -43,6 +47,24 @@ fn main() {
     }
 
     depend_src_dir("lib");
+}
+
+fn copy_lock() -> io::Result<()> {
+    let dst = {
+        let mut dst = PathBuf::from(env::var("OUT_DIR").unwrap());
+        dst.push("Cargo.lock");
+        dst
+    };
+
+    let src = {
+        let mut src = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        src.push("Cargo.lock");
+        src
+    };
+
+    println!("{:?} → {:?}", &src, &dst);
+    fs::copy(&src, &dst)?;
+    Ok(())
 }
 
 fn link_libs<P: AsRef<Path>>(home: P) -> io::Result<()> {

@@ -14,14 +14,18 @@
 #[macro_use]
 extern crate weaver;
 extern crate cargo;
+extern crate uuid;
+extern crate toml;
 
-use std::io::{self, Error, ErrorKind, Write};
+use std::io::{self, Error, ErrorKind, Read, Write};
 use std::fs;
 use std::path::{PathBuf, Path};
 
 use cargo::core::{Workspace, shell, MultiShell, Shell};
 use cargo::ops::{self, CompileOptions};
 use cargo::util::Config;
+
+use uuid::Uuid;
 
 use weaver::CityboundMod;
 use weaver::modules::LoadingPackage;
@@ -38,7 +42,7 @@ pub struct BuildOptions {
     /// The working directory for the build.
     pub home: PathBuf,
 
-    /// Name of the package to build.
+    /// Temporary name for package to build.
     pub name: String,
 
     /// Path of the package to build.
@@ -60,6 +64,7 @@ pub fn build(options: &BuildOptions) -> io::Result<BuildResult> {
     create_workspace(options)?;
     clean_mod_dir(&options.home)?;
     link_mod(options, &options.path)?;
+    let _guard = rename_mod(options)?;
 
     let shell_config = shell::ShellConfig {
         color_config: shell::ColorConfig::Auto,
@@ -116,7 +121,21 @@ fn create_workspace(options: &BuildOptions) -> io::Result<()> {
 
     let mut f = fs::File::create(path)?;
     write!(&mut f,
-           "[workspace]\nmembers=['./mods/{}']\n",
+           r#"[workspace]
+              members = [
+                  "./mods/{}",
+
+                  "./lib/allocators",
+                  "./lib/chunked",
+                  "./lib/compact",
+                  "./lib/compact_macros",
+                  "./lib/descartes",
+                  "./lib/kay",
+                  "./lib/kay_macros",
+                  "./lib/monet",
+                  "./lib/weaver",
+              ]
+           "#,
            &options.name)?;
     Ok(())
 }
@@ -156,6 +175,67 @@ fn link_mod<P: AsRef<Path>>(options: &BuildOptions, src: P) -> io::Result<()> {
     res
 }
 
+#[must_use]
+#[derive(Debug)]
+struct TemporaryEditGuard {
+    temp: PathBuf,
+    original: PathBuf,
+}
+
+impl Drop for TemporaryEditGuard {
+    fn drop(&mut self) {
+        match fs::copy(&self.original, &self.temp) {
+            Ok(_) => (),
+            Err(err) => println!("error when copying temporary file {:?}: {:?}", self, err),
+        }
+
+        match fs::remove_file(&self.original) {
+            Ok(_) => (),
+            Err(err) => println!("error when removing temporary file {:?}: {:?}", self, err),
+        }
+    }
+}
+
+fn rename_mod(options: &BuildOptions) -> io::Result<TemporaryEditGuard> {
+    let temp = options.cargo_manifest_path()?;
+    let original = {
+        let mut manifest = options.cargo_manifest_path()?;
+        manifest.set_extension("toml~");
+        manifest
+    };
+
+    if original.exists() {
+        panic!("an og exists plz send help! {:?}", original);
+    }
+
+    fs::copy(&temp, &original)?;
+
+    let mut table = {
+        let mut s = String::new();
+        fs::File::open(&temp)?.read_to_string(&mut s)?;
+
+        let mut parser = toml::Parser::new(&s);
+        match parser.parse() {
+            Some(table) => toml::Value::Table(table),
+            None => panic!("invalid toml {:?}, {:?}", &temp, parser.errors),
+        }
+    };
+
+    match table.lookup_mut("package.name") {
+        Some(&mut toml::Value::String(ref mut name)) => {
+            *name = options.name.clone();
+        }
+        _ => panic!("Cargo.toml must contain [package] and name, {:?}", &temp),
+    }
+
+    fs::File::create(&temp)?.write_all(table.to_string().as_bytes())?;
+
+    Ok(TemporaryEditGuard {
+        temp: temp,
+        original: original,
+    })
+}
+
 impl BuildOptions {
     pub fn target_dir(&self) -> io::Result<PathBuf> {
         let mut target = self.home.clone();
@@ -191,38 +271,6 @@ impl BuildOptions {
             Err(Error::new(ErrorKind::NotFound,
                            format!("the manifest is not a file {:?}", &path)))
         }
-    }
-
-    pub fn output_path(&self) -> io::Result<PathBuf> {
-        let mut path = self.target_dir()?;
-        match self.mode {
-            BuildMode::Debug => path.push("debug"),
-            BuildMode::Release => path.push("release"),
-        }
-        path.push(&self.lib_path());
-        let path = path.canonicalize()?;
-
-        if !path.is_file() {
-            Err(io::Error::new(io::ErrorKind::NotFound,
-                               format!("could not find {:?}", path)))
-        } else {
-            Ok(path)
-        }
-    }
-
-    #[cfg(all(unix, not(target_os = "macos")))]
-    fn lib_path(&self) -> String {
-        format!("deps/lib{}.so", &self.name)
-    }
-
-    #[cfg(target_os = "macos")]
-    fn lib_path(&self) -> String {
-        format!("deps/lib{}.dylib", &self.name)
-    }
-
-    #[cfg(windows)]
-    fn lib_path(name: &str) -> String {
-        format!("{}.dll", name)
     }
 }
 

@@ -9,5 +9,7 @@ crate-type = ["dylib"]
 [dependencies]
 clippy = "0.0.106"
 cargo = "0.15.0"
+uuid = { version = "0.3", features = ["v4"] }
+toml = "0.2"
 
 weaver = { path = "../../lib/weaver" }
