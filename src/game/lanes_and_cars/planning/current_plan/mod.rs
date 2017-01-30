@@ -17,6 +17,8 @@ mod deselecter;
 use self::deselecter::Deselecter;
 mod draggable;
 use self::draggable::Draggable;
+mod addable;
+use self::addable::Addable;
 mod interaction;
 use self::interaction::Interaction;
 
@@ -156,6 +158,7 @@ impl CurrentPlan {
     pub fn update_interactables(&mut self) {
         Swarm::<Selectable>::all() << ClearInteractable;
         Swarm::<Draggable>::all() << ClearInteractable;
+        Swarm::<Addable>::all() << ClearInteractable;
         Deselecter::id() << ClearInteractable;
         if let Some(still_built_strokes) = self.still_built_strokes() {
             for (i, stroke) in self.current.plan_delta.new_strokes.iter().enumerate() {
@@ -175,8 +178,12 @@ impl CurrentPlan {
                 let stroke =
                     selection_ref.get_stroke(&self.current.plan_delta, &still_built_strokes);
                 if let Some(subsection) = stroke.path().subsection(start, end) {
-                    let draggable = Draggable::new(selection_ref, subsection);
+                    let draggable = Draggable::new(selection_ref, subsection.clone());
                     Swarm::<Draggable>::id() << CreateWith(draggable, InitInteractable);
+                    if let Some(next_lane_path) = subsection.shift_orthogonally(5.0) {
+                        let addable = Addable::new(next_lane_path);
+                        Swarm::<Addable>::id() << CreateWith(addable, InitInteractable);
+                    }
                 }
             }
             self.interactables_valid = true;
@@ -415,5 +422,6 @@ pub fn setup() {
     self::selectable::setup();
     self::deselecter::setup();
     self::draggable::setup();
+    self::addable::setup();
     self::interaction::setup();
 }
