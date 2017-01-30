@@ -11,6 +11,7 @@ use core::ui::Add;
 
 impl Recipient<InitInteractable> for Deselecter {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {
+        println!("adding deselecter");
         ::core::ui::UserInterface::id() << Add::Interactable3d(Self::id(), AnyShape::Everywhere, 2);
         Fate::Live
     }
@@ -21,6 +22,7 @@ use core::ui::Remove;
 
 impl Recipient<ClearInteractable> for Deselecter {
     fn receive(&mut self, _msg: &ClearInteractable) -> Fate {
+        println!("removing deselecter");
         ::core::ui::UserInterface::id() << Remove::Interactable3d(Self::id());
         Fate::Die
     }
@@ -33,7 +35,7 @@ impl Recipient<Event3d> for Deselecter {
     fn receive(&mut self, msg: &Event3d) -> Fate {
         match *msg {
             Event3d::DragFinished { .. } => {
-                CurrentPlan::id() << ChangeIntent(Intent::Deselect, IntentProgress::Finished);
+                CurrentPlan::id() << ChangeIntent(Intent::Deselect, IntentProgress::Immediate);
                 Fate::Live
             }
             _ => Fate::Live,

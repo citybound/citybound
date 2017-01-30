@@ -79,7 +79,7 @@ impl Recipient<SetPoints> for StrokeCanvas {
 }
 
 use super::InitInteractable;
-use core::ui::{UserInterface, Add, Focus};
+use core::ui::{UserInterface, Add};
 
 impl Recipient<InitInteractable> for StrokeCanvas {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {

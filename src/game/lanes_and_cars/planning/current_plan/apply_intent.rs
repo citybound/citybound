@@ -152,7 +152,8 @@ fn continue_new_road(continue_from: &[(LaneStrokeRef, ContinuationMode)],
 
     for next_reference_point in additional_points {
         // TODO: not really nice that we have to care about that here...
-        if next_reference_point.is_roughly_within(previous_reference_point, ::descartes::MIN_START_TO_END) {
+        if next_reference_point.is_roughly_within(previous_reference_point,
+            ::descartes::MIN_START_TO_END) {
             continue;
         }
 

@@ -63,10 +63,10 @@ impl Recipient<Event3d> for Draggable {
                 let delta = to.into_2d() - from.into_2d();
                 if delta.norm() < MAXIMIZE_DISTANCE {
                     CurrentPlan::id() <<
-                    ChangeIntent(Intent::MaximizeSelection, IntentProgress::Finished);
+                    ChangeIntent(Intent::MaximizeSelection, IntentProgress::Immediate);
                 } else {
                     CurrentPlan::id() <<
-                    ChangeIntent(Intent::MoveSelection(delta), IntentProgress::Finished);
+                    ChangeIntent(Intent::MoveSelection(delta), IntentProgress::Immediate);
                 }
                 Fate::Live
             }

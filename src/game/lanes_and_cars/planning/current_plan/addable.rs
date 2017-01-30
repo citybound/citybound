@@ -1,6 +1,6 @@
 use kay::{ID, Recipient, Actor, Fate};
 use kay::swarm::{Swarm, SubActor, CreateWith};
-use descartes::{N, Band, Curve, Into2d, FiniteCurve, Path, RoughlyComparable};
+use descartes::Band;
 use ::core::geometry::{CPath, AnyShape};
 
 use super::CurrentPlan;
@@ -28,7 +28,7 @@ impl Recipient<InitInteractable> for Addable {
         ::core::ui::UserInterface::id() <<
         Add::Interactable3d(self.id(),
                             AnyShape::Band(Band::new(self.path.clone(), 5.0)),
-                            2);
+                            3);
         Fate::Live
     }
 }
@@ -59,7 +59,8 @@ impl Recipient<Event3d> for Addable {
                 Fate::Live
             }
             Event3d::DragStarted { .. } => {
-                CurrentPlan::id() << ChangeIntent(Intent::CreateNextLane, IntentProgress::Finished);
+                CurrentPlan::id() <<
+                ChangeIntent(Intent::CreateNextLane, IntentProgress::Immediate);
                 Fate::Live
             }
             _ => Fate::Live,

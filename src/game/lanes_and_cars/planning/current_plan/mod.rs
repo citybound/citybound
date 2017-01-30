@@ -160,6 +160,9 @@ impl CurrentPlan {
         Swarm::<Draggable>::all() << ClearInteractable;
         Swarm::<Addable>::all() << ClearInteractable;
         Deselecter::id() << ClearInteractable;
+        if !self.current.selections.is_empty() {
+            Deselecter::id() << InitInteractable;
+        }
         if let Some(still_built_strokes) = self.still_built_strokes() {
             for (i, stroke) in self.current.plan_delta.new_strokes.iter().enumerate() {
                 let selectable = Selectable::new(SelectableStrokeRef::New(i),
@@ -170,9 +173,6 @@ impl CurrentPlan {
                 let selectable = Selectable::new(SelectableStrokeRef::Built(*old_stroke_ref),
                                                  stroke.path().clone());
                 Swarm::<Selectable>::id() << CreateWith(selectable, InitInteractable);
-            }
-            if !self.current.selections.is_empty() {
-                Deselecter::id() << InitInteractable;
             }
             for (&selection_ref, &(start, end)) in self.current.selections.pairs() {
                 let stroke =
@@ -211,6 +211,20 @@ impl CurrentPlan {
     fn commit_substep(&mut self) {
         self.undo_history.push(self.current.clone());
         self.redo_history.clear();
+        self.invalidate_preview();
+        self.invalidate_interactables();
+    }
+
+    // TODO: not really nice that this works differently
+    // (needed for proper history)
+    fn commit_immediate(&mut self) {
+        let mut history_current = self.current.clone();
+        history_current.intent = Intent::None;
+        self.undo_history.push(history_current);
+        self.redo_history.clear();
+        self.current = apply_intent(&self.current,
+                                    self.still_built_strokes().as_ref(),
+                                    &self.settings);
         self.invalidate_preview();
         self.invalidate_interactables();
     }
@@ -263,6 +277,7 @@ pub enum IntentProgress {
     Preview,
     SubStep,
     Finished,
+    Immediate,
 }
 
 #[derive(Compact, Clone)]
@@ -282,6 +297,9 @@ impl Recipient<ChangeIntent> for CurrentPlan {
                     }
                     IntentProgress::Finished => {
                         self.commit();
+                    }
+                    IntentProgress::Immediate => {
+                        self.commit_immediate();
                     }
                 }
                 Fate::Live

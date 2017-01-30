@@ -139,7 +139,7 @@ impl Recipient<Event3d> for CurrentPlan {
                 Fate::Live
             }
             Event3d::KeyDown(VirtualKeyCode::Back) => {
-                Self::id() << ChangeIntent(Intent::DeleteSelection, IntentProgress::Finished);
+                Self::id() << ChangeIntent(Intent::DeleteSelection, IntentProgress::Immediate);
                 Fate::Live
             }
             Event3d::KeyDown(VirtualKeyCode::Key1) => {

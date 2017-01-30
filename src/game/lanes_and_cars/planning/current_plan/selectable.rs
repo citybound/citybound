@@ -91,7 +91,7 @@ impl Recipient<Event3d> for Selectable {
                         end = end.max(start + MIN_SELECTION_SIZE).min(self.path.length());
                         CurrentPlan::id() <<
                         ChangeIntent(Intent::Select(self.stroke_ref, start, end),
-                                     IntentProgress::Finished);
+                                     IntentProgress::Immediate);
                     }
                 }
                 Fate::Live

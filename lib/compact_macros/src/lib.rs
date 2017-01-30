@@ -167,7 +167,8 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                                         #fields_ref.compact_from(#source_fields_ref,
                                                                 new_dynamic_part
                                                                     .offset(offset));
-                                        offset += #source_fields_ref_2.dynamic_size_bytes() as isize;
+                                        offset += #source_fields_ref_2
+                                            .dynamic_size_bytes() as isize;
                                     )*
                                 } else {unreachable!()}
                             }
