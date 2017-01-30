@@ -56,6 +56,19 @@ impl Recipient<RenderToScene> for CurrentPlan {
 }
 
 fn render_strokes(delta: &PlanDelta, renderer_id: ID, scene_id: usize) {
+    let destroyed_strokes_thing: Thing = delta.strokes_to_destroy
+        .pairs()
+        .filter(|&(_, stroke)| stroke.nodes().len() > 1)
+        .map(|(_, stroke)| band_to_thing(&Band::new(stroke.path().clone(), 5.0), 0.1))
+        .sum();
+    renderer_id <<
+    UpdateThing {
+        scene_id: scene_id,
+        thing_id: 5497,
+        thing: destroyed_strokes_thing,
+        instance: Instance::with_color([1.0, 0.0, 0.0]),
+        is_decal: true,
+    };
     let stroke_base_thing: Thing = delta.new_strokes
         .iter()
         .filter(|stroke| stroke.nodes().len() > 1)
