@@ -48,13 +48,14 @@ impl Recipient<EyeMoved> for CurrentPlan {
 }
 
 use core::ui::{Event3d, VirtualKeyCode};
-use super::{Intent, ChangeIntent, IntentProgress, Undo, Redo, SetNLanes, ToggleBothSides};
+use super::{Intent, ChangeIntent, IntentProgress, Materialize, Undo, Redo, SetNLanes,
+            ToggleBothSides};
 
 impl Recipient<Event3d> for CurrentPlan {
     fn receive(&mut self, msg: &Event3d) -> Fate {
         match *msg {
             Event3d::KeyDown(VirtualKeyCode::Return) => {
-                //CurrentPlan::id() << Materialize;
+                CurrentPlan::id() << Materialize;
                 Fate::Live
             }
             Event3d::KeyDown(VirtualKeyCode::LControl) |

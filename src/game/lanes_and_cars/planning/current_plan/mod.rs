@@ -43,7 +43,7 @@ impl SelectableStrokeRef {
             SelectableStrokeRef::Built(old_ref) => {
                 still_built_strokes.mapping
                     .get(old_ref)
-                    .unwrap()
+                    .expect("Expected old_ref to exist!")
             }
         }
     }
@@ -96,7 +96,7 @@ impl Default for Settings {
 
 #[derive(Default)]
 pub struct CurrentPlan {
-    still_built_strokes: Option<BuiltStrokes>,
+    built_strokes: Option<BuiltStrokes>,
     undo_history: CVec<PlanStep>,
     redo_history: CVec<PlanStep>,
     current: PlanStep,
@@ -112,6 +112,24 @@ impl Actor for CurrentPlan {}
 use super::super::construction::materialized_reality::Simulate;
 
 impl CurrentPlan {
+    fn still_built_strokes(&self) -> Option<BuiltStrokes> {
+        self.built_strokes.as_ref().map(|built_strokes| {
+            BuiltStrokes {
+                mapping: built_strokes.mapping
+                    .pairs()
+                    .filter_map(|(built_ref, stroke)| if self.current
+                        .plan_delta
+                        .strokes_to_destroy
+                        .contains_key(*built_ref) {
+                        None
+                    } else {
+                        Some((*built_ref, stroke.clone()))
+                    })
+                    .collect(),
+            }
+        })
+    }
+
     fn invalidate_preview(&mut self) {
         self.preview = None;
     }
@@ -123,7 +141,7 @@ impl CurrentPlan {
     pub fn update_preview(&mut self) -> &PlanStep {
         if self.preview.is_none() {
             let preview = apply_intent(&self.current,
-                                       self.still_built_strokes.as_ref(),
+                                       self.still_built_strokes().as_ref(),
                                        &self.settings);
             MaterializedReality::id() <<
             Simulate {
@@ -139,9 +157,14 @@ impl CurrentPlan {
         Swarm::<Selectable>::all() << ClearInteractable;
         Swarm::<Draggable>::all() << ClearInteractable;
         Deselecter::id() << ClearInteractable;
-        if let Some(ref still_built_strokes) = self.still_built_strokes {
+        if let Some(still_built_strokes) = self.still_built_strokes() {
             for (i, stroke) in self.current.plan_delta.new_strokes.iter().enumerate() {
                 let selectable = Selectable::new(SelectableStrokeRef::New(i),
+                                                 stroke.path().clone());
+                Swarm::<Selectable>::id() << CreateWith(selectable, InitInteractable);
+            }
+            for (old_stroke_ref, stroke) in still_built_strokes.mapping.pairs() {
+                let selectable = Selectable::new(SelectableStrokeRef::Built(*old_stroke_ref),
                                                  stroke.path().clone());
                 Swarm::<Selectable>::id() << CreateWith(selectable, InitInteractable);
             }
@@ -150,7 +173,7 @@ impl CurrentPlan {
             }
             for (&selection_ref, &(start, end)) in self.current.selections.pairs() {
                 let stroke =
-                    selection_ref.get_stroke(&self.current.plan_delta, still_built_strokes);
+                    selection_ref.get_stroke(&self.current.plan_delta, &still_built_strokes);
                 if let Some(subsection) = stroke.path().subsection(start, end) {
                     let draggable = Draggable::new(selection_ref, subsection);
                     Swarm::<Draggable>::id() << CreateWith(draggable, InitInteractable);
@@ -158,10 +181,11 @@ impl CurrentPlan {
             }
             self.interactables_valid = true;
         } else {
+            // TODO: kinda stupid to get initial built strokes like this
             MaterializedReality::id() <<
-            Simulate {
+            Apply {
                 requester: Self::id(),
-                delta: self.update_preview().plan_delta.clone(),
+                delta: PlanDelta::default(),
             }
         }
     }
@@ -169,7 +193,7 @@ impl CurrentPlan {
     fn commit(&mut self) {
         self.undo_history.push(self.current.clone());
         self.current = apply_intent(&self.current,
-                                    self.still_built_strokes.as_ref(),
+                                    self.still_built_strokes().as_ref(),
                                     &self.settings);
         self.invalidate_preview();
         self.invalidate_interactables();
@@ -317,13 +341,42 @@ use super::super::construction::materialized_reality::SimulationResult;
 impl Recipient<SimulationResult> for CurrentPlan {
     fn receive(&mut self, msg: &SimulationResult) -> Fate {
         match *msg {
-            SimulationResult { ref result_delta, ref still_built_strokes } => {
+            SimulationResult(ref result_delta) => {
                 self.preview_result_delta = Some(result_delta.clone());
                 self.preview_result_delta_rendered = false;
-                self.still_built_strokes = Some(still_built_strokes.clone());
                 Fate::Live
             }
         }
+    }
+}
+
+use super::super::construction::materialized_reality::BuiltStrokesChanged;
+
+impl Recipient<BuiltStrokesChanged> for CurrentPlan {
+    fn receive(&mut self, msg: &BuiltStrokesChanged) -> Fate {
+        match *msg {
+            BuiltStrokesChanged(ref built_strokes) => {
+                self.built_strokes = Some(built_strokes.clone());
+                Fate::Live
+            }
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct Materialize;
+
+use super::super::construction::materialized_reality::Apply;
+
+impl Recipient<Materialize> for CurrentPlan {
+    fn receive(&mut self, _msg: &Materialize) -> Fate {
+        MaterializedReality::id() <<
+        Apply {
+            requester: Self::id(),
+            delta: self.current.plan_delta.clone(),
+        };
+        *self = CurrentPlan::default();
+        Fate::Live
     }
 }
 
@@ -338,8 +391,10 @@ pub fn setup() {
     CurrentPlan::handle::<Redo>();
     CurrentPlan::handle::<ChangeIntent>();
     CurrentPlan::handle::<Stroke>();
+    CurrentPlan::handle::<Materialize>();
     CurrentPlan::handle::<SetNLanes>();
     CurrentPlan::handle::<ToggleBothSides>();
+    CurrentPlan::handle::<BuiltStrokesChanged>();
     CurrentPlan::handle::<SimulationResult>();
     self::rendering::setup();
     self::stroke_canvas::setup();

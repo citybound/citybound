@@ -41,10 +41,10 @@ impl Recipient<RenderToScene> for CurrentPlan {
                         render_transfer_lanes(result_delta, renderer_id, scene_id);
                     }
                 }
-                if let Some(ref still_built_strokes) = self.still_built_strokes {
+                if let Some(ref built_strokes) = self.built_strokes {
                     render_selections(&self.preview.as_ref().unwrap().selections,
                                       &self.preview.as_ref().unwrap().plan_delta,
-                                      still_built_strokes,
+                                      built_strokes,
                                       renderer_id,
                                       scene_id);
                 }
@@ -150,12 +150,12 @@ fn render_transfer_lanes(result_delta: &PlanResultDelta, renderer_id: ID, scene_
 
 fn render_selections(selections: &CDict<SelectableStrokeRef, (N, N)>,
                      plan_delta: &PlanDelta,
-                     still_built_strokes: &BuiltStrokes,
+                     built_strokes: &BuiltStrokes,
                      renderer_id: ID,
                      scene_id: usize) {
     let selection_thing = selections.pairs()
         .filter_map(|(&selection_ref, &(start, end))| {
-            let stroke = selection_ref.get_stroke(plan_delta, still_built_strokes);
+            let stroke = selection_ref.get_stroke(plan_delta, built_strokes);
             stroke.path()
                 .subsection(start, end)
                 .map(|subsection| band_to_thing(&Band::new(subsection, 5.0), 0.1))

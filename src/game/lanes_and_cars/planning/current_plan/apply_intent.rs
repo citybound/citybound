@@ -633,6 +633,14 @@ fn apply_delete_selection(current: &PlanStep, still_built_strokes: &BuiltStrokes
 
     for (&selection_ref, &(start, end)) in current.selections.pairs() {
         let stroke = selection_ref.get_stroke(&current.plan_delta, still_built_strokes);
+        match selection_ref {
+            SelectableStrokeRef::New(idx) => {
+                new_stroke_indices_to_remove.push(idx);
+            }
+            SelectableStrokeRef::Built(old_ref) => {
+                new_plan_delta.strokes_to_destroy.insert(old_ref, stroke.clone());
+            }
+        }
         if let Some(before) = stroke.subsection(0.0, start) {
             new_strokes.push(before);
         }
@@ -659,10 +667,7 @@ fn apply_delete_selection(current: &PlanStep, still_built_strokes: &BuiltStrokes
 }
 
 fn apply_deselect(current: &PlanStep) -> PlanStep {
-    PlanStep {
-        selections: CDict::new(),
-        ..current.clone()
-    }
+    PlanStep { selections: CDict::new(), ..current.clone() }
 }
 
 fn apply_create_next_lane(current: &PlanStep, still_built_strokes: &BuiltStrokes) -> PlanStep {

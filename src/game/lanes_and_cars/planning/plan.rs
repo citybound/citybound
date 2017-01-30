@@ -6,7 +6,7 @@ use super::lane_stroke::{LaneStroke, LaneStrokeNode};
 
 #[derive(Clone, Compact)]
 pub struct Plan {
-    strokes: CVec<LaneStroke>,
+    pub strokes: CVec<LaneStroke>,
 }
 
 impl Default for Plan {
