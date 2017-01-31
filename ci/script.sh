@@ -1,0 +1,1 @@
+rustfmt --write-mode=diff ./src/main.rs ./lib/*/src/lib.rs

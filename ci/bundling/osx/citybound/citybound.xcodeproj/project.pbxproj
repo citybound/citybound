@@ -10,7 +10,7 @@
 		438990711E2436980047DB60 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 438990701E2436980047DB60 /* Assets.xcassets */; };
 		438990741E2436980047DB60 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 438990721E2436980047DB60 /* MainMenu.xib */; };
 		4389907C1E2437330047DB60 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4389907B1E2437330047DB60 /* main.swift */; };
-		43B98AAF1E244E0E00EDEA96 /* citybound in Resources */ = {isa = PBXBuildFile; fileRef = 43B98AAE1E244E0D00EDEA96 /* citybound */; };
+		43DD8B8A1E40AB6400C7A9A2 /* citybound in Resources */ = {isa = PBXBuildFile; fileRef = 43DD8B891E40AB6400C7A9A2 /* citybound */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -29,7 +29,7 @@
 		438990731E2436980047DB60 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		438990751E2436980047DB60 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		4389907B1E2437330047DB60 /* main.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
-		43B98AAE1E244E0D00EDEA96 /* citybound */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; name = citybound; path = ../../../target/release/citybound; sourceTree = "<group>"; };
+		43DD8B891E40AB6400C7A9A2 /* citybound */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; name = citybound; path = ../../../../target/release/citybound; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -46,7 +46,7 @@
 		435F49A01E243DA600B1E2E3 /* rust-bin */ = {
 			isa = PBXGroup;
 			children = (
-				43B98AAE1E244E0D00EDEA96 /* citybound */,
+				43DD8B891E40AB6400C7A9A2 /* citybound */,
 			);
 			name = "rust-bin";
 			sourceTree = "<group>";
@@ -84,11 +84,11 @@
 /* Begin PBXLegacyTarget section */
 		4389907D1E2438540047DB60 /* citybound-rust */ = {
 			isa = PBXLegacyTarget;
-			buildArgumentsString = "build --release";
+			buildArgumentsString = "-c '~/.cargo/bin/cargo build --release'";
 			buildConfigurationList = 4389907E1E2438540047DB60 /* Build configuration list for PBXLegacyTarget "citybound-rust" */;
 			buildPhases = (
 			);
-			buildToolPath = /Users/anselm/.cargo/bin/cargo;
+			buildToolPath = sh;
 			buildWorkingDirectory = ../../..;
 			dependencies = (
 			);
@@ -161,7 +161,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				43B98AAF1E244E0E00EDEA96 /* citybound in Resources */,
+				43DD8B8A1E40AB6400C7A9A2 /* citybound in Resources */,
 				438990711E2436980047DB60 /* Assets.xcassets in Resources */,
 				438990741E2436980047DB60 /* MainMenu.xib in Resources */,
 			);
