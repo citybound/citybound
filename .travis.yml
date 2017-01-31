@@ -31,7 +31,7 @@ before_install: set -e
 install:
   - sh ci/install.sh
   - source ~/.cargo/env || true
-  - cargo install rustfmt
+  - cargo install rustfmt || true
 
 script:
   - bash ci/script.sh

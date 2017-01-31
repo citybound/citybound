@@ -40,7 +40,6 @@ install:
 before_deploy:
   # TODO Update this to build the artifacts that matter to you
   - cargo build --release
-  - ps: ci\before_deploy.ps1
 
 deploy:
   artifact: /.*\.exe/
