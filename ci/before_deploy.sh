@@ -1,5 +1,7 @@
 set -ex
 
+echo "before deploy reached!"
+
 main() {
     case $TRAVIS_OS_NAME in
         linux)
