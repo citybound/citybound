@@ -22,7 +22,6 @@ use core::ui::Remove;
 
 impl Recipient<ClearInteractable> for Deselecter {
     fn receive(&mut self, _msg: &ClearInteractable) -> Fate {
-        println!("removing deselecter");
         ::core::ui::UserInterface::id() << Remove::Interactable3d(Self::id());
         Fate::Die
     }
