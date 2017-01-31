@@ -8,7 +8,7 @@ main() {
             ;;
         osx)
             cd ci/bundling/osx/citybound
-            xcodebuild -scheme citybound archive DSTROOT="${PWD}/bundling/osx/out"
+            xcodebuild -scheme citybound archive DSTROOT="../out"
             cd ../../../..
             ditto -ck --rsrc --sequesterRsrc --keepParent ci/bundling/osx/out/Applications/citybound.app citybound.app.zip
             ;;

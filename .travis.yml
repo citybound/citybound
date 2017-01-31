@@ -12,9 +12,6 @@ rust: nightly-2017-01-08
 
 env:
   global:
-    # TODO Update this to match the name of your project.
-    - CRATE_NAME=trust
-
     # default job
     - TARGET=x86_64-unknown-linux-gnu
 
@@ -48,7 +45,8 @@ before_deploy:
   - sh ci/before_deploy.sh
 
 deploy:
-  api_key: $GH_TOKEN
+  api_key:
+    secure: ZfqTsdaB6xE7j57huV2UwQI1ibEBPrGvPw5e3sHTEldMFL8sIPzhvseUVwxmv/4hrrPsDnCt2TUoycEIxg/FGMV/DMEPhAfm/D71Mt83cTMBP9xAAlsyEbbm/cXCIFbLCZ9SJa+PeDuqOtkw4gHp5kAXvi20y5afyyEFiVVzykQEAwVLCSYFeBrs8Q1tyhCiLwCuKpf/GOcR2ANe899kglwIOtIE5cq84DZ5iTCuQ7dizT1e/Xvbfpe0kPZv05abOObJop3etKAvCLlrrQCikBTkZRSSfiyaJw5rc/oRd+9X1vjmq07pRzz30pUTiwkKeAAwj+XKJI2LmGLluGJkgQ5YQhphV5JRzEYNEm1aUj4yg1zrrSHfsYs3iNBZwf5kc0HqZSZLLExDNwrbWU2gjyhVj6vi6jD7KX+gGSrC64Nl4W5rqb4Y4KMjIRlrVef/9TJYNGo1dyun2Hd/knzalZNVfKQNjtNRRFrePufg+0QbKxQGI4oI21//wBK0EJyZ75SvmYkjzO7eT+UoNWo7zHiw+1WWd25B/oRaS0m4Z6e1My75vwNX4uz2IGww1gkJP3GwKH1Z8kSeqXUEQj+NtryOh1RkxKdxsVjn2H96XAzUKdugvl8HCu8i1cSkN+8sAGFmg3cht04vbYTMz/UAOV94fAzf0FVHd8GcvgiMjxw=
   file_glob: true
   file: citybound*
   on:
