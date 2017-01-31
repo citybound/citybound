@@ -1,12 +1,12 @@
-use ::monet::glium::{DisplayBuild, glutin};
+use monet::glium::{DisplayBuild, glutin};
 use kay::{ID, Actor, Recipient, Fate};
 use descartes::{N, P2, P3, V3, Into2d, Shape};
-use ::monet::{Renderer, Scene, GlutinFacade, MoveEye};
-use ::monet::glium::glutin::{Event, MouseScrollDelta, ElementState, MouseButton};
-pub use ::monet::glium::glutin::VirtualKeyCode;
+use monet::{Renderer, Scene, GlutinFacade, MoveEye};
+use monet::glium::glutin::{Event, MouseScrollDelta, ElementState, MouseButton};
+pub use monet::glium::glutin::VirtualKeyCode;
 use core::geometry::AnyShape;
-use ::std::collections::HashMap;
-use ::core::settings::Settings;
+use std::collections::HashMap;
+use core::settings::Settings;
 use serde_json;
 use serde;
 use serde::{Serializer, Serialize, Deserialize, Deserializer};
@@ -185,7 +185,7 @@ impl Recipient<Focus> for UserInterface {
     }
 }
 
-use ::monet::Project2dTo3d;
+use monet::Project2dTo3d;
 
 #[derive(Copy, Clone)]
 pub enum Event3d {
@@ -303,7 +303,7 @@ impl Recipient<Key> for UserInterface {
     }
 }
 
-use ::monet::Projected3d;
+use monet::Projected3d;
 
 impl Recipient<Projected3d> for UserInterface {
     fn receive(&mut self, msg: &Projected3d) -> Fate {

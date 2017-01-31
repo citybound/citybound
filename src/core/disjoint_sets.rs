@@ -1,4 +1,4 @@
-use ::roaring::RoaringBitmap;
+use roaring::RoaringBitmap;
 
 pub struct DisjointSets<T> {
     elements: Vec<T>,

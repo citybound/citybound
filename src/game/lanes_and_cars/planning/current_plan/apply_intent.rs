@@ -1,6 +1,6 @@
 use compact::{CVec, CDict};
-use descartes::{N, V2, P2, Segment, Norm, FiniteCurve, Curve, RelativeToBasis,
-                WithUniqueOrthogonal, RoughlyComparable, Dot};
+use descartes::{N, V2, P2, Segment, Norm, FiniteCurve, Curve, RelativeToBasis, WithUniqueOrthogonal,
+                RoughlyComparable, Dot};
 
 use super::{PlanStep, Settings, LaneStrokeRef, SelectableStrokeRef, ContinuationMode};
 use super::super::plan::{PlanDelta, BuiltStrokes};

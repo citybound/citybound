@@ -1,7 +1,7 @@
 use kay::{ID, Recipient, Actor, Fate};
 use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::{N, Band, Curve, Into2d, FiniteCurve, Path, RoughlyComparable};
-use ::core::geometry::{CPath, AnyShape};
+use core::geometry::{CPath, AnyShape};
 
 use super::{SelectableStrokeRef, CurrentPlan};
 

@@ -1,7 +1,7 @@
 
 use compact::CVec;
 
-use ::Vertex;
+use Vertex;
 
 #[derive(Compact, Debug)]
 pub struct Thing {

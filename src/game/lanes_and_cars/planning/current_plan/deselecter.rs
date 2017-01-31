@@ -1,5 +1,5 @@
 use kay::{Recipient, Actor, Fate};
-use ::core::geometry::AnyShape;
+use core::geometry::AnyShape;
 use super::CurrentPlan;
 
 #[derive(Default)]

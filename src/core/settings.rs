@@ -1,5 +1,5 @@
-use ::core::ui::KeyOrButton;
-use ::monet::glium::glutin::{MouseButton, VirtualKeyCode};
+use core::ui::KeyOrButton;
+use monet::glium::glutin::{MouseButton, VirtualKeyCode};
 use serde_json;
 
 use std::error::Error;

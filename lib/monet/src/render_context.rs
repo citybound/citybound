@@ -7,7 +7,7 @@ pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, In
 use glium::Surface;
 use glium::backend::glutin_backend::GlutinFacade;
 
-use ::{Batch, Scene, TextRenderer, RichText, Formatting, Font};
+use {Batch, Scene, TextRenderer, RichText, Formatting, Font};
 
 pub struct RenderContext {
     pub window: GlutinFacade,
