@@ -41,6 +41,7 @@ before_deploy:
   # TODO Update this to build the artifacts that matter to you
   - cargo build --release
   - copy target\release\citybound.exe citybound.exe
+  - dir
 
 deploy:
   artifact: citybound.exe
