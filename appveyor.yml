@@ -37,15 +37,17 @@ install:
 #      cargo run --target %TARGET% --release
 #    )
 
-before_deploy:
+build_script:
   # TODO Update this to build the artifacts that matter to you
-  - cargo build --release
-  - copy target\release\citybound.exe citybound.exe
-  - dir
+  - if [%APPVEYOR_REPO_TAG%]==[true] (
+        cargo build --release
+        copy target\release\citybound.exe citybound.exe
+        dir
+    )
 
 artifacts:
-  path: citybound.exe
-  name: citybound
+  - path: citybound.exe
+    name: citybound
 
 deploy:
   artifact: citybound
