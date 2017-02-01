@@ -43,7 +43,7 @@ before_deploy:
   - copy target\release\citybound.exe citybound.exe
 
 deploy:
-  artifact: /.*\.exe/
+  artifact: citybound.exe
   # TODO update `auth_token.secure`
   # - Create a `public_repo` GitHub token. Go to: https://github.com/settings/tokens/new
   # - Encrypt it. Go to https://ci.appveyor.com/tools/encrypt
