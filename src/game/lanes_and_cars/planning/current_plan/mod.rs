@@ -164,16 +164,22 @@ impl CurrentPlan {
             Deselecter::id() << InitInteractable;
         }
         if let Some(still_built_strokes) = self.still_built_strokes() {
-            if let Intent::None = self.current.intent {
-                for (i, stroke) in self.current.plan_delta.new_strokes.iter().enumerate() {
-                    let selectable = Selectable::new(SelectableStrokeRef::New(i),
-                                                     stroke.path().clone());
-                    Swarm::<Selectable>::id() << CreateWith(selectable, InitInteractable);
-                }
-                for (old_stroke_ref, stroke) in still_built_strokes.mapping.pairs() {
-                    let selectable = Selectable::new(SelectableStrokeRef::Built(*old_stroke_ref),
-                                                     stroke.path().clone());
-                    Swarm::<Selectable>::id() << CreateWith(selectable, InitInteractable);
+            match self.current.intent {
+                Intent::ContinueRoad(..) |
+                Intent::NewRoad(..) |
+                Intent::ContinueRoadAround(..) => {}
+                _ => {
+                    for (i, stroke) in self.current.plan_delta.new_strokes.iter().enumerate() {
+                        let selectable = Selectable::new(SelectableStrokeRef::New(i),
+                                                         stroke.path().clone());
+                        Swarm::<Selectable>::id() << CreateWith(selectable, InitInteractable);
+                    }
+                    for (old_stroke_ref, stroke) in still_built_strokes.mapping.pairs() {
+                        let selectable =
+                            Selectable::new(SelectableStrokeRef::Built(*old_stroke_ref),
+                                            stroke.path().clone());
+                        Swarm::<Selectable>::id() << CreateWith(selectable, InitInteractable);
+                    }
                 }
             }
             for (&selection_ref, &(start, end)) in self.current.selections.pairs() {
