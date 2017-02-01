@@ -53,7 +53,7 @@ fn main() {
     let mut dir = ::std::env::temp_dir();
     dir.push("cb_seen_wiki.txt");
     if !::std::path::Path::new(&dir).exists() {
-        let url = "https://github.com/aeickhoff/cbr/wiki/Road-%26-Traffic-Prototype-1";
+        let url = "https://github.com/citybound/citybound/wiki/Road-&-Traffic-Prototype-1.1";
         if let Err(_err) = open::that(url) {
             println!("Please open {:?} in your browser!", url);
         };
@@ -101,7 +101,7 @@ fn main() {
     AddDebugText {
         scene_id: 0,
         key: "Version".chars().collect(),
-        text: "0.1.0".chars().collect(),
+        text: "0.1.1".chars().collect(),
         color: [0.0, 0.0, 0.0, 1.0],
         persistent: true,
     };
