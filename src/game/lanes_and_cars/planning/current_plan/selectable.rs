@@ -61,7 +61,8 @@ impl Recipient<Event3d> for Selectable {
                 if let (Some(selection_start), Some(selection_end)) =
                     (self.path
                          .project_with_tolerance(from.into_2d(), SELECTION_OVERSHOOT_TOLERANCE),
-                     self.path.project_with_tolerance(to.into_2d(), SELECTION_OVERSHOOT_TOLERANCE)) {
+                     self.path
+                         .project_with_tolerance(to.into_2d(), SELECTION_OVERSHOOT_TOLERANCE)) {
                     let mut start = selection_start.min(selection_end);
                     let mut end = selection_end.max(selection_start);
                     snap_start_end(&mut start, &mut end, &self.path);
@@ -77,7 +78,8 @@ impl Recipient<Event3d> for Selectable {
                 if let (Some(selection_start), Some(selection_end)) =
                     (self.path
                          .project_with_tolerance(from.into_2d(), SELECTION_OVERSHOOT_TOLERANCE),
-                     self.path.project_with_tolerance(to.into_2d(), SELECTION_OVERSHOOT_TOLERANCE)) {
+                     self.path
+                         .project_with_tolerance(to.into_2d(), SELECTION_OVERSHOOT_TOLERANCE)) {
                     let mut start = selection_start.min(selection_end);
                     let mut end = selection_end.max(selection_start);
                     if end < CONTINUE_DISTANCE {
