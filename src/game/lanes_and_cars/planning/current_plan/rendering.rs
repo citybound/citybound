@@ -169,9 +169,10 @@ fn render_selections(selections: &CDict<SelectableStrokeRef, (N, N)>,
     let addable_thing = selections.pairs()
         .filter_map(|(&selection_ref, &(start, end))| {
             let stroke = selection_ref.get_stroke(plan_delta, built_strokes);
-            stroke.path().shift_orthogonally(5.0).and_then(|shifted_path| {
-                shifted_path.subsection(start, end)
-                    .map(|subsection| band_to_thing(&Band::new(subsection, 5.0), 0.1))
+            stroke.path().subsection(start, end).and_then(|subsection| {
+                subsection.shift_orthogonally(5.0).map(|shifted_subsection| {
+                    band_to_thing(&Band::new(shifted_subsection, 5.0), 0.1)
+                })
             })
         })
         .sum();
