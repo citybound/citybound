@@ -37,20 +37,15 @@ install:
 #      cargo run --target %TARGET% --release
 #    )
 
-build_script:
+before_deploy:
   # TODO Update this to build the artifacts that matter to you
-  - if [%APPVEYOR_REPO_TAG%]==[true] (
-        cargo build --release
-        copy target\release\citybound.exe citybound.exe
-        dir
-    )
-
-artifacts:
-  - path: citybound.exe
-    name: citybound
+  - cargo build --release
+  - copy target\release\citybound.exe citybound.exe
+  - dir
+  - appveyor PushArtifact citybound.exe
 
 deploy:
-  artifact: citybound
+  artifact: citybound.exe
   # TODO update `auth_token.secure`
   # - Create a `public_repo` GitHub token. Go to: https://github.com/settings/tokens/new
   # - Encrypt it. Go to https://ci.appveyor.com/tools/encrypt
