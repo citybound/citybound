@@ -45,15 +45,20 @@ pub fn find_intersections(strokes: &CVec<LaneStroke>) -> CVec<Intersection> {
         .collect::<CVec<_>>()
 }
 
+// TODO: this is obviously only a workaround
+const MAX_STROKE_LENGTH_FOR_GRID_ACCELERATOR: N = 10000.0;
+
 use core::grid_accelerator::GridAccelerator;
 
 #[allow(let_and_return)]
 // stupid lifetime complaining otherwise
 #[inline(never)]
 fn find_intersection_points(strokes: &CVec<LaneStroke>) -> Vec<P2> {
+    let ok_strokes = strokes.iter()
+        .filter(|stroke| stroke.path().length() < MAX_STROKE_LENGTH_FOR_GRID_ACCELERATOR);
     let mut grid = GridAccelerator::new(400.0);
     let mut bands = Vec::new();
-    for (i, stroke) in strokes.iter().enumerate() {
+    for (i, stroke) in ok_strokes.enumerate() {
         bands.push(Band::new(stroke.path().clone(), STROKE_INTERSECTION_WIDTH).outline());
         grid.add(i,
                  stroke.path()
@@ -180,8 +185,10 @@ pub fn trim_strokes_and_add_incoming_outgoing(strokes: &CVec<LaneStroke>,
 
 #[inline(never)]
 pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStroke> {
+    let ok_trimmed_strokes = trimmed_strokes.iter()
+        .filter(|stroke| stroke.path().length() < MAX_STROKE_LENGTH_FOR_GRID_ACCELERATOR);
     let mut grid = GridAccelerator::new(200.0);
-    for (i, stroke) in trimmed_strokes.iter().enumerate() {
+    for (i, stroke) in ok_trimmed_strokes.enumerate() {
         grid.add(i,
                  stroke.path()
                      .segments()
