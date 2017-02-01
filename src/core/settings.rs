@@ -1,12 +1,12 @@
 use core::ui::KeyOrButton;
 use monet::glium::glutin::{MouseButton, VirtualKeyCode};
-use serde_json;
+// use serde_json;
 
-use std::error::Error;
-use std::fs::File;
-use std::io::prelude::*;
+// use std::error::Error;
+// use std::fs::File;
+// use std::io::prelude::*;
 
-use app_dirs;
+// use app_dirs;
 
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct Settings {
@@ -57,46 +57,47 @@ impl Settings {
     }
 
     pub fn load() -> Settings {
-        let path = app_dirs::app_root(app_dirs::AppDataType::UserConfig, &::APP_INFO)
-            .unwrap()
-            .join("config.json");
-        let display = path.display();
-        let settings = Settings::new();
+        Settings::new()
+        // let path = app_dirs::app_root(app_dirs::AppDataType::UserConfig, &::APP_INFO)
+        //     .unwrap()
+        //     .join("config.json");
+        // let display = path.display();
+        // let settings = Settings::new();
 
-        let mut file = match File::open(&path) {
-            Err(_) => {
-                println!("Config file does not exist, creating new one");
-                match File::create(&path) {
-                    Err(why) => panic!("couldn't create {}: {}", display, why.description()),
-                    Ok(mut file) => {
-                        let serialized = serde_json::to_string(&settings)
-                            .expect("Could not serialise Settings");
-                        match file.write_all(serialized.as_bytes()) {
-                            Err(why) => {
-                                panic!("couldn't write config to {}: {}",
-                                       display,
-                                       why.description())
-                            }
-                            Ok(_) => println!("successfully wrote new config to {}", display),
-                        }
-                        file = match File::open(&path) {
-                            Err(why) => {
-                                panic!("couldn't open {}, which was just written to: {}",
-                                       display,
-                                       why.description())
-                            }
-                            Ok(file) => file,
-                        };
-                        file
-                    }
-                }
-            }
-            Ok(file) => file,
-        };
-        let mut s = String::new();
-        if let Err(why) = file.read_to_string(&mut s) {
-            panic!("couldn't read {}: {}", display, why.description())
-        }
-        serde_json::from_str::<Settings>(&s).unwrap()
+        // let mut file = match File::open(&path) {
+        //     Err(_) => {
+        //         println!("Config file does not exist, creating new one");
+        //         match File::create(&path) {
+        //             Err(why) => panic!("couldn't create {}: {}", display, why.description()),
+        //             Ok(mut file) => {
+        //                 let serialized = serde_json::to_string(&settings)
+        //                     .expect("Could not serialise Settings");
+        //                 match file.write_all(serialized.as_bytes()) {
+        //                     Err(why) => {
+        //                         panic!("couldn't write config to {}: {}",
+        //                                display,
+        //                                why.description())
+        //                     }
+        //                     Ok(_) => println!("successfully wrote new config to {}", display),
+        //                 }
+        //                 file = match File::open(&path) {
+        //                     Err(why) => {
+        //                         panic!("couldn't open {}, which was just written to: {}",
+        //                                display,
+        //                                why.description())
+        //                     }
+        //                     Ok(file) => file,
+        //                 };
+        //                 file
+        //             }
+        //         }
+        //     }
+        //     Ok(file) => file,
+        // };
+        // let mut s = String::new();
+        // if let Err(why) = file.read_to_string(&mut s) {
+        //     panic!("couldn't read {}: {}", display, why.description())
+        // }
+        // serde_json::from_str::<Settings>(&s).unwrap()
     }
 }

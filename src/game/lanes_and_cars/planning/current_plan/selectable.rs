@@ -52,25 +52,34 @@ const START_END_SNAP_DISTANCE: N = 10.0;
 const SEGMENT_SNAP_DISTANCE: N = 5.0;
 const CONTINUE_DISTANCE: N = 6.0;
 const MIN_SELECTION_SIZE: N = 2.0;
+const SELECTION_OVERSHOOT_TOLERANCE: N = 30.0;
 
 impl Recipient<Event3d> for Selectable {
     fn receive(&mut self, msg: &Event3d) -> Fate {
         match *msg {
             Event3d::DragOngoing { from, to } => {
                 if let (Some(selection_start), Some(selection_end)) =
-                    (self.path.project(from.into_2d()), self.path.project(to.into_2d())) {
+                    (self.path
+                         .project_with_tolerance(from.into_2d(), SELECTION_OVERSHOOT_TOLERANCE),
+                     self.path
+                         .project_with_tolerance(to.into_2d(), SELECTION_OVERSHOOT_TOLERANCE)) {
                     let mut start = selection_start.min(selection_end);
                     let mut end = selection_end.max(selection_start);
                     snap_start_end(&mut start, &mut end, &self.path);
                     CurrentPlan::id() <<
                     ChangeIntent(Intent::Select(self.stroke_ref, start, end),
                                  IntentProgress::Preview);
+                } else {
+                    CurrentPlan::id() << ChangeIntent(Intent::None, IntentProgress::Preview);
                 }
                 Fate::Live
             }
             Event3d::DragFinished { from, to } => {
                 if let (Some(selection_start), Some(selection_end)) =
-                    (self.path.project(from.into_2d()), self.path.project(to.into_2d())) {
+                    (self.path
+                         .project_with_tolerance(from.into_2d(), SELECTION_OVERSHOOT_TOLERANCE),
+                     self.path
+                         .project_with_tolerance(to.into_2d(), SELECTION_OVERSHOOT_TOLERANCE)) {
                     let mut start = selection_start.min(selection_end);
                     let mut end = selection_end.max(selection_start);
                     if end < CONTINUE_DISTANCE {

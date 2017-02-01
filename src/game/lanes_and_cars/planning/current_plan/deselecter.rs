@@ -11,7 +11,6 @@ use core::ui::Add;
 
 impl Recipient<InitInteractable> for Deselecter {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {
-        println!("adding deselecter");
         ::core::ui::UserInterface::id() << Add::Interactable3d(Self::id(), AnyShape::Everywhere, 2);
         Fate::Live
     }

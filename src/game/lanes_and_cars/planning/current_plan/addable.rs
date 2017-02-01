@@ -27,7 +27,7 @@ impl Recipient<InitInteractable> for Addable {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {
         ::core::ui::UserInterface::id() <<
         Add::Interactable3d(self.id(),
-                            AnyShape::Band(Band::new(self.path.clone(), 5.0)),
+                            AnyShape::Band(Band::new(self.path.clone(), 3.0)),
                             3);
         Fate::Live
     }

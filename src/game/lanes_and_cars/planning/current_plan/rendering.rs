@@ -64,7 +64,7 @@ fn render_strokes(delta: &PlanDelta, renderer_id: ID, scene_id: usize) {
     renderer_id <<
     UpdateThing {
         scene_id: scene_id,
-        thing_id: 5497,
+        thing_id: 5496,
         thing: destroyed_strokes_thing,
         instance: Instance::with_color([1.0, 0.0, 0.0]),
         is_decal: true,
@@ -166,6 +166,24 @@ fn render_selections(selections: &CDict<SelectableStrokeRef, (N, N)>,
                      built_strokes: &BuiltStrokes,
                      renderer_id: ID,
                      scene_id: usize) {
+    let addable_thing = selections.pairs()
+        .filter_map(|(&selection_ref, &(start, end))| {
+            let stroke = selection_ref.get_stroke(plan_delta, built_strokes);
+            stroke.path().subsection(start, end).and_then(|subsection| {
+                subsection.shift_orthogonally(5.0).map(|shifted_subsection| {
+                    band_to_thing(&Band::new(shifted_subsection, 5.0), 0.1)
+                })
+            })
+        })
+        .sum();
+    renderer_id <<
+    UpdateThing {
+        scene_id: scene_id,
+        thing_id: 5497,
+        thing: addable_thing,
+        instance: Instance::with_color([0.8, 0.8, 1.0]),
+        is_decal: true,
+    };
     let selection_thing = selections.pairs()
         .filter_map(|(&selection_ref, &(start, end))| {
             let stroke = selection_ref.get_stroke(plan_delta, built_strokes);
