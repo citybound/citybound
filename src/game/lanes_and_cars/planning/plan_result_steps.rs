@@ -477,6 +477,9 @@ fn connect_as_much_as_possible(incoming_group: &Vec<(&LaneStrokeRef, &LaneStroke
     }
 }
 
+// TODO: obviously only a workaround
+const MAX_SIGNAL_TIMING_COMPATABILITIES: usize = 42;
+
 pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
     use roaring::RoaringBitmap;
 
@@ -505,7 +508,8 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
 
         for (a, stroke_a) in intersection.strokes.iter().enumerate() {
             for (b, stroke_b) in intersection.strokes.iter().enumerate().skip(a + 1) {
-                if compatible(stroke_a, stroke_b) {
+                if compatible(stroke_a, stroke_b) &&
+                   compatabilities.len() < MAX_SIGNAL_TIMING_COMPATABILITIES {
                     compatabilities.entry(a)
                         .or_insert_with(RoaringBitmap::<u32>::new)
                         .insert(b as u32);
