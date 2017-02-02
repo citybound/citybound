@@ -24,6 +24,9 @@
 
 - [ ] Cars can be spawned on simple roads
 - [ ] Cars can be spawned on a grid
+- [ ] Cars can do lane changes
+- [ ] Cars can do road changes
+- [ ] > 60.000 cars run fluidly
 
 # All steps completed for:
 - [ ] Development build on one platform
