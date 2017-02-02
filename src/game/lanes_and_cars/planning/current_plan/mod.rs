@@ -418,11 +418,21 @@ use super::super::construction::materialized_reality::Apply;
 
 impl Recipient<Materialize> for CurrentPlan {
     fn receive(&mut self, _msg: &Materialize) -> Fate {
+        match self.current.intent {
+            Intent::ContinueRoad(..) |
+            Intent::NewRoad(..) => {
+                self.commit();
+                StrokeCanvas::id() << SetPoints(CVec::new());
+            }
+            _ => {}
+        }
+
         MaterializedReality::id() <<
         Apply {
             requester: Self::id(),
             delta: self.current.plan_delta.clone(),
         };
+
         *self = CurrentPlan::default();
         Fate::Live
     }
