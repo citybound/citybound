@@ -365,8 +365,6 @@ impl Recipient<UIUpdate> for UserInterface {
                                                                  inverted /
                                                                  300.0),
                             };
-
-                            self.cursor_2d = position;
                         }
 
                         if self.input_state.pitch_mod {
@@ -378,7 +376,6 @@ impl Recipient<UIUpdate> for UserInterface {
                                                                    inverted /
                                                                    300.0),
                             };
-                            self.cursor_2d = position;
                         }
 
                         if self.input_state.pan_mod {
@@ -397,23 +394,25 @@ impl Recipient<UIUpdate> for UserInterface {
                                                                            3.0,
                                                                            0.0)),
                             };
-                            self.cursor_2d = position;
                         }
-                    } else {
-                        self.cursor_2d = position;
-                        Renderer::id() <<
-                        Project2dTo3d {
-                            scene_id: 0,
-                            position_2d: position,
-                            requester: Self::id(),
-                        };
                     }
+
+                    // Update mouse 3D projection
+                    Renderer::id() <<
+                    Project2dTo3d {
+                        scene_id: 0,
+                        position_2d: position,
+                        requester: Self::id(),
+                    };
+
+                    self.cursor_2d = position;
                 }
                 Mouse::Scrolled(delta) => {
                     Renderer::id() <<
                     MoveEye {
                         scene_id: 0,
-                        movement: ::monet::Movement::Zoom(delta.y * self.settings.zoom_speed),
+                        movement: ::monet::Movement::Zoom(delta.y * self.settings.zoom_speed,
+                                                          self.cursor_3d),
                     };
                 }
                 Mouse::Down(MouseButton::Left) => {
