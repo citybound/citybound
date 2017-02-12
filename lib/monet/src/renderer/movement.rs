@@ -71,21 +71,15 @@ impl Renderer {
         let zoom_direction = (zoom_point - eye.position).normalize();
         let zoom_distance = (zoom_point - eye.position).norm();
 
-        let old_zoom_point_distance = (zoom_point - eye.position).norm();
-
         // Move eye.position towards zoom_point
         if zoom_distance > 30.0 || delta < 0.0 {
             eye.position += (zoom_direction * delta * zoom_distance) / 300.0;
         }
 
-        let new_zoom_point_distance = (zoom_point - eye.position).norm();
+        let new_zoom_distance = (zoom_point - eye.position).norm();
 
         // Scale the distance from eye.target to zoom_point with the scale between zoom_point distances
-        eye.target = ((new_zoom_point_distance * eye.target.to_vector() -
-                       new_zoom_point_distance * zoom_point.to_vector() +
-                       old_zoom_point_distance * zoom_point.to_vector()) /
-                      old_zoom_point_distance)
-            .to_point();
+        eye.target = ((new_zoom_distance*(eye.target-zoom_point))/zoom_distance+zoom_point.to_vector()).to_point();
     }
 
     fn movement_yaw(&mut self, scene_id: usize, delta: N) {
