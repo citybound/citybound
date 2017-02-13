@@ -1,4 +1,4 @@
-if [ $TRAVIS_BRANCH = "master" ]
+if [ "$TRAVIS_BRANCH" = "master" ] && [ "$TRAVIS_PULL_REQUEST" = "false" ]
 then
     cargo doc --package allocators --no-deps
     cargo doc --package chunked --no-deps
