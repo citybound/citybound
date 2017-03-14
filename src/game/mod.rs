@@ -1,4 +1,5 @@
 pub mod lanes_and_cars;
+pub mod economy;
 
 pub fn setup() {
     lanes_and_cars::setup();
