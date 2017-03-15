@@ -1,6 +1,5 @@
 // Place your settings in this file to overwrite default and user settings.
 {
-    "rust.checkOnSave": true,
-    "rust.formatOnSave": true,
-    "rust.useNewErrorFormat": true
+    "rust.actionOnSave": "check",
+    "editor.formatOnSave": true
 }

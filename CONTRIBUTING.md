@@ -35,7 +35,7 @@ Recommended setup:
   * Visual Studio Code has nothing to do with Visual Studio!
   * It's (cross-platform + JS-based + rich plugin ecosystem) like Atom, only implemented better.
   * Yes it's actually cool, because Microsoft has started to be cool.
-* Install [the RustyCode Extension and its dependencies](https://marketplace.visualstudio.com/items?itemName=saviorisdead.RustyCode)
+* Install [the Rust Extension and its dependencies](https://marketplace.visualstudio.com/items?itemName=kalitaalexey.vscode-rust)
 * Make sure to set up `"rust.cargoHomePath"`, `"rust.racerPath"` and `"rust.rustLangSrcPath"` in the VS Code settings
 * For debugging (Linux/MacOS): Install the [LLDB Debugger Extension](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb)
 * Now everything should just work, since configuration is part of the repo in `.vscode`! (fingers crossed)
