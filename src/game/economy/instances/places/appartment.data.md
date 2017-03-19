@@ -1,8 +1,8 @@
 Apartment
 =========
 
-Sleep
------
+Sleep x 4
+---------
 
 resource          |    me |    us |  here |
 ------------------|------:|------:|------:|
@@ -10,8 +10,8 @@ family            |  here |       |       |
 wakefulness       |    16 |       |       |
 time              |    -8 |       |       |
 
-Prepare simple food
--------------------
+Prepare simple food x 1
+-----------------------
 
 resource          |    me |    us |  here |
 ------------------|------:|------:|------:|
@@ -25,8 +25,8 @@ raw meat          |       |  -0.5 |       |
 fruits/vegetables |       |  -0.1 |       |
 basic food        |       |   1.0 |       |
 
-Prepare good food
------------------
+Prepare good food x 1
+---------------------
 
 resource          |    me |    us |  here |
 ------------------|------:|------:|------:|
@@ -42,8 +42,8 @@ fruits/vegetables |       |  -0.3 |       |
 basic food        |       |   1.0 |       |
 healthy stuff     |       |   1.0 |       |
 
-Eat simple food
----------------
+Eat simple food x 6
+-------------------
 
 resource          |    me |    us |  here |
 ------------------|------:|------:|------:|
@@ -54,8 +54,8 @@ basic food        |       |  -1.0 |       |
 satiety           |     3 |       |       |
 health            | -0.05 |       |       |
 
-Eat good food
--------------
+Eat good food x 6
+-----------------
 
 resource          |    me |    us |  here |
 ------------------|------:|------:|------:|
@@ -67,8 +67,8 @@ healthy stuff     |       |  -1.0 |       |
 satiety           |     3 |       |       |
 health            |   0.1 |       |       |
 
-Relax
------
+Relax x 6
+---------
 
 resource          |    me |    us |  here |
 ------------------|------:|------:|------:|
@@ -79,8 +79,8 @@ satiety           |  -0.5 |       |       |
 entertainment     |   0.1 |       |       |
 social life       |   0.1 |       |       |
 
-Watch TV
---------
+Watch TV x 6
+------------
 
 resource          |    me |    us |  here |
 ------------------|------:|------:|------:|
