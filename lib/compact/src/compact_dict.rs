@@ -213,3 +213,10 @@ impl<K: Copy + Eq, V: Compact + Clone, A: Allocator> ::std::iter::Extend<(K, V)>
         }
     }
 }
+
+impl<K: ::std::fmt::Debug + Eq + Copy, V: Compact + ::std::fmt::Debug, A: Allocator> ::std::fmt::Debug
+    for CompactDict<K, V, A> {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        (self.pairs().collect::<Vec<_>>()).fmt(f)
+    }
+}

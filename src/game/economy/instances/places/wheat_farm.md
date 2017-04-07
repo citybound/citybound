@@ -1,8 +1,8 @@
 Wheat Farm
 ==========
 
-Harvest Grains
---------------
+Harvest Grains x 1
+------------------
 
 resource          |    me |    us |  here |
 ------------------|------:|------:|------:|
@@ -14,9 +14,11 @@ satiety           |    -3 |       |       |
 money             |       |    30 |   -30 |
 grains            |       |       |   100 |
 
-Buy Grains
-----------
+Buy Grains x 1
+--------------
 resource          |    me |    us |  here |
 ------------------|------:|------:|------:|
+wakefulness       |  -0.1 |       |       |
+time              |  -0.1 |       |       |
 money             |       |    -3 |     3 |
 grains            |       |     1 |    -1 |

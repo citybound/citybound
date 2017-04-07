@@ -1,8 +1,8 @@
-Vegetable/Fruit Farm
+Fruit/Vegetable Farm
 ====================
 
-Harvest Vegetables/Fruits
--------------------------
+Harvest Fruits/Vegetables x 1
+-----------------------------
 
 resource          |    me |    us |  here |
 ------------------|------:|------:|------:|
@@ -12,11 +12,13 @@ wakefulness       |    -3 |       |       |
 time              |    -3 |       |       |
 satiety           |    -3 |       |       |
 money             |       |    30 |   -30 |
-vegetables/fruits |       |       |    10 |
+fruits/vegetables |       |       |    10 |
 
-Buy Vegetables/Fruits
----------------------
+Buy Fruits/Vegetables x 1
+-------------------------
 resource          |    me |    us |  here |
 ------------------|------:|------:|------:|
+wakefulness       |  -0.1 |       |       |
+time              |  -0.1 |       |       |
 money             |       |    -6 |     6 |
-vegetables/fruits |       |     1 |    -1 |
+fruits/vegetables |       |     1 |    -1 |

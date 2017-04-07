@@ -1,10 +1,21 @@
 use std::collections::HashMap;
 use core::read_md_tables::read;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Default, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Default)]
 pub struct ResourceId(u16);
+
+impl ::std::fmt::Debug for ResourceId {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f,
+               "r({})",
+               unsafe { &(*REGISTRY).id_to_info.get(self).unwrap().0 })
+    }
+}
+
+
+
 #[derive(Debug)]
-struct ResourceDescription(String, String);
+struct ResourceDescription(String, String, String);
 
 #[derive(Default)]
 pub struct ResourceRegistry {
@@ -17,7 +28,9 @@ impl ResourceRegistry {
     fn add(&mut self, resource: &str, unit: &str, description: &str) {
         self.name_to_id.insert(resource.to_owned(), self.next_id);
         self.id_to_info.insert(self.next_id,
-                               ResourceDescription(unit.to_owned(), description.to_owned()));
+                               ResourceDescription(resource.to_owned(),
+                                                   unit.to_owned(),
+                                                   description.to_owned()));
         self.next_id = match self.next_id {
             ResourceId(id) => ResourceId(id + 1),
         };
@@ -49,6 +62,6 @@ pub fn setup() {
     }
 
     unsafe {
-        REGISTRY = &mut *resources as *mut ResourceRegistry;
+        REGISTRY = Box::into_raw(resources);
     }
 }

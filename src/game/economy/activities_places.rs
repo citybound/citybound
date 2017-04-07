@@ -1,31 +1,62 @@
 use compact::{CVec, CDict, Compact};
-use kay::ID;
+use kay::{ID, Recipient, Fate, Actor};
+use kay::swarm::{Swarm, SubActor, CreateWith};
+use std::collections::HashMap;
 use core::read_md_tables::read;
+
 use super::resources::{ResourceId, r};
 
 #[derive(Copy, Clone, Debug)]
-enum ConditionKind {
+pub enum ConditionKind {
     Equal,
     Less,
     Greater,
 }
-use self::ConditionKind::{Equal, Less, Greater};
+pub use self::ConditionKind::{Equal, Less, Greater};
 
 #[derive(Copy, Clone, Debug)]
-enum Condition {
-    Rs(ActivityParty, ResourceId, ConditionKind, f32),
+pub enum Condition {
+    Rs(ActivityParty, ResourceId, ConditionKind, f64),
     Id(ActivityParty, ResourceId, ConditionKind, ActivityParty),
 }
-use self::Condition::{Rs, Id};
+pub use self::Condition::{Rs, Id};
 
 #[derive(Copy, Clone, Debug)]
 #[repr(packed)]
-struct Rate(ActivityParty, ResourceId, f32);
+pub struct Rate(pub ActivityParty, pub ResourceId, pub f64);
 
-#[derive(Actor, Compact, Clone, Debug)]
+#[derive(SubActor, Compact, Clone, Debug)]
 pub struct Place {
     _id: Option<ID>,
-    activities: CVec<Activity>,
+    pub activities: CVec<Activity>,
+}
+
+use super::grid_example::PleaseRegister;
+use super::grid_example::RegisterInGrid;
+
+impl Recipient<PleaseRegister> for Place {
+    fn receive(&mut self, msg: &PleaseRegister) -> Fate {
+        match *msg {
+            PleaseRegister(x, y) => {
+                super::grid_example::GridExample::id() << RegisterInGrid(self.id(), x, y);
+                Fate::Live
+            }
+        }
+    }
+}
+
+#[derive(Compact, Clone)]
+pub struct AddActivity(pub Activity);
+
+impl Recipient<AddActivity> for Place {
+    fn receive(&mut self, msg: &AddActivity) -> Fate {
+        match *msg {
+            AddActivity(ref activity) => {
+                self.activities.push(activity.clone());
+                Fate::Live
+            }
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -34,34 +65,35 @@ pub enum ActivityParty {
     Us,
     Here,
 }
-use self::ActivityParty::{Me, Us, Here};
+pub use self::ActivityParty::{Me, Us, Here};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Destination {
     Stay,
     Move(ID),
 }
-use self::Destination::{Stay, Move};
+pub use self::Destination::{Stay, Move};
 
 #[derive(Compact, Clone, Debug)]
 pub struct Activity {
     //&'static str,
-    destination: Destination,
-    capacity: u32,
-    conditions: CVec<Condition>,
-    rates: CVec<Rate>,
+    pub destination: Destination,
+    pub capacity: u32,
+    pub conditions: CVec<Condition>,
+    pub rates: CVec<Rate>,
 }
 
-#[derive(Actor)]
+#[derive(SubActor, Compact, Clone)]
 pub struct Family {
     _id: Option<ID>,
     n_members: u8,
-    resources: CDict<ResourceId, f32>,
+    resources: CDict<ResourceId, f64>,
 }
 
-pub fn setup() {
-    let mut activities = CVec::<Activity>::new();
-    for table in &read(&"./src/game/economy/instances/places/appartment.data.md").unwrap() {
+pub fn load_places() -> HashMap<String, Place> {
+    let mut places = HashMap::new();
+
+    for table in &read(&"./src/game/economy/instances/places/").unwrap() {
         let c = &table.columns;
 
         let mut conditions = CVec::new();
@@ -75,7 +107,7 @@ pub fn setup() {
                     continue;
                 }
                 let r_id = r(resource);
-                if let Ok(rate) = entry.parse::<f32>() {
+                if let Ok(rate) = entry.parse::<f64>() {
                     rates.push(Rate(party, r_id, rate))
                 } else {
                     let id_condition_parsed = party_strings.iter()
@@ -90,7 +122,7 @@ pub fn setup() {
                             .any(|&(kind_str, kind)| if &entry[0..1] == kind_str {
                                 let val = entry[1..]
                                     .trim()
-                                    .parse::<f32>()
+                                    .parse::<f64>()
                                     .expect(format!("expected a number after {} in {}/{}/{} = {}",
                                                     kind_str,
                                                     table.header,
@@ -124,25 +156,39 @@ pub fn setup() {
                             table.subheader)
                 .as_str());
 
-        activities.push(Activity {
+
+        let activity = Activity {
             destination: Stay,
             conditions: conditions,
             rates: rates,
             capacity: capacity,
-        });
+        };
+
+        places.entry(table.header.clone())
+            .or_insert(Place {
+                _id: None,
+                activities: CVec::new(),
+            })
+            .activities
+            .push(activity);
     }
 
-    let loaded_place = Place {
-        _id: None,
-        activities: activities,
-    };
+    places
+}
 
-    println!("{:#?}", loaded_place);
+pub fn setup() {
+    let loaded_places = load_places();
+
+    println!("{:#?}", loaded_places["Apartment"]);
 
     println!("appartment size in bytes: {}, party size is {}, rate size is {}, condition \
                 size {}",
-             loaded_place.total_size_bytes(),
+             loaded_places["Apartment"].total_size_bytes(),
              ::std::mem::size_of::<ActivityParty>(),
              ::std::mem::size_of::<Rate>(),
              ::std::mem::size_of::<Condition>());
+
+    Swarm::<Place>::register_default();
+    Swarm::<Place>::handle::<CreateWith<Place, PleaseRegister>>();
+    Swarm::<Place>::handle::<AddActivity>();
 }
