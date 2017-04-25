@@ -102,7 +102,7 @@ fn main() {
         scene_id: 0,
         key: "Version".chars().collect(),
         text: "0.1.2".chars().collect(),
-        color: [0.0, 0.0, 0.0, 1.0],
+        color: [1.0, 1.0, 1.0, 1.0],
         persistent: true,
     };
 
@@ -119,7 +119,7 @@ fn main() {
                 .as_str()
                 .chars()
                 .collect(),
-            color: [0.0, 0.0, 0.0, 0.5],
+            color: [1.0, 1.0, 1.0, 0.5],
             persistent: false,
         };
         last_frame = std::time::Instant::now();

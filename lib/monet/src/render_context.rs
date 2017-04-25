@@ -7,19 +7,23 @@ pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, In
 use glium::Surface;
 use glium::backend::glutin_backend::GlutinFacade;
 
-use {Batch, Scene, TextRenderer, RichText, Formatting, Font};
+use {Batch, Scene};
+
+use imgui::{ImGui, ImGuiSetCond_FirstUseEver};
+use imgui::glium_renderer::Renderer;
 
 pub struct RenderContext {
     pub window: GlutinFacade,
-
+    imgui: ImGui,
+    imgui_renderer: Renderer,
     batch_program: glium::Program,
-    text_renderer: TextRenderer,
 }
 
 impl RenderContext {
     #[allow(redundant_closure)]
     pub fn new(window: GlutinFacade) -> RenderContext {
-        let dpi_factor = window.get_window().unwrap().hidpi_factor();
+        let mut imgui = ImGui::init();
+        let imgui_renderer = Renderer::init(&mut imgui, &window).unwrap();
 
         RenderContext {
             batch_program: program!(&window, 140 => {
@@ -27,7 +31,8 @@ impl RenderContext {
                 fragment: include_str!("shader/solid_140.glslf")
             })
                 .unwrap(),
-            text_renderer: TextRenderer::new(&window, dpi_factor),
+                imgui: imgui,
+                imgui_renderer: imgui_renderer,
             window: window,
         }
     }
@@ -91,46 +96,20 @@ impl RenderContext {
                 .unwrap();
         }
 
-        let screen = {
-            let (w, h) = self.window.get_framebuffer_dimensions();
-            (w as f32, h as f32)
-        };
+        let size_points = self.window.get_window().unwrap().get_inner_size_points().unwrap();
+        let size_pixels = self.window.get_window().unwrap().get_inner_size_pixels().unwrap();
+        let ui = self.imgui.frame(size_points, size_pixels, 1.0/60.0);
 
-        let debug_text = self.create_debug_text(scene, &render_debug_text);
-        self.text_renderer.render_text(screen, &self.window, &mut target, &[debug_text]);
+        ui.window(im_str!("Debug Info"))
+            .size((600.0, 200.0), ImGuiSetCond_FirstUseEver)
+            .build(|| {
+                for (key, &(ref text, ref color)) in scene.persistent_debug_text.iter().chain(scene.debug_text.iter()) {
+                    ui.text_colored(*color, im_str!("{}:\n{}", key, text));
+                }
+            });
+
+        self.imgui_renderer.render(&mut target, ui).unwrap();
 
         target.finish().unwrap();
-    }
-
-    fn create_debug_text(&self, scene: &Scene, render_debug_text: &str) -> RichText {
-        let width = {
-            let window = self.window.get_window().unwrap();
-            window.get_inner_size_pixels().unwrap().0
-        };
-
-        let text = scene.persistent_debug_text
-            .iter()
-            .chain(scene.debug_text.iter())
-            .map(|(key, &(ref text, _))| format!("{}:\n{}\n", key, text))
-            .collect::<String>() + render_debug_text;
-        let formatting = scene.persistent_debug_text
-            .iter()
-            .chain(scene.debug_text.iter())
-            .map(|(key, &(ref text, ref color))| {
-                Formatting {
-                    len: key.len() + text.len() + 3,
-                    font: Font::Debug,
-                    width: width,
-                    color: *color,
-                }
-            })
-            .chain(Some(Formatting {
-                len: render_debug_text.len(),
-                font: Font::Debug,
-                width: width,
-                color: [0.0, 0.0, 0.0, 0.5],
-            }))
-            .collect::<Vec<_>>();
-        RichText::new(&self.text_renderer, &text, &formatting)
     }
 }

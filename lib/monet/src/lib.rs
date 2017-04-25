@@ -9,11 +9,12 @@ extern crate kay;
 extern crate compact;
 #[macro_use]
 extern crate compact_macros;
-extern crate rusttype;
 extern crate fnv;
-extern crate unicode_normalization;
 #[macro_use]
 extern crate lazy_static;
+
+#[macro_use]
+extern crate imgui;
 
 use kay::Actor;
 
@@ -22,7 +23,6 @@ mod renderer;
 mod render_context;
 mod scene;
 mod thing;
-mod text;
 
 pub use glium::backend::glutin_backend::GlutinFacade;
 
@@ -33,8 +33,6 @@ pub use renderer::{Renderer, SetupInScene, RenderToScene, Control, AddBatch, Add
 pub use render_context::RenderContext;
 pub use scene::{Eye, Scene};
 pub use thing::Thing;
-pub use text::{TextRenderer, TextVertex, Font, FontBank, RichText, FontDescription, Formatting,
-               Glyph, GlyphIter};
 
 pub fn setup(renderer: Renderer) {
     Renderer::register_with_state(renderer);
