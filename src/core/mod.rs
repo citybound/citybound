@@ -4,3 +4,4 @@ pub mod simulation;
 pub mod disjoint_sets;
 pub mod grid_accelerator;
 pub mod settings;
+pub mod read_md_tables;
