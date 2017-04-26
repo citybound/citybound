@@ -5,7 +5,7 @@ use monet::glium::glutin::{Event, MouseScrollDelta, ElementState, MouseButton};
 pub use monet::glium::glutin::VirtualKeyCode;
 use core::geometry::AnyShape;
 use std::collections::HashMap;
-use imgui::{ImGui, Ui, ImGuiSetCond_FirstUseEver, ImGuiKey};
+use imgui::{ImGui, ImGuiSetCond_FirstUseEver, ImGuiKey};
 use imgui::glium_renderer::Renderer as ImguiRenderer;
 use std::collections::BTreeMap;
 

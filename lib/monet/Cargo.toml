@@ -8,7 +8,6 @@ glium = "0.16.0"
 clippy = "0.0.106"
 fnv = "1.0.3"
 lazy_static = "0.2.2"
-imgui = "0.0.11"
 
 [dependencies.kay]
 path = "../kay"
