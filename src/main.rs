@@ -19,6 +19,9 @@ extern crate serde_json;
 extern crate serde;
 extern crate app_dirs;
 
+#[macro_use]
+extern crate imgui;
+
 use app_dirs::AppInfo;
 pub const APP_INFO: AppInfo = AppInfo {
     name: "Citybound",
@@ -37,8 +40,10 @@ extern crate descartes;
 mod core;
 mod game;
 
-use monet::{Renderer, Control, AddDebugText};
+use monet::{Renderer, Control};
+use monet::glium::{DisplayBuild, glutin};
 use core::simulation::{Simulation, Tick};
+use core::stagemaster::{ProcessEvents, StartFrame, UserInterface, AddDebugText};
 use game::lanes_and_cars::lane::{Lane, TransferLane};
 use game::lanes_and_cars::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use game::lanes_and_cars::rendering::lane_thing_collector::ThingCollector;
@@ -71,9 +76,8 @@ fn main() {
             }
         };
         println!("Simulation Panic!\n{:?}", message);
-        Renderer::id() <<
+        UserInterface::id() <<
         AddDebugText {
-            scene_id: 0,
             key: "SIMULATION PANIC".chars().collect(),
             text: message.as_str().chars().collect(),
             color: [1.0, 0.0, 0.0, 1.0],
@@ -87,19 +91,26 @@ fn main() {
     let simulatables = vec![Swarm::<Lane>::all(), Swarm::<TransferLane>::all()];
     core::simulation::setup(simulatables);
 
+    let window = glutin::WindowBuilder::new()
+        .with_title("Citybound".to_string())
+        .with_dimensions(1024, 512)
+        .with_multitouch()
+        .with_vsync()
+        .build_glium()
+        .unwrap();
+
     let renderables = vec![Swarm::<Lane>::all(),
                            Swarm::<TransferLane>::all(),
                            ThingCollector::<LaneAsphalt>::id(),
                            ThingCollector::<LaneMarker>::id(),
                            ThingCollector::<TransferLaneMarkerGaps>::id(),
                            CurrentPlan::id()];
-    let window = core::ui::setup_window_and_renderer(renderables);
+    core::stagemaster::setup(renderables, &window);
 
     let mut last_frame = std::time::Instant::now();
 
-    Renderer::id() <<
+    UserInterface::id() <<
     AddDebugText {
-        scene_id: 0,
         key: "Version".chars().collect(),
         text: "0.1.2".chars().collect(),
         color: [1.0, 1.0, 1.0, 1.0],
@@ -109,9 +120,8 @@ fn main() {
     system.process_all_messages();
 
     loop {
-        Renderer::id() <<
+        UserInterface::id() <<
         AddDebugText {
-            scene_id: 0,
             key: "Frame".chars().collect(),
             text: format!("{:.2} ms",
                           last_frame.elapsed().as_secs() as f32 * 1000.0 +
@@ -123,9 +133,8 @@ fn main() {
             persistent: false,
         };
         last_frame = std::time::Instant::now();
-        if !core::ui::process_events(&window) {
-            return;
-        }
+
+        UserInterface::id() << ProcessEvents;
 
         system.process_all_messages();
 
@@ -141,7 +150,7 @@ fn main() {
 
         system.process_all_messages();
 
-        Renderer::id() << Control::Submit;
+        UserInterface::id() << StartFrame;
 
         system.process_all_messages();
     }

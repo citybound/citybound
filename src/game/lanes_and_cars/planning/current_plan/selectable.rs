@@ -23,29 +23,29 @@ impl Selectable {
 }
 
 use super::InitInteractable;
-use core::ui::Add;
+use core::stagemaster::{UserInterface, AddInteractable};
 
 impl Recipient<InitInteractable> for Selectable {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {
-        ::core::ui::UserInterface::id() <<
-        Add::Interactable3d(self.id(),
-                            AnyShape::Band(Band::new(self.path.clone(), 5.0)),
-                            3);
+        UserInterface::id() <<
+        AddInteractable(self.id(),
+                        AnyShape::Band(Band::new(self.path.clone(), 5.0)),
+                        3);
         Fate::Live
     }
 }
 
 use super::ClearInteractable;
-use core::ui::Remove;
+use core::stagemaster::RemoveInteractable;
 
 impl Recipient<ClearInteractable> for Selectable {
     fn receive(&mut self, _msg: &ClearInteractable) -> Fate {
-        ::core::ui::UserInterface::id() << Remove::Interactable3d(self.id());
+        UserInterface::id() << RemoveInteractable(self.id());
         Fate::Die
     }
 }
 
-use core::ui::Event3d;
+use core::stagemaster::Event3d;
 use super::{ChangeIntent, Intent, IntentProgress, ContinuationMode};
 
 const START_END_SNAP_DISTANCE: N = 10.0;
@@ -57,7 +57,7 @@ const SELECTION_OVERSHOOT_TOLERANCE: N = 30.0;
 impl Recipient<Event3d> for Selectable {
     fn receive(&mut self, msg: &Event3d) -> Fate {
         match *msg {
-            Event3d::DragOngoing { from, to } => {
+            Event3d::DragOngoing { from, to, .. } => {
                 if let (Some(selection_start), Some(selection_end)) =
                     (self.path
                          .project_with_tolerance(from.into_2d(), SELECTION_OVERSHOOT_TOLERANCE),
@@ -74,7 +74,7 @@ impl Recipient<Event3d> for Selectable {
                 }
                 Fate::Live
             }
-            Event3d::DragFinished { from, to } => {
+            Event3d::DragFinished { from, to, .. } => {
                 if let (Some(selection_start), Some(selection_end)) =
                     (self.path
                          .project_with_tolerance(from.into_2d(), SELECTION_OVERSHOOT_TOLERANCE),

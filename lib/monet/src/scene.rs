@@ -1,6 +1,3 @@
-
-use std::collections::BTreeMap;
-
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
                     WithUniqueOrthogonal, Inverse, Rotate};
 use compact::CVec;
@@ -22,8 +19,6 @@ pub struct Scene {
     pub eye_listeners: CVec<ID>,
     pub batches: FnvHashMap<u16, Batch>,
     pub renderables: Vec<ID>,
-    pub debug_text: BTreeMap<String, (String, [f32; 4])>,
-    pub persistent_debug_text: BTreeMap<String, (String, [f32; 4])>,
 }
 
 impl Scene {
@@ -38,8 +33,6 @@ impl Scene {
             eye_listeners: CVec::new(),
             batches: FnvHashMap::default(),
             renderables: Vec::new(),
-            debug_text: BTreeMap::new(),
-            persistent_debug_text: BTreeMap::new(),
         }
     }
 }

@@ -9,37 +9,25 @@ use glium::backend::glutin_backend::GlutinFacade;
 
 use {Batch, Scene};
 
-use imgui::{ImGui, ImGuiSetCond_FirstUseEver};
-use imgui::glium_renderer::Renderer;
-
 pub struct RenderContext {
     pub window: GlutinFacade,
-    imgui: ImGui,
-    imgui_renderer: Renderer,
     batch_program: glium::Program,
 }
 
 impl RenderContext {
     #[allow(redundant_closure)]
     pub fn new(window: GlutinFacade) -> RenderContext {
-        let mut imgui = ImGui::init();
-        let imgui_renderer = Renderer::init(&mut imgui, &window).unwrap();
-
         RenderContext {
             batch_program: program!(&window, 140 => {
                 vertex: include_str!("shader/solid_140.glslv"),
                 fragment: include_str!("shader/solid_140.glslf")
             })
                 .unwrap(),
-                imgui: imgui,
-                imgui_renderer: imgui_renderer,
             window: window,
         }
     }
 
-    pub fn submit(&mut self, scene: &Scene) {
-        let mut target = self.window.draw();
-
+    pub fn submit<S: Surface>(&mut self, scene: &Scene, target: &mut S) {
         let view: [[f32; 4]; 4] =
             *Iso3::look_at_rh(&scene.eye.position, &scene.eye.target, &scene.eye.up)
                 .to_homogeneous()
@@ -96,20 +84,17 @@ impl RenderContext {
                 .unwrap();
         }
 
-        let size_points = self.window.get_window().unwrap().get_inner_size_points().unwrap();
-        let size_pixels = self.window.get_window().unwrap().get_inner_size_pixels().unwrap();
-        let ui = self.imgui.frame(size_points, size_pixels, 1.0/60.0);
+        // let size_points = self.window.get_window().unwrap().get_inner_size_points().unwrap();
+        // let size_pixels = self.window.get_window().unwrap().get_inner_size_pixels().unwrap();
+        // let ui = self.imgui.frame(size_points, size_pixels, 1.0 / 60.0);
 
-        ui.window(im_str!("Debug Info"))
-            .size((600.0, 200.0), ImGuiSetCond_FirstUseEver)
-            .build(|| {
-                for (key, &(ref text, ref color)) in scene.persistent_debug_text.iter().chain(scene.debug_text.iter()) {
-                    ui.text_colored(*color, im_str!("{}:\n{}", key, text));
-                }
-            });
+        // ui.window(im_str!("Debug Info"))
+        //     .size((600.0, 200.0), ImGuiSetCond_FirstUseEver)
+        //     .build(|| for (key, &(ref text, ref color)) in
+        //         scene.persistent_debug_text.iter().chain(scene.debug_text.iter()) {
+        //         ui.text_colored(*color, im_str!("{}:\n{}", key, text));
+        //     });
 
-        self.imgui_renderer.render(&mut target, ui).unwrap();
-
-        target.finish().unwrap();
+        // self.imgui_renderer.render(target, ui).unwrap();
     }
 }

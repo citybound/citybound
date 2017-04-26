@@ -11,11 +11,11 @@ pub struct Interaction {
 
 use super::InitInteractable;
 use monet::{Renderer, AddEyeListener};
-use core::ui::{UserInterface, Add, Focus};
+use core::stagemaster::{UserInterface, AddInteractable, Focus};
 
 impl Recipient<InitInteractable> for CurrentPlan {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {
-        UserInterface::id() << Add::Interactable3d(CurrentPlan::id(), AnyShape::Everywhere, 0);
+        UserInterface::id() << AddInteractable(CurrentPlan::id(), AnyShape::Everywhere, 0);
         UserInterface::id() << Focus(CurrentPlan::id());
         Renderer::id() <<
         AddEyeListener {
@@ -48,7 +48,7 @@ impl Recipient<EyeMoved> for CurrentPlan {
     }
 }
 
-use core::ui::{Event3d, VirtualKeyCode};
+use core::stagemaster::{Event3d, VirtualKeyCode};
 use super::{Intent, ChangeIntent, IntentProgress, Materialize, Undo, Redo, SetNLanes,
             ToggleBothSides};
 use super::stroke_canvas::{Stroke, StrokeState};
@@ -108,7 +108,9 @@ impl Recipient<Event3d> for CurrentPlan {
                     n_recipients: 5000,
                     message: Event3d::DragFinished {
                         from: P3::new(0.0, 0.0, 0.0),
+                        from2d: P2::new(0.0, 0.0),
                         to: P3::new(0.0, 0.0, 0.0),
+                        to2d: P2::new(0.0, 0.0),
                     },
                 };
                 Fate::Live

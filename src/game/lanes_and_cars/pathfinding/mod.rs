@@ -50,16 +50,16 @@ pub struct RoutingInfo {
     fresh: bool,
 }
 
-use core::ui::Add;
+use core::stagemaster::{UserInterface, AddInteractable};
 const DEBUG_CARS_ON_LANES: bool = false;
 
 pub fn on_build(lane: &mut Lane) {
     lane.pathfinding.as_destination = None;
     if DEBUG_CARS_ON_LANES {
-        ::core::ui::UserInterface::id() <<
-        Add::Interactable3d(lane.id(),
-                            AnyShape::Band(Band::new(lane.construction.path.clone(), 3.0)),
-                            5);
+        UserInterface::id() <<
+        AddInteractable(lane.id(),
+                        AnyShape::Band(Band::new(lane.construction.path.clone(), 3.0)),
+                        5);
     }
 }
 
@@ -502,7 +502,7 @@ pub fn setup() {
     Swarm::<Lane>::handle::<ForgetRoutes>();
     Swarm::<TransferLane>::handle::<ForgetRoutes>();
     Swarm::<Lane>::handle::<QueryAsDestination>();
-    Swarm::<Lane>::handle::<ToRandom<::core::ui::Event3d>>();
+    Swarm::<Lane>::handle::<ToRandom<::core::stagemaster::Event3d>>();
 
     trip::setup();
 }

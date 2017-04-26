@@ -21,29 +21,29 @@ impl Addable {
 }
 
 use super::InitInteractable;
-use core::ui::Add;
+use core::stagemaster::{UserInterface, AddInteractable};
 
 impl Recipient<InitInteractable> for Addable {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {
-        ::core::ui::UserInterface::id() <<
-        Add::Interactable3d(self.id(),
-                            AnyShape::Band(Band::new(self.path.clone(), 3.0)),
-                            3);
+        UserInterface::id() <<
+        AddInteractable(self.id(),
+                        AnyShape::Band(Band::new(self.path.clone(), 3.0)),
+                        3);
         Fate::Live
     }
 }
 
 use super::ClearInteractable;
-use core::ui::Remove;
+use core::stagemaster::RemoveInteractable;
 
 impl Recipient<ClearInteractable> for Addable {
     fn receive(&mut self, _msg: &ClearInteractable) -> Fate {
-        ::core::ui::UserInterface::id() << Remove::Interactable3d(self.id());
+        UserInterface::id() << RemoveInteractable(self.id());
         Fate::Die
     }
 }
 
-use core::ui::Event3d;
+use core::stagemaster::Event3d;
 use super::{ChangeIntent, Intent, IntentProgress};
 
 impl Recipient<Event3d> for Addable {
