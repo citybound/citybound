@@ -19,9 +19,6 @@ extern crate serde_json;
 extern crate serde;
 extern crate app_dirs;
 
-#[macro_use]
-extern crate imgui;
-
 use app_dirs::AppInfo;
 pub const APP_INFO: AppInfo = AppInfo {
     name: "Citybound",
@@ -36,6 +33,7 @@ extern crate kay;
 extern crate kay_macros;
 extern crate monet;
 extern crate descartes;
+extern crate stagemaster;
 
 mod core;
 mod game;
@@ -43,7 +41,7 @@ mod game;
 use monet::{Renderer, Control};
 use monet::glium::{DisplayBuild, glutin};
 use core::simulation::{Simulation, Tick};
-use core::stagemaster::{ProcessEvents, StartFrame, UserInterface, AddDebugText};
+use stagemaster::{ProcessEvents, StartFrame, UserInterface, AddDebugText};
 use game::lanes_and_cars::lane::{Lane, TransferLane};
 use game::lanes_and_cars::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use game::lanes_and_cars::rendering::lane_thing_collector::ThingCollector;
@@ -105,7 +103,7 @@ fn main() {
                            ThingCollector::<LaneMarker>::id(),
                            ThingCollector::<TransferLaneMarkerGaps>::id(),
                            CurrentPlan::id()];
-    core::stagemaster::setup(renderables, &window);
+    stagemaster::setup(renderables, &window);
 
     let mut last_frame = std::time::Instant::now();
 

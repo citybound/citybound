@@ -2,7 +2,7 @@ use kay::{ID, Recipient, Fate, Actor};
 use compact::CDict;
 use descartes::{N, Band, Path, FiniteCurve};
 use monet::{Thing, Instance};
-use core::geometry::band_to_thing;
+use stagemaster::geometry::band_to_thing;
 use super::{CurrentPlan, SelectableStrokeRef};
 use super::super::plan::{PlanDelta, BuiltStrokes, PlanResultDelta};
 use super::super::lane_stroke::LaneStroke;

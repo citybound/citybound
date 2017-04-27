@@ -1,6 +1,6 @@
 use kay::{Recipient, Actor, Fate};
 use super::CurrentPlan;
-use core::geometry::AnyShape;
+use stagemaster::geometry::AnyShape;
 use descartes::{N, P2};
 
 #[derive(Default)]
@@ -11,7 +11,7 @@ pub struct Interaction {
 
 use super::InitInteractable;
 use monet::{Renderer, AddEyeListener};
-use core::stagemaster::{UserInterface, AddInteractable, Focus};
+use stagemaster::{UserInterface, AddInteractable, Focus};
 
 impl Recipient<InitInteractable> for CurrentPlan {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {
@@ -48,7 +48,7 @@ impl Recipient<EyeMoved> for CurrentPlan {
     }
 }
 
-use core::stagemaster::{Event3d, VirtualKeyCode};
+use stagemaster::{Event3d, VirtualKeyCode};
 use super::{Intent, ChangeIntent, IntentProgress, Materialize, Undo, Redo, SetNLanes,
             ToggleBothSides};
 use super::stroke_canvas::{Stroke, StrokeState};

@@ -1,7 +1,7 @@
 use kay::{ID, Recipient, Actor, Fate};
 use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::Band;
-use core::geometry::{CPath, AnyShape};
+use stagemaster::geometry::{CPath, AnyShape};
 
 use super::CurrentPlan;
 
@@ -21,7 +21,7 @@ impl Addable {
 }
 
 use super::InitInteractable;
-use core::stagemaster::{UserInterface, AddInteractable};
+use stagemaster::{UserInterface, AddInteractable};
 
 impl Recipient<InitInteractable> for Addable {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {
@@ -34,7 +34,7 @@ impl Recipient<InitInteractable> for Addable {
 }
 
 use super::ClearInteractable;
-use core::stagemaster::RemoveInteractable;
+use stagemaster::RemoveInteractable;
 
 impl Recipient<ClearInteractable> for Addable {
     fn receive(&mut self, _msg: &ClearInteractable) -> Fate {
@@ -43,7 +43,7 @@ impl Recipient<ClearInteractable> for Addable {
     }
 }
 
-use core::stagemaster::Event3d;
+use stagemaster::Event3d;
 use super::{ChangeIntent, Intent, IntentProgress};
 
 impl Recipient<Event3d> for Addable {

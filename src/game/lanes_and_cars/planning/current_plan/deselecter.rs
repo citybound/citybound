@@ -1,5 +1,5 @@
 use kay::{Recipient, Actor, Fate};
-use core::geometry::AnyShape;
+use stagemaster::geometry::AnyShape;
 use super::CurrentPlan;
 
 #[derive(Default)]
@@ -7,7 +7,7 @@ pub struct Deselecter;
 impl Actor for Deselecter {}
 
 use super::InitInteractable;
-use core::stagemaster::{UserInterface, AddInteractable};
+use stagemaster::{UserInterface, AddInteractable};
 
 impl Recipient<InitInteractable> for Deselecter {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {
@@ -17,7 +17,7 @@ impl Recipient<InitInteractable> for Deselecter {
 }
 
 use super::ClearInteractable;
-use core::stagemaster::RemoveInteractable;
+use stagemaster::RemoveInteractable;
 
 impl Recipient<ClearInteractable> for Deselecter {
     fn receive(&mut self, _msg: &ClearInteractable) -> Fate {
@@ -26,7 +26,7 @@ impl Recipient<ClearInteractable> for Deselecter {
     }
 }
 
-use core::stagemaster::Event3d;
+use stagemaster::Event3d;
 use super::{ChangeIntent, Intent, IntentProgress};
 
 impl Recipient<Event3d> for Deselecter {

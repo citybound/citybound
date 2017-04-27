@@ -3,7 +3,7 @@ use compact::CVec;
 use kay::{Actor, Recipient, Fate};
 use kay::swarm::{Swarm, SubActor, RecipientAsSwarm};
 use monet::{Instance, Thing, Vertex, UpdateThing};
-use core::geometry::{band_to_thing, dash_path};
+use stagemaster::geometry::{band_to_thing, dash_path};
 use super::lane::{Lane, TransferLane};
 use super::connectivity::InteractionKind;
 use itertools::Itertools;
@@ -197,14 +197,14 @@ impl Recipient<RenderToScene> for Lane {
                         instance_position: [position2d.x, position2d.y, 0.0],
                         instance_direction: [direction.x, direction.y],
                         instance_color: if DEBUG_VIEW_LANDMARKS {
-                            ::core::geometry::RANDOM_COLORS[
+                            ::core::colors::RANDOM_COLORS[
                                 car.destination.landmark.sub_actor_id as usize
-                                    % ::core::geometry::RANDOM_COLORS.len()
+                                    % ::core::colors::RANDOM_COLORS.len()
                             ]
                         } else {
-                            ::core::geometry::RANDOM_COLORS[
+                            ::core::colors::RANDOM_COLORS[
                                 car.trip.sub_actor_id as usize
-                                    % ::core::geometry::RANDOM_COLORS.len()
+                                    % ::core::colors::RANDOM_COLORS.len()
                             ]
                         }
                     })
@@ -382,9 +382,9 @@ impl Recipient<RenderToScene> for Lane {
                     let (random_color, is_landmark) = if let Some(as_destination) =
                         self.pathfinding.as_destination {
                         let random_color: [f32; 3] =
-                            ::core::geometry::RANDOM_COLORS[as_destination.landmark
+                            ::core::colors::RANDOM_COLORS[as_destination.landmark
                                 .sub_actor_id as usize %
-                            ::core::geometry::RANDOM_COLORS.len()];
+                            ::core::colors::RANDOM_COLORS.len()];
                         let weaker_random_color = [(random_color[0] + 1.0) / 2.0,
                                                    (random_color[1] + 1.0) / 2.0,
                                                    (random_color[2] + 1.0) / 2.0];
@@ -434,14 +434,14 @@ impl Recipient<RenderToScene> for TransferLane {
                             instance_position: [shifted_position2d.x, shifted_position2d.y, 0.0],
                             instance_direction: [rotated_direction.x, rotated_direction.y],
                             instance_color: if DEBUG_VIEW_LANDMARKS {
-                                ::core::geometry::RANDOM_COLORS[
+                                ::core::colors::RANDOM_COLORS[
                                     car.destination.landmark.sub_actor_id as usize
-                                        % ::core::geometry::RANDOM_COLORS.len()
+                                        % ::core::colors::RANDOM_COLORS.len()
                                 ]
                             } else {
-                                ::core::geometry::RANDOM_COLORS[
+                                ::core::colors::RANDOM_COLORS[
                                     car.trip.sub_actor_id as usize
-                                        % ::core::geometry::RANDOM_COLORS.len()
+                                        % ::core::colors::RANDOM_COLORS.len()
                                 ]
                             }
                         })

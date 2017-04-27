@@ -1,7 +1,7 @@
 use descartes::{N, P2, Path, Norm, Band, Intersect, convex_hull, Curve, FiniteCurve,
                 RoughlyComparable, Dot, WithUniqueOrthogonal, Segment, HasBoundingBox, BoundingBox};
 use compact::{CVec, CDict};
-use core::geometry::CPath;
+use stagemaster::geometry::CPath;
 use core::disjoint_sets::DisjointSets;
 use ordered_float::OrderedFloat;
 use itertools::Itertools;

@@ -1,7 +1,7 @@
 use kay::{Recipient, Actor, Fate};
 use compact::CVec;
 use descartes::{P2, Into2d, RoughlyComparable};
-use core::geometry::AnyShape;
+use stagemaster::geometry::AnyShape;
 use super::CurrentPlan;
 
 #[derive(Compact, Clone, Default)]
@@ -21,7 +21,7 @@ pub enum StrokeState {
 #[derive(Compact, Clone)]
 pub struct Stroke(pub CVec<P2>, pub StrokeState);
 
-use core::stagemaster::Event3d;
+use stagemaster::Event3d;
 
 const FINISH_STROKE_TOLERANCE: f32 = 5.0;
 
@@ -79,7 +79,7 @@ impl Recipient<SetPoints> for StrokeCanvas {
 }
 
 use super::InitInteractable;
-use core::stagemaster::{UserInterface, AddInteractable};
+use stagemaster::{UserInterface, AddInteractable};
 
 impl Recipient<InitInteractable> for StrokeCanvas {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {

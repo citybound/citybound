@@ -2,7 +2,7 @@ use compact::CVec;
 use kay::{ID, Actor};
 use kay::swarm::Swarm;
 use descartes::{N, FiniteCurve};
-use core::geometry::CPath;
+use stagemaster::geometry::CPath;
 
 use super::construction::ConstructionInfo;
 use super::connectivity::{ConnectivityInfo, TransferConnectivityInfo};

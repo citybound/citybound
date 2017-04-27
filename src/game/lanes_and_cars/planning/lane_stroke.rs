@@ -3,7 +3,7 @@ use compact::CVec;
 use kay::ID;
 use kay::swarm::{Swarm, CreateWith};
 use monet::Thing;
-use core::geometry::{CPath, band_to_thing};
+use stagemaster::geometry::{CPath, band_to_thing};
 use super::super::construction::materialized_reality::BuildableRef;
 use super::super::lane::{Lane, TransferLane};
 use super::super::construction::AdvertiseToTransferAndReport;
@@ -59,8 +59,8 @@ impl LaneStroke {
     pub fn well_formed(&self) -> bool {
         !self.nodes.windows(2).any(|window|
             window[0].position.is_roughly_within(window[1].position, MIN_NODE_DISTANCE)
-            //::core::geometry::add_debug_point(window[0].position, [1.0, 0.0, 1.0], 0.5);
-            //::core::geometry::add_debug_point(window[1].position, [1.0, 0.0, 1.0], 0.5);
+            //::stagemaster::geometry::CPath::add_debug_point(window[0].position, [1.0, 0.0, 1.0], 0.5);
+            //::stagemaster::geometry::CPath::add_debug_point(window[1].position, [1.0, 0.0, 1.0], 0.5);
         )
     }
 

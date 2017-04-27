@@ -110,7 +110,7 @@ impl Recipient<AddLaneForTrip> for TripCreator {
 }
 
 use super::super::lane::Lane;
-use core::stagemaster::Event3d;
+use stagemaster::Event3d;
 
 impl Recipient<Event3d> for Lane {
     fn receive(&mut self, msg: &Event3d) -> Fate {

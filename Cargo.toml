@@ -13,7 +13,8 @@ members = [
     "./lib/descartes",
     "./lib/kay",
     "./lib/kay_macros",
-    "./lib/monet"
+    "./lib/monet",
+    './lib/stagemaster'
 ]
 
 [dependencies]
@@ -28,7 +29,6 @@ serde = "=0.8.21"
 serde_derive = "=0.8.21"
 serde_json = "=0.8.4"
 app_dirs = "1.1.1"
-imgui = "0.0.11"
 
 [dependencies.compact]
 path = "./lib/compact/"
@@ -47,6 +47,9 @@ path = "./lib/descartes/"
 
 [dependencies.monet]
 path = "./lib/monet/"
+
+[dependencies.stagemaster]
+path = "./lib/stagemaster/"
 
 [profile.dev]
 opt-level = 1

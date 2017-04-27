@@ -1,7 +1,7 @@
 use kay::{ID, Recipient, Actor, Fate};
 use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::{N, Band, Into2d, Norm};
-use core::geometry::{CPath, AnyShape};
+use stagemaster::geometry::{CPath, AnyShape};
 
 use super::{SelectableStrokeRef, CurrentPlan};
 
@@ -23,7 +23,7 @@ impl Draggable {
 }
 
 use super::InitInteractable;
-use core::stagemaster::{UserInterface, AddInteractable};
+use stagemaster::{UserInterface, AddInteractable};
 
 impl Recipient<InitInteractable> for Draggable {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {
@@ -36,7 +36,7 @@ impl Recipient<InitInteractable> for Draggable {
 }
 
 use super::ClearInteractable;
-use core::stagemaster::RemoveInteractable;
+use stagemaster::RemoveInteractable;
 
 impl Recipient<ClearInteractable> for Draggable {
     fn receive(&mut self, _msg: &ClearInteractable) -> Fate {
@@ -45,7 +45,7 @@ impl Recipient<ClearInteractable> for Draggable {
     }
 }
 
-use core::stagemaster::Event3d;
+use stagemaster::Event3d;
 use super::{ChangeIntent, Intent, IntentProgress};
 
 const MAXIMIZE_DISTANCE: N = 0.5;

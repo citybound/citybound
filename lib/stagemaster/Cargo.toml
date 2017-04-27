@@ -1,0 +1,22 @@
+[package]
+name = "stagemaster"
+version = "0.1.0"
+authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
+
+[dependencies]
+imgui = "0.0.11"
+
+[dependencies.kay]
+path = "../kay"
+
+[dependencies.compact]
+path = "../compact"
+
+[dependencies.compact_macros]
+path = "../compact_macros"
+
+[dependencies.descartes]
+path = "../descartes"
+
+[dependencies.monet]
+path = "../monet"

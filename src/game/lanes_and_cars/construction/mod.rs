@@ -4,7 +4,7 @@ use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::{N, P2, Dot, Band, Curve, FiniteCurve, Path, RoughlyComparable, Intersect,
                 WithUniqueOrthogonal};
 use itertools::Itertools;
-use core::geometry::CPath;
+use stagemaster::geometry::CPath;
 use ordered_float::OrderedFloat;
 
 use super::lane::{Lane, TransferLane};
@@ -249,7 +249,7 @@ impl Recipient<ConnectOverlaps> for Lane {
                                                        .path
                                                        .direction_along(exit_distance),
                                                    0.1) {
-                                // ::core::geometry::add_debug_path(
+                                // ::stagemaster::geometry::CPath::add_debug_path(
                                 //     self.construction.path
                                 //         .subsection(entry_distance, exit_distance).unwrap(),
                                 //     [1.0, 0.5, 0.0],
@@ -257,7 +257,7 @@ impl Recipient<ConnectOverlaps> for Lane {
                                 // );
                                 OverlapKind::Parallel
                             } else {
-                                // ::core::geometry::add_debug_path(
+                                // ::stagemaster::geometry::CPath::add_debug_path(
                                 //     self.construction.path
                                 //         .subsection(entry_distance, exit_distance).unwrap(),
                                 //     [1.0, 0.0, 0.0],

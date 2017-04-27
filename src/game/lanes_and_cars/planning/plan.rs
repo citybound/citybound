@@ -1,6 +1,6 @@
 use descartes::{N, RoughlyComparable};
 use compact::{CVec, CDict};
-use core::geometry::CPath;
+use stagemaster::geometry::CPath;
 use itertools::Itertools;
 use super::lane_stroke::{LaneStroke, LaneStrokeNode};
 

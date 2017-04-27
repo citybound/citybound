@@ -1,9 +1,20 @@
+extern crate compact;
+#[macro_use]
+extern crate compact_macros;
+extern crate kay;
+extern crate monet;
+extern crate descartes;
+#[macro_use]
+extern crate imgui;
+
+pub mod geometry;
+
 use kay::{ID, Actor, Recipient, Fate};
 use descartes::{N, P2, V2, P3, Into2d, Shape};
 use monet::{Renderer, Scene, GlutinFacade};
 use monet::glium::glutin::{Event, MouseScrollDelta, ElementState, MouseButton};
 pub use monet::glium::glutin::VirtualKeyCode;
-use core::geometry::AnyShape;
+use geometry::AnyShape;
 use std::collections::HashMap;
 use imgui::{ImGui, ImGuiSetCond_FirstUseEver, ImGuiKey};
 use imgui::glium_renderer::Renderer as ImguiRenderer;

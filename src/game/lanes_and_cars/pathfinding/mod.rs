@@ -1,7 +1,7 @@
 use compact::{CDict, CVec};
 use kay::{ID, Actor, Recipient, Fate};
 use kay::swarm::{Swarm, SubActor};
-use core::geometry::AnyShape;
+use stagemaster::geometry::AnyShape;
 use descartes::Band;
 use super::lane::{Lane, TransferLane};
 use super::connectivity::{Interaction, InteractionKind, OverlapKind};
@@ -50,7 +50,7 @@ pub struct RoutingInfo {
     fresh: bool,
 }
 
-use core::stagemaster::{UserInterface, AddInteractable};
+use stagemaster::{UserInterface, AddInteractable};
 const DEBUG_CARS_ON_LANES: bool = false;
 
 pub fn on_build(lane: &mut Lane) {
@@ -502,7 +502,7 @@ pub fn setup() {
     Swarm::<Lane>::handle::<ForgetRoutes>();
     Swarm::<TransferLane>::handle::<ForgetRoutes>();
     Swarm::<Lane>::handle::<QueryAsDestination>();
-    Swarm::<Lane>::handle::<ToRandom<::core::stagemaster::Event3d>>();
+    Swarm::<Lane>::handle::<ToRandom<::stagemaster::Event3d>>();
 
     trip::setup();
 }
