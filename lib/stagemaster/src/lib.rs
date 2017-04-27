@@ -7,7 +7,15 @@ extern crate descartes;
 #[macro_use]
 extern crate imgui;
 
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
+extern crate serde_json;
+extern crate app_dirs;
+
 pub mod geometry;
+pub mod environment;
+pub mod camera_control;
 
 use kay::{ID, Actor, Recipient, Fate};
 use descartes::{N, P2, V2, P3, Into2d, Shape};
@@ -15,7 +23,7 @@ use monet::{Renderer, Scene, GlutinFacade};
 use monet::glium::glutin::{Event, MouseScrollDelta, ElementState, MouseButton};
 pub use monet::glium::glutin::VirtualKeyCode;
 use geometry::AnyShape;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use imgui::{ImGui, ImGuiSetCond_FirstUseEver, ImGuiKey};
 use imgui::glium_renderer::Renderer as ImguiRenderer;
 use std::collections::BTreeMap;
@@ -30,7 +38,7 @@ pub struct UserInterface {
     interactables: HashMap<ID, (AnyShape, usize)>,
     hovered_interactable: Option<ID>,
     active_interactable: Option<ID>,
-    focused_interactable: Option<ID>,
+    focused_interactables: HashSet<ID>,
     imgui: ImGui,
     imgui_capture_keyboard: bool,
     imgui_capture_mouse: bool,
@@ -76,7 +84,7 @@ impl UserInterface {
             interactables: HashMap::new(),
             hovered_interactable: None,
             active_interactable: None,
-            focused_interactable: None,
+            focused_interactables: HashSet::new(),
             imgui: imgui,
             imgui_capture_keyboard: false,
             imgui_capture_mouse: false,
@@ -107,8 +115,9 @@ impl Recipient<ProcessEvents> for UserInterface {
                     self.imgui.set_mouse_wheel(v.y / scale.1);
 
                     if !self.imgui_capture_mouse {
-                        self.focused_interactable
-                            .map(|interactable| interactable << Event3d::Scroll(v));
+                        for interactable in &self.focused_interactables {
+                            *interactable << Event3d::Scroll(v)
+                        }
                     }
                 }
                 Event::MouseMoved(x, y) => {
@@ -116,6 +125,10 @@ impl Recipient<ProcessEvents> for UserInterface {
 
                     self.imgui
                         .set_mouse_pos(self.cursor_2d.x / scale.0, self.cursor_2d.y / scale.1);
+
+                    for interactable in &self.focused_interactables {
+                        *interactable << Event3d::MouseMove(self.cursor_2d);
+                    }
 
                     Renderer::id() <<
                     Project2dTo3d {
@@ -207,14 +220,14 @@ impl Recipient<ProcessEvents> for UserInterface {
                             _ => {}
                         }
                     } else {
-                        self.focused_interactable.map(|interactable| {
-                            interactable <<
+                        for interactable in &self.focused_interactables {
+                            *interactable <<
                             if pressed {
                                 Event3d::KeyDown(key_code)
                             } else {
                                 Event3d::KeyUp(key_code)
                             }
-                        });
+                        }
                     }
                 }
                 Event::ReceivedCharacter(c) => self.imgui.add_input_character(c),
@@ -261,7 +274,7 @@ impl Recipient<Focus> for UserInterface {
     fn receive(&mut self, msg: &Focus) -> Fate {
         match *msg {
             Focus(id) => {
-                self.focused_interactable = Some(id);
+                self.focused_interactables.insert(id);
                 Fate::Live
             }
         }
@@ -290,6 +303,8 @@ pub enum Event3d {
     HoverOngoing { at: P3, at2d: P2 },
     HoverStopped,
     Scroll(V2),
+    MouseMove(P2),
+    MouseMove3d(P3),
     KeyDown(VirtualKeyCode),
     KeyUp(VirtualKeyCode),
 }
@@ -337,6 +352,10 @@ impl Recipient<Projected3d> for UserInterface {
                         };
                     }
                     self.hovered_interactable = new_hovered_interactable;
+                }
+
+                for interactable in &self.focused_interactables {
+                    *interactable << Event3d::MouseMove3d(self.cursor_3d);
                 }
                 Fate::Live
             }
@@ -426,7 +445,7 @@ impl Recipient<AddDebugText> for UserInterface {
     }
 }
 
-pub fn setup(renderables: Vec<ID>, window: &GlutinFacade) {
+pub fn setup(renderables: Vec<ID>, env: &environment::Environment, window: &GlutinFacade) {
     let mut renderer = Renderer::new(window.clone());
     let mut scene = Scene::new();
     scene.eye.position *= 30.0;
@@ -444,4 +463,6 @@ pub fn setup(renderables: Vec<ID>, window: &GlutinFacade) {
     UserInterface::handle_critically::<Projected3d>();
     UserInterface::handle_critically::<Submitted>();
     UserInterface::handle_critically::<AddDebugText>();
+
+    camera_control::setup(env);
 }

@@ -13,17 +13,6 @@ extern crate random;
 extern crate fnv;
 extern crate roaring;
 extern crate open;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-extern crate serde;
-extern crate app_dirs;
-
-use app_dirs::AppInfo;
-pub const APP_INFO: AppInfo = AppInfo {
-    name: "Citybound",
-    author: "ae_play",
-};
 
 extern crate compact;
 #[macro_use]
@@ -34,6 +23,14 @@ extern crate kay_macros;
 extern crate monet;
 extern crate descartes;
 extern crate stagemaster;
+
+use stagemaster::environment::Environment;
+
+pub const ENV: Environment = Environment {
+    name: "Citybound",
+    author: "ae play",
+    version: "0.1.2",
+};
 
 mod core;
 mod game;
@@ -103,14 +100,14 @@ fn main() {
                            ThingCollector::<LaneMarker>::id(),
                            ThingCollector::<TransferLaneMarkerGaps>::id(),
                            CurrentPlan::id()];
-    stagemaster::setup(renderables, &window);
+    stagemaster::setup(renderables, &ENV, &window);
 
     let mut last_frame = std::time::Instant::now();
 
     UserInterface::id() <<
     AddDebugText {
         key: "Version".chars().collect(),
-        text: "0.1.2".chars().collect(),
+        text: ENV.version.chars().collect(),
         color: [1.0, 1.0, 1.0, 1.0],
         persistent: true,
     };
