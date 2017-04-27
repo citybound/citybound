@@ -1,3 +1,7 @@
+#![feature(plugin)]
+#![plugin(clippy)]
+#![allow(no_effect, unnecessary_operation)]
+
 extern crate compact;
 #[macro_use]
 extern crate compact_macros;
@@ -15,6 +19,7 @@ extern crate app_dirs;
 
 pub mod geometry;
 pub mod environment;
+pub mod combo;
 pub mod camera_control;
 
 use kay::{ID, Actor, Recipient, Fate};
@@ -31,6 +36,7 @@ use std::collections::BTreeMap;
 pub struct UserInterface {
     window: GlutinFacade,
     mouse_button_state: [bool; 5],
+    combo_listener: combo::ComboListener,
     cursor_2d: P2,
     cursor_3d: P3,
     drag_start_2d: Option<P2>,
@@ -77,6 +83,7 @@ impl UserInterface {
         UserInterface {
             window: window,
             mouse_button_state: [false; 5],
+            combo_listener: combo::ComboListener::default(),
             cursor_2d: P2::new(0.0, 0.0),
             cursor_3d: P3::new(0.0, 0.0, 0.0),
             drag_start_2d: None,
@@ -150,6 +157,8 @@ impl Recipient<ProcessEvents> for UserInterface {
                     self.imgui.set_mouse_down(&self.mouse_button_state);
 
                     if !self.imgui_capture_mouse {
+                        self.combo_listener.update(&event);
+
                         if pressed {
                             self.drag_start_2d = Some(self.cursor_2d);
                             self.drag_start_3d = Some(self.cursor_3d);
@@ -178,6 +187,17 @@ impl Recipient<ProcessEvents> for UserInterface {
                             self.drag_start_2d = None;
                             self.drag_start_3d = None;
                             self.active_interactable = None;
+                        }
+
+                        for interactable in &self.focused_interactables {
+                            *interactable <<
+                            if pressed {
+                                Event3d::ButtonDown(button.into())
+                            } else {
+                                Event3d::ButtonUp(button.into())
+                            };
+
+                            *interactable << Event3d::Combos(self.combo_listener);
                         }
                     }
                 }
@@ -220,19 +240,27 @@ impl Recipient<ProcessEvents> for UserInterface {
                             _ => {}
                         }
                     } else {
+                        self.combo_listener.update(&event);
+
                         for interactable in &self.focused_interactables {
                             *interactable <<
                             if pressed {
-                                Event3d::KeyDown(key_code)
+                                Event3d::ButtonDown(key_code.into())
                             } else {
-                                Event3d::KeyUp(key_code)
-                            }
+                                Event3d::ButtonUp(key_code.into())
+                            };
+
+                            *interactable << Event3d::Combos(self.combo_listener);
                         }
                     }
                 }
                 Event::ReceivedCharacter(c) => self.imgui.add_input_character(c),
                 _ => {}
             }
+        }
+
+        for interactable in self.interactables.keys() {
+            *interactable << Event3d::Frame
         }
 
         Fate::Live
@@ -305,8 +333,10 @@ pub enum Event3d {
     Scroll(V2),
     MouseMove(P2),
     MouseMove3d(P3),
-    KeyDown(VirtualKeyCode),
-    KeyUp(VirtualKeyCode),
+    ButtonDown(combo::Button),
+    ButtonUp(combo::Button),
+    Combos(combo::ComboListener),
+    Frame,
 }
 
 use monet::Projected3d;

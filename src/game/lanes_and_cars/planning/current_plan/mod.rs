@@ -20,7 +20,7 @@ use self::draggable::Draggable;
 mod addable;
 use self::addable::Addable;
 mod interaction;
-use self::interaction::Interaction;
+use self::interaction::InteractionSettings;
 
 #[derive(Compact, Clone, Default)]
 pub struct PlanStep {
@@ -107,7 +107,7 @@ pub struct CurrentPlan {
     preview_result_delta_rendered: bool,
     interactables_valid: bool,
     settings: Settings,
-    interaction: Interaction,
+    interaction: InteractionSettings,
 }
 impl Actor for CurrentPlan {}
 

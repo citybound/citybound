@@ -16,7 +16,7 @@ impl Environment {
         };
         ::app_dirs::app_root(::app_dirs::AppDataType::UserConfig, &app_info)
             .expect("Expected settings dir to exist")
-            .join(format!("{}", self.version))
+            .join(self.version)
             .join([category, ".json"].concat())
     }
 
@@ -30,7 +30,7 @@ impl Environment {
             Ok(settings) => settings,
             Err(err) => {
                 println!("Error loading {} settings: {}", category, err);
-                return S::default();
+                S::default()
             }
         }
     }
@@ -38,17 +38,13 @@ impl Environment {
     pub fn write_settings<S>(&self, category: &str, settings: &S)
         where S: Serialize + Default
     {
-        match File::open(self.setting_path(category))
+        if let Err(err) = File::open(self.setting_path(category))
             .as_mut()
             .map_err(|err| format!("{}", err))
             .and_then(|file| {
                 ::serde_json::to_writer_pretty(file, settings).map_err(|err| format!("{}", err))
             }) {
-            Err(err) => {
-                println!("Error writing {} settings: {}", category, err);
-            }
-            _ => {}
+            println!("Error writing {} settings: {}", category, err);
         }
-
     }
 }

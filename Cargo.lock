@@ -3,6 +3,7 @@ name = "stagemaster"
 version = "0.1.0"
 dependencies = [
  "app_dirs 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "clippy 0.0.106 (registry+https://github.com/rust-lang/crates.io-index)",
  "compact 0.1.0",
  "compact_macros 0.1.0",
  "descartes 0.1.0",
@@ -124,6 +125,8 @@ dependencies = [
  "ordered-float 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "random 0.12.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "roaring 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "stagemaster 0.1.0",
 ]
 

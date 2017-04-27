@@ -23,6 +23,9 @@ extern crate kay_macros;
 extern crate monet;
 extern crate descartes;
 extern crate stagemaster;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
 
 use stagemaster::environment::Environment;
 

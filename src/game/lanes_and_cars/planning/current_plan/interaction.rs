@@ -1,12 +1,33 @@
 use kay::{Recipient, Actor, Fate};
 use super::CurrentPlan;
 use stagemaster::geometry::AnyShape;
+use stagemaster::combo::{Combo, Combo2};
+use stagemaster::combo::Button::*;
 use descartes::{N, P2};
 
-#[derive(Default)]
-pub struct Interaction {
-    cmd_pressed: bool,
-    shift_pressed: bool,
+#[derive(Serialize, Deserialize)]
+pub struct InteractionSettings {
+    materialize_combo: Combo,
+    undo_combo: Combo2,
+    redo_combo: Combo2,
+    spawn_car_combo: Combo,
+    create_small_grid_combo: Combo,
+    create_large_grid_combo: Combo,
+    delete_combo: Combo2,
+}
+
+impl Default for InteractionSettings {
+    fn default() -> Self {
+        InteractionSettings {
+            materialize_combo: Combo::new(&[Return]),
+            undo_combo: Combo2::new(&[LControl, Z], &[LWin, Z]),
+            redo_combo: Combo2::new(&[LControl, LShift, Z], &[LWin, LShift, Z]),
+            spawn_car_combo: Combo::new(&[C]),
+            create_small_grid_combo: Combo::new(&[G]),
+            create_large_grid_combo: Combo::new(&[LShift, G]),
+            delete_combo: Combo2::new(&[Back], &[Delete]),
+        }
+    }
 }
 
 use super::InitInteractable;
@@ -48,7 +69,7 @@ impl Recipient<EyeMoved> for CurrentPlan {
     }
 }
 
-use stagemaster::{Event3d, VirtualKeyCode};
+use stagemaster::Event3d;
 use super::{Intent, ChangeIntent, IntentProgress, Materialize, Undo, Redo, SetNLanes,
             ToggleBothSides};
 use super::stroke_canvas::{Stroke, StrokeState};
@@ -56,132 +77,81 @@ use super::stroke_canvas::{Stroke, StrokeState};
 impl Recipient<Event3d> for CurrentPlan {
     fn receive(&mut self, msg: &Event3d) -> Fate {
         match *msg {
-            Event3d::KeyDown(VirtualKeyCode::Return) => {
-                CurrentPlan::id() << Materialize;
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::LControl) |
-            Event3d::KeyDown(VirtualKeyCode::RControl) |
-            Event3d::KeyDown(VirtualKeyCode::LWin) |
-            Event3d::KeyDown(VirtualKeyCode::RWin) => {
-                self.interaction.cmd_pressed = true;
-                Fate::Live
-            }
-            Event3d::KeyUp(VirtualKeyCode::LControl) |
-            Event3d::KeyUp(VirtualKeyCode::RControl) |
-            Event3d::KeyUp(VirtualKeyCode::LWin) |
-            Event3d::KeyUp(VirtualKeyCode::RWin) => {
-                self.interaction.cmd_pressed = false;
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::LShift) |
-            Event3d::KeyDown(VirtualKeyCode::RShift) => {
-                self.interaction.shift_pressed = true;
-                Fate::Live
-            }
-            Event3d::KeyUp(VirtualKeyCode::LShift) |
-            Event3d::KeyUp(VirtualKeyCode::RShift) => {
-                self.interaction.shift_pressed = false;
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Z) => {
-                if self.interaction.cmd_pressed {
-                    if self.interaction.shift_pressed {
-                        CurrentPlan::id() << Redo;
+            Event3d::Combos(combos) => {
+                if self.interaction.materialize_combo.is_freshly_in(&combos) {
+                    CurrentPlan::id() << Materialize;
+                }
+
+                if self.interaction.redo_combo.is_freshly_in(&combos) {
+                    CurrentPlan::id() << Redo;
+                } else if self.interaction.undo_combo.is_freshly_in(&combos) {
+                    CurrentPlan::id() << Undo;
+                }
+
+                if self.interaction.spawn_car_combo.is_freshly_in(&combos) {
+                    // TODO: this is not supposed to be here!
+                    //       *but we have only one focusable!*
+                    //       WTF?! what's wrong with your UI model?
+                    //       *I uh.. I guess I should actually write a good one*
+                    //       When will you finally?!
+                    //       *Uh.. next week maybe?*
+                    use kay::swarm::{Swarm, ToRandom};
+                    use descartes::P3;
+                    Swarm::<::game::lanes_and_cars::lane::Lane>::all() <<
+                    ToRandom {
+                        n_recipients: 5000,
+                        message: Event3d::DragFinished {
+                            from: P3::new(0.0, 0.0, 0.0),
+                            from2d: P2::new(0.0, 0.0),
+                            to: P3::new(0.0, 0.0, 0.0),
+                            to2d: P2::new(0.0, 0.0),
+                        },
+                    };
+                }
+
+                let maybe_grid_size =
+                    if self.interaction.create_large_grid_combo.is_freshly_in(&combos) {
+                        Some(15usize)
+                    } else if self.interaction
+                        .create_small_grid_combo
+                        .is_freshly_in(&combos) {
+                        Some(10usize)
                     } else {
-                        CurrentPlan::id() << Undo;
+                        None
+                    };
+
+                if let Some(grid_size) = maybe_grid_size {
+                    const GRID_SPACING: N = 1000.0;
+                    for x in 0..grid_size {
+                        Self::id() <<
+                        Stroke(vec![P2::new((x as f32 + 0.5) * GRID_SPACING, 0.0),
+                                    P2::new((x as f32 + 0.5) * GRID_SPACING,
+                                            grid_size as f32 * GRID_SPACING)]
+                                   .into(),
+                               StrokeState::Finished);
+                    }
+                    for y in 0..grid_size {
+                        Self::id() <<
+                        Stroke(vec![P2::new(0.0, (y as f32 + 0.5) * GRID_SPACING),
+                                    P2::new(grid_size as f32 * GRID_SPACING,
+                                            (y as f32 + 0.5) * GRID_SPACING)]
+                                   .into(),
+                               StrokeState::Finished);
                     }
                 }
+
+                if self.interaction.delete_combo.is_freshly_in(&combos) {
+                    Self::id() << ChangeIntent(Intent::DeleteSelection, IntentProgress::Immediate);
+                }
+
                 Fate::Live
             }
-            Event3d::KeyDown(VirtualKeyCode::C) => {
-                // TODO: this is not supposed to be here!
-                //       *but we have only one focusable!*
-                //       WTF?! what's wrong with your UI model?
-                //       *I uh.. I guess I should actually write a good one*
-                //       When will you finally?!
-                //       *Uh.. next week maybe?*
-                use kay::swarm::{Swarm, ToRandom};
-                use descartes::P3;
-                Swarm::<::game::lanes_and_cars::lane::Lane>::all() <<
-                ToRandom {
-                    n_recipients: 5000,
-                    message: Event3d::DragFinished {
-                        from: P3::new(0.0, 0.0, 0.0),
-                        from2d: P2::new(0.0, 0.0),
-                        to: P3::new(0.0, 0.0, 0.0),
-                        to2d: P2::new(0.0, 0.0),
-                    },
-                };
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::G) => {
-                const GRID_SPACING: N = 1000.0;
-                let grid_size = if self.interaction.shift_pressed {
-                    15usize
+            Event3d::ButtonDown(NumberKey(num)) => {
+                if num == 0 {
+                    Self::id() << ToggleBothSides;
                 } else {
-                    10usize
-                };
-                for x in 0..grid_size {
-                    Self::id() <<
-                    Stroke(vec![P2::new((x as f32 + 0.5) * GRID_SPACING, 0.0),
-                                P2::new((x as f32 + 0.5) * GRID_SPACING,
-                                        grid_size as f32 * GRID_SPACING)]
-                               .into(),
-                           StrokeState::Finished);
+                    Self::id() << SetNLanes(num as usize);
                 }
-                for y in 0..grid_size {
-                    Self::id() <<
-                    Stroke(vec![P2::new(0.0, (y as f32 + 0.5) * GRID_SPACING),
-                                P2::new(grid_size as f32 * GRID_SPACING,
-                                        (y as f32 + 0.5) * GRID_SPACING)]
-                               .into(),
-                           StrokeState::Finished);
-                }
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Back) => {
-                Self::id() << ChangeIntent(Intent::DeleteSelection, IntentProgress::Immediate);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key1) => {
-                Self::id() << SetNLanes(1);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key2) => {
-                Self::id() << SetNLanes(2);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key3) => {
-                Self::id() << SetNLanes(3);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key4) => {
-                Self::id() << SetNLanes(4);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key5) => {
-                Self::id() << SetNLanes(5);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key6) => {
-                Self::id() << SetNLanes(6);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key7) => {
-                Self::id() << SetNLanes(7);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key8) => {
-                Self::id() << SetNLanes(8);
-                Fate::Live
-            }
-            Event3d::KeyDown(VirtualKeyCode::Key9) => {
-                Self::id() << SetNLanes(9);
-                Fate::Live
-            }
-            Event3d::KeyUp(VirtualKeyCode::Key0) => {
-                Self::id() << ToggleBothSides;
                 Fate::Live
             }
             _ => Fate::Live,

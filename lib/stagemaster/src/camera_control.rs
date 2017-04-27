@@ -1,7 +1,8 @@
 use kay::{Actor, Recipient, Fate};
 use monet::{Renderer, MoveEye, Movement};
-use descartes::{P2, P3};
-use monet::glium::glutin::VirtualKeyCode;
+use descartes::{P2, P3, V3};
+use combo::Button::*;
+use super::combo::Combo2;
 
 #[derive(Serialize, Deserialize)]
 pub struct CameraControlSettings {
@@ -10,20 +11,13 @@ pub struct CameraControlSettings {
     pub zoom_speed: f32,
     pub invert_y: bool,
 
-    #[serde(with = "VirtualKeyCodeDef")]
-    pub forward_key: VirtualKeyCode,
-    #[serde(with = "VirtualKeyCodeDef")]
-    pub backward_key: VirtualKeyCode,
-    #[serde(with = "VirtualKeyCodeDef")]
-    pub left_key: VirtualKeyCode,
-    #[serde(with = "VirtualKeyCodeDef")]
-    pub right_key: VirtualKeyCode,
-    #[serde(with = "VirtualKeyCodeDef")]
-    pub pan_modifier_key: VirtualKeyCode,
-    #[serde(with = "VirtualKeyCodeDef")]
-    pub yaw_modifier_key: VirtualKeyCode,
-    #[serde(with = "VirtualKeyCodeDef")]
-    pub pitch_modifier_key: VirtualKeyCode,
+    pub forward_combo: Combo2,
+    pub backward_combo: Combo2,
+    pub left_combo: Combo2,
+    pub right_combo: Combo2,
+    pub pan_modifier_combo: Combo2,
+    pub yaw_modifier_combo: Combo2,
+    pub pitch_modifier_combo: Combo2,
 }
 
 impl Default for CameraControlSettings {
@@ -34,13 +28,13 @@ impl Default for CameraControlSettings {
             move_speed: 1.0f32,
             invert_y: false,
 
-            forward_key: VirtualKeyCode::Up,
-            backward_key: VirtualKeyCode::Down,
-            left_key: VirtualKeyCode::Left,
-            right_key: VirtualKeyCode::Right,
-            pan_modifier_key: VirtualKeyCode::LShift,
-            yaw_modifier_key: VirtualKeyCode::LAlt,
-            pitch_modifier_key: VirtualKeyCode::LAlt,
+            forward_combo: Combo2::new(&[Up], &[W]),
+            backward_combo: Combo2::new(&[Down], &[S]),
+            left_combo: Combo2::new(&[Left], &[A]),
+            right_combo: Combo2::new(&[Right], &[D]),
+            pan_modifier_combo: Combo2::new(&[LShift], &[RShift]),
+            yaw_modifier_combo: Combo2::new(&[LAlt], &[RightMouseButton]),
+            pitch_modifier_combo: Combo2::new(&[LAlt], &[RightMouseButton]),
         }
     }
 }
@@ -81,59 +75,15 @@ use super::Event3d;
 
 impl Recipient<Event3d> for CameraControl {
     fn receive(&mut self, msg: &Event3d) -> Fate {
-        super::UserInterface::id() <<
-        super::AddDebugText {
-            key: vec!['c'].into(),
-            text: vec!['i'].into(),
-            color: [1.0, 0.0, 0.0, 1.0],
-            persistent: false,
-        };
         match *msg {
-            Event3d::KeyDown(k) => {
-                if k == self.settings.forward_key {
-                    self.forward = true
-                }
-                if k == self.settings.backward_key {
-                    self.backward = true
-                }
-                if k == self.settings.left_key {
-                    self.left = true
-                }
-                if k == self.settings.right_key {
-                    self.right = true
-                }
-                if k == self.settings.pan_modifier_key {
-                    self.pan_modifier = true
-                }
-                if k == self.settings.yaw_modifier_key {
-                    self.yaw_modifier = true
-                }
-                if k == self.settings.pitch_modifier_key {
-                    self.pitch_modifier = true
-                }
-            }
-            Event3d::KeyUp(k) => {
-                if k == self.settings.forward_key {
-                    self.forward = false
-                }
-                if k == self.settings.backward_key {
-                    self.backward = false
-                }
-                if k == self.settings.left_key {
-                    self.left = false
-                }
-                if k == self.settings.right_key {
-                    self.right = false
-                }
-                if k == self.settings.pan_modifier_key {
-                    self.pan_modifier = false
-                }
-                if k == self.settings.yaw_modifier_key {
-                    self.yaw_modifier = false
-                }
-                if k == self.settings.pitch_modifier_key {
-                    self.pitch_modifier = false
-                }
+            Event3d::Combos(combos) => {
+                self.forward = self.settings.forward_combo.is_in(&combos);
+                self.backward = self.settings.backward_combo.is_in(&combos);
+                self.left = self.settings.left_combo.is_in(&combos);
+                self.right = self.settings.right_combo.is_in(&combos);
+                self.pan_modifier = self.settings.pan_modifier_combo.is_in(&combos);
+                self.yaw_modifier = self.settings.yaw_modifier_combo.is_in(&combos);
+                self.pitch_modifier = self.settings.pitch_modifier_combo.is_in(&combos);
             }
             Event3d::MouseMove(cursor_2d) => {
                 let delta = cursor_2d - self.last_cursor_2d;
@@ -178,9 +128,47 @@ impl Recipient<Event3d> for CameraControl {
                 Renderer::id() <<
                 MoveEye {
                     scene_id: 0,
-                    movement: ::monet::Movement::Zoom(delta.y * self.settings.zoom_speed,
-                                                      self.last_cursor_3d),
+                    movement: Movement::Zoom(delta.y * self.settings.zoom_speed,
+                                             self.last_cursor_3d),
                 };
+            }
+            Event3d::Frame => {
+                if self.forward {
+                    Renderer::id() <<
+                    MoveEye {
+                        scene_id: 0,
+                        movement: Movement::Shift(V3::new(5.0 * self.settings.move_speed,
+                                                          0.0,
+                                                          0.0)),
+                    };
+                }
+                if self.backward {
+                    Renderer::id() <<
+                    MoveEye {
+                        scene_id: 0,
+                        movement: Movement::Shift(V3::new(-5.0 * self.settings.move_speed,
+                                                          0.0,
+                                                          0.0)),
+                    };
+                }
+                if self.left {
+                    Renderer::id() <<
+                    MoveEye {
+                        scene_id: 0,
+                        movement: Movement::Shift(V3::new(0.0,
+                                                          -5.0 * self.settings.move_speed,
+                                                          0.0)),
+                    };
+                }
+                if self.right {
+                    Renderer::id() <<
+                    MoveEye {
+                        scene_id: 0,
+                        movement: Movement::Shift(V3::new(0.0,
+                                                          5.0 * self.settings.move_speed,
+                                                          0.0)),
+                    };
+                }
             }
             _ => {}
         }
@@ -196,12 +184,4 @@ pub fn setup(env: &super::environment::Environment) {
     super::UserInterface::id() <<
     super::AddInteractable(CameraControl::id(), super::AnyShape::Everywhere, 0);
     super::UserInterface::id() << super::Focus(CameraControl::id());
-}
-
-#[derive(Serialize, Deserialize)]
-#[cfg_attr(rustfmt, rustfmt_skip)]
-#[serde(remote = "::monet::glium::glutin::VirtualKeyCode")]
-#[allow(dead_code)]
-enum VirtualKeyCodeDef {
-    Key1, Key2, Key3, Key4, Key5, Key6, Key7, Key8, Key9, Key0, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, Escape, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, Snapshot, Scroll, Pause, Insert, Home, Delete, End, PageDown, PageUp, Left, Up, Right, Down, Back, Return, Space, Compose, Numlock, Numpad0, Numpad1, Numpad2, Numpad3, Numpad4, Numpad5, Numpad6, Numpad7, Numpad8, Numpad9, AbntC1, AbntC2, Add, Apostrophe, Apps, At, Ax, Backslash, Calculator, Capital, Colon, Comma, Convert, Decimal, Divide, Equals, Grave, Kana, Kanji, LAlt, LBracket, LControl, LMenu, LShift, LWin, Mail, MediaSelect, MediaStop, Minus, Multiply, Mute, MyComputer, NavigateForward, NavigateBackward, NextTrack, NoConvert, NumpadComma, NumpadEnter, NumpadEquals, OEM102, Period, PlayPause, Power, PrevTrack, RAlt, RBracket, RControl, RMenu, RShift, RWin, Semicolon, Slash, Sleep, Stop, Subtract, Sysrq, Tab, Underline, Unlabeled, VolumeDown, VolumeUp, Wake, WebBack, WebFavorites, WebForward, WebHome, WebRefresh, WebSearch, WebStop, Yen,
 }
