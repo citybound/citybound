@@ -2,23 +2,21 @@
 
 Make sure you read: [how to report bugs](https://github.com/citybound/citybound/wiki/How-to-report-bugs)
 
-# Plan to contribute code?
+# Compiling Citybound from source 
 
-## Make sure to <a href="https://www.clahub.com/agreements/citybound/citybound">sign the Contributor License Agreement</a>.
-
-## [Have a look at the documentation](http://citybound.github.io/citybound)
-
-## Compiling Citybound from source 
-
-Currently Citybound is built with Rust `nightly-2017-01-08`
+Currently Citybound is built with Rust `nightly-2017-04-28`
 
 Recommended setup:
-* install [rustup](https://rustup.rs/)
+* Install [rustup](https://rustup.rs/) and [git](https://git-scm.com/)
 * `git clone https://github.com/citybound/citybound.git`
 * `cd citybound`
-* Windows: `rustup override add nightly-2017-01-08-x86_64-pc-windows-gnu`
-* MacOS: `rustup override add nightly-2017-01-08-x86_64-apple-darwin`
-* Linux: `rustup override add nightly-2017-01-08-x86_64-unknown-linux-gnu`
+* Windows:
+  * `rustup override add nightly-2017-04-28-x86_64-pc-windows-msvc` **(new!)**
+  * Install the [Visual C++ 2015 Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools)
+* MacOS:
+  * `rustup override add nightly-2017-04-28-x86_64-apple-darwin`
+* Linux:
+  * `rustup override add nightly-2017-04-28-x86_64-unknown-linux-gnu`
 * `cargo run --release` (Debug mode is generally too slow to interact with)
 
 ## Conforming to style
@@ -32,13 +30,21 @@ Recommended setup:
 ## Getting the recommended dev environment
 
 * Install [Visual Studio Code](https://code.visualstudio.com)
-  * Visual Studio Code has nothing to do with Visual Studio!
-  * It's (cross-platform + JS-based + rich plugin ecosystem) like Atom, only implemented better.
+  * It's a (cross-platform + JS-based + rich plugin ecosystem) Editor like Atom, only snappier - (it also has nothing to do with Visual Studio)
   * Yes it's actually cool, because Microsoft has started to be cool.
-* Install [the RustyCode Extension and its dependencies](https://marketplace.visualstudio.com/items?itemName=saviorisdead.RustyCode)
-* Make sure to set up `"rust.cargoHomePath"`, `"rust.racerPath"` and `"rust.rustLangSrcPath"` in the VS Code settings
+* Before the next step, set rustup's default toolchain to the same one you used above:
+  * `rustup default nightly-XXXX-XXXX-XXXX` (see "Recommended Setup" above)
+* Install [the VSCode-Rust Extension](https://marketplace.visualstudio.com/items?itemName=kalitaalexey.vscode-rust)
+  * Follow its instructions to install "RLS" and allow it to update rustup if asked for.
+  * After it's done, you can reset rustup's default toolchain again, if you want.
 * For debugging (Linux/MacOS): Install the [LLDB Debugger Extension](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb)
-* Now everything should just work, since configuration is part of the repo in `.vscode`! (fingers crossed)
+* Now everything should just work! (fingers crossed)
+
+# Plan to contribute code?
+
+## Make sure to <a href="https://www.clahub.com/agreements/citybound/citybound">sign the Contributor License Agreement</a>.
+
+## [Have a look at the documentation](http://citybound.github.io/citybound)
 
 ## Have a question? Want to discuss something?
 

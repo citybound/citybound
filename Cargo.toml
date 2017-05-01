@@ -20,7 +20,7 @@ members = [
 [dependencies]
 ordered-float = "0.2.3"
 itertools = "0.5.5"
-clippy = "0.0.106"
+clippy = "0.0.128"
 random = "0.12.2"
 fnv = "1.0.3"
 roaring = "0.4.0"

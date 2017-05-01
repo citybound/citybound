@@ -5,7 +5,7 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
 glium = "0.16.0"
-clippy = "0.0.106"
+clippy = "0.0.128"
 fnv = "1.0.3"
 lazy_static = "0.2.2"
 
