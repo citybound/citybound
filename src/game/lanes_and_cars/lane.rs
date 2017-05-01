@@ -53,10 +53,20 @@ impl TransferLane {
     }
 
     pub fn other_side(&self, side: ID) -> ID {
-        if side == self.connectivity.left.expect("should have a left lane").0 {
-            self.connectivity.right.expect("should have a right lane").0
+        if side ==
+           self.connectivity
+               .left
+               .expect("should have a left lane")
+               .0 {
+            self.connectivity
+                .right
+                .expect("should have a right lane")
+                .0
         } else {
-            self.connectivity.left.expect("should have a left lane").0
+            self.connectivity
+                .left
+                .expect("should have a left lane")
+                .0
         }
     }
 

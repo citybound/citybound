@@ -349,8 +349,10 @@ impl Recipient<Projected3d> for UserInterface {
                 if let Some(active_interactable) = self.active_interactable {
                     active_interactable <<
                     Event3d::DragOngoing {
-                        from: self.drag_start_3d.expect("active interactable but no drag start"),
-                        from2d: self.drag_start_2d.expect("active interactable but no drag start"),
+                        from: self.drag_start_3d
+                            .expect("active interactable but no drag start"),
+                        from2d: self.drag_start_2d
+                            .expect("active interactable but no drag start"),
                         to: position_3d,
                         to2d: self.cursor_2d,
                     };
@@ -358,8 +360,8 @@ impl Recipient<Projected3d> for UserInterface {
                     let new_hovered_interactable = self.interactables
                         .iter()
                         .filter(|&(_id, &(ref shape, _z_index))| {
-                            shape.contains(position_3d.into_2d())
-                        })
+                                    shape.contains(position_3d.into_2d())
+                                })
                         .max_by_key(|&(_id, &(ref _shape, z_index))| z_index)
                         .map(|(id, _shape)| *id);
 
@@ -420,23 +422,31 @@ impl Recipient<Submitted> for UserInterface {
             Submitted { target_ptr } => {
                 let mut target = unsafe { Box::from_raw(target_ptr as *mut ::monet::glium::Frame) };
 
-                let size_points =
-                    self.window.get_window().unwrap().get_inner_size_points().unwrap();
-                let size_pixels =
-                    self.window.get_window().unwrap().get_inner_size_pixels().unwrap();
+                let size_points = self.window
+                    .get_window()
+                    .unwrap()
+                    .get_inner_size_points()
+                    .unwrap();
+                let size_pixels = self.window
+                    .get_window()
+                    .unwrap()
+                    .get_inner_size_pixels()
+                    .unwrap();
                 let ui = self.imgui.frame(size_points, size_pixels, 1.0 / 60.0);
 
                 self.imgui_capture_keyboard = ui.want_capture_keyboard();
                 self.imgui_capture_mouse = ui.want_capture_mouse();
 
-                let texts: Vec<_> =
-                    self.persistent_debug_text.iter().chain(self.debug_text.iter()).collect();
+                let texts: Vec<_> = self.persistent_debug_text
+                    .iter()
+                    .chain(self.debug_text.iter())
+                    .collect();
 
                 ui.window(im_str!("Debug Info"))
                     .size((600.0, 200.0), ImGuiSetCond_FirstUseEver)
                     .build(|| for (key, &(ref text, ref color)) in texts {
-                        ui.text_colored(*color, im_str!("{}:\n{}", key, text));
-                    });
+                               ui.text_colored(*color, im_str!("{}:\n{}", key, text));
+                           });
 
                 self.imgui_renderer.render(&mut *target, ui).unwrap();
 
@@ -461,7 +471,12 @@ pub struct AddDebugText {
 impl Recipient<AddDebugText> for UserInterface {
     fn receive(&mut self, msg: &AddDebugText) -> Fate {
         match *msg {
-            AddDebugText { ref key, ref text, ref color, persistent } => {
+            AddDebugText {
+                ref key,
+                ref text,
+                ref color,
+                persistent,
+            } => {
                 let target = if persistent {
                     &mut self.persistent_debug_text
                 } else {

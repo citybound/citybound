@@ -1,5 +1,5 @@
-use super::{N, P2, V2, Curve, FiniteCurve, WithUniqueOrthogonal, angle_along_to, RoughlyComparable,
-            Intersect, Intersection, HasBoundingBox, BoundingBox};
+use super::{N, P2, V2, Curve, FiniteCurve, WithUniqueOrthogonal, angle_along_to,
+            RoughlyComparable, Intersect, Intersection, HasBoundingBox, BoundingBox};
 use nalgebra::{Dot, Norm, rotate, Vector1, Rotation2};
 
 #[derive(Copy, Clone, Debug)]
@@ -94,78 +94,80 @@ impl Segment {
                    end_direction);
         }
         let simple_curve = Segment::arc_with_direction(start, start_direction, end);
-        if simple_curve.end_direction().is_roughly_within(end_direction, DIRECTION_TOLERANCE) {
+        if simple_curve
+               .end_direction()
+               .is_roughly_within(end_direction, DIRECTION_TOLERANCE) {
             vec![simple_curve]
         } else if (end - start).norm() < MAX_SIMPLE_LINE_LENGTH {
             vec![Segment::line(start, end)]
         } else {
             let maybe_linear_intersection = (&Line {
-                                                 start: start,
-                                                 direction: start_direction,
-                                             },
+                                                  start: start,
+                                                  direction: start_direction,
+                                              },
                                              &Line {
-                                                 start: end,
-                                                 direction: -end_direction,
-                                             })
-                .intersect()
-                .into_iter()
-                .next()
-                .and_then(|intersection| if intersection.along_a > 0.0 &&
-                                            intersection.along_b > 0.0 {
-                    Some(intersection)
+                                                  start: end,
+                                                  direction: -end_direction,
+                                              })
+                    .intersect()
+                    .into_iter()
+                    .next()
+                    .and_then(|intersection| if intersection.along_a > 0.0 &&
+                                                intersection.along_b > 0.0 {
+                                  Some(intersection)
+                              } else {
+                                  None
+                              });
+
+            let (connection_position, connection_direction) = if let Some(Intersection {
+                                                                              position, ..
+                                                                          }) =
+                maybe_linear_intersection {
+                let start_to_intersection_distance = (start - position).norm();
+                let end_to_intersection_distance = (end - position).norm();
+
+                if start_to_intersection_distance < end_to_intersection_distance {
+                    // arc then line
+                    (position + start_to_intersection_distance * end_direction, end_direction)
                 } else {
-                    None
-                });
+                    // line then arc
+                    (position + end_to_intersection_distance * -start_direction, start_direction)
+                }
+            } else {
+                // http://www.ryanjuckett.com/programming/biarc-interpolation/
+                let v = end - start;
+                let t = start_direction + end_direction;
+                let same_direction =
+                    start_direction.is_roughly_within(end_direction, DIRECTION_TOLERANCE);
+                let end_orthogonal_of_start = v.dot(&end_direction).is_roughly(0.0);
 
-            let (connection_position, connection_direction) =
-                if let Some(Intersection { position, .. }) = maybe_linear_intersection {
-                    let start_to_intersection_distance = (start - position).norm();
-                    let end_to_intersection_distance = (end - position).norm();
-
-                    if start_to_intersection_distance < end_to_intersection_distance {
-                        // arc then line
-                        (position + start_to_intersection_distance * end_direction, end_direction)
-                    } else {
-                        // line then arc
-                        (position + end_to_intersection_distance * -start_direction,
-                         start_direction)
-                    }
+                if same_direction && end_orthogonal_of_start {
+                    //    __
+                    //   /  \
+                    //  ^    v    ^
+                    //        \__/
+                    (((start.to_vector() + end.to_vector()) / 2.0).to_point(), -start_direction)
                 } else {
-                    // http://www.ryanjuckett.com/programming/biarc-interpolation/
-                    let v = end - start;
-                    let t = start_direction + end_direction;
-                    let same_direction =
-                        start_direction.is_roughly_within(end_direction, DIRECTION_TOLERANCE);
-                    let end_orthogonal_of_start = v.dot(&end_direction).is_roughly(0.0);
-
-                    if same_direction && end_orthogonal_of_start {
-                        //    __
-                        //   /  \
-                        //  ^    v    ^
-                        //        \__/
-                        (((start.to_vector() + end.to_vector()) / 2.0).to_point(), -start_direction)
+                    let d = if same_direction {
+                        v.dot(&v) / (4.0 * v.dot(&end_direction))
                     } else {
-                        let d = if same_direction {
-                            v.dot(&v) / (4.0 * v.dot(&end_direction))
-                        } else {
-                            // magic - I'm pretty sure this can be simplified
-                            let v_dot_t = v.dot(&t);
-                            (-v_dot_t +
-                             (v_dot_t * v_dot_t +
-                              2.0 * (1.0 - start_direction.dot(&end_direction)) * v.dot(&v))
-                                .sqrt()) /
-                            (2.0 * (1.0 - start_direction.dot(&end_direction)))
-                        };
+                        // magic - I'm pretty sure this can be simplified
+                        let v_dot_t = v.dot(&t);
+                        (-v_dot_t +
+                         (v_dot_t * v_dot_t +
+                          2.0 * (1.0 - start_direction.dot(&end_direction)) * v.dot(&v))
+                                 .sqrt()) /
+                        (2.0 * (1.0 - start_direction.dot(&end_direction)))
+                    };
 
-                        let start_offset_point = start + d * start_direction;
-                        let end_offset_point = end - d * end_direction;
-                        let connection_direction = (end_offset_point - start_offset_point)
-                            .normalize();
+                    let start_offset_point = start + d * start_direction;
+                    let end_offset_point = end - d * end_direction;
+                    let connection_direction = (end_offset_point - start_offset_point).normalize();
 
-                        (start_offset_point + d * connection_direction, connection_direction)
-                    }
+                    (start_offset_point + d * connection_direction, connection_direction)
+                }
 
-                };
+            };
 
             if start.is_roughly_within(connection_position, MIN_START_TO_END) {
                 vec![Segment::arc_with_direction(connection_position, connection_direction, end)]
@@ -352,7 +354,11 @@ impl Curve for Segment {
                         .distance_to(point)
                 }
             }
-            None => (self.start - point).norm().min((self.end - point).norm()),
+            None => {
+                (self.start - point)
+                    .norm()
+                    .min((self.end - point).norm())
+            }
         }
     }
 }

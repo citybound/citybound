@@ -78,7 +78,9 @@ impl Recipient<Event3d> for CurrentPlan {
     fn receive(&mut self, msg: &Event3d) -> Fate {
         match *msg {
             Event3d::Combos(combos) => {
-                if self.interaction.materialize_combo.is_freshly_in(&combos) {
+                if self.interaction
+                       .materialize_combo
+                       .is_freshly_in(&combos) {
                     CurrentPlan::id() << Materialize;
                 }
 
@@ -109,16 +111,17 @@ impl Recipient<Event3d> for CurrentPlan {
                     };
                 }
 
-                let maybe_grid_size =
-                    if self.interaction.create_large_grid_combo.is_freshly_in(&combos) {
-                        Some(15usize)
-                    } else if self.interaction
-                        .create_small_grid_combo
-                        .is_freshly_in(&combos) {
-                        Some(10usize)
-                    } else {
-                        None
-                    };
+                let maybe_grid_size = if self.interaction
+                       .create_large_grid_combo
+                       .is_freshly_in(&combos) {
+                    Some(15usize)
+                } else if self.interaction
+                              .create_small_grid_combo
+                              .is_freshly_in(&combos) {
+                    Some(10usize)
+                } else {
+                    None
+                };
 
                 if let Some(grid_size) = maybe_grid_size {
                     const GRID_SPACING: N = 1000.0;
@@ -127,7 +130,7 @@ impl Recipient<Event3d> for CurrentPlan {
                         Stroke(vec![P2::new((x as f32 + 0.5) * GRID_SPACING, 0.0),
                                     P2::new((x as f32 + 0.5) * GRID_SPACING,
                                             grid_size as f32 * GRID_SPACING)]
-                                   .into(),
+                                       .into(),
                                StrokeState::Finished);
                     }
                     for y in 0..grid_size {
@@ -135,7 +138,7 @@ impl Recipient<Event3d> for CurrentPlan {
                         Stroke(vec![P2::new(0.0, (y as f32 + 0.5) * GRID_SPACING),
                                     P2::new(grid_size as f32 * GRID_SPACING,
                                             (y as f32 + 0.5) * GRID_SPACING)]
-                                   .into(),
+                                       .into(),
                                StrokeState::Finished);
                     }
                 }

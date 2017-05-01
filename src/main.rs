@@ -124,9 +124,9 @@ fn main() {
             text: format!("{:.2} ms",
                           last_frame.elapsed().as_secs() as f32 * 1000.0 +
                           last_frame.elapsed().subsec_nanos() as f32 / 10.0E5)
-                .as_str()
-                .chars()
-                .collect(),
+                    .as_str()
+                    .chars()
+                    .collect(),
             color: [1.0, 1.0, 1.0, 0.5],
             persistent: false,
         };

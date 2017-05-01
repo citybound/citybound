@@ -102,11 +102,8 @@ impl Recipient<Event3d> for CameraControl {
                     MoveEye {
                         scene_id: 0,
                         movement: Movement::Pitch(-delta.y * self.settings.rotation_speed *
-                                                  if self.settings.invert_y {
-                            -1.0
-                        } else {
-                            1.0
-                        } / 300.0),
+                                                  if self.settings.invert_y { -1.0 } else { 1.0 } /
+                                                  300.0),
                     };
                 }
             }

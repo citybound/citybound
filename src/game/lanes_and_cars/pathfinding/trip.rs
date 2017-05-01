@@ -48,7 +48,10 @@ impl Recipient<TellAsDestination> for Trip {
                 };
                 Fate::Live
             }
-            TellAsDestination { id, as_destination: None } => {
+            TellAsDestination {
+                id,
+                as_destination: None,
+            } => {
                 println!("{:?} is not a destination yet", id);
                 Fate::Die
             }

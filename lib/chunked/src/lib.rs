@@ -68,9 +68,9 @@ impl MemChunker {
     /// prevent it from being an `Object`, see `error[E0038]`)
     pub fn from_settings(name: &str, chunk_size: usize) -> Box<Chunker> {
         box MemChunker {
-            name: String::from(name),
-            chunk_size: chunk_size,
-        }
+                name: String::from(name),
+                chunk_size: chunk_size,
+            }
     }
 }
 
@@ -97,9 +97,9 @@ impl Chunker for MemChunker {
 
     fn child(&self, suffix: &str) -> Box<Chunker> {
         box MemChunker {
-            name: self.name.clone() + suffix,
-            chunk_size: self.chunk_size,
-        }
+                name: self.name.clone() + suffix,
+                chunk_size: self.chunk_size,
+            }
     }
 
     fn create_chunk(&mut self) -> *mut u8 {
@@ -251,15 +251,16 @@ impl SizedChunkedArena {
 
     /// Get a pointer to the item at `index`
     pub unsafe fn at(&self, index: usize) -> *const u8 {
-        self.chunks[index / self.items_per_chunk()]
-            .offset(((index % self.items_per_chunk()) * self.item_size) as isize)
+        self.chunks[index / self.items_per_chunk()].offset(((index % self.items_per_chunk()) *
+                                                            self.item_size) as
+                                                           isize)
     }
 
     /// Get a mutable pointer to the item at `index`
     pub unsafe fn at_mut(&mut self, index: usize) -> *mut u8 {
         let items_per_chunk = self.items_per_chunk();
-        self.chunks[index / items_per_chunk]
-            .offset(((index % items_per_chunk) * self.item_size) as isize)
+        self.chunks[index / items_per_chunk].offset(((index % items_per_chunk) * self.item_size) as
+                                                    isize)
     }
 }
 
@@ -275,7 +276,9 @@ impl SizedChunkedCollection for SizedChunkedArena {
 
         while arena.chunks.len() < *arena.len / arena.items_per_chunk() {
             let next_chunk_index = arena.chunks.len();
-            arena.chunks.push(arena.chunker.load_chunk(next_chunk_index));
+            arena
+                .chunks
+                .push(arena.chunker.load_chunk(next_chunk_index));
         }
 
         arena
@@ -497,8 +500,10 @@ impl<B: SizedChunkedCollection> MultiSized<B> {
     /// Add a new Bin which has double the size of the previously largest one
     fn push_larger_sized_bin(&mut self) {
         let new_largest_size = 2u32.pow(self.bins.len() as u32) as usize * self.base_size;
-        self.bins.push(B::new(self.chunker.child(format!("_{}", new_largest_size).as_str()),
-                              new_largest_size))
+        self.bins
+            .push(B::new(self.chunker
+                             .child(format!("_{}", new_largest_size).as_str()),
+                         new_largest_size))
     }
 
     /// Get the index of the Bin which stores items of size `size`

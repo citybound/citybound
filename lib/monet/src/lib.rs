@@ -24,9 +24,9 @@ mod thing;
 pub use glium::backend::glutin_backend::GlutinFacade;
 
 pub use geometry::{Batch, Vertex, Instance};
-pub use renderer::{Renderer, SetupInScene, RenderToScene, Control, Submitted, AddBatch, AddInstance,
-                   AddSeveralInstances, Movement, MoveEye, EyeMoved, AddEyeListener, UpdateThing,
-                   Project2dTo3d, Projected3d};
+pub use renderer::{Renderer, SetupInScene, RenderToScene, Control, Submitted, AddBatch,
+                   AddInstance, AddSeveralInstances, Movement, MoveEye, EyeMoved, AddEyeListener,
+                   UpdateThing, Project2dTo3d, Projected3d};
 pub use render_context::RenderContext;
 pub use scene::{Eye, Scene};
 pub use thing::Thing;

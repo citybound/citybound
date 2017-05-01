@@ -90,7 +90,7 @@ impl Renderer {
         // with the scale between zoom distances
         eye.target = ((new_zoom_distance * (eye.target - zoom_point)) / zoom_distance +
                       zoom_point.to_vector())
-            .to_point();
+                .to_point();
     }
 
     fn movement_yaw(&mut self, scene_id: usize, delta: N) {

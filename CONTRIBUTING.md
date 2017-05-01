@@ -2,7 +2,13 @@
 
 Make sure you read: [how to report bugs](https://github.com/citybound/citybound/wiki/How-to-report-bugs)
 
-# Compiling Citybound from source 
+# Plan to contribute code?
+
+## Make sure to <a href="https://www.clahub.com/agreements/citybound/citybound">sign the Contributor License Agreement</a>.
+
+## [Have a look at the documentation](http://citybound.github.io/citybound)
+
+## Compiling Citybound from source 
 
 Currently Citybound is built with Rust `nightly-2017-04-28`
 
@@ -19,14 +25,6 @@ Recommended setup:
   * `rustup override add nightly-2017-04-28-x86_64-unknown-linux-gnu`
 * `cargo run --release` (Debug mode is generally too slow to interact with)
 
-## Conforming to style
-
-* install rustfmt: `cargo install rustfmt`
-* run rustfmt on the whole repo:
-  `rustfmt --write-mode=overwrite ./src/main.rs ./lib/*/src/lib.rs`
-  (using default settings)
-
-
 ## Getting the recommended dev environment
 
 * Install [Visual Studio Code](https://code.visualstudio.com)
@@ -40,11 +38,13 @@ Recommended setup:
 * For debugging (Linux/MacOS): Install the [LLDB Debugger Extension](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb)
 * Now everything should just work! (fingers crossed)
 
-# Plan to contribute code?
+## Conforming to style
 
-## Make sure to <a href="https://www.clahub.com/agreements/citybound/citybound">sign the Contributor License Agreement</a>.
-
-## [Have a look at the documentation](http://citybound.github.io/citybound)
+* install rustfmt: `cargo install rustfmt` **and make sure to keep it up-to date**
+* run rustfmt on the whole repo:
+  `rustfmt --write-mode=overwrite ./src/main.rs ./lib/*/src/lib.rs`
+  (using default settings)
+* You should also **fix all clippy warnings** properly
 
 ## Have a question? Want to discuss something?
 

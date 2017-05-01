@@ -11,12 +11,15 @@ pub enum Button {
     Back, Return, Space, Compose,
     Numlock,
     NumpadNumberKey(u8),
-    AbntC1, AbntC2, Add, Apostrophe, Apps, At, Ax, Backslash, Calculator, Capital, Colon, Comma, Convert, Decimal, Divide, Equals,
-    Grave, Kana, Kanji, LAlt, LBracket, LControl, LMenu, LShift, LWin, Mail, MediaSelect, MediaStop, Minus, Multiply, Mute,
-    MyComputer, NavigateForward, NavigateBackward, NextTrack, NoConvert, NumpadComma, NumpadEnter, NumpadEquals,
-    OEM102, Period, PlayPause, Power, PrevTrack, RAlt, RBracket, RControl, RMenu, RShift, RWin, Semicolon, Slash,
-    Sleep, Stop, Subtract, Sysrq, Tab, Underline, Unlabeled, VolumeDown, VolumeUp, Wake,
-    WebBack, WebFavorites, WebForward, WebHome, WebRefresh, WebSearch, WebStop, Yen,
+    AbntC1, AbntC2, Add, Apostrophe, Apps, At, Ax, Backslash, Calculator,
+    Capital, Colon, Comma, Convert, Decimal, Divide, Equals,
+    Grave, Kana, Kanji, LAlt, LBracket, LControl, LMenu, LShift, LWin, Mail,
+    MediaSelect, MediaStop, Minus, Multiply, Mute, MyComputer, NavigateForward,
+    NavigateBackward, NextTrack, NoConvert, NumpadComma, NumpadEnter, NumpadEquals,
+    OEM102, Period, PlayPause, Power, PrevTrack, RAlt, RBracket, RControl,
+    RMenu, RShift, RWin, Semicolon, Slash, Sleep, Stop, Subtract, Sysrq, Tab,
+    Underline, Unlabeled, VolumeDown, VolumeUp, Wake, WebBack, WebFavorites,
+    WebForward, WebHome, WebRefresh, WebSearch, WebStop, Yen,
     LeftMouseButton,
     MiddleMouseButton,
     RightMouseButton,
@@ -38,10 +41,12 @@ impl Combo {
     }
 
     pub fn is_in(&self, other: &Combo) -> bool {
-        self.0.iter().all(|opt| {
-            opt.map(|item| other.0.contains(&Some(item)))
-                .unwrap_or(true)
-        })
+        self.0
+            .iter()
+            .all(|opt| {
+                     opt.map(|item| other.0.contains(&Some(item)))
+                         .unwrap_or(true)
+                 })
     }
 
     pub fn is_freshly_in(&self, listener: &ComboListener) -> bool {

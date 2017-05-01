@@ -24,9 +24,11 @@ impl Environment {
         where for<'a> S: Deserialize<'a> + Default
     {
         match File::open(self.setting_path(category))
-            .as_mut()
-            .map_err(|err| format!("{}", err))
-            .and_then(|file| ::serde_json::from_reader(file).map_err(|err| format!("{}", err))) {
+                  .as_mut()
+                  .map_err(|err| format!("{}", err))
+                  .and_then(|file| {
+                                ::serde_json::from_reader(file).map_err(|err| format!("{}", err))
+                            }) {
             Ok(settings) => settings,
             Err(err) => {
                 println!("Error loading {} settings: {}", category, err);

@@ -258,7 +258,8 @@ impl<T, A: Allocator> Drop for IntoIter<T, A> {
         unsafe {
             ptr::drop_in_place(&mut ::std::slice::from_raw_parts(self.ptr
                                                                      .ptr()
-                                                                     .offset(self.index as isize),
+                                                                     .offset(self.index as
+                                                                             isize),
                                                                  self.len))
         };
         if !self.ptr.is_compact() {
@@ -311,7 +312,9 @@ impl<T: Compact + Clone, A: Allocator> Compact for CompactVec<T, A> {
 
     default fn dynamic_size_bytes(&self) -> usize {
         self.cap * ::std::mem::size_of::<T>() +
-        self.iter().map(|elem| elem.dynamic_size_bytes()).sum::<usize>()
+        self.iter()
+            .map(|elem| elem.dynamic_size_bytes())
+            .sum::<usize>()
     }
 
     default unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {

@@ -99,7 +99,8 @@ impl<SA: SubActor> Swarm<SA> {
         let bin = &mut self.sub_actors.bin_for_size_mut(size);
         let (ptr, index) = bin.push();
 
-        self.slot_map.associate(id.sub_actor_id as usize, SlotIndices::new(bin_index, index));
+        self.slot_map
+            .associate(id.sub_actor_id as usize, SlotIndices::new(bin_index, index));
         assert!(self.slot_map.indices_of(id.sub_actor_id as usize).bin() == bin_index);
 
         unsafe {
@@ -115,7 +116,8 @@ impl<SA: SubActor> Swarm<SA> {
             match bin.swap_remove(indices.slot()) {
                 Some(ptr) => {
                     let swapped_actor = &*(ptr as *mut SA);
-                    self.slot_map.associate(swapped_actor.id().sub_actor_id as usize, indices);
+                    self.slot_map
+                        .associate(swapped_actor.id().sub_actor_id as usize, indices);
                     true
                 }
                 None => false,
@@ -131,7 +133,8 @@ impl<SA: SubActor> Swarm<SA> {
 
     fn remove_at_index(&mut self, i: SlotIndices, id: ID) {
         self.swap_remove(i);
-        self.slot_map.free(id.sub_actor_id as usize, id.version as usize);
+        self.slot_map
+            .free(id.sub_actor_id as usize, id.version as usize);
         *self.n_sub_actors -= 1;
     }
 
@@ -151,9 +154,10 @@ impl<SA: SubActor> Swarm<SA> {
         where SA: Recipient<M>
     {
         let (fate, is_still_compact) = {
-            let actor = self.at_mut(packet.recipient_id
-                .expect("Recipient ID not set")
-                .sub_actor_id as usize);
+            let actor = self.at_mut(packet
+                                        .recipient_id
+                                        .expect("Recipient ID not set")
+                                        .sub_actor_id as usize);
             let fate = actor.receive_packet(packet);
             (fate, actor.is_still_compact())
         };
@@ -161,9 +165,10 @@ impl<SA: SubActor> Swarm<SA> {
         match fate {
             Fate::Live => {
                 if !is_still_compact {
-                    self.resize(packet.recipient_id
-                        .expect("Recipient ID not set")
-                        .sub_actor_id as usize);
+                    self.resize(packet
+                                    .recipient_id
+                                    .expect("Recipient ID not set")
+                                    .sub_actor_id as usize);
                 }
             }
             Fate::Die => self.remove(packet.recipient_id.expect("Recipient ID not set")),
@@ -183,7 +188,11 @@ impl<SA: SubActor> Swarm<SA> {
         // the only assumption is that no sub actors are immediately completely deleted
 
         let recipients_todo_per_bin: Vec<usize> = {
-            self.sub_actors.bins.iter().map(|bin| bin.len()).collect()
+            self.sub_actors
+                .bins
+                .iter()
+                .map(|bin| bin.len())
+                .collect()
         };
 
         let n_bins = self.sub_actors.bins.len();
@@ -297,13 +306,14 @@ impl<M: Message, SA: SubActor + RecipientAsSwarm<M>> Recipient<M> for Swarm<SA> 
 }
 
 /// Default implementation that redirects messages to sub-actors
-impl <
-    M: Message + NotACreateMessage + NotARequestConfirmationMessage + NotAToRandomMessage,
-    SA: SubActor + Recipient<M>
-> RecipientAsSwarm<M> for SA {
+impl<M: Message + NotACreateMessage + NotARequestConfirmationMessage + NotAToRandomMessage,
+     SA: SubActor + Recipient<M>> RecipientAsSwarm<M>
+    for SA {
     fn receive_packet(swarm: &mut Swarm<SA>, packet: &Packet<M>) -> Fate {
-        if packet.recipient_id.expect("Recipient ID not set")
-            .sub_actor_id == broadcast_sub_actor_id() {
+        if packet
+               .recipient_id
+               .expect("Recipient ID not set")
+               .sub_actor_id == broadcast_sub_actor_id() {
             swarm.receive_broadcast(packet);
         } else {
             swarm.receive_instance(packet);
@@ -350,18 +360,19 @@ impl<M: Message> Copy for Confirmation<M> {}
 impl<M: Message, SA: SubActor + RecipientAsSwarm<M>> RecipientAsSwarm<RequestConfirmation<M>>
     for SA {
     fn receive_packet(swarm: &mut Swarm<SA>, packet: &Packet<RequestConfirmation<M>>) -> Fate {
-        let n_recipients = if packet.recipient_id
-            .expect("Recipient ID not set")
-            .sub_actor_id == broadcast_sub_actor_id() {
+        let n_recipients = if packet
+               .recipient_id
+               .expect("Recipient ID not set")
+               .sub_actor_id == broadcast_sub_actor_id() {
             *swarm.n_sub_actors
         } else {
             1
         };
         let fate = SA::receive_packet(swarm,
                                       &Packet {
-                                          recipient_id: packet.recipient_id,
-                                          message: packet.message.message.clone(),
-                                      });
+                                           recipient_id: packet.recipient_id,
+                                           message: packet.message.message.clone(),
+                                       });
         packet.message.requester <<
         Confirmation::<M> {
             n_recipients: n_recipients,

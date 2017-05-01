@@ -88,7 +88,10 @@ pub struct RenderToCollector(pub ID);
 impl<T: Clone + 'static> Recipient<RenderToScene> for ThingCollector<T> {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {
         match *msg {
-            RenderToScene { renderer_id, scene_id } => {
+            RenderToScene {
+                renderer_id,
+                scene_id,
+            } => {
                 // TODO: this introduces 1 frame delay
                 for id in self.living_things.keys() {
                     *id << RenderToCollector(Self::id());
@@ -100,10 +103,10 @@ impl<T: Clone + 'static> Recipient<RenderToScene> for ThingCollector<T> {
                         .cloned()
                         .coalesce(|a, b| if a.vertices.len() + b.vertices.len() >
                                             u16::max_value() as usize {
-                            Err((a, b))
-                        } else {
-                            Ok(a + b)
-                        });
+                                      Err((a, b))
+                                  } else {
+                                      Ok(a + b)
+                                  });
                     self.cached_frozen_things_dirty = false;
 
                     self.n_frozen_groups = 0;
@@ -131,10 +134,10 @@ impl<T: Clone + 'static> Recipient<RenderToScene> for ThingCollector<T> {
                     .cloned()
                     .coalesce(|a, b| if a.vertices.len() + b.vertices.len() >
                                         u16::max_value() as usize {
-                        Err((a, b))
-                    } else {
-                        Ok(a + b)
-                    });
+                                  Err((a, b))
+                              } else {
+                                  Ok(a + b)
+                              });
 
                 let mut new_n_total_groups = self.n_frozen_groups;
 
@@ -178,16 +181,16 @@ impl<T: Clone + 'static> Recipient<RenderToScene> for ThingCollector<T> {
 
 pub fn setup<T: Clone + 'static>(instance_color: [f32; 3], base_thing_id: u16, is_decal: bool) {
     ThingCollector::register_with_state(ThingCollector::<T> {
-        instance_color: instance_color,
-        base_thing_id: base_thing_id,
-        is_decal: is_decal,
-        living_things: CDict::new(),
-        frozen_things: CDict::new(),
-        n_frozen_groups: 0,
-        cached_frozen_things_dirty: false,
-        n_total_groups: 0,
-        _marker: PhantomData,
-    });
+                                            instance_color: instance_color,
+                                            base_thing_id: base_thing_id,
+                                            is_decal: is_decal,
+                                            living_things: CDict::new(),
+                                            frozen_things: CDict::new(),
+                                            n_frozen_groups: 0,
+                                            cached_frozen_things_dirty: false,
+                                            n_total_groups: 0,
+                                            _marker: PhantomData,
+                                        });
     ThingCollector::<T>::handle::<Control>();
     ThingCollector::<T>::handle::<SetupInScene>();
     ThingCollector::<T>::handle::<RenderToScene>();

@@ -97,7 +97,8 @@ impl Recipient<Event3d> for Selectable {
                     } else {
                         snap_start_end(&mut start, &mut end, &self.path);
                         start = start.min(end - MIN_SELECTION_SIZE).max(0.0);
-                        end = end.max(start + MIN_SELECTION_SIZE).min(self.path.length());
+                        end = end.max(start + MIN_SELECTION_SIZE)
+                            .min(self.path.length());
                         CurrentPlan::id() <<
                         ChangeIntent(Intent::Select(self.stroke_ref, start, end),
                                      IntentProgress::Immediate);

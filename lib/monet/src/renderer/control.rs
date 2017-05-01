@@ -35,7 +35,10 @@ impl Recipient<Control> for Renderer {
         match *msg {
             Control::Setup => self.control_setup(),
             Control::Render => self.control_render(),
-            Control::Submit { target_ptr, return_to } => self.control_submit(target_ptr, return_to),
+            Control::Submit {
+                target_ptr,
+                return_to,
+            } => self.control_submit(target_ptr, return_to),
         }
     }
 }
@@ -57,9 +60,9 @@ impl Renderer {
     fn control_render(&mut self) -> Fate {
         for (scene_id, mut scene) in self.scenes.iter_mut().enumerate() {
             for batch_to_clear in (&mut scene)
-                .batches
-                .values_mut()
-                .filter(|batch| batch.clear_every_frame) {
+                    .batches
+                    .values_mut()
+                    .filter(|batch| batch.clear_every_frame) {
                 batch_to_clear.instances.clear();
             }
             for renderable in &scene.renderables {

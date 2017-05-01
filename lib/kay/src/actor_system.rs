@@ -98,18 +98,19 @@ impl ActorSystem {
     /// to a panicked state and only passes messages anymore which have been
     /// marked as *critical* using `Actor::handle_critically`.
     pub fn create_the_system(panic_callback: Box<Fn(Box<Any>)>) -> Box<ActorSystem> {
-        let mut system = Box::new(ActorSystem {
-            panic_happened: false,
-            panic_callback: panic_callback,
-            inboxes: unsafe { make_array!(MAX_RECIPIENT_TYPES, |_| None) },
-            actor_registry: TypeRegistry::new(),
-            message_registry: TypeRegistry::new(),
-            actors: [None; MAX_RECIPIENT_TYPES],
-            handlers: unsafe {
-                make_array!(MAX_RECIPIENT_TYPES,
-                            |_| make_array!(MAX_MESSAGE_TYPES, |_| None))
-            },
-        });
+        let mut system =
+            Box::new(ActorSystem {
+                         panic_happened: false,
+                         panic_callback: panic_callback,
+                         inboxes: unsafe { make_array!(MAX_RECIPIENT_TYPES, |_| None) },
+                         actor_registry: TypeRegistry::new(),
+                         message_registry: TypeRegistry::new(),
+                         actors: [None; MAX_RECIPIENT_TYPES],
+                         handlers: unsafe {
+                             make_array!(MAX_RECIPIENT_TYPES,
+                                         |_| make_array!(MAX_MESSAGE_TYPES, |_| None))
+                         },
+                     });
 
         unsafe {
             THE_SYSTEM = &mut *system as *mut ActorSystem;
@@ -132,13 +133,14 @@ impl ActorSystem {
 
         let actor_ptr = self.actors[actor_id.as_usize()].unwrap() as *mut A;
 
-        self.handlers[actor_id.as_usize()][message_id.as_usize()] = Some(Handler {
-            function: Box::new(move |packet_ptr: *const ()| unsafe {
-                let packet = &*(packet_ptr as *const Packet<M>);
-                (*actor_ptr).receive_packet(packet);
-            }),
-            critical: critical,
-        });
+        self.handlers[actor_id.as_usize()][message_id.as_usize()] =
+            Some(Handler {
+                     function: Box::new(move |packet_ptr: *const ()| unsafe {
+                                            let packet = &*(packet_ptr as *const Packet<M>);
+                                            (*actor_ptr).receive_packet(packet);
+                                        }),
+                     critical: critical,
+                 });
     }
 
     fn add_handler<M: Message, A: Actor + Recipient<M>>(&mut self) {
@@ -169,10 +171,13 @@ impl ActorSystem {
         for (recipient_type_idx, maybe_inbox) in self.inboxes.iter_mut().enumerate() {
             let recipient_type = ShortTypeId::new(recipient_type_idx as u16);
             if let Some(inbox) = maybe_inbox.as_mut() {
-                for DispatchablePacket { message_type, packet_ptr } in inbox.empty() {
+                for DispatchablePacket {
+                        message_type,
+                        packet_ptr,
+                    } in inbox.empty() {
                     if let Some(handler) = self.handlers[recipient_type.as_usize()]
-                                               [message_type.as_usize()]
-                        .as_mut() {
+                           [message_type.as_usize()]
+                               .as_mut() {
                         if handler.critical || !self.panic_happened {
                             (handler.function)(packet_ptr);
                         }
@@ -197,8 +202,8 @@ impl ActorSystem {
     /// in a fixed order during each loop iteration.
     pub fn process_all_messages(&mut self) {
         let result = catch_unwind(AssertUnwindSafe(|| for _i in 0..1000 {
-            self.single_message_cycle();
-        }));
+                                                       self.single_message_cycle();
+                                                   }));
 
         if result.is_err() {
             self.panic_happened = true;

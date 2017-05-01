@@ -21,7 +21,10 @@ use monet::UpdateThing;
 impl Recipient<RenderToScene> for CurrentPlan {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {
         match *msg {
-            RenderToScene { renderer_id, scene_id } => {
+            RenderToScene {
+                renderer_id,
+                scene_id,
+            } => {
                 if self.preview.is_none() {
                     let preview = self.update_preview();
                     render_strokes(&preview.plan_delta, renderer_id, scene_id);
@@ -56,7 +59,8 @@ impl Recipient<RenderToScene> for CurrentPlan {
 }
 
 fn render_strokes(delta: &PlanDelta, renderer_id: ID, scene_id: usize) {
-    let destroyed_strokes_thing: Thing = delta.strokes_to_destroy
+    let destroyed_strokes_thing: Thing = delta
+        .strokes_to_destroy
         .pairs()
         .filter(|&(_, stroke)| stroke.nodes().len() > 1)
         .map(|(_, stroke)| band_to_thing(&Band::new(stroke.path().clone(), 5.0), 0.1))
@@ -69,7 +73,8 @@ fn render_strokes(delta: &PlanDelta, renderer_id: ID, scene_id: usize) {
         instance: Instance::with_color([1.0, 0.0, 0.0]),
         is_decal: true,
     };
-    let stroke_base_thing: Thing = delta.new_strokes
+    let stroke_base_thing: Thing = delta
+        .new_strokes
         .iter()
         .filter(|stroke| stroke.nodes().len() > 1)
         .map(|stroke| band_to_thing(&Band::new(stroke.path().clone(), 6.0), 0.1))
@@ -82,7 +87,8 @@ fn render_strokes(delta: &PlanDelta, renderer_id: ID, scene_id: usize) {
         instance: Instance::with_color([1.0, 1.0, 1.0]),
         is_decal: true,
     };
-    let stroke_thing: Thing = delta.new_strokes
+    let stroke_thing: Thing = delta
+        .new_strokes
         .iter()
         .filter(|stroke| stroke.nodes().len() > 1)
         .map(LaneStroke::preview_thing)
@@ -98,7 +104,8 @@ fn render_strokes(delta: &PlanDelta, renderer_id: ID, scene_id: usize) {
 }
 
 fn render_trimmed_strokes(result_delta: &PlanResultDelta, renderer_id: ID, scene_id: usize) {
-    let trimmed_stroke_thing: Thing = result_delta.trimmed_strokes
+    let trimmed_stroke_thing: Thing = result_delta
+        .trimmed_strokes
         .to_create
         .values()
         .filter(|stroke| stroke.nodes().len() > 1)
@@ -115,7 +122,8 @@ fn render_trimmed_strokes(result_delta: &PlanResultDelta, renderer_id: ID, scene
 }
 
 fn render_intersections(result_delta: &PlanResultDelta, renderer_id: ID, scene_id: usize) {
-    let intersections_thing: Thing = result_delta.intersections
+    let intersections_thing: Thing = result_delta
+        .intersections
         .to_create
         .values()
         .filter(|i| i.shape.segments().len() > 0)
@@ -129,7 +137,8 @@ fn render_intersections(result_delta: &PlanResultDelta, renderer_id: ID, scene_i
         instance: Instance::with_color([0.0, 0.0, 1.0]),
         is_decal: true,
     };
-    let connecting_strokes_thing: Thing = result_delta.intersections
+    let connecting_strokes_thing: Thing = result_delta
+        .intersections
         .to_create
         .values()
         .filter(|i| !i.strokes.is_empty())
@@ -146,7 +155,8 @@ fn render_intersections(result_delta: &PlanResultDelta, renderer_id: ID, scene_i
 }
 
 fn render_transfer_lanes(result_delta: &PlanResultDelta, renderer_id: ID, scene_id: usize) {
-    let transfer_strokes_thing: Thing = result_delta.transfer_strokes
+    let transfer_strokes_thing: Thing = result_delta
+        .transfer_strokes
         .to_create
         .values()
         .map(|lane_stroke| band_to_thing(&Band::new(lane_stroke.path().clone(), 0.3), 0.1))
@@ -166,16 +176,18 @@ fn render_selections(selections: &CDict<SelectableStrokeRef, (N, N)>,
                      built_strokes: &BuiltStrokes,
                      renderer_id: ID,
                      scene_id: usize) {
-    let addable_thing = selections.pairs()
-        .filter_map(|(&selection_ref, &(start, end))| {
-            let stroke = selection_ref.get_stroke(plan_delta, built_strokes);
-            stroke.path().subsection(start, end).and_then(|subsection| {
+    let addable_thing =
+        selections
+            .pairs()
+            .filter_map(|(&selection_ref, &(start, end))| {
+                            let stroke = selection_ref.get_stroke(plan_delta, built_strokes);
+                            stroke.path().subsection(start, end).and_then(|subsection| {
                 subsection.shift_orthogonally(5.0).map(|shifted_subsection| {
                     band_to_thing(&Band::new(shifted_subsection, 5.0), 0.1)
                 })
             })
-        })
-        .sum();
+                        })
+            .sum();
     renderer_id <<
     UpdateThing {
         scene_id: scene_id,
@@ -184,13 +196,15 @@ fn render_selections(selections: &CDict<SelectableStrokeRef, (N, N)>,
         instance: Instance::with_color([0.8, 0.8, 1.0]),
         is_decal: true,
     };
-    let selection_thing = selections.pairs()
+    let selection_thing = selections
+        .pairs()
         .filter_map(|(&selection_ref, &(start, end))| {
-            let stroke = selection_ref.get_stroke(plan_delta, built_strokes);
-            stroke.path()
-                .subsection(start, end)
-                .map(|subsection| band_to_thing(&Band::new(subsection, 5.0), 0.1))
-        })
+                        let stroke = selection_ref.get_stroke(plan_delta, built_strokes);
+                        stroke
+                            .path()
+                            .subsection(start, end)
+                            .map(|subsection| band_to_thing(&Band::new(subsection, 5.0), 0.1))
+                    })
         .sum();
     renderer_id <<
     UpdateThing {

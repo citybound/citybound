@@ -57,11 +57,12 @@ impl LaneStroke {
     }
 
     pub fn well_formed(&self) -> bool {
-        !self.nodes.windows(2).any(|window|
-            window[0].position.is_roughly_within(window[1].position, MIN_NODE_DISTANCE)
-            //::stagemaster::geometry::CPath::add_debug_point(window[0].position, [1.0, 0.0, 1.0], 0.5);
-            //::stagemaster::geometry::CPath::add_debug_point(window[1].position, [1.0, 0.0, 1.0], 0.5);
-        )
+        !self.nodes
+             .windows(2)
+             .any(|window|
+            // ::stagemaster::geometry::add_debug_point(window[0].position, [1.0, 0.0, 1.0], 0.5);
+            // ::stagemaster::geometry::add_debug_point(window[1].position, [1.0, 0.0, 1.0], 0.5);
+            window[0].position.is_roughly_within(window[1].position, MIN_NODE_DISTANCE))
     }
 
     pub fn path(&self) -> &CPath {
@@ -72,14 +73,14 @@ impl LaneStroke {
             let unsafe_memoized_path: &mut CPath =
                 unsafe { ::std::mem::transmute(&self._memoized_path) };
             *unsafe_memoized_path = Path::new(self.nodes
-                .windows(2)
-                .flat_map(|window| {
-                    Segment::biarc(window[0].position,
-                                   window[0].direction,
-                                   window[1].position,
-                                   window[1].direction)
-                })
-                .collect::<Vec<_>>())
+                                                  .windows(2)
+                                                  .flat_map(|window| {
+                                                                Segment::biarc(window[0].position,
+                                                                               window[0].direction,
+                                                                               window[1].position,
+                                                                               window[1].direction)
+                                                            })
+                                                  .collect::<Vec<_>>())
         }
         &self._memoized_path
     }
@@ -93,23 +94,25 @@ impl LaneStroke {
     pub fn subsection(&self, start: N, end: N) -> Option<Self> {
         let path = self.path();
         if let Some(cut_path) = path.subsection(start, end) {
-            let nodes = cut_path.segments()
+            let nodes = cut_path
+                .segments()
                 .iter()
                 .map(|segment| {
-                    LaneStrokeNode {
-                        position: segment.start(),
-                        direction: segment.start_direction(),
-                    }
-                })
-                .chain(cut_path.segments()
-                    .last()
-                    .map(|last_segment| {
-                        LaneStrokeNode {
-                            position: last_segment.end(),
-                            direction: last_segment.end_direction(),
-                        }
-                    })
-                    .into_iter())
+                         LaneStrokeNode {
+                             position: segment.start(),
+                             direction: segment.start_direction(),
+                         }
+                     })
+                .chain(cut_path
+                           .segments()
+                           .last()
+                           .map(|last_segment| {
+                                    LaneStrokeNode {
+                                        position: last_segment.end(),
+                                        direction: last_segment.end_direction(),
+                                    }
+                                })
+                           .into_iter())
                 .collect();
             LaneStroke::new(nodes).ok()
         } else {
@@ -128,11 +131,11 @@ impl LaneStroke {
             .into_iter()
             .flat_map(|subsection| subsection.nodes)
             .map(|node| {
-                LaneStrokeNode {
-                    position: node.position + delta,
-                    direction: node.direction,
-                }
-            })
+                     LaneStrokeNode {
+                         position: node.position + delta,
+                         direction: node.direction,
+                     }
+                 })
             .collect::<Vec<_>>();
 
         let nodes_after = self.nodes
@@ -195,8 +198,12 @@ fn biarc_connection_node(start_node: LaneStrokeNode,
             position: connection_segments[0].end(),
             direction: connection_segments[0].end_direction(),
         };
-        if !connection_node.position.is_roughly_within(start_node.position, MIN_NODE_DISTANCE) &&
-           !connection_node.position.is_roughly_within(end_node.position, MIN_NODE_DISTANCE) {
+        if !connection_node
+                .position
+                .is_roughly_within(start_node.position, MIN_NODE_DISTANCE) &&
+           !connection_node
+                .position
+                .is_roughly_within(end_node.position, MIN_NODE_DISTANCE) {
             Some(connection_node)
         } else {
             None
@@ -224,7 +231,8 @@ pub struct LaneStrokeNode {
 
 impl<'a> RoughlyComparable for &'a LaneStrokeNode {
     fn is_roughly_within(&self, other: &LaneStrokeNode, tolerance: N) -> bool {
-        self.position.is_roughly_within(other.position, tolerance)
+        self.position
+            .is_roughly_within(other.position, tolerance)
         // && (
         //     (self.direction.is_none() && other.direction.is_none())
         //     || (self.direction.is_some() && other.direction.is_some()

@@ -22,7 +22,7 @@ impl RenderContext {
                 vertex: include_str!("shader/solid_140.glslv"),
                 fragment: include_str!("shader/solid_140.glslf")
             })
-                .unwrap(),
+                    .unwrap(),
             window: window,
         }
     }
@@ -30,15 +30,15 @@ impl RenderContext {
     pub fn submit<S: Surface>(&mut self, scene: &Scene, target: &mut S) {
         let view: [[f32; 4]; 4] =
             *Iso3::look_at_rh(&scene.eye.position, &scene.eye.target, &scene.eye.up)
-                .to_homogeneous()
-                .as_ref();
+                 .to_homogeneous()
+                 .as_ref();
         let perspective: [[f32; 4]; 4] = *Persp3::new(target.get_dimensions().0 as f32 /
                                                       target.get_dimensions().1 as f32,
                                                       scene.eye.field_of_view,
                                                       0.1,
                                                       50000.0)
-            .to_matrix()
-            .as_ref();
+                                                  .to_matrix()
+                                                  .as_ref();
 
         let uniforms = uniform! {
             view: view,
@@ -71,12 +71,20 @@ impl RenderContext {
         let mut batches_todo = scene.batches.iter().collect::<Vec<_>>();
         batches_todo.sort_by_key(|&(batch_id, _)| batch_id);
 
-        for (i, &Batch { ref vertices, ref indices, ref instances, is_decal, .. }) in batches_todo {
+        for (i,
+             &Batch {
+                  ref vertices,
+                  ref indices,
+                  ref instances,
+                  is_decal,
+                  ..
+              }) in batches_todo {
             if instances.len() > 1 {
                 render_debug_text.push_str(&format!("batch{}: {} instances\n", i, instances.len()));
             }
             let instance_buffer = glium::VertexBuffer::new(&self.window, instances).unwrap();
-            target.draw((vertices, instance_buffer.per_instance().unwrap()),
+            target
+                .draw((vertices, instance_buffer.per_instance().unwrap()),
                       indices,
                       &self.batch_program,
                       &uniforms,
