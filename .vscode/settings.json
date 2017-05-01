@@ -1,4 +1,6 @@
 // Place your settings in this file to overwrite default and user settings.
 {
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "rust.actionOnSave": "check",
+    "rust.forceLegacyMode": true
 }

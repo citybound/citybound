@@ -30,11 +30,16 @@ Recommended setup:
 * Install [Visual Studio Code](https://code.visualstudio.com)
   * It's a (cross-platform + JS-based + rich plugin ecosystem) Editor like Atom, only snappier - (it also has nothing to do with Visual Studio)
   * Yes it's actually cool, because Microsoft has started to be cool.
-* Before the next step, set rustup's default toolchain to the same one you used above:
-  * `rustup default nightly-XXXX-XXXX-XXXX` (see "Recommended Setup" above)
 * Install [the VSCode-Rust Extension](https://marketplace.visualstudio.com/items?itemName=kalitaalexey.vscode-rust)
-  * Follow its instructions to install "RLS" and allow it to update rustup if asked for.
-  * After it's done, you can reset rustup's default toolchain again, if you want.
+  * Let it install everything it wants to
+  * *If you are using Windows and have a space in your user name:*
+    * Create a symbolic link to you user folder that doesn't contain a space
+      * for example `C:\firstname` -> `C:\Users\Firstname Lastname`
+    * Add the following user settings in VSCode
+      * `"rust.cargoHomePath": "C:\\firstname\\.cargo"`,
+      * `"rust.racerPath": "C:\\firstname\\.cargo\\bin\\racer.exe"`,
+      * `"rust.rustLangSrcPath": "C:\\firstname\\.rustup\\toolchains\\nightly-2017-04-28-x86_64-pc-windows-msvc\\lib\\rustlib\\src\\rust\\src"`
+  * Otherwise it "should just work"
 * For debugging (Linux/MacOS): Install the [LLDB Debugger Extension](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb)
 * Now everything should just work! (fingers crossed)
 
