@@ -360,7 +360,7 @@ impl Bindings {
         let mut new_target = self.rebinding.clone();
         let mut finished_changing = false;
         for (name, combos) in self.bindings.clone() {
-            ui.text(im_str!("{}", name));
+            ui.text(im_str!("{:?}", name));
             ui.same_line(150.0);
             let target_is = match self.rebinding {
                 Some((ref target_name, idx)) if target_name == &name => {

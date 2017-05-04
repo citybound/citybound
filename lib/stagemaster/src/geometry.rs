@@ -134,7 +134,7 @@ pub fn band_to_thing<P: Path>(band: &Band<P>, z: N) -> Thing {
     Thing::new(vertices, indices)
 }
 
-pub fn dash_path<P: Path>(path: P, dash_length: f32, gap_length: f32) -> Vec<P> {
+pub fn dash_path<P: Path>(path: &P, dash_length: f32, gap_length: f32) -> Vec<P> {
     let mut on_dash = true;
     let mut position = 0.0;
     let mut dashes = Vec::new();

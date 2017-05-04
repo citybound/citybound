@@ -67,7 +67,7 @@ impl LaneStroke {
 
     pub fn path(&self) -> &CPath {
         // TODO: replace by proper Option
-        if self._memoized_path.segments().len() == 0 {
+        if self._memoized_path.segments().is_empty() {
             // TODO: maybe there is something less damn dangerous
             #[allow(mutable_transmutes)]
             let unsafe_memoized_path: &mut CPath =

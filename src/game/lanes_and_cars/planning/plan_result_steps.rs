@@ -449,11 +449,11 @@ pub fn create_connecting_strokes(intersections: &mut CVec<Intersection>) {
         intersection.strokes = incoming_groups
             .iter()
             .flat_map(|incoming_group| {
-                if outgoing_groups
-                       .iter()
-                       .any(|outgoing_group| {
-                                groups_correspond(incoming_group, outgoing_group)
-                            }) {
+                let corresponding_incoming_exists =
+                    outgoing_groups
+                        .iter()
+                        .any(|outgoing_group| groups_correspond(incoming_group, outgoing_group));
+                if corresponding_incoming_exists {
                     // continues after intersection
                     outgoing_groups
                         .iter()

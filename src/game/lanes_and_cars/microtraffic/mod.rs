@@ -152,9 +152,11 @@ impl Recipient<AddCar> for Lane {
                     self.pathfinding
                         .routes
                         .get(car.destination)
-                        .or(self.pathfinding
-                                .routes
-                                .get(car.destination.landmark_destination()))
+                        .or_else(|| {
+                                     self.pathfinding
+                                         .routes
+                                         .get(car.destination.landmark_destination())
+                                 })
                         .or_else(|| {
                             println!("NO ROUTE!");
                             if car_forcibly_spawned || self.pathfinding.routes.is_empty() {

@@ -12,6 +12,7 @@ pub struct MaterializedRealityState {
     built_transfer_lanes: CDict<TransferStrokeRef, ID>,
 }
 
+#[allow(large_enum_variant)]
 pub enum MaterializedReality {
     Ready(MaterializedRealityState),
     WaitingForUnbuild(ID, CVec<ID>, MaterializedRealityState, Plan, PlanResult, PlanResultDelta),

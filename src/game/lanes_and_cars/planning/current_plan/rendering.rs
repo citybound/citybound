@@ -126,7 +126,7 @@ fn render_intersections(result_delta: &PlanResultDelta, renderer_id: ID, scene_i
         .intersections
         .to_create
         .values()
-        .filter(|i| i.shape.segments().len() > 0)
+        .filter(|i| !i.shape.segments().is_empty())
         .map(|i| band_to_thing(&Band::new(i.shape.clone(), 0.4), 0.5))
         .sum();
     renderer_id <<

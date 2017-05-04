@@ -63,6 +63,7 @@ impl Actor for UserInterface {}
 impl UserInterface {
     fn new(window: GlutinFacade) -> Self {
         let mut imgui = ImGui::init();
+        let default_font = im_str!("fonts/ClearSans-Regular.ttf\0");
 
         unsafe {
             let atlas = (*imgui_sys::igGetIO()).fonts;
@@ -71,8 +72,7 @@ impl UserInterface {
             config.oversample_h = 2;
             config.oversample_v = 2;
             imgui_sys::ImFontAtlas_AddFontFromFileTTF(atlas,
-                                                      im_str!("fonts/ClearSans-Regular.ttf\0")
-                                                          .as_ptr(),
+                                                      default_font.as_ptr(),
                                                       16.0,
                                                       &config,
                                                       ::std::ptr::null());

@@ -101,7 +101,8 @@ impl<SA: SubActor> Swarm<SA> {
 
         self.slot_map
             .associate(id.sub_actor_id as usize, SlotIndices::new(bin_index, index));
-        assert!(self.slot_map.indices_of(id.sub_actor_id as usize).bin() == bin_index);
+        assert_eq!(self.slot_map.indices_of(id.sub_actor_id as usize).bin(),
+                   bin_index);
 
         unsafe {
             let actor_in_slot = &mut *(ptr as *mut SA);

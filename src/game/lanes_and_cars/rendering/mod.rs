@@ -164,7 +164,7 @@ impl Recipient<RenderToCollector> for TransferLane {
                 Update(self.id(),
                        maybe_path
                            .map(|path| {
-                                    dash_path(path, 2.0, 4.0)
+                                    dash_path(&path, 2.0, 4.0)
                                         .into_iter()
                                         .map(|dash| band_to_thing(&Band::new(dash, 0.8), 0.2))
                                         .sum()
