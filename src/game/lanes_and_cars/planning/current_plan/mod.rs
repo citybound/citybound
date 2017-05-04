@@ -43,7 +43,8 @@ impl SelectableStrokeRef {
         match *self {
             SelectableStrokeRef::New(node_idx) => &plan_delta.new_strokes[node_idx],
             SelectableStrokeRef::Built(old_ref) => {
-                still_built_strokes.mapping
+                still_built_strokes
+                    .mapping
                     .get(old_ref)
                     .expect("Expected old_ref to exist!")
             }
@@ -115,21 +116,24 @@ use super::super::construction::materialized_reality::Simulate;
 
 impl CurrentPlan {
     fn still_built_strokes(&self) -> Option<BuiltStrokes> {
-        self.built_strokes.as_ref().map(|built_strokes| {
-            BuiltStrokes {
-                mapping: built_strokes.mapping
-                    .pairs()
-                    .filter_map(|(built_ref, stroke)| if self.current
-                        .plan_delta
-                        .strokes_to_destroy
-                        .contains_key(*built_ref) {
-                        None
-                    } else {
-                        Some((*built_ref, stroke.clone()))
-                    })
-                    .collect(),
-            }
-        })
+        self.built_strokes
+            .as_ref()
+            .map(|built_strokes| {
+                BuiltStrokes {
+                    mapping: built_strokes
+                        .mapping
+                        .pairs()
+                        .filter_map(|(built_ref, stroke)| if self.current
+                                           .plan_delta
+                                           .strokes_to_destroy
+                                           .contains_key(*built_ref) {
+                                        None
+                                    } else {
+                                        Some((*built_ref, stroke.clone()))
+                                    })
+                        .collect(),
+                }
+            })
     }
 
     fn invalidate_preview(&mut self) {
@@ -183,8 +187,8 @@ impl CurrentPlan {
                 }
             }
             for (&selection_ref, &(start, end)) in self.current.selections.pairs() {
-                let stroke =
-                    selection_ref.get_stroke(&self.current.plan_delta, &still_built_strokes);
+                let stroke = selection_ref.get_stroke(&self.current.plan_delta,
+                                                      &still_built_strokes);
                 if let Some(subsection) = stroke.path().subsection(start, end) {
                     let draggable = Draggable::new(selection_ref, subsection.clone());
                     Swarm::<Draggable>::id() << CreateWith(draggable, InitInteractable);
@@ -249,10 +253,10 @@ impl Recipient<Undo> for CurrentPlan {
         self.current = previous_state;
         StrokeCanvas::id() <<
         SetPoints(match self.current.intent {
-            Intent::ContinueRoad(_, ref points, _) |
-            Intent::NewRoad(ref points) => points.clone(),
-            _ => CVec::new(),
-        });
+                      Intent::ContinueRoad(_, ref points, _) |
+                      Intent::NewRoad(ref points) => points.clone(),
+                      _ => CVec::new(),
+                  });
         self.invalidate_preview();
         self.invalidate_interactables();
         Fate::Live
@@ -269,10 +273,10 @@ impl Recipient<Redo> for CurrentPlan {
             self.current = next_state;
             StrokeCanvas::id() <<
             SetPoints(match self.current.intent {
-                Intent::ContinueRoad(_, ref points, _) |
-                Intent::NewRoad(ref points) => points.clone(),
-                _ => CVec::new(),
-            });
+                          Intent::ContinueRoad(_, ref points, _) |
+                          Intent::NewRoad(ref points) => points.clone(),
+                          _ => CVec::new(),
+                      });
             self.invalidate_preview();
             self.invalidate_interactables();
         }
@@ -433,7 +437,12 @@ impl Recipient<Materialize> for CurrentPlan {
             delta: self.current.plan_delta.clone(),
         };
 
-        *self = CurrentPlan::default();
+        *self = CurrentPlan {
+            settings: self.settings.clone(),
+            interaction: self.interaction.clone(),
+            ..CurrentPlan::default()
+        };
+
         Fate::Live
     }
 }

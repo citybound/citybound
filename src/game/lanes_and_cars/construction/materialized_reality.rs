@@ -12,6 +12,7 @@ pub struct MaterializedRealityState {
     built_transfer_lanes: CDict<TransferStrokeRef, ID>,
 }
 
+#[allow(large_enum_variant)]
 pub enum MaterializedReality {
     Ready(MaterializedRealityState),
     WaitingForUnbuild(ID, CVec<ID>, MaterializedRealityState, Plan, PlanResult, PlanResultDelta),
@@ -36,7 +37,10 @@ use super::super::planning::plan::LaneStrokeRef;
 impl Recipient<Simulate> for MaterializedReality {
     fn receive(&mut self, msg: &Simulate) -> Fate {
         match *msg {
-            Simulate { requester, ref delta } => {
+            Simulate {
+                requester,
+                ref delta,
+            } => {
                 let state = match *self {
                     Ready(ref state) |
                     WaitingForUnbuild(_, _, ref state, _, _, _) => state,
@@ -63,7 +67,10 @@ impl Recipient<Apply> for MaterializedReality {
     #[inline(never)]
     fn receive(&mut self, msg: &Apply) -> Fate {
         match *msg {
-            Apply { ref delta, requester } => {
+            Apply {
+                ref delta,
+                requester,
+            } => {
                 *self = match *self {
                     WaitingForUnbuild(..) => panic!("Already applying a plan"),
                     Ready(ref mut state) => {
@@ -80,14 +87,16 @@ impl Recipient<Apply> for MaterializedReality {
                         }
 
                         for old_ref in result_delta.trimmed_strokes.to_destroy.keys() {
-                            let id = state.built_trimmed_lanes
+                            let id = state
+                                .built_trimmed_lanes
                                 .remove(*old_ref)
                                 .expect("tried to unbuild a non-existing lane");
                             ids_to_unbuild.push(id);
                         }
 
                         for old_ref in result_delta.transfer_strokes.to_destroy.keys() {
-                            let id = state.built_transfer_lanes
+                            let id = state
+                                .built_transfer_lanes
                                 .remove(*old_ref)
                                 .expect("tried to unbuild a non-existing transfer lane");
                             ids_to_unbuild.push(id);
@@ -132,24 +141,33 @@ impl Recipient<ReportLaneBuilt> for MaterializedReality {
                         match buildable_ref {
                             BuildableRef::Intersection(index) => {
                                 if let Some(other_intersection_lanes) =
-                                    state.built_intersection_lanes.get(IntersectionRef(index)) {
+                                    state
+                                        .built_intersection_lanes
+                                        .get(IntersectionRef(index)) {
                                     id <<
                                     AdvertiseForOverlaps {
                                         lanes: other_intersection_lanes.clone(),
                                     };
                                 }
-                                state.built_intersection_lanes.push_at(IntersectionRef(index), id);
+                                state
+                                    .built_intersection_lanes
+                                    .push_at(IntersectionRef(index), id);
                             }
                             BuildableRef::TrimmedStroke(index) => {
-                                state.built_trimmed_lanes.insert(TrimmedStrokeRef(index), id);
+                                state
+                                    .built_trimmed_lanes
+                                    .insert(TrimmedStrokeRef(index), id);
                             }
                             BuildableRef::TransferStroke(index) => {
-                                state.built_transfer_lanes.insert(TransferStrokeRef(index), id);
+                                state
+                                    .built_transfer_lanes
+                                    .insert(TransferStrokeRef(index), id);
                             }
                         }
                     }
                     WaitingForUnbuild(..) => {
-                        panic!("a waiting materialized reality shouldn't get build reports")
+                        panic!("a waiting materialized reality
+                                shouldn't get build reports")
                     }
                 }
                 Fate::Live
@@ -173,7 +191,8 @@ impl Recipient<ReportLaneUnbuilt> for MaterializedReality {
                                       ref new_result,
                                       ref result_delta) => {
                         if let Some(id) = maybe_id {
-                            let pos = ids_to_unbuild.iter()
+                            let pos = ids_to_unbuild
+                                .iter()
                                 .position(|unbuild_id| *unbuild_id == id)
                                 .expect("Trying to delete unexpected id");
                             ids_to_unbuild.remove(pos);
@@ -182,10 +201,12 @@ impl Recipient<ReportLaneUnbuilt> for MaterializedReality {
                             for (&IntersectionRef(new_index), new_intersection) in
                                 result_delta.intersections.to_create.pairs() {
                                 for (stroke, timings) in
-                                    new_intersection.strokes
+                                    new_intersection
+                                        .strokes
                                         .iter()
                                         .zip(new_intersection.timings.iter()) {
-                                    stroke.build_intersection(MaterializedReality::id(),
+                                    stroke
+                                        .build_intersection(MaterializedReality::id(),
                                                             BuildableRef::Intersection(new_index),
                                                             timings.clone());
                                 }
@@ -203,21 +224,24 @@ impl Recipient<ReportLaneUnbuilt> for MaterializedReality {
                                                           BuildableRef::TransferStroke(new_index));
                             }
 
-                            let new_built_intersection_lanes = state.built_intersection_lanes
+                            let new_built_intersection_lanes = state
+                                .built_intersection_lanes
                                 .pairs()
                                 .map(|(old_ref, ids)| {
-                                    let new_ref = result_delta.intersections
+                                         let new_ref = result_delta.intersections
                                         .old_to_new
                                         .get(*old_ref)
                                         .expect("attempted to resurrect a destroyed intersection");
-                                    (*new_ref, ids.clone())
-                                })
+                                         (*new_ref, ids.clone())
+                                     })
                                 .collect();
 
-                            let new_built_trimmed_lanes = state.built_trimmed_lanes
+                            let new_built_trimmed_lanes = state
+                                .built_trimmed_lanes
                                 .pairs()
                                 .map(|(old_ref, id)| {
-                                    let new_ref = result_delta.trimmed_strokes
+                                    let new_ref = result_delta
+                                        .trimmed_strokes
                                         .old_to_new
                                         .get(*old_ref)
                                         .expect("attempted to resurrect a destroyed trimmed \
@@ -226,10 +250,12 @@ impl Recipient<ReportLaneUnbuilt> for MaterializedReality {
                                 })
                                 .collect();
 
-                            let new_built_transfer_lanes = state.built_transfer_lanes
+                            let new_built_transfer_lanes = state
+                                .built_transfer_lanes
                                 .pairs()
                                 .map(|(old_ref, id)| {
-                                    let new_ref = result_delta.transfer_strokes
+                                    let new_ref = result_delta
+                                        .transfer_strokes
                                         .old_to_new
                                         .get(*old_ref)
                                         .expect("attempted to resurrect a destroyed transfer \
@@ -239,7 +265,8 @@ impl Recipient<ReportLaneUnbuilt> for MaterializedReality {
                                 .collect();
 
                             let built_strokes = BuiltStrokes {
-                                mapping: new_plan.strokes
+                                mapping: new_plan
+                                    .strokes
                                     .iter()
                                     .enumerate()
                                     .map(|(idx, stroke)| (LaneStrokeRef(idx), stroke.clone()))
@@ -249,12 +276,12 @@ impl Recipient<ReportLaneUnbuilt> for MaterializedReality {
                             requester << BuiltStrokesChanged(built_strokes);
 
                             Some(Ready(MaterializedRealityState {
-                                current_plan: new_plan.clone(),
-                                current_result: new_result.clone(),
-                                built_intersection_lanes: new_built_intersection_lanes,
-                                built_trimmed_lanes: new_built_trimmed_lanes,
-                                built_transfer_lanes: new_built_transfer_lanes,
-                            }))
+                                           current_plan: new_plan.clone(),
+                                           current_result: new_result.clone(),
+                                           built_intersection_lanes: new_built_intersection_lanes,
+                                           built_trimmed_lanes: new_built_trimmed_lanes,
+                                           built_transfer_lanes: new_built_transfer_lanes,
+                                       }))
                         } else {
                             None
                         }
@@ -273,12 +300,12 @@ impl Recipient<ReportLaneUnbuilt> for MaterializedReality {
 impl Default for MaterializedReality {
     fn default() -> Self {
         Ready(MaterializedRealityState {
-            current_plan: Plan::default(),
-            current_result: PlanResult::default(),
-            built_intersection_lanes: CDict::new(),
-            built_trimmed_lanes: CDict::new(),
-            built_transfer_lanes: CDict::new(),
-        })
+                  current_plan: Plan::default(),
+                  current_result: PlanResult::default(),
+                  built_intersection_lanes: CDict::new(),
+                  built_trimmed_lanes: CDict::new(),
+                  built_transfer_lanes: CDict::new(),
+              })
     }
 }
 

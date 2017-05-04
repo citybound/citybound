@@ -8,6 +8,7 @@ use {Renderer, Eye};
 #[derive(Copy, Clone)]
 pub enum Movement {
     Shift(V3),
+    ShiftAbsolute(V3),
     Zoom(N, P3),
     Yaw(N),
     Pitch(N),
@@ -30,6 +31,7 @@ impl Recipient<MoveEye> for Renderer {
             MoveEye { scene_id, movement } => {
                 match movement {
                     Movement::Shift(delta) => self.movement_shift(scene_id, delta),
+                    Movement::ShiftAbsolute(delta) => self.movement_shift_absolute(scene_id, delta),
                     Movement::Zoom(delta, mouse_position) => {
                         self.movement_zoom(scene_id, delta, mouse_position)
                     }
@@ -64,6 +66,12 @@ impl Renderer {
         eye.target += absolute_delta * (dist_to_target / 500.0);
     }
 
+    fn movement_shift_absolute(&mut self, scene_id: usize, delta: V3) {
+        let eye = &mut self.scenes[scene_id].eye;
+        eye.position += delta;
+        eye.target += delta;
+    }
+
     fn movement_zoom(&mut self, scene_id: usize, delta: N, zoom_point: P3) {
         let eye = &mut self.scenes[scene_id].eye;
 
@@ -82,7 +90,7 @@ impl Renderer {
         // with the scale between zoom distances
         eye.target = ((new_zoom_distance * (eye.target - zoom_point)) / zoom_distance +
                       zoom_point.to_vector())
-            .to_point();
+                .to_point();
     }
 
     fn movement_yaw(&mut self, scene_id: usize, delta: N) {

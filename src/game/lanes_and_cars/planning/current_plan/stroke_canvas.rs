@@ -1,7 +1,7 @@
 use kay::{Recipient, Actor, Fate};
 use compact::CVec;
 use descartes::{P2, Into2d, RoughlyComparable};
-use core::geometry::AnyShape;
+use stagemaster::geometry::AnyShape;
 use super::CurrentPlan;
 
 #[derive(Compact, Clone, Default)]
@@ -21,21 +21,21 @@ pub enum StrokeState {
 #[derive(Compact, Clone)]
 pub struct Stroke(pub CVec<P2>, pub StrokeState);
 
-use core::ui::Event3d;
+use stagemaster::Event3d;
 
 const FINISH_STROKE_TOLERANCE: f32 = 5.0;
 
 impl Recipient<Event3d> for StrokeCanvas {
     fn receive(&mut self, msg: &Event3d) -> Fate {
         match *msg {
-            Event3d::HoverStarted { at } |
-            Event3d::HoverOngoing { at } => {
+            Event3d::HoverStarted { at, .. } |
+            Event3d::HoverOngoing { at, .. } => {
                 let mut preview_points = self.points.clone();
                 preview_points.push(at.into_2d());
                 CurrentPlan::id() << Stroke(preview_points, StrokeState::Preview);
                 Fate::Live
             }
-            Event3d::DragStarted { at } => {
+            Event3d::DragStarted { at, .. } => {
                 let new_point = at.into_2d();
                 let maybe_last_point = self.points.last().cloned();
 
@@ -79,11 +79,11 @@ impl Recipient<SetPoints> for StrokeCanvas {
 }
 
 use super::InitInteractable;
-use core::ui::{UserInterface, Add};
+use stagemaster::{UserInterface, AddInteractable};
 
 impl Recipient<InitInteractable> for StrokeCanvas {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {
-        UserInterface::id() << Add::Interactable3d(StrokeCanvas::id(), AnyShape::Everywhere, 1);
+        UserInterface::id() << AddInteractable(StrokeCanvas::id(), AnyShape::Everywhere, 1);
         Fate::Live
     }
 }

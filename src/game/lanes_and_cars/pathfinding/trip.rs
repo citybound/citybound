@@ -48,7 +48,10 @@ impl Recipient<TellAsDestination> for Trip {
                 };
                 Fate::Live
             }
-            TellAsDestination { id, as_destination: None } => {
+            TellAsDestination {
+                id,
+                as_destination: None,
+            } => {
                 println!("{:?} is not a destination yet", id);
                 Fate::Die
             }
@@ -110,7 +113,7 @@ impl Recipient<AddLaneForTrip> for TripCreator {
 }
 
 use super::super::lane::Lane;
-use core::ui::Event3d;
+use stagemaster::Event3d;
 
 impl Recipient<Event3d> for Lane {
     fn receive(&mut self, msg: &Event3d) -> Fate {

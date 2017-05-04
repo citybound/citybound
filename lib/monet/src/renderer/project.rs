@@ -19,7 +19,11 @@ pub struct Projected3d {
 
 impl Recipient<Project2dTo3d> for Renderer {
     fn receive(&mut self, msg: &Project2dTo3d) -> Fate {
-        let &Project2dTo3d { scene_id, position_2d, requester } = msg;
+        let &Project2dTo3d {
+                 scene_id,
+                 position_2d,
+                 requester,
+             } = msg;
 
         let eye = &self.scenes[scene_id].eye;
         let frame_size = self.render_context.window.get_framebuffer_dimensions();
@@ -38,9 +42,9 @@ impl Recipient<Project2dTo3d> for Renderer {
                                               eye.field_of_view,
                                               0.1,
                                               1000.0)
-            .to_matrix()
-            .inverse()
-            .unwrap();
+                .to_matrix()
+                .inverse()
+                .unwrap();
 
         // converts from frustum to position relative to camera
         let mut position_from_camera = inverse_perspective * normalized_2d_position;

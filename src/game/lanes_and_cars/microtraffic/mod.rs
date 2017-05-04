@@ -65,7 +65,10 @@ impl Obstacle {
         }
     }
     fn offset_by(&self, delta: f32) -> Obstacle {
-        Obstacle { position: OrderedFloat(*self.position + delta), ..*self }
+        Obstacle {
+            position: OrderedFloat(*self.position + delta),
+            ..*self
+        }
     }
 }
 
@@ -80,7 +83,10 @@ pub struct LaneCar {
 
 impl LaneCar {
     fn offset_by(&self, delta: f32) -> LaneCar {
-        LaneCar { as_obstacle: self.as_obstacle.offset_by(delta), ..*self }
+        LaneCar {
+            as_obstacle: self.as_obstacle.offset_by(delta),
+            ..*self
+        }
     }
 }
 
@@ -142,26 +148,29 @@ impl Recipient<AddCar> for Lane {
                 // TODO: horrible hack to encode it like this
                 let car_forcibly_spawned = *car.as_obstacle.position < 0.0;
 
-                let maybe_next_hop_interaction = self.pathfinding
-                    .routes
-                    .get(car.destination)
-                    .or(self.pathfinding
+                let maybe_next_hop_interaction =
+                    self.pathfinding
                         .routes
-                        .get(car.destination.landmark_destination()))
-                    .or_else(|| {
-                        println!("NO ROUTE!");
-                        if car_forcibly_spawned || self.pathfinding.routes.is_empty() {
-                            None
-                        } else {
-                            // pseudorandom, lol
-                            self.pathfinding
-                                .routes
-                                .values()
-                                .nth((car.velocity * 10000.0) as usize %
-                                     self.pathfinding.routes.len())
-                        }
-                    })
-                    .map(|&RoutingInfo { outgoing_idx, .. }| outgoing_idx as usize);
+                        .get(car.destination)
+                        .or_else(|| {
+                                     self.pathfinding
+                                         .routes
+                                         .get(car.destination.landmark_destination())
+                                 })
+                        .or_else(|| {
+                            println!("NO ROUTE!");
+                            if car_forcibly_spawned || self.pathfinding.routes.is_empty() {
+                                None
+                            } else {
+                                // pseudorandom, lol
+                                self.pathfinding
+                                    .routes
+                                    .values()
+                                    .nth((car.velocity * 10000.0) as usize %
+                                         self.pathfinding.routes.len())
+                            }
+                        })
+                        .map(|&RoutingInfo { outgoing_idx, .. }| outgoing_idx as usize);
 
                 let spawn_possible = if car_forcibly_spawned {
                     if self.last_spawn_position > 2.0 {
@@ -189,13 +198,17 @@ impl Recipient<AddCar> for Lane {
                     };
 
                     // TODO: optimize using BinaryHeap?
-                    let maybe_next_car_position =
-                        self.microtraffic.cars.iter().position(|other_car| {
-                            other_car.as_obstacle.position > car.as_obstacle.position
-                        });
+                    let maybe_next_car_position = self.microtraffic
+                        .cars
+                        .iter()
+                        .position(|other_car| {
+                                      other_car.as_obstacle.position > car.as_obstacle.position
+                                  });
                     match maybe_next_car_position {
                         Some(next_car_position) => {
-                            self.microtraffic.cars.insert(next_car_position, routed_car)
+                            self.microtraffic
+                                .cars
+                                .insert(next_car_position, routed_car)
                         }
                         None => self.microtraffic.cars.push(routed_car),
                     }
@@ -212,24 +225,33 @@ impl Recipient<AddCar> for Lane {
 impl Recipient<AddCar> for TransferLane {
     fn receive(&mut self, msg: &AddCar) -> Fate {
         match *msg {
-            AddCar { car, from: Some(from) } => {
-                let from_left = from == self.connectivity.left.expect("should have a left lane").0;
+            AddCar {
+                car,
+                from: Some(from),
+            } => {
+                let from_left = from ==
+                                self.connectivity
+                                    .left
+                                    .expect("should have a left lane")
+                                    .0;
                 let side_multiplier = if from_left { -1.0 } else { 1.0 };
                 let offset = self.interaction_to_self_offset(*car.position, from_left);
-                self.microtraffic.cars.push(TransferringLaneCar {
-                    as_lane_car: car.offset_by(offset),
-                    transfer_position: 1.0 * side_multiplier,
-                    transfer_velocity: 0.0,
-                    transfer_acceleration: 0.3 * -side_multiplier,
-                    cancelling: false,
-                });
+                self.microtraffic
+                    .cars
+                    .push(TransferringLaneCar {
+                              as_lane_car: car.offset_by(offset),
+                              transfer_position: 1.0 * side_multiplier,
+                              transfer_velocity: 0.0,
+                              transfer_acceleration: 0.3 * -side_multiplier,
+                              cancelling: false,
+                          });
                 // TODO: optimize using BinaryHeap?
-                self.microtraffic.cars.sort_by_key(|car| car.as_obstacle.position);
+                self.microtraffic
+                    .cars
+                    .sort_by_key(|car| car.as_obstacle.position);
                 Fate::Live
             }
-            AddCar { from: None, .. } => {
-                panic!("car has to come from somewhere on a transfer lane")
-            }
+            AddCar { from: None, .. } => panic!("car has to come from somewhere on transfer lane"),
         }
     }
 }
@@ -237,8 +259,13 @@ impl Recipient<AddCar> for TransferLane {
 impl Recipient<AddObstacles> for Lane {
     fn receive(&mut self, msg: &AddObstacles) -> Fate {
         match *msg {
-            AddObstacles { ref obstacles, from } => {
-                self.microtraffic.obstacles.retain(|&(_, received_from)| received_from != from);
+            AddObstacles {
+                ref obstacles,
+                from,
+            } => {
+                self.microtraffic
+                    .obstacles
+                    .retain(|&(_, received_from)| received_from != from);
                 self.microtraffic
                     .obstacles
                     .extend(obstacles.iter().map(|obstacle| (*obstacle, from)));
@@ -251,24 +278,29 @@ impl Recipient<AddObstacles> for Lane {
 impl Recipient<AddObstacles> for TransferLane {
     fn receive(&mut self, msg: &AddObstacles) -> Fate {
         match *msg {
-            AddObstacles { ref obstacles, from } => {
+            AddObstacles {
+                ref obstacles,
+                from,
+            } => {
                 if let (Some((left_id, _)), Some(_)) =
                     (self.connectivity.left, self.connectivity.right) {
                     if left_id == from {
-                        self.microtraffic.left_obstacles = obstacles.iter()
+                        self.microtraffic.left_obstacles = obstacles
+                            .iter()
                             .map(|obstacle| {
-                                obstacle.offset_by(
+                                     obstacle.offset_by(
                                     self.interaction_to_self_offset(*obstacle.position, true)
                                 )
-                            })
+                                 })
                             .collect();
                     } else {
-                        self.microtraffic.right_obstacles = obstacles.iter()
+                        self.microtraffic.right_obstacles = obstacles
+                            .iter()
                             .map(|obstacle| {
-                                obstacle.offset_by(
+                                     obstacle.offset_by(
                                     self.interaction_to_self_offset(*obstacle.position, false)
                                 )
-                            })
+                                 })
                             .collect();
                     };
                 } else {
@@ -322,9 +354,11 @@ impl Recipient<Tick> for Lane {
                 // TODO: this is just a hacky way to update new lanes about existing lane's green
                 if old_green != self.microtraffic.green || do_traffic {
                     for interaction in &self.connectivity.interactions {
-                        if let Interaction { kind: InteractionKind::Previous { .. },
-                                             partner_lane,
-                                             .. } = *interaction {
+                        if let Interaction {
+                                   kind: InteractionKind::Previous { .. },
+                                   partner_lane,
+                                   ..
+                               } = *interaction {
                             partner_lane <<
                             SignalChanged {
                                 from: self.id(),
@@ -345,15 +379,18 @@ impl Recipient<Tick> for Lane {
                         .obstacles
                         .sort_by_key(|&(ref obstacle, _id)| obstacle.position);
 
-                    let mut obstacles =
-                        self.microtraffic.obstacles.iter().map(|&(ref obstacle, _id)| obstacle);
+                    let mut obstacles = self.microtraffic
+                        .obstacles
+                        .iter()
+                        .map(|&(ref obstacle, _id)| obstacle);
                     let mut maybe_next_obstacle = obstacles.next();
 
                     for c in 0..self.microtraffic.cars.len() {
-                        let next_obstacle = self.microtraffic
-                            .cars
-                            .get(c + 1)
-                            .map_or(Obstacle::far_ahead(), |car| car.as_obstacle);
+                        let next_obstacle =
+                            self.microtraffic
+                                .cars
+                                .get(c + 1)
+                                .map_or(Obstacle::far_ahead(), |car| car.as_obstacle);
                         let car = &mut self.microtraffic.cars[c];
                         let next_car_acceleration =
                             intelligent_acceleration(car, &next_obstacle, 2.0);
@@ -376,18 +413,24 @@ impl Recipient<Tick> for Lane {
 
                         car.acceleration = next_car_acceleration.min(next_obstacle_acceleration);
 
-                        if let Interaction { start, kind: InteractionKind::Next { green }, .. } =
+                        if let Interaction {
+                                   start,
+                                   kind: InteractionKind::Next { green },
+                                   ..
+                               } =
                             self.connectivity.interactions[car.next_hop_interaction as usize] {
                             if !green {
-                                car.acceleration = car.acceleration
-                                    .min(intelligent_acceleration(car,
-                                                                  &Obstacle {
-                                                                      position: OrderedFloat(start +
-                                                                                             2.0),
-                                                                      velocity: 0.0,
-                                                                      max_velocity: 0.0,
-                                                                  },
-                                                                  2.0))
+                                car.acceleration =
+                                    car.acceleration
+                                        .min(intelligent_acceleration(car,
+                                                                      &Obstacle {
+                                                                           position:
+                                                                               OrderedFloat(start +
+                                                                                            2.0),
+                                                                           velocity: 0.0,
+                                                                           max_velocity: 0.0,
+                                                                       },
+                                                                      2.0))
                             }
                         }
                     }
@@ -395,8 +438,9 @@ impl Recipient<Tick> for Lane {
 
                 for car in &mut self.microtraffic.cars {
                     *car.position += dt * car.velocity;
-                    car.velocity =
-                        (car.velocity + dt * car.acceleration).min(car.max_velocity).max(0.0);
+                    car.velocity = (car.velocity + dt * car.acceleration)
+                        .min(car.max_velocity)
+                        .max(0.0);
                 }
 
                 for &mut (ref mut obstacle, _id) in &mut self.microtraffic.obstacles {
@@ -407,7 +451,7 @@ impl Recipient<Tick> for Lane {
                     for i in (0..self.microtraffic.cars.len() - 1).rev() {
                         self.microtraffic.cars[i].position =
                             OrderedFloat((*self.microtraffic.cars[i].position)
-                                .min(*self.microtraffic.cars[i + 1].position));
+                                             .min(*self.microtraffic.cars[i + 1].position));
                     }
                 }
 
@@ -497,22 +541,23 @@ fn obstacles_for_interaction(interaction: &Interaction,
                              self_obstacles_iter: ::std::slice::Iter<(Obstacle, ID)>)
                              -> Option<CVec<Obstacle>> {
     match *interaction {
-        Interaction { partner_lane,
-                      start,
-                      partner_start,
-                      kind: InteractionKind::Overlap { end, kind, .. },
-                      .. } => {
+        Interaction {
+            partner_lane,
+            start,
+            partner_start,
+            kind: InteractionKind::Overlap { end, kind, .. },
+            ..
+        } => {
             Some(match kind {
-                OverlapKind::Parallel => {
-                    cars.skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
-                        .take_while(|car: &&LaneCar| *car.position < end)
-                        .map(|car| {
-                            car.as_obstacle
-                                .offset_by(-start + partner_start)
-                        })
-                        .collect()
-                }
-                OverlapKind::Transfer => {
+                     OverlapKind::Parallel => {
+                         cars.skip_while(|car: &&LaneCar| {
+                                             *car.position + 2.0 * car.velocity < start
+                                         })
+                             .take_while(|car: &&LaneCar| *car.position < end)
+                             .map(|car| car.as_obstacle.offset_by(-start + partner_start))
+                             .collect()
+                     }
+                     OverlapKind::Transfer => {
                     cars.skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
                         .map(|car| car.as_obstacle.offset_by(-start + partner_start))
                         .chain(self_obstacles_iter
@@ -526,30 +571,35 @@ fn obstacles_for_interaction(interaction: &Interaction,
                             }))
                         .collect()
                 }
-                OverlapKind::Conflicting => {
-                    let in_overlap = |car: &LaneCar| {
-                        *car.position + 2.0 * car.velocity > start && *car.position - 2.0 < end
-                    };
-                    if cars.any(in_overlap) {
-                        vec![Obstacle {
-                                 position: OrderedFloat(partner_start),
-                                 velocity: 0.0,
-                                 max_velocity: 0.0,
-                             }]
+                     OverlapKind::Conflicting => {
+                let in_overlap = |car: &LaneCar| {
+                    *car.position + 2.0 * car.velocity > start && *car.position - 2.0 < end
+                };
+                if cars.any(in_overlap) {
+                    vec![Obstacle {
+                             position: OrderedFloat(partner_start),
+                             velocity: 0.0,
+                             max_velocity: 0.0,
+                         }]
                             .into()
-                    } else {
-                        CVec::new()
-                    }
+                } else {
+                    CVec::new()
                 }
-            })
+            }
+                 })
         }
-        Interaction { start, partner_start, kind: InteractionKind::Previous, .. } => {
+        Interaction {
+            start,
+            partner_start,
+            kind: InteractionKind::Previous,
+            ..
+        } => {
             Some(cars.map(|car| &car.as_obstacle)
-                .chain(self_obstacles_iter.map(|&(ref obstacle, _id)| obstacle))
-                .find(|car| *car.position >= start - 2.0)
-                .map(|first_car| first_car.offset_by(-start + partner_start))
-                .into_iter()
-                .collect())
+                     .chain(self_obstacles_iter.map(|&(ref obstacle, _id)| obstacle))
+                     .find(|car| *car.position >= start - 2.0)
+                     .map(|first_car| first_car.offset_by(-start + partner_start))
+                     .into_iter()
+                     .collect())
         }
         Interaction { kind: InteractionKind::Next { .. }, .. } => {
             None
@@ -569,8 +619,12 @@ impl Recipient<Tick> for TransferLane {
 
                 if do_traffic {
                     // TODO: optimize using BinaryHeap?
-                    self.microtraffic.left_obstacles.sort_by_key(|obstacle| obstacle.position);
-                    self.microtraffic.right_obstacles.sort_by_key(|obstacle| obstacle.position);
+                    self.microtraffic
+                        .left_obstacles
+                        .sort_by_key(|obstacle| obstacle.position);
+                    self.microtraffic
+                        .right_obstacles
+                        .sort_by_key(|obstacle| obstacle.position);
 
                     for c in 0..self.microtraffic.cars.len() {
                         let (acceleration, dangerous) = {
@@ -637,8 +691,9 @@ impl Recipient<Tick> for TransferLane {
 
                 for car in &mut self.microtraffic.cars {
                     *car.position += dt * car.velocity;
-                    car.velocity =
-                        (car.velocity + dt * car.acceleration).min(car.max_velocity).max(0.0);
+                    car.velocity = (car.velocity + dt * car.acceleration)
+                        .min(car.max_velocity)
+                        .max(0.0);
                     car.transfer_position += dt * car.transfer_velocity;
                     car.transfer_velocity += dt * car.transfer_acceleration;
                     if car.transfer_velocity.abs() > car.velocity / 12.0 {
@@ -648,9 +703,9 @@ impl Recipient<Tick> for TransferLane {
                 }
 
                 for obstacle in self.microtraffic
-                    .left_obstacles
-                    .iter_mut()
-                    .chain(self.microtraffic.right_obstacles.iter_mut()) {
+                        .left_obstacles
+                        .iter_mut()
+                        .chain(self.microtraffic.right_obstacles.iter_mut()) {
                     *obstacle.position += dt * obstacle.velocity;
                 }
 
@@ -705,12 +760,12 @@ impl Recipient<Tick> for TransferLane {
                             .iter()
                             .filter_map(|car| if car.transfer_position < 0.3 ||
                                                  car.transfer_acceleration < 0.0 {
-                                Some(car.as_obstacle.offset_by(
+                                            Some(car.as_obstacle.offset_by(
                                 left_start + self.self_to_interaction_offset(*car.position, true)
                             ))
-                            } else {
-                                None
-                            })
+                                        } else {
+                                            None
+                                        })
                             .collect();
                         left <<
                         AddObstacles {
@@ -726,13 +781,13 @@ impl Recipient<Tick> for TransferLane {
                             .iter()
                             .filter_map(|car| if car.transfer_position > -0.3 ||
                                                  car.transfer_acceleration > 0.0 {
-                                Some(car.as_obstacle.offset_by(
+                                            Some(car.as_obstacle.offset_by(
                                     right_start + self.self_to_interaction_offset(*car.position,
                                                                                   false)
                                 ))
-                            } else {
-                                None
-                            })
+                                        } else {
+                                            None
+                                        })
                             .collect();
                         right <<
                         AddObstacles {
@@ -757,11 +812,13 @@ impl Recipient<SignalChanged> for Lane {
                         .interactions
                         .iter_mut()
                         .find(|interaction| match **interaction {
-                            Interaction { partner_lane,
-                                          kind: InteractionKind::Next { .. },
-                                          .. } => partner_lane == from,
-                            _ => false,
-                        }) {
+                                  Interaction {
+                                      partner_lane,
+                                      kind: InteractionKind::Next { .. },
+                                      ..
+                                  } => partner_lane == from,
+                                  _ => false,
+                              }) {
                     interaction.kind = InteractionKind::Next { green: green }
                 } else {
                     println!("Lane doesn't know about next lane yet");

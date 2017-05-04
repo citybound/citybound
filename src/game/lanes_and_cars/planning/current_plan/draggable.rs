@@ -1,7 +1,7 @@
 use kay::{ID, Recipient, Actor, Fate};
 use kay::swarm::{Swarm, SubActor, CreateWith};
 use descartes::{N, Band, Into2d, Norm};
-use core::geometry::{CPath, AnyShape};
+use stagemaster::geometry::{CPath, AnyShape};
 
 use super::{SelectableStrokeRef, CurrentPlan};
 
@@ -23,29 +23,29 @@ impl Draggable {
 }
 
 use super::InitInteractable;
-use core::ui::Add;
+use stagemaster::{UserInterface, AddInteractable};
 
 impl Recipient<InitInteractable> for Draggable {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {
-        ::core::ui::UserInterface::id() <<
-        Add::Interactable3d(self.id(),
-                            AnyShape::Band(Band::new(self.path.clone(), 5.0)),
-                            4);
+        UserInterface::id() <<
+        AddInteractable(self.id(),
+                        AnyShape::Band(Band::new(self.path.clone(), 5.0)),
+                        4);
         Fate::Live
     }
 }
 
 use super::ClearInteractable;
-use core::ui::Remove;
+use stagemaster::RemoveInteractable;
 
 impl Recipient<ClearInteractable> for Draggable {
     fn receive(&mut self, _msg: &ClearInteractable) -> Fate {
-        ::core::ui::UserInterface::id() << Remove::Interactable3d(self.id());
+        UserInterface::id() << RemoveInteractable(self.id());
         Fate::Die
     }
 }
 
-use core::ui::Event3d;
+use stagemaster::Event3d;
 use super::{ChangeIntent, Intent, IntentProgress};
 
 const MAXIMIZE_DISTANCE: N = 0.5;
@@ -53,13 +53,13 @@ const MAXIMIZE_DISTANCE: N = 0.5;
 impl Recipient<Event3d> for Draggable {
     fn receive(&mut self, msg: &Event3d) -> Fate {
         match *msg {
-            Event3d::DragOngoing { from, to } => {
+            Event3d::DragOngoing { from, to, .. } => {
                 CurrentPlan::id() <<
                 ChangeIntent(Intent::MoveSelection(to.into_2d() - from.into_2d()),
                              IntentProgress::Preview);
                 Fate::Live
             }
-            Event3d::DragFinished { from, to } => {
+            Event3d::DragFinished { from, to, .. } => {
                 let delta = to.into_2d() - from.into_2d();
                 if delta.norm() < MAXIMIZE_DISTANCE {
                     CurrentPlan::id() <<
