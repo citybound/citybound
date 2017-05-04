@@ -31,11 +31,11 @@ extern crate serde;
 
 use stagemaster::environment::Environment;
 
-pub const ENV: Environment = Environment {
-    name: "Citybound",
-    author: "ae play",
-    version: "0.1.2",
-};
+pub const ENV: &'static Environment = &Environment {
+                                           name: "Citybound",
+                                           author: "ae play",
+                                           version: "0.1.3",
+                                       };
 
 mod core;
 mod game;
@@ -106,7 +106,7 @@ fn main() {
                            ThingCollector::<LaneMarker>::id(),
                            ThingCollector::<TransferLaneMarkerGaps>::id(),
                            CurrentPlan::id()];
-    stagemaster::setup(renderables, &ENV, &window);
+    stagemaster::setup(renderables, ENV, &window);
 
     let mut last_frame = std::time::Instant::now();
 

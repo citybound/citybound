@@ -37,6 +37,7 @@ use stagemaster::{UserInterface, AddInteractable, AddInteractable2d, Focus};
 
 impl Recipient<InitInteractable> for CurrentPlan {
     fn receive(&mut self, _msg: &InitInteractable) -> Fate {
+        self.interaction.settings = ::ENV.load_settings("Plan Editing");
         UserInterface::id() << AddInteractable(CurrentPlan::id(), AnyShape::Everywhere, 0);
         UserInterface::id() << AddInteractable2d(CurrentPlan::id());
         UserInterface::id() << Focus(CurrentPlan::id());
@@ -176,13 +177,15 @@ impl Recipient<DrawUI2d> for CurrentPlan {
 
                 ui.window(im_str!("Controls"))
                     .build(|| {
-                               ui.text(im_str!("Plan Editing"));
-                               ui.separator();
+                        ui.text(im_str!("Plan Editing"));
+                        ui.separator();
 
-                               self.interaction.settings.bindings.settings_ui(&ui);
+                        if self.interaction.settings.bindings.settings_ui(&ui) {
+                            ::ENV.write_settings("Plan Editing", &self.interaction.settings)
+                        }
 
-                               ui.spacing();
-                           });
+                        ui.spacing();
+                    });
 
                 return_to << Ui2dDrawn { ui_ptr: Box::into_raw(ui) as usize };
                 Fate::Live

@@ -356,8 +356,9 @@ impl Bindings {
             .expect("Expected binding to exist")
     }
 
-    pub fn settings_ui(&mut self, ui: &::imgui::Ui) {
+    pub fn settings_ui(&mut self, ui: &::imgui::Ui) -> bool {
         let mut new_target = self.rebinding.clone();
+        let mut finished_changing = false;
         for (name, combos) in self.bindings.clone() {
             ui.text(im_str!("{}", name));
             ui.same_line(150.0);
@@ -378,6 +379,7 @@ impl Bindings {
                              ImVec2::new(200.0, 0.0)) {
                 if target_is.0 {
                     new_target = None;
+                    finished_changing = true;
                 } else {
                     self[name.as_str()].0[0] = Combo::new(&[]);
                     new_target = Some((name.clone(), 0))
@@ -390,6 +392,7 @@ impl Bindings {
                              ImVec2::new(200.0, 0.0)) {
                 if target_is.1 {
                     new_target = None;
+                    finished_changing = true;
                 } else {
                     self[name.as_str()].0[1] = Combo::new(&[]);
                     new_target = Some((name.clone(), 1))
@@ -397,7 +400,8 @@ impl Bindings {
             }
 
         }
-        self.rebinding = new_target
+        self.rebinding = new_target;
+        finished_changing
     }
 
     pub fn do_rebinding(&mut self, combo: &Combo) {

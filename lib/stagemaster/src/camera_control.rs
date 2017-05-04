@@ -3,8 +3,9 @@ use monet::{Renderer, MoveEye, Movement};
 use descartes::{P2, P3, V3};
 use combo::Button::*;
 use super::combo::{Bindings, Combo2};
+use super::environment::Environment;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct CameraControlSettings {
     pub rotation_speed: f32,
     pub move_speed: f32,
@@ -34,6 +35,7 @@ impl Default for CameraControlSettings {
 
 pub struct CameraControl {
     settings: CameraControlSettings,
+    env: &'static Environment,
     forward: bool,
     backward: bool,
     left: bool,
@@ -46,9 +48,10 @@ pub struct CameraControl {
 }
 
 impl CameraControl {
-    fn new(settings: CameraControlSettings) -> Self {
+    fn new(settings: CameraControlSettings, env: &'static Environment) -> Self {
         CameraControl {
             settings: settings,
+            env: env,
             forward: false,
             backward: false,
             left: false,
@@ -177,6 +180,8 @@ impl Recipient<DrawUI2d> for CameraControl {
             DrawUI2d { ui_ptr, return_to } => {
                 let ui = unsafe { Box::from_raw(ui_ptr as *mut ::imgui::Ui) };
 
+                let mut settings_changed = false;
+
                 ui.window(im_str!("Controls"))
                     .size((600.0, 200.0), ImGuiSetCond_FirstUseEver)
                     .collapsible(false)
@@ -186,16 +191,25 @@ impl Recipient<DrawUI2d> for CameraControl {
 
                         ui.text(im_str!("Move Speed"));
                         ui.same_line(150.0);
-                        ui.slider_float(im_str!(""), &mut self.settings.move_speed, 0.1, 10.0)
-                            .build();
+                        settings_changed =
+                            settings_changed ||
+                            ui.slider_float(im_str!(""), &mut self.settings.move_speed, 0.1, 10.0)
+                                .build();
 
-                        ui.checkbox(im_str!("Invert Y"), &mut self.settings.invert_y);
+                        settings_changed = settings_changed ||
+                                           ui.checkbox(im_str!("Invert Y"),
+                                                       &mut self.settings.invert_y);
 
-                        self.settings.bindings.settings_ui(&ui);
+                        settings_changed = settings_changed ||
+                                           self.settings.bindings.settings_ui(&ui);
 
                         ui.spacing();
 
                     });
+
+                if settings_changed {
+                    self.env.write_settings("Camera Control", &self.settings);
+                }
 
                 return_to << Ui2dDrawn { ui_ptr: Box::into_raw(ui) as usize };
                 Fate::Live
@@ -204,9 +218,9 @@ impl Recipient<DrawUI2d> for CameraControl {
     }
 }
 
-pub fn setup(env: &super::environment::Environment) {
+pub fn setup(env: &'static Environment) {
     let settings = env.load_settings("Camera Control");
-    let state = CameraControl::new(settings);
+    let state = CameraControl::new(settings, env);
     CameraControl::register_with_state(state);
     CameraControl::handle_critically::<Event3d>();
     CameraControl::handle_critically::<DrawUI2d>();

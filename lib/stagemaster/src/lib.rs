@@ -629,7 +629,7 @@ impl Recipient<AddDebugText> for UserInterface {
     }
 }
 
-pub fn setup(renderables: Vec<ID>, env: &environment::Environment, window: &GlutinFacade) {
+pub fn setup(renderables: Vec<ID>, env: &'static environment::Environment, window: &GlutinFacade) {
     let mut renderer = Renderer::new(window.clone());
     let mut scene = Scene::new();
     scene.eye.position *= 30.0;
