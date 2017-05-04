@@ -1,6 +1,6 @@
 use descartes::{N, RoughlyComparable};
 use compact::{CVec, CDict};
-use core::geometry::CPath;
+use stagemaster::geometry::CPath;
 use itertools::Itertools;
 use super::lane_stroke::{LaneStroke, LaneStrokeNode};
 
@@ -46,21 +46,36 @@ impl<'a> RoughlyComparable for &'a Intersection {
     fn is_roughly_within(&self, other: &Intersection, tolerance: N) -> bool {
         (&self.shape).is_roughly_within(&other.shape, tolerance) &&
         self.incoming.len() == other.incoming.len() &&
-        self.incoming.values().all(|self_incoming| {
-            other.incoming
-                .values()
-                .any(|other_incoming| self_incoming.is_roughly_within(other_incoming, tolerance))
-        }) && self.outgoing.len() == other.outgoing.len() &&
-        self.outgoing.values().all(|self_outgoing| {
-            other.outgoing
-                .values()
-                .any(|other_outgoing| self_outgoing.is_roughly_within(other_outgoing, tolerance))
-        }) && self.strokes.len() == other.strokes.len() &&
-        self.strokes.iter().all(|self_stroke| {
-            other.strokes
-                .iter()
-                .any(|other_stroke| self_stroke.is_roughly_within(other_stroke, tolerance))
-        })
+        self.incoming
+            .values()
+            .all(|self_incoming| {
+                     other
+                         .incoming
+                         .values()
+                         .any(|other_incoming| {
+                                  self_incoming.is_roughly_within(other_incoming, tolerance)
+                              })
+                 }) && self.outgoing.len() == other.outgoing.len() &&
+        self.outgoing
+            .values()
+            .all(|self_outgoing| {
+                     other
+                         .outgoing
+                         .values()
+                         .any(|other_outgoing| {
+                                  self_outgoing.is_roughly_within(other_outgoing, tolerance)
+                              })
+                 }) && self.strokes.len() == other.strokes.len() &&
+        self.strokes
+            .iter()
+            .all(|self_stroke| {
+                     other
+                         .strokes
+                         .iter()
+                         .any(|other_stroke| {
+                                  self_stroke.is_roughly_within(other_stroke, tolerance)
+                              })
+                 })
     }
 }
 
@@ -118,33 +133,38 @@ impl<Ref: Copy + Eq, T: ::compact::Compact + Clone> ReferencedDelta<Ref, T> {
                                                     equivalent: F)
                                                     -> Self {
         let pairs = new.pairs().cartesian_product(old.pairs());
-        let old_to_new = pairs.filter_map(|pair| match pair {
-                ((new_ref, new), (old_ref, old)) => {
-                    if equivalent(new, old) {
-                        Some((*old_ref, *new_ref))
-                    } else {
-                        None
-                    }
-                }
-            })
+        let old_to_new = pairs
+            .filter_map(|pair| match pair {
+                            ((new_ref, new), (old_ref, old)) => {
+                                if equivalent(new, old) {
+                                    Some((*old_ref, *new_ref))
+                                } else {
+                                    None
+                                }
+                            }
+                        })
             .collect::<CDict<_, _>>();
 
         let to_create = new.pairs()
-            .filter_map(|(new_ref, new)| if old_to_new.values()
-                .any(|not_really_new_ref| not_really_new_ref == new_ref) {
-                None
-            } else {
-                Some((*new_ref, new.clone()))
-            })
+            .filter_map(|(new_ref, new)| if
+                old_to_new
+                    .values()
+                    .any(|not_really_new_ref| not_really_new_ref == new_ref) {
+                            None
+                        } else {
+                            Some((*new_ref, new.clone()))
+                        })
             .collect();
 
         let to_destroy = old.pairs()
-            .filter_map(|(old_ref, old)| if old_to_new.keys()
-                .any(|revived_old_ref| revived_old_ref == old_ref) {
-                None
-            } else {
-                Some((*old_ref, old.clone()))
-            })
+            .filter_map(|(old_ref, old)| if
+                old_to_new
+                    .keys()
+                    .any(|revived_old_ref| revived_old_ref == old_ref) {
+                            None
+                        } else {
+                            Some((*old_ref, old.clone()))
+                        })
             .collect();
 
         ReferencedDelta {
@@ -204,13 +224,14 @@ impl Plan {
             .iter()
             .enumerate()
             .filter_map(|(i, stroke)| if delta.strokes_to_destroy.contains_key(LaneStrokeRef(i)) {
-                None
-            } else {
-                Some((LaneStrokeRef(i), stroke.clone()))
-            })
+                            None
+                        } else {
+                            Some((LaneStrokeRef(i), stroke.clone()))
+                        })
             .collect::<CDict<_, _>>();
         let new_plan = Plan {
-            strokes: built_old_refs_and_strokes.values()
+            strokes: built_old_refs_and_strokes
+                .values()
                 .chain(delta.new_strokes.iter())
                 .cloned()
                 .collect(),
@@ -227,15 +248,18 @@ impl Plan {
         determine_signal_timings(&mut intersections);
 
         PlanResult {
-            intersections: intersections.into_iter()
+            intersections: intersections
+                .into_iter()
                 .enumerate()
                 .map(|(i, intersection)| (IntersectionRef(i), intersection))
                 .collect(),
-            trimmed_strokes: trimmed_strokes.into_iter()
+            trimmed_strokes: trimmed_strokes
+                .into_iter()
                 .enumerate()
                 .map(|(i, stroke)| (TrimmedStrokeRef(i), stroke))
                 .collect(),
-            transfer_strokes: transfer_strokes.into_iter()
+            transfer_strokes: transfer_strokes
+                .into_iter()
                 .enumerate()
                 .map(|(i, transfer_stroke)| (TransferStrokeRef(i), transfer_stroke))
                 .collect(),

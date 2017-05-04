@@ -32,7 +32,11 @@ impl ::std::ops::Add for Thing {
 
     fn add(self, rhs: Thing) -> Thing {
         let self_n_vertices = self.vertices.len();
-        Thing::new(self.vertices.iter().chain(rhs.vertices.iter()).cloned().collect(),
+        Thing::new(self.vertices
+                       .iter()
+                       .chain(rhs.vertices.iter())
+                       .cloned()
+                       .collect(),
                    self.indices
                        .iter()
                        .cloned()

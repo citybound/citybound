@@ -33,8 +33,8 @@ impl Recipient<Tick> for Simulation {
 
 pub fn setup(simulatables: Vec<ID>) {
     Simulation::register_with_state(Simulation {
-        simulatables: simulatables,
-        current_tick: 0,
-    });
+                                        simulatables: simulatables,
+                                        current_tick: 0,
+                                    });
     Simulation::handle::<Tick>();
 }

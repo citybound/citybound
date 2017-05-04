@@ -2,6 +2,7 @@
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
                     WithUniqueOrthogonal, Inverse, Rotate};
 use kay::{ID, Recipient, Actor, Fate};
+use glium::Frame;
 
 use Renderer;
 
@@ -21,7 +22,12 @@ pub struct RenderToScene {
 pub enum Control {
     Setup,
     Render,
-    Submit,
+    Submit { target_ptr: usize, return_to: ID },
+}
+
+#[derive(Copy, Clone)]
+pub struct Submitted {
+    pub target_ptr: usize,
 }
 
 impl Recipient<Control> for Renderer {
@@ -29,7 +35,10 @@ impl Recipient<Control> for Renderer {
         match *msg {
             Control::Setup => self.control_setup(),
             Control::Render => self.control_render(),
-            Control::Submit => self.control_submit(),
+            Control::Submit {
+                target_ptr,
+                return_to,
+            } => self.control_submit(target_ptr, return_to),
         }
     }
 }
@@ -51,9 +60,9 @@ impl Renderer {
     fn control_render(&mut self) -> Fate {
         for (scene_id, mut scene) in self.scenes.iter_mut().enumerate() {
             for batch_to_clear in (&mut scene)
-                .batches
-                .values_mut()
-                .filter(|batch| batch.clear_every_frame) {
+                    .batches
+                    .values_mut()
+                    .filter(|batch| batch.clear_every_frame) {
                 batch_to_clear.instances.clear();
             }
             for renderable in &scene.renderables {
@@ -67,11 +76,15 @@ impl Renderer {
         Fate::Live
     }
 
-    fn control_submit(&mut self) -> Fate {
+    fn control_submit(&mut self, target_ptr: usize, return_to: ID) -> Fate {
+        let mut target = unsafe { Box::from_raw(target_ptr as *mut Frame) };
+
         for scene in &mut self.scenes {
-            self.render_context.submit(scene);
-            scene.debug_text.clear();
+            self.render_context.submit(scene, &mut *target);
         }
+
+        return_to << Submitted { target_ptr: Box::into_raw(target) as usize };
+
         Fate::Live
     }
 }

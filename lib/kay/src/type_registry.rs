@@ -43,7 +43,8 @@ impl TypeRegistry {
         let long_id = unsafe { type_id::<T>() };
         assert!(self.long_to_short_ids.get(&long_id).is_none());
         self.long_to_short_ids.insert(long_id, short_id);
-        self.short_ids_to_names.insert(short_id, unsafe { type_name::<T>() }.into());
+        self.short_ids_to_names
+            .insert(short_id, unsafe { type_name::<T>() }.into());
         self.next_short_id = ShortTypeId::new(*self.next_short_id + 1);
         short_id
     }

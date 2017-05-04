@@ -12,7 +12,7 @@ mod control;
 mod movement;
 mod project;
 
-pub use self::control::{SetupInScene, RenderToScene, Control};
+pub use self::control::{SetupInScene, RenderToScene, Control, Submitted};
 pub use self::movement::{Movement, MoveEye, EyeMoved};
 pub use self::project::{Project2dTo3d, Projected3d};
 
@@ -59,9 +59,15 @@ pub struct AddBatch {
 impl Recipient<AddBatch> for Renderer {
     fn receive(&mut self, msg: &AddBatch) -> Fate {
         match *msg {
-            AddBatch { scene_id, batch_id, ref thing } => {
+            AddBatch {
+                scene_id,
+                batch_id,
+                ref thing,
+            } => {
                 let window = &self.render_context.window;
-                self.scenes[scene_id].batches.insert(batch_id, Batch::new(thing.clone(), window));
+                self.scenes[scene_id]
+                    .batches
+                    .insert(batch_id, Batch::new(thing.clone(), window));
                 Fate::Live
             }
         }
@@ -80,7 +86,13 @@ pub struct UpdateThing {
 impl Recipient<UpdateThing> for Renderer {
     fn receive(&mut self, msg: &UpdateThing) -> Fate {
         match *msg {
-            UpdateThing { scene_id, thing_id, ref thing, instance, is_decal } => {
+            UpdateThing {
+                scene_id,
+                thing_id,
+                ref thing,
+                instance,
+                is_decal,
+            } => {
                 let thing = Batch::new_thing(thing.clone(),
                                              instance,
                                              is_decal,
@@ -102,8 +114,17 @@ pub struct AddInstance {
 impl Recipient<AddInstance> for Renderer {
     fn receive(&mut self, msg: &AddInstance) -> Fate {
         match *msg {
-            AddInstance { scene_id, batch_id, instance } => {
-                self.scenes[scene_id].batches.get_mut(&batch_id).unwrap().instances.push(instance);
+            AddInstance {
+                scene_id,
+                batch_id,
+                instance,
+            } => {
+                self.scenes[scene_id]
+                    .batches
+                    .get_mut(&batch_id)
+                    .unwrap()
+                    .instances
+                    .push(instance);
                 Fate::Live
             }
         }
@@ -120,39 +141,17 @@ pub struct AddSeveralInstances {
 impl Recipient<AddSeveralInstances> for Renderer {
     fn receive(&mut self, msg: &AddSeveralInstances) -> Fate {
         match *msg {
-            AddSeveralInstances { scene_id, batch_id, ref instances } => {
+            AddSeveralInstances {
+                scene_id,
+                batch_id,
+                ref instances,
+            } => {
                 self.scenes[scene_id]
                     .batches
                     .get_mut(&batch_id)
                     .unwrap()
                     .instances
                     .extend_from_slice(instances);
-                Fate::Live
-            }
-        }
-    }
-}
-
-#[derive(Compact, Clone)]
-pub struct AddDebugText {
-    pub scene_id: usize,
-    pub key: CVec<char>,
-    pub text: CVec<char>,
-    pub color: [f32; 4],
-    pub persistent: bool,
-}
-
-impl Recipient<AddDebugText> for Renderer {
-    fn receive(&mut self, msg: &AddDebugText) -> Fate {
-        match *msg {
-            AddDebugText { scene_id, ref key, ref text, ref color, persistent } => {
-                let target = if persistent {
-                    &mut self.scenes[scene_id].persistent_debug_text
-                } else {
-                    &mut self.scenes[scene_id].debug_text
-                };
-                target.insert(key.iter().cloned().collect(),
-                              (text.iter().cloned().collect(), *color));
                 Fate::Live
             }
         }

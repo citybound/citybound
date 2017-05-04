@@ -115,12 +115,12 @@ impl<T> DisjointSets<T> {
 
                 unsafe {
                     ::std::ptr::copy_nonoverlapping(&self.elements[idx],
-                                                    new_elements.as_mut_ptr()
-                                                        .offset(new_idx as isize),
+                                                    new_elements.as_mut_ptr().offset(new_idx as
+                                                                                     isize),
                                                     1);
                     ::std::ptr::copy_nonoverlapping(&self.ranks[idx],
-                                                    new_ranks.as_mut_ptr()
-                                                        .offset(new_idx as isize),
+                                                    new_ranks.as_mut_ptr().offset(new_idx as
+                                                                                  isize),
                                                     1);
                 }
             }
@@ -134,7 +134,8 @@ impl<T> DisjointSets<T> {
 
             self.elements = new_elements;
             self.ranks = new_ranks;
-            self.parent_indices = new_to_old_idx_map.iter()
+            self.parent_indices = new_to_old_idx_map
+                .iter()
                 .map(|&old_idx| old_to_new_idx_map[self.parent_indices[old_idx]])
                 .collect();
 
@@ -162,7 +163,10 @@ impl<'a, T: 'a> Iterator for SetsIterator<'a, T> {
         if let Some((set_start_idx, root)) = self.input_iter.next() {
             let mut set_end_idx = set_start_idx + 1;
 
-            while self.input_iter.peek().map(|&(_, next_root)| next_root == root).unwrap_or(false) {
+            while self.input_iter
+                      .peek()
+                      .map(|&(_, next_root)| next_root == root)
+                      .unwrap_or(false) {
                 self.input_iter.next();
                 set_end_idx += 1;
             }

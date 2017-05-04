@@ -5,7 +5,7 @@ environment:
   global:
   # TODO This is the Rust channel that build jobs will use by default but can be
   # overridden on a case by case basis down below
-    RUST_VERSION: nightly-2017-01-08
+    RUST_VERSION: nightly-2017-04-28
 
   # TODO These are all the build jobs. Adjust as necessary. Comment out what you
   # don't need

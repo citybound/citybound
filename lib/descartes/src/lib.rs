@@ -140,10 +140,10 @@ pub trait Curve: Sized {
     fn project_with_max_distance(&self, point: P2, max_distance: N, tolerance: N) -> Option<N> {
         self.project_with_tolerance(point, tolerance)
             .and_then(|offset| if self.distance_to(point) < max_distance {
-                Some(offset)
-            } else {
-                None
-            })
+                          Some(offset)
+                      } else {
+                          None
+                      })
     }
     fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<N>;
     fn project(&self, point: P2) -> Option<N> {

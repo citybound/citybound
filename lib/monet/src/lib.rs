@@ -9,10 +9,7 @@ extern crate kay;
 extern crate compact;
 #[macro_use]
 extern crate compact_macros;
-extern crate rusttype;
 extern crate fnv;
-extern crate unicode_normalization;
-#[macro_use]
 extern crate lazy_static;
 
 use kay::Actor;
@@ -22,19 +19,16 @@ mod renderer;
 mod render_context;
 mod scene;
 mod thing;
-mod text;
 
 pub use glium::backend::glutin_backend::GlutinFacade;
 
 pub use geometry::{Batch, Vertex, Instance};
-pub use renderer::{Renderer, SetupInScene, RenderToScene, Control, AddBatch, AddInstance,
-                   AddSeveralInstances, Movement, MoveEye, EyeMoved, AddEyeListener, AddDebugText,
+pub use renderer::{Renderer, SetupInScene, RenderToScene, Control, Submitted, AddBatch,
+                   AddInstance, AddSeveralInstances, Movement, MoveEye, EyeMoved, AddEyeListener,
                    UpdateThing, Project2dTo3d, Projected3d};
 pub use render_context::RenderContext;
 pub use scene::{Eye, Scene};
 pub use thing::Thing;
-pub use text::{TextRenderer, TextVertex, Font, FontBank, RichText, FontDescription, Formatting,
-               Glyph, GlyphIter};
 
 pub fn setup(renderer: Renderer) {
     Renderer::register_with_state(renderer);
@@ -44,7 +38,6 @@ pub fn setup(renderer: Renderer) {
     Renderer::handle_critically::<AddSeveralInstances>();
     Renderer::handle_critically::<MoveEye>();
     Renderer::handle_critically::<AddEyeListener>();
-    Renderer::handle_critically::<AddDebugText>();
     Renderer::handle_critically::<UpdateThing>();
     Renderer::handle_critically::<Project2dTo3d>();
 

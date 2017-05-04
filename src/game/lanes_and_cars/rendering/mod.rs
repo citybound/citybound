@@ -3,7 +3,7 @@ use compact::CVec;
 use kay::{Actor, Recipient, Fate};
 use kay::swarm::{Swarm, SubActor, RecipientAsSwarm};
 use monet::{Instance, Thing, Vertex, UpdateThing};
-use core::geometry::{band_to_thing, dash_path};
+use stagemaster::geometry::{band_to_thing, dash_path};
 use super::lane::{Lane, TransferLane};
 use super::connectivity::InteractionKind;
 use itertools::Itertools;
@@ -23,7 +23,10 @@ use monet::AddBatch;
 impl RecipientAsSwarm<SetupInScene> for Lane {
     fn receive(_swarm: &mut Swarm<Self>, msg: &SetupInScene) -> Fate {
         match *msg {
-            SetupInScene { renderer_id, scene_id } => {
+            SetupInScene {
+                renderer_id,
+                scene_id,
+            } => {
                 renderer_id <<
                 AddBatch {
                     scene_id: scene_id,
@@ -91,36 +94,40 @@ impl Recipient<RenderToCollector> for Lane {
             RenderToCollector(collector_id) => {
                 let maybe_path = if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY <
                                     self.construction.length {
-                    self.construction.path.subsection(0.0,
-                                                      (self.construction.progress -
-                                                       CONSTRUCTION_ANIMATION_DELAY)
-                                                          .max(0.0))
+                    self.construction
+                        .path
+                        .subsection(0.0,
+                                    (self.construction.progress - CONSTRUCTION_ANIMATION_DELAY)
+                                        .max(0.0))
                 } else {
                     Some(self.construction.path.clone())
                 };
                 if collector_id == ThingCollector::<LaneAsphalt>::id() {
                     collector_id <<
                     Update(self.id(),
-                           maybe_path.map(|path| {
-                            band_to_thing(&Band::new(path, 6.0),
-                                          if self.connectivity.on_intersection {
-                                              0.2
-                                          } else {
-                                              0.0
-                                          })
-                        })
+                           maybe_path
+                               .map(|path| {
+                                        band_to_thing(&Band::new(path, 6.0),
+                                                      if self.connectivity.on_intersection {
+                                                          0.2
+                                                      } else {
+                                                          0.0
+                                                      })
+                                    })
                                .unwrap_or_else(|| Thing::new(vec![], vec![])));
                     if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
                        self.construction.length {
                         collector_id << Freeze(self.id())
                     }
                 } else {
-                    let left_marker = maybe_path.clone()
+                    let left_marker = maybe_path
+                        .clone()
                         .and_then(|path| path.shift_orthogonally(2.5))
                         .map(|path| band_to_thing(&Band::new(path, 0.6), 0.1))
                         .unwrap_or_else(|| Thing::new(vec![], vec![]));
 
-                    let right_marker = maybe_path.and_then(|path| path.shift_orthogonally(-2.5))
+                    let right_marker = maybe_path
+                        .and_then(|path| path.shift_orthogonally(-2.5))
                         .map(|path| band_to_thing(&Band::new(path, 0.6), 0.1))
                         .unwrap_or_else(|| Thing::new(vec![], vec![]));
                     collector_id << Update(self.id(), left_marker + right_marker);
@@ -143,22 +150,25 @@ impl Recipient<RenderToCollector> for TransferLane {
                 let maybe_path = if self.construction.progress -
                                     2.0 * CONSTRUCTION_ANIMATION_DELAY <
                                     self.construction.length {
-                    self.construction.path.subsection(0.0,
-                                                      (self.construction.progress -
-                                                       2.0 * CONSTRUCTION_ANIMATION_DELAY)
-                                                          .max(0.0))
+                    self.construction
+                        .path
+                        .subsection(0.0,
+                                    (self.construction.progress -
+                                     2.0 * CONSTRUCTION_ANIMATION_DELAY)
+                                            .max(0.0))
                 } else {
                     Some(self.construction.path.clone())
                 };
 
                 collector_id <<
                 Update(self.id(),
-                       maybe_path.map(|path| {
-                               dash_path(path, 2.0, 4.0)
-                                   .into_iter()
-                                   .map(|dash| band_to_thing(&Band::new(dash, 0.8), 0.2))
-                                   .sum()
-                           })
+                       maybe_path
+                           .map(|path| {
+                                    dash_path(&path, 2.0, 4.0)
+                                        .into_iter()
+                                        .map(|dash| band_to_thing(&Band::new(dash, 0.8), 0.2))
+                                        .sum()
+                                })
                            .unwrap_or_else(|| Thing::new(vec![], vec![])));
                 if self.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY >
                    self.construction.length {
@@ -183,32 +193,36 @@ const DEBUG_VIEW_TRANSFER_OBSTACLES: bool = false;
 impl Recipient<RenderToScene> for Lane {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {
         match *msg {
-            RenderToScene { renderer_id, scene_id } => {
+            RenderToScene {
+                renderer_id,
+                scene_id,
+            } => {
                 let mut cars_iter = self.microtraffic.cars.iter();
                 let mut current_offset = 0.0;
                 let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
                 for segment in self.construction.path.segments().iter() {
-                    for car in cars_iter.take_while_ref(
-                        |car| *car.position - current_offset < segment.length()
-                    ) {
-                    let position2d = segment.along(*car.position - current_offset);
-                    let direction = segment.direction_along(*car.position - current_offset);
-                    car_instances.push(Instance{
+                    for car in cars_iter.take_while_ref(|car| {
+                                                            *car.position - current_offset <
+                                                            segment.length()
+                                                        }) {
+                        let position2d = segment.along(*car.position - current_offset);
+                        let direction = segment.direction_along(*car.position - current_offset);
+                        car_instances.push(Instance{
                         instance_position: [position2d.x, position2d.y, 0.0],
                         instance_direction: [direction.x, direction.y],
                         instance_color: if DEBUG_VIEW_LANDMARKS {
-                            ::core::geometry::RANDOM_COLORS[
+                            ::core::colors::RANDOM_COLORS[
                                 car.destination.landmark.sub_actor_id as usize
-                                    % ::core::geometry::RANDOM_COLORS.len()
+                                    % ::core::colors::RANDOM_COLORS.len()
                             ]
                         } else {
-                            ::core::geometry::RANDOM_COLORS[
+                            ::core::colors::RANDOM_COLORS[
                                 car.trip.sub_actor_id as usize
-                                    % ::core::geometry::RANDOM_COLORS.len()
+                                    % ::core::colors::RANDOM_COLORS.len()
                             ]
                         }
                     })
-                }
+                    }
                     current_offset += segment.length;
                 }
 
@@ -221,13 +235,15 @@ impl Recipient<RenderToScene> for Lane {
                             (*obstacle.position - self.construction.length) *
                             self.construction.path.end_direction()
                         };
-                        let direction = self.construction.path.direction_along(*obstacle.position);
+                        let direction = self.construction
+                            .path
+                            .direction_along(*obstacle.position);
 
                         car_instances.push(Instance {
-                            instance_position: [position2d.x, position2d.y, 0.0],
-                            instance_direction: [direction.x, direction.y],
-                            instance_color: [1.0, 0.0, 0.0],
-                        });
+                                               instance_position: [position2d.x, position2d.y, 0.0],
+                                               instance_direction: [direction.x, direction.y],
+                                               instance_color: [1.0, 0.0, 0.0],
+                                           });
                     }
                 }
 
@@ -242,14 +258,15 @@ impl Recipient<RenderToScene> for Lane {
                 //                         no traffic light for u-turn
                 if self.connectivity.on_intersection &&
                    !self.construction
-                    .path
-                    .end_direction()
-                    .is_roughly_within(-self.construction.path.start_direction(), 0.1) {
-                    let mut position = self.construction.path.start();
-                    let (position_shift, batch_id) = if !self.construction
                         .path
-                        .start_direction()
-                        .is_roughly_within(self.construction.path.end_direction(), 0.5) {
+                        .end_direction()
+                        .is_roughly_within(-self.construction.path.start_direction(), 0.1) {
+                    let mut position = self.construction.path.start();
+                    let (position_shift, batch_id) = if
+                        !self.construction
+                             .path
+                             .start_direction()
+                             .is_roughly_within(self.construction.path.end_direction(), 0.5) {
                         let dot = self.construction
                             .path
                             .end_direction()
@@ -334,18 +351,21 @@ impl Recipient<RenderToScene> for Lane {
                         thing: band_to_thing(&Band::new(self.construction.path.clone(), 0.3),
                                              if self.microtraffic.green { 0.4 } else { 0.2 }),
                         instance: Instance::with_color(if self.microtraffic.green {
-                            [0.0, 1.0, 0.0]
-                        } else {
-                            [1.0, 0.0, 0.0]
-                        }),
+                                                           [0.0, 1.0, 0.0]
+                                                       } else {
+                                                           [1.0, 0.0, 0.0]
+                                                       }),
                         is_decal: true,
                     };
                 }
 
-                if !self.connectivity.interactions.iter().any(|inter| match inter.kind {
-                    InteractionKind::Next { .. } => true,
-                    _ => false,
-                }) {
+                if !self.connectivity
+                        .interactions
+                        .iter()
+                        .any(|inter| match inter.kind {
+                                 InteractionKind::Next { .. } => true,
+                                 _ => false,
+                             }) {
                     renderer_id <<
                     AddInstance {
                         scene_id: scene_id,
@@ -360,10 +380,13 @@ impl Recipient<RenderToScene> for Lane {
                     };
                 }
 
-                if !self.connectivity.interactions.iter().any(|inter| match inter.kind {
-                    InteractionKind::Previous { .. } => true,
-                    _ => false,
-                }) {
+                if !self.connectivity
+                        .interactions
+                        .iter()
+                        .any(|inter| match inter.kind {
+                                 InteractionKind::Previous { .. } => true,
+                                 _ => false,
+                             }) {
                     renderer_id <<
                     AddInstance {
                         scene_id: scene_id,
@@ -381,10 +404,9 @@ impl Recipient<RenderToScene> for Lane {
                 if DEBUG_VIEW_LANDMARKS && self.pathfinding.routes_changed {
                     let (random_color, is_landmark) = if let Some(as_destination) =
                         self.pathfinding.as_destination {
-                        let random_color: [f32; 3] =
-                            ::core::geometry::RANDOM_COLORS[as_destination.landmark
-                                .sub_actor_id as usize %
-                            ::core::geometry::RANDOM_COLORS.len()];
+                        let random_color: [f32; 3] = ::core::colors::RANDOM_COLORS
+                            [as_destination.landmark.sub_actor_id as usize %
+                        ::core::colors::RANDOM_COLORS.len()];
                         let weaker_random_color = [(random_color[0] + 1.0) / 2.0,
                                                    (random_color[1] + 1.0) / 2.0,
                                                    (random_color[2] + 1.0) / 2.0];
@@ -413,35 +435,37 @@ impl Recipient<RenderToScene> for Lane {
 impl Recipient<RenderToScene> for TransferLane {
     fn receive(&mut self, msg: &RenderToScene) -> Fate {
         match *msg {
-            RenderToScene { renderer_id, scene_id } => {
+            RenderToScene {
+                renderer_id,
+                scene_id,
+            } => {
                 let mut cars_iter = self.microtraffic.cars.iter();
                 let mut current_offset = 0.0;
                 let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
                 for segment in self.construction.path.segments().iter() {
-                    for car in cars_iter.take_while_ref(
-                        |car| *car.position - current_offset < segment.length()
-                    ) {
+                    for car in cars_iter.take_while_ref(|car| {
+                                                            *car.position - current_offset <
+                                                            segment.length()
+                                                        }) {
                         let position2d = segment.along(*car.position - current_offset);
                         let direction = segment.direction_along(*car.position - current_offset);
-                        let rotated_direction = (direction
-                                                 + 0.3 * car.transfer_velocity
-                                                    * direction.orthogonal())
-                            .normalize();
-                        let shifted_position2d = position2d
-                                                 + 2.5 * direction.orthogonal()
-                                                    * car.transfer_position;
+                        let rotated_direction =
+                            (direction + 0.3 * car.transfer_velocity * direction.orthogonal())
+                                .normalize();
+                        let shifted_position2d =
+                            position2d + 2.5 * direction.orthogonal() * car.transfer_position;
                         car_instances.push(Instance{
                             instance_position: [shifted_position2d.x, shifted_position2d.y, 0.0],
                             instance_direction: [rotated_direction.x, rotated_direction.y],
                             instance_color: if DEBUG_VIEW_LANDMARKS {
-                                ::core::geometry::RANDOM_COLORS[
+                                ::core::colors::RANDOM_COLORS[
                                     car.destination.landmark.sub_actor_id as usize
-                                        % ::core::geometry::RANDOM_COLORS.len()
+                                        % ::core::colors::RANDOM_COLORS.len()
                                 ]
                             } else {
-                                ::core::geometry::RANDOM_COLORS[
+                                ::core::colors::RANDOM_COLORS[
                                     car.trip.sub_actor_id as usize
-                                        % ::core::geometry::RANDOM_COLORS.len()
+                                        % ::core::colors::RANDOM_COLORS.len()
                                 ]
                             }
                         })
@@ -451,43 +475,51 @@ impl Recipient<RenderToScene> for TransferLane {
 
                 if DEBUG_VIEW_TRANSFER_OBSTACLES {
                     for obstacle in &self.microtraffic.left_obstacles {
-                        let position2d =
-                            if *obstacle.position < self.construction.length {
-                                self.construction.path.along(*obstacle.position)
-                            } else {
-                                self.construction.path.end() +
-                                (*obstacle.position - self.construction.length) *
-                                self.construction.path.end_direction()
-                            } -
-                            1.0 *
-                            self.construction.path.direction_along(*obstacle.position).orthogonal();
-                        let direction = self.construction.path.direction_along(*obstacle.position);
+                        let position2d = if *obstacle.position < self.construction.length {
+                            self.construction.path.along(*obstacle.position)
+                        } else {
+                            self.construction.path.end() +
+                            (*obstacle.position - self.construction.length) *
+                            self.construction.path.end_direction()
+                        } -
+                                         1.0 *
+                                         self.construction
+                                             .path
+                                             .direction_along(*obstacle.position)
+                                             .orthogonal();
+                        let direction = self.construction
+                            .path
+                            .direction_along(*obstacle.position);
 
                         car_instances.push(Instance {
-                            instance_position: [position2d.x, position2d.y, 0.0],
-                            instance_direction: [direction.x, direction.y],
-                            instance_color: [1.0, 0.7, 0.7],
-                        });
+                                               instance_position: [position2d.x, position2d.y, 0.0],
+                                               instance_direction: [direction.x, direction.y],
+                                               instance_color: [1.0, 0.7, 0.7],
+                                           });
                     }
 
                     for obstacle in &self.microtraffic.right_obstacles {
-                        let position2d =
-                            if *obstacle.position < self.construction.length {
-                                self.construction.path.along(*obstacle.position)
-                            } else {
-                                self.construction.path.end() +
-                                (*obstacle.position - self.construction.length) *
-                                self.construction.path.end_direction()
-                            } +
-                            1.0 *
-                            self.construction.path.direction_along(*obstacle.position).orthogonal();
-                        let direction = self.construction.path.direction_along(*obstacle.position);
+                        let position2d = if *obstacle.position < self.construction.length {
+                            self.construction.path.along(*obstacle.position)
+                        } else {
+                            self.construction.path.end() +
+                            (*obstacle.position - self.construction.length) *
+                            self.construction.path.end_direction()
+                        } +
+                                         1.0 *
+                                         self.construction
+                                             .path
+                                             .direction_along(*obstacle.position)
+                                             .orthogonal();
+                        let direction = self.construction
+                            .path
+                            .direction_along(*obstacle.position);
 
                         car_instances.push(Instance {
-                            instance_position: [position2d.x, position2d.y, 0.0],
-                            instance_direction: [direction.x, direction.y],
-                            instance_color: [1.0, 0.7, 0.7],
-                        });
+                                               instance_position: [position2d.x, position2d.y, 0.0],
+                                               instance_direction: [direction.x, direction.y],
+                                               instance_color: [1.0, 0.7, 0.7],
+                                           });
                     }
                 }
 
@@ -501,11 +533,13 @@ impl Recipient<RenderToScene> for TransferLane {
                 }
 
                 if self.connectivity.left.is_none() {
-                    let position = self.construction.path.along(self.construction.length / 2.0) +
-                                   self.construction
+                    let position = self.construction
                         .path
-                        .direction_along(self.construction.length / 2.0)
-                        .orthogonal();
+                        .along(self.construction.length / 2.0) +
+                                   self.construction
+                                       .path
+                                       .direction_along(self.construction.length / 2.0)
+                                       .orthogonal();
                     renderer_id <<
                     AddInstance {
                         scene_id: scene_id,
@@ -518,11 +552,13 @@ impl Recipient<RenderToScene> for TransferLane {
                     };
                 }
                 if self.connectivity.right.is_none() {
-                    let position = self.construction.path.along(self.construction.length / 2.0) -
-                                   self.construction
+                    let position = self.construction
                         .path
-                        .direction_along(self.construction.length / 2.0)
-                        .orthogonal();
+                        .along(self.construction.length / 2.0) -
+                                   self.construction
+                                       .path
+                                       .direction_along(self.construction.length / 2.0)
+                                       .orthogonal();
                     renderer_id <<
                     AddInstance {
                         scene_id: scene_id,

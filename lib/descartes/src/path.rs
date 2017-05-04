@@ -5,8 +5,8 @@ use ordered_float::OrderedFloat;
 
 type ScannerFn<'a> = fn(&mut StartOffsetState, &'a Segment) -> Option<(&'a Segment, N)>;
 type ScanIter<'a> = ::std::iter::Scan<::std::slice::Iter<'a, Segment>,
-                                        StartOffsetState,
-                                        ScannerFn<'a>>;
+                                      StartOffsetState,
+                                      ScannerFn<'a>>;
 
 pub trait Path: Sized + Clone {
     fn segments(&self) -> &[Segment];
@@ -21,7 +21,9 @@ pub trait Path: Sized + Clone {
     }
 
     fn segments_with_start_offsets(&self) -> ScanIter {
-        self.segments().into_iter().scan(StartOffsetState(0.0), Self::scan_segments)
+        self.segments()
+            .into_iter()
+            .scan(StartOffsetState(0.0), Self::scan_segments)
     }
 
     fn find_on_segment(&self, distance: N) -> Option<(&Segment, N)> {
@@ -52,22 +54,23 @@ pub trait Path: Sized + Clone {
                         (segment_a, segment_b)
                             .intersect()
                             .into_iter()
-                            .filter_map(|intersection| if intersection.along_a
-                                .is_roughly_within(0.0, THICKNESS) ||
-                                                          intersection.along_a
-                                .is_roughly_within(segment_a.length(), THICKNESS) ||
-                                                          intersection.along_b
-                                .is_roughly_within(0.0, THICKNESS) ||
-                                                          intersection.along_b
-                                .is_roughly_within(segment_b.length(), THICKNESS) {
-                                None
-                            } else {
-                                Some(Intersection {
-                                    position: intersection.position,
-                                    along_a: offset_a + intersection.along_a,
-                                    along_b: offset_b + intersection.along_b,
-                                })
-                            })
+                            .filter_map(|intersection| if
+                                intersection.along_a.is_roughly_within(0.0, THICKNESS) ||
+                                intersection
+                                    .along_a
+                                    .is_roughly_within(segment_a.length(), THICKNESS) ||
+                                intersection.along_b.is_roughly_within(0.0, THICKNESS) ||
+                                intersection
+                                    .along_b
+                                    .is_roughly_within(segment_b.length(), THICKNESS) {
+                                            None
+                                        } else {
+                                            Some(Intersection {
+                                                     position: intersection.position,
+                                                     along_a: offset_a + intersection.along_a,
+                                                     along_b: offset_b + intersection.along_b,
+                                                 })
+                                        })
                             .collect::<Vec<_>>()
                     })
                     .collect::<Vec<_>>()
@@ -80,7 +83,10 @@ pub struct StartOffsetState(N);
 
 impl<T: Path> FiniteCurve for T {
     fn length(&self) -> N {
-        self.segments().into_iter().map(|segment| segment.length()).fold(0.0, ::std::ops::Add::add)
+        self.segments()
+            .into_iter()
+            .map(|segment| segment.length())
+            .fold(0.0, ::std::ops::Add::add)
     }
 
     fn along(&self, distance: N) -> P2 {
@@ -126,7 +132,11 @@ impl<T: Path> FiniteCurve for T {
     }
 
     fn reverse(&self) -> Self {
-        Self::new(self.segments().iter().rev().map(Segment::reverse).collect())
+        Self::new(self.segments()
+                      .iter()
+                      .rev()
+                      .map(Segment::reverse)
+                      .collect())
     }
 
     fn subsection(&self, start: N, end: N) -> Option<T> {
@@ -159,7 +169,9 @@ impl<T: Path> FiniteCurve for T {
             glued_segments.push(*segment);
             match window_segments_iter.peek() {
                 Some(next_segment) => {
-                    if !segment.end().is_roughly_within(next_segment.start(), 0.1) {
+                    if !segment
+                            .end()
+                            .is_roughly_within(next_segment.start(), 0.1) {
                         glued_segments.push(Segment::line(segment.end(), next_segment.start()));
                     }
                 }
@@ -185,14 +197,18 @@ impl<T: Path> Curve for T {
     fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<N> {
         self.segments_with_start_offsets()
             .filter_map(|pair: (&Segment, N)| {
-                let (segment, start_offset) = pair;
-                segment.project_with_tolerance(point, tolerance).map(|offset| offset + start_offset)
-            })
+                            let (segment, start_offset) = pair;
+                            segment
+                                .project_with_tolerance(point, tolerance)
+                                .map(|offset| offset + start_offset)
+                        })
             .min_by_key(|offset| OrderedFloat((self.along(*offset) - point).norm()))
     }
 
     fn includes(&self, point: P2) -> bool {
-        self.segments().into_iter().any(|segment| segment.includes(point))
+        self.segments()
+            .into_iter()
+            .any(|segment| segment.includes(point))
     }
 
     fn distance_to(&self, _point: P2) -> N {
@@ -222,14 +238,15 @@ pub fn convex_hull<P: Path>(points: &[P2]) -> P {
     let mut hull_indices = convex_hull2_idx(points);
     let first_index = hull_indices[0];
     hull_indices.push(first_index);
-    P::new(hull_indices.windows(2)
-        .filter_map(|idx_window| {
-            let (point_1, point_2) = (points[idx_window[0]], points[idx_window[1]]);
-            if point_1.is_roughly_within(point_2, ::primitives::MIN_START_TO_END) {
-                None
-            } else {
-                Some(Segment::line(point_1, point_2))
-            }
-        })
-        .collect())
+    P::new(hull_indices
+               .windows(2)
+               .filter_map(|idx_window| {
+        let (point_1, point_2) = (points[idx_window[0]], points[idx_window[1]]);
+        if point_1.is_roughly_within(point_2, ::primitives::MIN_START_TO_END) {
+            None
+        } else {
+            Some(Segment::line(point_1, point_2))
+        }
+    })
+               .collect())
 }
