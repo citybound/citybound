@@ -18,7 +18,7 @@ Recommended setup:
 * `cd citybound`
 * Windows:
   * `rustup override add nightly-2017-04-28-x86_64-pc-windows-msvc` **(new!)**
-  * Install the [Visual C++ 2015 Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools)
+  * Install the [Visual C++ 2015 Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools) (unless you have Visual Studio 2015)
 * MacOS:
   * `rustup override add nightly-2017-04-28-x86_64-apple-darwin`
 * Linux:
