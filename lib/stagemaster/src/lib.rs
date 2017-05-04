@@ -585,7 +585,8 @@ impl Recipient<Ui2dDrawn> for UserInterface {
                         return_to: Self::id(),
                     }
                 } else {
-                    let mut target = std::mem::replace(&mut self.parked_frame, None).expect("Should have parked target");
+                    let mut target = std::mem::replace(&mut self.parked_frame, None)
+                        .expect("Should have parked target");
                     self.imgui_renderer.render(&mut *target, *ui).unwrap();
                     target.finish().unwrap();
                 }

@@ -59,7 +59,8 @@ impl Environment {
             .and_then(|file| {
                 ::serde_json::to_writer_pretty(file, settings).map_err(|err| format!("{}", err))
             }) {
-            println!("Error writing {} settings: {} to {:?}", category, err, self.setting_path(category));
+            println!("Error writing {} settings: {} to {:?}",
+                category, err, self.setting_path(category));
         } else {
             println!("Write {} settings", category);
         }
