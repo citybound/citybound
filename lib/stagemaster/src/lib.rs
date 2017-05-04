@@ -10,6 +10,7 @@ extern crate monet;
 extern crate descartes;
 #[macro_use]
 extern crate imgui;
+extern crate imgui_sys;
 
 #[macro_use]
 extern crate serde_derive;
@@ -29,7 +30,8 @@ use monet::glium::glutin::{Event, MouseScrollDelta, ElementState, MouseButton};
 pub use monet::glium::glutin::VirtualKeyCode;
 use geometry::AnyShape;
 use std::collections::{HashMap, HashSet};
-use imgui::{ImGui, ImGuiSetCond_FirstUseEver, ImGuiKey};
+use imgui::{ImGui, ImVec4, ImGuiSetCond_FirstUseEver, ImGuiKey};
+use imgui_sys::{ImFontConfig, ImGuiCol, ImGuiAlign_Center, ImFontConfig_DefaultConstructor};
 use imgui::glium_renderer::Renderer as ImguiRenderer;
 use std::collections::BTreeMap;
 
@@ -44,7 +46,10 @@ pub struct UserInterface {
     interactables: HashMap<ID, (AnyShape, usize)>,
     hovered_interactable: Option<ID>,
     active_interactable: Option<ID>,
+    interactables_2d: Vec<ID>,
+    interactables_2d_todo: Vec<ID>,
     focused_interactables: HashSet<ID>,
+    parked_frame: Option<Box<::monet::glium::Frame>>,
     imgui: ImGui,
     imgui_capture_keyboard: bool,
     imgui_capture_mouse: bool,
@@ -58,6 +63,46 @@ impl Actor for UserInterface {}
 impl UserInterface {
     fn new(window: GlutinFacade) -> Self {
         let mut imgui = ImGui::init();
+
+        unsafe {
+            let atlas = (*imgui_sys::igGetIO()).fonts;
+            let mut config: ImFontConfig = ::std::mem::zeroed();
+            ImFontConfig_DefaultConstructor(&mut config);
+            config.oversample_h = 2;
+            config.oversample_v = 2;
+            imgui_sys::ImFontAtlas_AddFontFromFileTTF(atlas,
+                                                      im_str!("fonts/ClearSans-Regular.ttf\0")
+                                                          .as_ptr(),
+                                                      16.0,
+                                                      &config,
+                                                      ::std::ptr::null());
+
+            let style = imgui.style_mut();
+            style.window_rounding = 4.0;
+            style.grab_rounding = 3.0;
+            style.scrollbar_rounding = 3.0;
+            style.frame_rounding = 3.0;
+            style.scrollbar_size = 14.0;
+            style.window_title_align = ImGuiAlign_Center;
+            style.colors[ImGuiCol::WindowBg as usize] = ImVec4::new(0.9, 0.9, 0.9, 0.8);
+            style.colors[ImGuiCol::FrameBg as usize] = ImVec4::new(0.0, 0.0, 0.0, 0.2);
+            style.colors[ImGuiCol::Text as usize] = ImVec4::new(0.0, 0.0, 0.0, 0.9);
+            style.colors[ImGuiCol::TextDisabled as usize] = ImVec4::new(0.0, 0.0, 0.0, 0.5);
+            style.colors[ImGuiCol::TitleBg as usize] = ImVec4::new(0.8, 0.8, 0.8, 0.9);
+            style.colors[ImGuiCol::TitleBgActive as usize] = ImVec4::new(0.7, 0.7, 0.7, 1.0);
+            style.colors[ImGuiCol::ScrollbarBg as usize] = ImVec4::new(0.0, 0.0, 0.0, 0.03);
+            style.colors[ImGuiCol::ScrollbarGrab as usize] = ImVec4::new(0.0, 0.0, 0.0, 0.2);
+            style.colors[ImGuiCol::ScrollbarGrabHovered as usize] = ImVec4::new(0.0, 0.0, 1.0, 0.6);
+            style.colors[ImGuiCol::ScrollbarGrabActive as usize] = ImVec4::new(0.0, 0.0, 1.0, 1.0);
+            style.colors[ImGuiCol::ResizeGrip as usize] = ImVec4::new(0.0, 0.0, 0.0, 0.1);
+            style.colors[ImGuiCol::ResizeGripHovered as usize] = ImVec4::new(0.0, 0.0, 1.0, 0.6);
+            style.colors[ImGuiCol::ResizeGripActive as usize] = ImVec4::new(0.0, 0.0, 1.0, 1.0);
+            style.colors[ImGuiCol::ButtonHovered as usize] = ImVec4::new(0.0, 0.0, 1.0, 0.6);
+            style.colors[ImGuiCol::ButtonActive as usize] = ImVec4::new(0.0, 0.0, 1.0, 1.0);
+            style.colors[ImGuiCol::SliderGrab as usize] = ImVec4::new(0.0, 0.0, 0.0, 0.6);
+            style.colors[ImGuiCol::SliderGrabActive as usize] = ImVec4::new(0.0, 0.0, 1.0, 1.0);
+        }
+
         let imgui_renderer = ImguiRenderer::init(&mut imgui, &window).unwrap();
 
         imgui.set_imgui_key(ImGuiKey::Tab, 0);
@@ -92,6 +137,9 @@ impl UserInterface {
             hovered_interactable: None,
             active_interactable: None,
             focused_interactables: HashSet::new(),
+            interactables_2d: Vec::new(),
+            interactables_2d_todo: Vec::new(),
+            parked_frame: None,
             imgui: imgui,
             imgui_capture_keyboard: false,
             imgui_capture_mouse: false,
@@ -119,7 +167,7 @@ impl Recipient<ProcessEvents> for UserInterface {
                         MouseScrollDelta::PixelDelta(x, y) => V2::new(x as N, y as N),
                     };
 
-                    self.imgui.set_mouse_wheel(v.y / scale.1);
+                    self.imgui.set_mouse_wheel(v.y / (scale.1 * 50.0));
 
                     if !self.imgui_capture_mouse {
                         for interactable in &self.focused_interactables {
@@ -281,6 +329,22 @@ impl Recipient<AddInteractable> for UserInterface {
     }
 }
 
+#[derive(Compact, Clone)]
+pub struct AddInteractable2d(pub ID);
+
+impl Recipient<AddInteractable2d> for UserInterface {
+    fn receive(&mut self, msg: &AddInteractable2d) -> Fate {
+        match *msg {
+            AddInteractable2d(id) => {
+                if !self.interactables_2d.contains(&id) {
+                    self.interactables_2d.insert(0, id);
+                }
+                Fate::Live
+            }
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct RemoveInteractable(pub ID);
 
@@ -292,6 +356,36 @@ impl Recipient<RemoveInteractable> for UserInterface {
                 Fate::Live
             }
         }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct RemoveInteractable2d(pub ID);
+
+impl Recipient<RemoveInteractable2d> for UserInterface {
+    fn receive(&mut self, msg: &RemoveInteractable2d) -> Fate {
+        match *msg {
+            RemoveInteractable2d(id) => {
+                if let Some(idx) = self.interactables_2d.iter().position(|i| *i == id) {
+                    self.interactables_2d.remove(idx);
+                }
+                Fate::Live
+            }
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct OnPanic;
+
+impl Recipient<OnPanic> for UserInterface {
+    fn receive(&mut self, _msg: &OnPanic) -> Fate {
+        // so we don't wait forever for crashed actors to render UI
+        self.interactables_2d
+            .retain(|id| *id == camera_control::CameraControl::id());
+        self.interactables_2d_todo
+            .retain(|id| *id == camera_control::CameraControl::id());
+        Fate::Live
     }
 }
 
@@ -400,6 +494,12 @@ pub struct StartFrame;
 
 impl Recipient<StartFrame> for UserInterface {
     fn receive(&mut self, _msg: &StartFrame) -> Fate {
+        if self.parked_frame.is_some() {
+            let target =
+                std::mem::replace(&mut self.parked_frame, None).expect("Should have parked target");
+            target.finish().unwrap();
+        }
+
         let target = Box::new(self.window.draw());
 
         let target_ptr = Box::into_raw(target);
@@ -420,7 +520,8 @@ impl Recipient<Submitted> for UserInterface {
     fn receive(&mut self, msg: &Submitted) -> Fate {
         match *msg {
             Submitted { target_ptr } => {
-                let mut target = unsafe { Box::from_raw(target_ptr as *mut ::monet::glium::Frame) };
+                self.parked_frame =
+                    Some(unsafe { Box::from_raw(target_ptr as *mut ::monet::glium::Frame) });
 
                 let size_points = self.window
                     .get_window()
@@ -432,7 +533,7 @@ impl Recipient<Submitted> for UserInterface {
                     .unwrap()
                     .get_inner_size_pixels()
                     .unwrap();
-                let ui = self.imgui.frame(size_points, size_pixels, 1.0 / 60.0);
+                let ui = Box::new(self.imgui.frame(size_points, size_pixels, 1.0 / 60.0));
 
                 self.imgui_capture_keyboard = ui.want_capture_keyboard();
                 self.imgui_capture_mouse = ui.want_capture_mouse();
@@ -444,17 +545,55 @@ impl Recipient<Submitted> for UserInterface {
 
                 ui.window(im_str!("Debug Info"))
                     .size((600.0, 200.0), ImGuiSetCond_FirstUseEver)
+                    .collapsible(false)
                     .build(|| for (key, &(ref text, ref color)) in texts {
                                ui.text_colored(*color, im_str!("{}:\n{}", key, text));
                            });
 
-                self.imgui_renderer.render(&mut *target, ui).unwrap();
+                self.interactables_2d_todo = self.interactables_2d.clone();
 
-                target.finish().unwrap();
+                Self::id() << Ui2dDrawn { ui_ptr: Box::into_raw(ui) as usize };
+
 
                 Fate::Live
             }
         }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct DrawUI2d {
+    pub ui_ptr: usize,
+    pub return_to: ID,
+}
+
+#[derive(Copy, Clone)]
+pub struct Ui2dDrawn {
+    pub ui_ptr: usize,
+}
+
+impl Recipient<Ui2dDrawn> for UserInterface {
+    fn receive(&mut self, msg: &Ui2dDrawn) -> Fate {
+        match *msg {
+            Ui2dDrawn { ui_ptr } => {
+                let ui = unsafe { Box::from_raw(ui_ptr as *mut ::imgui::Ui) };
+
+                if let Some(id) = self.interactables_2d_todo.pop() {
+                    id <<
+                    DrawUI2d {
+                        ui_ptr: Box::into_raw(ui) as usize,
+                        return_to: Self::id(),
+                    }
+                } else {
+                    let mut target = std::mem::replace(&mut self.parked_frame, None).expect("Should have parked target");
+                    self.imgui_renderer.render(&mut *target, *ui).unwrap();
+                    target.finish().unwrap();
+                }
+            }
+        }
+
+
+        Fate::Live
     }
 }
 
@@ -501,12 +640,16 @@ pub fn setup(renderables: Vec<ID>, env: &environment::Environment, window: &Glut
 
     UserInterface::register_with_state(UserInterface::new(window.clone()));
     UserInterface::handle::<AddInteractable>();
+    UserInterface::handle::<AddInteractable2d>();
     UserInterface::handle::<RemoveInteractable>();
+    UserInterface::handle::<RemoveInteractable2d>();
     UserInterface::handle::<Focus>();
     UserInterface::handle_critically::<ProcessEvents>();
     UserInterface::handle_critically::<StartFrame>();
     UserInterface::handle_critically::<Projected3d>();
     UserInterface::handle_critically::<Submitted>();
+    UserInterface::handle_critically::<Ui2dDrawn>();
+    UserInterface::handle_critically::<OnPanic>();
     UserInterface::handle_critically::<AddDebugText>();
 
     camera_control::setup(env);

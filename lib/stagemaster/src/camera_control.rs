@@ -2,7 +2,7 @@ use kay::{Actor, Recipient, Fate};
 use monet::{Renderer, MoveEye, Movement};
 use descartes::{P2, P3, V3};
 use combo::Button::*;
-use super::combo::Combo2;
+use super::combo::{Bindings, Combo2};
 
 #[derive(Serialize, Deserialize)]
 pub struct CameraControlSettings {
@@ -11,13 +11,7 @@ pub struct CameraControlSettings {
     pub zoom_speed: f32,
     pub invert_y: bool,
 
-    pub forward_combo: Combo2,
-    pub backward_combo: Combo2,
-    pub left_combo: Combo2,
-    pub right_combo: Combo2,
-    pub pan_modifier_combo: Combo2,
-    pub yaw_modifier_combo: Combo2,
-    pub pitch_modifier_combo: Combo2,
+    pub bindings: Bindings,
 }
 
 impl Default for CameraControlSettings {
@@ -27,14 +21,13 @@ impl Default for CameraControlSettings {
             zoom_speed: 1.0f32,
             move_speed: 1.0f32,
             invert_y: false,
-
-            forward_combo: Combo2::new(&[Up], &[W]),
-            backward_combo: Combo2::new(&[Down], &[S]),
-            left_combo: Combo2::new(&[Left], &[A]),
-            right_combo: Combo2::new(&[Right], &[D]),
-            pan_modifier_combo: Combo2::new(&[LShift], &[RShift]),
-            yaw_modifier_combo: Combo2::new(&[LAlt], &[RightMouseButton]),
-            pitch_modifier_combo: Combo2::new(&[LAlt], &[RightMouseButton]),
+            bindings: Bindings::new(vec![("Move Forward", Combo2::new(&[Up], &[W])),
+                                         ("Move Backward", Combo2::new(&[Down], &[S])),
+                                         ("Move Left", Combo2::new(&[Left], &[A])),
+                                         ("Move Right", Combo2::new(&[Right], &[D])),
+                                         ("Pan", Combo2::new(&[LShift], &[RShift])),
+                                         ("Yaw", Combo2::new(&[LAlt], &[RightMouseButton])),
+                                         ("Pitch", Combo2::new(&[LAlt], &[RightMouseButton]))]),
         }
     }
 }
@@ -77,13 +70,14 @@ impl Recipient<Event3d> for CameraControl {
     fn receive(&mut self, msg: &Event3d) -> Fate {
         match *msg {
             Event3d::Combos(combos) => {
-                self.forward = self.settings.forward_combo.is_in(&combos);
-                self.backward = self.settings.backward_combo.is_in(&combos);
-                self.left = self.settings.left_combo.is_in(&combos);
-                self.right = self.settings.right_combo.is_in(&combos);
-                self.pan_modifier = self.settings.pan_modifier_combo.is_in(&combos);
-                self.yaw_modifier = self.settings.yaw_modifier_combo.is_in(&combos);
-                self.pitch_modifier = self.settings.pitch_modifier_combo.is_in(&combos);
+                self.settings.bindings.do_rebinding(&combos.current);
+                self.forward = self.settings.bindings["Move Forward"].is_in(&combos);
+                self.backward = self.settings.bindings["Move Backward"].is_in(&combos);
+                self.left = self.settings.bindings["Move Left"].is_in(&combos);
+                self.right = self.settings.bindings["Move Right"].is_in(&combos);
+                self.pan_modifier = self.settings.bindings["Pan"].is_in(&combos);
+                self.yaw_modifier = self.settings.bindings["Yaw"].is_in(&combos);
+                self.pitch_modifier = self.settings.bindings["Pitch"].is_in(&combos);
             }
             Event3d::MouseMove(cursor_2d) => {
                 let delta = cursor_2d - self.last_cursor_2d;
@@ -173,12 +167,51 @@ impl Recipient<Event3d> for CameraControl {
     }
 }
 
+use super::DrawUI2d;
+use super::Ui2dDrawn;
+use imgui::ImGuiSetCond_FirstUseEver;
+
+impl Recipient<DrawUI2d> for CameraControl {
+    fn receive(&mut self, msg: &DrawUI2d) -> Fate {
+        match *msg {
+            DrawUI2d { ui_ptr, return_to } => {
+                let ui = unsafe { Box::from_raw(ui_ptr as *mut ::imgui::Ui) };
+
+                ui.window(im_str!("Controls"))
+                    .size((600.0, 200.0), ImGuiSetCond_FirstUseEver)
+                    .collapsible(false)
+                    .build(|| {
+                        ui.text(im_str!("Camera Movement"));
+                        ui.separator();
+
+                        ui.text(im_str!("Move Speed"));
+                        ui.same_line(150.0);
+                        ui.slider_float(im_str!(""), &mut self.settings.move_speed, 0.1, 10.0)
+                            .build();
+
+                        ui.checkbox(im_str!("Invert Y"), &mut self.settings.invert_y);
+
+                        self.settings.bindings.settings_ui(&ui);
+
+                        ui.spacing();
+
+                    });
+
+                return_to << Ui2dDrawn { ui_ptr: Box::into_raw(ui) as usize };
+                Fate::Live
+            }
+        }
+    }
+}
+
 pub fn setup(env: &super::environment::Environment) {
     let settings = env.load_settings("Camera Control");
     let state = CameraControl::new(settings);
     CameraControl::register_with_state(state);
-    CameraControl::handle::<Event3d>();
+    CameraControl::handle_critically::<Event3d>();
+    CameraControl::handle_critically::<DrawUI2d>();
     super::UserInterface::id() <<
     super::AddInteractable(CameraControl::id(), super::AnyShape::Everywhere, 0);
+    super::UserInterface::id() << super::AddInteractable2d(CameraControl::id());
     super::UserInterface::id() << super::Focus(CameraControl::id());
 }

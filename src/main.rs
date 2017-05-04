@@ -24,6 +24,8 @@ extern crate monet;
 extern crate descartes;
 extern crate stagemaster;
 #[macro_use]
+extern crate imgui;
+#[macro_use]
 extern crate serde_derive;
 extern crate serde;
 
@@ -41,7 +43,7 @@ mod game;
 use monet::{Renderer, Control};
 use monet::glium::{DisplayBuild, glutin};
 use core::simulation::{Simulation, Tick};
-use stagemaster::{ProcessEvents, StartFrame, UserInterface, AddDebugText};
+use stagemaster::{ProcessEvents, StartFrame, UserInterface, AddDebugText, OnPanic};
 use game::lanes_and_cars::lane::{Lane, TransferLane};
 use game::lanes_and_cars::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use game::lanes_and_cars::rendering::lane_thing_collector::ThingCollector;
@@ -81,6 +83,7 @@ fn main() {
             color: [1.0, 0.0, 0.0, 1.0],
             persistent: true,
         };
+        UserInterface::id() << OnPanic;
     }));
 
     game::setup();
@@ -111,7 +114,7 @@ fn main() {
     AddDebugText {
         key: "Version".chars().collect(),
         text: ENV.version.chars().collect(),
-        color: [1.0, 1.0, 1.0, 1.0],
+        color: [0.0, 0.0, 0.0, 1.0],
         persistent: true,
     };
 
@@ -127,7 +130,7 @@ fn main() {
                     .as_str()
                     .chars()
                     .collect(),
-            color: [1.0, 1.0, 1.0, 0.5],
+            color: [0.0, 0.0, 0.0, 0.5],
             persistent: false,
         };
         last_frame = std::time::Instant::now();

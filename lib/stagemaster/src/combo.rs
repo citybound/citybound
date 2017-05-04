@@ -40,7 +40,16 @@ impl Combo {
         Combo(fixed_buttons)
     }
 
+    pub fn len(&self) -> usize {
+        self.0.iter().filter(|b| b.is_some()).count()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn is_in(&self, other: &Combo) -> bool {
+        !self.is_empty() &&
         self.0
             .iter()
             .all(|opt| {
@@ -74,20 +83,32 @@ impl Combo {
     }
 }
 
+impl ::std::fmt::Display for Combo {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f,
+               "{}",
+               self.0
+                   .iter()
+                   .filter_map(|mb| mb.map(|b| format!("{:?}", b)))
+                   .collect::<Vec<_>>()
+                   .join(" + "))
+    }
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Default, Copy, Clone)]
-pub struct Combo2(pub Combo, pub Combo);
+pub struct Combo2(pub [Combo; 2]);
 
 impl Combo2 {
     pub fn new(a: &[Button], b: &[Button]) -> Self {
-        Combo2(Combo::new(a), Combo::new(b))
+        Combo2([Combo::new(a), Combo::new(b)])
     }
 
     pub fn is_in(&self, other: &Combo) -> bool {
-        self.0.is_in(other) || self.1.is_in(other)
+        self.0[0].is_in(other) || self.0[1].is_in(other)
     }
 
     pub fn is_freshly_in(&self, other: &ComboListener) -> bool {
-        self.0.is_freshly_in(other) || self.1.is_freshly_in(other)
+        self.0[0].is_freshly_in(other) || self.0[1].is_freshly_in(other)
     }
 }
 
@@ -304,5 +325,101 @@ impl Deref for ComboListener {
 
     fn deref(&self) -> &Combo {
         &self.current
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Bindings {
+    bindings: Vec<(String, Combo2)>,
+    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
+    rebinding: Option<(String, usize)>,
+}
+
+use imgui::{ImGuiSelectableFlags, ImVec2};
+
+impl Bindings {
+    pub fn new(bindings: Vec<(&str, Combo2)>) -> Self {
+        Bindings {
+            bindings: bindings
+                .into_iter()
+                .map(|(name, combo)| (name.to_owned(), combo))
+                .collect(),
+            rebinding: None,
+        }
+    }
+
+    fn pos_of(&self, name: &str) -> usize {
+        self.bindings
+            .iter()
+            .position(|&(ref item_name, _)| item_name == name)
+            .expect("Expected binding to exist")
+    }
+
+    pub fn settings_ui(&mut self, ui: &::imgui::Ui) {
+        let mut new_target = self.rebinding.clone();
+        for (name, combos) in self.bindings.clone() {
+            ui.text(im_str!("{}", name));
+            ui.same_line(150.0);
+            let target_is = match self.rebinding {
+                Some((ref target_name, idx)) if target_name == &name => {
+                    if idx == 0 {
+                        (true, false)
+                    } else {
+                        (false, true)
+                    }
+                }
+                _ => (false, false),
+            };
+
+            if ui.selectable(im_str!("{}", combos.0[0]),
+                             target_is.0,
+                             ImGuiSelectableFlags::empty(),
+                             ImVec2::new(200.0, 0.0)) {
+                if target_is.0 {
+                    new_target = None;
+                } else {
+                    self[name.as_str()].0[0] = Combo::new(&[]);
+                    new_target = Some((name.clone(), 0))
+                }
+            }
+            ui.same_line(350.0);
+            if ui.selectable(im_str!("(2nd: {})", combos.0[1]),
+                             target_is.1,
+                             ImGuiSelectableFlags::empty(),
+                             ImVec2::new(200.0, 0.0)) {
+                if target_is.1 {
+                    new_target = None;
+                } else {
+                    self[name.as_str()].0[1] = Combo::new(&[]);
+                    new_target = Some((name.clone(), 1))
+                }
+            }
+
+        }
+        self.rebinding = new_target
+    }
+
+    pub fn do_rebinding(&mut self, combo: &Combo) {
+        if let Some((ref name, idx)) = self.rebinding.clone() {
+            if combo.len() > self[name.as_str()].0[idx].len() {
+                self[name.as_str()].0[idx] = *combo;
+            }
+        }
+    }
+}
+
+impl<'a> ::std::ops::Index<&'a str> for Bindings {
+    type Output = Combo2;
+
+    fn index(&self, name: &'a str) -> &Combo2 {
+        &self.bindings[self.pos_of(name)].1
+    }
+}
+
+impl<'a> ::std::ops::IndexMut<&'a str> for Bindings {
+    fn index_mut(&mut self, name: &'a str) -> &mut Combo2 {
+        let pos = self.pos_of(name);
+        &mut self.bindings[pos].1
     }
 }

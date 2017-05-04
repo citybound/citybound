@@ -20,7 +20,7 @@ use self::draggable::Draggable;
 mod addable;
 use self::addable::Addable;
 mod interaction;
-use self::interaction::InteractionSettings;
+use self::interaction::Interaction;
 
 #[derive(Compact, Clone, Default)]
 pub struct PlanStep {
@@ -108,7 +108,7 @@ pub struct CurrentPlan {
     preview_result_delta_rendered: bool,
     interactables_valid: bool,
     settings: Settings,
-    interaction: InteractionSettings,
+    interaction: Interaction,
 }
 impl Actor for CurrentPlan {}
 
@@ -437,7 +437,12 @@ impl Recipient<Materialize> for CurrentPlan {
             delta: self.current.plan_delta.clone(),
         };
 
-        *self = CurrentPlan::default();
+        *self = CurrentPlan {
+            settings: self.settings.clone(),
+            interaction: self.interaction.clone(),
+            ..CurrentPlan::default()
+        };
+
         Fate::Live
     }
 }
