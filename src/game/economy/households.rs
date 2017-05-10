@@ -1,5 +1,6 @@
 use kay::ID;
 use compact::CVec;
+use core::simulation::TimeOfDay;
 
 use super::resources::Bag;
 
@@ -10,6 +11,12 @@ pub struct Family {
     member_resources: CVec<Bag>,
     member_locations: CVec<ID>,
     favorite_offers: CVec<ID>,
+}
+
+
+
+impl Family {
+    pub fn judge_situation(time: TimeOfDay, member_idx: usize) -> f32 {}
 }
 
 #[derive(Compact, Clone, SubActor)]

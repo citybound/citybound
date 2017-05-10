@@ -1,4 +1,4 @@
-# Pysiological and Psychological Needs
+# Physiological and Psychological Needs
 
 | resource          | description |
 | ----------------- | ----------- |
@@ -22,11 +22,7 @@
 | money             | how much money a family or company has |
 | clothes           | how much a person has to wear |
 | furniture         | how much furniture a household has |
-| milk products     | Milk or processed milk-products |
-| cereals           | processed grain-based products |
-| fruits/vegetables | Fruits and vegetables |
-| basic food        | Processed nutricious food |
-| healthy stuff     | Food additions that contribute to health |
+| groceries         | Milk or processed milk-products |
 | petrol            | Refined oil that can be used as fuel |
 
 # Raw Materials
@@ -35,11 +31,6 @@
 | ----------------- | ----------- |
 | raw meat          | unprocessed meat |
 | grains            | unprocessed grains |
+| fruits/vegetables | Fruits and vegetables |
+| milk products     | Milk or processed milk-products |
 | cattle            | Eat grains, produce milk and/or meat |
-
-# Symbolic Resources
-
-| resource          | description |
-| ----------------- | ----------- |
-| employment        | Used as a motivational goal |
-| worker time       | Used to calculate company output |

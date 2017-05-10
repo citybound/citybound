@@ -31,6 +31,9 @@ impl Recipient<Tick> for Simulation {
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct TimeOfDay{h: u8, m: u8};
+
 pub fn setup(simulatables: Vec<ID>) {
     Simulation::register_with_state(Simulation {
                                         simulatables: simulatables,
