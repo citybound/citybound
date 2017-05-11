@@ -1,32 +1,66 @@
 use std::collections::HashMap;
 use core::read_md_tables::read;
+use itertools::multizip;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct ResourceId(u16);
 
+pub const MAX_N_RESOURCE_TYPES: usize = 1000;
+
+impl ResourceId {
+    pub fn as_index(&self) -> usize {
+        self.0 as usize
+    }
+}
+
 impl ::std::fmt::Debug for ResourceId {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f,
-               "r({})",
-               unsafe { &(*REGISTRY).id_to_info.get(self).unwrap().0 })
+        write!(f, "r({})", unsafe { &(*REGISTRY).id_to_info[self].0 })
     }
 }
 
 #[derive(Debug)]
 struct ResourceDescription(String, String);
 
-#[derive(Default)]
+#[derive(Default, Copy, Clone)]
+pub struct ResourceProperties {
+    pub ownership_shared: bool,
+    pub supplier_shared: bool,
+}
+
 pub struct ResourceRegistry {
     next_id: ResourceId,
     name_to_id: HashMap<String, ResourceId>,
     id_to_info: HashMap<ResourceId, ResourceDescription>,
+    properties: [ResourceProperties; MAX_N_RESOURCE_TYPES],
+}
+
+impl Default for ResourceRegistry {
+    fn default() -> Self {
+        ResourceRegistry {
+            next_id: ResourceId::default(),
+            name_to_id: HashMap::default(),
+            id_to_info: HashMap::default(),
+            properties: [ResourceProperties::default(); MAX_N_RESOURCE_TYPES],
+        }
+    }
 }
 
 impl ResourceRegistry {
-    fn add(&mut self, resource: &str, description: &str) {
-        self.name_to_id.insert(resource.to_owned(), self.next_id);
-        self.id_to_info.insert(self.next_id,
-                               ResourceDescription(resource.to_owned(), description.to_owned()));
+    fn add(&mut self,
+           resource: &str,
+           description: &str,
+           ownership_shared: bool,
+           supplier_shared: bool) {
+        let id = self.next_id;
+        self.name_to_id.insert(resource.to_owned(), id);
+        self.id_to_info
+            .insert(id,
+                    ResourceDescription(resource.to_owned(), description.to_owned()));
+        self.properties[id.as_index()] = ResourceProperties {
+            ownership_shared,
+            supplier_shared,
+        };
         self.next_id = match self.next_id {
             ResourceId(id) => ResourceId(id + 1),
         };
@@ -34,18 +68,22 @@ impl ResourceRegistry {
 
     fn id(&self, resource: &str) -> ResourceId {
         *self.name_to_id
-            .get(resource)
-            .expect(format!("Resource {} doesn't exist. Loaded resources: {:?}",
-                            resource,
-                            self.name_to_id)
-                .as_str())
+             .get(resource)
+             .expect(format!("Resource {} doesn't exist. Loaded resources: {:?}",
+                             resource,
+                             self.name_to_id)
+                             .as_str())
     }
 }
 
 pub static mut REGISTRY: *mut ResourceRegistry = 0 as *mut ResourceRegistry;
 
-pub fn r(resource: &str) -> ResourceId {
+pub fn r_id(resource: &str) -> ResourceId {
     unsafe { (*REGISTRY).id(resource) }
+}
+
+pub fn r_properties(resource_id: ResourceId) -> ResourceProperties {
+    unsafe { (*REGISTRY).properties[resource_id.as_index()] }
 }
 
 pub fn setup() {
@@ -54,8 +92,9 @@ pub fn setup() {
 
     for table in &tables {
         let c = &table.columns;
-        for (resource, info) in c["resource"].iter().zip(&c["description"]) {
-            resources.add(resource, info);
+        for (resource, own, sup, info) in
+            multizip((&c["resource"], &c["ownership"], &c["supplier"], &c["description"])) {
+            resources.add(resource, info, own == "shared", sup == "shared");
         }
     }
 
@@ -64,54 +103,49 @@ pub fn setup() {
     }
 }
 
-use compact::CVec;
+use compact::{CVec, Compact};
 
-pub type ResourceValue = f32;
+pub type ResourceAmount = f32;
+
+#[derive(Compact, Clone, Debug)]
+pub struct Entry<AssociatedValue: Compact>(pub ResourceId, pub AssociatedValue);
 
 #[derive(Compact, Clone, Default, Debug)]
-pub struct Bag {
-    entries: CVec<(ResourceId, ResourceValue)>,
+pub struct ResourceMap<AssociatedValue: Compact> {
+    entries: CVec<Entry<AssociatedValue>>,
 }
 
-pub struct BagEntry<'a> {
-    entry: &'a mut ResourceValue,
-}
-
-impl Bag {
+impl<AssociatedValue: Compact> ResourceMap<AssociatedValue> {
     pub fn new() -> Self {
-        Default::default()
+        ResourceMap { entries: CVec::new() }
     }
 
-    pub fn get(&self, key: ResourceId) -> Option<&ResourceValue> {
-        self.entries.binary_search_by_key(&key, |&(k, _v)| k).ok().map(|i| &self.entries[i].1)
+    pub fn get(&self, key: ResourceId) -> Option<&AssociatedValue> {
+        self.entries
+            .binary_search_by_key(&key, |&Entry(ref k, ref _v)| *k)
+            .ok()
+            .map(|i| &self.entries[i].1)
     }
 
-    pub fn mut_entry_or(&mut self, key: ResourceId, default: ResourceValue) -> &mut ResourceValue {
-        match self.entries.binary_search_by_key(&key, |&(k, _v)| k) {
+    pub fn mut_entry_or(&mut self,
+                        key: ResourceId,
+                        default: AssociatedValue)
+                        -> &mut AssociatedValue {
+        match self.entries
+                  .binary_search_by_key(&key, |&Entry(ref k, ref _v)| *k) {
             Ok(index) => &mut self.entries[index].1,
             Err(index) => {
-                self.entries.insert(index, (key, default));
+                self.entries.insert(index, Entry(key, default));
                 &mut self.entries[index].1
             }
         }
     }
+}
 
-    pub fn mut_entry_or_id(&mut self, key: ResourceId, default: u32) -> &mut u32 {
-        match self.entries.binary_search_by_key(&key, |&(k, _v)| k) {
-            Ok(index) => unsafe {
-                ::std::mem::transmute::<&mut ResourceValue, &mut u32>(&mut self.entries[index].1)
-            },
-            Err(index) => {
-                self.entries.insert(index,
-                                    (key,
-                                     unsafe {
-                                         ::std::mem::transmute::<u32, ResourceValue>(default)
-                                     }));
-                unsafe {
-                    ::std::mem::transmute::<&mut ResourceValue, &mut u32>(&mut self.entries[index]
-                        .1)
-                }
-            }
-        }
+impl<AssociatedValue: Compact> ::std::ops::Deref for ResourceMap<AssociatedValue> {
+    type Target = CVec<Entry<AssociatedValue>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.entries
     }
 }

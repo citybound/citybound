@@ -32,7 +32,19 @@ impl Recipient<Tick> for Simulation {
 }
 
 #[derive(Copy, Clone)]
-pub struct TimeOfDay{h: u8, m: u8};
+pub struct TimeOfDay {
+    minutes_since_midnight: u16,
+}
+
+impl TimeOfDay {
+    pub fn new(h: usize, m: usize) -> Self {
+        TimeOfDay { minutes_since_midnight: m as u16 + (h * 60) as u16 }
+    }
+
+    pub fn hours_minutes(&self) -> (usize, usize) {
+        ((self.minutes_since_midnight / 60) as usize, (self.minutes_since_midnight % 60) as usize)
+    }
+}
 
 pub fn setup(simulatables: Vec<ID>) {
     Simulation::register_with_state(Simulation {

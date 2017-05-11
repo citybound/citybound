@@ -1,6 +1,6 @@
 use kay::ID;
 use compact::CVec;
-use super::resources::Bag;
+use super::resources::{ResourceMap, ResourceAmount};
 use core::simulation::TimeOfDay;
 
 #[derive(Compact, Clone, SubActor)]
@@ -10,7 +10,7 @@ pub struct Offer {
     location: ID, // lane
     from: TimeOfDay,
     to: TimeOfDay,
-    take: Bag,
-    give: Bag,
+    take: ResourceMap<ResourceAmount>,
+    give: ResourceMap<ResourceAmount>,
     users: CVec<ID>,
 }
