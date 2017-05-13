@@ -10,10 +10,7 @@ pub struct Environment {
 
 impl Environment {
     fn setting_dir(&self) -> PathBuf {
-        let app_info = ::app_dirs::AppInfo {
-            name: self.name,
-            author: self.author,
-        };
+        let app_info = ::app_dirs::AppInfo { name: self.name, author: self.author };
         ::app_dirs::app_root(::app_dirs::AppDataType::UserConfig, &app_info)
             .expect("Expected settings dir to exist")
             .join(self.version)
@@ -34,8 +31,8 @@ impl Environment {
                   .as_mut()
                   .map_err(|err| format!("{}", err))
                   .and_then(|file| {
-                                ::serde_json::from_reader(file).map_err(|err| format!("{}", err))
-                            }) {
+            ::serde_json::from_reader(file).map_err(|err| format!("{}", err))
+        }) {
             Ok(settings) => settings,
             Err(err) => {
                 println!("Error loading {} settings: {} from {:?}",
@@ -51,16 +48,18 @@ impl Environment {
         where S: Serialize + Default
     {
         if let Err(err) = OpenOptions::new()
-                  .write(true)
-                  .create(true)
-                  .open(self.setting_path(category))
-            .as_mut()
-            .map_err(|err| format!("{}", err))
-            .and_then(|file| {
-                ::serde_json::to_writer_pretty(file, settings).map_err(|err| format!("{}", err))
-            }) {
+               .write(true)
+               .create(true)
+               .open(self.setting_path(category))
+               .as_mut()
+               .map_err(|err| format!("{}", err))
+               .and_then(|file| {
+            ::serde_json::to_writer_pretty(file, settings).map_err(|err| format!("{}", err))
+        }) {
             println!("Error writing {} settings: {} to {:?}",
-                category, err, self.setting_path(category));
+                     category,
+                     err,
+                     self.setting_path(category));
         } else {
             println!("Write {} settings", category);
         }

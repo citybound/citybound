@@ -1,6 +1,6 @@
 use descartes::{P2, V2, Path, Segment, Band, Curve, FiniteCurve, N, RoughlyComparable};
 use compact::CVec;
-use kay::ID;
+use kay::{ID, World};
 use kay::swarm::{Swarm, CreateWith};
 use monet::Thing;
 use stagemaster::geometry::{CPath, band_to_thing};
@@ -75,11 +75,11 @@ impl LaneStroke {
             *unsafe_memoized_path = Path::new(self.nodes
                                                   .windows(2)
                                                   .flat_map(|window| {
-                                                                Segment::biarc(window[0].position,
-                                                                               window[0].direction,
-                                                                               window[1].position,
-                                                                               window[1].direction)
-                                                            })
+                Segment::biarc(window[0].position,
+                               window[0].direction,
+                               window[1].position,
+                               window[1].direction)
+            })
                                                   .collect::<Vec<_>>())
         }
         &self._memoized_path
@@ -98,20 +98,20 @@ impl LaneStroke {
                 .segments()
                 .iter()
                 .map(|segment| {
-                         LaneStrokeNode {
-                             position: segment.start(),
-                             direction: segment.start_direction(),
-                         }
-                     })
+                    LaneStrokeNode {
+                        position: segment.start(),
+                        direction: segment.start_direction(),
+                    }
+                })
                 .chain(cut_path
                            .segments()
                            .last()
                            .map(|last_segment| {
-                                    LaneStrokeNode {
-                                        position: last_segment.end(),
-                                        direction: last_segment.end_direction(),
-                                    }
-                                })
+                    LaneStrokeNode {
+                        position: last_segment.end(),
+                        direction: last_segment.end_direction(),
+                    }
+                })
                            .into_iter())
                 .collect();
             LaneStroke::new(nodes).ok()
@@ -131,11 +131,11 @@ impl LaneStroke {
             .into_iter()
             .flat_map(|subsection| subsection.nodes)
             .map(|node| {
-                     LaneStrokeNode {
-                         position: node.position + delta,
-                         direction: node.direction,
-                     }
-                 })
+                LaneStrokeNode {
+                    position: node.position + delta,
+                    direction: node.direction,
+                }
+            })
             .collect::<Vec<_>>();
 
         let nodes_after = self.nodes
@@ -160,22 +160,30 @@ impl LaneStroke {
         (nodes_before, maybe_before_connector, new_subsection, maybe_after_connector, nodes_after)
     }
 
-    pub fn build(&self, report_to: ID, report_as: BuildableRef) {
-        Swarm::<Lane>::all() <<
-        CreateWith(Lane::new(self.path().clone(), false, CVec::new()),
-                   AdvertiseToTransferAndReport(report_to, report_as));
+    pub fn build(&self, report_to: ID, report_as: BuildableRef, world: &mut World) {
+        world.send_to_id_of::<Swarm<Lane>, _>(CreateWith(Lane::new(self.path().clone(),
+                                                                   false,
+                                                                   CVec::new()),
+                                                         AdvertiseToTransferAndReport(report_to,
+                                                                                      report_as)));
     }
 
-    pub fn build_intersection(&self, report_to: ID, report_as: BuildableRef, timings: CVec<bool>) {
-        Swarm::<Lane>::all() <<
-        CreateWith(Lane::new(self.path().clone(), true, timings),
-                   AdvertiseToTransferAndReport(report_to, report_as));
+    pub fn build_intersection(&self,
+                              report_to: ID,
+                              report_as: BuildableRef,
+                              timings: CVec<bool>,
+                              world: &mut World) {
+        world.send_to_id_of::<Swarm<Lane>, _>(CreateWith(Lane::new(self.path().clone(),
+                                                                   true,
+                                                                   timings),
+                                                         AdvertiseToTransferAndReport(report_to,
+                                                                                      report_as)));
     }
 
-    pub fn build_transfer(&self, report_to: ID, report_as: BuildableRef) {
-        Swarm::<TransferLane>::all() <<
-        CreateWith(TransferLane::new(self.path().clone()),
-                   AdvertiseToTransferAndReport(report_to, report_as));
+    pub fn build_transfer(&self, report_to: ID, report_as: BuildableRef, world: &mut World) {
+        world.send_to_id_of::<Swarm<TransferLane>, _>(
+                   CreateWith(TransferLane::new(self.path().clone()),
+                              AdvertiseToTransferAndReport(report_to, report_as)));
     }
 }
 

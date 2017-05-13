@@ -1,4 +1,4 @@
-use kay::{Recipient, ID, Actor, Fate};
+use kay::{ActorSystem, ID, Fate};
 
 #[derive(Copy, Clone)]
 pub struct Tick {
@@ -11,30 +11,19 @@ pub struct Simulation {
     current_tick: usize,
 }
 
-impl Actor for Simulation {}
-
-impl Recipient<Tick> for Simulation {
-    fn receive(&mut self, msg: &Tick) -> Fate {
-        match *msg {
-            Tick { dt, .. } => {
-                for simulatable in &self.simulatables {
-                    *simulatable <<
-                    Tick {
-                        dt: dt,
-                        current_tick: self.current_tick,
-                    };
-                }
-                self.current_tick += 1;
-                Fate::Live
+pub fn setup(system: &mut ActorSystem, simulatables: Vec<ID>) {
+    let initial = Simulation {
+        simulatables: simulatables,
+        current_tick: 0,
+    };
+    system.add(initial, |mut the_simulation| {
+        the_simulation.on(|&Tick { dt, .. }, sim, world| {
+            for simulatable in &sim.simulatables {
+                world.send(*simulatable,
+                           Tick { dt: dt, current_tick: sim.current_tick });
             }
-        }
-    }
-}
-
-pub fn setup(simulatables: Vec<ID>) {
-    Simulation::register_with_state(Simulation {
-                                        simulatables: simulatables,
-                                        current_tick: 0,
-                                    });
-    Simulation::handle::<Tick>();
+            sim.current_tick += 1;
+            Fate::Live
+        })
+    });
 }

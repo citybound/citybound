@@ -1,4 +1,4 @@
-use kay::{ID, Recipient, Actor, Fate};
+use kay::{ID, ActorSystem, Fate};
 use kay::swarm::{Swarm, SubActor, CreateWith};
 use ordered_float::OrderedFloat;
 
@@ -16,48 +16,103 @@ struct Trip {
 pub struct Start;
 use super::QueryAsDestination;
 
-impl Recipient<Start> for Trip {
-    fn receive(&mut self, _msg: &Start) -> Fate {
-        self.rough_destination << QueryAsDestination { requester: self.id() };
-        Fate::Live
-    }
+
+pub fn setup(system: &mut ActorSystem) {
+    system.add(Swarm::<Trip>::new(),
+               Swarm::<Trip>::subactors(|mut each_trip| {
+        each_trip.on_create_with(|_: &Start, trip, world| {
+            world.send(trip.rough_destination,
+                       QueryAsDestination { requester: trip.id() });
+            Fate::Live
+        });
+
+        each_trip.on(|&TellAsDestination { as_destination: maybe_destination, id },
+                      trip,
+                      world| {
+            if let Some(as_destination) = maybe_destination {
+                trip.destination = Some(as_destination);
+                world.send(trip.source,
+                           AddCar {
+                               car: LaneCar {
+                                   trip: trip.id(),
+                                   as_obstacle: Obstacle {
+                                       position: OrderedFloat(-1.0),
+                                       velocity: 0.0,
+                                       max_velocity: 15.0,
+                                   },
+                                   acceleration: 0.0,
+                                   destination: as_destination,
+                                   next_hop_interaction: 0,
+                               },
+                               from: None,
+                           });
+                Fate::Live
+            } else {
+                println!("{:?} is not a destination yet", id);
+                Fate::Die
+            }
+        });
+
+        each_trip.on(|result, trip, _| {
+            match *result {
+                TripResult::Failure => {
+                    println!("Trip {:?} failed!", trip.id());
+                }
+                TripResult::Success => {
+                    println!("Trip {:?} succeeded!", trip.id());
+                }
+            }
+            Fate::Die
+        })
+    }));
+
+    system.add(TripCreator { current_source_lane: None },
+               |mut the_creator| {
+        let trips_id = the_creator.world().id::<Swarm<Trip>>();
+
+        the_creator.on(move |&AddLaneForTrip(lane_id), tc, world| {
+            if let Some(source) = tc.current_source_lane {
+                world.send(trips_id,
+                           CreateWith(Trip {
+                                          _id: None,
+                                          source: source,
+                                          rough_destination: lane_id,
+                                          destination: None,
+                                      },
+                                      Start));
+                tc.current_source_lane = None;
+            } else {
+                tc.current_source_lane = Some(lane_id);
+            }
+            Fate::Live
+        })
+    });
+
+    system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
+        let creator_id = each_lane.world().id::<TripCreator>();
+
+        each_lane.on_random(move |event, lane, world| {
+            match *event {
+                Event3d::HoverStarted { .. } => {
+                    lane.hovered = true;
+                }
+                Event3d::HoverStopped { .. } => {
+                    lane.hovered = false;
+                }
+                Event3d::DragFinished { .. } => {
+                    if !lane.connectivity.on_intersection {
+                        world.send(creator_id, AddLaneForTrip(lane.id()));
+                    }
+                }
+                _ => {}
+            };
+            Fate::Live
+        })
+    }));
 }
 
 use super::TellAsDestination;
 use super::super::microtraffic::{AddCar, LaneCar, Obstacle};
-
-impl Recipient<TellAsDestination> for Trip {
-    fn receive(&mut self, msg: &TellAsDestination) -> Fate {
-        match *msg {
-            TellAsDestination { as_destination: Some(as_destination), .. } => {
-                self.destination = Some(as_destination);
-                self.source <<
-                AddCar {
-                    car: LaneCar {
-                        trip: self.id(),
-                        as_obstacle: Obstacle {
-                            position: OrderedFloat(-1.0),
-                            velocity: 0.0,
-                            max_velocity: 15.0,
-                        },
-                        acceleration: 0.0,
-                        destination: as_destination,
-                        next_hop_interaction: 0,
-                    },
-                    from: None,
-                };
-                Fate::Live
-            }
-            TellAsDestination {
-                id,
-                as_destination: None,
-            } => {
-                println!("{:?} is not a destination yet", id);
-                Fate::Die
-            }
-        }
-    }
-}
 
 #[derive(Copy, Clone)]
 pub enum TripResult {
@@ -65,86 +120,12 @@ pub enum TripResult {
     Failure,
 }
 
-impl Recipient<TripResult> for Trip {
-    fn receive(&mut self, msg: &TripResult) -> Fate {
-        match *msg {
-            TripResult::Failure => {
-                println!("Trip {:?} failed!", self.id());
-                Fate::Die
-            }
-            TripResult::Success => {
-                println!("Trip {:?} succeeded!", self.id());
-                Fate::Die
-            }
-        }
-    }
-}
-
 pub struct TripCreator {
     current_source_lane: Option<ID>,
 }
 
-impl Actor for TripCreator {}
-
 #[derive(Copy, Clone)]
 pub struct AddLaneForTrip(ID);
 
-impl Recipient<AddLaneForTrip> for TripCreator {
-    fn receive(&mut self, msg: &AddLaneForTrip) -> Fate {
-        match *msg {
-            AddLaneForTrip(lane_id) => {
-                if let Some(source) = self.current_source_lane {
-                    Swarm::<Trip>::all() <<
-                    CreateWith(Trip {
-                                   _id: None,
-                                   source: source,
-                                   rough_destination: lane_id,
-                                   destination: None,
-                               },
-                               Start);
-                    self.current_source_lane = None;
-                } else {
-                    self.current_source_lane = Some(lane_id);
-                }
-                Fate::Live
-            }
-        }
-    }
-}
-
 use super::super::lane::Lane;
 use stagemaster::Event3d;
-
-impl Recipient<Event3d> for Lane {
-    fn receive(&mut self, msg: &Event3d) -> Fate {
-        match *msg {
-            Event3d::HoverStarted { .. } => {
-                self.hovered = true;
-                Fate::Live
-            }
-            Event3d::HoverStopped { .. } => {
-                self.hovered = false;
-                Fate::Live
-            }
-            Event3d::DragFinished { .. } => {
-                if !self.connectivity.on_intersection {
-                    TripCreator::id() << AddLaneForTrip(self.id());
-                }
-                Fate::Live
-            }
-            _ => Fate::Live,
-        }
-    }
-}
-
-pub fn setup() {
-    Swarm::<Trip>::register_default();
-    Swarm::<Trip>::handle::<TripResult>();
-    Swarm::<Trip>::handle::<CreateWith<Trip, Start>>();
-    Swarm::<Trip>::handle::<TellAsDestination>();
-
-    TripCreator::register_with_state(TripCreator { current_source_lane: None });
-    TripCreator::handle::<AddLaneForTrip>();
-
-    Swarm::<Lane>::handle::<Event3d>();
-}

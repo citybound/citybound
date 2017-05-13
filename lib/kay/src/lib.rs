@@ -32,6 +32,6 @@ mod type_registry;
 mod id;
 mod actor_system;
 
-pub use self::messaging::{Message, Packet, Recipient, Fate};
+pub use self::messaging::{Message, Packet, Fate};
 pub use self::id::ID;
-pub use self::actor_system::{THE_SYSTEM, ActorSystem, Actor};
+pub use self::actor_system::{ActorSystem, World};
