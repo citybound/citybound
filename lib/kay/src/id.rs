@@ -33,6 +33,9 @@ impl ID {
         }
     }
 
+    /// Get a version of an actor ID that signals that a message
+    /// should be delivered to all sub-actors of that actor,
+    /// like in the case of a [`Swarm`](swarm/struct.Swarm.html).
     pub fn broadcast(&self) -> ID {
         ID {
             sub_actor_id: broadcast_sub_actor_id(),

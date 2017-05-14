@@ -1,4 +1,4 @@
-//! Automatic `#[derive(SubActor)]` macro for structs which have an `_id: ID` field.
+//! Automatic `#[derive(SubActor)]` macro for structs which have an `_id: Option<ID>` field.
 
 #![recursion_limit="100"]
 
