@@ -1,81 +1,33 @@
-use super::messaging::{Message, Packet, Recipient};
+use super::messaging::{Message, Packet, Fate};
 use super::inbox::{Inbox, DispatchablePacket};
 use super::id::ID;
 use super::type_registry::{ShortTypeId, TypeRegistry};
 use std::any::Any;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
-/// Global pointer to the singleton instance of `ActorSystem`.
-/// Set by `ActorSystem::create_the_system`.
-pub static mut THE_SYSTEM: *mut ActorSystem = 0 as *mut ActorSystem;
+struct Dispatcher {
+    function: Box<Fn(*const (), &mut World)>,
+    critical: bool,
+}
 
 const MAX_RECIPIENT_TYPES: usize = 64;
 const MAX_MESSAGE_TYPES: usize = 128;
 
-struct Handler {
-    function: Box<Fn(*const ())>,
-    critical: bool,
-}
-
-/// Any Rust data structure can become an actor by:
+/// The main thing inside of which all the magic happens.
 ///
-///  * Deriving `Actor`
-///  * Deriving `Recipient<M>` for all message types that this actor will handle
-///  * Registering itself and all handled messages with the actor system
-pub trait Actor: 'static + Sized {
-    /// Register an `Actor` with the system, using the given instance
-    /// of the actor type as the initial state for the actor.
-    ///
-    /// After this call, the Actor has an ID (see `id()`) and can receive messages
-    /// (if according message handlers have been registered with `handle` or `handle_critically`)
-    fn register_with_state(initial_state: Self) {
-        unsafe { (*THE_SYSTEM).add_actor(initial_state) };
-    }
-
-    /// Like `register_with_state`, using the default value for `Actor`s that implement `Default`
-    fn register_default()
-        where Self: Default
-    {
-        Self::register_with_state(Self::default());
-    }
-
-    /// Get the `ID` of an `Actor` (only works after the actor has been registered)
-    fn id() -> ID {
-        ID::new(unsafe { (*THE_SYSTEM).short_id::<Self>() }, 0, 0)
-    }
-
-    /// Register a message handler for a message `M` for an `Actor`,
-    /// which is defined in the implementation of `Recipient<M> for this actor.
-    fn handle<M: Message>()
-        where Self: Recipient<M>
-    {
-        unsafe { (*THE_SYSTEM).add_handler::<M, Self>() }
-    }
-
-    /// Like `handle`, but marks this message type as *critical* for `Actor`,
-    /// which means that this actor will still receive such messages even
-    /// after a panic occured in the `ActorSystem`
-    ///
-    /// This makes it possible to keep for example rendering, debug message display
-    /// and camera movement alive, even after an otherwise fatal panic.
-    fn handle_critically<M: Message>()
-        where Self: Recipient<M>
-    {
-        unsafe { (*THE_SYSTEM).add_critical_handler::<M, Self>() }
-    }
-}
-
 /// An `ActorSystem` contains the states of all registered actors,
 /// message inboxes (queues) for each registered actor,
-/// and message handlers for each registered (`Actor`,`Message`) pair.
+/// and message dispatchers for each registered (`Actor`,`Message`) pair.
+///
+/// It can be controlled from the outside to do message passing and handling in turns.
 pub struct ActorSystem {
     panic_happened: bool,
-    panic_callback: Box<Fn(Box<Any>)>,
+    panic_callback: Box<Fn(Box<Any>, &mut World)>,
     inboxes: [Option<Inbox>; MAX_RECIPIENT_TYPES],
     actor_registry: TypeRegistry,
     actors: [Option<*mut u8>; MAX_RECIPIENT_TYPES],
     message_registry: TypeRegistry,
-    handlers: [[Option<Handler>; MAX_MESSAGE_TYPES]; MAX_RECIPIENT_TYPES],
+    dispatchers: [[Option<Dispatcher>; MAX_MESSAGE_TYPES]; MAX_RECIPIENT_TYPES],
 }
 
 macro_rules! make_array {
@@ -89,70 +41,99 @@ macro_rules! make_array {
 }
 
 impl ActorSystem {
-    /// Create the global singleton instance of `ActorSystem`.
-    /// Sets `THE_SYSTEM`. Expects to get a panic callback as a parameter
-    /// that is called when an actor panics during message handling
-    /// and can thus be used to for example display the panic error message.
+    /// Create a new ActorSystem (usually only one per application is needed).
+    /// Expects to get a panic callback as a parameter that is called when
+    /// an actor panics during message handling and can thus be used to
+    /// for example display the panic error message.
     ///
     /// Note that after an actor panicking, the whole `ActorSystem` switches
     /// to a panicked state and only passes messages anymore which have been
-    /// marked as *critical* using `Actor::handle_critically`.
-    pub fn create_the_system(panic_callback: Box<Fn(Box<Any>)>) -> Box<ActorSystem> {
-        let mut system =
-            Box::new(ActorSystem {
-                         panic_happened: false,
-                         panic_callback: panic_callback,
-                         inboxes: unsafe { make_array!(MAX_RECIPIENT_TYPES, |_| None) },
-                         actor_registry: TypeRegistry::new(),
-                         message_registry: TypeRegistry::new(),
-                         actors: [None; MAX_RECIPIENT_TYPES],
-                         handlers: unsafe {
-                             make_array!(MAX_RECIPIENT_TYPES,
-                                         |_| make_array!(MAX_MESSAGE_TYPES, |_| None))
-                         },
-                     });
-
-        unsafe {
-            THE_SYSTEM = &mut *system as *mut ActorSystem;
+    /// marked as *critically received* using `ActorDefiner::on_critical`.
+    pub fn new(panic_callback: Box<Fn(Box<Any>, &mut World)>) -> ActorSystem {
+        ActorSystem {
+            panic_happened: false,
+            panic_callback: panic_callback,
+            inboxes: unsafe { make_array!(MAX_RECIPIENT_TYPES, |_| None) },
+            actor_registry: TypeRegistry::new(),
+            message_registry: TypeRegistry::new(),
+            actors: [None; MAX_RECIPIENT_TYPES],
+            dispatchers: unsafe {
+                make_array!(MAX_RECIPIENT_TYPES,
+                            |_| make_array!(MAX_MESSAGE_TYPES, |_| None))
+            },
         }
-
-        system
     }
 
-    fn add_actor<A: Actor>(&mut self, actor: A) {
-        let actor_id = self.actor_registry.register_new::<A>();
+    /// Add a new actor to the system given an initial actor state
+    /// and a closure that takes an [ActorDefiner](struct.ActorDefiner.html)
+    /// to define message handlers for this actor.
+    ///
+    /// ```
+    /// system.add(Logger::new(), |mut the_logger| {
+    ///     the_logger.on(|&Message { text }, logger, world| {
+    ///         //...
+    ///     });
+    /// });
+    /// ```
+    pub fn add<A: 'static, D: Fn(ActorDefiner<A>)>(&mut self, actor: A, define: D) {
+        // allow use of actor id before it is added
+        let actor_id = self.actor_registry.get_or_register::<A>();
         assert!(self.inboxes[actor_id.as_usize()].is_none());
         self.inboxes[actor_id.as_usize()] = Some(Inbox::new());
+        // ...but still make sure it is only added once
+        assert!(self.actors[actor_id.as_usize()].is_none());
         // Store pointer to the actor
         self.actors[actor_id.as_usize()] = Some(Box::into_raw(Box::new(actor)) as *mut u8);
+        define(ActorDefiner::with(self));
     }
 
-    fn add_handler_helper<M: Message, A: Actor + Recipient<M>>(&mut self, critical: bool) {
+    /// Extend a previously added actor using a closure that
+    /// takes an [ActorDefiner](struct.ActorDefiner.html)
+    /// to define *additional* message handlers for this actor.
+    ///
+    /// This is useful if you want to implement different *aspects*
+    /// of an actor in different files.
+    ///
+    /// ```
+    /// system.extend::<Logger, _>(|mut the_logger| {
+    ///     the_logger.on(|_: &ClearAll, logger, world| {
+    ///         //...
+    ///     });
+    /// });
+    /// ```
+    pub fn extend<A: 'static, D: Fn(ActorDefiner<A>)>(&mut self, define: D) {
+        define(ActorDefiner::with(self));
+    }
+
+    fn add_dispatcher<M: Message,
+                      A: 'static,
+                      F: Fn(&Packet<M>, &mut A, &mut World) -> Fate + 'static>
+        (&mut self,
+         handler: F,
+         critical: bool) {
         let actor_id = self.actor_registry.get::<A>();
         let message_id = self.message_registry.get_or_register::<M>();
+        // println!("adding to {} inbox for {}",
+        //          unsafe { ::std::intrinsics::type_name::<A>() },
+        //          unsafe { ::std::intrinsics::type_name::<M>() });
+
 
         let actor_ptr = self.actors[actor_id.as_usize()].unwrap() as *mut A;
 
-        self.handlers[actor_id.as_usize()][message_id.as_usize()] =
-            Some(Handler {
-                     function: Box::new(move |packet_ptr: *const ()| unsafe {
-                                            let packet = &*(packet_ptr as *const Packet<M>);
-                                            (*actor_ptr).receive_packet(packet);
-                                        }),
+        self.dispatchers[actor_id.as_usize()][message_id.as_usize()] =
+            Some(Dispatcher {
+                     function: Box::new(move |packet_ptr: *const (), world: &mut World| unsafe {
+                let packet = &*(packet_ptr as *const Packet<M>);
+                handler(packet, &mut *actor_ptr, world);
+            }),
                      critical: critical,
                  });
     }
 
-    fn add_handler<M: Message, A: Actor + Recipient<M>>(&mut self) {
-        self.add_handler_helper::<M, A>(false);
-    }
-
-    fn add_critical_handler<M: Message, A: Actor + Recipient<M>>(&mut self) {
-        self.add_handler_helper::<M, A>(true);
-    }
-
-    /// Send a message to the actor with a given `ID`. This is usually never called directly,
-    /// instead, [`ID << Message`](struct.ID.html#method.shl) is used to send messages.
+    /// Send a message to the actor with a given `ID`.
+    /// This is only used to send messages into the system from outside.
+    /// Inside actor message handlers you always have access to a
+    /// [`World`](struct.World.html) that allows you to send messages.
     pub fn send<M: Message>(&mut self, recipient: ID, message: M) {
         let packet = Packet {
             recipient_id: Some(recipient),
@@ -162,27 +143,42 @@ impl ActorSystem {
         if let Some(inbox) = self.inboxes[*recipient.type_id as usize].as_mut() {
             inbox.put(packet, &self.message_registry);
         } else {
-            panic!("No inbox for {}",
-                   self.actor_registry.get_name(recipient.type_id));
+            panic!("{} has no inbox for {}",
+                   self.actor_registry.get_name(recipient.type_id),
+                   self.message_registry
+                       .get_name(self.message_registry.get::<M>()));
         }
     }
 
+    /// Get the ID of a previously added actor.
+    /// This is only used to identify actors from the outside.
+    /// Inside actor message handlers you always have access to a
+    /// [`World`](struct.World.html) that allows you to identify actors.
+    pub fn id<A2: 'static>(&mut self) -> ID {
+        ID::new(self.short_id::<A2>(), 0, 0)
+    }
+
+    fn short_id<A: 'static>(&mut self) -> ShortTypeId {
+        self.actor_registry.get_or_register::<A>()
+    }
+
     fn single_message_cycle(&mut self) {
+        // TODO: separate inbox reading end from writing end
+        //       to be able to use (several) mut refs here
+        let mut world = World(self as *const Self as *mut Self);
+
         for (recipient_type_idx, maybe_inbox) in self.inboxes.iter_mut().enumerate() {
             let recipient_type = ShortTypeId::new(recipient_type_idx as u16);
             if let Some(inbox) = maybe_inbox.as_mut() {
-                for DispatchablePacket {
-                        message_type,
-                        packet_ptr,
-                    } in inbox.empty() {
-                    if let Some(handler) = self.handlers[recipient_type.as_usize()]
+                for DispatchablePacket { message_type, packet_ptr } in inbox.empty() {
+                    if let Some(handler) = self.dispatchers[recipient_type.as_usize()]
                            [message_type.as_usize()]
                                .as_mut() {
                         if handler.critical || !self.panic_happened {
-                            (handler.function)(packet_ptr);
+                            (handler.function)(packet_ptr, &mut world);
                         }
                     } else {
-                        panic!("Handler not found ({} << {})",
+                        panic!("Dispatcher not found ({} << {})",
                                self.actor_registry.get_name(recipient_type),
                                self.message_registry.get_name(message_type));
                     }
@@ -199,7 +195,7 @@ impl ActorSystem {
     /// By sending different "top-level commands" in to the system and calling
     /// `process_all_messages` inbetween, different aspects of an application
     /// (for example, UI, simulation, rendering) can be run isolated from each other,
-    /// in a fixed order during each loop iteration.
+    /// in a fixed order of "turns" during each main-loop iteration.
     pub fn process_all_messages(&mut self) {
         let result = catch_unwind(AssertUnwindSafe(|| for _i in 0..1000 {
                                                        self.single_message_cycle();
@@ -207,13 +203,142 @@ impl ActorSystem {
 
         if result.is_err() {
             self.panic_happened = true;
-            (self.panic_callback)(result.unwrap_err());
+            (self.panic_callback)(result.unwrap_err(),
+                                  &mut World(self as *const Self as *mut Self));
+        }
+    }
+}
+
+/// Helper that is used to define actor behaviour (message handlers).
+///
+/// It is passed to the closure arguments of
+/// [`ActorSystem::add`](struct.ActorSystem.html#method.add) and
+/// [`ActorSystem::extend`](struct.ActorSystem.html#method.extend)
+pub struct ActorDefiner<'a, A> {
+    system: &'a mut ActorSystem,
+    marker: ::std::marker::PhantomData<A>,
+}
+
+impl<'a, A: 'static> ActorDefiner<'a, A> {
+    fn with(system: &'a mut ActorSystem) -> Self {
+        ActorDefiner {
+            system: system,
+            marker: ::std::marker::PhantomData,
         }
     }
 
-    /// Get the short type id for an `Actor`. Ususally never called directly,
-    /// use `Actor::id()` instead to get the full ID of a registered Actor.
-    pub fn short_id<A: Actor>(&self) -> ShortTypeId {
-        self.actor_registry.get::<A>()
+    /// Attach a new message handler to an actor, defined by a closure
+    /// which will receive 3 arguments:
+    ///
+    /// * the received message (can conveniently be destructured already as an argument)
+    /// * the current actor state that can be mutated
+    /// * a [`World`](struct.World.html) to identify and send
+    ///   messages to other actors
+    ///
+    /// ```
+    /// the_counter.on(|&IncrementCount { increment }, counter, world| {
+    ///     counter.count += increment;
+    ///     world.send_to_id_of::<Logger, _>(format!("New count: {}", counter.count));
+    /// });
+    /// ```
+    pub fn on<M: Message, F>(&mut self, handler: F)
+        where F: Fn(&M, &mut A, &mut World) -> Fate + 'static
+    {
+        self.on_maybe_critical(handler, false);
+    }
+
+    /// Same as [`on`](#method.on) but continues to receive after the ActorSystem panicked.
+    pub fn on_critical<M: Message, F>(&mut self, handler: F)
+        where F: Fn(&M, &mut A, &mut World) -> Fate + 'static
+    {
+        self.on_maybe_critical(handler, true);
+    }
+
+    /// Access a [`World`](struct.World.html) of the system that an actor
+    /// is being defined in, can be used to identify actors (and keep the ID)
+    /// or send messages at *define-time*.
+    ///
+    /// ```
+    /// let logger_id = the_counter.world().id::<Logger>();
+    ///
+    /// the_counter.on(move |&IncrementCount { increment }, counter, world| {
+    ///     counter.count += increment;
+    ///     world.send(logger_id, format!("New count: {}", counter.count));
+    /// });
+    ///
+    /// the_counter.world().send(logger_id, "Just defined Counter!");
+    /// ```
+    pub fn world(&mut self) -> World {
+        World(self.system as *mut ActorSystem)
+    }
+
+    /// Advanced: Can be used to register a handler not only for a message,
+    /// but for a whole packet (precise recipient id + message), in case
+    /// a particular sub-actor needs to be identified in the handler,
+    /// like [`Swarm`](swarm/struct.Swarm.html) does.
+    pub fn on_packet<M: Message, F>(&mut self, handler: F, critical: bool)
+        where F: Fn(&Packet<M>, &mut A, &mut World) -> Fate + 'static
+    {
+        self.system.add_dispatcher(handler, critical);
+    }
+
+    fn on_maybe_critical<M: Message, F>(&mut self, handler: F, critical: bool)
+        where F: Fn(&M, &mut A, &mut World) -> Fate + 'static
+    {
+        self.system
+            .add_dispatcher(move |packet: &Packet<M>, state, world| {
+                handler(&packet.message, state, world)
+            },
+                            critical);
+    }
+}
+
+/// Gives limited access to an [`ActorSystem`](struct.ActorSystem.html) (typically
+/// from inside, in a message handler) to identify other actors and send messages to them.
+pub struct World(*mut ActorSystem);
+
+impl World {
+    /// Send a message to a (sub-)actor with the given ID.
+    ///
+    /// ```
+    /// world.send(child_id, Update {dt: 1.0});
+    /// ```
+    pub fn send<M: Message>(&mut self, receiver: ID, message: M) {
+        unsafe { &mut *self.0 }.send(receiver, message);
+    }
+
+    /// Identify an actor based on type.
+    ///
+    /// ```
+    /// let logger_id = world.id::<Logger>();
+    /// ```
+    pub fn id<A2: 'static>(&mut self) -> ID {
+        unsafe { &mut *self.0 }.id::<A2>()
+    }
+
+    /// Shorthand for identifying an actor and then sending a message to it.
+    ///
+    /// ```
+    /// world.send_to_id_of::<Logger, _>("New message!");
+    /// // is equivalent to
+    /// let logger_id = world.id::<Logger>();
+    /// world.send(logger_id, "New message!");
+    /// ```
+    pub fn send_to_id_of<A: 'static, M: Message>(&mut self, message: M) {
+        let id = self.id::<A>();
+        self.send(id, message);
+    }
+
+    /// Shorthand to broadcast something to all subactors of a [`Swarm`](swarm/struct.Swarm.html).
+    ///
+    /// ```
+    /// world.broadcast_to_id_of::<UIElement, _>(UpdateUI);
+    /// // is equivalent to
+    /// let all_elements = world.id::<Swarm<UIElement>>().broadcast();
+    /// world.send(all_elements, UpdateUI);
+    /// ```
+    pub fn broadcast_to_id_of<A: 'static, M: Message>(&mut self, message: M) {
+        let id = self.id::<A>().broadcast();
+        self.send(id, message);
     }
 }

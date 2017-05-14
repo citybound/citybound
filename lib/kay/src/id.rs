@@ -1,5 +1,3 @@
-use super::THE_SYSTEM;
-use super::messaging::Message;
 use super::type_registry::ShortTypeId;
 
 /// An ID that uniquely identifies an `Actor`, or even a `SubActor` within a `Swarm`
@@ -20,6 +18,10 @@ pub struct ID {
     pub sub_actor_id: u32,
 }
 
+pub fn broadcast_sub_actor_id() -> u32 {
+    u32::max_value()
+}
+
 impl ID {
     /// Create a new ID
     pub fn new(type_id: ShortTypeId, sub_actor_id: u32, version: u8) -> Self {
@@ -28,6 +30,16 @@ impl ID {
             machine: 0,
             version: version,
             sub_actor_id: sub_actor_id,
+        }
+    }
+
+    /// Get a version of an actor ID that signals that a message
+    /// should be delivered to all sub-actors of that actor,
+    /// like in the case of a [`Swarm`](swarm/struct.Swarm.html).
+    pub fn broadcast(&self) -> ID {
+        ID {
+            sub_actor_id: broadcast_sub_actor_id(),
+            ..*self
         }
     }
 }
@@ -39,20 +51,5 @@ impl ::std::fmt::Debug for ID {
                *(self.type_id),
                self.version,
                self.sub_actor_id)
-    }
-}
-
-/// The `<<` operator is overloaded as the main way of sending messages
-/// to an `Actor` identified by an ID:
-///
-/// ```
-///    some_actor_id << SomeMessage{...};
-/// ```
-impl<M: Message> ::std::ops::Shl<M> for ID {
-    type Output = ();
-    fn shl(self, rhs: M) {
-        unsafe {
-            (*THE_SYSTEM).send(self, rhs);
-        }
     }
 }

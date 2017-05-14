@@ -7,14 +7,16 @@ pub mod rendering;
 pub mod planning;
 pub mod pathfinding;
 
-pub fn setup() {
-    self::lane::setup();
-    self::construction::setup();
-    self::microtraffic::setup();
-    self::pathfinding::setup();
+use kay::ActorSystem;
+
+pub fn setup(system: &mut ActorSystem) {
+    self::lane::setup(system);
+    self::construction::setup(system);
+    self::microtraffic::setup(system);
+    self::pathfinding::setup(system);
 }
 
-pub fn setup_ui() {
-    rendering::setup();
-    planning::setup();
+pub fn setup_ui(system: &mut ActorSystem) {
+    rendering::setup(system);
+    planning::setup(system);
 }

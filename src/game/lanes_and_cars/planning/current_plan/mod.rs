@@ -1,4 +1,4 @@
-use kay::{Actor, Recipient, Fate};
+use kay::{ActorSystem, Fate, World};
 use kay::swarm::{Swarm, CreateWith};
 use compact::{CVec, CDict};
 use descartes::{V2, N, P2, FiniteCurve};
@@ -110,7 +110,6 @@ pub struct CurrentPlan {
     settings: Settings,
     interaction: Interaction,
 }
-impl Actor for CurrentPlan {}
 
 use super::super::construction::materialized_reality::Simulate;
 
@@ -144,28 +143,28 @@ impl CurrentPlan {
         self.interactables_valid = false;
     }
 
-    pub fn update_preview(&mut self) -> &PlanStep {
+    pub fn update_preview(&mut self, world: &mut World) -> &PlanStep {
         if self.preview.is_none() {
             let preview = apply_intent(&self.current,
                                        self.still_built_strokes().as_ref(),
                                        &self.settings);
-            MaterializedReality::id() <<
-            Simulate {
-                requester: Self::id(),
-                delta: preview.plan_delta.clone(),
-            };
+            let plan_id = world.id::<Self>();
+            world.send_to_id_of::<MaterializedReality, _>(Simulate {
+                                                              requester: plan_id,
+                                                              delta: preview.plan_delta.clone(),
+                                                          });
             self.preview = Some(preview);
         }
         self.preview.as_ref().unwrap()
     }
 
-    pub fn update_interactables(&mut self) {
-        Swarm::<Selectable>::all() << ClearInteractable;
-        Swarm::<Draggable>::all() << ClearInteractable;
-        Swarm::<Addable>::all() << ClearInteractable;
-        Deselecter::id() << ClearInteractable;
+    pub fn update_interactables(&mut self, world: &mut World) {
+        world.broadcast_to_id_of::<Swarm<Selectable>, _>(ClearInteractable);
+        world.broadcast_to_id_of::<Swarm<Draggable>, _>(ClearInteractable);
+        world.broadcast_to_id_of::<Swarm<Addable>, _>(ClearInteractable);
+        world.send_to_id_of::<Deselecter, _>(ClearInteractable);
         if !self.current.selections.is_empty() {
-            Deselecter::id() << InitInteractable;
+            world.send_to_id_of::<Deselecter, _>(InitInteractable);
         }
         if let Some(still_built_strokes) = self.still_built_strokes() {
             match self.current.intent {
@@ -176,13 +175,15 @@ impl CurrentPlan {
                     for (i, stroke) in self.current.plan_delta.new_strokes.iter().enumerate() {
                         let selectable = Selectable::new(SelectableStrokeRef::New(i),
                                                          stroke.path().clone());
-                        Swarm::<Selectable>::id() << CreateWith(selectable, InitInteractable);
+                        world.send_to_id_of::<Swarm<Selectable>, _>(CreateWith(selectable,
+                                                                               InitInteractable));
                     }
                     for (old_stroke_ref, stroke) in still_built_strokes.mapping.pairs() {
                         let selectable =
                             Selectable::new(SelectableStrokeRef::Built(*old_stroke_ref),
                                             stroke.path().clone());
-                        Swarm::<Selectable>::id() << CreateWith(selectable, InitInteractable);
+                        world.send_to_id_of::<Swarm<Selectable>, _>(CreateWith(selectable,
+                                                                               InitInteractable));
                     }
                 }
             }
@@ -191,21 +192,23 @@ impl CurrentPlan {
                                                       &still_built_strokes);
                 if let Some(subsection) = stroke.path().subsection(start, end) {
                     let draggable = Draggable::new(selection_ref, subsection.clone());
-                    Swarm::<Draggable>::id() << CreateWith(draggable, InitInteractable);
+                    world.send_to_id_of::<Swarm<Draggable>, _>(CreateWith(draggable,
+                                                                          InitInteractable));
                     if let Some(next_lane_path) = subsection.shift_orthogonally(5.0) {
                         let addable = Addable::new(next_lane_path);
-                        Swarm::<Addable>::id() << CreateWith(addable, InitInteractable);
+                        world.send_to_id_of::<Swarm<Addable>, _>(CreateWith(addable,
+                                                                            InitInteractable));
                     }
                 }
             }
             self.interactables_valid = true;
         } else {
             // TODO: kinda stupid to get initial built strokes like this
-            MaterializedReality::id() <<
-            Apply {
-                requester: Self::id(),
-                delta: PlanDelta::default(),
-            }
+            let plan_id = world.id::<Self>();
+            world.send_to_id_of::<MaterializedReality, _>(Apply {
+                                                              requester: plan_id,
+                                                              delta: PlanDelta::default(),
+                                                          })
         }
     }
 
@@ -246,43 +249,148 @@ impl CurrentPlan {
 pub struct Undo;
 use self::stroke_canvas::{StrokeCanvas, SetPoints};
 
-impl Recipient<Undo> for CurrentPlan {
-    fn receive(&mut self, _msg: &Undo) -> Fate {
-        let previous_state = self.undo_history.pop().unwrap_or_default();
-        self.redo_history.push(self.current.clone());
-        self.current = previous_state;
-        StrokeCanvas::id() <<
-        SetPoints(match self.current.intent {
-                      Intent::ContinueRoad(_, ref points, _) |
-                      Intent::NewRoad(ref points) => points.clone(),
-                      _ => CVec::new(),
-                  });
-        self.invalidate_preview();
-        self.invalidate_interactables();
-        Fate::Live
-    }
+
+pub fn setup(system: &mut ActorSystem) {
+    system.add(CurrentPlan::default(), |mut the_cp| {
+        let current_plan_id = the_cp.world().id::<CurrentPlan>();
+        let canvas_id = the_cp.world().id::<StrokeCanvas>();
+        let mr_id = the_cp.world().id::<MaterializedReality>();
+
+        the_cp.on(move |_: &Undo, plan, world| {
+            let previous_state = plan.undo_history.pop().unwrap_or_default();
+            plan.redo_history.push(plan.current.clone());
+            plan.current = previous_state;
+            world.send(canvas_id,
+                       SetPoints(match plan.current.intent {
+                                     Intent::ContinueRoad(_, ref points, _) |
+                                     Intent::NewRoad(ref points) => points.clone(),
+                                     _ => CVec::new(),
+                                 }));
+            plan.invalidate_preview();
+            plan.invalidate_interactables();
+            Fate::Live
+        });
+
+        the_cp.on(move |_: &Redo, plan, world| {
+            if let Some(next_state) = plan.redo_history.pop() {
+                plan.undo_history.push(plan.current.clone());
+                plan.current = next_state;
+                world.send(canvas_id,
+                           SetPoints(match plan.current.intent {
+                                         Intent::ContinueRoad(_, ref points, _) |
+                                         Intent::NewRoad(ref points) => points.clone(),
+                                         _ => CVec::new(),
+                                     }));
+                plan.invalidate_preview();
+                plan.invalidate_interactables();
+            }
+            Fate::Live
+        });
+
+        the_cp.on(|&ChangeIntent(ref intent, progress), plan, _| {
+            plan.current.intent = intent.clone();
+            match progress {
+                IntentProgress::Preview => plan.invalidate_preview(),
+                IntentProgress::SubStep => plan.commit_substep(),
+                IntentProgress::Finished => plan.commit(),
+                IntentProgress::Immediate => plan.commit_immediate(),
+            }
+            Fate::Live
+        });
+
+        the_cp.on(|&Stroke(ref points, state), plan, _| {
+            let maybe_new_intent = match plan.current.intent {
+                Intent::ContinueRoad(ref continue_from, _, start_reference_point) => {
+                    Some(Intent::ContinueRoad(continue_from.clone(),
+                                              points.clone(),
+                                              start_reference_point))
+                }
+                _ => {
+                    if points.len() >= 2 {
+                        plan.invalidate_interactables();
+                        Some(Intent::NewRoad(points.clone()))
+                    } else {
+                        None
+                    }
+                }
+            };
+            if let Some(new_intent) = maybe_new_intent {
+                plan.current.intent = new_intent;
+                match state {
+                    StrokeState::Preview => {
+                        plan.invalidate_preview();
+                    }
+                    StrokeState::Intermediate => {
+                        plan.commit_substep();
+                    }
+                    StrokeState::Finished => {
+                        plan.commit();
+                    }
+                }
+
+            }
+            Fate::Live
+        });
+
+        the_cp.on(|&SetNLanes(n_lanes), plan, _| {
+            plan.settings.n_lanes_per_side = n_lanes;
+            plan.invalidate_preview();
+            Fate::Live
+        });
+
+        the_cp.on(|_: &ToggleBothSides, plan, _| {
+            plan.settings.create_both_sides = !plan.settings.create_both_sides;
+            plan.invalidate_preview();
+            Fate::Live
+        });
+
+        the_cp.on(|&SimulationResult(ref result_delta), plan, _| {
+            plan.preview_result_delta = Some(result_delta.clone());
+            plan.preview_result_delta_rendered = false;
+            Fate::Live
+        });
+
+        the_cp.on(|&BuiltStrokesChanged(ref built_strokes), plan, _| {
+            plan.built_strokes = Some(built_strokes.clone());
+            Fate::Live
+        });
+
+        the_cp.on(move |_: &Materialize, plan, world| {
+            match plan.current.intent {
+                Intent::ContinueRoad(..) |
+                Intent::NewRoad(..) => {
+                    plan.commit();
+                    world.send(canvas_id, SetPoints(CVec::new()));
+                }
+                _ => {}
+            }
+
+            world.send(mr_id,
+                       Apply {
+                           requester: current_plan_id,
+                           delta: plan.current.plan_delta.clone(),
+                       });
+
+            *plan = CurrentPlan {
+                settings: plan.settings.clone(),
+                interaction: plan.interaction.clone(),
+                ..CurrentPlan::default()
+            };
+
+            Fate::Live
+        })
+    });
+    self::rendering::setup(system);
+    self::stroke_canvas::setup(system);
+    self::selectable::setup(system);
+    self::deselecter::setup(system);
+    self::draggable::setup(system);
+    self::addable::setup(system);
+    self::interaction::setup(system);
 }
 
 #[derive(Copy, Clone)]
 pub struct Redo;
-
-impl Recipient<Redo> for CurrentPlan {
-    fn receive(&mut self, _msg: &Redo) -> Fate {
-        if let Some(next_state) = self.redo_history.pop() {
-            self.undo_history.push(self.current.clone());
-            self.current = next_state;
-            StrokeCanvas::id() <<
-            SetPoints(match self.current.intent {
-                          Intent::ContinueRoad(_, ref points, _) |
-                          Intent::NewRoad(ref points) => points.clone(),
-                          _ => CVec::new(),
-                      });
-            self.invalidate_preview();
-            self.invalidate_interactables();
-        }
-        Fate::Live
-    }
-}
 
 #[derive(Copy, Clone)]
 pub enum IntentProgress {
@@ -295,179 +403,24 @@ pub enum IntentProgress {
 #[derive(Compact, Clone)]
 pub struct ChangeIntent(pub Intent, pub IntentProgress);
 
-impl Recipient<ChangeIntent> for CurrentPlan {
-    fn receive(&mut self, msg: &ChangeIntent) -> Fate {
-        match *msg {
-            ChangeIntent(ref intent, progress) => {
-                self.current.intent = intent.clone();
-                match progress {
-                    IntentProgress::Preview => {
-                        self.invalidate_preview();
-                    }
-                    IntentProgress::SubStep => {
-                        self.commit_substep();
-                    }
-                    IntentProgress::Finished => {
-                        self.commit();
-                    }
-                    IntentProgress::Immediate => {
-                        self.commit_immediate();
-                    }
-                }
-                Fate::Live
-            }
-        }
-    }
-}
-
 use self::stroke_canvas::{Stroke, StrokeState};
 
-impl Recipient<Stroke> for CurrentPlan {
-    fn receive(&mut self, msg: &Stroke) -> Fate {
-        match *msg {
-            Stroke(ref points, state) => {
-                let maybe_new_intent = match self.current.intent {
-                    Intent::ContinueRoad(ref continue_from, _, start_reference_point) => {
-                        Some(Intent::ContinueRoad(continue_from.clone(),
-                                                  points.clone(),
-                                                  start_reference_point))
-                    }
-                    _ => {
-                        if points.len() >= 2 {
-                            self.invalidate_interactables();
-                            Some(Intent::NewRoad(points.clone()))
-                        } else {
-                            None
-                        }
-                    }
-                };
-                if let Some(new_intent) = maybe_new_intent {
-                    self.current.intent = new_intent;
-                    match state {
-                        StrokeState::Preview => {
-                            self.invalidate_preview();
-                        }
-                        StrokeState::Intermediate => {
-                            self.commit_substep();
-                        }
-                        StrokeState::Finished => {
-                            self.commit();
-                        }
-                    }
-
-                }
-                Fate::Live
-            }
-        }
-    }
-}
 
 #[derive(Copy, Clone)]
 pub struct SetNLanes(usize);
 
-impl Recipient<SetNLanes> for CurrentPlan {
-    fn receive(&mut self, msg: &SetNLanes) -> Fate {
-        match *msg {
-            SetNLanes(n_lanes) => {
-                self.settings.n_lanes_per_side = n_lanes;
-                self.invalidate_preview();
-                Fate::Live
-            }
-        }
-    }
-}
-
 #[derive(Copy, Clone)]
 pub struct ToggleBothSides;
 
-impl Recipient<ToggleBothSides> for CurrentPlan {
-    fn receive(&mut self, _msg: &ToggleBothSides) -> Fate {
-        self.settings.create_both_sides = !self.settings.create_both_sides;
-        self.invalidate_preview();
-        Fate::Live
-    }
-}
-
 use super::super::construction::materialized_reality::SimulationResult;
-
-impl Recipient<SimulationResult> for CurrentPlan {
-    fn receive(&mut self, msg: &SimulationResult) -> Fate {
-        match *msg {
-            SimulationResult(ref result_delta) => {
-                self.preview_result_delta = Some(result_delta.clone());
-                self.preview_result_delta_rendered = false;
-                Fate::Live
-            }
-        }
-    }
-}
-
 use super::super::construction::materialized_reality::BuiltStrokesChanged;
-
-impl Recipient<BuiltStrokesChanged> for CurrentPlan {
-    fn receive(&mut self, msg: &BuiltStrokesChanged) -> Fate {
-        match *msg {
-            BuiltStrokesChanged(ref built_strokes) => {
-                self.built_strokes = Some(built_strokes.clone());
-                Fate::Live
-            }
-        }
-    }
-}
 
 #[derive(Copy, Clone)]
 pub struct Materialize;
 
 use super::super::construction::materialized_reality::Apply;
 
-impl Recipient<Materialize> for CurrentPlan {
-    fn receive(&mut self, _msg: &Materialize) -> Fate {
-        match self.current.intent {
-            Intent::ContinueRoad(..) |
-            Intent::NewRoad(..) => {
-                self.commit();
-                StrokeCanvas::id() << SetPoints(CVec::new());
-            }
-            _ => {}
-        }
-
-        MaterializedReality::id() <<
-        Apply {
-            requester: Self::id(),
-            delta: self.current.plan_delta.clone(),
-        };
-
-        *self = CurrentPlan {
-            settings: self.settings.clone(),
-            interaction: self.interaction.clone(),
-            ..CurrentPlan::default()
-        };
-
-        Fate::Live
-    }
-}
-
 #[derive(Copy, Clone)]
 pub struct InitInteractable;
 #[derive(Copy, Clone)]
 pub struct ClearInteractable;
-
-pub fn setup() {
-    CurrentPlan::register_default();
-    CurrentPlan::handle::<Undo>();
-    CurrentPlan::handle::<Redo>();
-    CurrentPlan::handle::<ChangeIntent>();
-    CurrentPlan::handle::<Stroke>();
-    CurrentPlan::handle::<Materialize>();
-    CurrentPlan::handle::<SetNLanes>();
-    CurrentPlan::handle::<ToggleBothSides>();
-    CurrentPlan::handle::<BuiltStrokesChanged>();
-    CurrentPlan::handle::<SimulationResult>();
-    self::rendering::setup();
-    self::stroke_canvas::setup();
-    self::selectable::setup();
-    self::deselecter::setup();
-    self::draggable::setup();
-    self::addable::setup();
-    self::interaction::setup();
-}

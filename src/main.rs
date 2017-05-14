@@ -1,7 +1,6 @@
 #![feature(custom_derive, plugin, conservative_impl_trait)]
 #![plugin(clippy)]
 #![allow(dead_code)]
-#![allow(no_effect, unnecessary_operation)]
 // Enable this for memory tracking with Instruments/MacOS
 // and for much better stacktraces for memory issues
 // ![feature(alloc_system)]
@@ -48,7 +47,6 @@ use game::lanes_and_cars::lane::{Lane, TransferLane};
 use game::lanes_and_cars::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use game::lanes_and_cars::rendering::lane_thing_collector::ThingCollector;
 use game::lanes_and_cars::planning::current_plan::CurrentPlan;
-use kay::Actor;
 use kay::swarm::Swarm;
 use std::any::Any;
 
@@ -65,7 +63,8 @@ fn main() {
         ::std::fs::File::create(dir).expect("should be able to create tmp file");
     }
 
-    let mut system = kay::ActorSystem::create_the_system(Box::new(|error: Box<Any>| {
+    let mut system = kay::ActorSystem::new(Box::new(|error: Box<Any>, world| {
+        let ui_id = world.id::<UserInterface>();
         let message = match error.downcast::<String>() {
             Ok(string) => (*string),
             Err(any) => {
@@ -76,21 +75,22 @@ fn main() {
             }
         };
         println!("Simulation Panic!\n{:?}", message);
-        UserInterface::id() <<
-        AddDebugText {
-            key: "SIMULATION PANIC".chars().collect(),
-            text: message.as_str().chars().collect(),
-            color: [1.0, 0.0, 0.0, 1.0],
-            persistent: true,
-        };
-        UserInterface::id() << OnPanic;
+        world.send(ui_id,
+                   AddDebugText {
+                       key: "SIMULATION PANIC".chars().collect(),
+                       text: message.as_str().chars().collect(),
+                       color: [1.0, 0.0, 0.0, 1.0],
+                       persistent: true,
+                   });
+        world.send(ui_id, OnPanic);
     }));
 
-    game::setup();
-    game::setup_ui();
+    game::setup(&mut system);
+    game::setup_ui(&mut system);
 
-    let simulatables = vec![Swarm::<Lane>::all(), Swarm::<TransferLane>::all()];
-    core::simulation::setup(simulatables);
+    let simulatables = vec![system.id::<Swarm<Lane>>().broadcast(),
+                            system.id::<Swarm<TransferLane>>().broadcast()];
+    core::simulation::setup(&mut system, simulatables);
 
     let window = glutin::WindowBuilder::new()
         .with_title("Citybound".to_string())
@@ -100,58 +100,58 @@ fn main() {
         .build_glium()
         .unwrap();
 
-    let renderables = vec![Swarm::<Lane>::all(),
-                           Swarm::<TransferLane>::all(),
-                           ThingCollector::<LaneAsphalt>::id(),
-                           ThingCollector::<LaneMarker>::id(),
-                           ThingCollector::<TransferLaneMarkerGaps>::id(),
-                           CurrentPlan::id()];
-    stagemaster::setup(renderables, ENV, &window);
+    let renderables = vec![system.id::<Swarm<Lane>>().broadcast(),
+                           system.id::<Swarm<TransferLane>>().broadcast(),
+                           system.id::<ThingCollector<LaneAsphalt>>(),
+                           system.id::<ThingCollector<LaneMarker>>(),
+                           system.id::<ThingCollector<TransferLaneMarkerGaps>>(),
+                           system.id::<CurrentPlan>()];
+    stagemaster::setup(&mut system, renderables, ENV, &window);
 
     let mut last_frame = std::time::Instant::now();
 
-    UserInterface::id() <<
-    AddDebugText {
-        key: "Version".chars().collect(),
-        text: ENV.version.chars().collect(),
-        color: [0.0, 0.0, 0.0, 1.0],
-        persistent: true,
-    };
+    let ui_id = system.id::<UserInterface>();
+    let sim_id = system.id::<Simulation>();
+    let renderer_id = system.id::<Renderer>();
+
+    system.send(ui_id,
+                AddDebugText {
+                    key: "Version".chars().collect(),
+                    text: ENV.version.chars().collect(),
+                    color: [0.0, 0.0, 0.0, 1.0],
+                    persistent: true,
+                });
 
     system.process_all_messages();
 
     loop {
-        UserInterface::id() <<
-        AddDebugText {
-            key: "Frame".chars().collect(),
-            text: format!("{:.2} ms",
-                          last_frame.elapsed().as_secs() as f32 * 1000.0 +
-                          last_frame.elapsed().subsec_nanos() as f32 / 10.0E5)
-                    .as_str()
-                    .chars()
-                    .collect(),
-            color: [0.0, 0.0, 0.0, 0.5],
-            persistent: false,
-        };
+        system.send(ui_id,
+                    AddDebugText {
+                        key: "Frame".chars().collect(),
+                        text: format!("{:.2} ms",
+                                      last_frame.elapsed().as_secs() as f32 * 1000.0 +
+                                      last_frame.elapsed().subsec_nanos() as f32 / 10.0E5)
+                                .as_str()
+                                .chars()
+                                .collect(),
+                        color: [0.0, 0.0, 0.0, 0.5],
+                        persistent: false,
+                    });
         last_frame = std::time::Instant::now();
 
-        UserInterface::id() << ProcessEvents;
+        system.send(ui_id, ProcessEvents);
 
         system.process_all_messages();
 
-        Simulation::id() <<
-        Tick {
-            dt: SECONDS_PER_TICK,
-            current_tick: 0,
-        };
+        system.send(sim_id, Tick { dt: SECONDS_PER_TICK, current_tick: 0 });
 
         system.process_all_messages();
 
-        Renderer::id() << Control::Render;
+        system.send(renderer_id, Control::Render);
 
         system.process_all_messages();
 
-        UserInterface::id() << StartFrame;
+        system.send(ui_id, StartFrame);
 
         system.process_all_messages();
     }

@@ -1,0 +1,2 @@
+closure_block_indent_threshold = 0
+struct_lit_width = 40

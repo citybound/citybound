@@ -156,11 +156,10 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
                         .intersect()
                         .iter()
                         .filter(|intersection| {
-                                    intersection.along_a >= 0.0 &&
-                                    intersection.along_a <= a.length() &&
-                                    intersection.along_b >= 0.0 &&
-                                    intersection.along_b <= b.length()
-                                })
+                            intersection.along_a >= 0.0 && intersection.along_a <= a.length() &&
+                            intersection.along_b >= 0.0 &&
+                            intersection.along_b <= b.length()
+                        })
                         .cloned()
                         .collect()
             }
@@ -169,23 +168,19 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
                       start: a.start(),
                       direction: a.start_direction(),
                   },
-                 &Circle {
-                      center: b.center(),
-                      radius: b.radius(),
-                  })
+                 &Circle { center: b.center(), radius: b.radius() })
                         .intersect()
                         .iter()
                         .filter(|intersection| {
-                                    intersection.along_a >= 0.0 &&
-                                    intersection.along_a <= a.length() &&
-                                    b.includes(intersection.position)
-                                })
+                            intersection.along_a >= 0.0 && intersection.along_a <= a.length() &&
+                            b.includes(intersection.position)
+                        })
                         .map(|intersection| {
-                                 Intersection {
-                                     along_b: b.project(intersection.position).unwrap(),
-                                     ..*intersection
-                                 }
-                             })
+                            Intersection {
+                                along_b: b.project(intersection.position).unwrap(),
+                                ..*intersection
+                            }
+                        })
                         .collect()
             }
             (false, true) => {
@@ -196,27 +191,20 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
                     .collect()
             }
             (false, false) => {
-                (&Circle {
-                      center: a.center(),
-                      radius: a.radius(),
-                  },
-                 &Circle {
-                      center: b.center(),
-                      radius: b.radius(),
-                  })
+                (&Circle { center: a.center(), radius: a.radius() },
+                 &Circle { center: b.center(), radius: b.radius() })
                         .intersect()
                         .iter()
                         .filter(|intersection| {
-                                    a.includes(intersection.position) &&
-                                    b.includes(intersection.position)
-                                })
+                            a.includes(intersection.position) && b.includes(intersection.position)
+                        })
                         .map(|intersection| {
-                                 Intersection {
-                                     along_a: a.project(intersection.position).unwrap(),
-                                     along_b: b.project(intersection.position).unwrap(),
-                                     ..*intersection
-                                 }
-                             })
+                            Intersection {
+                                along_a: a.project(intersection.position).unwrap(),
+                                along_b: b.project(intersection.position).unwrap(),
+                                ..*intersection
+                            }
+                        })
                         .collect()
             }
         }
@@ -233,10 +221,10 @@ impl<'a, P: Path> Intersect for (&'a P, &'a P) {
                     let identical_to_previous = intersection_list
                         .iter()
                         .any(|previous_intersection| {
-                                 (previous_intersection as &Intersection)
-                                     .position
-                                     .is_roughly_within(intersection.position, THICKNESS)
-                             });
+                            (previous_intersection as &Intersection)
+                                .position
+                                .is_roughly_within(intersection.position, THICKNESS)
+                        });
                     if !identical_to_previous {
                         intersection_list.push(Intersection {
                                                    along_a: intersection.along_a + offset_a,

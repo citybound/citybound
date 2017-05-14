@@ -1,4 +1,3 @@
-use kay::Actor;
 use descartes::{Path, Band, Segment, P2, N, FiniteCurve, WithUniqueOrthogonal};
 use compact::{CVec, Compact};
 use monet::{Thing, Vertex, Renderer, UpdateThing, Instance};
@@ -64,10 +63,7 @@ impl Compact for AnyShape {
     unsafe fn decompact(&self) -> AnyShape {
         match *self {
             AnyShape::Band(Band { ref path, width }) => {
-                AnyShape::Band(Band {
-                                   path: path.decompact(),
-                                   width: width,
-                               })
+                AnyShape::Band(Band { path: path.decompact(), width: width })
             }
             AnyShape::Circle(circle) => AnyShape::Circle(circle),
             AnyShape::Everywhere => AnyShape::Everywhere,
@@ -158,30 +154,36 @@ pub fn dash_path<P: Path>(path: &P, dash_length: f32, gap_length: f32) -> Vec<P>
 
 static mut LAST_DEBUG_THING: u16 = 0;
 
-pub fn add_debug_path(path: CPath, color: [f32; 3], z: f32) {
-    Renderer::id() <<
-    UpdateThing {
-        scene_id: 0,
-        thing_id: 12000 + unsafe { LAST_DEBUG_THING },
-        thing: band_to_thing(&Band::new(path, 0.2), z),
-        instance: Instance::with_color(color),
-        is_decal: true,
-    };
+use kay::World;
+
+pub fn add_debug_path(path: CPath, color: [f32; 3], z: f32, world: &mut World) {
+    let renderer_id = world.id::<Renderer>();
+    world.send(renderer_id,
+               UpdateThing {
+                   scene_id: 0,
+                   thing_id: 12000 + unsafe { LAST_DEBUG_THING },
+                   thing: band_to_thing(&Band::new(path, 0.2), z),
+                   instance: Instance::with_color(color),
+                   is_decal: true,
+               });
     unsafe { LAST_DEBUG_THING += 1 }
 }
 
-pub fn add_debug_point(point: P2, color: [f32; 3], z: f32) {
-    Renderer::id() <<
-    UpdateThing {
-        scene_id: 0,
-        thing_id: 12000 + unsafe { LAST_DEBUG_THING },
-        thing: Thing::new(vec![Vertex { position: [point.x + -0.5, point.y + -0.5, z] },
-                               Vertex { position: [point.x + 0.5, point.y + -0.5, z] },
-                               Vertex { position: [point.x + 0.5, point.y + 0.5, z] },
-                               Vertex { position: [point.x + -0.5, point.y + 0.5, z] }],
-                          vec![0, 1, 2, 2, 3, 0]),
-        instance: Instance::with_color(color),
-        is_decal: true,
-    };
+pub fn add_debug_point(point: P2, color: [f32; 3], z: f32, world: &mut World) {
+    let renderer_id = world.id::<Renderer>();
+    world.send(renderer_id,
+               UpdateThing {
+                   scene_id: 0,
+                   thing_id: 12000 + unsafe { LAST_DEBUG_THING },
+                   thing: Thing::new(vec![Vertex {
+                                              position: [point.x + -0.5, point.y + -0.5, z],
+                                          },
+                                          Vertex { position: [point.x + 0.5, point.y + -0.5, z] },
+                                          Vertex { position: [point.x + 0.5, point.y + 0.5, z] },
+                                          Vertex { position: [point.x + -0.5, point.y + 0.5, z] }],
+                                     vec![0, 1, 2, 2, 3, 0]),
+                   instance: Instance::with_color(color),
+                   is_decal: true,
+               });
     unsafe { LAST_DEBUG_THING += 1 }
 }
