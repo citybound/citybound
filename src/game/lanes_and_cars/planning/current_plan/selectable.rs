@@ -1,5 +1,5 @@
-use kay::{ID, Recipient, Actor, Fate};
-use kay::swarm::{Swarm, SubActor, CreateWith};
+use kay::{ID, ActorSystem, Fate};
+use kay::swarm::{Swarm, SubActor};
 use descartes::{N, Band, Curve, Into2d, FiniteCurve, Path, RoughlyComparable};
 use stagemaster::geometry::{CPath, AnyShape};
 
@@ -25,26 +25,93 @@ impl Selectable {
 use super::InitInteractable;
 use stagemaster::{UserInterface, AddInteractable};
 
-impl Recipient<InitInteractable> for Selectable {
-    fn receive(&mut self, _msg: &InitInteractable) -> Fate {
-        UserInterface::id() <<
-        AddInteractable(self.id(),
-                        AnyShape::Band(Band::new(self.path.clone(), 5.0)),
-                        3);
-        Fate::Live
-    }
+pub fn setup(system: &mut ActorSystem) {
+    system.add(Swarm::<Selectable>::new(),
+               Swarm::<Selectable>::subactors(|mut each_selectable| {
+        let ui_id = each_selectable.world().id::<UserInterface>();
+        let cp_id = each_selectable.world().id::<CurrentPlan>();
+
+        each_selectable.on_create_with(move |_: &InitInteractable, selectable, world| {
+            world.send(ui_id,
+                       AddInteractable(selectable.id(),
+                                       AnyShape::Band(Band::new(selectable.path.clone(), 5.0)),
+                                       3));
+            Fate::Live
+        });
+
+        each_selectable.on(move |_: &ClearInteractable, selectable, world| {
+            world.send(ui_id, RemoveInteractable(selectable.id()));
+            Fate::Die
+        });
+
+        each_selectable.on(move |&event, selectable, world| {
+            match event {
+                Event3d::DragOngoing { from, to, .. } => {
+                    if let (Some(selection_start), Some(selection_end)) =
+                        (selectable
+                             .path
+                             .project_with_tolerance(from.into_2d(),
+                                                     SELECTION_OVERSHOOT_TOLERANCE),
+                         selectable
+                             .path
+                             .project_with_tolerance(to.into_2d(),
+                                                     SELECTION_OVERSHOOT_TOLERANCE)) {
+                        let mut start = selection_start.min(selection_end);
+                        let mut end = selection_end.max(selection_start);
+                        snap_start_end(&mut start, &mut end, &selectable.path);
+                        world.send(cp_id,
+                                   ChangeIntent(Intent::Select(selectable.stroke_ref, start, end),
+                                                IntentProgress::Preview));
+                    } else {
+                        world.send(cp_id, ChangeIntent(Intent::None, IntentProgress::Preview));
+                    }
+                }
+                Event3d::DragFinished { from, to, .. } => {
+                    if let (Some(selection_start), Some(selection_end)) =
+                        (selectable
+                             .path
+                             .project_with_tolerance(from.into_2d(),
+                                                     SELECTION_OVERSHOOT_TOLERANCE),
+                         selectable
+                             .path
+                             .project_with_tolerance(to.into_2d(),
+                                                     SELECTION_OVERSHOOT_TOLERANCE)) {
+                        let mut start = selection_start.min(selection_end);
+                        let mut end = selection_end.max(selection_start);
+                        if end < CONTINUE_DISTANCE {
+                            world.send(cp_id,
+                            ChangeIntent(Intent::ContinueRoadAround(selectable.stroke_ref,
+                                                                    ContinuationMode::Prepend,
+                                                                    to.into_2d()),
+                                         IntentProgress::Finished));
+                        } else if start > selectable.path.length() - CONTINUE_DISTANCE {
+                            world.send(cp_id,
+                            ChangeIntent(Intent::ContinueRoadAround(selectable.stroke_ref,
+                                                                    ContinuationMode::Append,
+                                                                    to.into_2d()),
+                                         IntentProgress::Finished));
+                        } else {
+                            snap_start_end(&mut start, &mut end, &selectable.path);
+                            start = start.min(end - MIN_SELECTION_SIZE).max(0.0);
+                            end = end.max(start + MIN_SELECTION_SIZE)
+                                .min(selectable.path.length());
+                            world.send(cp_id,
+                                       ChangeIntent(Intent::Select(selectable.stroke_ref,
+                                                                   start,
+                                                                   end),
+                                                    IntentProgress::Immediate));
+                        }
+                    }
+                }
+                _ => {}
+            }
+            Fate::Live
+        });
+    }));
 }
 
 use super::ClearInteractable;
 use stagemaster::RemoveInteractable;
-
-impl Recipient<ClearInteractable> for Selectable {
-    fn receive(&mut self, _msg: &ClearInteractable) -> Fate {
-        UserInterface::id() << RemoveInteractable(self.id());
-        Fate::Die
-    }
-}
-
 use stagemaster::Event3d;
 use super::{ChangeIntent, Intent, IntentProgress, ContinuationMode};
 
@@ -54,62 +121,6 @@ const CONTINUE_DISTANCE: N = 6.0;
 const MIN_SELECTION_SIZE: N = 2.0;
 const SELECTION_OVERSHOOT_TOLERANCE: N = 30.0;
 
-impl Recipient<Event3d> for Selectable {
-    fn receive(&mut self, msg: &Event3d) -> Fate {
-        match *msg {
-            Event3d::DragOngoing { from, to, .. } => {
-                if let (Some(selection_start), Some(selection_end)) =
-                    (self.path
-                         .project_with_tolerance(from.into_2d(), SELECTION_OVERSHOOT_TOLERANCE),
-                     self.path
-                         .project_with_tolerance(to.into_2d(), SELECTION_OVERSHOOT_TOLERANCE)) {
-                    let mut start = selection_start.min(selection_end);
-                    let mut end = selection_end.max(selection_start);
-                    snap_start_end(&mut start, &mut end, &self.path);
-                    CurrentPlan::id() <<
-                    ChangeIntent(Intent::Select(self.stroke_ref, start, end),
-                                 IntentProgress::Preview);
-                } else {
-                    CurrentPlan::id() << ChangeIntent(Intent::None, IntentProgress::Preview);
-                }
-                Fate::Live
-            }
-            Event3d::DragFinished { from, to, .. } => {
-                if let (Some(selection_start), Some(selection_end)) =
-                    (self.path
-                         .project_with_tolerance(from.into_2d(), SELECTION_OVERSHOOT_TOLERANCE),
-                     self.path
-                         .project_with_tolerance(to.into_2d(), SELECTION_OVERSHOOT_TOLERANCE)) {
-                    let mut start = selection_start.min(selection_end);
-                    let mut end = selection_end.max(selection_start);
-                    if end < CONTINUE_DISTANCE {
-                        CurrentPlan::id() <<
-                        ChangeIntent(Intent::ContinueRoadAround(self.stroke_ref,
-                                                                ContinuationMode::Prepend,
-                                                                to.into_2d()),
-                                     IntentProgress::Finished);
-                    } else if start > self.path.length() - CONTINUE_DISTANCE {
-                        CurrentPlan::id() <<
-                        ChangeIntent(Intent::ContinueRoadAround(self.stroke_ref,
-                                                                ContinuationMode::Append,
-                                                                to.into_2d()),
-                                     IntentProgress::Finished);
-                    } else {
-                        snap_start_end(&mut start, &mut end, &self.path);
-                        start = start.min(end - MIN_SELECTION_SIZE).max(0.0);
-                        end = end.max(start + MIN_SELECTION_SIZE)
-                            .min(self.path.length());
-                        CurrentPlan::id() <<
-                        ChangeIntent(Intent::Select(self.stroke_ref, start, end),
-                                     IntentProgress::Immediate);
-                    }
-                }
-                Fate::Live
-            }
-            _ => Fate::Live,
-        }
-    }
-}
 
 fn snap_start_end(start: &mut N, end: &mut N, path: &CPath) {
     if *start < START_END_SNAP_DISTANCE {
@@ -129,11 +140,4 @@ fn snap_start_end(start: &mut N, end: &mut N, path: &CPath) {
         }
         offset = next_offset;
     }
-}
-
-pub fn setup() {
-    Swarm::<Selectable>::register_default();
-    Swarm::<Selectable>::handle::<CreateWith<Selectable, InitInteractable>>();
-    Swarm::<Selectable>::handle::<ClearInteractable>();
-    Swarm::<Selectable>::handle::<Event3d>();
 }

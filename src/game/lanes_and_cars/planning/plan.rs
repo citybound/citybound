@@ -49,33 +49,31 @@ impl<'a> RoughlyComparable for &'a Intersection {
         self.incoming
             .values()
             .all(|self_incoming| {
-                     other
-                         .incoming
-                         .values()
-                         .any(|other_incoming| {
-                                  self_incoming.is_roughly_within(other_incoming, tolerance)
-                              })
-                 }) && self.outgoing.len() == other.outgoing.len() &&
+                other
+                    .incoming
+                    .values()
+                    .any(|other_incoming| {
+                        self_incoming.is_roughly_within(other_incoming, tolerance)
+                    })
+            }) && self.outgoing.len() == other.outgoing.len() &&
         self.outgoing
             .values()
             .all(|self_outgoing| {
-                     other
-                         .outgoing
-                         .values()
-                         .any(|other_outgoing| {
-                                  self_outgoing.is_roughly_within(other_outgoing, tolerance)
-                              })
-                 }) && self.strokes.len() == other.strokes.len() &&
+                other
+                    .outgoing
+                    .values()
+                    .any(|other_outgoing| {
+                        self_outgoing.is_roughly_within(other_outgoing, tolerance)
+                    })
+            }) && self.strokes.len() == other.strokes.len() &&
         self.strokes
             .iter()
             .all(|self_stroke| {
-                     other
-                         .strokes
-                         .iter()
-                         .any(|other_stroke| {
-                                  self_stroke.is_roughly_within(other_stroke, tolerance)
-                              })
-                 })
+                other
+                    .strokes
+                    .iter()
+                    .any(|other_stroke| self_stroke.is_roughly_within(other_stroke, tolerance))
+            })
     }
 }
 

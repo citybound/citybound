@@ -197,11 +197,11 @@ impl<T: Path> Curve for T {
     fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<N> {
         self.segments_with_start_offsets()
             .filter_map(|pair: (&Segment, N)| {
-                            let (segment, start_offset) = pair;
-                            segment
-                                .project_with_tolerance(point, tolerance)
-                                .map(|offset| offset + start_offset)
-                        })
+                let (segment, start_offset) = pair;
+                segment
+                    .project_with_tolerance(point, tolerance)
+                    .map(|offset| offset + start_offset)
+            })
             .min_by_key(|offset| OrderedFloat((self.along(*offset) - point).norm()))
     }
 

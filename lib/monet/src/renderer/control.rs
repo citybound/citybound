@@ -1,7 +1,7 @@
 
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
                     WithUniqueOrthogonal, Inverse, Rotate};
-use kay::{ID, Recipient, Actor, Fate};
+use kay::{ID, Fate, ActorSystem};
 use glium::Frame;
 
 use Renderer;
@@ -30,61 +30,47 @@ pub struct Submitted {
     pub target_ptr: usize,
 }
 
-impl Recipient<Control> for Renderer {
-    fn receive(&mut self, msg: &Control) -> Fate {
-        match *msg {
-            Control::Setup => self.control_setup(),
-            Control::Render => self.control_render(),
-            Control::Submit {
-                target_ptr,
-                return_to,
-            } => self.control_submit(target_ptr, return_to),
-        }
-    }
-}
+pub fn setup(system: &mut ActorSystem) {
+    system.extend::<Renderer, _>(|mut the_renderer| {
+        let renderer_id = the_renderer.world().id::<Renderer>();
 
-impl Renderer {
-    fn control_setup(&mut self) -> Fate {
-        for (scene_id, scene) in self.scenes.iter().enumerate() {
-            for renderable in &scene.renderables {
-                *renderable <<
-                SetupInScene {
-                    renderer_id: Renderer::id(),
-                    scene_id: scene_id,
-                };
+        the_renderer.on_critical(move |ctrl, renderer, world| match *ctrl {
+                                     Control::Setup => {
+            for (scene_id, scene) in renderer.scenes.iter().enumerate() {
+                for renderable in &scene.renderables {
+                    world.send(*renderable, SetupInScene { renderer_id, scene_id });
+                }
             }
+            Fate::Live
         }
-        Fate::Live
-    }
-
-    fn control_render(&mut self) -> Fate {
-        for (scene_id, mut scene) in self.scenes.iter_mut().enumerate() {
-            for batch_to_clear in (&mut scene)
-                    .batches
-                    .values_mut()
-                    .filter(|batch| batch.clear_every_frame) {
-                batch_to_clear.instances.clear();
+                                     Control::Render => {
+            for (scene_id, mut scene) in renderer.scenes.iter_mut().enumerate() {
+                for batch_to_clear in (&mut scene)
+                        .batches
+                        .values_mut()
+                        .filter(|batch| batch.clear_every_frame) {
+                    batch_to_clear.instances.clear();
+                }
+                for renderable in &scene.renderables {
+                    world.send(*renderable, RenderToScene { renderer_id, scene_id });
+                }
             }
-            for renderable in &scene.renderables {
-                *renderable <<
-                RenderToScene {
-                    renderer_id: Renderer::id(),
-                    scene_id: scene_id,
-                };
+            Fate::Live
+        }
+                                     Control::Submit { target_ptr, return_to } => {
+            let mut target = unsafe { Box::from_raw(target_ptr as *mut Frame) };
+
+            for scene in &mut renderer.scenes {
+                renderer.render_context.submit(scene, &mut *target);
             }
+
+            world.send(return_to,
+                       Submitted { target_ptr: Box::into_raw(target) as usize });
+
+            Fate::Live
         }
-        Fate::Live
-    }
+                                 });
 
-    fn control_submit(&mut self, target_ptr: usize, return_to: ID) -> Fate {
-        let mut target = unsafe { Box::from_raw(target_ptr as *mut Frame) };
-
-        for scene in &mut self.scenes {
-            self.render_context.submit(scene, &mut *target);
-        }
-
-        return_to << Submitted { target_ptr: Box::into_raw(target) as usize };
-
-        Fate::Live
-    }
+        the_renderer.world().send(renderer_id, Control::Setup);
+    });
 }

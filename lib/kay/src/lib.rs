@@ -3,7 +3,8 @@
 //! In `Kay`, actors concurrently send and receive asynchronous messages, but are
 //! otherwise completely isloated from each other. Actors can only mutate their own state.
 //!
-//! Have a look at [`Actor`](trait.Actor.html), [`Recipient`](trait.Recipient.html)
+//! Have a look at [`ActorSystem`](struct.ActorSystem.html),
+//! [`ActorDefiner`](struct.ActorDefiner.html), [`World`](struct.World.html)
 //! and [`Swarm`](swarm/struct.Swarm.html) to understand the main abstractions.
 
 #![warn(missing_docs)]
@@ -32,6 +33,6 @@ mod type_registry;
 mod id;
 mod actor_system;
 
-pub use self::messaging::{Message, Packet, Recipient, Fate};
+pub use self::messaging::{Message, Packet, Fate};
 pub use self::id::ID;
-pub use self::actor_system::{THE_SYSTEM, ActorSystem, Actor};
+pub use self::actor_system::{ActorSystem, ActorDefiner, World};

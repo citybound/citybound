@@ -8,10 +8,7 @@ pub struct SlotIndices {
 
 impl SlotIndices {
     pub fn new(bin: usize, slot: usize) -> SlotIndices {
-        SlotIndices {
-            bin: bin as u8,
-            slot: slot as u32,
-        }
+        SlotIndices { bin: bin as u8, slot: slot as u32 }
     }
 
     pub fn invalid() -> SlotIndices {

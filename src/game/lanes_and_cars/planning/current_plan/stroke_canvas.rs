@@ -1,4 +1,4 @@
-use kay::{Recipient, Actor, Fate};
+use kay::{ActorSystem, Fate};
 use compact::CVec;
 use descartes::{P2, Into2d, RoughlyComparable};
 use stagemaster::geometry::AnyShape;
@@ -8,8 +8,6 @@ use super::CurrentPlan;
 pub struct StrokeCanvas {
     points: CVec<P2>,
 }
-
-impl Actor for StrokeCanvas {}
 
 #[derive(Copy, Clone)]
 pub enum StrokeState {
@@ -25,73 +23,66 @@ use stagemaster::Event3d;
 
 const FINISH_STROKE_TOLERANCE: f32 = 5.0;
 
-impl Recipient<Event3d> for StrokeCanvas {
-    fn receive(&mut self, msg: &Event3d) -> Fate {
-        match *msg {
-            Event3d::HoverStarted { at, .. } |
-            Event3d::HoverOngoing { at, .. } => {
-                let mut preview_points = self.points.clone();
-                preview_points.push(at.into_2d());
-                CurrentPlan::id() << Stroke(preview_points, StrokeState::Preview);
-                Fate::Live
-            }
-            Event3d::DragStarted { at, .. } => {
-                let new_point = at.into_2d();
-                let maybe_last_point = self.points.last().cloned();
+pub fn setup(system: &mut ActorSystem) {
+    system.add(StrokeCanvas::default(), |mut the_canvas| {
+        let cp_id = the_canvas.world().id::<CurrentPlan>();
+        let ui_id = the_canvas.world().id::<UserInterface>();
+        let canvas_id = the_canvas.world().id::<StrokeCanvas>();
 
-                let finished = if let Some(last_point) = maybe_last_point {
-                    if new_point.is_roughly_within(last_point, FINISH_STROKE_TOLERANCE) {
-                        CurrentPlan::id() << Stroke(self.points.clone(), StrokeState::Finished);
-                        self.points.clear();
-                        true
+        the_canvas.on(move |event, canvas, world| {
+            match *event {
+                Event3d::HoverStarted { at, .. } |
+                Event3d::HoverOngoing { at, .. } => {
+                    let mut preview_points = canvas.points.clone();
+                    preview_points.push(at.into_2d());
+                    world.send(cp_id, Stroke(preview_points, StrokeState::Preview));
+                }
+                Event3d::DragStarted { at, .. } => {
+                    let new_point = at.into_2d();
+                    let maybe_last_point = canvas.points.last().cloned();
+
+                    let finished = if let Some(last_point) = maybe_last_point {
+                        if new_point.is_roughly_within(last_point, FINISH_STROKE_TOLERANCE) {
+                            world.send(cp_id, Stroke(canvas.points.clone(), StrokeState::Finished));
+                            canvas.points.clear();
+                            true
+                        } else {
+                            false
+                        }
                     } else {
                         false
-                    }
-                } else {
-                    false
-                };
+                    };
 
-                if !finished {
-                    self.points.push(new_point);
-                    if self.points.len() > 1 {
-                        CurrentPlan::id() << Stroke(self.points.clone(), StrokeState::Intermediate);
+                    if !finished {
+                        canvas.points.push(new_point);
+                        if canvas.points.len() > 1 {
+                            world.send(cp_id,
+                                       Stroke(canvas.points.clone(), StrokeState::Intermediate));
+                        }
                     }
                 }
-                Fate::Live
-            }
-            _ => Fate::Live,
-        }
-    }
+                _ => {}
+            };
+            Fate::Live
+        });
+
+        the_canvas.on(|&SetPoints(ref points), canvas, _| {
+            canvas.points = points.clone();
+            Fate::Live
+        });
+
+        the_canvas.on(move |_: &InitInteractable, _, world| {
+            world.send(ui_id, AddInteractable(canvas_id, AnyShape::Everywhere, 1));
+            Fate::Live
+        });
+
+        the_canvas.world().send(canvas_id, InitInteractable);
+
+    });
 }
 
 #[derive(Compact, Clone)]
 pub struct SetPoints(pub CVec<P2>);
 
-impl Recipient<SetPoints> for StrokeCanvas {
-    fn receive(&mut self, msg: &SetPoints) -> Fate {
-        match *msg {
-            SetPoints(ref points) => {
-                self.points = points.clone();
-                Fate::Live
-            }
-        }
-    }
-}
-
 use super::InitInteractable;
 use stagemaster::{UserInterface, AddInteractable};
-
-impl Recipient<InitInteractable> for StrokeCanvas {
-    fn receive(&mut self, _msg: &InitInteractable) -> Fate {
-        UserInterface::id() << AddInteractable(StrokeCanvas::id(), AnyShape::Everywhere, 1);
-        Fate::Live
-    }
-}
-
-pub fn setup() {
-    StrokeCanvas::register_default();
-    StrokeCanvas::handle::<Event3d>();
-    StrokeCanvas::handle::<SetPoints>();
-    StrokeCanvas::handle::<InitInteractable>();
-    StrokeCanvas::id() << InitInteractable;
-}

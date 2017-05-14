@@ -1,7 +1,7 @@
 
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
                     WithUniqueOrthogonal, Inverse, Rotate};
-use kay::{Recipient, Fate};
+use kay::{Fate, ActorSystem};
 
 use {Renderer, Eye};
 
@@ -25,31 +25,29 @@ pub struct EyeMoved {
     pub movement: Movement,
 }
 
-impl Recipient<MoveEye> for Renderer {
-    fn receive(&mut self, msg: &MoveEye) -> Fate {
-        match *msg {
-            MoveEye { scene_id, movement } => {
-                match movement {
-                    Movement::Shift(delta) => self.movement_shift(scene_id, delta),
-                    Movement::ShiftAbsolute(delta) => self.movement_shift_absolute(scene_id, delta),
-                    Movement::Zoom(delta, mouse_position) => {
-                        self.movement_zoom(scene_id, delta, mouse_position)
-                    }
-                    Movement::Yaw(delta) => self.movement_yaw(scene_id, delta),
-                    Movement::Pitch(delta) => self.movement_pitch(scene_id, delta),
+pub fn setup(system: &mut ActorSystem) {
+    system.extend::<Renderer, _>(|mut the_renderer| {
+        the_renderer.on_critical(|&MoveEye { scene_id, movement }, renderer, world| {
+            match movement {
+                Movement::Shift(delta) => renderer.movement_shift(scene_id, delta),
+                Movement::ShiftAbsolute(delta) => renderer.movement_shift_absolute(scene_id, delta),
+                Movement::Zoom(delta, mouse_position) => {
+                    renderer.movement_zoom(scene_id, delta, mouse_position)
                 }
-
-                for &id in &self.scenes[scene_id].eye_listeners {
-                    id <<
-                    EyeMoved {
-                        eye: self.scenes[scene_id].eye,
-                        movement: movement,
-                    };
-                }
-                Fate::Live
+                Movement::Yaw(delta) => renderer.movement_yaw(scene_id, delta),
+                Movement::Pitch(delta) => renderer.movement_pitch(scene_id, delta),
             }
-        }
-    }
+
+            for &id in &renderer.scenes[scene_id].eye_listeners {
+                world.send(id,
+                           EyeMoved {
+                               eye: renderer.scenes[scene_id].eye,
+                               movement: movement,
+                           });
+            }
+            Fate::Live
+        });
+    });
 }
 
 impl Renderer {

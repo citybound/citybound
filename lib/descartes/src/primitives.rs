@@ -101,14 +101,8 @@ impl Segment {
         } else if (end - start).norm() < MAX_SIMPLE_LINE_LENGTH {
             vec![Segment::line(start, end)]
         } else {
-            let maybe_linear_intersection = (&Line {
-                                                  start: start,
-                                                  direction: start_direction,
-                                              },
-                                             &Line {
-                                                  start: end,
-                                                  direction: -end_direction,
-                                              })
+            let maybe_linear_intersection = (&Line { start: start, direction: start_direction },
+                                             &Line { start: end, direction: -end_direction })
                     .intersect()
                     .into_iter()
                     .next()

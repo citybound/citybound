@@ -12,23 +12,6 @@ pub enum Fate {
     Die,
 }
 
-/// Trait with which message handling for `Actor`/`SubActor`s is implemented
-pub trait Recipient<M: Message> {
-    /// Let's an actor mutate its state when it gets a message,
-    /// send messages to other actors and determine its new `Fate`
-    fn receive(&mut self, _message: &M) -> Fate {
-        unimplemented!()
-    }
-    /// Like `receive`, but allows access to `packet.recipient_id`
-    /// that the packet/message was sent to. This is used by `Swarm`
-    /// to dispatch the message to the correct `SubActor`.
-    ///
-    /// The default implementation just calls `receive` with `packet.message`
-    fn receive_packet(&mut self, packet: &Packet<M>) -> Fate {
-        self.receive(&packet.message)
-    }
-}
-
 /// Trait that a datastructure must implement in order
 /// to be sent and received as a message.
 ///

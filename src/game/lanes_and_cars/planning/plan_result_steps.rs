@@ -16,19 +16,21 @@ pub fn find_intersections(strokes: &CVec<LaneStroke>) -> CVec<Intersection> {
     let points = find_intersection_points(strokes);
     let mut intersection_point_groups = DisjointSets::from_individuals(points);
 
-    intersection_point_groups.union_all_with_accelerator(
-        GridAccelerator::new(200.0),
-        |&point, idx, accelerator|
-            accelerator.add(idx, vec![BoundingBox::point(point).grown_by(
-                INTERSECTION_GROUPING_RADIUS/2.0
-            )].into_iter()),
-        |accelerator|
-            accelerator.colocated_pairs(),
-        |point_i, point_j|
-            (point_i.x - point_j.x).abs() < INTERSECTION_GROUPING_RADIUS
-            && (point_i.y - point_j.y).abs() < INTERSECTION_GROUPING_RADIUS
-            && (*point_i - *point_j).norm() < INTERSECTION_GROUPING_RADIUS
-    );
+    intersection_point_groups.union_all_with_accelerator(GridAccelerator::new(200.0),
+                                                         |&point, idx, accelerator| {
+        accelerator.add(idx,
+                        vec![BoundingBox::point(point).grown_by(INTERSECTION_GROUPING_RADIUS /
+                                                                2.0)]
+                                .into_iter())
+    },
+                                                         |accelerator| {
+        accelerator.colocated_pairs()
+    },
+                                                         |point_i, point_j| {
+        (point_i.x - point_j.x).abs() < INTERSECTION_GROUPING_RADIUS &&
+        (point_i.y - point_j.y).abs() < INTERSECTION_GROUPING_RADIUS &&
+        (*point_i - *point_j).norm() < INTERSECTION_GROUPING_RADIUS
+    });
 
     intersection_point_groups
         .sets()
@@ -71,10 +73,10 @@ fn find_intersection_points(strokes: &CVec<LaneStroke>) -> Vec<P2> {
                      .segments()
                      .iter()
                      .map(|segment| {
-                              segment
-                                  .bounding_box()
-                                  .grown_by(STROKE_INTERSECTION_WIDTH)
-                          }));
+            segment
+                .bounding_box()
+                .grown_by(STROKE_INTERSECTION_WIDTH)
+        }));
     }
 
     let points = grid.colocated_pairs()
@@ -206,10 +208,9 @@ pub fn trim_strokes_and_add_incoming_outgoing(strokes: &CVec<LaneStroke>,
 
             cuts.windows(2)
                 .filter_map(|two_cuts| {
-                                let ((_, exit_distance), (entry_distance, _)) = (two_cuts[0],
-                                                                                 two_cuts[1]);
-                                stroke.subsection(exit_distance, entry_distance)
-                            })
+                    let ((_, exit_distance), (entry_distance, _)) = (two_cuts[0], two_cuts[1]);
+                    stroke.subsection(exit_distance, entry_distance)
+                })
                 .collect::<Vec<_>>()
         })
         .collect()
@@ -373,11 +374,11 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                             LaneStroke::new(segments
                                                 .iter()
                                                 .map(|segment| {
-                                                         LaneStrokeNode {
-                                                             position: segment.start(),
-                                                             direction: segment.start_direction(),
-                                                         }
-                                                     })
+                                LaneStrokeNode {
+                                    position: segment.start(),
+                                    direction: segment.start_direction(),
+                                }
+                            })
                                                 .chain(Some(LaneStrokeNode {
                                                                 position: segments
                                                                     .last()
@@ -407,7 +408,9 @@ pub fn create_connecting_strokes(intersections: &mut CVec<Intersection>) {
         let mut incoming_groups_sets =
             DisjointSets::from_individuals(intersection.incoming.pairs().collect());
         incoming_groups_sets.union_all_with(|&(_, incoming_1), &(_, incoming_2)| {
-            incoming_1.direction.is_roughly_within(incoming_2.direction, 0.05) &&
+            incoming_1
+                .direction
+                .is_roughly_within(incoming_2.direction, 0.05) &&
             (incoming_1.position - incoming_2.position)
                 .dot(&incoming_1.direction)
                 .is_roughly_within(0.0, MAX_PARALLEL_INTERSECTION_NODES_OFFSET)
@@ -420,15 +423,16 @@ pub fn create_connecting_strokes(intersections: &mut CVec<Intersection>) {
             let base_position = incoming_group[0].1.position;
             let direction_right = incoming_group[0].1.direction.orthogonal();
             incoming_group.sort_by_key(|group| {
-                                           OrderedFloat((group.1.position - base_position)
-                                                            .dot(&direction_right))
-                                       });
+                OrderedFloat((group.1.position - base_position).dot(&direction_right))
+            });
         }
 
         let mut outgoing_groups_sets =
             DisjointSets::from_individuals(intersection.outgoing.pairs().collect());
         outgoing_groups_sets.union_all_with(|&(_, outgoing_1), &(_, outgoing_2)| {
-            outgoing_1.direction.is_roughly_within(outgoing_2.direction, 0.05) &&
+            outgoing_1
+                .direction
+                .is_roughly_within(outgoing_2.direction, 0.05) &&
             (outgoing_1.position - outgoing_2.position)
                 .dot(&outgoing_1.direction)
                 .is_roughly_within(0.0, MAX_PARALLEL_INTERSECTION_NODES_OFFSET)
@@ -441,9 +445,8 @@ pub fn create_connecting_strokes(intersections: &mut CVec<Intersection>) {
             let base_position = outgoing_group[0].1.position;
             let direction_right = outgoing_group[0].1.direction.orthogonal();
             outgoing_group.sort_by_key(|group| {
-                                           OrderedFloat((group.1.position - base_position)
-                                                            .dot(&direction_right))
-                                       });
+                OrderedFloat((group.1.position - base_position).dot(&direction_right))
+            });
         }
 
         intersection.strokes = incoming_groups
@@ -480,12 +483,11 @@ pub fn create_connecting_strokes(intersections: &mut CVec<Intersection>) {
                     outgoing_groups
                         .iter()
                         .flat_map(|outgoing_group| {
-                                      connect_as_much_as_possible(incoming_group, outgoing_group)
-                                          .into_iter()
-                                          .take((incoming_group.len() as f32 / 2.0).ceil() as
-                                                usize)
-                                          .collect::<Vec<_>>()
-                                  })
+                            connect_as_much_as_possible(incoming_group, outgoing_group)
+                                .into_iter()
+                                .take((incoming_group.len() as f32 / 2.0).ceil() as usize)
+                                .collect::<Vec<_>>()
+                        })
                         .collect()
                 }
             })
@@ -500,10 +502,10 @@ fn groups_correspond(incoming_group: &Vec<(&LaneStrokeRef, &LaneStrokeNode)>,
     incoming_group
         .iter()
         .all(|&(incoming_ref, _)| {
-                 outgoing_group
-                     .iter()
-                     .any(|&(outgoing_ref, _)| incoming_ref == outgoing_ref)
-             })
+            outgoing_group
+                .iter()
+                .any(|&(outgoing_ref, _)| incoming_ref == outgoing_ref)
+        })
 }
 
 #[allow(ptr_arg)]
@@ -519,8 +521,8 @@ fn connect_as_much_as_possible(incoming_group: &Vec<(&LaneStrokeRef, &LaneStroke
             .rev()
             .zip(outgoing_group.iter().rev())
             .flat_map(|(&(_, incoming), &(_, outgoing))| {
-                          LaneStroke::new(vec![*incoming, *outgoing].into()).into_iter()
-                      })
+                LaneStroke::new(vec![*incoming, *outgoing].into()).into_iter()
+            })
             .collect()
     } else {
         let is_uturn = outgoing_group[0]
@@ -541,8 +543,8 @@ fn connect_as_much_as_possible(incoming_group: &Vec<(&LaneStrokeRef, &LaneStroke
                 .iter()
                 .zip(outgoing_group.iter())
                 .flat_map(|(&(_, incoming), &(_, outgoing))| {
-                              LaneStroke::new(vec![*incoming, *outgoing].into()).into_iter()
-                          })
+                    LaneStroke::new(vec![*incoming, *outgoing].into()).into_iter()
+                })
                 .collect()
         }
     }
@@ -656,8 +658,8 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
                         parallel_groups
                             .iter_mut()
                             .find(|&&mut (group_direction, _)| {
-                                      start_direction.is_roughly_within(group_direction, 0.1)
-                                  }) {
+                                start_direction.is_roughly_within(group_direction, 0.1)
+                            }) {
                         *n_members += 1;
                         true
                     } else {
@@ -707,8 +709,8 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
         let total_cycle_duration = stroke_idx_max_cliques
             .iter()
             .map(|clique| {
-                     max(clique.len() as usize * 2, MIN_CLIQUE_DURATION) + SIGNAL_TIMING_BUFFER
-                 })
+                max(clique.len() as usize * 2, MIN_CLIQUE_DURATION) + SIGNAL_TIMING_BUFFER
+            })
             .sum();
 
         intersection.timings =
