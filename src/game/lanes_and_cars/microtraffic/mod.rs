@@ -232,26 +232,26 @@ pub fn setup(system: &mut ActorSystem) {
         each_lane.on(|&Tick { dt, current_tick }, lane, world| {
             lane.construction.progress += dt * 400.0;
 
-            let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING ==
+            let do_traffic = current_tick.0 % TRAFFIC_LOGIC_THROTTLING ==
                              lane.id().sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
             let old_green = lane.microtraffic.green;
             lane.microtraffic.yellow_to_red = if lane.microtraffic.timings.is_empty() {
                 true
             } else {
-                !lane.microtraffic.timings[((current_tick + 100) / 25) %
+                !lane.microtraffic.timings[((current_tick.0 + 100) / 25) %
                  lane.microtraffic.timings.len()]
             };
             lane.microtraffic.yellow_to_green = if lane.microtraffic.timings.is_empty() {
                 true
             } else {
-                lane.microtraffic.timings[((current_tick + 100) / 25) %
+                lane.microtraffic.timings[((current_tick.0 + 100) / 25) %
                 lane.microtraffic.timings.len()]
             };
             lane.microtraffic.green = if lane.microtraffic.timings.is_empty() {
                 true
             } else {
-                lane.microtraffic.timings[(current_tick / 25) % lane.microtraffic.timings.len()]
+                lane.microtraffic.timings[(current_tick.0 / 25) % lane.microtraffic.timings.len()]
             };
 
             // TODO: this is just a hacky way to update new lanes about existing lane's green
@@ -271,7 +271,7 @@ pub fn setup(system: &mut ActorSystem) {
                 }
             }
 
-            if current_tick % PATHFINDING_THROTTLING ==
+            if current_tick.0 % PATHFINDING_THROTTLING ==
                lane.id().sub_actor_id as usize % PATHFINDING_THROTTLING {
                 self::pathfinding::tick(lane, world);
             }
@@ -409,7 +409,7 @@ pub fn setup(system: &mut ActorSystem) {
             for interaction in lane.connectivity.interactions.iter() {
                 let cars = lane.microtraffic.cars.iter();
 
-                if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
+                if (current_tick.0 + 1) % TRAFFIC_LOGIC_THROTTLING ==
                    interaction.partner_lane.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING {
                     let maybe_obstacles =
                         obstacles_for_interaction(interaction,
@@ -503,7 +503,7 @@ pub fn setup(system: &mut ActorSystem) {
         each_t_lane.on(|&Tick { dt, current_tick }, lane, world| {
             lane.construction.progress += dt * 400.0;
 
-            let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING ==
+            let do_traffic = current_tick.0 % TRAFFIC_LOGIC_THROTTLING ==
                              lane.id().sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
             if do_traffic {
@@ -649,7 +649,7 @@ pub fn setup(system: &mut ActorSystem) {
                     }
                 }
 
-                if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
+                if (current_tick.0 + 1) % TRAFFIC_LOGIC_THROTTLING ==
                    left.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING {
                     let obstacles = lane.microtraffic
                         .cars
@@ -666,7 +666,7 @@ pub fn setup(system: &mut ActorSystem) {
                     world.send(left, AddObstacles { obstacles: obstacles, from: lane.id() });
                 }
 
-                if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
+                if (current_tick.0 + 1) % TRAFFIC_LOGIC_THROTTLING ==
                    right.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING {
                     let obstacles = lane.microtraffic
                         .cars

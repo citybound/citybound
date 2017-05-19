@@ -362,10 +362,10 @@ pub fn setup(system: &mut ActorSystem) {
             Fate::Live
         });
 
-        each_lane.on(|&QueryAsDestination { requester }, lane, world| {
+        each_lane.on(|&QueryAsDestination { requester, rough_destination }, lane, world| {
             world.send(requester,
                        TellAsDestination {
-                           id: lane.id(),
+                           rough_destination,
                            as_destination: lane.pathfinding.as_destination,
                        });
             Fate::Live
@@ -446,10 +446,11 @@ pub struct ForgetRoutes {
 
 #[derive(Copy, Clone)]
 pub struct QueryAsDestination {
-    requester: ID,
+    pub requester: ID,
+    pub rough_destination: ID,
 }
 #[derive(Copy, Clone)]
 pub struct TellAsDestination {
-    id: ID,
-    as_destination: Option<Destination>,
+    pub rough_destination: ID,
+    pub as_destination: Option<Destination>,
 }

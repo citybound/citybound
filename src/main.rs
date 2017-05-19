@@ -41,7 +41,7 @@ mod game;
 
 use monet::{Renderer, Control};
 use monet::glium::{DisplayBuild, glutin};
-use core::simulation::{Simulation, Tick};
+use core::simulation::{Simulation, DoTick};
 use stagemaster::{ProcessEvents, StartFrame, UserInterface, AddDebugText, OnPanic};
 use game::lanes_and_cars::lane::{Lane, TransferLane};
 use game::lanes_and_cars::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
@@ -49,8 +49,6 @@ use game::lanes_and_cars::rendering::lane_thing_collector::ThingCollector;
 use game::lanes_and_cars::planning::current_plan::CurrentPlan;
 use kay::swarm::Swarm;
 use std::any::Any;
-
-const SECONDS_PER_TICK: f32 = 1.0 / 20.0;
 
 fn main() {
     let mut dir = ::std::env::temp_dir();
@@ -143,7 +141,7 @@ fn main() {
 
         system.process_all_messages();
 
-        system.send(sim_id, Tick { dt: SECONDS_PER_TICK, current_tick: 0 });
+        system.send(sim_id, DoTick);
 
         system.process_all_messages();
 

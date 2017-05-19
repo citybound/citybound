@@ -10,6 +10,7 @@ struct Trip {
     source: ID,
     rough_destination: ID,
     destination: Option<Destination>,
+    listener: Option<ID>,
 }
 
 #[derive(Copy, Clone)]
@@ -22,11 +23,17 @@ pub fn setup(system: &mut ActorSystem) {
                Swarm::<Trip>::subactors(|mut each_trip| {
         each_trip.on_create_with(|_: &Start, trip, world| {
             world.send(trip.rough_destination,
-                       QueryAsDestination { requester: trip.id() });
+                       QueryAsDestination {
+                           rough_destination: trip.rough_destination,
+                           requester: trip.id(),
+                       });
             Fate::Live
         });
 
-        each_trip.on(|&TellAsDestination { as_destination: maybe_destination, id },
+        each_trip.on(|&TellAsDestination {
+                           as_destination: maybe_destination,
+                           rough_destination,
+                       },
                       trip,
                       world| {
             if let Some(as_destination) = maybe_destination {
@@ -48,20 +55,28 @@ pub fn setup(system: &mut ActorSystem) {
                            });
                 Fate::Live
             } else {
-                println!("{:?} is not a destination yet", id);
+                println!("{:?} is not a destination yet", rough_destination);
                 Fate::Die
             }
         });
 
-        each_trip.on(|result, trip, _| {
-            match *result {
-                TripResult::Failure => {
+        each_trip.on(|control, trip, world| {
+            match *control {
+                TripControl::Fail { location } => {
                     println!("Trip {:?} failed!", trip.id());
+                    if let Some(listener) = trip.listener {
+                        world.send(listener, TripResult::Failure { id: trip.id(), location })
+                    }
                 }
-                TripResult::Success => {
+                TripControl::Succeed => {
                     println!("Trip {:?} succeeded!", trip.id());
+                    if let Some(listener) = trip.listener {
+                        world.send(listener, TripResult::Success { id: trip.id() })
+                    }
                 }
             }
+
+
             Fate::Die
         })
     }));
@@ -78,6 +93,7 @@ pub fn setup(system: &mut ActorSystem) {
                                           source: source,
                                           rough_destination: lane_id,
                                           destination: None,
+                                          listener: None,
                                       },
                                       Start));
                 tc.current_source_lane = None;
@@ -115,9 +131,15 @@ use super::TellAsDestination;
 use super::super::microtraffic::{AddCar, LaneCar, Obstacle};
 
 #[derive(Copy, Clone)]
+pub enum TripControl {
+    Succeed,
+    Fail { location: ID },
+}
+
+#[derive(Copy, Clone)]
 pub enum TripResult {
-    Success,
-    Failure,
+    Success { id: ID },
+    Failure { id: ID, location: ID },
 }
 
 pub struct TripCreator {
