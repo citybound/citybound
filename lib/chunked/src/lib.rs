@@ -7,8 +7,8 @@
 //! mmap'ed memory used for both runtime and savegames.
 
 #![warn(missing_docs)]
-#![feature(plugin)]
-#![plugin(clippy)]
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
 #![feature(box_syntax)]
 
 use std::mem;

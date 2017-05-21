@@ -1,5 +1,6 @@
-#![feature(plugin, conservative_impl_trait)]
-#![plugin(clippy)]
+#![feature(conservative_impl_trait)]
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
 
 extern crate descartes;
 #[macro_use]

@@ -8,8 +8,8 @@
 //! and [`Swarm`](swarm/struct.Swarm.html) to understand the main abstractions.
 
 #![warn(missing_docs)]
-#![feature(plugin)]
-#![plugin(clippy)]
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
 #![feature(core_intrinsics)]
 #![feature(optin_builtin_traits)]
 #![feature(specialization)]

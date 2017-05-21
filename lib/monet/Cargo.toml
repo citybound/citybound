@@ -5,7 +5,7 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
 glium = "0.16.0"
-clippy = "0.0.128"
+clippy = { version = "0.0.134", optional = true }
 fnv = "1.0.3"
 lazy_static = "0.2.2"
 
@@ -20,3 +20,12 @@ path = "../compact_macros"
 
 [dependencies.descartes]
 path = "../descartes"
+
+[features]
+enable-clippy = [
+	"clippy",
+	"kay/enable-clippy",
+	"compact/enable-clippy",
+	"descartes/clippy"
+]
+
