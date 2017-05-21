@@ -19,8 +19,8 @@ pub fn find_intersections(strokes: &CVec<LaneStroke>) -> CVec<Intersection> {
     intersection_point_groups.union_all_with_accelerator(GridAccelerator::new(200.0),
                                                          |&point, idx, accelerator| {
         accelerator.add(idx,
-                        vec![BoundingBox::point(point).grown_by(INTERSECTION_GROUPING_RADIUS /
-                                                                2.0)]
+                        vec![BoundingBox::point(point)
+                                 .grown_by(INTERSECTION_GROUPING_RADIUS / 2.0)]
                                 .into_iter())
     },
                                                          |accelerator| {
@@ -73,9 +73,7 @@ fn find_intersection_points(strokes: &CVec<LaneStroke>) -> Vec<P2> {
                      .segments()
                      .iter()
                      .map(|segment| {
-            segment
-                .bounding_box()
-                .grown_by(STROKE_INTERSECTION_WIDTH)
+            segment.bounding_box().grown_by(STROKE_INTERSECTION_WIDTH)
         }));
     }
 
@@ -113,11 +111,7 @@ pub fn trim_strokes_and_add_incoming_outgoing(strokes: &CVec<LaneStroke>,
 
               for i in (first_new_index..strokes.len()).rev() {
                   if let Some(self_intersection) =
-                strokes[i]
-                    .path()
-                    .self_intersections()
-                    .into_iter()
-                    .next() {
+                strokes[i].path().self_intersections().into_iter().next() {
                       let division_distance =
                           (self_intersection.along_a + self_intersection.along_b) / 2.0;
                       split_strokes.extend(strokes[i].subsection(0.0, division_distance));
@@ -362,10 +356,10 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                                                         ::std::cmp::Ordering::Greater
                                                     } else if
                                 segment_1.end().is_roughly_within(segment_2.start(), 0.1) {
-                                ::std::cmp::Ordering::Less
-                            } else {
-                                ::std::cmp::Ordering::Equal
-                            });
+                                                        ::std::cmp::Ordering::Less
+                                                    } else {
+                                                        ::std::cmp::Ordering::Equal
+                                                    });
                             sorted_segments
                         });
 
@@ -565,13 +559,9 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
             let last_a = stroke_a.nodes().last().unwrap();
             let last_b = stroke_b.nodes().last().unwrap();
             let a_is_uturn = first_a.position.is_roughly_within(last_a.position, 7.0) &&
-                             first_a
-                                 .direction
-                                 .is_roughly_within(-last_a.direction, 0.1);
+                             first_a.direction.is_roughly_within(-last_a.direction, 0.1);
             let b_is_uturn = first_b.position.is_roughly_within(last_b.position, 7.0) &&
-                             first_b
-                                 .direction
-                                 .is_roughly_within(-last_b.direction, 0.1);
+                             first_b.direction.is_roughly_within(-last_b.direction, 0.1);
 
             a_is_uturn || b_is_uturn || first_a.position.is_roughly_within(first_b.position, 0.1) ||
             (!last_a.position.is_roughly_within(last_b.position, 0.1) &&
@@ -652,8 +642,8 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
             .map(|clique| {
                 let mut parallel_groups = Vec::new();
                 for stroke_idx in clique.iter() {
-                    let start_direction =
-                        intersection.strokes[stroke_idx as usize].nodes()[0].direction;
+                    let start_direction = intersection.strokes[stroke_idx as usize].nodes()[0]
+                        .direction;
                     let found = if let Some(&mut (_, ref mut n_members)) =
                         parallel_groups
                             .iter_mut()

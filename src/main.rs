@@ -32,10 +32,10 @@ extern crate serde;
 use stagemaster::environment::Environment;
 
 pub const ENV: &'static Environment = &Environment {
-                                           name: "Citybound",
-                                           author: "ae play",
-                                           version: "0.1.3",
-                                       };
+    name: "Citybound",
+    author: "ae play",
+    version: "0.1.3",
+};
 
 mod core;
 mod game;

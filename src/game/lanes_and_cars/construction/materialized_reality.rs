@@ -107,9 +107,7 @@ pub fn setup(system: &mut ActorSystem) {
                     match buildable_ref {
                         BuildableRef::Intersection(index) => {
                             if let Some(other_intersection_lanes) =
-                                state
-                                    .built_intersection_lanes
-                                    .get(IntersectionRef(index)) {
+                                state.built_intersection_lanes.get(IntersectionRef(index)) {
                                 world.send(id,
                                            AdvertiseForOverlaps {
                                                lanes: other_intersection_lanes.clone(),
