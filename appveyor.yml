@@ -5,7 +5,7 @@ environment:
   global:
   # TODO This is the Rust channel that build jobs will use by default but can be
   # overridden on a case by case basis down below
-    RUST_VERSION: nightly-2017-04-28
+    RUST_VERSION: nightly-2017-05-20
 
   # TODO These are all the build jobs. Adjust as necessary. Comment out what you
   # don't need
@@ -27,8 +27,10 @@ install:
   - cargo -V
 
 # TODO This is the "test phase", tweak it as you see fit
-#test_script:
-#  - if [%APPVEYOR_REPO_TAG%]==[false] (
+test_script:
+  - if [%APPVEYOR_REPO_TAG%]==[false] (
+       cargo build --target %TARGET%
+     )
 #      cargo build --target %TARGET% &&
 #      cargo build --target %TARGET% --release &&
 #      cargo test --target %TARGET% &&
