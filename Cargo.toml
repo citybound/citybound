@@ -59,6 +59,8 @@ debug = true
 codegen-units = 4
 
 [features]
+default = ["enable-clippy"]
+
 enable-clippy = [
 	"clippy",
 	"compact/enable-clippy",
