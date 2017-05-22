@@ -132,11 +132,7 @@ impl<T: Path> FiniteCurve for T {
     }
 
     fn reverse(&self) -> Self {
-        Self::new(self.segments()
-                      .iter()
-                      .rev()
-                      .map(Segment::reverse)
-                      .collect())
+        Self::new(self.segments().iter().rev().map(Segment::reverse).collect())
     }
 
     fn subsection(&self, start: N, end: N) -> Option<T> {
@@ -169,9 +165,7 @@ impl<T: Path> FiniteCurve for T {
             glued_segments.push(*segment);
             match window_segments_iter.peek() {
                 Some(next_segment) => {
-                    if !segment
-                            .end()
-                            .is_roughly_within(next_segment.start(), 0.1) {
+                    if !segment.end().is_roughly_within(next_segment.start(), 0.1) {
                         glued_segments.push(Segment::line(segment.end(), next_segment.start()));
                     }
                 }

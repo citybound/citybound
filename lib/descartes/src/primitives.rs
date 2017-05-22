@@ -131,8 +131,8 @@ impl Segment {
                 // http://www.ryanjuckett.com/programming/biarc-interpolation/
                 let v = end - start;
                 let t = start_direction + end_direction;
-                let same_direction =
-                    start_direction.is_roughly_within(end_direction, DIRECTION_TOLERANCE);
+                let same_direction = start_direction
+                    .is_roughly_within(end_direction, DIRECTION_TOLERANCE);
                 let end_orthogonal_of_start = v.dot(&end_direction).is_roughly(0.0);
 
                 if same_direction && end_orthogonal_of_start {
@@ -348,11 +348,7 @@ impl Curve for Segment {
                         .distance_to(point)
                 }
             }
-            None => {
-                (self.start - point)
-                    .norm()
-                    .min((self.end - point).norm())
-            }
+            None => (self.start - point).norm().min((self.end - point).norm()),
         }
     }
 }

@@ -251,16 +251,15 @@ impl SizedChunkedArena {
 
     /// Get a pointer to the item at `index`
     pub unsafe fn at(&self, index: usize) -> *const u8 {
-        self.chunks[index / self.items_per_chunk()].offset(((index % self.items_per_chunk()) *
-                                                            self.item_size) as
-                                                           isize)
+        self.chunks[index / self.items_per_chunk()]
+            .offset(((index % self.items_per_chunk()) * self.item_size) as isize)
     }
 
     /// Get a mutable pointer to the item at `index`
     pub unsafe fn at_mut(&mut self, index: usize) -> *mut u8 {
         let items_per_chunk = self.items_per_chunk();
-        self.chunks[index / items_per_chunk].offset(((index % items_per_chunk) * self.item_size) as
-                                                    isize)
+        self.chunks[index / items_per_chunk]
+            .offset(((index % items_per_chunk) * self.item_size) as isize)
     }
 }
 

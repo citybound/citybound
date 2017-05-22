@@ -146,13 +146,13 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
         match (a.is_linear(), b.is_linear()) {
             (true, true) => {
                 (&Line {
-                      start: a.start(),
-                      direction: a.start_direction(),
-                  },
+                     start: a.start(),
+                     direction: a.start_direction(),
+                 },
                  &Line {
-                      start: b.start(),
-                      direction: b.start_direction(),
-                  })
+                     start: b.start(),
+                     direction: b.start_direction(),
+                 })
                         .intersect()
                         .iter()
                         .filter(|intersection| {
@@ -165,9 +165,9 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
             }
             (true, false) => {
                 (&Line {
-                      start: a.start(),
-                      direction: a.start_direction(),
-                  },
+                     start: a.start(),
+                     direction: a.start_direction(),
+                 },
                  &Circle { center: b.center(), radius: b.radius() })
                         .intersect()
                         .iter()
