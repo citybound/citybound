@@ -5,13 +5,20 @@ environment:
   global:
   # TODO This is the Rust channel that build jobs will use by default but can be
   # overridden on a case by case basis down below
-    RUST_VERSION: nightly-2017-05-20
+    TARGET: x86_64-pc-windows-msvc
 
   # TODO These are all the build jobs. Adjust as necessary. Comment out what you
   # don't need
   matrix:
-    # MSVC
-    - TARGET: x86_64-pc-windows-msvc
+    # Current actual version
+    - RUST_VERSION: nightly-2017-05-20
+
+    # fresh nightly version
+    - RUST_VERSION: nightly
+
+matrix:
+  allow_failures:
+    - RUST_VERSION: nightly
 
 install:
   - ps: >-
@@ -28,6 +35,9 @@ install:
 
 # TODO This is the "test phase", tweak it as you see fit
 test_script:
+  - if [%RUST_VERSION%]==[nightly] (
+       cargo update
+     )
   - if [%APPVEYOR_REPO_TAG%]==[false] (
        cargo build --target %TARGET%
      )
