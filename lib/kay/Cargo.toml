@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
-clippy = "0.0.128"
+clippy = { version = "0.0.134", optional = true }
 random = "0.12.2"
 
 [dependencies.compact]
@@ -15,3 +15,10 @@ path = "../compact_macros/"
 
 [dependencies.chunked]
 path = "../chunked/"
+
+[features]
+enable-clippy = [
+	"clippy",
+	"compact/enable-clippy",
+	"chunked/enable-clippy"
+]

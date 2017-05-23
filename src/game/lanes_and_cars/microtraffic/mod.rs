@@ -205,9 +205,7 @@ pub fn setup(system: &mut ActorSystem) {
                     });
                 match maybe_next_car_position {
                     Some(next_car_position) => {
-                        lane.microtraffic
-                            .cars
-                            .insert(next_car_position, routed_car)
+                        lane.microtraffic.cars.insert(next_car_position, routed_car)
                     }
                     None => lane.microtraffic.cars.push(routed_car),
                 }
@@ -323,11 +321,11 @@ pub fn setup(system: &mut ActorSystem) {
                             car.acceleration = car.acceleration
                                 .min(intelligent_acceleration(car,
                                                               &Obstacle {
-                                                                   position: OrderedFloat(start +
-                                                                                          2.0),
-                                                                   velocity: 0.0,
-                                                                   max_velocity: 0.0,
-                                                               },
+                                                                  position: OrderedFloat(start +
+                                                                                         2.0),
+                                                                  velocity: 0.0,
+                                                                  max_velocity: 0.0,
+                                                              },
                                                               2.0))
                         }
                     }
@@ -451,11 +449,7 @@ pub fn setup(system: &mut ActorSystem) {
         each_t_lane.on(|&AddCar { car, from: maybe_from }, lane, _| {
             let from = maybe_from.expect("car has to come from somewhere on transfer lane");
 
-            let from_left = from ==
-                            lane.connectivity
-                                .left
-                                .expect("should have a left lane")
-                                .0;
+            let from_left = from == lane.connectivity.left.expect("should have a left lane").0;
             let side_multiplier = if from_left { -1.0 } else { 1.0 };
             let offset = lane.interaction_to_self_offset(*car.position, from_left);
             lane.microtraffic
@@ -545,19 +539,20 @@ pub fn setup(system: &mut ActorSystem) {
                         };
 
                         let mut dangerous = false;
-                        let next_obstacle_acceleration = *next_car.into_iter()
-                                .chain(maybe_next_left_obstacle)
-                                .chain(maybe_next_right_obstacle)
-                                .chain(&[Obstacle::far_ahead()])
-                                .filter_map(|obstacle| if *obstacle.position <
-                                                          *car.position + 0.1 {
-                                    dangerous = true;
-                                    None
-                                } else {
-                                    Some(OrderedFloat(intelligent_acceleration(car, obstacle, 1.0)))
-                                })
-                                .min()
-                                .unwrap();
+                        let next_obstacle_acceleration = *next_car
+                                                              .into_iter()
+                                                              .chain(maybe_next_left_obstacle)
+                                                              .chain(maybe_next_right_obstacle)
+                                                              .chain(&[Obstacle::far_ahead()])
+                                                              .filter_map(|obstacle| if
+                            *obstacle.position < *car.position + 0.1 {
+                                                                              dangerous = true;
+                                                                              None
+                                                                          } else {
+                            Some(OrderedFloat(intelligent_acceleration(car, obstacle, 1.0)))
+                        })
+                                                              .min()
+                                                              .unwrap();
 
                         let transfer_before_end_velocity =
                             (lane.construction.length + 1.0 - *car.position) / 1.5;
@@ -656,10 +651,11 @@ pub fn setup(system: &mut ActorSystem) {
                         .iter()
                         .filter_map(|car| if car.transfer_position < 0.3 ||
                                              car.transfer_acceleration < 0.0 {
-                                        Some(car.as_obstacle.offset_by(
-                                left_start + lane.self_to_interaction_offset(*car.position, true)
-                            ))
-                                    } else {
+                            Some(car.as_obstacle
+                                     .offset_by(left_start +
+                                                lane.self_to_interaction_offset(*car.position,
+                                                                                true)))
+                        } else {
                                         None
                                     })
                         .collect();
@@ -673,11 +669,11 @@ pub fn setup(system: &mut ActorSystem) {
                         .iter()
                         .filter_map(|car| if car.transfer_position > -0.3 ||
                                              car.transfer_acceleration > 0.0 {
-                                        Some(car.as_obstacle.offset_by(
-                                    right_start + lane.self_to_interaction_offset(*car.position,
-                                                                                  false)
-                                ))
-                                    } else {
+                            Some(car.as_obstacle
+                                     .offset_by(right_start +
+                                                lane.self_to_interaction_offset(*car.position,
+                                                                                false)))
+                        } else {
                                         None
                                     })
                         .collect();
@@ -724,34 +720,37 @@ fn obstacles_for_interaction(interaction: &Interaction,
                              .collect()
                      }
                      OverlapKind::Transfer => {
-                    cars.skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
-                        .map(|car| car.as_obstacle.offset_by(-start + partner_start))
-                        .chain(self_obstacles_iter
-                            .filter_map(|&(obstacle, id)| if id != partner_lane &&
-                                                             *obstacle.position +
-                                                             2.0 * obstacle.velocity >
-                                                             start {
-                                Some(obstacle.offset_by(-start + partner_start))
-                            } else {
-                                None
-                            }))
-                        .collect()
-                }
+                         cars.skip_while(|car: &&LaneCar| {
+                    *car.position + 2.0 * car.velocity < start
+                })
+                             .map(|car| car.as_obstacle.offset_by(-start + partner_start))
+                             .chain(self_obstacles_iter
+                                        .filter_map(|&(obstacle, id)| if id != partner_lane &&
+                                                                         *obstacle.position +
+                                                                         2.0 * obstacle.velocity >
+                                                                         start {
+                                                        Some(obstacle.offset_by(-start +
+                                                                                partner_start))
+                                                    } else {
+                                                        None
+                                                    }))
+                             .collect()
+                     }
                      OverlapKind::Conflicting => {
-                let in_overlap = |car: &LaneCar| {
+                         let in_overlap = |car: &LaneCar| {
                     *car.position + 2.0 * car.velocity > start && *car.position - 2.0 < end
                 };
-                if cars.any(in_overlap) {
-                    vec![Obstacle {
-                             position: OrderedFloat(partner_start),
-                             velocity: 0.0,
-                             max_velocity: 0.0,
-                         }]
-                            .into()
-                } else {
-                    CVec::new()
-                }
-            }
+                         if cars.any(in_overlap) {
+                             vec![Obstacle {
+                                      position: OrderedFloat(partner_start),
+                                      velocity: 0.0,
+                                      max_velocity: 0.0,
+                                  }]
+                                     .into()
+                         } else {
+                             CVec::new()
+                         }
+                     }
                  })
         }
         Interaction {

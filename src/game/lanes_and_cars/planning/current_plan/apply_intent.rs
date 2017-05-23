@@ -97,8 +97,8 @@ fn apply_new_road(points: &CVec<P2>,
                                                                               offset(lane_idx),
                                                                     direction: -direction,
                                                                 }));
-            continue_from.push((LaneStrokeRef(base_idx + lane_idx + n_per_side),
-                                ContinuationMode::Prepend));
+            continue_from
+                .push((LaneStrokeRef(base_idx + lane_idx + n_per_side), ContinuationMode::Prepend));
         }
     }
 
@@ -129,16 +129,16 @@ fn apply_continue_road(continue_from: &[(SelectableStrokeRef, ContinuationMode)]
         .iter()
         .map(|&(selectable_ref, continuation_mode)| match selectable_ref {
                  SelectableStrokeRef::Built(old_ref) => {
-            let old_stroke = still_built_strokes
-                .mapping
-                .get(old_ref)
-                .expect("old_ref should exist");
-            new_plan_delta.new_strokes.push(old_stroke.clone());
-            new_plan_delta
-                .strokes_to_destroy
-                .insert(old_ref, old_stroke.clone());
-            (LaneStrokeRef(new_plan_delta.new_strokes.len() - 1), continuation_mode)
-        }
+                     let old_stroke = still_built_strokes
+                         .mapping
+                         .get(old_ref)
+                         .expect("old_ref should exist");
+                     new_plan_delta.new_strokes.push(old_stroke.clone());
+                     new_plan_delta
+                         .strokes_to_destroy
+                         .insert(old_ref, old_stroke.clone());
+                     (LaneStrokeRef(new_plan_delta.new_strokes.len() - 1), continuation_mode)
+                 }
                  SelectableStrokeRef::New(idx) => (LaneStrokeRef(idx), continuation_mode),
              })
         .collect::<Vec<_>>();
@@ -161,8 +161,8 @@ fn continue_new_road(continue_from: &[(LaneStrokeRef, ContinuationMode)],
 
     for next_reference_point in additional_points {
         // TODO: not really nice that we have to care about that here...
-        if next_reference_point.is_roughly_within(previous_reference_point,
-                                                  ::descartes::MIN_START_TO_END) {
+        if next_reference_point
+               .is_roughly_within(previous_reference_point, ::descartes::MIN_START_TO_END) {
             continue;
         }
 
@@ -233,9 +233,9 @@ fn continue_new_road(continue_from: &[(LaneStrokeRef, ContinuationMode)],
             let maybe_join_with = all_strokes(&new_plan_delta, still_built_strokes)
                 .filter(|&(other_ref, other_stroke)| match other_ref {
                             SelectableStrokeRef::New(other_idx) => {
-                    // only allow self joins if self has > 2 nodes
-                    other_idx != stroke_idx || other_stroke.nodes().len() > 2
-                }
+                                // only allow self joins if self has > 2 nodes
+                                other_idx != stroke_idx || other_stroke.nodes().len() > 2
+                            }
                             SelectableStrokeRef::Built(_) => true,
                         })
                 .map(|(stroke_ref, stroke)| {
@@ -412,13 +412,11 @@ fn apply_select(selection_ref: SelectableStrokeRef,
                     (other_stroke.path().project(start_position),
                      other_stroke.path().project(end_position)) {
                     let start_on_other = other_stroke.path().along(start_on_other_distance);
-                    let start_direction_on_other = other_stroke
-                        .path()
-                        .direction_along(start_on_other_distance);
+                    let start_direction_on_other =
+                        other_stroke.path().direction_along(start_on_other_distance);
                     let end_on_other = other_stroke.path().along(end_on_other_distance);
-                    let end_direction_on_other = other_stroke
-                        .path()
-                        .direction_along(end_on_other_distance);
+                    let end_direction_on_other =
+                        other_stroke.path().direction_along(end_on_other_distance);
 
                     let add_selection =
                         start_on_other.is_roughly_within(start_position, 60.0) &&

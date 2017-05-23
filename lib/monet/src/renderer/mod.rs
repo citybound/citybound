@@ -85,12 +85,12 @@ pub fn setup(system: &mut ActorSystem, initial: Renderer) {
         });
 
         the_renderer.on_critical(|&UpdateThing {
-                                       scene_id,
-                                       thing_id,
-                                       ref thing,
-                                       instance,
-                                       is_decal,
-                                   },
+                                      scene_id,
+                                      thing_id,
+                                      ref thing,
+                                      instance,
+                                      is_decal,
+                                  },
                                   renderer,
                                   _| {
             let thing = Batch::new_thing(thing.clone(),

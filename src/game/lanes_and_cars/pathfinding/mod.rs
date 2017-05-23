@@ -145,10 +145,10 @@ pub fn tick(lane: &mut Lane, world: &mut World) {
                                    .pairs()
                                    .filter_map(|(&destination,
                                                  &RoutingInfo {
-                                                      distance,
-                                                      distance_hops,
-                                                      ..
-                                                  })| {
+                                                     distance,
+                                                     distance_hops,
+                                                     ..
+                                                 })| {
                     if true
                     // fresh
                     {

@@ -188,8 +188,8 @@ impl CurrentPlan {
                 }
             }
             for (&selection_ref, &(start, end)) in self.current.selections.pairs() {
-                let stroke = selection_ref.get_stroke(&self.current.plan_delta,
-                                                      &still_built_strokes);
+                let stroke = selection_ref
+                    .get_stroke(&self.current.plan_delta, &still_built_strokes);
                 if let Some(subsection) = stroke.path().subsection(start, end) {
                     let draggable = Draggable::new(selection_ref, subsection.clone());
                     world.send_to_id_of::<Swarm<Draggable>, _>(CreateWith(draggable,

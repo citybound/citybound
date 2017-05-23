@@ -156,9 +156,7 @@ pub fn setup(system: &mut ActorSystem) {
                         (*obstacle.position - lane.construction.length) *
                         lane.construction.path.end_direction()
                     };
-                    let direction = lane.construction
-                        .path
-                        .direction_along(*obstacle.position);
+                    let direction = lane.construction.path.direction_along(*obstacle.position);
 
                     car_instances.push(Instance {
                                            instance_position: [position2d.x, position2d.y, 0.0],
@@ -443,9 +441,7 @@ pub fn setup(system: &mut ActorSystem) {
                                          .path
                                          .direction_along(*obstacle.position)
                                          .orthogonal();
-                    let direction = lane.construction
-                        .path
-                        .direction_along(*obstacle.position);
+                    let direction = lane.construction.path.direction_along(*obstacle.position);
 
                     car_instances.push(Instance {
                                            instance_position: [position2d.x, position2d.y, 0.0],
@@ -467,9 +463,7 @@ pub fn setup(system: &mut ActorSystem) {
                                          .path
                                          .direction_along(*obstacle.position)
                                          .orthogonal();
-                    let direction = lane.construction
-                        .path
-                        .direction_along(*obstacle.position);
+                    let direction = lane.construction.path.direction_along(*obstacle.position);
 
                     car_instances.push(Instance {
                                            instance_position: [position2d.x, position2d.y, 0.0],
@@ -489,9 +483,7 @@ pub fn setup(system: &mut ActorSystem) {
             }
 
             if lane.connectivity.left.is_none() {
-                let position = lane.construction
-                    .path
-                    .along(lane.construction.length / 2.0) +
+                let position = lane.construction.path.along(lane.construction.length / 2.0) +
                                lane.construction
                                    .path
                                    .direction_along(lane.construction.length / 2.0)
@@ -508,9 +500,7 @@ pub fn setup(system: &mut ActorSystem) {
                            });
             }
             if lane.connectivity.right.is_none() {
-                let position = lane.construction
-                    .path
-                    .along(lane.construction.length / 2.0) -
+                let position = lane.construction.path.along(lane.construction.length / 2.0) -
                                lane.construction
                                    .path
                                    .direction_along(lane.construction.length / 2.0)

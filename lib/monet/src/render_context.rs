@@ -73,12 +73,12 @@ impl RenderContext {
 
         for (i,
              &Batch {
-                  ref vertices,
-                  ref indices,
-                  ref instances,
-                  is_decal,
-                  ..
-              }) in batches_todo {
+                 ref vertices,
+                 ref indices,
+                 ref instances,
+                 is_decal,
+                 ..
+             }) in batches_todo {
             if instances.len() > 1 {
                 render_debug_text.push_str(&format!("batch{}: {} instances\n", i, instances.len()));
             }

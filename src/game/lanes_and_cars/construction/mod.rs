@@ -80,12 +80,12 @@ pub fn setup(system: &mut ActorSystem) {
         });
 
         each_lane.on(|&Connect {
-                           other_id,
-                           other_start,
-                           other_end,
-                           other_length,
-                           reply_needed,
-                       },
+                          other_id,
+                          other_start,
+                          other_end,
+                          other_length,
+                          reply_needed,
+                      },
                       lane,
                       world| {
             if other_id == lane.id() {
