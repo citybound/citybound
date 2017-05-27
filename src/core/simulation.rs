@@ -16,7 +16,7 @@ pub struct Wake {
     pub current_tick: Timestamp,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Timestamp(pub usize);
 
 #[derive(Copy, Clone)]

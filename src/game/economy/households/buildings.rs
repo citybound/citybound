@@ -14,11 +14,8 @@ use game::lanes_and_cars::pathfinding::QueryAsDestination;
 pub fn setup(system: &mut ActorSystem) {
     system.add(Swarm::<Building>::new(),
                Swarm::<Building>::subactors(|mut each_building| {
-        each_building.on(|&QueryAsDestination { rough_destination, requester },
-                          building,
-                          world| {
-            world.send(building.adjacent_lane,
-                       QueryAsDestination { rough_destination, requester });
+        each_building.on(|query: &QueryAsDestination, building, world| {
+            world.send(building.adjacent_lane, *query);
             Fate::Live
         });
     }));

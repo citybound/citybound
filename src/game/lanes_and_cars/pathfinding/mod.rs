@@ -5,6 +5,7 @@ use stagemaster::geometry::AnyShape;
 use descartes::Band;
 use super::lane::{Lane, TransferLane};
 use super::connectivity::{Interaction, InteractionKind, OverlapKind};
+use core::simulation::Timestamp;
 
 pub mod trip;
 
@@ -362,9 +363,10 @@ pub fn setup(system: &mut ActorSystem) {
             Fate::Live
         });
 
-        each_lane.on(|&QueryAsDestination { requester, rough_destination }, lane, world| {
+        each_lane.on(|&QueryAsDestination { tick, requester, rough_destination }, lane, world| {
             world.send(requester,
                        TellAsDestination {
+                           tick,
                            rough_destination,
                            as_destination: lane.pathfinding.as_destination,
                        });
@@ -448,9 +450,11 @@ pub struct ForgetRoutes {
 pub struct QueryAsDestination {
     pub requester: ID,
     pub rough_destination: ID,
+    pub tick: Timestamp,
 }
 #[derive(Copy, Clone)]
 pub struct TellAsDestination {
     pub rough_destination: ID,
     pub as_destination: Option<Destination>,
+    pub tick: Timestamp,
 }

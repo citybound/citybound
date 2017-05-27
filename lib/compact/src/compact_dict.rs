@@ -41,6 +41,16 @@ impl<K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
         None
     }
 
+    /// Look up the value for keu `query` mutably, if it exists
+    pub fn get_mut(&mut self, query: K) -> Option<&mut V> {
+        for i in 0..self.keys.len() {
+            if self.keys[i] == query {
+                return Some(&mut self.values[i]);
+            }
+        }
+        None
+    }
+
     /// Lookup up the value for key `query`, if it exists, but also swap the entry
     /// to the beginning of the key/value vectors, so a repeated lookup for that item will be faster
     pub fn get_mru(&mut self, query: K) -> Option<&V> {

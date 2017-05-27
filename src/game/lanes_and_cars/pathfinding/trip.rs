@@ -1,11 +1,12 @@
 use kay::{ID, ActorSystem, Fate};
 use kay::swarm::{Swarm, SubActor, CreateWith};
 use ordered_float::OrderedFloat;
+use core::simulation::Timestamp;
 
 use super::Destination;
 
 #[derive(SubActor, Compact, Clone)]
-struct Trip {
+pub struct Trip {
     _id: Option<ID>,
     source: ID,
     rough_destination: ID,
@@ -13,26 +14,48 @@ struct Trip {
     listener: Option<ID>,
 }
 
+impl Trip {
+    pub fn new(source: ID, rough_destination: ID, listener: Option<ID>) -> Self {
+        Trip {
+            _id: None,
+            source,
+            rough_destination,
+            listener,
+            destination: None,
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
-pub struct Start;
+pub struct Start(pub Timestamp);
+
+#[derive(Copy, Clone)]
+pub struct CreatedTrip(pub ID);
+
 use super::QueryAsDestination;
 
 
 pub fn setup(system: &mut ActorSystem) {
     system.add(Swarm::<Trip>::new(),
                Swarm::<Trip>::subactors(|mut each_trip| {
-        each_trip.on_create_with(|_: &Start, trip, world| {
+        each_trip.on_create_with(|&Start(tick), trip, world| {
             world.send(trip.rough_destination,
                        QueryAsDestination {
                            rough_destination: trip.rough_destination,
                            requester: trip.id(),
+                           tick,
                        });
+
+            if let Some(listener) = trip.listener {
+                world.send(listener, CreatedTrip(trip.id()));
+            }
             Fate::Live
         });
 
         each_trip.on(|&TellAsDestination {
                            as_destination: maybe_destination,
                            rough_destination,
+                           tick,
                        },
                       trip,
                       world| {
@@ -56,22 +79,43 @@ pub fn setup(system: &mut ActorSystem) {
                 Fate::Live
             } else {
                 println!("{:?} is not a destination yet", rough_destination);
+                if let Some(listener) = trip.listener {
+                    world.send(listener,
+                               TripResult {
+                                   tick,
+                                   failed: true,
+                                   id: trip.id(),
+                                   location: trip.source,
+                               });
+                }
                 Fate::Die
             }
         });
 
         each_trip.on(|control, trip, world| {
             match *control {
-                TripControl::Fail { location } => {
+                TripControl::Fail { location, tick } => {
                     println!("Trip {:?} failed!", trip.id());
                     if let Some(listener) = trip.listener {
-                        world.send(listener, TripResult::Failure { id: trip.id(), location })
+                        world.send(listener,
+                                   TripResult {
+                                       tick,
+                                       failed: true,
+                                       id: trip.id(),
+                                       location,
+                                   })
                     }
                 }
-                TripControl::Succeed => {
+                TripControl::Succeed { tick } => {
                     println!("Trip {:?} succeeded!", trip.id());
                     if let Some(listener) = trip.listener {
-                        world.send(listener, TripResult::Success { id: trip.id() })
+                        world.send(listener,
+                                   TripResult {
+                                       tick,
+                                       failed: true,
+                                       id: trip.id(),
+                                       location: trip.rough_destination,
+                                   })
                     }
                 }
             }
@@ -132,14 +176,16 @@ use super::super::microtraffic::{AddCar, LaneCar, Obstacle};
 
 #[derive(Copy, Clone)]
 pub enum TripControl {
-    Succeed,
-    Fail { location: ID },
+    Succeed { tick: Timestamp },
+    Fail { location: ID, tick: Timestamp },
 }
 
 #[derive(Copy, Clone)]
-pub enum TripResult {
-    Success { id: ID },
-    Failure { id: ID, location: ID },
+pub struct TripResult {
+    pub id: ID,
+    pub location: ID,
+    pub failed: bool,
+    pub tick: Timestamp,
 }
 
 pub struct TripCreator {
