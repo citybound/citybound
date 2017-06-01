@@ -173,6 +173,7 @@ impl Family {
                 *task = if let TaskState::IdleAt(loc) = task.state {
                     Task {
                         offer: best.offer,
+                        goal: best.deal.give.0,
                         duration: best.deal.duration,
                         state: TaskState::GettingReadyAt(loc),
                     }
@@ -261,28 +262,40 @@ pub fn setup(system: &mut ActorSystem) {
         });
 
         each_family.on(move |&TripResult { id, location, tick, failed }, family, world| {
-            let matching_task_members = family
-                .member_tasks
-                .iter()
-                .enumerate()
-                .filter_map(|(idx, task)| if let TaskState::InTrip(trip_id) = task.state {
-                                if trip_id == id {
-                                    Some(MemberIdx(idx))
+            let (matching_task_member, matching_resource, matching_offer) =
+                family
+                    .member_tasks
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(idx, task)| if let TaskState::InTrip(trip_id) = task.state {
+                                    if trip_id == id {
+                                        Some((MemberIdx(idx), task.goal, task.offer))
+                                    } else {
+                                        None
+                                    }
                                 } else {
                                     None
-                                }
-                            } else {
-                                None
-                            })
-                .collect::<Vec<_>>();
+                                })
+                    .next()
+                    .expect("Should have a matching task");
+            {
+                let used_offers = if r_properties(matching_resource).supplier_shared {
+                    &mut family.used_offers
+                } else {
+                    &mut family.member_used_offers[matching_task_member.0]
+                };
+
+                if failed {
+                    used_offers.remove(matching_resource);
+                } else {
+                    used_offers.insert(matching_resource, matching_offer);
+                }
+            }
+
             if failed {
-                for member in matching_task_members {
-                    family.stop_task(member, location, world);
-                }
+                family.stop_task(matching_task_member, location, world);
             } else {
-                for member in matching_task_members {
-                    family.start_task(member, tick, location, world);
-                }
+                family.start_task(matching_task_member, tick, location, world);
             }
             Fate::Live
         });
@@ -293,12 +306,12 @@ pub fn setup(system: &mut ActorSystem) {
                 .map(|&Entry(resource, amount)| (resource, -amount))
                 .chain(Some(deal.give));
             for (resource, delta) in resource_deltas {
-                let entry = if r_properties(resource).ownership_shared {
-                    family.resources.mut_entry_or(resource, 0.0)
+                let resources = if r_properties(resource).ownership_shared {
+                    &mut family.resources
                 } else {
-                    family.member_resources[member.0].mut_entry_or(resource, 0.0)
+                    &mut family.member_resources[member.0]
                 };
-                *entry += delta;
+                *resources.mut_entry_or(resource, 0.0) += delta;
             }
             Fate::Live
         });

@@ -1,6 +1,7 @@
 use kay::{ID, ActorSystem, Fate, World};
 use kay::swarm::{Swarm, SubActor};
 use core::simulation::{Tick, Timestamp, Duration, Simulation, WakeUpIn};
+use super::super::resources::ResourceId;
 
 use super::MemberIdx;
 
@@ -15,6 +16,7 @@ pub enum TaskState {
 #[derive(Copy, Clone)]
 pub struct Task {
     pub offer: ID,
+    pub goal: ResourceId,
     pub duration: Duration,
     pub state: TaskState,
 }

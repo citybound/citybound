@@ -137,6 +137,24 @@ impl<AssociatedValue: Compact> ResourceMap<AssociatedValue> {
             }
         }
     }
+
+    pub fn insert(&mut self, key: ResourceId, value: AssociatedValue) {
+        match self.entries
+                  .binary_search_by_key(&key, |&Entry(ref k, ref _v)| *k) {
+            Ok(index) => self.entries[index] = Entry(key, value),
+            Err(index) => {
+                self.entries.insert(index, Entry(key, value));
+            }
+        }
+    }
+
+    pub fn remove(&mut self, key: ResourceId) -> Option<AssociatedValue> {
+        match self.entries
+                  .binary_search_by_key(&key, |&Entry(ref k, ref _v)| *k) {
+            Ok(index) => Some(self.entries.remove(index).1),
+            Err(_) => None,
+        }
+    }
 }
 
 impl<AssociatedValue: Compact> ::std::ops::Deref for ResourceMap<AssociatedValue> {
