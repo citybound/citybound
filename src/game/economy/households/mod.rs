@@ -14,7 +14,8 @@ use self::tasks::Task;
 
 mod buildings;
 
-use super::market::{Market, Evaluate, Search, EvaluatedDeal, EvaluatedSearchResult};
+use super::market::{Market, Evaluate, Search, EvaluatedDeal, EvaluatedSearchResult,
+                    GetApplicableDeal, ApplicableDeal};
 use super::super::lanes_and_cars::pathfinding::trip::{Trip, Start, CreatedTrip, TripResult};
 
 #[derive(Copy, Clone)]
@@ -132,58 +133,60 @@ impl Family {
     }
 
     pub fn choose_deal(&mut self, world: &mut World) {
-        let (member, tick) = if let DecisionState::Choosing(member, tick, ref entries) =
-            self.decision_state {
-            let time = TimeOfDay::from_tick(tick);
-            let maybe_best = entries
-                .values()
-                .flat_map(|entry| {
-                    entry
-                        .deals
-                        .iter()
-                        .map(|evaluated| {
-                            let give_alleviation =
-                                resource_graveness_helper(evaluated.deal.give.0,
-                                                          -evaluated.deal.give.1,
-                                                          time);
-                            let take_graveness: f32 = evaluated
-                                .deal
-                                .take
-                                .iter()
-                                .map(|&Entry(resource, amount)| {
-                                    resource_graveness_helper(resource, -amount, time)
-                                })
-                                .sum();
+        let (member, tick, best_offer) =
+            if let DecisionState::Choosing(member, tick, ref entries) = self.decision_state {
+                let time = TimeOfDay::from_tick(tick);
+                let maybe_best = entries
+                    .values()
+                    .flat_map(|entry| {
+                        entry
+                            .deals
+                            .iter()
+                            .map(|evaluated| {
+                                let give_alleviation =
+                                    resource_graveness_helper(evaluated.deal.give.0,
+                                                              -evaluated.deal.give.1,
+                                                              time);
+                                let take_graveness: f32 = evaluated
+                                    .deal
+                                    .take
+                                    .iter()
+                                    .map(|&Entry(resource, amount)| {
+                                        resource_graveness_helper(resource, -amount, time)
+                                    })
+                                    .sum();
 
-                            let usefulness = give_alleviation /
-                                             (take_graveness * evaluated.deal.duration.0 as f32);
+                                let usefulness = give_alleviation /
+                                                 (take_graveness *
+                                                  evaluated.deal.duration.0 as f32);
 
-                            (usefulness, evaluated)
-                        })
-                })
-                .collect::<Vec<_>>()
-                .into_iter()
-                .max_by_key(|&(u, _e)| OrderedFloat(u));
+                                (usefulness, evaluated)
+                            })
+                    })
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .max_by_key(|&(u, _e)| OrderedFloat(u));
 
-            let best = maybe_best.expect("Should definitely have a best").1;
-            let task = &mut self.member_tasks[member.0];
+                let best = maybe_best.expect("Should definitely have a best").1;
+                let task = &mut self.member_tasks[member.0];
 
-            *task = if let TaskState::IdleAt(loc) = task.state {
-                Task {
-                    offer: best.offer,
-                    duration: best.deal.duration,
-                    state: TaskState::GettingReadyAt(loc),
-                }
+                *task = if let TaskState::IdleAt(loc) = task.state {
+                    Task {
+                        offer: best.offer,
+                        duration: best.deal.duration,
+                        state: TaskState::GettingReadyAt(loc),
+                    }
+                } else {
+                    panic!("Member who gets new task should be idle");
+                };
+
+                (member, tick, best.offer)
             } else {
-                panic!("Member who gets new task should be idle");
+                panic!("Tried to choose deal while not deciding");
             };
 
-            (member, tick)
-        } else {
-            panic!("Tried to choose deal while not deciding");
-        };
-
         self.decision_state = DecisionState::WaitingForTrip(member);
+        world.send(best_offer, GetApplicableDeal(self.id(), member));
         self.start_trip(member, tick, world);
     }
 
@@ -280,6 +283,22 @@ pub fn setup(system: &mut ActorSystem) {
                 for member in matching_task_members {
                     family.start_task(member, tick, location, world);
                 }
+            }
+            Fate::Live
+        });
+
+        each_family.on(|&ApplicableDeal(ref deal, member), family, _| {
+            let resource_deltas = deal.take
+                .iter()
+                .map(|&Entry(resource, amount)| (resource, -amount))
+                .chain(Some(deal.give));
+            for (resource, delta) in resource_deltas {
+                let entry = if r_properties(resource).ownership_shared {
+                    family.resources.mut_entry_or(resource, 0.0)
+                } else {
+                    family.member_resources[member.0].mut_entry_or(resource, 0.0)
+                };
+                *entry += delta;
             }
             Fate::Live
         });
