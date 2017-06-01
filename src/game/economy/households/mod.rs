@@ -15,10 +15,10 @@ use self::tasks::Task;
 mod buildings;
 
 use super::market::{Market, Evaluate, Search, EvaluatedDeal, EvaluatedSearchResult,
-                    GetApplicableDeal, ApplicableDeal};
+                    GetApplicableDeal, ApplicableDeal, StartedUsing, StoppedUsing};
 use super::super::lanes_and_cars::pathfinding::trip::{Trip, Start, CreatedTrip, TripResult};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct MemberIdx(usize);
 
 #[derive(Compact, Clone)]
@@ -279,16 +279,26 @@ pub fn setup(system: &mut ActorSystem) {
                     .next()
                     .expect("Should have a matching task");
             {
-                let used_offers = if r_properties(matching_resource).supplier_shared {
+                let family_id = family.id();
+                let shared = r_properties(matching_resource).supplier_shared;
+                let used_offers = if shared {
                     &mut family.used_offers
                 } else {
                     &mut family.member_used_offers[matching_task_member.0]
                 };
 
+                let maybe_member = if shared {
+                    Some(matching_task_member)
+                } else {
+                    None
+                };
+
                 if failed {
                     used_offers.remove(matching_resource);
+                    world.send(matching_offer, StoppedUsing(family_id, maybe_member));
                 } else {
                     used_offers.insert(matching_resource, matching_offer);
+                    world.send(matching_offer, StartedUsing(family_id, maybe_member));
                 }
             }
 

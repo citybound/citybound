@@ -20,7 +20,7 @@ pub struct Offer {
     from: TimeOfDay,
     to: TimeOfDay,
     deal: Deal,
-    users: CVec<ID>,
+    users: CVec<(ID, Option<MemberIdx>)>,
 }
 
 pub struct Market {
@@ -63,6 +63,13 @@ pub struct GetApplicableDeal(pub ID, pub MemberIdx);
 #[derive(Compact, Clone)]
 pub struct ApplicableDeal(pub Deal, pub MemberIdx);
 
+
+#[derive(Copy, Clone)]
+pub struct StartedUsing(pub ID, pub Option<MemberIdx>);
+
+#[derive(Copy, Clone)]
+pub struct StoppedUsing(pub ID, pub Option<MemberIdx>);
+
 pub fn setup(system: &mut ActorSystem) {
     system.add(Swarm::<Offer>::new(),
                Swarm::<Offer>::subactors(|mut each_offer| {
@@ -70,5 +77,17 @@ pub fn setup(system: &mut ActorSystem) {
             world.send(id, ApplicableDeal(offer.deal.clone(), member));
             Fate::Live
         });
+
+        each_offer.on(|&StartedUsing(id, member), offer, _| {
+            offer.users.push((id, member));
+            Fate::Live
+        });
+
+        each_offer.on(|&StoppedUsing(id, member), offer, _| {
+            offer
+                .users
+                .retain(|&(o_id, o_member)| o_id != id || o_member != member);
+            Fate::Live
+        })
     }));
 }
