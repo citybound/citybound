@@ -1,6 +1,6 @@
 use kay::{ID, ActorSystem, Fate, World};
 use kay::swarm::{Swarm, SubActor};
-use core::simulation::{Tick, Timestamp, Duration, Simulation, WakeUpIn};
+use core::simulation::{Tick, Timestamp, DurationSeconds, Simulation, WakeUpIn};
 use super::super::resources::ResourceId;
 
 use super::MemberIdx;
@@ -17,7 +17,7 @@ pub enum TaskState {
 pub struct Task {
     pub offer: ID,
     pub goal: ResourceId,
-    pub duration: Duration,
+    pub duration: DurationSeconds,
     pub state: TaskState,
 }
 
@@ -41,7 +41,7 @@ pub fn setup(system: &mut ActorSystem) {
             let maybe_idx =
                 scheduler
                     .task_ends
-                    .binary_search_by_key(&(end.0 as isize), |&(e, _, _)| -(e.0 as isize));
+                    .binary_search_by_key(&(end.iticks()), |&(e, _, _)| -(e.iticks()));
             let insert_idx = match maybe_idx {
                 Ok(idx) | Err(idx) => idx,
             };
@@ -55,7 +55,7 @@ pub fn setup(system: &mut ActorSystem) {
             while scheduler
                       .task_ends
                       .last()
-                      .map(|&(end, _, _)| end.0 < current_tick.0)
+                      .map(|&(end, _, _)| end < current_tick)
                       .unwrap_or(false) {
                 let (_, family_id, member) = scheduler
                     .task_ends
@@ -88,12 +88,12 @@ pub fn setup(system: &mut ActorSystem) {
 
 impl super::Family {
     pub fn start_task(&mut self, member: MemberIdx, start: Timestamp, location: ID, world: &mut World) {
-        world.send_to_id_of::<TaskEndScheduler, _>(ScheduleTaskEnd(Timestamp(start.0 + self.member_tasks[member.0].duration.0), self.id(), member));
+        world.send_to_id_of::<TaskEndScheduler, _>(ScheduleTaskEnd(start + self.member_tasks[member.0].duration, self.id(), member));
         self.member_tasks[member.0].state = TaskState::StartedAt(start, location);
     }
 
     pub fn stop_task(&mut self, member: MemberIdx, location: ID, world: &mut World) {
         self.member_tasks[member.0].state = TaskState::IdleAt(location);
-                    world.send_to_id_of::<Simulation, _>(WakeUpIn(Duration(0), self.id()));
+                    world.send_to_id_of::<Simulation, _>(WakeUpIn(DurationSeconds::new(0).into(), self.id()));
     } 
 }

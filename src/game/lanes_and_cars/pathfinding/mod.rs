@@ -371,7 +371,16 @@ pub fn setup(system: &mut ActorSystem) {
                            as_destination: lane.pathfinding.as_destination,
                        });
             Fate::Live
-        })
+        });
+
+        each_lane.on(|&GetDistanceTo { destination, requester }, lane, world| {
+            let maybe_distance = lane.pathfinding
+                .routes
+                .get(destination)
+                .map(|routing_info| routing_info.distance);
+            world.send(requester, DistanceInfo(maybe_distance));
+            Fate::Live
+        });
     }));
 
     system.extend(Swarm::<TransferLane>::subactors(|mut each_t_lane| {
@@ -450,11 +459,20 @@ pub struct ForgetRoutes {
 pub struct QueryAsDestination {
     pub requester: ID,
     pub rough_destination: ID,
-    pub tick: Timestamp,
+    pub tick: Option<Timestamp>,
 }
 #[derive(Copy, Clone)]
 pub struct TellAsDestination {
     pub rough_destination: ID,
     pub as_destination: Option<Destination>,
-    pub tick: Timestamp,
+    pub tick: Option<Timestamp>,
 }
+
+#[derive(Copy, Clone)]
+pub struct GetDistanceTo {
+    pub destination: Destination,
+    pub requester: ID,
+}
+
+#[derive(Copy, Clone)]
+pub struct DistanceInfo(pub Option<f32>);

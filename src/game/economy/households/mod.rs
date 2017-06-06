@@ -76,7 +76,7 @@ impl Family {
         let mut decision_entries = CDict::<ResourceId, DecisionResourceEntry>::new();
         let time = TimeOfDay::from_tick(tick);
 
-        for (resource, graveness) in self.top_problems(member, time) {
+        for (resource, _) in self.top_problems(member, time) {
             let maybe_offer = if r_properties(resource).supplier_shared {
                 self.used_offers.get(resource)
             } else {
@@ -84,20 +84,13 @@ impl Family {
             };
 
             if let Some(&offer) = maybe_offer {
-                world.send(offer,
-                           Evaluate {
-                               time,
-                               location,
-                               requester: self.id(),
-                               graveness,
-                           });
+                world.send(offer, Evaluate { time, location, requester: self.id() });
             } else {
                 world.send_to_id_of::<Market, _>(Search {
                                                      time,
                                                      location,
                                                      resource,
                                                      requester: self.id(),
-                                                     graveness,
                                                  });
             }
 
@@ -111,27 +104,6 @@ impl Family {
         self.decision_state = DecisionState::Choosing(member, tick, decision_entries);
     }
 
-    pub fn add_into_consideration(&mut self,
-                                  evaluated: &EvaluatedDeal,
-                                  n_to_expect: usize)
-                                  -> bool {
-        if let DecisionState::Choosing(_, _, ref mut entries) = self.decision_state {
-            {
-                let entry = entries
-                    .get_mut(evaluated.deal.give.0)
-                    .expect("Should have an entry for queried resource");
-                entry.n_deals_expected = n_to_expect;
-                entry.deals.push(evaluated.clone());
-            }
-
-            return entries
-                       .values()
-                       .all(|entry| entry.n_deals_expected == entry.deals.len());
-        } else {
-            panic!("Received unexpected deal");
-        }
-    }
-
     pub fn choose_deal(&mut self, world: &mut World) {
         let (member, tick, best_offer) =
             if let DecisionState::Choosing(member, tick, ref entries) = self.decision_state {
@@ -142,6 +114,7 @@ impl Family {
                         entry
                             .deals
                             .iter()
+                            .filter(|evaluated| evaluated.from < time && evaluated.to > time)
                             .map(|evaluated| {
                                 let give_alleviation =
                                     resource_graveness_helper(evaluated.deal.give.0,
@@ -158,7 +131,7 @@ impl Family {
 
                                 let usefulness = give_alleviation /
                                                  (take_graveness *
-                                                  evaluated.deal.duration.0 as f32);
+                                                  evaluated.deal.duration.seconds() as f32);
 
                                 (usefulness, evaluated)
                             })
@@ -167,7 +140,9 @@ impl Family {
                     .into_iter()
                     .max_by_key(|&(u, _e)| OrderedFloat(u));
 
-                let best = maybe_best.expect("Should definitely have a best").1;
+                let best = maybe_best
+                    .expect("TODO: deal with no suitable offer at all")
+                    .1;
                 let task = &mut self.member_tasks[member.0];
 
                 *task = if let TaskState::IdleAt(loc) = task.state {
@@ -234,16 +209,25 @@ pub fn setup(system: &mut ActorSystem) {
             Fate::Live
         });
 
-        each_family.on(|deal: &EvaluatedDeal, family, world| {
-            let done = family.add_into_consideration(deal, 1);
-            if done {
-                family.choose_deal(world);
-            }
-            Fate::Live
-        });
+        each_family.on(|&EvaluatedSearchResult { resource, n_to_expect, ref some_results },
+                        family,
+                        world| {
+            let done = if let DecisionState::Choosing(_, _, ref mut entries) =
+                family.decision_state {
+                {
+                    let entry = entries
+                        .get_mut(resource)
+                        .expect("Should have an entry for queried resource");
+                    entry.n_deals_expected = n_to_expect;
+                    entry.deals.extend(some_results.clone());
+                }
 
-        each_family.on(|&EvaluatedSearchResult { n_to_expect, ref result }, family, world| {
-            let done = family.add_into_consideration(result, n_to_expect);
+                entries
+                    .values()
+                    .all(|entry| entry.n_deals_expected == entry.deals.len())
+            } else {
+                panic!("Received unexpected deal");
+            };
             if done {
                 family.choose_deal(world);
             }

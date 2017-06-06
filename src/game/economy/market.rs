@@ -1,13 +1,13 @@
 use kay::{ActorSystem, ID, Fate};
-use kay::swarm::Swarm;
+use kay::swarm::{Swarm, SubActor, CreateWith};
 use compact::{CVec, CDict};
 use super::resources::{ResourceMap, ResourceId, ResourceAmount};
 use super::households::MemberIdx;
-use core::simulation::{TimeOfDay, Duration};
+use core::simulation::{TimeOfDay, DurationSeconds};
 
 #[derive(Compact, Clone)]
 pub struct Deal {
-    pub duration: Duration,
+    pub duration: DurationSeconds,
     pub take: ResourceMap<ResourceAmount>,
     pub give: (ResourceId, ResourceAmount),
 }
@@ -32,7 +32,6 @@ pub struct Evaluate {
     pub time: TimeOfDay,
     pub location: ID,
     pub requester: ID,
-    pub graveness: f32,
 }
 
 #[derive(Copy, Clone)]
@@ -41,20 +40,21 @@ pub struct Search {
     pub location: ID,
     pub resource: ResourceId,
     pub requester: ID,
-    pub graveness: f32,
 }
 
 #[derive(Compact, Clone)]
 pub struct EvaluatedDeal {
     pub offer: ID,
     pub deal: Deal,
-    pub possible_until: TimeOfDay,
+    pub from: TimeOfDay,
+    pub to: TimeOfDay,
 }
 
 #[derive(Compact, Clone)]
 pub struct EvaluatedSearchResult {
+    pub resource: ResourceId,
     pub n_to_expect: usize,
-    pub result: EvaluatedDeal,
+    pub some_results: CVec<EvaluatedDeal>,
 }
 
 #[derive(Copy, Clone)]
@@ -70,9 +70,67 @@ pub struct StartedUsing(pub ID, pub Option<MemberIdx>);
 #[derive(Copy, Clone)]
 pub struct StoppedUsing(pub ID, pub Option<MemberIdx>);
 
+use game::lanes_and_cars::pathfinding::{Destination, QueryAsDestination, TellAsDestination,
+                                        GetDistanceTo, DistanceInfo};
+
+#[derive(SubActor, Compact, Clone)]
+pub struct TripCostEstimator {
+    _id: Option<ID>,
+    requester: ID,
+    rough_source: ID,
+    source: Option<Destination>,
+    rough_destination: ID,
+    destination: Option<Destination>,
+    base_result: EvaluatedSearchResult,
+}
+
+impl TripCostEstimator {
+    pub fn new(requester: ID,
+               rough_source: ID,
+               rough_destination: ID,
+               base_result: EvaluatedSearchResult)
+               -> Self {
+        TripCostEstimator {
+            _id: None,
+            requester,
+            rough_source,
+            rough_destination,
+            base_result,
+            source: None,
+            destination: None,
+        }
+    }
+}
+
 pub fn setup(system: &mut ActorSystem) {
     system.add(Swarm::<Offer>::new(),
                Swarm::<Offer>::subactors(|mut each_offer| {
+
+        each_offer.on(|&Evaluate { time, location, requester }, offer, world| {
+            if time < offer.to {
+                world.send_to_id_of::<Swarm<TripCostEstimator>, _>(CreateWith(
+                    TripCostEstimator::new(requester, location, offer.location, EvaluatedSearchResult{
+                        resource: offer.deal.give.0,
+                        n_to_expect: 1,
+                        some_results: vec![EvaluatedDeal{
+                            offer: offer.id(),
+                            deal: offer.deal.clone(),
+                            from: offer.from,
+                            to: offer.to
+                        }].into()
+                    })
+                    , ()))
+            } else {
+                world.send(requester,
+                           EvaluatedSearchResult {
+                               resource: offer.deal.give.0,
+                               n_to_expect: 0,
+                               some_results: CVec::new(),
+                           });
+            }
+            Fate::Live
+        });
+
         each_offer.on(|&GetApplicableDeal(id, member), offer, world| {
             world.send(id, ApplicableDeal(offer.deal.clone(), member));
             Fate::Live
@@ -89,5 +147,79 @@ pub fn setup(system: &mut ActorSystem) {
                 .retain(|&(o_id, o_member)| o_id != id || o_member != member);
             Fate::Live
         })
+    }));
+
+
+    system.add(Swarm::<TripCostEstimator>::new(),
+               Swarm::<TripCostEstimator>::subactors(|mut each_estimator| {
+
+        each_estimator.on_create_with(|_: &(), estimator, world| {
+            world.send(estimator.rough_source,
+                       QueryAsDestination {
+                           requester: estimator.id(),
+                           rough_destination: estimator.rough_source,
+                           tick: None,
+                       });
+
+            world.send(estimator.rough_destination,
+                       QueryAsDestination {
+                           requester: estimator.id(),
+                           rough_destination: estimator.rough_destination,
+                           tick: None,
+                       });
+
+            Fate::Live
+        });
+
+        each_estimator.on(|&TellAsDestination { rough_destination, as_destination, .. },
+                           estimator,
+                           world| {
+            if estimator.rough_source == rough_destination {
+                estimator.source = as_destination;
+            } else if estimator.rough_destination == rough_destination {
+                estimator.destination = as_destination;
+            } else {
+                panic!("Should have this rough source/destination")
+            }
+
+            if let (Some(source), Some(destination)) = (estimator.source, estimator.destination) {
+                world.send(source.node,
+                           GetDistanceTo { destination, requester: estimator.id() });
+            }
+            Fate::Live
+        });
+
+        const ASSUMED_AVG_SPEED: f32 = 10.0; // m/s
+
+        each_estimator.on(|&DistanceInfo(maybe_distance), estimator, world| {
+            let result = if let Some(distance) = maybe_distance {
+                EvaluatedSearchResult {
+                    some_results: estimator
+                        .base_result
+                        .some_results
+                        .iter()
+                        .map(|evaluated_deal| {
+                            let estimated_travel_time =
+                                DurationSeconds::new((distance / ASSUMED_AVG_SPEED) as usize);
+                            let mut new_deal = evaluated_deal.clone();
+                            new_deal.deal.duration += estimated_travel_time;
+                            new_deal.from -= estimated_travel_time;
+                            new_deal.to -= estimated_travel_time;
+                            // TODO: adjust possible-until and resources
+                            new_deal
+                        })
+                        .collect(),
+                    ..estimator.base_result
+                }
+            } else {
+                EvaluatedSearchResult {
+                    resource: estimator.base_result.resource,
+                    n_to_expect: 0,
+                    some_results: CVec::new(),
+                }
+            };
+            world.send(estimator.requester, result);
+            Fate::Die
+        });
     }));
 }

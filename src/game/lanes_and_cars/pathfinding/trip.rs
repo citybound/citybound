@@ -43,7 +43,7 @@ pub fn setup(system: &mut ActorSystem) {
                        QueryAsDestination {
                            rough_destination: trip.rough_destination,
                            requester: trip.id(),
-                           tick,
+                           tick: Some(tick),
                        });
 
             if let Some(listener) = trip.listener {
@@ -82,7 +82,7 @@ pub fn setup(system: &mut ActorSystem) {
                 if let Some(listener) = trip.listener {
                     world.send(listener,
                                TripResult {
-                                   tick,
+                                   tick: tick.expect("Should have a tick"),
                                    failed: true,
                                    id: trip.id(),
                                    location: trip.source,
