@@ -37,6 +37,7 @@ enum DecisionState {
 #[derive(Compact, Clone, SubActor)]
 pub struct Family {
     _id: Option<ID>,
+    home: ID,
     resources: ResourceMap<ResourceAmount>,
     member_resources: CVec<ResourceMap<ResourceAmount>>,
     member_tasks: CVec<Task>,
@@ -315,6 +316,7 @@ pub fn setup(system: &mut ActorSystem) {
 #[derive(Compact, Clone, SubActor)]
 pub struct Company {
     _id: Option<ID>,
+    site: ID,
     resources: ResourceMap<ResourceAmount>,
     worker_tasks: CVec<Task>,
     used_offers: ResourceMap<ID>,
