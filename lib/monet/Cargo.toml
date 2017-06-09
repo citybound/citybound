@@ -2,10 +2,11 @@
 name = "monet"
 version = "0.1.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
+build = "build.rs"
 
 [dependencies]
 glium = "0.16.0"
-clippy = { version = "0.0.134", optional = true }
+clippy = { version = "0.0.138", optional = true }
 fnv = "1.0.3"
 lazy_static = "0.2.2"
 
@@ -20,6 +21,9 @@ path = "../compact_macros"
 
 [dependencies.descartes]
 path = "../descartes"
+
+[build-dependencies]
+kay_codegen = {path = "../kay_codegen/"}
 
 [features]
 enable-clippy = [

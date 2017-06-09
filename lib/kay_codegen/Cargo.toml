@@ -1,7 +1,8 @@
 [package]
-name = "allocators"
+name = "kay_codegen"
 version = "0.1.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
-clippy = { version = "0.0.138", optional = true }
+regex = "0.2"
+lazy_static = "0.2.8"

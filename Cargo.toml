@@ -13,6 +13,7 @@ members = [
     "./lib/descartes",
     "./lib/kay",
     "./lib/kay_macros",
+    "./lib/kay_codegen",
     "./lib/monet",
     './lib/stagemaster'
 ]
@@ -20,7 +21,7 @@ members = [
 [dependencies]
 ordered-float = "0.2.3"
 itertools = "0.5.5"
-clippy = { version = "0.0.134", optional = true }
+clippy = { version = "0.0.138", optional = true }
 random = "0.12.2"
 fnv = "1.0.3"
 roaring = "0.4.0"
