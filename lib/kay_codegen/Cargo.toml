@@ -4,5 +4,8 @@ version = "0.1.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
-regex = "0.2"
-lazy_static = "0.2.8"
+syn = "=0.10.6"
+quote = "0.3"
+
+[features]
+default = ["syn/full"]

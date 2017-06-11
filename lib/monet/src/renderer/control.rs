@@ -4,7 +4,7 @@ pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, In
 use kay::{ID, Fate, ActorSystem};
 use glium::Frame;
 
-use {Renderer, RendererID};
+use super::{Renderer, RendererID};
 
 #[derive(Copy, Clone)]
 pub struct SetupInScene {

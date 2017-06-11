@@ -37,12 +37,12 @@ impl Renderer {
         RendererID::in_world(world)
     }
 
-    // Critical
+    /// Critical
     pub fn add_eye_listener(&mut self, scene_id: usize, listener: ID, _: &mut World) {
         self.scenes[scene_id].eye_listeners.push(listener);
     }
 
-    // Critical
+    /// Critical
     pub fn add_batch(&mut self, scene_id: usize, batch_id: u16, thing: &Thing, _: &mut World) {
         let window = &self.render_context.window;
         self.scenes[scene_id]
@@ -50,7 +50,7 @@ impl Renderer {
             .insert(batch_id, Batch::new(thing.clone(), window));
     }
 
-    // Critical
+    /// Critical
     pub fn update_thing(&mut self,
                         scene_id: usize,
                         thing_id: u16,
@@ -65,7 +65,7 @@ impl Renderer {
         self.scenes[scene_id].batches.insert(thing_id, thing);
     }
 
-    // Critical
+    /// Critical
     pub fn add_instance(&mut self,
                         scene_id: usize,
                         batch_id: u16,
@@ -79,7 +79,7 @@ impl Renderer {
             .push(instance);
     }
 
-    // Critical
+    /// Critical
     pub fn add_several_instances(&mut self,
                                  scene_id: usize,
                                  batch_id: u16,
@@ -95,7 +95,7 @@ impl Renderer {
 }
 
 pub fn setup(system: &mut ActorSystem, initial: Renderer) {
-    auto_setup(system, initial);
+    auto_setup(system, (initial,));
     control::setup(system);
     movement::setup(system);
     project::setup(system);
