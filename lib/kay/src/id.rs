@@ -48,7 +48,7 @@ impl ::std::fmt::Debug for ID {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         write!(f,
                "ID {}_{}_{}",
-               *(self.type_id),
+               u16::from(self.type_id),
                self.version,
                self.sub_actor_id)
     }

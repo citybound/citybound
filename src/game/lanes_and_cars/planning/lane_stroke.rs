@@ -239,8 +239,7 @@ pub struct LaneStrokeNode {
 
 impl<'a> RoughlyComparable for &'a LaneStrokeNode {
     fn is_roughly_within(&self, other: &LaneStrokeNode, tolerance: N) -> bool {
-        self.position
-            .is_roughly_within(other.position, tolerance)
+        self.position.is_roughly_within(other.position, tolerance)
         // && (
         //     (self.direction.is_none() && other.direction.is_none())
         //     || (self.direction.is_some() && other.direction.is_some()

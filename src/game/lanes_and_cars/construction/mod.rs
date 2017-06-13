@@ -349,7 +349,6 @@ pub fn setup(system: &mut ActorSystem) {
             }
         });
 
-        each_lane.on_random(|&FindLot)
     }));
 
     system.extend(Swarm::<TransferLane>::subactors(move |mut each_t_lane| {
@@ -541,4 +540,4 @@ use self::materialized_reality::ReportLaneUnbuilt;
 use game::economy::households::buildings::FindLot;
 use game::economy::households::buildings::FoundLot;
 use game::economy::households::buildings::CheckLot;
-use game::economy::households::buildings::CheckLot;
+use game::economy::households::buildings::LotResult;

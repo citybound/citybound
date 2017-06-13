@@ -2,7 +2,7 @@ use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Norm, Path, Dot, Roughl
 use compact::CVec;
 use kay::{ActorSystem, Fate, World};
 use kay::swarm::{Swarm, SubActor};
-use monet::{Instance, Thing, Vertex, UpdateThing};
+use monet::{Instance, Thing, Vertex, Renderer};
 use stagemaster::geometry::{band_to_thing, dash_path};
 use super::lane::{Lane, TransferLane};
 use super::connectivity::InteractionKind;
@@ -18,53 +18,25 @@ pub mod lane_thing_collector;
 use self::lane_thing_collector::ThingCollector;
 
 use monet::SetupInScene;
-use monet::AddBatch;
 
 pub fn setup(system: &mut ActorSystem) {
 
     system.extend::<Swarm<Lane>, _>(|mut the_lane_swarm| {
         the_lane_swarm.on(|&SetupInScene { renderer_id, scene_id }, _, world| {
-            world.send(renderer_id,
-                       AddBatch {
-                           scene_id: scene_id,
-                           batch_id: 8000,
-                           thing: car::create(),
-                       });
-            world.send(renderer_id,
-                       AddBatch {
-                           scene_id: scene_id,
-                           batch_id: 8001,
-                           thing: traffic_light::create(),
-                       });
-            world.send(renderer_id,
-                       AddBatch {
-                           scene_id: scene_id,
-                           batch_id: 8002,
-                           thing: traffic_light::create_light(),
-                       });
-            world.send(renderer_id,
-                       AddBatch {
-                           scene_id: scene_id,
-                           batch_id: 8003,
-                           thing: traffic_light::create_light_left(),
-                       });
-            world.send(renderer_id,
-                       AddBatch {
-                           scene_id: scene_id,
-                           batch_id: 8004,
-                           thing: traffic_light::create_light_right(),
-                       });
+            renderer_id.add_batch(scene_id, 8000, car::create(), world);
+            renderer_id.add_batch(scene_id, 8001, traffic_light::create(), world);
+            renderer_id.add_batch(scene_id, 8002, traffic_light::create_light(), world);
+            renderer_id.add_batch(scene_id, 8003, traffic_light::create_light_left(), world);
+            renderer_id.add_batch(scene_id, 8004, traffic_light::create_light_right(), world);
 
-            world.send(renderer_id,
-                       AddBatch {
-                           scene_id: scene_id,
-                           batch_id: 1333,
-                           thing: Thing::new(vec![Vertex { position: [-1.0, -1.0, 0.0] },
+            renderer_id.add_batch(scene_id,
+                                  1333,
+                                  Thing::new(vec![Vertex { position: [-1.0, -1.0, 0.0] },
                                                   Vertex { position: [1.0, -1.0, 0.0] },
                                                   Vertex { position: [1.0, 1.0, 0.0] },
                                                   Vertex { position: [-1.0, 1.0, 0.0] }],
                                              vec![0, 1, 2, 2, 3, 0]),
-                       });
+                                  world);
 
             Fate::Live
         });
@@ -169,12 +141,7 @@ pub fn setup(system: &mut ActorSystem) {
             }
 
             if !car_instances.is_empty() {
-                world.send(renderer_id,
-                           AddSeveralInstances {
-                               scene_id: scene_id,
-                               batch_id: 8000,
-                               instances: car_instances,
-                           });
+                renderer_id.add_several_instances(scene_id, 8000, car_instances, world);
             }
             // no traffic light for u-turn
             if lane.connectivity.on_intersection &&
@@ -201,87 +168,62 @@ pub fn setup(system: &mut ActorSystem) {
                 position += lane.construction.path.start_direction().orthogonal() * position_shift;
                 let direction = lane.construction.path.start_direction();
 
-                world.send(renderer_id,
-                           AddInstance {
-                               scene_id: scene_id,
-                               batch_id: 8001,
-                               instance: Instance {
-                                   instance_position: [position.x, position.y, 6.0],
-                                   instance_direction: [direction.x, direction.y],
-                                   instance_color: [0.1, 0.1, 0.1],
-                               },
-                           });
+                let instance = Instance {
+                    instance_position: [position.x, position.y, 6.0],
+                    instance_direction: [direction.x, direction.y],
+                    instance_color: [0.1, 0.1, 0.1],
+                };
+                renderer_id.add_instance(scene_id, 8001, instance, world);
 
                 if lane.microtraffic.yellow_to_red && lane.microtraffic.green {
-                    world.send(renderer_id,
-                               AddInstance {
-                                   scene_id: scene_id,
-                                   batch_id: batch_id,
-                                   instance: Instance {
-                                       instance_position: [position.x, position.y, 6.7],
-                                       instance_direction: [direction.x, direction.y],
-                                       instance_color: [1.0, 0.8, 0.0],
-                                   },
-                               })
+                    let instance = Instance {
+                        instance_position: [position.x, position.y, 6.7],
+                        instance_direction: [direction.x, direction.y],
+                        instance_color: [1.0, 0.8, 0.0],
+                    };
+                    renderer_id.add_instance(scene_id, batch_id, instance, world)
                 } else if lane.microtraffic.green {
-                    world.send(renderer_id,
-                               AddInstance {
-                                   scene_id: scene_id,
-                                   batch_id: batch_id,
-                                   instance: Instance {
-                                       instance_position: [position.x, position.y, 6.1],
-                                       instance_direction: [direction.x, direction.y],
-                                       instance_color: [0.0, 1.0, 0.2],
-                                   },
-                               })
+                    let instance = Instance {
+                        instance_position: [position.x, position.y, 6.1],
+                        instance_direction: [direction.x, direction.y],
+                        instance_color: [0.0, 1.0, 0.2],
+                    };
+                    renderer_id.add_instance(scene_id, batch_id, instance, world)
                 }
 
                 if !lane.microtraffic.green {
-                    world.send(renderer_id,
-                               AddInstance {
-                                   scene_id: scene_id,
-                                   batch_id: batch_id,
-                                   instance: Instance {
-                                       instance_position: [position.x, position.y, 7.3],
-                                       instance_direction: [direction.x, direction.y],
-                                       instance_color: [1.0, 0.0, 0.0],
-                                   },
-                               });
+                    let instance = Instance {
+                        instance_position: [position.x, position.y, 7.3],
+                        instance_direction: [direction.x, direction.y],
+                        instance_color: [1.0, 0.0, 0.0],
+                    };
+                    renderer_id.add_instance(scene_id, batch_id, instance, world);
 
                     if lane.microtraffic.yellow_to_green {
-                        world.send(renderer_id,
-                                   AddInstance {
-                                       scene_id: scene_id,
-                                       batch_id: batch_id,
-                                       instance: Instance {
-                                           instance_position: [position.x, position.y, 6.7],
-                                           instance_direction: [direction.x, direction.y],
-                                           instance_color: [1.0, 0.8, 0.0],
-                                       },
-                                   })
+                        let instance = Instance {
+                            instance_position: [position.x, position.y, 6.7],
+                            instance_direction: [direction.x, direction.y],
+                            instance_color: [1.0, 0.8, 0.0],
+                        };
+                        renderer_id.add_instance(scene_id, batch_id, instance, world)
                     }
                 }
             }
 
             if DEBUG_VIEW_SIGNALS && lane.connectivity.on_intersection {
-                world.send(renderer_id,
-                           UpdateThing {
-                               scene_id: scene_id,
-                               thing_id: 4000 + lane.id().sub_actor_id as u16,
-                               thing: band_to_thing(&Band::new(lane.construction.path.clone(),
-                                                               0.3),
-                                                    if lane.microtraffic.green {
-                                                        0.4
+                let thing = band_to_thing(&Band::new(lane.construction.path.clone(), 0.3),
+                                          if lane.microtraffic.green { 0.4 } else { 0.2 });
+                let instance = Instance::with_color(if lane.microtraffic.green {
+                                                        [0.0, 1.0, 0.0]
                                                     } else {
-                                                        0.2
-                                                    }),
-                               instance: Instance::with_color(if lane.microtraffic.green {
-                                                                  [0.0, 1.0, 0.0]
-                                                              } else {
-                                                                  [1.0, 0.0, 0.0]
-                                                              }),
-                               is_decal: true,
-                           });
+                                                        [1.0, 0.0, 0.0]
+                                                    });
+                renderer_id.update_thing(scene_id,
+                                         4000 + lane.id().sub_actor_id as u16,
+                                         thing,
+                                         instance,
+                                         true,
+                                         world);
             }
 
             if !lane.connectivity
@@ -291,18 +233,14 @@ pub fn setup(system: &mut ActorSystem) {
                              InteractionKind::Next { .. } => true,
                              _ => false,
                          }) {
-                world.send(renderer_id,
-                           AddInstance {
-                               scene_id: scene_id,
-                               batch_id: 1333,
-                               instance: Instance {
-                                   instance_position: [lane.construction.path.end().x,
-                                                       lane.construction.path.end().y,
-                                                       0.5],
-                                   instance_direction: [1.0, 0.0],
-                                   instance_color: [1.0, 0.0, 0.0],
-                               },
-                           });
+                let instance = Instance {
+                    instance_position: [lane.construction.path.end().x,
+                                        lane.construction.path.end().y,
+                                        0.5],
+                    instance_direction: [1.0, 0.0],
+                    instance_color: [1.0, 0.0, 0.0],
+                };
+                renderer_id.add_instance(scene_id, 1333, instance, world);
             }
 
             if !lane.connectivity
@@ -312,18 +250,14 @@ pub fn setup(system: &mut ActorSystem) {
                              InteractionKind::Previous { .. } => true,
                              _ => false,
                          }) {
-                world.send(renderer_id,
-                           AddInstance {
-                               scene_id: scene_id,
-                               batch_id: 1333,
-                               instance: Instance {
-                                   instance_position: [lane.construction.path.start().x,
-                                                       lane.construction.path.start().y,
-                                                       0.5],
-                                   instance_direction: [1.0, 0.0],
-                                   instance_color: [0.0, 1.0, 0.0],
-                               },
-                           });
+                let instance = Instance {
+                    instance_position: [lane.construction.path.start().x,
+                                        lane.construction.path.start().y,
+                                        0.5],
+                    instance_direction: [1.0, 0.0],
+                    instance_color: [0.0, 1.0, 0.0],
+                };
+                renderer_id.add_instance(scene_id, 1333, instance, world);
             }
 
             if DEBUG_VIEW_LANDMARKS && lane.pathfinding.routes_changed {
@@ -340,20 +274,15 @@ pub fn setup(system: &mut ActorSystem) {
                     ([1.0, 1.0, 1.0], false)
                 };
 
-                world.send(renderer_id,
-                           UpdateThing {
-                               scene_id: scene_id,
-                               thing_id: 4000 + lane.id().sub_actor_id as u16,
-                               thing: band_to_thing(&Band::new(lane.construction.path.clone(),
-                                                               if is_landmark {
-                                                                   2.5
-                                                               } else {
-                                                                   1.0
-                                                               }),
-                                                    0.4),
-                               instance: Instance::with_color(random_color),
-                               is_decal: true,
-                           });
+                let instance = band_to_thing(&Band::new(lane.construction.path.clone(),
+                                                        if is_landmark { 2.5 } else { 1.0 }),
+                                             0.4);
+                renderer_id.update_thing(scene_id,
+                                         4000 + lane.id().sub_actor_id as u16,
+                                         instance,
+                                         Instance::with_color(random_color),
+                                         true,
+                                         world);
             }
             Fate::Live
         })
@@ -480,12 +409,7 @@ pub fn setup(system: &mut ActorSystem) {
             }
 
             if !car_instances.is_empty() {
-                world.send(renderer_id,
-                           AddSeveralInstances {
-                               scene_id: scene_id,
-                               batch_id: 8000,
-                               instances: car_instances,
-                           });
+                renderer_id.add_several_instances(scene_id, 8000, car_instances, world);
             }
 
             if lane.connectivity.left.is_none() {
@@ -496,16 +420,14 @@ pub fn setup(system: &mut ActorSystem) {
                                    .path
                                    .direction_along(lane.construction.length / 2.0)
                                    .orthogonal();
-                world.send(renderer_id,
-                           AddInstance {
-                               scene_id: scene_id,
-                               batch_id: 1333,
-                               instance: Instance {
-                                   instance_position: [position.x, position.y, 0.0],
-                                   instance_direction: [1.0, 0.0],
-                                   instance_color: [1.0, 0.0, 0.0],
-                               },
-                           });
+                renderer_id.add_instance(scene_id,
+                                         1333,
+                                         Instance {
+                                             instance_position: [position.x, position.y, 0.0],
+                                             instance_direction: [1.0, 0.0],
+                                             instance_color: [1.0, 0.0, 0.0],
+                                         },
+                                         world);
             }
             if lane.connectivity.right.is_none() {
                 let position = lane.construction
@@ -515,16 +437,14 @@ pub fn setup(system: &mut ActorSystem) {
                                    .path
                                    .direction_along(lane.construction.length / 2.0)
                                    .orthogonal();
-                world.send(renderer_id,
-                           AddInstance {
-                               scene_id: scene_id,
-                               batch_id: 1333,
-                               instance: Instance {
-                                   instance_position: [position.x, position.y, 0.0],
-                                   instance_direction: [1.0, 0.0],
-                                   instance_color: [1.0, 0.0, 0.0],
-                               },
-                           });
+                renderer_id.add_instance(scene_id,
+                                         1333,
+                                         Instance {
+                                             instance_position: [position.x, position.y, 0.0],
+                                             instance_direction: [1.0, 0.0],
+                                             instance_color: [1.0, 0.0, 0.0],
+                                         },
+                                         world);
             }
             Fate::Live
         })
@@ -545,8 +465,6 @@ use self::lane_thing_collector::Control::{Update, Freeze};
 const CONSTRUCTION_ANIMATION_DELAY: f32 = 120.0;
 
 use monet::RenderToScene;
-use monet::AddInstance;
-use monet::AddSeveralInstances;
 
 const DEBUG_VIEW_LANDMARKS: bool = false;
 const DEBUG_VIEW_SIGNALS: bool = false;
@@ -577,27 +495,21 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
 
     if DEBUG_VIEW_LANDMARKS {
         // TODO: ugly
-        world.send_to_id_of::<::monet::Renderer, _>(UpdateThing {
-                                                        scene_id: 0,
-                                                        thing_id: 4000 +
-                                                                  lane.id().sub_actor_id as u16,
-                                                        thing: Thing::new(vec![], vec![]),
-                                                        instance: Instance::with_color([0.0, 0.0,
-                                                                                        0.0]),
-                                                        is_decal: true,
-                                                    });
+        Renderer::id(world).update_thing(0,
+                                         4000 + lane.id().sub_actor_id as u16,
+                                         Thing::new(vec![], vec![]),
+                                         Instance::with_color([0.0, 0.0, 0.0]),
+                                         true,
+                                         world);
     }
 
     if DEBUG_VIEW_SIGNALS {
-        world.send_to_id_of::<::monet::Renderer, _>(UpdateThing {
-                                                        scene_id: 0,
-                                                        thing_id: 4000 +
-                                                                  lane.id().sub_actor_id as u16,
-                                                        thing: Thing::new(vec![], vec![]),
-                                                        instance: Instance::with_color([0.0, 0.0,
-                                                                                        0.0]),
-                                                        is_decal: true,
-                                                    });
+        Renderer::id(world).update_thing(0,
+                                         4000 + lane.id().sub_actor_id as u16,
+                                         Thing::new(vec![], vec![]),
+                                         Instance::with_color([0.0, 0.0, 0.0]),
+                                         true,
+                                         world);
     }
 }
 

@@ -28,7 +28,7 @@ pub fn setup(system: &mut ActorSystem) {
     }));
 }
 
-pub struct FindLot{pub requester: ID};
+pub struct FindLot{pub requester: ID}
 pub struct FoundLot(pub Lot);
-pub struct CheckLot{pub lot: Lot, pub requester: ID};
-pub struct LotResult{pub from: ID, pub obstructed: bool};
+pub struct CheckLot{pub lot: Lot, pub requester: ID}
+pub struct LotResult{pub from: ID, pub obstructed: bool}

@@ -1,6 +1,6 @@
 use descartes::{Path, Band, Segment, P2, N, FiniteCurve, WithUniqueOrthogonal};
 use compact::{CVec, Compact};
-use monet::{Thing, Vertex, Renderer, UpdateThing, Instance};
+use monet::{Thing, Vertex, Renderer, Instance};
 
 #[derive(Compact, Clone)]
 pub struct CPath {
@@ -157,33 +157,26 @@ static mut LAST_DEBUG_THING: u16 = 0;
 use kay::World;
 
 pub fn add_debug_path(path: CPath, color: [f32; 3], z: f32, world: &mut World) {
-    let renderer_id = world.id::<Renderer>();
-    world.send(renderer_id,
-               UpdateThing {
-                   scene_id: 0,
-                   thing_id: 12000 + unsafe { LAST_DEBUG_THING },
-                   thing: band_to_thing(&Band::new(path, 0.2), z),
-                   instance: Instance::with_color(color),
-                   is_decal: true,
-               });
+    Renderer::id(world).update_thing(0,
+                                     12000 + unsafe { LAST_DEBUG_THING },
+                                     band_to_thing(&Band::new(path, 0.2), z),
+                                     Instance::with_color(color),
+                                     true,
+                                     world);
     unsafe { LAST_DEBUG_THING += 1 }
 }
 
 pub fn add_debug_point(point: P2, color: [f32; 3], z: f32, world: &mut World) {
-    let renderer_id = world.id::<Renderer>();
-    world.send(renderer_id,
-               UpdateThing {
-                   scene_id: 0,
-                   thing_id: 12000 + unsafe { LAST_DEBUG_THING },
-                   thing: Thing::new(vec![Vertex {
-                                              position: [point.x + -0.5, point.y + -0.5, z],
-                                          },
-                                          Vertex { position: [point.x + 0.5, point.y + -0.5, z] },
-                                          Vertex { position: [point.x + 0.5, point.y + 0.5, z] },
-                                          Vertex { position: [point.x + -0.5, point.y + 0.5, z] }],
-                                     vec![0, 1, 2, 2, 3, 0]),
-                   instance: Instance::with_color(color),
-                   is_decal: true,
-               });
+    let thing = Thing::new(vec![Vertex { position: [point.x + -0.5, point.y + -0.5, z] },
+                                Vertex { position: [point.x + 0.5, point.y + -0.5, z] },
+                                Vertex { position: [point.x + 0.5, point.y + 0.5, z] },
+                                Vertex { position: [point.x + -0.5, point.y + 0.5, z] }],
+                           vec![0, 1, 2, 2, 3, 0]);
+    Renderer::id(world).update_thing(0,
+                                     12000 + unsafe { LAST_DEBUG_THING },
+                                     thing,
+                                     Instance::with_color(color),
+                                     true,
+                                     world);
     unsafe { LAST_DEBUG_THING += 1 }
 }

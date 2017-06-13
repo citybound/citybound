@@ -4,17 +4,17 @@ pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, In
 use kay::{ID, Fate, ActorSystem};
 use glium::Frame;
 
-use Renderer;
+use super::{Renderer, RendererID};
 
 #[derive(Copy, Clone)]
 pub struct SetupInScene {
-    pub renderer_id: ID,
+    pub renderer_id: RendererID,
     pub scene_id: usize,
 }
 
 #[derive(Copy, Clone)]
 pub struct RenderToScene {
-    pub renderer_id: ID,
+    pub renderer_id: RendererID,
     pub scene_id: usize,
 }
 
@@ -33,12 +33,14 @@ pub struct Submitted {
 pub fn setup(system: &mut ActorSystem) {
     system.extend::<Renderer, _>(|mut the_renderer| {
         let renderer_id = the_renderer.world().id::<Renderer>();
+        let typed_renderer_id = Renderer::id(&mut the_renderer.world());
 
         the_renderer.on_critical(move |ctrl, renderer, world| match *ctrl {
                                      Control::Setup => {
             for (scene_id, scene) in renderer.scenes.iter().enumerate() {
                 for renderable in &scene.renderables {
-                    world.send(*renderable, SetupInScene { renderer_id, scene_id });
+                    world.send(*renderable,
+                               SetupInScene { renderer_id: typed_renderer_id, scene_id });
                 }
             }
             Fate::Live
@@ -52,7 +54,8 @@ pub fn setup(system: &mut ActorSystem) {
                     batch_to_clear.instances.clear();
                 }
                 for renderable in &scene.renderables {
-                    world.send(*renderable, RenderToScene { renderer_id, scene_id });
+                    world.send(*renderable,
+                               RenderToScene { renderer_id: typed_renderer_id, scene_id });
                 }
             }
             Fate::Live

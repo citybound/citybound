@@ -1,4 +1,4 @@
-use monet::{Thing, Instance};
+use monet::{Thing, Instance, Renderer};
 use compact::CDict;
 use kay::{ID, ActorSystem, Fate};
 use std::marker::PhantomData;
@@ -98,18 +98,16 @@ pub fn setup<T: Clone + 'static>(system: &mut ActorSystem,
                 coll.n_frozen_groups = 0;
 
                 for frozen_group in cached_frozen_things_grouped {
-                    world.send(renderer_id,
-                               UpdateThing {
-                                   scene_id: scene_id,
-                                   thing_id: coll.base_thing_id + coll.n_frozen_groups as u16,
-                                   thing: frozen_group,
-                                   instance: Instance {
-                                       instance_position: [0.0, 0.0, -0.1],
-                                       instance_direction: [1.0, 0.0],
-                                       instance_color: coll.instance_color,
-                                   },
-                                   is_decal: coll.is_decal,
-                               });
+                    renderer_id.update_thing(scene_id,
+                                             coll.base_thing_id + coll.n_frozen_groups as u16,
+                                             frozen_group,
+                                             Instance {
+                                                 instance_position: [0.0, 0.0, -0.1],
+                                                 instance_direction: [1.0, 0.0],
+                                                 instance_color: coll.instance_color,
+                                             },
+                                             coll.is_decal,
+                                             world);
 
                     coll.n_frozen_groups += 1;
                 }
@@ -128,32 +126,28 @@ pub fn setup<T: Clone + 'static>(system: &mut ActorSystem,
             let mut new_n_total_groups = coll.n_frozen_groups;
 
             for living_thing_group in living_thing_groups {
-                world.send(renderer_id,
-                           UpdateThing {
-                               scene_id: scene_id,
-                               thing_id: coll.base_thing_id + new_n_total_groups as u16,
-                               thing: living_thing_group,
-                               instance: Instance {
-                                   instance_position: [0.0, 0.0, -0.1],
-                                   instance_direction: [1.0, 0.0],
-                                   instance_color: coll.instance_color,
-                               },
-                               is_decal: coll.is_decal,
-                           });
+                Renderer::id(world).update_thing(scene_id,
+                                                 coll.base_thing_id + new_n_total_groups as u16,
+                                                 living_thing_group,
+                                                 Instance {
+                                                     instance_position: [0.0, 0.0, -0.1],
+                                                     instance_direction: [1.0, 0.0],
+                                                     instance_color: coll.instance_color,
+                                                 },
+                                                 coll.is_decal,
+                                                 world);
 
                 new_n_total_groups += 1;
             }
 
             if new_n_total_groups > coll.n_total_groups {
                 for thing_to_empty_id in new_n_total_groups..coll.n_total_groups {
-                    world.send(renderer_id,
-                               UpdateThing {
-                                   scene_id: scene_id,
-                                   thing_id: coll.base_thing_id + thing_to_empty_id as u16,
-                                   thing: Thing::new(vec![], vec![]),
-                                   instance: Instance::with_color([0.0, 0.0, 0.0]),
-                                   is_decal: coll.is_decal,
-                               })
+                    Renderer::id(world).update_thing(scene_id,
+                                                     coll.base_thing_id + thing_to_empty_id as u16,
+                                                     Thing::new(vec![], vec![]),
+                                                     Instance::with_color([0.0, 0.0, 0.0]),
+                                                     coll.is_decal,
+                                                     world);
                 }
             }
 
@@ -174,7 +168,6 @@ pub enum Control {
 
 
 use monet::RenderToScene;
-use monet::UpdateThing;
 
 #[derive(Copy, Clone)]
 pub struct RenderToCollector(pub ID);

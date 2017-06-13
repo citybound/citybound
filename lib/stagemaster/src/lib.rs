@@ -1,5 +1,5 @@
-#![feature(plugin)]
-#![plugin(clippy)]
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
 
 extern crate compact;
 #[macro_use]
@@ -414,8 +414,8 @@ pub fn setup(system: &mut ActorSystem,
 
         the_ui.on_critical(move |_: &StartFrame, ui, world| {
             if ui.parked_frame.is_some() {
-                let target =
-                std::mem::replace(&mut ui.parked_frame, None).expect("Should have parked target");
+                let target = std::mem::replace(&mut ui.parked_frame, None)
+                    .expect("Should have parked target");
                 target.finish().unwrap();
             }
 
@@ -486,10 +486,8 @@ pub fn setup(system: &mut ActorSystem,
                            });
             } else {
                 let mut target = std::mem::replace(&mut ui.parked_frame, None)
-                                  .expect("Should have parked target");
-                ui.imgui_renderer
-                    .render(&mut *target, *imgui_ui)
-                    .unwrap();
+                    .expect("Should have parked target");
+                ui.imgui_renderer.render(&mut *target, *imgui_ui).unwrap();
                 target.finish().unwrap();
             }
 

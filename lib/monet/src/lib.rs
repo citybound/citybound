@@ -1,5 +1,6 @@
-#![feature(plugin, conservative_impl_trait)]
-#![plugin(clippy)]
+#![feature(conservative_impl_trait)]
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
 
 extern crate descartes;
 #[macro_use]
@@ -20,9 +21,8 @@ mod thing;
 pub use glium::backend::glutin_backend::GlutinFacade;
 
 pub use geometry::{Batch, Vertex, Instance};
-pub use renderer::{setup, Renderer, SetupInScene, RenderToScene, Control, Submitted, AddBatch,
-                   AddInstance, AddSeveralInstances, Movement, MoveEye, EyeMoved, AddEyeListener,
-                   UpdateThing, Project2dTo3d, Projected3d};
+pub use renderer::{setup, Renderer, RendererID, SetupInScene, RenderToScene, Control, Submitted,
+                   Movement, MoveEye, EyeMoved, Project2dTo3d, Projected3d};
 pub use render_context::RenderContext;
 pub use scene::{Eye, Scene};
 pub use thing::Thing;

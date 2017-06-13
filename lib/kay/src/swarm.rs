@@ -189,11 +189,7 @@ impl<SA: SubActor> Swarm<SA> {
         // the only assumption is that no sub actors are immediately completely deleted
 
         let recipients_todo_per_bin: Vec<usize> = {
-            self.sub_actors
-                .bins
-                .iter()
-                .map(|bin| bin.len())
-                .collect()
+            self.sub_actors.bins.iter().map(|bin| bin.len()).collect()
         };
 
         let n_bins = self.sub_actors.bins.len();

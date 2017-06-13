@@ -6,7 +6,7 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 [dependencies]
 imgui = "0.0.11"
 imgui-sys = "0.0.11"
-clippy = "0.0.128"
+clippy = { version = "0.0.138", optional = true }
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
@@ -26,3 +26,13 @@ path = "../descartes"
 
 [dependencies.monet]
 path = "../monet"
+
+[features]
+enable-clippy = [
+	"clippy",
+	"kay/enable-clippy",
+	"compact/enable-clippy",
+	"descartes/clippy",
+	"monet/enable-clippy"
+]
+

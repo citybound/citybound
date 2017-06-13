@@ -53,20 +53,10 @@ impl TransferLane {
     }
 
     pub fn other_side(&self, side: ID) -> ID {
-        if side ==
-           self.connectivity
-               .left
-               .expect("should have a left lane")
-               .0 {
-            self.connectivity
-                .right
-                .expect("should have a right lane")
-                .0
+        if side == self.connectivity.left.expect("should have a left lane").0 {
+            self.connectivity.right.expect("should have a right lane").0
         } else {
-            self.connectivity
-                .left
-                .expect("should have a left lane")
-                .0
+            self.connectivity.left.expect("should have a left lane").0
         }
     }
 
@@ -82,7 +72,9 @@ impl TransferLane {
         #[allow(needless_range_loop)]
         for i in 0..map.len() {
             let (next_self, next_other) = map[i];
-            let &(prev_self, prev_other) = map.get(i - 1).unwrap_or(&(0.0, 0.0));
+            let &(prev_self, prev_other) = i.checked_sub(1)
+                .and_then(|p| map.get(p))
+                .unwrap_or(&(0.0, 0.0));
             if prev_other <= distance_on_interaction && next_other >= distance_on_interaction {
                 let amount_of_segment = (distance_on_interaction - prev_other) /
                                         (next_other - prev_other);
@@ -102,7 +94,9 @@ impl TransferLane {
         #[allow(needless_range_loop)]
         for i in 0..map.len() {
             let (next_self, next_other) = map[i];
-            let &(prev_self, prev_other) = map.get(i - 1).unwrap_or(&(0.0, 0.0));
+            let &(prev_self, prev_other) = i.checked_sub(1)
+                .and_then(|p| map.get(p))
+                .unwrap_or(&(0.0, 0.0));
             if prev_self <= distance_on_self && next_self >= distance_on_self {
                 let amount_of_segment = (distance_on_self - prev_self) / (next_self - prev_self);
                 let distance_on_other = prev_other + amount_of_segment * (next_other - prev_other);

@@ -1,5 +1,6 @@
-#![feature(custom_derive, plugin, conservative_impl_trait)]
-#![plugin(clippy)]
+#![feature(custom_derive, conservative_impl_trait)]
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
 #![allow(dead_code)]
 // Enable this for memory tracking with Instruments/MacOS
 // and for much better stacktraces for memory issues

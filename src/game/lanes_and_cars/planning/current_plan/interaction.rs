@@ -33,7 +33,7 @@ impl Default for InteractionSettings {
 }
 
 use super::InitInteractable;
-use monet::{Renderer, AddEyeListener};
+use monet::Renderer;
 use stagemaster::{UserInterface, AddInteractable, AddInteractable2d, Focus};
 use game::lanes_and_cars::lane::Lane;
 
@@ -49,7 +49,7 @@ pub fn setup(system: &mut ActorSystem) {
             world.send(ui_id, AddInteractable(cp_id, AnyShape::Everywhere, 0));
             world.send(ui_id, AddInteractable2d(cp_id));
             world.send(ui_id, Focus(cp_id));
-            world.send(renderer_id, AddEyeListener { scene_id: 0, listener: cp_id });
+            Renderer::id(world).add_eye_listener(0, cp_id, world);
             Fate::Live
         });
 

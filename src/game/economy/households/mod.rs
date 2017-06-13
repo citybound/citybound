@@ -12,7 +12,7 @@ use self::judgement_table::judgement_table;
 mod tasks;
 use self::tasks::Task;
 
-mod buildings;
+pub mod buildings;
 
 use super::market::{Market, Evaluate, Search, EvaluatedDeal, EvaluatedSearchResult,
                     GetApplicableDeal, ApplicableDeal, StartedUsing, StoppedUsing};

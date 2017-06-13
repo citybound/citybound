@@ -140,7 +140,7 @@ impl ActorSystem {
             message: message,
         };
 
-        if let Some(inbox) = self.inboxes[*recipient.type_id as usize].as_mut() {
+        if let Some(inbox) = self.inboxes[recipient.type_id.as_usize()].as_mut() {
             inbox.put(packet, &self.message_registry);
         } else {
             panic!("{} has no inbox for {}",
