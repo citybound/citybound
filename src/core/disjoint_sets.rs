@@ -79,6 +79,7 @@ impl<T> DisjointSets<T> {
         }
     }
 
+    #[allow(needless_range_loop)]
     fn ensure_sorted(&mut self) {
         if !self.is_sorted {
             // counting sort
@@ -91,7 +92,7 @@ impl<T> DisjointSets<T> {
             let mut root_start_index = root_occurences;
 
             let mut current_start_index = 0;
-            #[allow(needless_range_loop)]
+
             for root in 0..self.elements.len() {
                 //                                           still occurence count
                 let next_start_index = current_start_index + root_start_index[root];
@@ -105,7 +106,6 @@ impl<T> DisjointSets<T> {
             let mut old_to_new_idx_map = vec![0; self.elements.len()];
             let mut new_to_old_idx_map = vec![0; self.elements.len()];
 
-            #[allow(needless_range_loop)]
             for idx in 0..self.elements.len() {
                 let root = self.find_root(idx);
                 let new_idx = root_start_index[root];
@@ -115,12 +115,14 @@ impl<T> DisjointSets<T> {
 
                 unsafe {
                     ::std::ptr::copy_nonoverlapping(&self.elements[idx],
-                                                    new_elements.as_mut_ptr().offset(new_idx as
-                                                                                     isize),
+                                                    new_elements
+                                                        .as_mut_ptr()
+                                                        .offset(new_idx as isize),
                                                     1);
                     ::std::ptr::copy_nonoverlapping(&self.ranks[idx],
-                                                    new_ranks.as_mut_ptr().offset(new_idx as
-                                                                                  isize),
+                                                    new_ranks
+                                                        .as_mut_ptr()
+                                                        .offset(new_idx as isize),
                                                     1);
                 }
             }

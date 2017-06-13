@@ -50,12 +50,10 @@ impl Combo {
 
     pub fn is_in(&self, other: &Combo) -> bool {
         !self.is_empty() &&
-        self.0
-            .iter()
-            .all(|opt| {
-                opt.map(|item| other.0.contains(&Some(item)))
-                    .unwrap_or(true)
-            })
+        self.0.iter().all(|opt| {
+            opt.map(|item| other.0.contains(&Some(item)))
+                .unwrap_or(true)
+        })
     }
 
     pub fn is_freshly_in(&self, listener: &ComboListener) -> bool {

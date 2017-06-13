@@ -337,15 +337,16 @@ impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
     pub fn on_create_with<M: Message, F>(&mut self, handler: F)
         where F: Fn(&M, &mut SA, &mut World) -> Fate + 'static
     {
-        self.0
-            .on_packet(move |&Packet { ref message, recipient_id }, swarm, world| {
+        self.0.on_packet(
+            move |&Packet { ref message, recipient_id }, swarm, world| {
                 let &CreateWith(ref init_state, ref init_message): &CreateWith<SA,
                                                                                M> = message;
                 let id = swarm.add(init_state, recipient_id.unwrap());
                 world.send(id, (*init_message).clone());
                 Fate::Live
             },
-                       false);
+            false,
+        );
 
         // also be able to receive this message normally
         self.on(handler);
@@ -359,8 +360,8 @@ impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
     pub fn on_random<M: Message, F>(&mut self, handler: F)
         where F: Fn(&M, &mut SA, &mut World) -> Fate + 'static
     {
-        self.0
-            .on_packet(move |packet: &Packet<ToRandom<M>>, swarm, world| {
+        self.0.on_packet(
+            move |packet: &Packet<ToRandom<M>>, swarm, world| {
                 if swarm.slot_map.len() > 0 {
                     for _i in 0..packet.message.n_recipients {
                         let random_id = ID::new(packet.recipient_id.unwrap().type_id,
@@ -371,7 +372,8 @@ impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
                 }
                 Fate::Live
             },
-                       false);
+            false,
+        );
 
         // also be able to receive this message normally
         self.on(handler);
@@ -393,8 +395,8 @@ impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
     pub fn on_packet<M: Message, F>(&mut self, handler: F, critical: bool)
         where F: Fn(&Packet<M>, &mut SA, &mut World) -> Fate + 'static
     {
-        self.0
-            .on_packet(move |packet: &Packet<M>, swarm, world| {
+        self.0.on_packet(
+            move |packet: &Packet<M>, swarm, world| {
                 if packet
                        .recipient_id
                        .expect("Recipient ID not set")
@@ -405,7 +407,8 @@ impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
                 }
                 Fate::Live
             },
-                       critical);
+            critical,
+        );
 
 
     }
@@ -413,9 +416,9 @@ impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
     fn on_maybe_critical<M: Message, F>(&mut self, handler: F, critical: bool)
         where F: Fn(&M, &mut SA, &mut World) -> Fate + 'static
     {
-        self.on_packet(move |packet: &Packet<M>, state, world| {
-            handler(&packet.message, state, world)
-        },
-                       critical);
+        self.on_packet(
+            move |packet: &Packet<M>, state, world| handler(&packet.message, state, world),
+            critical,
+        );
     }
 }

@@ -60,6 +60,7 @@ impl TransferLane {
         }
     }
 
+    #[allow(needless_range_loop)]
     pub fn interaction_to_self_offset(&self,
                                       distance_on_interaction: N,
                                       came_from_left: bool)
@@ -69,7 +70,7 @@ impl TransferLane {
         } else {
             &self.connectivity.right_distance_map
         };
-        #[allow(needless_range_loop)]
+
         for i in 0..map.len() {
             let (next_self, next_other) = map[i];
             let &(prev_self, prev_other) = i.checked_sub(1)
@@ -85,13 +86,14 @@ impl TransferLane {
         map.last().unwrap().0 - map.last().unwrap().1
     }
 
+    #[allow(needless_range_loop)]
     pub fn self_to_interaction_offset(&self, distance_on_self: N, going_to_left: bool) -> N {
         let map = if going_to_left {
             &self.connectivity.left_distance_map
         } else {
             &self.connectivity.right_distance_map
         };
-        #[allow(needless_range_loop)]
+
         for i in 0..map.len() {
             let (next_self, next_other) = map[i];
             let &(prev_self, prev_other) = i.checked_sub(1)

@@ -47,16 +47,12 @@ pub fn generate(file: &str) -> String {
         .iter()
         .map(|typ| match typ {
                  &&Ty::Path(None, Path { global, ref segments }) => {
-            let mut new_segments = segments.clone();
-            new_segments.last_mut().unwrap().ident = Ident::new(new_segments
-                                                                    .last_mut()
-                                                                    .unwrap()
-                                                                    .ident
-                                                                    .as_ref()
-                                                                    .to_owned() +
-                                                                "ID");
-            Ty::Path(None, Path { global, segments: new_segments })
-        }
+                     let mut new_segments = segments.clone();
+                     new_segments.last_mut().unwrap().ident =
+                         Ident::new(new_segments.last_mut().unwrap().ident.as_ref().to_owned() +
+                                    "ID");
+                     Ty::Path(None, Path { global, segments: new_segments })
+                 }
                  _ => unimplemented!(),
              })
         .collect::<Vec<_>>();
@@ -96,154 +92,146 @@ pub fn generate(file: &str) -> String {
                 #(#id_defs)*
             }
         )*
-    )
-            .into_string()
+    ).into_string()
 }
 
 pub fn generate_setup(typ: &Ty, impl_items: &[ImplItem]) -> Vec<Tokens> {
-    let setup_calls = impl_items
-        .iter()
-        .filter_map(|impl_item| if let &ImplItem {
-                                            ident: ref fn_name,
-                                            vis: Visibility::Public,
-                                            node: ImplItemKind::Method(ref sig, _),
-                                            ref attrs,
-                                            ..
-                                        } = impl_item {
-                        check_handler(sig).map(|args| {
-                let reffed_args = args.iter()
-                    .map(|arg| match arg {
-                             &FnArg::Captured(Pat::Ident(_, ref ident, _), ref ty) => {
-                                 match ty {
-                                     &Ty::Rptr(_, _) => {
-                                         Pat::Ident(BindingMode::ByRef(Mutability::Immutable),
-                                                    ident.clone(),
-                                                    None)
-                                     }
-                                     _ => {
-                                         Pat::Ident(BindingMode::ByValue(Mutability::Immutable),
-                                                    ident.clone(),
-                                                    None)
-                                     }
-
+    let setup_calls = impl_items.iter().filter_map(|impl_item| if let &ImplItem {
+               ident: ref fn_name,
+               vis: Visibility::Public,
+               node: ImplItemKind::Method(ref sig, _),
+               ref attrs,
+               ..
+           } = impl_item {
+        check_handler(sig).map(|args| {
+            let reffed_args = args.iter()
+                .map(|arg| match arg {
+                         &FnArg::Captured(Pat::Ident(_, ref ident, _), ref ty) => {
+                             match ty {
+                                 &Ty::Rptr(_, _) => {
+                                     Pat::Ident(BindingMode::ByRef(Mutability::Immutable),
+                                                ident.clone(),
+                                                None)
                                  }
+                                 _ => {
+                                     Pat::Ident(BindingMode::ByValue(Mutability::Immutable),
+                                                ident.clone(),
+                                                None)
+                                 }
+
                              }
-                             _ => unimplemented!(),
-                         })
-                    .collect::<Vec<_>>();
-                let params = args.iter()
-                    .map(|arg| match arg {
-                             &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
-                             _ => unimplemented!(),
-                         })
-                    .collect::<Vec<_>>();
-                let msg_name = message_name(typ, fn_name);
-                let returns_fate = match sig.decl.output {
-                    FunctionRetTy::Default => false,
-                    FunctionRetTy::Ty(Ty::Path(_, Path { ref segments, .. })) => {
-                        segments.iter().any(|s| s.ident.as_ref() == "Fate")
-                    }
-                    _ => unimplemented!(),
-                };
-                let inner = if returns_fate {
-                    quote!(
+                         }
+                         _ => unimplemented!(),
+                     })
+                .collect::<Vec<_>>();
+            let params = args.iter()
+                .map(|arg| match arg {
+                         &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
+                         _ => unimplemented!(),
+                     })
+                .collect::<Vec<_>>();
+            let msg_name = message_name(typ, fn_name);
+            let returns_fate = match sig.decl.output {
+                FunctionRetTy::Default => false,
+                FunctionRetTy::Ty(Ty::Path(_, Path { ref segments, .. })) => {
+                    segments.iter().any(|s| s.ident.as_ref() == "Fate")
+                }
+                _ => unimplemented!(),
+            };
+            let inner = if returns_fate {
+                quote!(
                         actor.#fn_name(#(#params),*, world)
                     )
-                } else {
-                    quote!(
+            } else {
+                quote!(
                         actor.#fn_name(#(#params),*, world);
                         Fate::Live
                     )
-                };
-                let is_critical = attrs
-                    .iter()
-                    .any(|attr| {
-                        attr.is_sugared_doc &&
-                        attr.value == MetaItem::NameValue("doc".into(), "/// Critical".into())
-                    });
-                if is_critical {
-                    quote!(
+            };
+            let is_critical = attrs.iter().any(|attr| {
+                attr.is_sugared_doc &&
+                attr.value == MetaItem::NameValue("doc".into(), "/// Critical".into())
+            });
+            if is_critical {
+                quote!(
                         definer.on_critical(|&#msg_name(#(#reffed_args),*), actor, world| {
                             #inner
                         });
                     )
-                } else {
-                    quote!(
+            } else {
+                quote!(
                         definer.on(|&#msg_name(#(#reffed_args),*), actor, world| {
                             #inner
                         });
                     )
-                }
-            })
-                    } else {
-                        None
-                    });
+            }
+        })
+    } else {
+        None
+    });
 
     setup_calls.collect()
 }
 
 pub fn generate_id(typ: &Ty, impl_items: &[ImplItem]) -> Vec<Tokens> {
-    let id_methods = impl_items
-        .iter()
-        .filter_map(|impl_item| if let &ImplItem {
-                                            ident: ref fn_name,
-                                            vis: Visibility::Public,
-                                            node: ImplItemKind::Method(ref sig, _),
-                                            ..
-                                        } = impl_item {
-                        check_handler(sig).map(|args| {
-                let owned_sig = args.iter()
-                    .map(|arg| match arg {
-                             &FnArg::Captured(ref ident, Ty::Rptr(_, ref ty_box)) => {
-                                 FnArg::Captured(ident.clone(), ty_box.ty.clone())
-                             }
-                             other => other.clone(),
-                         });
-                let params = args.iter()
-                    .map(|arg| match arg {
-                             &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
-                             _ => unimplemented!(),
-                         });
-                let msg_name = message_name(typ, fn_name);
-                quote!(
+    let id_methods = impl_items.iter().filter_map(|impl_item| if let &ImplItem {
+               ident: ref fn_name,
+               vis: Visibility::Public,
+               node: ImplItemKind::Method(ref sig, _),
+               ..
+           } = impl_item {
+        check_handler(sig).map(|args| {
+            let owned_sig =
+                args.iter().map(|arg| match arg {
+                                    &FnArg::Captured(ref ident, Ty::Rptr(_, ref ty_box)) => {
+                                        FnArg::Captured(ident.clone(), ty_box.ty.clone())
+                                    }
+                                    other => other.clone(),
+                                });
+            let params = args.iter().map(|arg| match arg {
+                                             &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => {
+                                                 ident.clone()
+                                             }
+                                             _ => unimplemented!(),
+                                         });
+            let msg_name = message_name(typ, fn_name);
+            quote!(
                     pub fn #fn_name(&self, #(#owned_sig),*, world: &mut World) {
                         world.send(self.raw_id, #msg_name(#(#params),*))
                     }
                 )
-            })
-                    } else {
-                        None
-                    });
+        })
+    } else {
+        None
+    });
 
     id_methods.collect()
 }
 
 pub fn generate_msgs(typ: &Ty, impl_items: &[ImplItem]) -> Tokens {
-    let msg_definitions = impl_items
-        .iter()
-        .filter_map(|impl_item| if let &ImplItem {
-                                            ident: ref fn_name,
-                                            vis: Visibility::Public,
-                                            node: ImplItemKind::Method(ref sig, _),
-                                            ..
-                                        } = impl_item {
-                        check_handler(sig).map(|args| {
-                let field_types = args.iter()
-                    .map(|arg| match arg {
-                             &FnArg::Captured(_, Ty::Rptr(_, ref ty_box)) => &ty_box.ty,
-                             &FnArg::Captured(_, ref other) => other,
-                             _ => unimplemented!(),
-                         });
-                let msg_name = message_name(typ, fn_name);
-                quote!(
+    let msg_definitions = impl_items.iter().filter_map(|impl_item| if let &ImplItem {
+               ident: ref fn_name,
+               vis: Visibility::Public,
+               node: ImplItemKind::Method(ref sig, _),
+               ..
+           } = impl_item {
+        check_handler(sig).map(|args| {
+            let field_types =
+                args.iter().map(|arg| match arg {
+                                    &FnArg::Captured(_, Ty::Rptr(_, ref ty_box)) => &ty_box.ty,
+                                    &FnArg::Captured(_, ref other) => other,
+                                    _ => unimplemented!(),
+                                });
+            let msg_name = message_name(typ, fn_name);
+            quote!(
                     #[allow(non_camel_case_types)]
                     #[derive(Compact, Clone)]
                     struct #msg_name(#(#field_types),*);
                 )
-            })
-                    } else {
-                        None
-                    });
+        })
+    } else {
+        None
+    });
 
     quote!(
             #(#msg_definitions)*
@@ -267,9 +255,9 @@ pub fn check_handler(sig: &MethodSig) -> Option<&[FnArg]> {
     if let Some(&FnArg::SelfRef(_, Mutability::Mutable)) = sig.decl.inputs.get(0) {
         if let Some(&FnArg::Captured(_, Ty::Rptr(_, ref ty_box))) = sig.decl.inputs.last() {
             if let &MutTy {
-                        mutability: Mutability::Mutable,
-                        ty: Ty::Path(_, ref path),
-                    } = &**ty_box {
+                       mutability: Mutability::Mutable,
+                       ty: Ty::Path(_, ref path),
+                   } = &**ty_box {
                 if path.segments.last().unwrap().ident == Ident::new("World") {
                     let args = &sig.decl.inputs[1..(sig.decl.inputs.len() - 1)];
                     Some(args)

@@ -77,7 +77,9 @@ pub fn setup<T: Clone + 'static>(system: &mut ActorSystem,
             Fate::Live
         });
 
-        the_collector.on(move |&RenderToScene { renderer_id, scene_id }, coll, world| {
+        the_collector.on(move |&RenderToScene { renderer_id, scene_id },
+              coll,
+              world| {
             // TODO: this introduces 1 frame delay
             for id in coll.living_things.keys() {
                 world.send(*id, RenderToCollector(collector_id));

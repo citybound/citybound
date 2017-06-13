@@ -138,37 +138,35 @@ pub fn tick(lane: &mut Lane, world: &mut World) {
                 } else {
                     lane.construction.length
                 };
-                world.send(predecessor,
-                           ShareRoutes {
-                               new_routes: lane.pathfinding
-                                   .routes
-                                   .pairs()
-                                   .filter_map(|(&destination,
-                                                 &RoutingInfo {
-                                                     distance,
-                                                     distance_hops,
-                                                     ..
-                                                 })| {
-                    if true
-                    // fresh
-                    {
-                        Some((destination, (distance + self_cost, distance_hops + 1)))
-                    } else {
-                        None
-                    }
-                })
-                                   .chain(if lane.connectivity.on_intersection {
-                                              None
-                                          } else {
-                                              lane.pathfinding
-                                                  .as_destination
-                                                  .map(|destination| {
-                        (destination, (self_cost, 0))
-                    })
-                                          })
-                                   .collect(),
-                               from: lane.id(),
-                           });
+                world.send(
+                    predecessor,
+                    ShareRoutes {
+                        new_routes: lane.pathfinding
+                            .routes
+                            .pairs()
+                            .filter_map(|(&destination,
+                              &RoutingInfo { distance, distance_hops, .. })| {
+                                if true
+                                // fresh
+                                {
+                                    Some((destination, (distance + self_cost, distance_hops + 1)))
+                                } else {
+                                    None
+                                }
+                            })
+                            .chain(
+                                if lane.connectivity.on_intersection {
+                                    None
+                                } else {
+                                    lane.pathfinding
+                                        .as_destination
+                                        .map(|destination| (destination, (self_cost, 0)))
+                                },
+                            )
+                            .collect(),
+                        from: lane.id(),
+                    },
+                );
             }
             for routing_info in lane.pathfinding.routes.values_mut() {
                 routing_info.fresh = false;
@@ -230,7 +228,9 @@ const IDEAL_LANDMARK_RADIUS: u8 = 3;
 
 pub fn setup(system: &mut ActorSystem) {
     system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
-        each_lane.on(|&JoinLandmark { join_as, hops_from_landmark, from }, lane, _| {
+        each_lane.on(|&JoinLandmark { join_as, hops_from_landmark, from },
+         lane,
+         _| {
             let join = lane.pathfinding
                 .as_destination
                 .map(|self_destination| {
@@ -273,25 +273,29 @@ pub fn setup(system: &mut ActorSystem) {
             } else {
                 lane.construction.length
             };
-            world.send(requester,
-                       ShareRoutes {
-                           new_routes: lane.pathfinding
-                               .routes
-                               .pairs()
-                               .map(|(&destination,
-                                      &RoutingInfo { distance, distance_hops, .. })| {
-                (destination, (distance + self_cost, distance_hops + 1))
-            })
-                               .chain(if lane.connectivity.on_intersection {
-                                          None
-                                      } else {
-                                          lane.pathfinding
-                                              .as_destination
-                                              .map(|destination| (destination, (self_cost, 0)))
-                                      })
-                               .collect(),
-                           from: lane.id(),
-                       });
+            world.send(
+                requester,
+                ShareRoutes {
+                    new_routes: lane.pathfinding
+                        .routes
+                        .pairs()
+                        .map(|(&destination,
+                          &RoutingInfo { distance, distance_hops, .. })| {
+                            (destination, (distance + self_cost, distance_hops + 1))
+                        })
+                        .chain(
+                            if lane.connectivity.on_intersection {
+                                None
+                            } else {
+                                lane.pathfinding
+                                    .as_destination
+                                    .map(|destination| (destination, (self_cost, 0)))
+                            },
+                        )
+                        .collect(),
+                    from: lane.id(),
+                },
+            );
             Fate::Live
         });
 
@@ -313,16 +317,15 @@ pub fn setup(system: &mut ActorSystem) {
                             .map(|&RoutingInfo { distance, .. }| new_distance < distance)
                             .unwrap_or(true);
                         if insert {
-                            lane.pathfinding
-                                .routes
-                                .insert(destination,
-                                        RoutingInfo {
-                                            distance: new_distance,
-                                            distance_hops: new_distance_hops,
-                                            outgoing_idx: from_interaction_idx as u8,
-                                            learned_from: from,
-                                            fresh: true,
-                                        });
+                            lane.pathfinding.routes.insert(destination,
+                                                           RoutingInfo {
+                                                               distance: new_distance,
+                                                               distance_hops: new_distance_hops,
+                                                               outgoing_idx: from_interaction_idx as
+                                                                             u8,
+                                                               learned_from: from,
+                                                               fresh: true,
+                                                           });
                             lane.pathfinding.routes_changed = true;
                         }
                     }
@@ -345,11 +348,9 @@ pub fn setup(system: &mut ActorSystem) {
                 if forget {
                     lane.pathfinding.routes.remove(*destination_to_forget);
                     if destination_to_forget.is_landmark() {
-                        lane.microtraffic
-                            .cars
-                            .retain(|car| {
-                                car.destination.landmark != destination_to_forget.landmark
-                            })
+                        lane.microtraffic.cars.retain(|car| {
+                            car.destination.landmark != destination_to_forget.landmark
+                        })
                     } else {
                         lane.microtraffic
                             .cars
@@ -373,7 +374,9 @@ pub fn setup(system: &mut ActorSystem) {
     }));
 
     system.extend(Swarm::<TransferLane>::subactors(|mut each_t_lane| {
-        each_t_lane.on(|&JoinLandmark { join_as, hops_from_landmark, from }, lane, world| {
+        each_t_lane.on(|&JoinLandmark { join_as, hops_from_landmark, from },
+         lane,
+         world| {
             world.send(lane.other_side(from),
                        JoinLandmark {
                            join_as: Destination {
@@ -393,23 +396,25 @@ pub fn setup(system: &mut ActorSystem) {
         });
 
         each_t_lane.on(|&ShareRoutes { ref new_routes, from }, lane, world| {
-            world.send(lane.other_side(from),
-                       ShareRoutes {
-                           new_routes: new_routes
-                               .pairs()
-                               .map(|(&destination, &(distance, hops))| {
-                (destination,
-                 (distance +
-                  if from == lane.connectivity.left.expect("should have left").0 {
-                      LANE_CHANGE_COST_RIGHT
-                  } else {
-                      LANE_CHANGE_COST_LEFT
-                  },
-                  hops))
-            })
-                               .collect(),
-                           from: lane.id(),
-                       });
+            world.send(
+                lane.other_side(from),
+                ShareRoutes {
+                    new_routes: new_routes
+                        .pairs()
+                        .map(|(&destination, &(distance, hops))| {
+                            (destination,
+                             (distance +
+                              if from == lane.connectivity.left.expect("should have left").0 {
+                                  LANE_CHANGE_COST_RIGHT
+                              } else {
+                                  LANE_CHANGE_COST_LEFT
+                              },
+                              hops))
+                        })
+                        .collect(),
+                    from: lane.id(),
+                },
+            );
             Fate::Live
         });
 

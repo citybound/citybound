@@ -53,12 +53,12 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
     }
 
     /// Double the capacity of the vector by spilling onto the heap
+    #[allow(needless_range_loop)]
     fn double_buf(&mut self) {
         let new_cap = if self.cap == 0 { 1 } else { self.cap * 2 };
         let new_ptr = A::allocate::<T>(new_cap);
 
         // items should be decompacted, else internal relative pointers get messed up!
-        #[allow(needless_range_loop)]
         for i in 0..self.len() {
             unsafe { ptr::write(new_ptr.offset(i as isize), self[i].decompact()) };
         }
@@ -120,6 +120,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
     }
 
     /// Remove the element at `index`, copying the elements after `index` downwards
+    #[allow(needless_range_loop)]
     pub fn remove(&mut self, index: usize) -> T {
         let len = self.len;
         assert!(index < len);
@@ -135,7 +136,6 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
 
                 // Shift everything down to fill in that spot.
                 // elements should be decompacted, else internal relative pointers get messed up!
-                #[allow(needless_range_loop)]
                 for i in 0..len - index - 1 {
                     ptr::write(ptr.offset(i as isize), self[index + i + 1].decompact())
                 }
@@ -147,13 +147,13 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
 
     /// Take a function which returns whether an element should be kept,
     /// and mutably removes all elements from the vector which are not kept
+    #[allow(needless_range_loop)]
     pub fn retain<F: FnMut(&T) -> bool>(&mut self, mut keep: F) {
         let mut del = 0;
         let len = self.len();
         {
             let v = &mut **self;
 
-            #[allow(needless_range_loop)]
             for i in 0..len {
                 if !keep(&v[i]) {
                     del += 1;
@@ -258,8 +258,7 @@ impl<T, A: Allocator> Drop for IntoIter<T, A> {
         unsafe {
             ptr::drop_in_place(&mut ::std::slice::from_raw_parts(self.ptr
                                                                      .ptr()
-                                                                     .offset(self.index as
-                                                                             isize),
+                                                                     .offset(self.index as isize),
                                                                  self.len))
         };
         if !self.ptr.is_compact() {

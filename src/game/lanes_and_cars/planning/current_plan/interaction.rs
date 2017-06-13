@@ -109,8 +109,7 @@ pub fn setup(system: &mut ActorSystem) {
 
                     let maybe_grid_size = if bindings["Create Large Grid"].is_freshly_in(&combos) {
                         Some(15usize)
-                    } else if bindings["Create Small Grid"]
-                                  .is_freshly_in(&combos) {
+                    } else if bindings["Create Small Grid"].is_freshly_in(&combos) {
                         Some(10usize)
                     } else {
                         None
@@ -123,7 +122,7 @@ pub fn setup(system: &mut ActorSystem) {
                                        Stroke(vec![P2::new((x as f32 + 0.5) * GRID_SPACING, 0.0),
                                                    P2::new((x as f32 + 0.5) * GRID_SPACING,
                                                            grid_size as f32 * GRID_SPACING)]
-                                                      .into(),
+                                                  .into(),
                                               StrokeState::Finished));
                         }
                         for y in 0..grid_size {
@@ -131,7 +130,7 @@ pub fn setup(system: &mut ActorSystem) {
                                        Stroke(vec![P2::new(0.0, (y as f32 + 0.5) * GRID_SPACING),
                                                    P2::new(grid_size as f32 * GRID_SPACING,
                                                            (y as f32 + 0.5) * GRID_SPACING)]
-                                                      .into(),
+                                                  .into(),
                                               StrokeState::Finished));
                         }
                     }
@@ -157,17 +156,16 @@ pub fn setup(system: &mut ActorSystem) {
         the_cp.on(|&DrawUI2d { ui_ptr, return_to }, plan, world| {
             let ui = unsafe { Box::from_raw(ui_ptr as *mut ::imgui::Ui) };
 
-            ui.window(im_str!("Controls"))
-                .build(|| {
-                    ui.text(im_str!("Plan Editing"));
-                    ui.separator();
+            ui.window(im_str!("Controls")).build(|| {
+                ui.text(im_str!("Plan Editing"));
+                ui.separator();
 
-                    if plan.interaction.settings.bindings.settings_ui(&ui) {
-                        ::ENV.write_settings("Plan Editing", &plan.interaction.settings)
-                    }
+                if plan.interaction.settings.bindings.settings_ui(&ui) {
+                    ::ENV.write_settings("Plan Editing", &plan.interaction.settings)
+                }
 
-                    ui.spacing();
-                });
+                ui.spacing();
+            });
 
             world.send(return_to, Ui2dDrawn { ui_ptr: Box::into_raw(ui) as usize });
             Fate::Live

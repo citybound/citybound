@@ -22,7 +22,7 @@ impl Batch {
             indices: glium::IndexBuffer::new(window,
                                              index::PrimitiveType::TrianglesList,
                                              &prototype.indices)
-                    .unwrap(),
+                .unwrap(),
             instances: Vec::new(),
             clear_every_frame: true,
             is_decal: false,
@@ -39,7 +39,7 @@ impl Batch {
             indices: glium::IndexBuffer::new(window,
                                              index::PrimitiveType::TrianglesList,
                                              &thing.indices)
-                    .unwrap(),
+                .unwrap(),
             instances: vec![instance],
             clear_every_frame: false,
             is_decal: is_decal,

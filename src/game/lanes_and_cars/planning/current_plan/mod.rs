@@ -115,24 +115,22 @@ use super::super::construction::materialized_reality::Simulate;
 
 impl CurrentPlan {
     fn still_built_strokes(&self) -> Option<BuiltStrokes> {
-        self.built_strokes
-            .as_ref()
-            .map(|built_strokes| {
-                BuiltStrokes {
-                    mapping: built_strokes
-                        .mapping
-                        .pairs()
-                        .filter_map(|(built_ref, stroke)| if self.current
-                                           .plan_delta
-                                           .strokes_to_destroy
-                                           .contains_key(*built_ref) {
-                                        None
-                                    } else {
-                                        Some((*built_ref, stroke.clone()))
-                                    })
-                        .collect(),
-                }
-            })
+        self.built_strokes.as_ref().map(|built_strokes| {
+            BuiltStrokes {
+                mapping: built_strokes
+                    .mapping
+                    .pairs()
+                    .filter_map(|(built_ref, stroke)| if self.current
+                                       .plan_delta
+                                       .strokes_to_destroy
+                                       .contains_key(*built_ref) {
+                                    None
+                                } else {
+                                    Some((*built_ref, stroke.clone()))
+                                })
+                    .collect(),
+            }
+        })
     }
 
     fn invalidate_preview(&mut self) {

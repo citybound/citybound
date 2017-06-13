@@ -21,43 +21,45 @@ use super::InitInteractable;
 use stagemaster::{UserInterface, AddInteractable};
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<Addable>::new(),
-               Swarm::<Addable>::subactors(|mut each_addable| {
-        let ui_id = each_addable.world().id::<UserInterface>();
-        let cp_id = each_addable.world().id::<CurrentPlan>();
+    system.add(
+        Swarm::<Addable>::new(),
+        Swarm::<Addable>::subactors(|mut each_addable| {
+            let ui_id = each_addable.world().id::<UserInterface>();
+            let cp_id = each_addable.world().id::<CurrentPlan>();
 
-        each_addable.on_create_with(move |_: &InitInteractable, addable, world| {
-            world.send(ui_id,
-                       AddInteractable(addable.id(),
-                                       AnyShape::Band(Band::new(addable.path.clone(), 3.0)),
-                                       3));
-            Fate::Live
-        });
+            each_addable.on_create_with(move |_: &InitInteractable, addable, world| {
+                world.send(ui_id,
+                           AddInteractable(addable.id(),
+                                           AnyShape::Band(Band::new(addable.path.clone(), 3.0)),
+                                           3));
+                Fate::Live
+            });
 
-        each_addable.on(move |_: &ClearInteractable, addable, world| {
-            world.send(ui_id, RemoveInteractable(addable.id()));
-            Fate::Die
-        });
+            each_addable.on(move |_: &ClearInteractable, addable, world| {
+                world.send(ui_id, RemoveInteractable(addable.id()));
+                Fate::Die
+            });
 
-        each_addable.on(move |event, _, world| {
-            match *event {
-                Event3d::HoverStarted { .. } |
-                Event3d::HoverOngoing { .. } => {
-                    world.send(cp_id,
-                               ChangeIntent(Intent::CreateNextLane, IntentProgress::Preview));
-                }
-                Event3d::HoverStopped => {
-                    world.send(cp_id, ChangeIntent(Intent::None, IntentProgress::Preview));
-                }
-                Event3d::DragStarted { .. } => {
-                    world.send(cp_id,
-                               ChangeIntent(Intent::CreateNextLane, IntentProgress::Immediate));
-                }
-                _ => {}
-            };
-            Fate::Live
-        })
-    }));
+            each_addable.on(move |event, _, world| {
+                match *event {
+                    Event3d::HoverStarted { .. } |
+                    Event3d::HoverOngoing { .. } => {
+                        world.send(cp_id,
+                                   ChangeIntent(Intent::CreateNextLane, IntentProgress::Preview));
+                    }
+                    Event3d::HoverStopped => {
+                        world.send(cp_id, ChangeIntent(Intent::None, IntentProgress::Preview));
+                    }
+                    Event3d::DragStarted { .. } => {
+                        world.send(cp_id,
+                                   ChangeIntent(Intent::CreateNextLane, IntentProgress::Immediate));
+                    }
+                    _ => {}
+                };
+                Fate::Live
+            })
+        }),
+    );
 }
 
 use super::ClearInteractable;

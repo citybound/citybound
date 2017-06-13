@@ -72,9 +72,7 @@ fn find_intersection_points(strokes: &CVec<LaneStroke>) -> Vec<P2> {
                      .path()
                      .segments()
                      .iter()
-                     .map(|segment| {
-            segment.bounding_box().grown_by(STROKE_INTERSECTION_WIDTH)
-        }));
+                     .map(|segment| segment.bounding_box().grown_by(STROKE_INTERSECTION_WIDTH)));
     }
 
     let points = grid.colocated_pairs()
@@ -153,43 +151,39 @@ pub fn trim_strokes_and_add_incoming_outgoing(strokes: &CVec<LaneStroke>,
                         .map(|p| OrderedFloat(p.along_a))
                         .max()
                         .unwrap();
-                    intersection
-                        .incoming
-                        .insert(stroke_ref,
-                                LaneStrokeNode {
-                                    position: path.along(*entry_distance),
-                                    direction: path.direction_along(*entry_distance),
-                                });
-                    intersection
-                        .outgoing
-                        .insert(stroke_ref,
-                                LaneStrokeNode {
-                                    position: path.along(*exit_distance),
-                                    direction: path.direction_along(*exit_distance),
-                                });
+                    intersection.incoming.insert(stroke_ref,
+                                                 LaneStrokeNode {
+                                                     position: path.along(*entry_distance),
+                                                     direction:
+                                                         path.direction_along(*entry_distance),
+                                                 });
+                    intersection.outgoing.insert(stroke_ref,
+                                                 LaneStrokeNode {
+                                                     position: path.along(*exit_distance),
+                                                     direction:
+                                                         path.direction_along(*exit_distance),
+                                                 });
                     cuts.push((*entry_distance, *exit_distance));
                 } else if intersection_points.len() == 1 {
                     if intersection.shape.contains(stroke.nodes()[0].position) {
                         let exit_distance = intersection_points[0].along_a;
-                        intersection
-                            .outgoing
-                            .insert(stroke_ref,
-                                    LaneStrokeNode {
-                                        position: path.along(exit_distance),
-                                        direction: path.direction_along(exit_distance),
-                                    });
+                        intersection.outgoing.insert(stroke_ref,
+                                                     LaneStrokeNode {
+                                                         position: path.along(exit_distance),
+                                                         direction:
+                                                             path.direction_along(exit_distance),
+                                                     });
                         start_trim = start_trim.max(exit_distance);
                     } else if intersection
                                   .shape
                                   .contains(stroke.nodes().last().unwrap().position) {
                         let entry_distance = intersection_points[0].along_a;
-                        intersection
-                            .incoming
-                            .insert(stroke_ref,
-                                    LaneStrokeNode {
-                                        position: path.along(entry_distance),
-                                        direction: path.direction_along(entry_distance),
-                                    });
+                        intersection.incoming.insert(stroke_ref,
+                                                     LaneStrokeNode {
+                                                         position: path.along(entry_distance),
+                                                         direction:
+                                                             path.direction_along(entry_distance),
+                                                     });
                         end_trim = end_trim.min(entry_distance);
                     }
                 }
@@ -347,45 +341,39 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                         segment_1.end().is_roughly_within(segment_2.start(), 0.1)
                     });
 
-                    let aligned_paths = aligned_segment_sets
-                        .sets()
-                        .map(|set| {
-                            let mut sorted_segments = set.to_vec();
-                            sorted_segments.sort_by(|segment_1, segment_2| if
-                                segment_1.start().is_roughly_within(segment_2.end(), 0.1) {
-                                                        ::std::cmp::Ordering::Greater
-                                                    } else if
-                                segment_1.end().is_roughly_within(segment_2.start(), 0.1) {
-                                                        ::std::cmp::Ordering::Less
-                                                    } else {
-                                                        ::std::cmp::Ordering::Equal
-                                                    });
-                            sorted_segments
+                    let aligned_paths = aligned_segment_sets.sets().map(|set| {
+                        let mut sorted_segments = set.to_vec();
+                        sorted_segments.sort_by(|segment_1, segment_2| {
+                            if segment_1.start().is_roughly_within(segment_2.end(), 0.1) {
+                                ::std::cmp::Ordering::Greater
+                            } else if segment_1.end().is_roughly_within(segment_2.start(), 0.1) {
+                                ::std::cmp::Ordering::Less
+                            } else {
+                                ::std::cmp::Ordering::Equal
+                            }
                         });
+                        sorted_segments
+                    });
 
                     aligned_paths
                         .flat_map(|segments| {
-                            LaneStroke::new(segments
-                                                .iter()
-                                                .map(|segment| {
-                                LaneStrokeNode {
-                                    position: segment.start(),
-                                    direction: segment.start_direction(),
-                                }
-                            })
-                                                .chain(Some(LaneStrokeNode {
-                                                                position: segments
-                                                                    .last()
-                                                                    .unwrap()
-                                                                    .end(),
-                                                                direction: segments
-                                                                    .last()
-                                                                    .unwrap()
-                                                                    .end_direction(),
-                                                            })
-                                                               .into_iter())
-                                                .collect())
-                                    .into_iter()
+                            LaneStroke::new(
+                                segments
+                                    .iter()
+                                    .map(|segment| {
+                                        LaneStrokeNode {
+                                            position: segment.start(),
+                                            direction: segment.start_direction(),
+                                        }
+                                    })
+                                    .chain(
+                                        Some(LaneStrokeNode {
+                                            position: segments.last().unwrap().end(),
+                                            direction: segments.last().unwrap().end_direction(),
+                                        }).into_iter(),
+                                    )
+                                    .collect(),
+                            ).into_iter()
                         })
                         .collect::<Vec<_>>()
                 })
@@ -493,13 +481,11 @@ pub fn create_connecting_strokes(intersections: &mut CVec<Intersection>) {
 fn groups_correspond(incoming_group: &Vec<(&LaneStrokeRef, &LaneStrokeNode)>,
                      outgoing_group: &Vec<(&LaneStrokeRef, &LaneStrokeNode)>)
                      -> bool {
-    incoming_group
-        .iter()
-        .all(|&(incoming_ref, _)| {
-            outgoing_group
-                .iter()
-                .any(|&(outgoing_ref, _)| incoming_ref == outgoing_ref)
-        })
+    incoming_group.iter().all(|&(incoming_ref, _)| {
+        outgoing_group
+            .iter()
+            .any(|&(outgoing_ref, _)| incoming_ref == outgoing_ref)
+    })
 }
 
 #[allow(ptr_arg)]

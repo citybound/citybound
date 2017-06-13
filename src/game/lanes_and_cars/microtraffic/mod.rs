@@ -197,10 +197,8 @@ pub fn setup(system: &mut ActorSystem) {
                 };
 
                 // TODO: optimize using BinaryHeap?
-                let maybe_next_car_position = lane.microtraffic
-                    .cars
-                    .iter()
-                    .position(|other_car| {
+                let maybe_next_car_position =
+                    lane.microtraffic.cars.iter().position(|other_car| {
                         other_car.as_obstacle.position > car.as_obstacle.position
                     });
                 match maybe_next_car_position {
@@ -238,13 +236,13 @@ pub fn setup(system: &mut ActorSystem) {
                 true
             } else {
                 !lane.microtraffic.timings[((current_tick + 100) / 25) %
-                 lane.microtraffic.timings.len()]
+                                           lane.microtraffic.timings.len()]
             };
             lane.microtraffic.yellow_to_green = if lane.microtraffic.timings.is_empty() {
                 true
             } else {
                 lane.microtraffic.timings[((current_tick + 100) / 25) %
-                lane.microtraffic.timings.len()]
+                                          lane.microtraffic.timings.len()]
             };
             lane.microtraffic.green = if lane.microtraffic.timings.is_empty() {
                 true
@@ -359,7 +357,7 @@ pub fn setup(system: &mut ActorSystem) {
                     .rev()
                     .filter_map(|(i, &car)| {
                         let interaction = lane.connectivity.interactions[car.next_hop_interaction as
-                        usize];
+                                                                         usize];
 
                         match interaction.kind {
                             InteractionKind::Overlap {
@@ -452,15 +450,13 @@ pub fn setup(system: &mut ActorSystem) {
             let from_left = from == lane.connectivity.left.expect("should have a left lane").0;
             let side_multiplier = if from_left { -1.0 } else { 1.0 };
             let offset = lane.interaction_to_self_offset(*car.position, from_left);
-            lane.microtraffic
-                .cars
-                .push(TransferringLaneCar {
-                          as_lane_car: car.offset_by(offset),
-                          transfer_position: 1.0 * side_multiplier,
-                          transfer_velocity: 0.0,
-                          transfer_acceleration: 0.3 * -side_multiplier,
-                          cancelling: false,
-                      });
+            lane.microtraffic.cars.push(TransferringLaneCar {
+                                            as_lane_car: car.offset_by(offset),
+                                            transfer_position: 1.0 * side_multiplier,
+                                            transfer_velocity: 0.0,
+                                            transfer_acceleration: 0.3 * -side_multiplier,
+                                            cancelling: false,
+                                        });
             // TODO: optimize using BinaryHeap?
             lane.microtraffic
                 .cars
@@ -540,19 +536,20 @@ pub fn setup(system: &mut ActorSystem) {
 
                         let mut dangerous = false;
                         let next_obstacle_acceleration = *next_car
-                                                              .into_iter()
-                                                              .chain(maybe_next_left_obstacle)
-                                                              .chain(maybe_next_right_obstacle)
-                                                              .chain(&[Obstacle::far_ahead()])
-                                                              .filter_map(|obstacle| if
-                            *obstacle.position < *car.position + 0.1 {
-                                                                              dangerous = true;
-                                                                              None
-                                                                          } else {
-                            Some(OrderedFloat(intelligent_acceleration(car, obstacle, 1.0)))
-                        })
-                                                              .min()
-                                                              .unwrap();
+                            .into_iter()
+                            .chain(maybe_next_left_obstacle)
+                            .chain(maybe_next_right_obstacle)
+                            .chain(&[Obstacle::far_ahead()])
+                            .filter_map(|obstacle| if *obstacle.position < *car.position + 0.1 {
+                                            dangerous = true;
+                                            None
+                                        } else {
+                                            Some(OrderedFloat(intelligent_acceleration(car,
+                                                                                       obstacle,
+                                                                                       1.0)))
+                                        })
+                            .min()
+                            .unwrap();
 
                         let transfer_before_end_velocity =
                             (lane.construction.length + 1.0 - *car.position) / 1.5;
@@ -650,14 +647,14 @@ pub fn setup(system: &mut ActorSystem) {
                         .cars
                         .iter()
                         .filter_map(|car| if car.transfer_position < 0.3 ||
-                                             car.transfer_acceleration < 0.0 {
+                                 car.transfer_acceleration < 0.0 {
                             Some(car.as_obstacle
                                      .offset_by(left_start +
                                                 lane.self_to_interaction_offset(*car.position,
                                                                                 true)))
                         } else {
-                                        None
-                                    })
+                            None
+                        })
                         .collect();
                     world.send(left, AddObstacles { obstacles: obstacles, from: lane.id() });
                 }
@@ -668,14 +665,14 @@ pub fn setup(system: &mut ActorSystem) {
                         .cars
                         .iter()
                         .filter_map(|car| if car.transfer_position > -0.3 ||
-                                             car.transfer_acceleration > 0.0 {
+                                 car.transfer_acceleration > 0.0 {
                             Some(car.as_obstacle
                                      .offset_by(right_start +
                                                 lane.self_to_interaction_offset(*car.position,
                                                                                 false)))
                         } else {
-                                        None
-                                    })
+                            None
+                        })
                         .collect();
                     world.send(right,
                                AddObstacles { obstacles: obstacles, from: lane.id() });
@@ -711,47 +708,41 @@ fn obstacles_for_interaction(interaction: &Interaction,
             ..
         } => {
             Some(match kind {
-                     OverlapKind::Parallel => {
-                         cars.skip_while(|car: &&LaneCar| {
-                    *car.position + 2.0 * car.velocity < start
-                })
-                             .take_while(|car: &&LaneCar| *car.position < end)
-                             .map(|car| car.as_obstacle.offset_by(-start + partner_start))
-                             .collect()
-                     }
-                     OverlapKind::Transfer => {
-                         cars.skip_while(|car: &&LaneCar| {
-                    *car.position + 2.0 * car.velocity < start
-                })
-                             .map(|car| car.as_obstacle.offset_by(-start + partner_start))
-                             .chain(self_obstacles_iter
-                                        .filter_map(|&(obstacle, id)| if id != partner_lane &&
-                                                                         *obstacle.position +
-                                                                         2.0 * obstacle.velocity >
-                                                                         start {
-                                                        Some(obstacle.offset_by(-start +
-                                                                                partner_start))
-                                                    } else {
-                                                        None
-                                                    }))
-                             .collect()
-                     }
-                     OverlapKind::Conflicting => {
-                         let in_overlap = |car: &LaneCar| {
-                    *car.position + 2.0 * car.velocity > start && *car.position - 2.0 < end
-                };
-                         if cars.any(in_overlap) {
-                             vec![Obstacle {
-                                      position: OrderedFloat(partner_start),
-                                      velocity: 0.0,
-                                      max_velocity: 0.0,
-                                  }]
-                                     .into()
-                         } else {
-                             CVec::new()
-                         }
-                     }
-                 })
+                OverlapKind::Parallel => {
+                    cars.skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
+                        .take_while(|car: &&LaneCar| *car.position < end)
+                        .map(|car| car.as_obstacle.offset_by(-start + partner_start))
+                        .collect()
+                }
+                OverlapKind::Transfer => {
+                    cars.skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
+                        .map(|car| car.as_obstacle.offset_by(-start + partner_start))
+                        .chain(self_obstacles_iter.filter_map(
+                            |&(obstacle, id)| if id != partner_lane &&
+                                                 *obstacle.position + 2.0 * obstacle.velocity >
+                                                 start {
+                                Some(obstacle.offset_by(-start + partner_start))
+                            } else {
+                                None
+                            },
+                        ))
+                        .collect()
+                }
+                OverlapKind::Conflicting => {
+                    let in_overlap = |car: &LaneCar| {
+                        *car.position + 2.0 * car.velocity > start && *car.position - 2.0 < end
+                    };
+                    if cars.any(in_overlap) {
+                        vec![Obstacle {
+                                 position: OrderedFloat(partner_start),
+                                 velocity: 0.0,
+                                 max_velocity: 0.0,
+                             }].into()
+                    } else {
+                        CVec::new()
+                    }
+                }
+            })
         }
         Interaction {
             start,

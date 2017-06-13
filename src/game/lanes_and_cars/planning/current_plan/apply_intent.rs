@@ -176,7 +176,7 @@ fn continue_new_road(continue_from: &[(LaneStrokeRef, ContinuationMode)],
                      Segment::arc_with_direction(previous_reference_point,
                                                  node.direction,
                                                  *next_reference_point)
-                             .end_direction())
+                         .end_direction())
 
                 }
                 ContinuationMode::Prepend => {
@@ -186,7 +186,7 @@ fn continue_new_road(continue_from: &[(LaneStrokeRef, ContinuationMode)],
                      -Segment::arc_with_direction(previous_reference_point,
                                                   -node.direction,
                                                   *next_reference_point)
-                              .end_direction())
+                         .end_direction())
                 }
             };
             let next_position = *next_reference_point +
@@ -242,8 +242,8 @@ fn continue_new_road(continue_from: &[(LaneStrokeRef, ContinuationMode)],
                     if is_end {
                         let mut distance = (stroke.nodes()[0].position - node.position).norm();
                         if !stroke.nodes()[0]
-                                .direction
-                                .is_roughly_within(node.direction, 0.5) {
+                               .direction
+                               .is_roughly_within(node.direction, 0.5) {
                             // prevent unaligned connects
                             distance = ::std::f32::INFINITY
                         }
@@ -252,11 +252,11 @@ fn continue_new_road(continue_from: &[(LaneStrokeRef, ContinuationMode)],
                         let mut distance =
                             (stroke.nodes().last().unwrap().position - node.position).norm();
                         if !stroke
-                                .nodes()
-                                .last()
-                                .unwrap()
-                                .direction
-                                .is_roughly_within(node.direction, 0.5) {
+                               .nodes()
+                               .last()
+                               .unwrap()
+                               .direction
+                               .is_roughly_within(node.direction, 0.5) {
                             // prevent unaligned connects
                             distance = ::std::f32::INFINITY
                         }
@@ -464,9 +464,7 @@ fn all_strokes<'a>(plan_delta: &'a PlanDelta,
         .chain(still_built_strokes
                    .mapping
                    .pairs()
-                   .map(|(old_ref, old_stroke)| {
-            (SelectableStrokeRef::Built(*old_ref), old_stroke)
-        }))
+                   .map(|(old_ref, old_stroke)| (SelectableStrokeRef::Built(*old_ref), old_stroke)))
 }
 
 fn apply_maximize_selection(current: &PlanStep, still_built_strokes: &BuiltStrokes) -> PlanStep {
@@ -484,6 +482,7 @@ fn apply_maximize_selection(current: &PlanStep, still_built_strokes: &BuiltStrok
     }
 }
 
+#[allow(needless_range_loop)]
 fn apply_move_selection(delta: V2,
                         current: &PlanStep,
                         still_built_strokes: &BuiltStrokes)
@@ -543,8 +542,8 @@ fn apply_move_selection(delta: V2,
         if a_close_and_right_of_b(new_subsection_a.get(0), new_subsection_b.last()) &&
            maybe_before_connector_a.is_some() && maybe_after_connector_b.is_some() &&
            !connector_alignments
-                .iter()
-                .any(|other| other == &((ref_b, C::After), (ref_a, C::Before))) {
+               .iter()
+               .any(|other| other == &((ref_b, C::After), (ref_a, C::Before))) {
             connector_alignments.push(((ref_a, C::Before), (ref_b, C::After)));
         }
         if a_close_and_right_of_b(new_subsection_a.last(), new_subsection_b.last()) &&
@@ -554,8 +553,8 @@ fn apply_move_selection(delta: V2,
         if a_close_and_right_of_b(new_subsection_a.last(), new_subsection_b.get(0)) &&
            maybe_after_connector_a.is_some() && maybe_before_connector_b.is_some() &&
            !connector_alignments
-                .iter()
-                .any(|other| other == &((ref_b, C::Before), (ref_a, C::After))) {
+               .iter()
+               .any(|other| other == &((ref_b, C::Before), (ref_a, C::After))) {
             connector_alignments.push(((ref_a, C::After), (ref_b, C::Before)));
         }
     }
@@ -565,7 +564,7 @@ fn apply_move_selection(delta: V2,
         // yes, this is not optimal at all, but correct
         while {
                   let mut something_happened = false;
-                        #[allow(needless_range_loop)]
+
                   for i in 0..connector_alignments.len() {
                       let swap = {
                           let &(_, ref align_a_to) = &connector_alignments[i];
@@ -623,7 +622,7 @@ fn apply_move_selection(delta: V2,
                                                     .chain(ac)
                                                     .chain(a)
                                                     .collect())
-                   .map_err(|e| println!("{:?}", e)) {
+               .map_err(|e| println!("{:?}", e)) {
             let new_selection_start = new_stroke.path().project(s[0].position).unwrap();
             let new_selection_end = new_stroke
                 .path()
@@ -731,8 +730,8 @@ fn apply_create_next_lane(current: &PlanStep, still_built_strokes: &BuiltStrokes
         })
         .filter(|stroke| {
             !selected_subsections
-                 .iter()
-                 .any(|subsection| stroke.is_roughly_within(subsection, 0.1))
+                .iter()
+                .any(|subsection| stroke.is_roughly_within(subsection, 0.1))
         });
     let mut new_new_strokes = current.plan_delta.new_strokes.clone();
     new_new_strokes.extend(next_lane_strokes);

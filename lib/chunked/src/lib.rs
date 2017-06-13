@@ -68,9 +68,9 @@ impl MemChunker {
     /// prevent it from being an `Object`, see `error[E0038]`)
     pub fn from_settings(name: &str, chunk_size: usize) -> Box<Chunker> {
         box MemChunker {
-                name: String::from(name),
-                chunk_size: chunk_size,
-            }
+            name: String::from(name),
+            chunk_size: chunk_size,
+        }
     }
 }
 
@@ -97,9 +97,9 @@ impl Chunker for MemChunker {
 
     fn child(&self, suffix: &str) -> Box<Chunker> {
         box MemChunker {
-                name: self.name.clone() + suffix,
-                chunk_size: self.chunk_size,
-            }
+            name: self.name.clone() + suffix,
+            chunk_size: self.chunk_size,
+        }
     }
 
     fn create_chunk(&mut self) -> *mut u8 {
@@ -417,7 +417,7 @@ impl ChunkedQueue {
             *self.len += 1;
             // return the pointer to where the item can be written
             payload_ptr
-            // the item won't fit in the current chunk anymore
+        // the item won't fit in the current chunk anymore
         } else {
             // store a jump marker instead of item size
             *(ptr as *mut usize) = JUMP_TO_NEXT_CHUNK;
@@ -499,10 +499,9 @@ impl<B: SizedChunkedCollection> MultiSized<B> {
     /// Add a new Bin which has double the size of the previously largest one
     fn push_larger_sized_bin(&mut self) {
         let new_largest_size = 2u32.pow(self.bins.len() as u32) as usize * self.base_size;
-        self.bins
-            .push(B::new(self.chunker
-                             .child(format!("_{}", new_largest_size).as_str()),
-                         new_largest_size))
+        self.bins.push(B::new(self.chunker
+                                  .child(format!("_{}", new_largest_size).as_str()),
+                              new_largest_size))
     }
 
     /// Get the index of the Bin which stores items of size `size`
