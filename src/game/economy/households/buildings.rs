@@ -9,6 +9,13 @@ pub struct Building {
     households: CVec<ID>,
 }
 
+use stagemaster::geometry::CPath;
+
+#[derive(Compact, Clone)]
+pub struct Lot {
+    footprint: CPath,
+}
+
 use game::lanes_and_cars::pathfinding::QueryAsDestination;
 
 pub fn setup(system: &mut ActorSystem) {
@@ -20,3 +27,8 @@ pub fn setup(system: &mut ActorSystem) {
         });
     }));
 }
+
+pub struct FindLot{pub requester: ID};
+pub struct FoundLot(pub Lot);
+pub struct CheckLot{pub lot: Lot, pub requester: ID};
+pub struct LotResult{pub from: ID, pub obstructed: bool};

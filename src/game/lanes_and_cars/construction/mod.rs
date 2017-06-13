@@ -348,6 +348,8 @@ pub fn setup(system: &mut ActorSystem) {
                 Fate::Live
             }
         });
+
+        each_lane.on_random(|&FindLot)
     }));
 
     system.extend(Swarm::<TransferLane>::subactors(move |mut each_t_lane| {
@@ -535,3 +537,8 @@ pub struct Unbuild {
     pub report_to: ID,
 }
 use self::materialized_reality::ReportLaneUnbuilt;
+
+use game::economy::households::buildings::FindLot;
+use game::economy::households::buildings::FoundLot;
+use game::economy::households::buildings::CheckLot;
+use game::economy::households::buildings::CheckLot;
