@@ -103,62 +103,62 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
         }
         syn::Body::Enum(ref data) => {
             let variants_still_compact: &Vec<_> = &data.iter()
-                                                       .map(|variant| {
-                let ident = &variant.ident;
-                let fields = get_field_idents(&variant.data, "f");
-                let fields_ref = &fields;
+                .map(|variant| {
+                    let ident = &variant.ident;
+                    let fields = get_field_idents(&variant.data, "f");
+                    let fields_ref = &fields;
 
-                if fields.is_empty() {
-                    quote! {
+                    if fields.is_empty() {
+                        quote! {
                             #name::#ident => true
                         }
-                } else {
-                    quote! {
+                    } else {
+                        quote! {
                             #name::#ident(#(ref #fields_ref),*) => {
                                 #(#fields_ref.is_still_compact())&&*
                             }
                         }
-                }
-            })
-                                                       .collect();
+                    }
+                })
+                .collect();
 
             let variants_dynamic_size: &Vec<_> = &data.iter()
-                                                      .map(|variant| {
-                let ident = &variant.ident;
-                let fields = get_field_idents(&variant.data, "f");
-                let fields_ref = &fields;
+                .map(|variant| {
+                    let ident = &variant.ident;
+                    let fields = get_field_idents(&variant.data, "f");
+                    let fields_ref = &fields;
 
-                if fields.is_empty() {
-                    quote! {
+                    if fields.is_empty() {
+                        quote! {
                             #name::#ident => 0
                         }
-                } else {
-                    quote! {
+                    } else {
+                        quote! {
                             #name::#ident(#(ref #fields_ref),*) => {
                                 #(#fields_ref.dynamic_size_bytes())+*
                             }
                         }
-                }
-            })
-                                                      .collect();
+                    }
+                })
+                .collect();
 
             let variants_compact_from: &Vec<_> = &data.iter()
-                                                      .map(|variant| {
-                let ident = &variant.ident;
-                let fields = get_field_idents(&variant.data, "f");
-                let source_fields = get_field_idents(&variant.data, "source_f");
-                let fields_ref = &fields;
-                let source_fields_ref = &source_fields;
-                let source_fields_ref_2 = &source_fields;
+                .map(|variant| {
+                    let ident = &variant.ident;
+                    let fields = get_field_idents(&variant.data, "f");
+                    let source_fields = get_field_idents(&variant.data, "source_f");
+                    let fields_ref = &fields;
+                    let source_fields_ref = &source_fields;
+                    let source_fields_ref_2 = &source_fields;
 
-                if fields.is_empty() {
-                    quote! {
+                    if fields.is_empty() {
+                        quote! {
                             #name::#ident => {
                                 *self = #name::#ident;
                             }
                         }
-                } else {
-                    quote! {
+                    } else {
+                        quote! {
                             #name::#ident(#(ref #source_fields_ref),*) => {
                                 ::std::ptr::copy_nonoverlapping(source as *const #name,
                                                                 self as *mut #name, 1);
@@ -174,29 +174,29 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                                 } else {unreachable!()}
                             }
                         }
-                }
-            })
-                                                      .collect();
+                    }
+                })
+                .collect();
 
             let variants_decompact: &Vec<_> = &data.iter()
-                                                   .map(|variant| {
-                let ident = &variant.ident;
-                let fields = get_field_idents(&variant.data, "f");
-                let fields_ref = &fields;
+                .map(|variant| {
+                    let ident = &variant.ident;
+                    let fields = get_field_idents(&variant.data, "f");
+                    let fields_ref = &fields;
 
-                if fields.is_empty() {
-                    quote! {
+                    if fields.is_empty() {
+                        quote! {
                             #name::#ident => #name::#ident
                         }
-                } else {
-                    quote! {
+                    } else {
+                        quote! {
                             #name::#ident(#(ref #fields_ref),*) => {
                                 #name::#ident(#(#fields_ref.decompact()),*)
                             }
                         }
-                }
-            })
-                                                   .collect();
+                    }
+                })
+                .collect();
 
             quote! {
                 // generated

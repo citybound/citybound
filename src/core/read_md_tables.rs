@@ -30,10 +30,10 @@ fn read_str(string: &str) -> Result<Vec<Table>> {
             }
             Event::Start(Tag::TableHead) => {
                 tables.push(Table {
-                    header: current_headers[0].clone(),
-                    subheader: current_headers[1].clone(),
-                    columns: Default::default(),
-                });
+                                header: current_headers[0].clone(),
+                                subheader: current_headers[1].clone(),
+                                columns: Default::default(),
+                            });
                 in_table_head = true
             }
             Event::End(Tag::TableHead) => in_table_head = false,
@@ -41,12 +41,14 @@ fn read_str(string: &str) -> Result<Vec<Table>> {
             Event::End(Tag::TableCell) => {
                 if in_table_head {
                     column_names.push(last_string.clone());
-                    tables.last_mut()
+                    tables
+                        .last_mut()
                         .expect("Table head should have started")
                         .columns
                         .insert(last_string.clone(), Vec::new());
                 } else {
-                    tables.last_mut()
+                    tables
+                        .last_mut()
                         .expect("Table body should have started")
                         .columns
                         .get_mut(&column_names[current_column_index])
@@ -73,10 +75,9 @@ pub fn read<P: AsRef<Path>>(path: &P) -> Result<Vec<Table>> {
     if metadata(path)?.is_file() {
         read_file(path)
     } else {
-        Ok(read_dir(path)
-            ?
-            .flat_map(|file_path| read_file(&file_path?.path()).map(IntoIterator::into_iter))
-            .flat_map(|i| i)
-            .collect())
+        Ok(read_dir(path)?
+               .flat_map(|file_path| read_file(&file_path?.path()).map(IntoIterator::into_iter))
+               .flat_map(|i| i)
+               .collect())
     }
 }

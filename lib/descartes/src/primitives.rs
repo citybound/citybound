@@ -103,15 +103,15 @@ impl Segment {
         } else {
             let maybe_linear_intersection = (&Line { start: start, direction: start_direction },
                                              &Line { start: end, direction: -end_direction })
-                    .intersect()
-                    .into_iter()
-                    .next()
-                    .and_then(|intersection| if intersection.along_a > 0.0 &&
-                                                intersection.along_b > 0.0 {
-                                  Some(intersection)
-                              } else {
-                                  None
-                              });
+                .intersect()
+                .into_iter()
+                .next()
+                .and_then(|intersection| if intersection.along_a > 0.0 &&
+                                            intersection.along_b > 0.0 {
+                              Some(intersection)
+                          } else {
+                              None
+                          });
 
             let (connection_position, connection_direction) = if let Some(Intersection {
                                                                               position, ..
@@ -150,7 +150,7 @@ impl Segment {
                         (-v_dot_t +
                          (v_dot_t * v_dot_t +
                           2.0 * (1.0 - start_direction.dot(&end_direction)) * v.dot(&v))
-                                 .sqrt()) /
+                             .sqrt()) /
                         (2.0 * (1.0 - start_direction.dot(&end_direction)))
                     };
 
@@ -316,16 +316,14 @@ impl Curve for Segment {
     fn includes(&self, point: P2) -> bool {
         let primitive_includes_point = if self.is_linear() {
             Line {
-                    start: self.start,
-                    direction: self.center_or_direction,
-                }
-                .includes(point)
+                start: self.start,
+                direction: self.center_or_direction,
+            }.includes(point)
         } else {
             Circle {
-                    center: self.center(),
-                    radius: self.radius(),
-                }
-                .includes(point)
+                center: self.center(),
+                radius: self.radius(),
+            }.includes(point)
         };
 
         primitive_includes_point && self.project(point).is_some()
@@ -336,16 +334,14 @@ impl Curve for Segment {
             Some(_offset) => {
                 if self.is_linear() {
                     Line {
-                            start: self.start,
-                            direction: self.center_or_direction,
-                        }
-                        .distance_to(point)
+                        start: self.start,
+                        direction: self.center_or_direction,
+                    }.distance_to(point)
                 } else {
                     Circle {
-                            center: self.center(),
-                            radius: self.radius(),
-                        }
-                        .distance_to(point)
+                        center: self.center(),
+                        radius: self.radius(),
+                    }.distance_to(point)
                 }
             }
             None => (self.start - point).norm().min((self.end - point).norm()),

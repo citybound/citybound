@@ -166,16 +166,13 @@ fn render_selections(selections: &CDict<SelectableStrokeRef, (N, N)>,
         .pairs()
         .filter_map(|(&selection_ref, &(start, end))| {
             let stroke = selection_ref.get_stroke(plan_delta, built_strokes);
-            stroke
-                .path()
-                .subsection(start, end)
-                .and_then(|subsection| {
-                    subsection
-                        .shift_orthogonally(5.0)
-                        .map(|shifted_subsection| {
-                            band_to_thing(&Band::new(shifted_subsection, 5.0), 0.1)
-                        })
-                })
+            stroke.path().subsection(start, end).and_then(|subsection| {
+                subsection
+                    .shift_orthogonally(5.0)
+                    .map(|shifted_subsection| {
+                        band_to_thing(&Band::new(shifted_subsection, 5.0), 0.1)
+                    })
+            })
         })
         .sum();
     renderer_id.update_thing(scene_id,

@@ -19,47 +19,48 @@ pub struct Projected3d {
 
 pub fn setup(system: &mut ActorSystem) {
     system.extend::<Renderer, _>(|mut the_renderer| {
-        the_renderer
-            .on_critical(|&Project2dTo3d { scene_id, position_2d, requester }, renderer, world| {
-                let eye = &renderer.scenes[scene_id].eye;
-                let frame_size = renderer.render_context.window.get_framebuffer_dimensions();
+        the_renderer.on_critical(|&Project2dTo3d { scene_id, position_2d, requester },
+         renderer,
+         world| {
+            let eye = &renderer.scenes[scene_id].eye;
+            let frame_size = renderer.render_context.window.get_framebuffer_dimensions();
 
-                // mouse is on the close plane of the frustum
-                let normalized_2d_position =
-                    V4::new((position_2d.x / (frame_size.0 as N)) * 2.0 - 1.0,
-                            (-position_2d.y / (frame_size.1 as N)) * 2.0 + 1.0,
-                            -1.0,
-                            1.0);
+            // mouse is on the close plane of the frustum
+            let normalized_2d_position = V4::new((position_2d.x / (frame_size.0 as N)) * 2.0 - 1.0,
+                                                 (-position_2d.y / (frame_size.1 as N)) * 2.0 +
+                                                 1.0,
+                                                 -1.0,
+                                                 1.0);
 
-                let inverse_view = Iso3::look_at_rh(&eye.position, &eye.target, &eye.up)
-                    .to_homogeneous()
-                    .inverse()
-                    .unwrap();
-                let inverse_perspective = Persp3::new(frame_size.0 as f32 / frame_size.1 as f32,
-                                                      eye.field_of_view,
-                                                      0.1,
-                                                      1000.0)
-                        .to_matrix()
-                        .inverse()
-                        .unwrap();
+            let inverse_view = Iso3::look_at_rh(&eye.position, &eye.target, &eye.up)
+                .to_homogeneous()
+                .inverse()
+                .unwrap();
+            let inverse_perspective = Persp3::new(frame_size.0 as f32 / frame_size.1 as f32,
+                                                  eye.field_of_view,
+                                                  0.1,
+                                                  1000.0)
+                .to_matrix()
+                .inverse()
+                .unwrap();
 
-                // converts from frustum to position relative to camera
-                let mut position_from_camera = inverse_perspective * normalized_2d_position;
-                // reinterpret that as a vector (direction)
-                position_from_camera.w = 0.0;
-                // convert into world coordinates
-                let direction_into_world = inverse_view * position_from_camera;
+            // converts from frustum to position relative to camera
+            let mut position_from_camera = inverse_perspective * normalized_2d_position;
+            // reinterpret that as a vector (direction)
+            position_from_camera.w = 0.0;
+            // convert into world coordinates
+            let direction_into_world = inverse_view * position_from_camera;
 
-                let direction_into_world_3d = V3::new(direction_into_world.x,
-                                                      direction_into_world.y,
-                                                      direction_into_world.z);
-                // / direction_into_world.w;
+            let direction_into_world_3d = V3::new(direction_into_world.x,
+                                                  direction_into_world.y,
+                                                  direction_into_world.z);
+            // / direction_into_world.w;
 
-                let distance = -eye.position.z / direction_into_world_3d.z;
-                let position_in_world = eye.position + distance * direction_into_world_3d;
+            let distance = -eye.position.z / direction_into_world_3d.z;
+            let position_in_world = eye.position + distance * direction_into_world_3d;
 
-                world.send(requester, Projected3d { position_3d: position_in_world });
-                Fate::Live
-            })
+            world.send(requester, Projected3d { position_3d: position_in_world });
+            Fate::Live
+        })
     });
 }

@@ -179,9 +179,8 @@ impl<K: Copy, V: Compact + Clone, A: Allocator> Compact for CompactDict<K, V, A>
 
     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
         self.keys.compact_from(&source.keys, new_dynamic_part);
-        self.values
-            .compact_from(&source.values,
-                          new_dynamic_part.offset(self.keys.dynamic_size_bytes() as isize));
+        self.values.compact_from(&source.values,
+                                 new_dynamic_part.offset(self.keys.dynamic_size_bytes() as isize));
     }
 
     unsafe fn decompact(&self) -> CompactDict<K, V, A> {

@@ -494,7 +494,14 @@ pub fn setup(system: &mut ActorSystem,
             Fate::Live
         });
 
-        the_ui.on_critical(|&AddDebugText { ref key, ref text, ref color, persistent }, ui, _| {
+        the_ui.on_critical(|&AddDebugText {
+             ref key,
+             ref text,
+             ref color,
+             persistent,
+         },
+         ui,
+         _| {
             let target = if persistent {
                 &mut ui.persistent_debug_text
             } else {

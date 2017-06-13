@@ -54,15 +54,20 @@ pub trait Path: Sized + Clone {
                         (segment_a, segment_b)
                             .intersect()
                             .into_iter()
-                            .filter_map(|intersection| if
-                                intersection.along_a.is_roughly_within(0.0, THICKNESS) ||
-                                intersection
-                                    .along_a
-                                    .is_roughly_within(segment_a.length(), THICKNESS) ||
-                                intersection.along_b.is_roughly_within(0.0, THICKNESS) ||
-                                intersection
-                                    .along_b
-                                    .is_roughly_within(segment_b.length(), THICKNESS) {
+                            .filter_map(|intersection| if intersection
+                                               .along_a
+                                               .is_roughly_within(0.0, THICKNESS) ||
+                                                          intersection
+                                                              .along_a
+                                                              .is_roughly_within(segment_a.length(),
+                                                                                 THICKNESS) ||
+                                                          intersection
+                                                              .along_b
+                                                              .is_roughly_within(0.0, THICKNESS) ||
+                                                          intersection
+                                                              .along_b
+                                                              .is_roughly_within(segment_b.length(),
+                                                                                 THICKNESS) {
                                             None
                                         } else {
                                             Some(Intersection {
@@ -232,15 +237,17 @@ pub fn convex_hull<P: Path>(points: &[P2]) -> P {
     let mut hull_indices = convex_hull2_idx(points);
     let first_index = hull_indices[0];
     hull_indices.push(first_index);
-    P::new(hull_indices
-               .windows(2)
-               .filter_map(|idx_window| {
-        let (point_1, point_2) = (points[idx_window[0]], points[idx_window[1]]);
-        if point_1.is_roughly_within(point_2, ::primitives::MIN_START_TO_END) {
-            None
-        } else {
-            Some(Segment::line(point_1, point_2))
-        }
-    })
-               .collect())
+    P::new(
+        hull_indices
+            .windows(2)
+            .filter_map(|idx_window| {
+                let (point_1, point_2) = (points[idx_window[0]], points[idx_window[1]]);
+                if point_1.is_roughly_within(point_2, ::primitives::MIN_START_TO_END) {
+                    None
+                } else {
+                    Some(Segment::line(point_1, point_2))
+                }
+            })
+            .collect(),
+    )
 }

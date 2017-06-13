@@ -32,10 +32,10 @@ extern crate serde;
 use stagemaster::environment::Environment;
 
 pub const ENV: &'static Environment = &Environment {
-                                           name: "Citybound",
-                                           author: "ae play",
-                                           version: "0.1.3",
-                                       };
+    name: "Citybound",
+    author: "ae play",
+    version: "0.1.3",
+};
 
 mod core;
 mod game;
@@ -130,9 +130,9 @@ fn main() {
                         text: format!("{:.2} ms",
                                       last_frame.elapsed().as_secs() as f32 * 1000.0 +
                                       last_frame.elapsed().subsec_nanos() as f32 / 10.0E5)
-                                .as_str()
-                                .chars()
-                                .collect(),
+                            .as_str()
+                            .chars()
+                            .collect(),
                         color: [0.0, 0.0, 0.0, 0.5],
                         persistent: false,
                     });

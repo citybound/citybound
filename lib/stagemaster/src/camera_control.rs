@@ -228,10 +228,8 @@ pub fn setup(system: &mut ActorSystem, env: &'static Environment) {
         let ui_id = the_renderer.world().id::<super::UserInterface>();
         let cc_id = the_renderer.world().id::<CameraControl>();
 
-        the_renderer
-            .world()
-            .send(ui_id,
-                  super::AddInteractable(cc_id, super::AnyShape::Everywhere, 0));
+        the_renderer.world().send(ui_id,
+                                  super::AddInteractable(cc_id, super::AnyShape::Everywhere, 0));
         the_renderer
             .world()
             .send(ui_id, super::AddInteractable2d(cc_id));

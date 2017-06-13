@@ -57,12 +57,12 @@ impl LaneStroke {
     }
 
     pub fn well_formed(&self) -> bool {
-        !self.nodes
-             .windows(2)
-             .any(|window|
+        !self.nodes.windows(2).any(
+            |window|
             // ::stagemaster::geometry::add_debug_point(window[0].position, [1.0, 0.0, 1.0], 0.5);
             // ::stagemaster::geometry::add_debug_point(window[1].position, [1.0, 0.0, 1.0], 0.5);
-            window[0].position.is_roughly_within(window[1].position, MIN_NODE_DISTANCE))
+            window[0].position.is_roughly_within(window[1].position, MIN_NODE_DISTANCE),
+        )
     }
 
     pub fn path(&self) -> &CPath {
@@ -72,15 +72,17 @@ impl LaneStroke {
             #[allow(mutable_transmutes)]
             let unsafe_memoized_path: &mut CPath =
                 unsafe { ::std::mem::transmute(&self._memoized_path) };
-            *unsafe_memoized_path = Path::new(self.nodes
-                                                  .windows(2)
-                                                  .flat_map(|window| {
-                Segment::biarc(window[0].position,
-                               window[0].direction,
-                               window[1].position,
-                               window[1].direction)
-            })
-                                                  .collect::<Vec<_>>())
+            *unsafe_memoized_path = Path::new(
+                self.nodes
+                    .windows(2)
+                    .flat_map(|window| {
+                        Segment::biarc(window[0].position,
+                                       window[0].direction,
+                                       window[1].position,
+                                       window[1].direction)
+                    })
+                    .collect::<Vec<_>>(),
+            )
         }
         &self._memoized_path
     }
@@ -103,16 +105,18 @@ impl LaneStroke {
                         direction: segment.start_direction(),
                     }
                 })
-                .chain(cut_path
-                           .segments()
-                           .last()
-                           .map(|last_segment| {
-                    LaneStrokeNode {
-                        position: last_segment.end(),
-                        direction: last_segment.end_direction(),
-                    }
-                })
-                           .into_iter())
+                .chain(
+                    cut_path
+                        .segments()
+                        .last()
+                        .map(|last_segment| {
+                            LaneStrokeNode {
+                                position: last_segment.end(),
+                                direction: last_segment.end_direction(),
+                            }
+                        })
+                        .into_iter(),
+                )
                 .collect();
             LaneStroke::new(nodes).ok()
         } else {
@@ -207,11 +211,11 @@ fn biarc_connection_node(start_node: LaneStrokeNode,
             direction: connection_segments[0].end_direction(),
         };
         if !connection_node
-                .position
-                .is_roughly_within(start_node.position, MIN_NODE_DISTANCE) &&
+               .position
+               .is_roughly_within(start_node.position, MIN_NODE_DISTANCE) &&
            !connection_node
-                .position
-                .is_roughly_within(end_node.position, MIN_NODE_DISTANCE) {
+               .position
+               .is_roughly_within(end_node.position, MIN_NODE_DISTANCE) {
             Some(connection_node)
         } else {
             None

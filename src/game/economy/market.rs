@@ -103,123 +103,132 @@ impl TripCostEstimator {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<Offer>::new(),
-               Swarm::<Offer>::subactors(|mut each_offer| {
+    system.add(
+        Swarm::<Offer>::new(),
+        Swarm::<Offer>::subactors(|mut each_offer| {
 
-        each_offer.on(|&Evaluate { time, location, requester }, offer, world| {
-            if time < offer.to {
-                world.send_to_id_of::<Swarm<TripCostEstimator>, _>(CreateWith(
-                    TripCostEstimator::new(requester, location, offer.location, EvaluatedSearchResult{
+            each_offer.on(|&Evaluate { time, location, requester }, offer, world| {
+                if time < offer.to {
+                    let search_result = EvaluatedSearchResult {
                         resource: offer.deal.give.0,
                         n_to_expect: 1,
-                        some_results: vec![EvaluatedDeal{
-                            offer: offer.id(),
-                            deal: offer.deal.clone(),
-                            from: offer.from,
-                            to: offer.to
-                        }].into()
-                    })
-                    , ()))
-            } else {
-                world.send(requester,
-                           EvaluatedSearchResult {
-                               resource: offer.deal.give.0,
-                               n_to_expect: 0,
-                               some_results: CVec::new(),
+                        some_results: vec![EvaluatedDeal {
+                                               offer: offer.id(),
+                                               deal: offer.deal.clone(),
+                                               from: offer.from,
+                                               to: offer.to,
+                                           }].into(),
+                    };
+                    world.send_to_id_of::<Swarm<TripCostEstimator>, _>(CreateWith(
+                        TripCostEstimator::new(requester, location, offer.location, search_result), ()))
+                } else {
+                    world.send(requester,
+                               EvaluatedSearchResult {
+                                   resource: offer.deal.give.0,
+                                   n_to_expect: 0,
+                                   some_results: CVec::new(),
+                               });
+                }
+                Fate::Live
+            });
+
+            each_offer.on(|&GetApplicableDeal(id, member), offer, world| {
+                world.send(id, ApplicableDeal(offer.deal.clone(), member));
+                Fate::Live
+            });
+
+            each_offer.on(|&StartedUsing(id, member), offer, _| {
+                offer.users.push((id, member));
+                Fate::Live
+            });
+
+            each_offer.on(|&StoppedUsing(id, member), offer, _| {
+                offer
+                    .users
+                    .retain(|&(o_id, o_member)| o_id != id || o_member != member);
+                Fate::Live
+            })
+        }),
+    );
+
+
+    system.add(
+        Swarm::<TripCostEstimator>::new(),
+        Swarm::<TripCostEstimator>::subactors(|mut each_estimator| {
+
+            each_estimator.on_create_with(|_: &(), estimator, world| {
+                world.send(estimator.rough_source,
+                           QueryAsDestination {
+                               requester: estimator.id(),
+                               rough_destination: estimator.rough_source,
+                               tick: None,
                            });
-            }
-            Fate::Live
-        });
 
-        each_offer.on(|&GetApplicableDeal(id, member), offer, world| {
-            world.send(id, ApplicableDeal(offer.deal.clone(), member));
-            Fate::Live
-        });
+                world.send(estimator.rough_destination,
+                           QueryAsDestination {
+                               requester: estimator.id(),
+                               rough_destination: estimator.rough_destination,
+                               tick: None,
+                           });
 
-        each_offer.on(|&StartedUsing(id, member), offer, _| {
-            offer.users.push((id, member));
-            Fate::Live
-        });
+                Fate::Live
+            });
 
-        each_offer.on(|&StoppedUsing(id, member), offer, _| {
-            offer
-                .users
-                .retain(|&(o_id, o_member)| o_id != id || o_member != member);
-            Fate::Live
-        })
-    }));
-
-
-    system.add(Swarm::<TripCostEstimator>::new(),
-               Swarm::<TripCostEstimator>::subactors(|mut each_estimator| {
-
-        each_estimator.on_create_with(|_: &(), estimator, world| {
-            world.send(estimator.rough_source,
-                       QueryAsDestination {
-                           requester: estimator.id(),
-                           rough_destination: estimator.rough_source,
-                           tick: None,
-                       });
-
-            world.send(estimator.rough_destination,
-                       QueryAsDestination {
-                           requester: estimator.id(),
-                           rough_destination: estimator.rough_destination,
-                           tick: None,
-                       });
-
-            Fate::Live
-        });
-
-        each_estimator.on(|&TellAsDestination { rough_destination, as_destination, .. },
-                           estimator,
-                           world| {
-            if estimator.rough_source == rough_destination {
-                estimator.source = as_destination;
-            } else if estimator.rough_destination == rough_destination {
-                estimator.destination = as_destination;
-            } else {
-                panic!("Should have this rough source/destination")
-            }
-
-            if let (Some(source), Some(destination)) = (estimator.source, estimator.destination) {
-                world.send(source.node,
-                           GetDistanceTo { destination, requester: estimator.id() });
-            }
-            Fate::Live
-        });
-
-        const ASSUMED_AVG_SPEED: f32 = 10.0; // m/s
-
-        each_estimator.on(|&DistanceInfo(maybe_distance), estimator, world| {
-            let result = if let Some(distance) = maybe_distance {
-                EvaluatedSearchResult {
-                    some_results: estimator
-                        .base_result
-                        .some_results
-                        .iter()
-                        .map(|evaluated_deal| {
-                            let estimated_travel_time =
-                                DurationSeconds::new((distance / ASSUMED_AVG_SPEED) as usize);
-                            let mut new_deal = evaluated_deal.clone();
-                            new_deal.deal.duration += estimated_travel_time;
-                            new_deal.from -= estimated_travel_time;
-                            new_deal.to -= estimated_travel_time;
-                            // TODO: adjust possible-until and resources
-                            new_deal
-                        })
-                        .collect(),
-                    ..estimator.base_result
+            each_estimator.on(|&TellAsDestination {
+                 rough_destination,
+                 as_destination,
+                 ..
+             },
+             estimator,
+             world| {
+                if estimator.rough_source == rough_destination {
+                    estimator.source = as_destination;
+                } else if estimator.rough_destination == rough_destination {
+                    estimator.destination = as_destination;
+                } else {
+                    panic!("Should have this rough source/destination")
                 }
-            } else {
-                EvaluatedSearchResult {
-                    resource: estimator.base_result.resource,
-                    n_to_expect: 0,
-                    some_results: CVec::new(),
+
+                if let (Some(source), Some(destination)) =
+                    (estimator.source, estimator.destination) {
+                    world.send(source.node,
+                               GetDistanceTo { destination, requester: estimator.id() });
                 }
-            };
-            world.send(estimator.requester, result);
-            Fate::Die
-        });
-    }));
+                Fate::Live
+            });
+
+            const ASSUMED_AVG_SPEED: f32 = 10.0; // m/s
+
+            each_estimator.on(|&DistanceInfo(maybe_distance), estimator, world| {
+                let result = if let Some(distance) = maybe_distance {
+                    EvaluatedSearchResult {
+                        some_results: estimator
+                            .base_result
+                            .some_results
+                            .iter()
+                            .map(|evaluated_deal| {
+                                let estimated_travel_time =
+                                    DurationSeconds::new((distance / ASSUMED_AVG_SPEED) as usize);
+                                let mut new_deal = evaluated_deal.clone();
+                                new_deal.deal.duration += estimated_travel_time;
+                                new_deal.from -= estimated_travel_time;
+                                new_deal.to -= estimated_travel_time;
+                                // TODO: adjust possible-until and resources
+                                new_deal
+                            })
+                            .collect(),
+                        ..estimator.base_result
+                    }
+                } else {
+                    EvaluatedSearchResult {
+                        resource: estimator.base_result.resource,
+                        n_to_expect: 0,
+                        some_results: CVec::new(),
+                    }
+                };
+                world.send(estimator.requester, result);
+                Fate::Die
+            });
+        }),
+    );
 }

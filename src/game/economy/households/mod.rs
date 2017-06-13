@@ -187,130 +187,138 @@ use core::simulation::Wake;
 use self::tasks::TaskState;
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<Family>::new(),
-               Swarm::<Family>::subactors(|mut each_family| {
-        each_family.on(|&Wake { current_tick }, family, world| {
-            if let DecisionState::None = family.decision_state {
-                let maybe_idle_idx_loc = family
-                    .member_tasks
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(idx, m)| match m.state {
-                                    TaskState::IdleAt(loc) => Some((idx, loc)),
-                                    _ => None,
-                                })
-                    .next();
-                if let Some((idle_member_idx, location)) = maybe_idle_idx_loc {
-                    family.find_new_task_for(MemberIdx(idle_member_idx),
-                                             current_tick,
-                                             location,
-                                             world);
+    system.add(
+        Swarm::<Family>::new(),
+        Swarm::<Family>::subactors(|mut each_family| {
+            each_family.on(|&Wake { current_tick }, family, world| {
+                if let DecisionState::None = family.decision_state {
+                    let maybe_idle_idx_loc = family
+                        .member_tasks
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(idx, m)| match m.state {
+                                        TaskState::IdleAt(loc) => Some((idx, loc)),
+                                        _ => None,
+                                    })
+                        .next();
+                    if let Some((idle_member_idx, location)) = maybe_idle_idx_loc {
+                        family.find_new_task_for(MemberIdx(idle_member_idx),
+                                                 current_tick,
+                                                 location,
+                                                 world);
+                    }
+                };
+                Fate::Live
+            });
+
+            each_family.on(|&EvaluatedSearchResult {
+                 resource,
+                 n_to_expect,
+                 ref some_results,
+             },
+             family,
+             world| {
+                let done = if let DecisionState::Choosing(_, _, ref mut entries) =
+                    family.decision_state {
+                    {
+                        let entry = entries
+                            .get_mut(resource)
+                            .expect("Should have an entry for queried resource");
+                        entry.n_deals_expected = n_to_expect;
+                        entry.deals.extend(some_results.clone());
+                    }
+
+                    entries
+                        .values()
+                        .all(|entry| entry.n_deals_expected == entry.deals.len())
+                } else {
+                    panic!("Received unexpected deal");
+                };
+                if done {
+                    family.choose_deal(world);
                 }
-            };
-            Fate::Live
-        });
+                Fate::Live
+            });
 
-        each_family.on(|&EvaluatedSearchResult { resource, n_to_expect, ref some_results },
-                        family,
-                        world| {
-            let done = if let DecisionState::Choosing(_, _, ref mut entries) =
-                family.decision_state {
-                {
-                    let entry = entries
-                        .get_mut(resource)
-                        .expect("Should have an entry for queried resource");
-                    entry.n_deals_expected = n_to_expect;
-                    entry.deals.extend(some_results.clone());
-                }
+            each_family.on(|&CreatedTrip(trip), family, _| {
+                family.decision_state = if let DecisionState::WaitingForTrip(member) =
+                    family.decision_state {
+                    family.member_tasks[member.0].state = TaskState::InTrip(trip);
+                    DecisionState::None
+                } else {
+                    panic!("Should be in waiting for trip state")
+                };
+                Fate::Live
+            });
 
-                entries
-                    .values()
-                    .all(|entry| entry.n_deals_expected == entry.deals.len())
-            } else {
-                panic!("Received unexpected deal");
-            };
-            if done {
-                family.choose_deal(world);
-            }
-            Fate::Live
-        });
-
-        each_family.on(|&CreatedTrip(trip), family, _| {
-            family.decision_state = if let DecisionState::WaitingForTrip(member) =
-                family.decision_state {
-                family.member_tasks[member.0].state = TaskState::InTrip(trip);
-                DecisionState::None
-            } else {
-                panic!("Should be in waiting for trip state")
-            };
-            Fate::Live
-        });
-
-        each_family.on(move |&TripResult { id, location, tick, failed }, family, world| {
-            let (matching_task_member, matching_resource, matching_offer) =
-                family
-                    .member_tasks
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(idx, task)| if let TaskState::InTrip(trip_id) = task.state {
-                                    if trip_id == id {
-                                        Some((MemberIdx(idx), task.goal, task.offer))
+            each_family.on(move |&TripResult { id, location, tick, failed },
+                  family,
+                  world| {
+                let (matching_task_member, matching_resource, matching_offer) =
+                    family
+                        .member_tasks
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(idx, task)| if let TaskState::InTrip(trip_id) = task.state {
+                                        if trip_id == id {
+                                            Some((MemberIdx(idx), task.goal, task.offer))
+                                        } else {
+                                            None
+                                        }
                                     } else {
                                         None
-                                    }
-                                } else {
-                                    None
-                                })
-                    .next()
-                    .expect("Should have a matching task");
-            {
-                let family_id = family.id();
-                let shared = r_properties(matching_resource).supplier_shared;
-                let used_offers = if shared {
-                    &mut family.used_offers
-                } else {
-                    &mut family.member_used_offers[matching_task_member.0]
-                };
+                                    })
+                        .next()
+                        .expect("Should have a matching task");
+                {
+                    let family_id = family.id();
+                    let shared = r_properties(matching_resource).supplier_shared;
+                    let used_offers = if shared {
+                        &mut family.used_offers
+                    } else {
+                        &mut family.member_used_offers[matching_task_member.0]
+                    };
 
-                let maybe_member = if shared {
-                    Some(matching_task_member)
-                } else {
-                    None
-                };
+                    let maybe_member = if shared {
+                        Some(matching_task_member)
+                    } else {
+                        None
+                    };
+
+                    if failed {
+                        used_offers.remove(matching_resource);
+                        world.send(matching_offer, StoppedUsing(family_id, maybe_member));
+                    } else {
+                        used_offers.insert(matching_resource, matching_offer);
+                        world.send(matching_offer, StartedUsing(family_id, maybe_member));
+                    }
+                }
 
                 if failed {
-                    used_offers.remove(matching_resource);
-                    world.send(matching_offer, StoppedUsing(family_id, maybe_member));
+                    family.stop_task(matching_task_member, location, world);
                 } else {
-                    used_offers.insert(matching_resource, matching_offer);
-                    world.send(matching_offer, StartedUsing(family_id, maybe_member));
+                    family.start_task(matching_task_member, tick, location, world);
                 }
-            }
+                Fate::Live
+            });
 
-            if failed {
-                family.stop_task(matching_task_member, location, world);
-            } else {
-                family.start_task(matching_task_member, tick, location, world);
-            }
-            Fate::Live
-        });
-
-        each_family.on(|&ApplicableDeal(ref deal, member), family, _| {
-            let resource_deltas = deal.take
-                .iter()
-                .map(|&Entry(resource, amount)| (resource, -amount))
-                .chain(Some(deal.give));
-            for (resource, delta) in resource_deltas {
-                let resources = if r_properties(resource).ownership_shared {
-                    &mut family.resources
-                } else {
-                    &mut family.member_resources[member.0]
-                };
-                *resources.mut_entry_or(resource, 0.0) += delta;
-            }
-            Fate::Live
-        });
-    }));
+            each_family.on(|&ApplicableDeal(ref deal, member), family, _| {
+                let resource_deltas = deal.take
+                    .iter()
+                    .map(|&Entry(resource, amount)| (resource, -amount))
+                    .chain(Some(deal.give));
+                for (resource, delta) in resource_deltas {
+                    let resources = if r_properties(resource).ownership_shared {
+                        &mut family.resources
+                    } else {
+                        &mut family.member_resources[member.0]
+                    };
+                    *resources.mut_entry_or(resource, 0.0) += delta;
+                }
+                Fate::Live
+            });
+        }),
+    );
 }
 
 #[derive(Compact, Clone, SubActor)]

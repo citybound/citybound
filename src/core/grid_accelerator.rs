@@ -51,13 +51,11 @@ impl GridAccelerator {
             .get(&query_ref)
             .into_iter()
             .flat_map(|coordinates_set| {
-                coordinates_set
-                    .iter()
-                    .flat_map(|coordinates| {
-                        self.cells[coordinates]
-                            .iter()
-                            .map(|ref_u64| ref_u64 as usize)
-                    })
+                coordinates_set.iter().flat_map(|coordinates| {
+                    self.cells[coordinates]
+                        .iter()
+                        .map(|ref_u64| ref_u64 as usize)
+                })
             })
             .collect::<FnvHashSet<_>>()
             .into_iter()

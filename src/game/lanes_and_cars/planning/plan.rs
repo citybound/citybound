@@ -46,34 +46,24 @@ impl<'a> RoughlyComparable for &'a Intersection {
     fn is_roughly_within(&self, other: &Intersection, tolerance: N) -> bool {
         (&self.shape).is_roughly_within(&other.shape, tolerance) &&
         self.incoming.len() == other.incoming.len() &&
-        self.incoming
-            .values()
-            .all(|self_incoming| {
-                other
-                    .incoming
-                    .values()
-                    .any(|other_incoming| {
-                        self_incoming.is_roughly_within(other_incoming, tolerance)
-                    })
-            }) && self.outgoing.len() == other.outgoing.len() &&
-        self.outgoing
-            .values()
-            .all(|self_outgoing| {
-                other
-                    .outgoing
-                    .values()
-                    .any(|other_outgoing| {
-                        self_outgoing.is_roughly_within(other_outgoing, tolerance)
-                    })
-            }) && self.strokes.len() == other.strokes.len() &&
-        self.strokes
-            .iter()
-            .all(|self_stroke| {
-                other
-                    .strokes
-                    .iter()
-                    .any(|other_stroke| self_stroke.is_roughly_within(other_stroke, tolerance))
-            })
+        self.incoming.values().all(|self_incoming| {
+            other
+                .incoming
+                .values()
+                .any(|other_incoming| self_incoming.is_roughly_within(other_incoming, tolerance))
+        }) && self.outgoing.len() == other.outgoing.len() &&
+        self.outgoing.values().all(|self_outgoing| {
+            other
+                .outgoing
+                .values()
+                .any(|other_outgoing| self_outgoing.is_roughly_within(other_outgoing, tolerance))
+        }) && self.strokes.len() == other.strokes.len() &&
+        self.strokes.iter().all(|self_stroke| {
+            other
+                .strokes
+                .iter()
+                .any(|other_stroke| self_stroke.is_roughly_within(other_stroke, tolerance))
+        })
     }
 }
 
@@ -144,25 +134,25 @@ impl<Ref: Copy + Eq, T: ::compact::Compact + Clone> ReferencedDelta<Ref, T> {
             .collect::<CDict<_, _>>();
 
         let to_create = new.pairs()
-            .filter_map(|(new_ref, new)| if
-                old_to_new
-                    .values()
-                    .any(|not_really_new_ref| not_really_new_ref == new_ref) {
-                            None
-                        } else {
-                            Some((*new_ref, new.clone()))
-                        })
+            .filter_map(|(new_ref, new)| if old_to_new.values().any(
+                |not_really_new_ref| not_really_new_ref == new_ref,
+            ) {
+                None
+            } else {
+                Some((*new_ref, new.clone()))
+            })
             .collect();
 
         let to_destroy = old.pairs()
-            .filter_map(|(old_ref, old)| if
-                old_to_new
-                    .keys()
-                    .any(|revived_old_ref| revived_old_ref == old_ref) {
-                            None
-                        } else {
-                            Some((*old_ref, old.clone()))
-                        })
+            .filter_map(|(old_ref, old)| if old_to_new.keys().any(
+                |revived_old_ref| {
+                    revived_old_ref == old_ref
+                },
+            ) {
+                None
+            } else {
+                Some((*old_ref, old.clone()))
+            })
             .collect();
 
         ReferencedDelta {
@@ -175,9 +165,9 @@ impl<Ref: Copy + Eq, T: ::compact::Compact + Clone> ReferencedDelta<Ref, T> {
     pub fn compare_roughly<'a>(new: &'a CDict<Ref, T>, old: &'a CDict<Ref, T>, tolerance: N) -> Self
         where &'a T: RoughlyComparable + 'a
     {
-        Self::compare(new,
-                      old,
-                      |new_item, old_item| new_item.is_roughly_within(old_item, tolerance))
+        Self::compare(new, old, |new_item, old_item| {
+            new_item.is_roughly_within(old_item, tolerance)
+        })
     }
 }
 

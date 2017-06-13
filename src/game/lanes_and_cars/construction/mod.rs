@@ -45,9 +45,10 @@ pub fn setup(system: &mut ActorSystem) {
 
     system.extend(Swarm::<Lane>::subactors(move |mut each_lane| {
 
-        each_lane.on_create_with(move |&AdvertiseToTransferAndReport(report_to, report_as),
-                                       lane,
-                                       world| {
+        each_lane.on_create_with(move |&AdvertiseToTransferAndReport(report_to,
+                                            report_as),
+              lane,
+              world| {
             world.send(all_lanes_id,
                        Connect {
                            other_id: lane.id(),
@@ -80,14 +81,14 @@ pub fn setup(system: &mut ActorSystem) {
         });
 
         each_lane.on(|&Connect {
-                           other_id,
-                           other_start,
-                           other_end,
-                           other_length,
-                           reply_needed,
-                       },
-                      lane,
-                      world| {
+             other_id,
+             other_start,
+             other_end,
+             other_length,
+             reply_needed,
+         },
+         lane,
+         world| {
             if other_id == lane.id() {
                 return Fate::Live;
             };
@@ -98,24 +99,24 @@ pub fn setup(system: &mut ActorSystem) {
                 connected = true;
 
                 if !lane.connectivity
-                        .interactions
-                        .iter()
-                        .any(|interaction| match *interaction {
-                                 Interaction {
-                                     partner_lane,
-                                     kind: InteractionKind::Next { .. },
-                                     ..
-                                 } => partner_lane == other_id,
-                                 _ => false,
-                             }) {
-                    lane.connectivity
-                        .interactions
-                        .push(Interaction {
-                                  partner_lane: other_id,
-                                  start: lane.construction.length,
-                                  partner_start: 0.0,
-                                  kind: InteractionKind::Next { green: false },
-                              });
+                       .interactions
+                       .iter()
+                       .any(|interaction| match *interaction {
+                                Interaction {
+                                    partner_lane,
+                                    kind: InteractionKind::Next { .. },
+                                    ..
+                                } => partner_lane == other_id,
+                                _ => false,
+                            }) {
+                    lane.connectivity.interactions.push(Interaction {
+                                                            partner_lane: other_id,
+                                                            start: lane.construction.length,
+                                                            partner_start: 0.0,
+                                                            kind: InteractionKind::Next {
+                                                                green: false,
+                                                            },
+                                                        });
                 }
 
                 super::pathfinding::on_connect(lane);
@@ -125,24 +126,22 @@ pub fn setup(system: &mut ActorSystem) {
                 connected = true;
 
                 if !lane.connectivity
-                        .interactions
-                        .iter()
-                        .any(|interaction| match *interaction {
-                                 Interaction {
-                                     partner_lane,
-                                     kind: InteractionKind::Previous { .. },
-                                     ..
-                                 } => partner_lane == other_id,
-                                 _ => false,
-                             }) {
-                    lane.connectivity
-                        .interactions
-                        .push(Interaction {
-                                  partner_lane: other_id,
-                                  start: 0.0,
-                                  partner_start: other_length,
-                                  kind: InteractionKind::Previous,
-                              });
+                       .interactions
+                       .iter()
+                       .any(|interaction| match *interaction {
+                                Interaction {
+                                    partner_lane,
+                                    kind: InteractionKind::Previous { .. },
+                                    ..
+                                } => partner_lane == other_id,
+                                _ => false,
+                            }) {
+                    lane.connectivity.interactions.push(Interaction {
+                                                            partner_lane: other_id,
+                                                            start: 0.0,
+                                                            partner_start: other_length,
+                                                            kind: InteractionKind::Previous,
+                                                        });
                 }
 
                 super::pathfinding::on_connect(lane);
@@ -162,27 +161,29 @@ pub fn setup(system: &mut ActorSystem) {
             Fate::Live
         });
 
-        each_lane.on(|&ConnectOverlaps { other_id, ref other_path, reply_needed }, lane, world| {
+        each_lane.on(|&ConnectOverlaps {
+             other_id,
+             ref other_path,
+             reply_needed,
+         },
+         lane,
+         world| {
             MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
                 let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
-                let &(ref lane_band, ref lane_outline) = memoized_bands_outlines
-                    .entry(lane.id())
-                    .or_insert_with(|| {
+                let &(ref lane_band, ref lane_outline) =
+                    memoized_bands_outlines.entry(lane.id()).or_insert_with(|| {
                         let band = Band::new(lane.construction.path.clone(), 4.5);
                         let outline = band.outline();
                         (band, outline)
-                    }) as
-                                                         &(Band<CPath>, CPath);
+                    }) as &(Band<CPath>, CPath);
 
                 let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
-                let &(ref other_band, ref other_outline) = memoized_bands_outlines
-                    .entry(other_id)
-                    .or_insert_with(|| {
+                let &(ref other_band, ref other_outline) =
+                    memoized_bands_outlines.entry(other_id).or_insert_with(|| {
                         let band = Band::new(other_path.clone(), 4.5);
                         let outline = band.outline();
                         (band, outline)
-                    }) as
-                                                           &(Band<CPath>, CPath);
+                    }) as &(Band<CPath>, CPath);
 
                 let intersections = (lane_outline, other_outline).intersect();
                 if intersections.len() >= 2 {
@@ -202,35 +203,35 @@ pub fn setup(system: &mut ActorSystem) {
                         let other_exit_distance =
                             other_band.outline_distance_to_path_distance(exit_intersection.along_b);
 
-                        let overlap_kind = if
-                            other_path
-                                .direction_along(other_entry_distance)
-                                .is_roughly_within(lane.construction
-                                                       .path
-                                                       .direction_along(entry_distance),
-                                                   0.1) ||
-                            other_path
-                                .direction_along(other_exit_distance)
-                                .is_roughly_within(lane.construction
-                                                       .path
-                                                       .direction_along(exit_distance),
-                                                   0.1) {
-                            // ::stagemaster::geometry::CPath::add_debug_path(
-                            //     lane.construction.path
-                            //         .subsection(entry_distance, exit_distance).unwrap(),
-                            //     [1.0, 0.5, 0.0],
-                            //     0.3
-                            // );
-                            OverlapKind::Parallel
-                        } else {
-                            // ::stagemaster::geometry::CPath::add_debug_path(
-                            //     lane.construction.path
-                            //         .subsection(entry_distance, exit_distance).unwrap(),
-                            //     [1.0, 0.0, 0.0],
-                            //     0.3
-                            // );
-                            OverlapKind::Conflicting
-                        };
+                        let overlap_kind =
+                            if other_path
+                                   .direction_along(other_entry_distance)
+                                   .is_roughly_within(lane.construction
+                                                          .path
+                                                          .direction_along(entry_distance),
+                                                      0.1) ||
+                               other_path
+                                   .direction_along(other_exit_distance)
+                                   .is_roughly_within(lane.construction
+                                                          .path
+                                                          .direction_along(exit_distance),
+                                                      0.1) {
+                                // ::stagemaster::geometry::CPath::add_debug_path(
+                                //     lane.construction.path
+                                //         .subsection(entry_distance, exit_distance).unwrap(),
+                                //     [1.0, 0.5, 0.0],
+                                //     0.3
+                                // );
+                                OverlapKind::Parallel
+                            } else {
+                                // ::stagemaster::geometry::CPath::add_debug_path(
+                                //     lane.construction.path
+                                //         .subsection(entry_distance, exit_distance).unwrap(),
+                                //     [1.0, 0.0, 0.0],
+                                //     0.3
+                                // );
+                                OverlapKind::Conflicting
+                            };
 
                         lane.connectivity
                             .interactions
@@ -274,9 +275,9 @@ pub fn setup(system: &mut ActorSystem) {
 
         each_lane.on(|&AddTransferLaneInteraction(interaction), lane, _| {
             if !lane.connectivity
-                    .interactions
-                    .iter()
-                    .any(|existing| existing.partner_lane == interaction.partner_lane) {
+                   .interactions
+                   .iter()
+                   .any(|existing| existing.partner_lane == interaction.partner_lane) {
                 lane.connectivity.interactions.push(interaction);
                 super::pathfinding::on_connect(lane);
             }
@@ -295,11 +296,9 @@ pub fn setup(system: &mut ActorSystem) {
                             })
                 .collect::<Vec<_>>();
             // TODO: Cancel trip
-            lane.microtraffic
-                .cars
-                .retain(|car| {
-                    !interaction_indices_to_remove.contains(&(car.next_hop_interaction as usize))
-                });
+            lane.microtraffic.cars.retain(|car| {
+                !interaction_indices_to_remove.contains(&(car.next_hop_interaction as usize))
+            });
             lane.microtraffic
                 .obstacles
                 .retain(|&(_obstacle, from_id)| from_id != other_id);
@@ -353,16 +352,19 @@ pub fn setup(system: &mut ActorSystem) {
 
     system.extend(Swarm::<TransferLane>::subactors(move |mut each_t_lane| {
 
-        each_t_lane.on_create_with(move |&AdvertiseToTransferAndReport(report_to, report_as),
-                                         lane,
-                                         world| {
+        each_t_lane.on_create_with(move |&AdvertiseToTransferAndReport(report_to,
+                                            report_as),
+              lane,
+              world| {
             world.send(all_lanes_id, ConnectToTransfer { other_id: lane.id() });
             world.send(report_to, ReportLaneBuilt(lane.id(), report_as));
             super::rendering::on_build_transfer(lane, world);
             Fate::Live
         });
 
-        each_t_lane.on(|&ConnectTransferToNormal { other_id, ref other_path }, lane, world| {
+        each_t_lane.on(|&ConnectTransferToNormal { other_id, ref other_path },
+         lane,
+         world| {
             let projections = (other_path.project(lane.construction.path.start()),
                                other_path.project(lane.construction.path.end()));
             if let (Some(lane_start_on_other_distance), Some(lane_end_on_other_distance)) =

@@ -21,8 +21,7 @@ impl RenderContext {
             batch_program: program!(&window, 140 => {
                 vertex: include_str!("shader/solid_140.glslv"),
                 fragment: include_str!("shader/solid_140.glslf")
-            })
-                    .unwrap(),
+            }).unwrap(),
             window: window,
         }
     }
@@ -30,17 +29,18 @@ impl RenderContext {
     pub fn submit<S: Surface>(&mut self, scene: &Scene, target: &mut S) {
         let view: [[f32; 4]; 4] =
             *Iso3::look_at_rh(&scene.eye.position, &scene.eye.target, &scene.eye.up)
-                 .to_homogeneous()
-                 .as_ref();
+                .to_homogeneous()
+                .as_ref();
         let perspective: [[f32; 4]; 4] = *Persp3::new(target.get_dimensions().0 as f32 /
                                                       target.get_dimensions().1 as f32,
                                                       scene.eye.field_of_view,
                                                       0.1,
                                                       50000.0)
-                                                  .to_matrix()
-                                                  .as_ref();
+            .to_matrix()
+            .as_ref();
 
-        let uniforms = uniform! {
+        let uniforms =
+            uniform! {
             view: view,
             perspective: perspective
         };

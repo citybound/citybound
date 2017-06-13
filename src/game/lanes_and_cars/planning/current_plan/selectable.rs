@@ -26,25 +26,27 @@ use super::InitInteractable;
 use stagemaster::{UserInterface, AddInteractable};
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<Selectable>::new(),
-               Swarm::<Selectable>::subactors(|mut each_selectable| {
-        let ui_id = each_selectable.world().id::<UserInterface>();
-        let cp_id = each_selectable.world().id::<CurrentPlan>();
+    system.add(
+        Swarm::<Selectable>::new(),
+        Swarm::<Selectable>::subactors(|mut each_selectable| {
+            let ui_id = each_selectable.world().id::<UserInterface>();
+            let cp_id = each_selectable.world().id::<CurrentPlan>();
 
-        each_selectable.on_create_with(move |_: &InitInteractable, selectable, world| {
-            world.send(ui_id,
-                       AddInteractable(selectable.id(),
-                                       AnyShape::Band(Band::new(selectable.path.clone(), 5.0)),
-                                       3));
-            Fate::Live
-        });
+            each_selectable.on_create_with(move |_: &InitInteractable, selectable, world| {
+                world.send(ui_id,
+                           AddInteractable(selectable.id(),
+                                           AnyShape::Band(Band::new(selectable.path.clone(),
+                                                                    5.0)),
+                                           3));
+                Fate::Live
+            });
 
-        each_selectable.on(move |_: &ClearInteractable, selectable, world| {
-            world.send(ui_id, RemoveInteractable(selectable.id()));
-            Fate::Die
-        });
+            each_selectable.on(move |_: &ClearInteractable, selectable, world| {
+                world.send(ui_id, RemoveInteractable(selectable.id()));
+                Fate::Die
+            });
 
-        each_selectable.on(move |&event, selectable, world| {
+            each_selectable.on(move |&event, selectable, world| {
             match event {
                 Event3d::DragOngoing { from, to, .. } => {
                     if let (Some(selection_start), Some(selection_end)) =
@@ -107,7 +109,8 @@ pub fn setup(system: &mut ActorSystem) {
             }
             Fate::Live
         });
-    }));
+        }),
+    );
 }
 
 use super::ClearInteractable;

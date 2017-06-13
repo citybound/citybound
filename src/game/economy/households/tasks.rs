@@ -38,10 +38,9 @@ pub enum Complete {
 pub fn setup(system: &mut ActorSystem) {
     system.add(TaskEndScheduler::default(), |mut the_scheduler| {
         the_scheduler.on(|&ScheduleTaskEnd(end, family_id, member), scheduler, _| {
-            let maybe_idx =
-                scheduler
-                    .task_ends
-                    .binary_search_by_key(&(end.iticks()), |&(e, _, _)| -(e.iticks()));
+            let maybe_idx = scheduler
+                .task_ends
+                .binary_search_by_key(&(end.iticks()), |&(e, _, _)| -(e.iticks()));
             let insert_idx = match maybe_idx {
                 Ok(idx) | Err(idx) => idx,
             };
@@ -71,14 +70,13 @@ pub fn setup(system: &mut ActorSystem) {
         each_family.on(move |result, family, world| {
             match *result {
                 Complete::Success { member } => {
-                    if let TaskState::StartedAt(_, location) =
-                        family.member_tasks[member.0].state {
+                    if let TaskState::StartedAt(_, location) = family.member_tasks[member.0].state {
                         family.stop_task(member, location, world)
                     } else {
                         panic!("Can't finish unstarted task");
                     }
                 }
-                Complete::Failure { member, location } => family.stop_task(member, location, world)
+                Complete::Failure { member, location } => family.stop_task(member, location, world),
             };
             Fate::Live
         })
@@ -87,13 +85,21 @@ pub fn setup(system: &mut ActorSystem) {
 }
 
 impl super::Family {
-    pub fn start_task(&mut self, member: MemberIdx, start: Timestamp, location: ID, world: &mut World) {
-        world.send_to_id_of::<TaskEndScheduler, _>(ScheduleTaskEnd(start + self.member_tasks[member.0].duration, self.id(), member));
+    pub fn start_task(&mut self,
+                      member: MemberIdx,
+                      start: Timestamp,
+                      location: ID,
+                      world: &mut World) {
+        world.send_to_id_of::<TaskEndScheduler, _>(ScheduleTaskEnd(start +
+                                                                   self.member_tasks[member.0]
+                                                                       .duration,
+                                                                   self.id(),
+                                                                   member));
         self.member_tasks[member.0].state = TaskState::StartedAt(start, location);
     }
 
     pub fn stop_task(&mut self, member: MemberIdx, location: ID, world: &mut World) {
         self.member_tasks[member.0].state = TaskState::IdleAt(location);
-                    world.send_to_id_of::<Simulation, _>(WakeUpIn(DurationSeconds::new(0).into(), self.id()));
-    } 
+        world.send_to_id_of::<Simulation, _>(WakeUpIn(DurationSeconds::new(0).into(), self.id()));
+    }
 }

@@ -58,8 +58,9 @@ impl ActorSystem {
             message_registry: TypeRegistry::new(),
             actors: [None; MAX_RECIPIENT_TYPES],
             dispatchers: unsafe {
-                make_array!(MAX_RECIPIENT_TYPES,
-                            |_| make_array!(MAX_MESSAGE_TYPES, |_| None))
+                make_array!(MAX_RECIPIENT_TYPES, |_| {
+                    make_array!(MAX_MESSAGE_TYPES, |_| None)
+                })
             },
         }
     }
@@ -122,12 +123,12 @@ impl ActorSystem {
 
         self.dispatchers[actor_id.as_usize()][message_id.as_usize()] =
             Some(Dispatcher {
-                     function: Box::new(move |packet_ptr: *const (), world: &mut World| unsafe {
-                let packet = &*(packet_ptr as *const Packet<M>);
-                handler(packet, &mut *actor_ptr, world);
-            }),
-                     critical: critical,
-                 });
+                function: Box::new(move |packet_ptr: *const (), world: &mut World| unsafe {
+                    let packet = &*(packet_ptr as *const Packet<M>);
+                    handler(packet, &mut *actor_ptr, world);
+                }),
+                critical: critical,
+            });
     }
 
     /// Send a message to the actor with a given `ID`.
@@ -173,7 +174,7 @@ impl ActorSystem {
                 for DispatchablePacket { message_type, packet_ptr } in inbox.empty() {
                     if let Some(handler) = self.dispatchers[recipient_type.as_usize()]
                            [message_type.as_usize()]
-                               .as_mut() {
+                           .as_mut() {
                         if handler.critical || !self.panic_happened {
                             (handler.function)(packet_ptr, &mut world);
                         }
@@ -285,11 +286,10 @@ impl<'a, A: 'static> ActorDefiner<'a, A> {
     fn on_maybe_critical<M: Message, F>(&mut self, handler: F, critical: bool)
         where F: Fn(&M, &mut A, &mut World) -> Fate + 'static
     {
-        self.system
-            .add_dispatcher(move |packet: &Packet<M>, state, world| {
-                handler(&packet.message, state, world)
-            },
-                            critical);
+        self.system.add_dispatcher(
+            move |packet: &Packet<M>, state, world| handler(&packet.message, state, world),
+            critical,
+        );
     }
 }
 

@@ -46,27 +46,30 @@ pub fn setup(system: &mut ActorSystem) {
         each_lane.on(|&RenderToCollector(collector_id), lane, world| {
             let maybe_path = if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY <
                                 lane.construction.length {
-                lane.construction
-                    .path
-                    .subsection(0.0,
-                                (lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY)
-                                    .max(0.0))
+                lane.construction.path.subsection(0.0,
+                                                  (lane.construction.progress -
+                                                   CONSTRUCTION_ANIMATION_DELAY)
+                                                      .max(0.0))
             } else {
                 Some(lane.construction.path.clone())
             };
             if collector_id == world.id::<ThingCollector<LaneAsphalt>>() {
-                world.send(collector_id,
-                           Update(lane.id(),
-                                  maybe_path
-                                      .map(|path| {
-                    band_to_thing(&Band::new(path, 6.0),
-                                  if lane.connectivity.on_intersection {
-                                      0.2
-                                  } else {
-                                      0.0
-                                  })
-                })
-                                      .unwrap_or_else(|| Thing::new(vec![], vec![]))));
+                world.send(
+                    collector_id,
+                    Update(
+                        lane.id(),
+                        maybe_path
+                            .map(|path| {
+                                band_to_thing(&Band::new(path, 6.0),
+                                              if lane.connectivity.on_intersection {
+                                                  0.2
+                                              } else {
+                                                  0.0
+                                              })
+                            })
+                            .unwrap_or_else(|| Thing::new(vec![], vec![])),
+                    ),
+                );
                 if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
                    lane.construction.length {
                     world.send(collector_id, Freeze(lane.id()))
@@ -97,9 +100,9 @@ pub fn setup(system: &mut ActorSystem) {
             let mut current_offset = 0.0;
             let mut car_instances = CVec::with_capacity(lane.microtraffic.cars.len());
             for segment in lane.construction.path.segments().iter() {
-                for car in cars_iter.take_while_ref(|car| {
-                    *car.position - current_offset < segment.length()
-                }) {
+                for car in
+                    cars_iter
+                        .take_while_ref(|car| *car.position - current_offset < segment.length()) {
                     let position2d = segment.along(*car.position - current_offset);
                     let direction = segment.direction_along(*car.position - current_offset);
                     car_instances.push(Instance {
@@ -128,9 +131,7 @@ pub fn setup(system: &mut ActorSystem) {
                         (*obstacle.position - lane.construction.length) *
                         lane.construction.path.end_direction()
                     };
-                    let direction = lane.construction
-                        .path
-                        .direction_along(*obstacle.position);
+                    let direction = lane.construction.path.direction_along(*obstacle.position);
 
                     car_instances.push(Instance {
                                            instance_position: [position2d.x, position2d.y, 0.0],
@@ -146,25 +147,25 @@ pub fn setup(system: &mut ActorSystem) {
             // no traffic light for u-turn
             if lane.connectivity.on_intersection &&
                !lane.construction
-                    .path
-                    .end_direction()
-                    .is_roughly_within(-lane.construction.path.start_direction(), 0.1) {
+                   .path
+                   .end_direction()
+                   .is_roughly_within(-lane.construction.path.start_direction(), 0.1) {
                 let mut position = lane.construction.path.start();
-                let (position_shift, batch_id) = if
-                    !lane.construction
-                         .path
-                         .start_direction()
-                         .is_roughly_within(lane.construction.path.end_direction(), 0.5) {
-                    let dot = lane.construction
-                        .path
-                        .end_direction()
-                        .dot(&lane.construction.path.start_direction().orthogonal());
-                    let shift = if dot > 0.0 { 1.0 } else { -1.0 };
-                    let batch_id = if dot > 0.0 { 8004 } else { 8003 };
-                    (shift, batch_id)
-                } else {
-                    (0.0, 8002)
-                };
+                let (position_shift, batch_id) =
+                    if !lane.construction
+                           .path
+                           .start_direction()
+                           .is_roughly_within(lane.construction.path.end_direction(), 0.5) {
+                        let dot = lane.construction
+                            .path
+                            .end_direction()
+                            .dot(&lane.construction.path.start_direction().orthogonal());
+                        let shift = if dot > 0.0 { 1.0 } else { -1.0 };
+                        let batch_id = if dot > 0.0 { 8004 } else { 8003 };
+                        (shift, batch_id)
+                    } else {
+                        (0.0, 8002)
+                    };
                 position += lane.construction.path.start_direction().orthogonal() * position_shift;
                 let direction = lane.construction.path.start_direction();
 
@@ -227,12 +228,12 @@ pub fn setup(system: &mut ActorSystem) {
             }
 
             if !lane.connectivity
-                    .interactions
-                    .iter()
-                    .any(|inter| match inter.kind {
-                             InteractionKind::Next { .. } => true,
-                             _ => false,
-                         }) {
+                   .interactions
+                   .iter()
+                   .any(|inter| match inter.kind {
+                            InteractionKind::Next { .. } => true,
+                            _ => false,
+                        }) {
                 let instance = Instance {
                     instance_position: [lane.construction.path.end().x,
                                         lane.construction.path.end().y,
@@ -244,12 +245,12 @@ pub fn setup(system: &mut ActorSystem) {
             }
 
             if !lane.connectivity
-                    .interactions
-                    .iter()
-                    .any(|inter| match inter.kind {
-                             InteractionKind::Previous { .. } => true,
-                             _ => false,
-                         }) {
+                   .interactions
+                   .iter()
+                   .any(|inter| match inter.kind {
+                            InteractionKind::Previous { .. } => true,
+                            _ => false,
+                        }) {
                 let instance = Instance {
                     instance_position: [lane.construction.path.start().x,
                                         lane.construction.path.start().y,
@@ -296,25 +297,28 @@ pub fn setup(system: &mut ActorSystem) {
         each_t_lane.on(|&RenderToCollector(collector_id), lane, world| {
             let maybe_path = if lane.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY <
                                 lane.construction.length {
-                lane.construction
-                    .path
-                    .subsection(0.0,
-                                (lane.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY)
-                                    .max(0.0))
+                lane.construction.path.subsection(0.0,
+                                                  (lane.construction.progress -
+                                                   2.0 * CONSTRUCTION_ANIMATION_DELAY)
+                                                      .max(0.0))
             } else {
                 Some(lane.construction.path.clone())
             };
 
-            world.send(collector_id,
-                       Update(lane.id(),
-                              maybe_path
-                                  .map(|path| {
-                dash_path(&path, 2.0, 4.0)
-                    .into_iter()
-                    .map(|dash| band_to_thing(&Band::new(dash, 0.8), 0.2))
-                    .sum()
-            })
-                                  .unwrap_or_else(|| Thing::new(vec![], vec![]))));
+            world.send(
+                collector_id,
+                Update(
+                    lane.id(),
+                    maybe_path
+                        .map(|path| {
+                            dash_path(&path, 2.0, 4.0)
+                                .into_iter()
+                                .map(|dash| band_to_thing(&Band::new(dash, 0.8), 0.2))
+                                .sum()
+                        })
+                        .unwrap_or_else(|| Thing::new(vec![], vec![])),
+                ),
+            );
             if lane.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY >
                lane.construction.length {
                 world.send(collector_id, Freeze(lane.id()))
@@ -328,14 +332,14 @@ pub fn setup(system: &mut ActorSystem) {
             let mut current_offset = 0.0;
             let mut car_instances = CVec::with_capacity(lane.microtraffic.cars.len());
             for segment in lane.construction.path.segments().iter() {
-                for car in cars_iter.take_while_ref(|car| {
-                    *car.position - current_offset < segment.length()
-                }) {
+                for car in
+                    cars_iter
+                        .take_while_ref(|car| *car.position - current_offset < segment.length()) {
                     let position2d = segment.along(*car.position - current_offset);
                     let direction = segment.direction_along(*car.position - current_offset);
                     let rotated_direction = (direction +
                                              0.3 * car.transfer_velocity * direction.orthogonal())
-                            .normalize();
+                        .normalize();
                     let shifted_position2d = position2d +
                                              2.5 * direction.orthogonal() * car.transfer_position;
                     car_instances.push(Instance {
@@ -372,9 +376,7 @@ pub fn setup(system: &mut ActorSystem) {
                                          .path
                                          .direction_along(*obstacle.position)
                                          .orthogonal();
-                    let direction = lane.construction
-                        .path
-                        .direction_along(*obstacle.position);
+                    let direction = lane.construction.path.direction_along(*obstacle.position);
 
                     car_instances.push(Instance {
                                            instance_position: [position2d.x, position2d.y, 0.0],
@@ -396,9 +398,7 @@ pub fn setup(system: &mut ActorSystem) {
                                          .path
                                          .direction_along(*obstacle.position)
                                          .orthogonal();
-                    let direction = lane.construction
-                        .path
-                        .direction_along(*obstacle.position);
+                    let direction = lane.construction.path.direction_along(*obstacle.position);
 
                     car_instances.push(Instance {
                                            instance_position: [position2d.x, position2d.y, 0.0],
@@ -413,9 +413,7 @@ pub fn setup(system: &mut ActorSystem) {
             }
 
             if lane.connectivity.left.is_none() {
-                let position = lane.construction
-                    .path
-                    .along(lane.construction.length / 2.0) +
+                let position = lane.construction.path.along(lane.construction.length / 2.0) +
                                lane.construction
                                    .path
                                    .direction_along(lane.construction.length / 2.0)
@@ -430,9 +428,7 @@ pub fn setup(system: &mut ActorSystem) {
                                          world);
             }
             if lane.connectivity.right.is_none() {
-                let position = lane.construction
-                    .path
-                    .along(lane.construction.length / 2.0) -
+                let position = lane.construction.path.along(lane.construction.length / 2.0) -
                                lane.construction
                                    .path
                                    .direction_along(lane.construction.length / 2.0)

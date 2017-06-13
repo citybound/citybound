@@ -54,9 +54,8 @@ impl ResourceRegistry {
            supplier_shared: bool) {
         let id = self.next_id;
         self.name_to_id.insert(resource.to_owned(), id);
-        self.id_to_info
-            .insert(id,
-                    ResourceDescription(resource.to_owned(), description.to_owned()));
+        self.id_to_info.insert(id,
+                               ResourceDescription(resource.to_owned(), description.to_owned()));
         self.properties[id.as_index()] = ResourceProperties { ownership_shared, supplier_shared };
         self.next_id = match self.next_id {
             ResourceId(id) => ResourceId(id + 1),
@@ -65,11 +64,11 @@ impl ResourceRegistry {
 
     fn id(&self, resource: &str) -> ResourceId {
         *self.name_to_id
-             .get(resource)
-             .expect(format!("Resource {} doesn't exist. Loaded resources: {:?}",
-                             resource,
-                             self.name_to_id)
-                             .as_str())
+            .get(resource)
+            .expect(format!("Resource {} doesn't exist. Loaded resources: {:?}",
+                            resource,
+                            self.name_to_id)
+                        .as_str())
     }
 }
 

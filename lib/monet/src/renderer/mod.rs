@@ -94,9 +94,16 @@ impl Renderer {
 }
 
 // pub trait Renderable {
-//     pub fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World);
-//     pub fn render_to_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World);
+//     pub fn setup_in_scene(&mut self,
+//                           renderer_id: RendererID,
+//                           scene_id: usize,
+//                           world: &mut World);
+//     pub fn render_to_scene(&mut self,
+//                            renderer_id: RendererID,
+//                            scene_id: usize,
+//                            world: &mut World);
 // }
+
 
 pub fn setup(system: &mut ActorSystem, initial: Renderer) {
     auto_setup(system, (initial,));
