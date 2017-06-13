@@ -31,7 +31,6 @@ impl Renderer {
     }
 }
 
-// Define Actor
 impl Renderer {
     pub fn id(world: &mut World) -> RendererID {
         RendererID::in_world(world)
@@ -92,6 +91,11 @@ impl Renderer {
             .instances
             .extend_from_slice(instances);
     }
+}
+
+pub trait Renderable {
+    pub fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World);
+    pub fn render_to_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World);
 }
 
 pub fn setup(system: &mut ActorSystem, initial: Renderer) {
