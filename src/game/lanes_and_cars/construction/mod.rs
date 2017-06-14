@@ -13,6 +13,8 @@ use super::connectivity::{Interaction, InteractionKind, OverlapKind};
 pub mod materialized_reality;
 use self::materialized_reality::BuildableRef;
 
+use random::Source;
+
 #[derive(Compact, Clone)]
 pub struct ConstructionInfo {
     pub length: f32,
@@ -347,7 +349,39 @@ pub fn setup(system: &mut ActorSystem) {
                 Fate::Live
             }
         });
+    }));
 
+    // TODO: this is a horrible hack
+    system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
+        each_lane.on_random(|&FindLot{requester}, _, world| {
+            const BUILDING_DISTANCE: f32 = 10.0;
+
+            MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
+                let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
+
+                let (&lane_id, &(Band { ref path, .. }, _)) = memoized_bands_outlines
+                    .iter()
+                    .nth(::random::default().read::<usize>() % memoized_bands_outlines.len())
+                    .unwrap();
+
+                let distance = ::random::default().read_f64() as f32 * path.length();
+                let point = path.along(distance) +
+                            BUILDING_DISTANCE * path.direction_along(distance).orthogonal();
+
+                let viable =
+                    memoized_bands_outlines
+                        .values()
+                        .all(|&(Band { ref path, .. }, _)| {
+                            path.distance_to(point) >= BUILDING_DISTANCE
+                        });
+
+                if viable {
+                    world.send(requester, FoundLot(Lot{position: point, adjacent_lane: lane_id}))
+                }
+            });
+
+            Fate::Live
+        });
     }));
 
     system.extend(Swarm::<TransferLane>::subactors(move |mut each_t_lane| {
@@ -540,6 +574,5 @@ pub struct Unbuild {
 use self::materialized_reality::ReportLaneUnbuilt;
 
 use game::economy::households::buildings::FindLot;
+use game::economy::households::buildings::Lot;
 use game::economy::households::buildings::FoundLot;
-use game::economy::households::buildings::CheckLot;
-use game::economy::households::buildings::LotResult;

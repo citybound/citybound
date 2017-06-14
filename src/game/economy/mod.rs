@@ -7,4 +7,5 @@ pub mod households;
 pub fn setup(system: &mut ActorSystem) {
     resources::setup();
     market::setup(system);
+    households::setup(system);
 }

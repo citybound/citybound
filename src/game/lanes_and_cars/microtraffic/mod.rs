@@ -235,13 +235,13 @@ pub fn setup(system: &mut ActorSystem) {
             lane.microtraffic.yellow_to_red = if lane.microtraffic.timings.is_empty() {
                 true
             } else {
-                !lane.microtraffic.timings[((current_tick + 100) / 25) %
+                !lane.microtraffic.timings[((current_tick.ticks() + 100) / 25) %
                                            lane.microtraffic.timings.len()]
             };
             lane.microtraffic.yellow_to_green = if lane.microtraffic.timings.is_empty() {
                 true
             } else {
-                lane.microtraffic.timings[((current_tick + 100) / 25) %
+                lane.microtraffic.timings[((current_tick.ticks() + 100) / 25) %
                                           lane.microtraffic.timings.len()]
             };
             lane.microtraffic.green = if lane.microtraffic.timings.is_empty() {

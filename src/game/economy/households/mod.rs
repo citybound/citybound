@@ -187,6 +187,8 @@ use core::simulation::Wake;
 use self::tasks::TaskState;
 
 pub fn setup(system: &mut ActorSystem) {
+    buildings::setup(system);
+
     system.add(
         Swarm::<Family>::new(),
         Swarm::<Family>::subactors(|mut each_family| {

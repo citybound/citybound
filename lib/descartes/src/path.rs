@@ -210,14 +210,13 @@ impl<T: Path> Curve for T {
             .any(|segment| segment.includes(point))
     }
 
-    fn distance_to(&self, _point: P2) -> N {
-        panic!("Don't trust this shit!");
-        // self.segments()
-        //     .iter()
-        //     .map(|segment| OrderedFloat(segment.distance_to(point)))
-        //     .min()
-        //     .map(|ord_f| *ord_f)
-        //     .unwrap()
+    fn distance_to(&self, point: P2) -> N {
+        if let Some(offset) = self.project(point) {
+            (point - self.along(offset)).norm()
+        } else {
+            *::std::cmp::min(OrderedFloat((point - self.start()).norm()),
+                             OrderedFloat((point - self.end()).norm()))
+        }
     }
 }
 
