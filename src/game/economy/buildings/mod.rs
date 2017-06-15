@@ -4,11 +4,12 @@ use compact::CVec;
 use descartes::P2;
 use stagemaster::combo::{Bindings, Combo2};
 use stagemaster::{UserInterface, AddInteractable, Focus};
-use stagemaster::environment::Environment;
 use stagemaster::combo::Button::*;
 use stagemaster::Event3d;
 use stagemaster::geometry::AnyShape;
 use game::lanes_and_cars::lane::Lane;
+
+mod rendering;
 
 #[derive(SubActor, Compact, Clone)]
 pub struct Building {
@@ -68,7 +69,7 @@ pub fn setup(system: &mut ActorSystem) {
                                                                  households: CVec::new(),
                                                                  lot: lot.clone(),
                                                              }));
-            println!("Created a building");
+            println!("Created a building {}", lot.position);
             Fate::Live
         });
 
@@ -103,4 +104,8 @@ pub fn setup(system: &mut ActorSystem) {
         the_spawner.world().send(spawner_id, InitializeUI);
     });
 
+}
+
+pub fn setup_ui(system: &mut ActorSystem) {
+    rendering::setup(system);
 }

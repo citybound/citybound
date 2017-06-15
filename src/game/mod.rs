@@ -10,4 +10,5 @@ pub fn setup(system: &mut ActorSystem) {
 
 pub fn setup_ui(system: &mut ActorSystem) {
     lanes_and_cars::setup_ui(system);
+    economy::setup_ui(system);
 }

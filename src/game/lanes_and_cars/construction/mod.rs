@@ -573,6 +573,6 @@ pub struct Unbuild {
 }
 use self::materialized_reality::ReportLaneUnbuilt;
 
-use game::economy::households::buildings::FindLot;
-use game::economy::households::buildings::Lot;
-use game::economy::households::buildings::FoundLot;
+use game::economy::buildings::FindLot;
+use game::economy::buildings::Lot;
+use game::economy::buildings::FoundLot;

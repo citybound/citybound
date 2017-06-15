@@ -12,8 +12,6 @@ use self::judgement_table::judgement_table;
 mod tasks;
 use self::tasks::Task;
 
-pub mod buildings;
-
 use super::market::{Market, Evaluate, Search, EvaluatedDeal, EvaluatedSearchResult,
                     GetApplicableDeal, ApplicableDeal, StartedUsing, StoppedUsing};
 use super::super::lanes_and_cars::pathfinding::trip::{Trip, Start, CreatedTrip, TripResult};
@@ -187,8 +185,6 @@ use core::simulation::Wake;
 use self::tasks::TaskState;
 
 pub fn setup(system: &mut ActorSystem) {
-    buildings::setup(system);
-
     system.add(
         Swarm::<Family>::new(),
         Swarm::<Family>::subactors(|mut each_family| {

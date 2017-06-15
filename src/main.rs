@@ -48,6 +48,7 @@ use game::lanes_and_cars::lane::{Lane, TransferLane};
 use game::lanes_and_cars::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use game::lanes_and_cars::rendering::lane_thing_collector::ThingCollector;
 use game::lanes_and_cars::planning::current_plan::CurrentPlan;
+use game::economy::buildings::Building;
 use kay::swarm::Swarm;
 use std::any::Any;
 
@@ -104,7 +105,8 @@ fn main() {
                            system.id::<ThingCollector<LaneAsphalt>>(),
                            system.id::<ThingCollector<LaneMarker>>(),
                            system.id::<ThingCollector<TransferLaneMarkerGaps>>(),
-                           system.id::<CurrentPlan>()];
+                           system.id::<CurrentPlan>(),
+                           system.id::<Swarm<Building>>().broadcast()];
     stagemaster::setup(&mut system, renderables, ENV, &window);
 
     let mut last_frame = std::time::Instant::now();
