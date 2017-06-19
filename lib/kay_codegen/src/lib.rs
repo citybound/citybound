@@ -11,29 +11,53 @@ pub fn generate(file: &str) -> String {
 
     let mut setup_map = HashMap::<Ty, (usize, Vec<Tokens>)>::new();
     let mut id_map = HashMap::<Ty, Vec<Tokens>>::new();
+    let mut trait_id_map = HashMap::<Ident, Vec<Tokens>>::new();
     let mut msg_map = HashMap::<Ty, Vec<Tokens>>::new();
+    let mut trait_msg_map = HashMap::<Ident, Vec<Tokens>>::new();
 
     let mut next_actor_index = 0;
 
     for item in parse_crate(file).unwrap().items.iter() {
-        if let ItemKind::Impl(_, _, _, None, ref typ, ref impl_items) = item.node {
-            if !setup_map.contains_key(typ) {
-                setup_map.insert((**typ).clone(), (next_actor_index, Vec::new()));
-                next_actor_index += 1;
-            };
-            setup_map
-                .get_mut(typ)
-                .unwrap()
-                .1
-                .extend(generate_setup(typ, impl_items));
-            id_map
-                .entry((**typ).clone())
-                .or_insert_with(Vec::new)
-                .extend(generate_id(typ, impl_items));
-            msg_map
-                .entry((**typ).clone())
-                .or_insert_with(Vec::new)
-                .push(generate_msgs(typ, impl_items));
+        match *item {
+            Item { node: ItemKind::Impl(_, _, _, None, ref typ, ref impl_items), .. } => {
+                if !setup_map.contains_key(typ) {
+                    setup_map.insert((**typ).clone(), (next_actor_index, Vec::new()));
+                    next_actor_index += 1;
+                };
+                setup_map
+                    .get_mut(typ)
+                    .unwrap()
+                    .1
+                    .extend(generate_setup(typ, impl_items));
+                id_map
+                    .entry((**typ).clone())
+                    .or_insert_with(Vec::new)
+                    .extend(generate_id(typ, impl_items));
+                msg_map
+                    .entry((**typ).clone())
+                    .or_insert_with(Vec::new)
+                    .push(generate_msgs(typ, impl_items));
+            }
+            Item {
+                node: ItemKind::Impl(_, _, _, Some(ref trt), ref typ, ref impl_items), ..
+            } => {
+                // TODO
+            }
+            Item {
+                ref ident,
+                node: ItemKind::Trait(_, _, _, ref trait_items),
+                ..
+            } => {
+                trait_id_map
+                    .entry(ident.clone())
+                    .or_insert_with(Vec::new)
+                    .extend(generate_trait_id(ident, trait_items));
+                trait_msg_map
+                    .entry(ident.clone())
+                    .or_insert_with(Vec::new)
+                    .push(generate_trait_msgs(ident, trait_items));
+            }
+            _ => {}
         }
     }
 
@@ -61,6 +85,21 @@ pub fn generate(file: &str) -> String {
     let id_types_2 = id_types.iter();
     let id_types_3 = id_types.iter();
     let id_types_4 = id_types.iter();
+
+    let (trait_types, trait_id_defs) = (trait_id_map.keys().collect::<Vec<_>>(),
+                                        trait_id_map.values());
+                                        let trait_msg_defs = trait_msg_map.values().flat_map(|v| v);
+    let trait_id_types = trait_types
+        .iter()
+        .map(|ident| Ty::Path(None, Path{global:false, segments: vec![
+            Ident::new(format!("{}ID", ident)).into()
+        ]}))
+        .collect::<Vec<_>>();
+    let trait_types_1 = types.iter();
+    let trait_id_types_1 = trait_id_types.iter();
+    let trait_id_types_2 = trait_id_types.iter();
+    let trait_id_types_3 = trait_id_types.iter();
+    let trait_id_types_4 = trait_id_types.iter();
 
     quote!(
         use kay::ActorSystem;
@@ -92,10 +131,30 @@ pub fn generate(file: &str) -> String {
                 #(#id_defs)*
             }
         )*
+
+        #(#trait_msg_defs)*
+
+        #(
+            #[derive(Copy, Clone)]
+            pub struct #trait_id_types_1 {
+                raw_id: ID,
+            }
+
+            impl #trait_id_types_2 {
+                pub fn in_world(world: &mut World) -> Self {
+                    #trait_id_types_3 {raw_id: world.id::<#trait_types_1>()}
+                }
+            }
+
+            impl #trait_id_types_4 {
+                #(#trait_id_defs)*
+            }
+        )*
     ).into_string()
 }
 
 pub fn generate_setup(typ: &Ty, impl_items: &[ImplItem]) -> Vec<Tokens> {
+    let msg_prefix = typ_to_message_prefix(typ);
     let setup_calls = impl_items.iter().filter_map(|impl_item| if let &ImplItem {
                ident: ref fn_name,
                vis: Visibility::Public,
@@ -130,7 +189,7 @@ pub fn generate_setup(typ: &Ty, impl_items: &[ImplItem]) -> Vec<Tokens> {
                          _ => unimplemented!(),
                      })
                 .collect::<Vec<_>>();
-            let msg_name = message_name(typ, fn_name);
+            let msg_name = Ident::new(format!("{}_{}", msg_prefix, fn_name));
             let returns_fate = match sig.decl.output {
                 FunctionRetTy::Default => false,
                 FunctionRetTy::Ty(Ty::Path(_, Path { ref segments, .. })) => {
@@ -174,61 +233,70 @@ pub fn generate_setup(typ: &Ty, impl_items: &[ImplItem]) -> Vec<Tokens> {
 }
 
 pub fn generate_id(typ: &Ty, impl_items: &[ImplItem]) -> Vec<Tokens> {
+    let msg_prefix = typ_to_message_prefix(typ);
     let id_methods = impl_items.iter().filter_map(|impl_item| if let &ImplItem {
-               ident: ref fn_name,
-               vis: Visibility::Public,
-               node: ImplItemKind::Method(ref sig, _),
-               ..
-           } = impl_item {
-        check_handler(sig).map(|args| {
-            let owned_sig =
-                args.iter().map(|arg| match arg {
-                                    &FnArg::Captured(ref ident, Ty::Rptr(_, ref ty_box)) => {
-                                        FnArg::Captured(ident.clone(), ty_box.ty.clone())
-                                    }
-                                    other => other.clone(),
-                                });
-            let params = args.iter().map(|arg| match arg {
-                                             &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => {
-                                                 ident.clone()
-                                             }
-                                             _ => unimplemented!(),
-                                         });
-            let msg_name = message_name(typ, fn_name);
-            quote!(
-                    pub fn #fn_name(&self, #(#owned_sig),*, world: &mut World) {
-                        world.send(self.raw_id, #msg_name(#(#params),*))
-                    }
-                )
-        })
-    } else {
-        None
-    });
+                                                             ident: ref fn_name,
+                                                             vis: Visibility::Public,
+                                                             node: ImplItemKind::Method(ref sig, _),
+                                                             ..
+                                                         } = impl_item {
+                                                      generate_id_inner(fn_name, sig, &msg_prefix)
+                                                  } else {
+                                                      None
+                                                  });
 
     id_methods.collect()
 }
 
-pub fn generate_msgs(typ: &Ty, impl_items: &[ImplItem]) -> Tokens {
+pub fn generate_trait_id(trait_ident: &Ident, trait_items: &[TraitItem]) -> Vec<Tokens> {
+    let msg_prefix = trait_to_message_prefix(&trait_ident);
+    let id_methods = trait_items
+        .iter()
+        .filter_map(|trait_item| if let &TraitItem {
+                               ident: ref fn_name,
+                               node: TraitItemKind::Method(ref sig, _),
+                               ..
+                           } = trait_item {
+                        generate_id_inner(fn_name, sig, &msg_prefix)
+                    } else {
+                        None
+                    });
+
+    id_methods.collect()
+}
+
+pub fn generate_id_inner(fn_name: &Ident, sig: &MethodSig, msg_prefix: &str) -> Option<Tokens> {
+    check_handler(sig).map(|args| {
+        let owned_sig = args.iter().map(|arg| match arg {
+                                            &FnArg::Captured(ref ident,
+                                                             Ty::Rptr(_, ref ty_box)) => {
+                                                FnArg::Captured(ident.clone(), ty_box.ty.clone())
+                                            }
+                                            other => other.clone(),
+                                        });
+        let params =
+            args.iter().map(|arg| match arg {
+                                &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
+                                _ => unimplemented!(),
+                            });
+        let msg_name = Ident::new(format!("{}_{}", msg_prefix, fn_name));
+        quote!(
+                    pub fn #fn_name(&self, #(#owned_sig),*, world: &mut World) {
+                        world.send(self.raw_id, #msg_name(#(#params),*))
+                    }
+                )
+    })
+}
+
+fn generate_msgs(typ: &Ty, impl_items: &[ImplItem]) -> Tokens {
+    let msg_prefix = typ_to_message_prefix(typ);
     let msg_definitions = impl_items.iter().filter_map(|impl_item| if let &ImplItem {
                ident: ref fn_name,
                vis: Visibility::Public,
                node: ImplItemKind::Method(ref sig, _),
                ..
            } = impl_item {
-        check_handler(sig).map(|args| {
-            let field_types =
-                args.iter().map(|arg| match arg {
-                                    &FnArg::Captured(_, Ty::Rptr(_, ref ty_box)) => &ty_box.ty,
-                                    &FnArg::Captured(_, ref other) => other,
-                                    _ => unimplemented!(),
-                                });
-            let msg_name = message_name(typ, fn_name);
-            quote!(
-                    #[allow(non_camel_case_types)]
-                    #[derive(Compact, Clone)]
-                    struct #msg_name(#(#field_types),*);
-                )
-        })
+        generate_trait_inner(fn_name, sig, &msg_prefix)
     } else {
         None
     });
@@ -238,17 +306,57 @@ pub fn generate_msgs(typ: &Ty, impl_items: &[ImplItem]) -> Tokens {
     )
 }
 
-fn message_name(typ: &Ty, fn_name: &Ident) -> Ident {
+fn generate_trait_msgs(trait_ident: &Ident, trait_items: &[TraitItem]) -> Tokens {
+    let msg_prefix = trait_to_message_prefix(&trait_ident);
+    let msg_definitions = trait_items
+        .iter()
+        .filter_map(|trait_item| if let &TraitItem {
+                               ident: ref fn_name,
+                               node: TraitItemKind::Method(ref sig, _),
+                               ..
+                           } = trait_item {
+                        generate_trait_inner(fn_name, sig, &msg_prefix)
+                    } else {
+                        None
+                    });
+
+    quote!(
+            #(#msg_definitions)*
+    )
+}
+
+fn generate_trait_inner(fn_name: &Ident, sig: &MethodSig, msg_prefix: &str) -> Option<Tokens> {
+    check_handler(sig).map(|args| {
+        let field_types =
+            args.iter().map(|arg| match arg {
+                                &FnArg::Captured(_, Ty::Rptr(_, ref ty_box)) => &ty_box.ty,
+                                &FnArg::Captured(_, ref other) => other,
+                                _ => unimplemented!(),
+                            });
+        let msg_name = Ident::new(format!("{}_{}", msg_prefix, fn_name));
+        quote!(
+                    #[allow(non_camel_case_types)]
+                    #[derive(Compact, Clone)]
+                    struct #msg_name(#(#field_types),*);
+                )
+    })
+}
+
+fn typ_to_message_prefix(typ: &Ty) -> String {
     if let &Ty::Path(_, Path { ref segments, .. }) = typ {
         let path = segments
             .iter()
             .map(|s| s.ident.as_ref())
             .collect::<Vec<_>>()
             .join("_");
-        Ident::new(format!("MSG_{}_{}", path, fn_name))
+        format!("MSG_{}", path)
     } else {
         unimplemented!()
     }
+}
+
+fn trait_to_message_prefix(ident: &Ident) -> String {
+    format!("{}", ident)
 }
 
 pub fn check_handler(sig: &MethodSig) -> Option<&[FnArg]> {
