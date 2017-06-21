@@ -106,5 +106,19 @@ pub fn setup(system: &mut ActorSystem, initial: Renderer) {
     project::setup(system);
 }
 
+// pub struct Sky {
+//     size: usize,
+// }
+
+// impl Renderable for Sky {
+//     fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
+//         self.size = 9000;
+//     }
+
+//     fn render_to_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
+//         self.size = 3000;
+//     }
+// }
+
 mod kay_auto;
 pub use self::kay_auto::*;

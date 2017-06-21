@@ -5,15 +5,16 @@ extern crate quote;
 use syn::*;
 use quote::Tokens;
 
-use std::collections::HashMap;
+extern crate ordermap;
+use ordermap::OrderMap;
 
 pub fn generate(file: &str) -> String {
 
-    let mut setup_map = HashMap::<Ty, (usize, Vec<Tokens>)>::new();
-    let mut id_map = HashMap::<Ty, Vec<Tokens>>::new();
-    let mut trait_id_map = HashMap::<Ident, Vec<Tokens>>::new();
-    let mut msg_map = HashMap::<Ty, Vec<Tokens>>::new();
-    let mut trait_msg_map = HashMap::<Ident, Vec<Tokens>>::new();
+    let mut setup_map = OrderMap::<Ty, (usize, Vec<Tokens>)>::new();
+    let mut id_map = OrderMap::<Ty, Vec<Tokens>>::new();
+    let mut trait_id_map = OrderMap::<Ident, Vec<Tokens>>::new();
+    let mut msg_map = OrderMap::<Ty, Vec<Tokens>>::new();
+    let mut trait_msg_map = OrderMap::<Ident, Vec<Tokens>>::new();
 
     let mut next_actor_index = 0;
 
@@ -28,11 +29,11 @@ pub fn generate(file: &str) -> String {
                     .get_mut(typ)
                     .unwrap()
                     .1
-                    .extend(generate_setup(typ, impl_items));
+                    .extend(generate_setup(typ, impl_items, None));
                 id_map
                     .entry((**typ).clone())
                     .or_insert_with(Vec::new)
-                    .extend(generate_id(typ, impl_items));
+                    .extend(generate_id(typ, impl_items, None));
                 msg_map
                     .entry((**typ).clone())
                     .or_insert_with(Vec::new)
@@ -41,7 +42,20 @@ pub fn generate(file: &str) -> String {
             Item {
                 node: ItemKind::Impl(_, _, _, Some(ref trt), ref typ, ref impl_items), ..
             } => {
-                // TODO
+                if !setup_map.contains_key(typ) {
+                    setup_map.insert((**typ).clone(), (next_actor_index, Vec::new()));
+                    next_actor_index += 1;
+                };
+                setup_map
+                    .get_mut(typ)
+                    .unwrap()
+                    .1
+                    .extend(generate_setup(typ, impl_items, Some(trt)));
+                id_map
+                    .entry((**typ).clone())
+                    .or_insert_with(Vec::new)
+                    .extend(generate_id(typ, impl_items, Some(trt)));
+                //panic!("{} for {}", quote!(#trt), quote!(#typ).into_string());
             }
             Item {
                 ref ident,
@@ -88,12 +102,16 @@ pub fn generate(file: &str) -> String {
 
     let (trait_types, trait_id_defs) = (trait_id_map.keys().collect::<Vec<_>>(),
                                         trait_id_map.values());
-                                        let trait_msg_defs = trait_msg_map.values().flat_map(|v| v);
+    let trait_msg_defs = trait_msg_map.values().flat_map(|v| v);
     let trait_id_types = trait_types
         .iter()
-        .map(|ident| Ty::Path(None, Path{global:false, segments: vec![
-            Ident::new(format!("{}ID", ident)).into()
-        ]}))
+        .map(|ident| {
+            Ty::Path(None,
+                     Path {
+                         global: false,
+                         segments: vec![Ident::new(format!("{}ID", ident)).into()],
+                     })
+        })
         .collect::<Vec<_>>();
     let trait_types_1 = types.iter();
     let trait_id_types_1 = trait_id_types.iter();
@@ -102,6 +120,7 @@ pub fn generate(file: &str) -> String {
     let trait_id_types_4 = trait_id_types.iter();
 
     quote!(
+        //! This is all auto-generated. Do not touch.
         use kay::ActorSystem;
         use super::*;
 
@@ -153,78 +172,82 @@ pub fn generate(file: &str) -> String {
     ).into_string()
 }
 
-pub fn generate_setup(typ: &Ty, impl_items: &[ImplItem]) -> Vec<Tokens> {
-    let msg_prefix = typ_to_message_prefix(typ);
+pub fn generate_setup(typ: &Ty, impl_items: &[ImplItem], with_trait: Option<&Path>) -> Vec<Tokens> {
+    let msg_prefix = typ_to_message_prefix(typ, with_trait);
     let setup_calls = impl_items.iter().filter_map(|impl_item| if let &ImplItem {
                ident: ref fn_name,
-               vis: Visibility::Public,
+               ref vis,
                node: ImplItemKind::Method(ref sig, _),
                ref attrs,
                ..
            } = impl_item {
-        check_handler(sig).map(|args| {
-            let reffed_args = args.iter()
-                .map(|arg| match arg {
-                         &FnArg::Captured(Pat::Ident(_, ref ident, _), ref ty) => {
-                             match ty {
-                                 &Ty::Rptr(_, _) => {
-                                     Pat::Ident(BindingMode::ByRef(Mutability::Immutable),
-                                                ident.clone(),
-                                                None)
-                                 }
-                                 _ => {
-                                     Pat::Ident(BindingMode::ByValue(Mutability::Immutable),
-                                                ident.clone(),
-                                                None)
-                                 }
+        if with_trait.is_some() || *vis == Visibility::Public {
+            check_handler(sig).map(|args| {
+                let reffed_args = args.iter()
+                    .map(|arg| match arg {
+                             &FnArg::Captured(Pat::Ident(_, ref ident, _), ref ty) => {
+                                 match ty {
+                                     &Ty::Rptr(_, _) => {
+                                         Pat::Ident(BindingMode::ByRef(Mutability::Immutable),
+                                                    ident.clone(),
+                                                    None)
+                                     }
+                                     _ => {
+                                         Pat::Ident(BindingMode::ByValue(Mutability::Immutable),
+                                                    ident.clone(),
+                                                    None)
+                                     }
 
+                                 }
                              }
-                         }
-                         _ => unimplemented!(),
-                     })
-                .collect::<Vec<_>>();
-            let params = args.iter()
-                .map(|arg| match arg {
-                         &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
-                         _ => unimplemented!(),
-                     })
-                .collect::<Vec<_>>();
-            let msg_name = Ident::new(format!("{}_{}", msg_prefix, fn_name));
-            let returns_fate = match sig.decl.output {
-                FunctionRetTy::Default => false,
-                FunctionRetTy::Ty(Ty::Path(_, Path { ref segments, .. })) => {
-                    segments.iter().any(|s| s.ident.as_ref() == "Fate")
-                }
-                _ => unimplemented!(),
-            };
-            let inner = if returns_fate {
-                quote!(
+                             _ => unimplemented!(),
+                         })
+                    .collect::<Vec<_>>();
+                let params = args.iter()
+                    .map(|arg| match arg {
+                             &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
+                             _ => unimplemented!(),
+                         })
+                    .collect::<Vec<_>>();
+                let msg_name = Ident::new(format!("{}_{}", msg_prefix, fn_name));
+                let returns_fate = match sig.decl.output {
+                    FunctionRetTy::Default => false,
+                    FunctionRetTy::Ty(Ty::Path(_, Path { ref segments, .. })) => {
+                        segments.iter().any(|s| s.ident.as_ref() == "Fate")
+                    }
+                    _ => unimplemented!(),
+                };
+                let inner = if returns_fate {
+                    quote!(
                         actor.#fn_name(#(#params),*, world)
                     )
-            } else {
-                quote!(
+                } else {
+                    quote!(
                         actor.#fn_name(#(#params),*, world);
                         Fate::Live
                     )
-            };
-            let is_critical = attrs.iter().any(|attr| {
-                attr.is_sugared_doc &&
-                attr.value == MetaItem::NameValue("doc".into(), "/// Critical".into())
-            });
-            if is_critical {
-                quote!(
+                };
+                let is_critical = attrs.iter().any(|attr| {
+                    attr.is_sugared_doc &&
+                    attr.value == MetaItem::NameValue("doc".into(), "/// Critical".into())
+                });
+                if is_critical {
+                    quote!(
                         definer.on_critical(|&#msg_name(#(#reffed_args),*), actor, world| {
                             #inner
                         });
                     )
-            } else {
-                quote!(
+                } else {
+                    quote!(
                         definer.on(|&#msg_name(#(#reffed_args),*), actor, world| {
                             #inner
                         });
                     )
-            }
-        })
+                }
+            })
+        } else {
+            None
+        }
     } else {
         None
     });
@@ -232,18 +255,23 @@ pub fn generate_setup(typ: &Ty, impl_items: &[ImplItem]) -> Vec<Tokens> {
     setup_calls.collect()
 }
 
-pub fn generate_id(typ: &Ty, impl_items: &[ImplItem]) -> Vec<Tokens> {
-    let msg_prefix = typ_to_message_prefix(typ);
-    let id_methods = impl_items.iter().filter_map(|impl_item| if let &ImplItem {
-                                                             ident: ref fn_name,
-                                                             vis: Visibility::Public,
-                                                             node: ImplItemKind::Method(ref sig, _),
-                                                             ..
-                                                         } = impl_item {
-                                                      generate_id_inner(fn_name, sig, &msg_prefix)
-                                                  } else {
-                                                      None
-                                                  });
+pub fn generate_id(typ: &Ty, impl_items: &[ImplItem], with_trait: Option<&Path>) -> Vec<Tokens> {
+    let msg_prefix = typ_to_message_prefix(typ, with_trait);
+    let id_methods =
+        impl_items.iter().filter_map(|impl_item| if let &ImplItem {
+                                                ident: ref fn_name,
+                                                ref vis,
+                                                node: ImplItemKind::Method(ref sig, _),
+                                                ..
+                                            } = impl_item {
+                                         if with_trait.is_some() || *vis == Visibility::Public {
+                                             generate_id_inner(fn_name, sig, &msg_prefix)
+                                         } else {
+                                             None
+                                         }
+                                     } else {
+                                         None
+                                     });
 
     id_methods.collect()
 }
@@ -289,7 +317,7 @@ pub fn generate_id_inner(fn_name: &Ident, sig: &MethodSig, msg_prefix: &str) -> 
 }
 
 fn generate_msgs(typ: &Ty, impl_items: &[ImplItem]) -> Tokens {
-    let msg_prefix = typ_to_message_prefix(typ);
+    let msg_prefix = typ_to_message_prefix(typ, None);
     let msg_definitions = impl_items.iter().filter_map(|impl_item| if let &ImplItem {
                ident: ref fn_name,
                vis: Visibility::Public,
@@ -342,21 +370,25 @@ fn generate_trait_inner(fn_name: &Ident, sig: &MethodSig, msg_prefix: &str) -> O
     })
 }
 
-fn typ_to_message_prefix(typ: &Ty) -> String {
-    if let &Ty::Path(_, Path { ref segments, .. }) = typ {
-        let path = segments
-            .iter()
-            .map(|s| s.ident.as_ref())
-            .collect::<Vec<_>>()
-            .join("_");
-        format!("MSG_{}", path)
+fn typ_to_message_prefix(typ: &Ty, with_trait: Option<&Path>) -> String {
+    let segments = if let Some(path) = with_trait {
+        &path.segments
+    } else if let &Ty::Path(_, Path { ref segments, .. }) = typ {
+        segments
     } else {
         unimplemented!()
-    }
+    };
+
+    let prefixed = segments
+        .iter()
+        .map(|s| s.ident.as_ref())
+        .collect::<Vec<_>>()
+        .join("_");
+    format!("MSG_{}", prefixed)
 }
 
 fn trait_to_message_prefix(ident: &Ident) -> String {
-    format!("{}", ident)
+    format!("MSG_{}", ident)
 }
 
 pub fn check_handler(sig: &MethodSig) -> Option<&[FnArg]> {

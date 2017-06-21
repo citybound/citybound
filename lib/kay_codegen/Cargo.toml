@@ -6,6 +6,7 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 [dependencies]
 syn = "=0.10.6"
 quote = "0.3"
+ordermap = "0.2.10"
 
 [features]
 default = ["syn/full"]
