@@ -79,10 +79,10 @@ const CURVE_LINEARIZATION_MAX_ANGLE: f32 = 0.03;
 
 pub fn band_to_thing<P: Path>(band: &Band<P>, z: N) -> Thing {
     let mut vertices = Vec::<Vertex>::new();
-    let mut indices = Vec::<u16>::new();
+    let mut indices = Vec::<u32>::new();
     for segment in band.path.segments() {
         if segment.is_linear() {
-            let first_new_vertex = vertices.len() as u16;
+            let first_new_vertex = vertices.len() as u32;
             let orth_direction = segment.center_or_direction.orthogonal();
             vertices.push(to_vertex(segment.start + band.width / 2.0 * orth_direction, z));
             vertices.push(to_vertex(segment.start - band.width / 2.0 * orth_direction, z));
@@ -108,7 +108,7 @@ pub fn band_to_thing<P: Path>(band: &Band<P>, z: N) -> Thing {
             vertices.push(to_vertex(position - band.width / 2.0 * orth_direction, z));
 
             for subdivision in 0..subdivisions {
-                let first_new_vertex = vertices.len() as u16;
+                let first_new_vertex = vertices.len() as u32;
                 let distance = (subdivision + 1) as f32 * distance_per_subdivision;
                 let position = segment.along(distance);
                 let orth_direction = segment.direction_along(distance).orthogonal();

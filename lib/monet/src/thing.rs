@@ -6,11 +6,11 @@ use Vertex;
 #[derive(Compact, Debug)]
 pub struct Thing {
     pub vertices: CVec<Vertex>,
-    pub indices: CVec<u16>,
+    pub indices: CVec<u32>,
 }
 
 impl Thing {
-    pub fn new(vertices: Vec<Vertex>, indices: Vec<u16>) -> Thing {
+    pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>) -> Thing {
         Thing {
             vertices: vertices.into(),
             indices: indices.into(),
@@ -40,7 +40,7 @@ impl ::std::ops::Add for Thing {
                    self.indices
                        .iter()
                        .cloned()
-                       .chain(rhs.indices.iter().map(|i| *i + self_n_vertices as u16))
+                       .chain(rhs.indices.iter().map(|i| *i + self_n_vertices as u32))
                        .collect())
     }
 }
@@ -52,7 +52,7 @@ impl ::std::ops::AddAssign for Thing {
             self.vertices.push(vertex);
         }
         for index in rhs.indices.iter() {
-            self.indices.push(index + self_n_vertices as u16)
+            self.indices.push(index + self_n_vertices as u32)
         }
     }
 }
@@ -77,7 +77,7 @@ impl<'a> ::std::ops::AddAssign<&'a Thing> for Thing {
             self.vertices.push(vertex);
         }
         for index in rhs.indices.iter() {
-            self.indices.push(index + self_n_vertices as u16)
+            self.indices.push(index + self_n_vertices as u32)
         }
     }
 }
