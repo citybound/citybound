@@ -25,6 +25,7 @@ mod pointer_to_maybe_compact;
 mod compact;
 mod compact_vec;
 mod compact_dict;
+mod compact_hash_map;
 
 pub use self::compact::Compact;
 pub use self::compact_vec::CompactVec as CVec;
