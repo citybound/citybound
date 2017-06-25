@@ -340,3 +340,16 @@ fn push_at() {
         assert!(iter.find(|i|{ **i == elem(n) + 1}).is_some());
     }
 }
+
+#[test]
+fn remove_iter() {
+    let mut map: CompactHashMap<u32, CompactVec<u32>> = CompactHashMap::new();
+    assert!(map.is_empty() == true);
+    for n in 0..100 {
+        map.push_at(n, elem(n));
+        map.push_at(n, elem(n)+1);
+    }
+    let mut iter = map.remove_iter(50);
+    assert!(iter.find(|i|{ *i == elem(50)}).is_some());
+    assert!(iter.find(|i|{ *i == elem(50) + 1}).is_some());
+}
