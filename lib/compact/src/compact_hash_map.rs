@@ -2,8 +2,8 @@ use super::allocators::{Allocator, DefaultHeap};
 use super::compact::Compact;
 use super::compact_vec::CompactVec;
 use super::compact_dict::CompactDict;
-use super::compact_array::CompactArray;
-use std::iter::Iterator;
+use super::compact_array::{CompactArray, IntoIter as ArrayIntoIter};
+use std::iter::{Iterator, Map};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 use std::hash::Hash;
@@ -46,6 +46,7 @@ struct OpenAddressingMap<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator =
 }
 
 impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K, V, A> {
+    
     pub fn new() -> Self {
         Self::with_capacity(100)
     }
@@ -134,8 +135,8 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
     }
 
     /// Iterator over all key-value pairs in the dictionary
-    pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)> + Clone + 'a {
-        self.into_iter()
+    pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)>  + 'a {
+        self.entries.iter().filter(|e| {e.used}).map(|e|{(&e.key, &e.value)})
     }
 
     fn hash(&self, key: K) -> u64 {
@@ -312,14 +313,7 @@ impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator> OpenAddressi
     }
 }
 
-impl<'a, K: Copy + Eq + Hash,V: Clone + Compact> IntoIterator for &'a OpenAddressingMap<K, V> {
-    type Item = (& 'a K, & 'a V);
-    type IntoIter = ::std::vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.entries.into_iter()
-    }
-}
+type EntryIter<K,V,A> = ArrayIntoIter<Entry<K,V>,A>;
 
 impl <T: Hash> Hash for CompactVec<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
