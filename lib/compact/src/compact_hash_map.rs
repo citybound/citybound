@@ -53,7 +53,7 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
     pub fn with_capacity(l: usize) -> Self {
         OpenAddressingMap {
             entries: CompactArray::with_capacity(l),
-            size: l,
+            size: 0,
         }
     }
 
@@ -103,11 +103,13 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
                 entry.value = value;
                 entry.used = true;
                 entry.hash = hash;
+                self.size += 1;
                 return None
             } else if entry.key == query {
                 let old_val: V = entry.value.clone();
                 entry.value = value;
                 entry.hash = hash;
+                self.size += 1;
                 return Some(old_val)
             }
         }
@@ -170,8 +172,11 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
         if 10 * self.size > 7 * self.entries.capacity() {
             let old_entries = self.entries.clone();
             self.entries = CompactArray::with_capacity(old_entries.capacity() * 2);
+            self.size = 0;
             for entry in old_entries {
-                self.insert(entry.key, entry.value);
+                if entry.used {
+                    self.insert(entry.key, entry.value);
+                }
             }
         }
     }
@@ -337,7 +342,9 @@ fn basic() {
     }
     assert!(map.is_empty() == false);
     for i in 0..n {
-        assert!(*map.get(i).unwrap() == i * i);
+        let test = *map.get(i).unwrap();
+        let exp = i * i;
+        assert!( test == exp);
     }
     assert!(map.len() == n as usize);
     assert!(*map.get_mru(n - 1).unwrap() == elem(n - 1));
