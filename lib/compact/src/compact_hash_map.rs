@@ -39,10 +39,6 @@ impl<K: Copy + Hash + Eq, V: Compact + Clone> Compact for Entry<K, V> {
         }
     }
 }
-pub struct CompactHashMap<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator = DefaultHeap> {
-    dict: CompactDict<K,V,A>,
-    oa: OpenAddressingMap<K,V,A>,
-}
 
 struct OpenAddressingMap<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator = DefaultHeap> {
     size: usize,
@@ -50,9 +46,12 @@ struct OpenAddressingMap<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator =
 }
 
 impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K, V, A> {
+    pub fn new() -> Self {
+        Self::with_capacity(100)
+    }
     pub fn with_capacity(l: usize) -> Self {
         OpenAddressingMap {
-            entries: CompactArray::with_capacity(100),
+            entries: CompactArray::with_capacity(l),
             size: l,
         }
     }
@@ -70,6 +69,18 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
     /// Look up the value for key `query`, if it exists
     pub fn get(&self, query: K) -> Option<&V> {
         self.get_inner(query).map(|e|{&e.value})
+    }
+
+    pub fn get_mru(&self, query: K) -> Option<&V> {
+        self.get_inner(query).map(|e|{&e.value})
+    }
+
+    pub fn get_mfu(&self, query: K) -> Option<&V> {
+        self.get_inner(query).map(|e|{&e.value})
+    }
+
+    pub fn get_mut(&mut self, query: K) -> Option<&mut V> {
+        self.get_inner_mut(query).map(|e|{& mut e.value})
     }
 
     /// Does the dictionary contain a value for `query`?
@@ -123,9 +134,9 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
     }
 
     /// Iterator over all key-value pairs in the dictionary
-    //pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)> + Clone + 'a {
-    //    unimplemented!();
-    //}
+    pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)> + Clone + 'a {
+        self.into_iter()
+    }
 
     fn hash(&self, key: K) -> u64 {
         let mut hasher = DefaultHasher::new();
@@ -134,15 +145,11 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
     }
 
     fn get_inner(&self, query: K) -> Option<&Entry<K,V>> {
-        let len = self.entries.capacity();
-        let h = self.hash(query) as usize;
-        for i in 0..len {
-            let index = (h + i*i) % len;
-            if self.entries[index].used && (self.entries[index].key == query) {
-                return Some(&self.entries[index]);
-            }
-        }
-        None
+        self.find_pos(query).map(move |i| {&self.entries[i]})
+    }
+
+    fn get_inner_mut(&mut self, query: K) -> Option<&mut Entry<K,V>> {
+        self.find_pos(query).map(move |i| {&mut self.entries[i]})
     }
 
     fn remove_inner(&mut self, query: K) -> Option<V> {
@@ -167,114 +174,21 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
             }
         }
     }
-}
 
-impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> CompactHashMap<K, V, A> {
-    /// Create new, empty dictionary
-    pub fn new() -> Self {
-        CompactHashMap {
-            dict: CompactDict::new(),
-            oa: OpenAddressingMap::with_capacity(100),
+    fn find_pos(&self, query: K) -> Option<usize> {
+        let len = self.entries.capacity();
+        let h = self.hash(query) as usize;
+        for i in 0..len {
+            let index = (h + i*i) % len;
+            if self.entries[index].used && (self.entries[index].key == query) {
+                return Some(i);
+            } else if !self.entries[index].used {
+                return Some(i);
+            }
         }
-    }
-
-    /// Amount of entries in the dictionary
-    pub fn len(&self) -> usize {
-        self.dict.len()
-    }
-
-    /// Is the dictionary empty?
-    pub fn is_empty(&self) -> bool {
-        self.dict.is_empty()
-    }
-
-    /// Look up the value for key `query`, if it exists
-    pub fn get(&self, query: K) -> Option<&V> {
-        if let Some(res) = self.oa.get(query) {
-            return Some(res);
-        }
-        self.dict.get(query)
-    }
-
-    /// Lookup up the value for key `query`, if it exists, but also swap the entry
-    /// to the beginning of the key/value vectors, so a repeated lookup for that item will be faster
-    pub fn get_mru(&mut self, query: K) -> Option<&V> {
-        if let Some(res) = self.oa.get(query) {
-            return Some(res);
-        }
-        self.dict.get_mru(query)
-    }
-
-    /// Lookup up the value for key `query`, if it exists, but also swap the entry
-    /// one index towards the beginning of the key/value vectors, so frequently repeated lookups
-    /// for that item will be faster
-    pub fn get_mfu(&mut self, query: K) -> Option<&V> {
-        if let Some(res) = self.oa.get(query) {
-            return Some(res);
-        }
-        self.dict.get_mfu(query)
-    }
-
-    /// Does the dictionary contain a value for `query`?
-    pub fn contains_key(&self, query: K) -> bool {
-        if let Some(res) = self.oa.get(query) {
-            return true;
-        }
-        self.dict.contains_key(query)
-    }
-
-    /// Insert new value at key `query` and return the previous value at that key, if any existed
-    pub fn insert(&mut self, query: K, new_value: V) -> Option<V> {
-        self.dict.insert(query, new_value)
-    }
-
-    /// Remove value at key `query` and return it, if it existed
-    pub fn remove(&mut self, query: K) -> Option<V> {
-        self.dict.remove(query)
-    }
-
-    /// Iterator over all keys in the dictionary
-    pub fn keys(&self) -> ::std::slice::Iter<K> {
-        self.dict.keys()
-    }
-
-    /// Iterator over all values in the dictionary
-    pub fn values(&self) -> ::std::slice::Iter<V> {
-        self.dict.values()
-    }
-
-    /// Iterator over mutable references to all values in the dictionary
-    pub fn values_mut(&mut self) -> ::std::slice::IterMut<V> {
-        self.dict.values_mut()
-    }
-
-    /// Iterator over all key-value pairs in the dictionary
-    #[allow(needless_lifetimes)]
-    pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)> + Clone + 'a {
-        self.dict.pairs()
+        None
     }
 }
-
-impl<K: Copy + Eq + Hash, I: Compact, A1: Allocator, A2: Allocator>
-    CompactHashMap<K, CompactVec<I, A1>, A2> {
-    /// Push a value onto the `CompactVec` at the key `query`
-    pub fn push_at(&mut self, query: K, item: I) {
-        self.dict.push_at(query, item)
-    }
-
-    /// Iterator over the `CompactVec` at the key `query`
-    #[allow(needless_lifetimes)]
-    pub fn get_iter<'a>(&'a self, query: K) -> impl Iterator<Item = &'a I> + 'a {
-        self.dict.get_iter(query)
-    }
-
-    /// Remove the `CompactVec` at the key `query` and iterate over its elements (if it existed)
-    #[allow(needless_lifetimes)]
-    pub fn remove_iter<'a>(&'a mut self, query: K) -> impl Iterator<Item = I> + 'a {
-        self.dict.remove_iter(query)
-    }
-}
-
 
 impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> Compact for OpenAddressingMap<K, V, A> {
     fn is_still_compact(&self) -> bool {
@@ -306,38 +220,6 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> Compact for OpenAddr
     }
 }
 
-impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> Compact for CompactHashMap<K, V, A> {
-    fn is_still_compact(&self) -> bool {
-        self.dict.is_still_compact() &&
-            self.oa.is_still_compact()
-    }
-
-    fn dynamic_size_bytes(&self) -> usize {
-        self.dict.dynamic_size_bytes() +
-            self.oa.dynamic_size_bytes()
-    }
-
-    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
-        self.dict.compact_from(
-            &source.dict,
-            new_dynamic_part,
-        );
-        self.oa.compact_from(
-            &source.oa,
-            new_dynamic_part.offset(
-                (self.dict.dynamic_size_bytes()) as isize,
-            ),
-        )
-    }
-
-    unsafe fn decompact(&self) -> CompactHashMap<K, V, A> {
-        CompactHashMap {
-            dict: self.dict.decompact(),
-            oa: self.oa.decompact(),
-        }
-    }
-}
-
 impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> Clone for OpenAddressingMap<K, V, A> {
     fn clone(&self) -> Self {
         OpenAddressingMap {
@@ -347,24 +229,9 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> Clone for OpenAddres
     }
 }
 
-impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> Clone for CompactHashMap<K, V, A> {
-    fn clone(&self) -> Self {
-        CompactHashMap {
-            dict: self.dict.clone(),
-            oa: self.oa.clone(),
-        }
-    }
-}
-
 impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> Default for OpenAddressingMap<K, V, A> {
     fn default() -> Self {
         OpenAddressingMap::with_capacity(100)
-    }
-}
-
-impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> Default for CompactHashMap<K, V, A> {
-    fn default() -> Self {
-        CompactHashMap::new()
     }
 }
 
@@ -380,46 +247,87 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> ::std::iter::FromIte
     }
 }
 
-impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> ::std::iter::FromIterator<(K, V)>
-    for CompactHashMap<K, V, A> {
-    /// Construct a compact dictionary from an interator over key-value pairs
-    fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
-        let mut map = Self::new();
-        for (key, value) in iter {
-            map.insert(key, value);
-        }
-        map
-    }
-}
-
-struct OpenAddressingMapIter<K, V> {
+struct OpenAddressingMapIter<'a, K: 'a + Copy + Compact + Eq + Hash, V: 'a + Clone + Compact> {
     idx: usize,
     left: usize,
     _k: PhantomData<K>,
     _v: PhantomData<V>,
+    arr_iter: Iterator<Item=(&'a(Entry<K,V>))>,
 }
 
-impl <K: Copy + Eq + Hash,V: Clone + Compact> Iterator for OpenAddressingMapIter<K, V> {
-    type Item = Entry<K, V>;
+impl <'a, K: Copy + Eq + Hash,V: Clone + Compact> Iterator for OpenAddressingMapIter<'a, K, V> {
+    type Item = &'a(Entry<K, V>);
 
-    fn next(&mut self) -> Option<Entry<K, V>> {
+    fn next(&mut self) -> Option<Self::Item> {
         if self.left == 0 {
             return None;
         }
-
         loop {
-            unsafe {
-                let item = self.raw;
-                self.idx += 1;
-                if *item.hash() != EMPTY_BUCKET {
-                    self.left -= 1;
-                    return Some(item);
-                }
+            let res = self.arr_iter
+                .next().unwrap();
+            self.idx += 1;
+            if res.used {
+                self.left -= 1;
+                return Some(res);
             }
         }
     }
 }
 
+impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator> OpenAddressingMap<K, CompactVec<I, A1>, A2> {
+    /// Push a value onto the `CompactVec` at the key `query`
+    pub fn push_at(&mut self, query: K, item: I) {
+        let index = self.find_pos(query);
+        match index {
+            Some(i) => {
+                if self.entries[i].used {
+                    self.entries[i].value.push(item);
+                } else {
+                    let mut vec = CompactVec::new();
+                    vec.push(item);
+                    self.entries[i].used = true;
+                    self.entries[i].value = vec;
+                }
+            },
+            None => {
+                panic!("should always have place");
+            }
+        }
+    }
+
+    /// Iterator over the `CompactVec` at the key `query`
+    #[allow(needless_lifetimes)]
+    pub fn get_iter<'a>(&'a self, query: K) -> impl Iterator<Item = &'a I> + 'a {
+        self.get(query).into_iter().flat_map(|vec_in_option| {
+            vec_in_option.iter()
+        })
+    }
+
+    /// Remove the `CompactVec` at the key `query` and iterate over its elements (if it existed)
+    #[allow(needless_lifetimes)]
+    pub fn remove_iter<'a>(&'a mut self, query: K) -> impl Iterator<Item = I> + 'a {
+        self.remove(query).into_iter().flat_map(|vec_in_option| {
+            vec_in_option.into_iter()
+        })
+    }
+}
+
+impl<'a, K: Copy + Eq + Hash,V: Clone + Compact> IntoIterator for &'a OpenAddressingMap<K, V> {
+    type Item = (& 'a K, & 'a V);
+    type IntoIter = ::std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.entries.into_iter()
+    }
+}
+
+impl <T: Hash> Hash for CompactVec<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        for elem in self {
+            elem.hash(state);
+        }
+    }
+}
 
 fn elem(n: u32) -> u32 {
     (n * n) as u32
@@ -428,7 +336,7 @@ fn elem(n: u32) -> u32 {
 #[test]
 fn basic() {
     let n: u32 = 3000;
-    let mut map: CompactHashMap<u32, u32> = CompactHashMap::new();
+    let mut map: OpenAddressingMap<u32, u32> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);
     for i in 0..n {
         map.insert(i, elem(i));
@@ -448,7 +356,7 @@ fn basic() {
 
 #[test]
 fn iter() {
-    let mut map: CompactHashMap<u32, u32> = CompactHashMap::new();
+    let mut map: OpenAddressingMap<u32, u32> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);
     for n in 0..100 {
         map.insert(n, n * n);
@@ -466,7 +374,7 @@ fn iter() {
 }
 #[test]
 fn values_mut() {
-    let mut map: CompactHashMap<u32, u32> = CompactHashMap::new();
+    let mut map: OpenAddressingMap<u32, u32> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);
     for n in 0..100 {
         map.insert(n, n * n);
@@ -484,7 +392,7 @@ fn values_mut() {
 
 #[test]
 fn pairs() {
-    let mut map: CompactHashMap<u32, u32> = CompactHashMap::new();
+    let mut map: OpenAddressingMap<u32, u32> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);
     for n in 0..100 {
         map.insert(n, n * n);
@@ -496,7 +404,7 @@ fn pairs() {
 
 #[test]
 fn push_at() {
-    let mut map: CompactHashMap<u32, CompactVec<u32>> = CompactHashMap::new();
+    let mut map: OpenAddressingMap<u32, CompactVec<u32>> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);
     for n in 0..100 {
         map.push_at(n, elem(n));
@@ -512,7 +420,7 @@ fn push_at() {
 
 #[test]
 fn remove_iter() {
-    let mut map: CompactHashMap<u32, CompactVec<u32>> = CompactHashMap::new();
+    let mut map: OpenAddressingMap<u32, CompactVec<u32>> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);
     for n in 0..100 {
         map.push_at(n, elem(n));
