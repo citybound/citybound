@@ -298,3 +298,12 @@ impl<T: Compact + ::std::fmt::Debug, A: Allocator> ::std::fmt::Debug for Compact
         (self.deref()).fmt(f)
     }
 }
+
+#[test]
+fn basic() {
+    let mut arr: CompactArray<u32> = CompactArray::with_capacity(2);
+    arr[0] = 5;
+    assert!(arr[0] == 5);
+    arr[1] = 4;
+    assert!(arr[1] == 4);
+}
