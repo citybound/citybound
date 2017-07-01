@@ -1,7 +1,6 @@
 use super::allocators::{Allocator, DefaultHeap};
 use super::compact::Compact;
 use super::compact_vec::CompactVec;
-use super::compact_dict::CompactDict;
 use super::compact_array::{CompactArray, IntoIter as ArrayIntoIter};
 use std::iter::{Iterator, Map};
 use std::collections::hash_map::DefaultHasher;
@@ -99,6 +98,7 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
             let index = (h + i*i) % len;
             let entry = &mut self.entries[index];
             if !entry.used {
+                println!("addd new at {:?} with hash {:?}", index, h);
                 entry.key = query;
                 entry.value = value;
                 entry.used = true;
@@ -106,6 +106,7 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
                 self.size += 1;
                 return None
             } else if entry.key == query {
+                println!("replaced at {:?} with hash {:?}", index, h);
                 let old_val: V = entry.value.clone();
                 entry.value = value;
                 entry.hash = hash;
@@ -148,7 +149,9 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
     }
 
     fn get_inner(&self, query: K) -> Option<&Entry<K,V>> {
-        self.find_pos_used(query).map(move |i| {&self.entries[i]})
+        self.find_pos_used(query).map(move |i| {
+            &self.entries[i]
+        })
     }
 
     fn get_inner_mut(&mut self, query: K) -> Option<&mut Entry<K,V>> {
@@ -198,9 +201,11 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
             let index = (h + i*i) % len;
             let entry = &self.entries[index];
             if entry.used && (entry.key == query) {
-                return Some(i);
-            } else if !self.entries[index].used {
-                return Some(i);
+                println!("found used at {:?} with hash {:?}", index, h);
+                return Some(index);
+            } else if !entry.used {
+                println!("found not used at {:?}", index);
+                return Some(index);
             }
         }
         None
@@ -339,32 +344,45 @@ impl <T: Hash> Hash for CompactVec<T> {
     }
 }
 
-fn elem(n: u32) -> u32 {
-    (n * n) as u32
+fn elem(n: usize) -> usize {
+    (n * n) as usize
 }
 
-//#[test]
+#[test]
 fn very_basic() {
     let mut map: OpenAddressingMap<u32, u32> = OpenAddressingMap::with_capacity(2);
     map.insert(0, 54);
     assert!(*map.get(0).unwrap() == 54);
-    map.insert(0, 48);
-    assert!(*map.get(0).unwrap() == 48);
+    map.insert(1, 48);
+    assert!(*map.get(1).unwrap() == 48);
 }
 
 #[test]
+fn very_basic2() {
+    let mut map: OpenAddressingMap<u32, u32> = OpenAddressingMap::with_capacity(3);
+    map.insert(0, 54);
+    map.insert(1, 48);
+    assert!(*map.get(0).unwrap() == 54);
+    assert!(*map.get(1).unwrap() == 48);
+}
+
+
+#[test]
 fn basic() {
-    let n: u32 = 3;
-    let mut map: OpenAddressingMap<u32, u32> = OpenAddressingMap::new();
+    let n: usize = 10000;
+    let mut map: OpenAddressingMap<usize, usize> = OpenAddressingMap::with_capacity(n);
     assert!(map.is_empty() == true);
     for i in 0..n {
-        map.insert(i, elem(i));
+        let e = elem(i);
+        println!("elem {:?} {:?}", i, e);
+        map.insert(i, e);
     }
     assert!(map.is_empty() == false);
     for i in 0..n {
-        let test = *map.get(i).unwrap();
-        let exp = i * i;
-        assert!( test == exp, "{:?} {:?}", test, exp);
+        println!("trying {:?}", i);
+        let test = map.get(i).unwrap();
+        let exp = elem(i);
+        assert!( *test == exp, " failed exp {:?}  was {:?}", exp, test);
     }
     assert!(map.len() == n as usize);
     assert!(*map.get_mru(n - 1).unwrap() == elem(n - 1));
@@ -375,9 +393,9 @@ fn basic() {
     assert!(map.get_mru(500).is_none());
 }
 
-//#[test]
+#[test]
 fn iter() {
-    let mut map: OpenAddressingMap<u32, u32> = OpenAddressingMap::new();
+    let mut map: OpenAddressingMap<usize, usize> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);
     for n in 0..100 {
         map.insert(n, n * n);
@@ -395,7 +413,7 @@ fn iter() {
 }
 //#[test]
 fn values_mut() {
-    let mut map: OpenAddressingMap<u32, u32> = OpenAddressingMap::new();
+    let mut map: OpenAddressingMap<usize, usize> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);
     for n in 0..100 {
         map.insert(n, n * n);
@@ -413,7 +431,7 @@ fn values_mut() {
 
 //#[test]
 fn pairs() {
-    let mut map: OpenAddressingMap<u32, u32> = OpenAddressingMap::new();
+    let mut map: OpenAddressingMap<usize, usize> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);
     for n in 0..100 {
         map.insert(n, n * n);
@@ -425,7 +443,7 @@ fn pairs() {
 
 //#[test]
 fn push_at() {
-    let mut map: OpenAddressingMap<u32, CompactVec<u32>> = OpenAddressingMap::new();
+    let mut map: OpenAddressingMap<usize, CompactVec<usize>> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);
     for n in 0..100 {
         map.push_at(n, elem(n));
@@ -441,7 +459,7 @@ fn push_at() {
 
 //#[test]
 fn remove_iter() {
-    let mut map: OpenAddressingMap<u32, CompactVec<u32>> = OpenAddressingMap::new();
+    let mut map: OpenAddressingMap<usize, CompactVec<usize>> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);
     for n in 0..100 {
         map.push_at(n, elem(n));

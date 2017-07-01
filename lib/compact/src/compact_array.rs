@@ -306,4 +306,21 @@ fn basic() {
     assert!(arr[0] == 5);
     arr[1] = 4;
     assert!(arr[1] == 4);
+    arr[0] = 6;
+    arr[1] = 7;
+    assert!(arr[0] == 6);
+    assert!(arr[1] == 7);
+}
+
+#[test]
+fn basic2() {
+    let mut arr: CompactArray<u32> = CompactArray::with_capacity(3);
+    arr[0] = 5;
+    assert!(arr[0] == 5);
+    arr[1] = 4;
+    assert!(arr[1] == 4);
+    arr[0] = 6;
+    arr[1] = 7;
+    assert!(arr[0] == 6);
+    assert!(arr[1] == 7);
 }
