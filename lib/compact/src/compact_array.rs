@@ -324,3 +324,12 @@ fn basic2() {
     assert!(arr[0] == 6);
     assert!(arr[1] == 7);
 }
+
+#[test]
+fn find() {
+    let mut arr: CompactArray<u32> = CompactArray::with_capacity(3);
+    arr[0] = 5;
+    arr[1] = 0;
+    arr[2] = 6;
+    assert!(arr.iter().find(|&i| *i == 0).is_some());
+}

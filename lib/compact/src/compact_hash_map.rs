@@ -98,7 +98,7 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
             let index = (h + i*i) % len;
             let entry = &mut self.entries[index];
             if !entry.used {
-                println!("addd new at {:?} with hash {:?}", index, h);
+                //println!("addd new at {:?} with hash {:?}", index, h);
                 entry.key = query;
                 entry.value = value;
                 entry.used = true;
@@ -106,7 +106,7 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
                 self.size += 1;
                 return None
             } else if entry.key == query {
-                println!("replaced at {:?} with hash {:?}", index, h);
+                //println!("replaced at {:?} with hash {:?}", index, h);
                 let old_val: V = entry.value.clone();
                 entry.value = value;
                 entry.hash = hash;
@@ -123,7 +123,7 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
     }
 
     /// Iterator over all keys in the dictionary
-    pub fn keys<'a>(& 'a self) -> impl Iterator<Item = & 'a K>  + 'a {
+    pub fn keys<'a>(& 'a self) -> impl Iterator<Item = & 'a K> + 'a {
          self.entries.iter().filter(|e| {e.used}).map(|e|{(&e.key)})
     }
 
@@ -133,7 +133,7 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
     }
 
     /// Iterator over mutable references to all values in the dictionary
-    pub fn values_mut(&mut self) -> ::std::slice::IterMut<V> {
+    pub fn values_mut(&mut self) -> impl IteratorMut<Item = & 'a V>  + 'a {
          unimplemented!();
     }
 
@@ -201,10 +201,10 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
             let index = (h + i*i) % len;
             let entry = &self.entries[index];
             if entry.used && (entry.key == query) {
-                println!("found used at {:?} with hash {:?}", index, h);
+                //println!("found used at {:?} with hash {:?}", index, h);
                 return Some(index);
             } else if !entry.used {
-                println!("found not used at {:?}", index);
+                //println!("found not used at {:?}", index);
                 return Some(index);
             }
         }
@@ -374,12 +374,12 @@ fn basic() {
     assert!(map.is_empty() == true);
     for i in 0..n {
         let e = elem(i);
-        println!("elem {:?} {:?}", i, e);
+        // println!("elem {:?} {:?}", i, e);
         map.insert(i, e);
     }
     assert!(map.is_empty() == false);
     for i in 0..n {
-        println!("trying {:?}", i);
+        // println!("trying {:?}", i);
         let test = map.get(i).unwrap();
         let exp = elem(i);
         assert!( *test == exp, " failed exp {:?}  was {:?}", exp, test);
@@ -396,25 +396,27 @@ fn basic() {
 #[test]
 fn iter() {
     let mut map: OpenAddressingMap<usize, usize> = OpenAddressingMap::with_capacity(200);
+    let n = 10;
     assert!(map.is_empty() == true);
-    for n in 0..100 {
+    for n in 0..n {
         map.insert(n, n * n);
     }
     let mut sum = 0;
     for k in map.keys() {
         println!(" k {:?}", k);
     }
-    let mut keys = map.keys();
-    for n in 0..100 {
-        assert!(keys.find(|&i| *i == n).is_some());
+    for n in 0..n {
+        let mut keys = map.keys();
+        assert!(keys.find(|&i| { println!("find {:?} {:?}", i, n) ; *i == n} ).is_some(), "fail n {:?} ", n);
     }
-    let mut values = map.values();
-    for n in 0..100 {
+    for n in 0..n {
+        let mut values = map.values();
         assert!(values.find(|i| **i == elem(n)).is_some());
     }
 
 }
-//#[test]
+
+#[test]
 fn values_mut() {
     let mut map: OpenAddressingMap<usize, usize> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);
