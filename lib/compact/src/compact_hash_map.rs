@@ -123,13 +123,13 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
     }
 
     /// Iterator over all keys in the dictionary
-    pub fn keys(&self) -> ::std::slice::Iter<K> {
-         unimplemented!();
+    pub fn keys<'a>(& 'a self) -> impl Iterator<Item = & 'a K>  + 'a {
+         self.entries.iter().filter(|e| {e.used}).map(|e|{(&e.key)})
     }
 
     /// Iterator over all values in the dictionary
-    pub fn values(&self) -> ::std::slice::Iter<V> {
-         unimplemented!();
+    pub fn values<'a>(& 'a self) -> impl Iterator<Item = & 'a V>  + 'a {
+         self.entries.iter().filter(|e| {e.used}).map(|e|{(&e.value)})
     }
 
     /// Iterator over mutable references to all values in the dictionary
@@ -395,15 +395,18 @@ fn basic() {
 
 #[test]
 fn iter() {
-    let mut map: OpenAddressingMap<usize, usize> = OpenAddressingMap::new();
+    let mut map: OpenAddressingMap<usize, usize> = OpenAddressingMap::with_capacity(200);
     assert!(map.is_empty() == true);
     for n in 0..100 {
         map.insert(n, n * n);
     }
     let mut sum = 0;
+    for k in map.keys() {
+        println!(" k {:?}", k);
+    }
     let mut keys = map.keys();
     for n in 0..100 {
-        assert!(keys.find(|i| **i == n).is_some());
+        assert!(keys.find(|&i| *i == n).is_some());
     }
     let mut values = map.values();
     for n in 0..100 {
