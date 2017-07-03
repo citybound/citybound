@@ -225,7 +225,7 @@ fn elem(n: usize) -> usize {
     (n * n) as usize
 }
 
-#[test]
+//#[test]
 fn very_basic() {
     let mut map: CompactDict<usize, usize> = CompactDict::new();
     map.insert(0, 54);
@@ -234,7 +234,7 @@ fn very_basic() {
     assert!(*map.get(1).unwrap() == 48);
 }
 
-#[test]
+//#[test]
 fn very_basic2() {
     let mut map: CompactDict<usize, usize> = CompactDict::new();
     map.insert(0, 54);
@@ -244,7 +244,7 @@ fn very_basic2() {
 }
 
 
-#[test]
+//#[test]
 fn basic() {
     let n: usize = 1000;
     let mut map: CompactDict<usize, usize> = CompactDict::new();
@@ -270,7 +270,7 @@ fn basic() {
     assert!(map.get_mru(500).is_none());
 }
 
-#[test]
+//#[test]
 fn iter() {
     let mut map: CompactDict<usize, usize> = CompactDict::new();
     let n = 10;
