@@ -109,5 +109,5 @@ pub fn create() -> ::monet::Thing {
                              7,
                              0xE,
                              7,
-                             6u16])
+                             6u32])
 }

@@ -9,7 +9,7 @@ use Thing;
 
 pub struct Batch {
     pub vertices: glium::VertexBuffer<Vertex>,
-    pub indices: glium::IndexBuffer<u16>,
+    pub indices: glium::IndexBuffer<u32>,
     pub instances: Vec<Instance>,
     pub clear_every_frame: bool,
     pub is_decal: bool,
