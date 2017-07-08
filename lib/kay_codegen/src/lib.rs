@@ -179,12 +179,7 @@ impl Model {
     }
 
     pub fn generate_trait_ids_and_messages(&self) -> Tokens {
-        let trait_ids_1: Vec<_> = self.traits
-            .keys()
-            .map(|trait_name| {
-                Ident::new(format!("{}ID", trait_name.segments.last().unwrap().ident))
-            })
-            .collect();
+        let trait_ids_1: Vec<_> = self.traits.keys().map(trait_name_to_id).collect();
         let trait_ids_2 = trait_ids_1.clone();
         let handler_names: Vec<Vec<_>> = self.map_trait_handlers(|_, handler| handler.name.clone());
         let handler_args: Vec<Vec<Vec<_>>> = self.map_trait_handlers_args(arg_as_ident_and_type);
@@ -220,17 +215,8 @@ impl Model {
         )
     }
 
-    pub fn generate_actor_ids_and_messages(&self) -> Tokens {
-        let actor_ids_1: Vec<_> = self.actors
-            .keys()
-            .map(|actor_name| {
-                let segments = match *actor_name {
-                    Ty::Path(_, ref path) => path.segments.clone(),
-                    _ => unimplemented!(),
-                };
-                Ident::new(format!("{}ID", segments.last().unwrap().ident))
-            })
-            .collect();
+    pub fn generate_actor_ids_messages_and_conversions(&self) -> Tokens {
+        let actor_ids_1: Vec<_> = self.actors.keys().map(actor_name_to_id).collect();
         let (actor_ids_2, actor_ids_3) = (actor_ids_1.clone(), actor_ids_1.clone());
         let actor_names: Vec<_> = self.actors.keys().collect();
         let handler_names = self.map_handlers(OnlyOwn, All, |_, handler| handler.name.clone());
@@ -244,6 +230,24 @@ impl Model {
         let msg_params: Vec<Vec<Vec<_>>> = self.map_handlers_args(OnlyOwn, All, arg_as_value);
         let msg_param_types: Vec<Vec<Vec<_>>> =
             self.map_handlers_args(OnlyOwn, All, arg_as_value_type);
+
+        let actor_trait_ids_1: Vec<Vec<_>> = self.get(All)
+            .into_iter()
+            .map(|(_, actor_def)| {
+                actor_def.impls.iter().map(trait_name_to_id).collect()
+            })
+            .collect();
+        let actor_trait_ids_2 = actor_trait_ids_1.clone();
+        let actor_ids_for_traits: Vec<Vec<_>> = self.get(All)
+            .into_iter()
+            .map(|(actor_name, actor_def)| {
+                actor_def
+                    .impls
+                    .iter()
+                    .map(|_| actor_name_to_id(actor_name))
+                    .collect()
+            })
+            .collect();
 
         quote!(
             #(
@@ -270,8 +274,32 @@ impl Model {
             struct #msg_names_2(#(#msg_param_types),*);
             )*
             )*
+
+            #(
+                #(
+                impl Into<#actor_trait_ids_1> for #actor_ids_for_traits {
+                    fn into(self) -> #actor_trait_ids_2 {
+                        unsafe {
+                            ::std::mem::transmute(self)
+                        }
+                    }
+                }
+                )*
+            )*
         )
     }
+}
+
+fn actor_name_to_id(actor_name: &Ty) -> Ident {
+    let segments = match *actor_name {
+        Ty::Path(_, ref path) => path.segments.clone(),
+        _ => unimplemented!(),
+    };
+    Ident::new(format!("{}ID", segments.last().unwrap().ident))
+}
+
+fn trait_name_to_id(trait_name: &TraitName) -> Ident {
+    Ident::new(format!("{}ID", trait_name.segments.last().unwrap().ident))
 }
 
 fn arg_as_ident_and_type(arg: &FnArg) -> FnArg {
@@ -361,7 +389,7 @@ pub fn generate(file: &str) -> String {
     }
 
     let traits_msgs = model.generate_trait_ids_and_messages();
-    let actors_msgs = model.generate_actor_ids_and_messages();
+    let actors_msgs = model.generate_actor_ids_messages_and_conversions();
     let setup = model.generate_setups(OnlyActors);
     let sub_setup = model.generate_setups(OnlySubActors);
 
@@ -449,66 +477,6 @@ fn handler_from(
             returns_fate: returns_fate,
             from_trait: from_trait.clone(),
         }
-    })
-}
-
-pub fn generate_id(typ: &Ty, impl_items: &[ImplItem], with_trait: Option<&Path>) -> Vec<Tokens> {
-    let msg_prefix = typ_to_message_prefix(typ, with_trait);
-    let id_methods = impl_items.iter().filter_map(|impl_item| if let &ImplItem {
-        ident: ref fn_name,
-        ref vis,
-        node: ImplItemKind::Method(ref sig, _),
-        ..
-    } = impl_item
-    {
-        if with_trait.is_some() || *vis == Visibility::Public {
-            generate_id_inner(fn_name, sig, &msg_prefix)
-        } else {
-            None
-        }
-    } else {
-        None
-    });
-
-    id_methods.collect()
-}
-
-pub fn generate_trait_id(trait_ident: &Ident, trait_items: &[TraitItem]) -> Vec<Tokens> {
-    let msg_prefix = trait_to_message_prefix(&trait_ident);
-    let id_methods = trait_items.iter().filter_map(
-        |trait_item| if let &TraitItem {
-            ident: ref fn_name,
-            node: TraitItemKind::Method(ref sig, _),
-            ..
-        } = trait_item
-        {
-            generate_id_inner(fn_name, sig, &msg_prefix)
-        } else {
-            None
-        },
-    );
-
-    id_methods.collect()
-}
-
-pub fn generate_id_inner(fn_name: &Ident, sig: &MethodSig, msg_prefix: &str) -> Option<Tokens> {
-    check_handler(sig).map(|args| {
-        let owned_sig = args.iter().map(|arg| match arg {
-            &FnArg::Captured(ref ident, Ty::Rptr(_, ref ty_box)) => {
-                FnArg::Captured(ident.clone(), ty_box.ty.clone())
-            }
-            other => other.clone(),
-        });
-        let params = args.iter().map(|arg| match arg {
-            &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
-            _ => unimplemented!(),
-        });
-        let msg_name = Ident::new(format!("{}_{}", msg_prefix, fn_name));
-        quote!(
-                    pub fn #fn_name(&self, #(#owned_sig),*, world: &mut World) {
-                        world.send(self.raw_id, #msg_name(#(#params),*))
-                    }
-                )
     })
 }
 
