@@ -44,32 +44,42 @@ impl Renderer {
     /// Critical
     pub fn add_batch(&mut self, scene_id: usize, batch_id: u16, thing: &Thing, _: &mut World) {
         let window = &self.render_context.window;
-        self.scenes[scene_id]
-            .batches
-            .insert(batch_id, Batch::new(thing.clone(), window));
+        self.scenes[scene_id].batches.insert(
+            batch_id,
+            Batch::new(
+                thing.clone(),
+                window,
+            ),
+        );
     }
 
     /// Critical
-    pub fn update_thing(&mut self,
-                        scene_id: usize,
-                        thing_id: u16,
-                        thing: &Thing,
-                        instance: &Instance,
-                        is_decal: bool,
-                        _: &mut World) {
-        let thing = Batch::new_thing(thing.clone(),
-                                     *instance,
-                                     is_decal,
-                                     &self.render_context.window);
+    pub fn update_thing(
+        &mut self,
+        scene_id: usize,
+        thing_id: u16,
+        thing: &Thing,
+        instance: &Instance,
+        is_decal: bool,
+        _: &mut World,
+    ) {
+        let thing = Batch::new_thing(
+            thing.clone(),
+            *instance,
+            is_decal,
+            &self.render_context.window,
+        );
         self.scenes[scene_id].batches.insert(thing_id, thing);
     }
 
     /// Critical
-    pub fn add_instance(&mut self,
-                        scene_id: usize,
-                        batch_id: u16,
-                        instance: Instance,
-                        _: &mut World) {
+    pub fn add_instance(
+        &mut self,
+        scene_id: usize,
+        batch_id: u16,
+        instance: Instance,
+        _: &mut World,
+    ) {
         self.scenes[scene_id]
             .batches
             .get_mut(&batch_id)
@@ -79,11 +89,13 @@ impl Renderer {
     }
 
     /// Critical
-    pub fn add_several_instances(&mut self,
-                                 scene_id: usize,
-                                 batch_id: u16,
-                                 instances: &CVec<Instance>,
-                                 _: &mut World) {
+    pub fn add_several_instances(
+        &mut self,
+        scene_id: usize,
+        batch_id: u16,
+        instances: &CVec<Instance>,
+        _: &mut World,
+    ) {
         self.scenes[scene_id]
             .batches
             .get_mut(&batch_id)
@@ -99,26 +111,26 @@ pub trait Renderable {
 }
 
 
-pub fn setup(system: &mut ActorSystem, initial: Renderer) {
-    auto_setup(system, (initial,));
+pub fn setup(system: &mut ActorSystem, initial: (Renderer, Sky)) {
+    auto_setup(system);
     control::setup(system);
     movement::setup(system);
     project::setup(system);
 }
 
-// pub struct Sky {
-//     size: usize,
-// }
+pub struct Sky {
+    size: usize,
+}
 
-// impl Renderable for Sky {
-//     fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
-//         self.size = 9000;
-//     }
+impl Renderable for Sky {
+    fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
+        self.size = 9000;
+    }
 
-//     fn render_to_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
-//         self.size = 3000;
-//     }
-// }
+    fn render_to_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
+        self.size = 3000;
+    }
+}
 
 mod kay_auto;
 pub use self::kay_auto::*;
