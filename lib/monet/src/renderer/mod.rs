@@ -132,5 +132,21 @@ impl Renderable for Sky {
     }
 }
 
+pub struct Raindrop {
+    _id: Option<RaindropID>,
+    volume: f32,
+}
+
+/// Subactor
+impl Renderable for Raindrop {
+    fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
+        self.volume = 3.0;
+    }
+
+    fn render_to_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
+        self.volume = 3.0;
+    }
+}
+
 mod kay_auto;
 pub use self::kay_auto::*;
