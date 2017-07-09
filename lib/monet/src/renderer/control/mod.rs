@@ -27,6 +27,9 @@ impl Renderer {
                 renderable.render_to_scene(Renderer::id(world), scene_id, world);
             }
         }
+
+        let id = RendererID::in_world(world);
+        id.setup(world);
     }
 
     pub fn submit(&mut self, target_ptr: usize, return_to: ID, world: &mut World) {

@@ -36,7 +36,7 @@ pub fn scan_and_generate() {
                     let auto_file = if let Ok(ref mut file) = File::open(&mod_path) {
                         let mut file_str = String::new();
                         file.read_to_string(&mut file_str).unwrap();
-                        generate(&file_str)
+                        generate(&parse(&file_str))
                     } else {
                         panic!("couldn't load");
                     };
@@ -245,13 +245,13 @@ impl Model {
             #(
             #[derive(Copy, Clone)]
             pub struct #trait_ids_1 {
-                raw_id: ID
+                pub _raw_id: ID
             }
 
             impl #trait_ids_2 {
                 #(
                 pub fn #handler_names(&self #(,#handler_args)*, world: &mut World) {
-                    world.send(self.raw_id, #msg_names_1(#(#msg_params),*));
+                    world.send(self._raw_id, #msg_names_1(#(#msg_params),*));
                 }
                 )*
             }
@@ -266,9 +266,26 @@ impl Model {
     }
 
     pub fn generate_actor_ids_messages_and_conversions(&self) -> Tokens {
-        let actor_ids_1: Vec<_> = self.actors.keys().map(actor_name_to_id).collect();
-        let (actor_ids_2, actor_ids_3) = (actor_ids_1.clone(), actor_ids_1.clone());
-        let actor_names: Vec<_> = self.actors.keys().collect();
+        let actor_here_names: Vec<_> = self.actors
+            .iter()
+            .filter_map(|(actor_name, actor_def)| if actor_def.defined_here {
+                Some(actor_name)
+            } else {
+                None
+            })
+            .collect();
+        let actor_here_ids_1: Vec<_> = self.actors
+            .iter()
+            .filter_map(|(actor_name, actor_def)| if actor_def.defined_here {
+                Some(actor_name_to_id(actor_name))
+            } else {
+                None
+            })
+            .collect();
+        let (actor_here_ids_2, actor_here_ids_3) =
+            (actor_here_ids_1.clone(), actor_here_ids_1.clone());
+
+        let actor_ids: Vec<_> = self.actors.keys().map(actor_name_to_id).collect();
         let handler_names = self.map_handlers(OnlyOwn, All, |_, handler| handler.name.clone());
         let handler_args: Vec<Vec<Vec<_>>> =
             self.map_handlers_args(OnlyOwn, All, arg_as_ident_and_type);
@@ -308,18 +325,22 @@ impl Model {
         quote!(
             #(
             #[derive(Copy, Clone)]
-            pub struct #actor_ids_1 {
-                raw_id: ID
+            pub struct #actor_here_ids_1 {
+                pub _raw_id: ID
             }
 
-            impl #actor_ids_2 {
+            impl #actor_here_ids_2 {
                 pub fn in_world(world: &mut World) -> Self {
-                    #actor_ids_3 { raw_id: world.id::<#actor_names>() }
+                    #actor_here_ids_3 { _raw_id: world.id::<#actor_here_names>() }
                 }
+            }
+            )*
 
+            #(
+            impl #actor_ids {
                 #(
                 pub fn #handler_names(&self #(,#handler_args)*, world: &mut World) {
-                    world.send(self.raw_id, #msg_names_1(#(#msg_params),*));
+                    world.send(self._raw_id, #msg_names_1(#(#msg_params),*));
                 }
                 )*
             }
@@ -387,6 +408,7 @@ pub struct ActorDef {
     handlers: Vec<Handler>,
     impls: Vec<TraitName>,
     is_subactor: bool,
+    defined_here: bool,
 }
 
 #[derive(Default)]
@@ -404,13 +426,21 @@ pub struct Handler {
 }
 
 
-pub fn generate(file: &str) -> String {
+pub fn parse(file: &str) -> Model {
     let mut model = Model::default();
 
     for item in parse_crate(file).unwrap().items.iter() {
         let ident = &item.ident;
         let attrs = &item.attrs;
         match item.node {
+            ItemKind::Struct(_, _) => {
+                let ident_as_seg: PathSegment = ident.clone().into();
+                let actor_def = model
+                    .actors
+                    .entry(Ty::Path(None, syn::Path::from(ident_as_seg)))
+                    .or_insert_with(Default::default);
+                actor_def.defined_here = true;
+            }
             ItemKind::Impl(_, _, _, ref maybe_trait, ref actor_name, ref impl_items) => {
                 let actor_def = model.actors.entry((**actor_name).clone()).or_insert_with(
                     Default::default,
@@ -444,6 +474,14 @@ pub fn generate(file: &str) -> String {
         }
     }
 
+    model.actors.retain(|ref _name, ref actor_def| {
+        !actor_def.handlers.is_empty()
+    });
+
+    model
+}
+
+pub fn generate(model: &Model) -> String {
     let traits_msgs = model.generate_trait_ids_and_messages();
     let actors_msgs = model.generate_actor_ids_messages_and_conversions();
     let setup = model.generate_setups(OnlyActors);
