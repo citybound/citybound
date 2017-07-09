@@ -350,6 +350,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "glob"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "glutin"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -424,6 +429,7 @@ dependencies = [
 name = "kay_codegen"
 version = "0.1.0"
 dependencies = [
+ "glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "ordermap 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 0.10.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1142,6 +1148,7 @@ dependencies = [
 "checksum gl_generator 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "0940975a4ca12b088d32b5d5134826c47d2e73de4b0b459b05244c01503eccbb"
 "checksum gleam 0.2.32 (registry+https://github.com/rust-lang/crates.io-index)" = "9590e0e578d528a080c5abac678e7efbe349a73c7316faafd4073edf5f462d01"
 "checksum glium 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)" = "7c468bf7855f25954a1140f066ebacc1ad5342fd33bf96be28e184c084176f11"
+"checksum glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)" = "8be18de09a56b60ed0edf84bc9df007e30040691af7acd1c41874faac5895bfb"
 "checksum glutin 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)" = "1f95cc9a8363627259b4a25db878eb5b1a159857bc41f525412302fa9de0f12b"
 "checksum imgui 0.0.11 (registry+https://github.com/rust-lang/crates.io-index)" = "01afd2a25baa444784cc1dd8ab8b68f5de7971086e379ebed49b14981865f9b7"
 "checksum imgui-sys 0.0.11 (registry+https://github.com/rust-lang/crates.io-index)" = "e4dcc038ae40adb5fb5612bcb07deac9ce9870ff8e72853f8cb0bc5a1a1afb4d"

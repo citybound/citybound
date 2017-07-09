@@ -5,12 +5,56 @@ extern crate syn;
 extern crate quote;
 use syn::*;
 use quote::Tokens;
+extern crate glob;
+use glob::glob;
+
+use std::fs::{File, metadata};
+use std::io::Read;
+use std::io::Write;
+use std::process::Command;
 
 extern crate ordermap;
 use ordermap::OrderMap;
 
 use BindingMode::{ByRef, ByValue};
 use Mutability::Immutable;
+
+pub fn scan_and_generate() {
+    for maybe_mod_path in glob("src/**/mod.rs").unwrap() {
+        if let Ok(mod_path) = maybe_mod_path {
+            let auto_path = mod_path.clone().to_str().unwrap().replace(
+                "mod.rs",
+                "kay_auto.rs",
+            );
+            if let Ok(src_meta) = metadata(&mod_path) {
+                let regenerate = match metadata(&auto_path) {
+                    Ok(auto_meta) => src_meta.modified().unwrap() > auto_meta.modified().unwrap(),
+                    _ => true,
+                };
+
+                if regenerate {
+                    let auto_file = if let Ok(ref mut file) = File::open(&mod_path) {
+                        let mut file_str = String::new();
+                        file.read_to_string(&mut file_str).unwrap();
+                        generate(&file_str)
+                    } else {
+                        panic!("couldn't load");
+                    };
+
+                    if let Ok(ref mut file) = File::create(&auto_path) {
+                        file.write_all(auto_file.as_bytes()).unwrap();
+                    }
+
+                    let _ = Command::new("rustfmt")
+                        .arg("--write-mode")
+                        .arg("overwrite")
+                        .arg(&auto_path)
+                        .spawn();
+                }
+            }
+        }
+    }
+}
 
 type ActorName = Ty;
 type TraitName = syn::Path;
@@ -156,7 +200,7 @@ impl Model {
                     system.extend::<#setup_types_1, _>(|mut definer| {
                     #(
                         definer.#handler_mods(|&#msg_names(#(#msg_args),*), actor, world| {
-                            actor.#handler_names(#(#handler_params),*, world)#maybe_fate_returns
+                            actor.#handler_names(#(#handler_params,)* world)#maybe_fate_returns
                         });
                     )*
                     });
@@ -190,6 +234,12 @@ impl Model {
         let msg_names_2 = msg_names_1.clone();
         let msg_params: Vec<Vec<Vec<_>>> = self.map_trait_handlers_args(arg_as_value);
         let msg_param_types: Vec<Vec<Vec<_>>> = self.map_trait_handlers_args(arg_as_value_type);
+        let msg_derives: Vec<Vec<_>> =
+            self.map_trait_handlers(|_, handler| if handler.arguments.is_empty() {
+                quote!(#[derive(Copy, Clone)])
+            } else {
+                quote!(#[derive(Compact, Clone)])
+            });
 
         quote!(
             #(
@@ -200,7 +250,7 @@ impl Model {
 
             impl #trait_ids_2 {
                 #(
-                pub fn #handler_names(&self, #(#handler_args),*, world: &mut World) {
+                pub fn #handler_names(&self #(,#handler_args)*, world: &mut World) {
                     world.send(self.raw_id, #msg_names_1(#(#msg_params),*));
                 }
                 )*
@@ -208,7 +258,7 @@ impl Model {
 
             #(
             #[allow(non_camel_case_types)]
-            #[derive(Compact, Clone)]
+            #msg_derives
             struct #msg_names_2(#(#msg_param_types),*);
             )*
             )*
@@ -230,6 +280,12 @@ impl Model {
         let msg_params: Vec<Vec<Vec<_>>> = self.map_handlers_args(OnlyOwn, All, arg_as_value);
         let msg_param_types: Vec<Vec<Vec<_>>> =
             self.map_handlers_args(OnlyOwn, All, arg_as_value_type);
+        let msg_derives: Vec<Vec<_>> =
+            self.map_handlers(OnlyOwn, All, |_, handler| if handler.arguments.is_empty() {
+                quote!(#[derive(Copy, Clone)])
+            } else {
+                quote!(#[derive(Compact, Clone)])
+            });
 
         let actor_trait_ids_1: Vec<Vec<_>> = self.get(All)
             .into_iter()
@@ -262,7 +318,7 @@ impl Model {
                 }
 
                 #(
-                pub fn #handler_names(&self, #(#handler_args),*, world: &mut World) {
+                pub fn #handler_names(&self #(,#handler_args)*, world: &mut World) {
                     world.send(self.raw_id, #msg_names_1(#(#msg_params),*));
                 }
                 )*
@@ -270,7 +326,7 @@ impl Model {
 
             #(
             #[allow(non_camel_case_types)]
-            #[derive(Compact, Clone)]
+            #msg_derives
             struct #msg_names_2(#(#msg_param_types),*);
             )*
             )*

@@ -4,6 +4,8 @@ use compact::CVec;
 use kay::ID;
 use fnv::FnvHashMap;
 
+use renderer::RenderableID;
+
 use Batch;
 
 #[derive(Copy, Clone)]
@@ -18,7 +20,7 @@ pub struct Scene {
     pub eye: Eye,
     pub eye_listeners: CVec<ID>,
     pub batches: FnvHashMap<u16, Batch>,
-    pub renderables: Vec<ID>,
+    pub renderables: Vec<RenderableID>,
 }
 
 impl Scene {

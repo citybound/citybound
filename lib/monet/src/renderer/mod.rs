@@ -12,7 +12,7 @@ mod control;
 mod movement;
 mod project;
 
-pub use self::control::{SetupInScene, RenderToScene, Control, Submitted};
+pub use self::control::Submitted;
 pub use self::movement::{Movement, MoveEye, EyeMoved};
 pub use self::project::{Project2dTo3d, Projected3d};
 
@@ -111,41 +111,11 @@ pub trait Renderable {
 }
 
 
-pub fn setup(system: &mut ActorSystem, initial: (Renderer, Sky)) {
+pub fn setup(system: &mut ActorSystem, initial: Renderer) {
     auto_setup(system);
-    control::setup(system);
+    control::auto_setup(system);
     movement::setup(system);
     project::setup(system);
-}
-
-pub struct Sky {
-    size: usize,
-}
-
-impl Renderable for Sky {
-    fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
-        self.size = 9000;
-    }
-
-    fn render_to_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
-        self.size = 3000;
-    }
-}
-
-pub struct Raindrop {
-    _id: Option<RaindropID>,
-    volume: f32,
-}
-
-/// Subactor
-impl Renderable for Raindrop {
-    fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
-        self.volume = 3.0;
-    }
-
-    fn render_to_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
-        self.volume = 3.0;
-    }
 }
 
 mod kay_auto;

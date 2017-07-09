@@ -7,6 +7,7 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 syn = "=0.10.6"
 quote = "0.3"
 ordermap = "0.2.10"
+glob = "0.2.11"
 
 [features]
 default = ["syn/full"]
