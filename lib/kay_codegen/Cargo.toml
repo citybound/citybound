@@ -9,5 +9,8 @@ quote = "0.3"
 ordermap = "0.2.10"
 glob = "0.2.11"
 
+[dev-dependencies]
+pretty_assertions = "0.2.1"
+
 [features]
 default = ["syn/full"]
