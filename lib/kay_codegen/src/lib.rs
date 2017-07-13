@@ -1,4 +1,4 @@
-#![recursion_limit="128"]
+#![recursion_limit="256"]
 #![feature(conservative_impl_trait)]
 
 #[cfg(test)]
@@ -86,9 +86,16 @@ pub struct TraitDef {
 pub struct Handler {
     name: Ident,
     arguments: Vec<FnArg>,
+    scope: HandlerScope,
     critical: bool,
     returns_fate: bool,
     from_trait: Option<TraitName>,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum HandlerScope {
+    SubActor,
+    Swarm,
 }
 
 pub fn generate(model: &Model) -> String {
@@ -127,6 +134,10 @@ fn simple_actor() {
             pub fn no_params_fate(&mut self, world: &mut World) -> Fate {
                 Fate::Die
             }
+
+            pub fn static_ish(some_param: &usize, world: &mut World) {
+                let bla = some_param;
+            }
         }
     );
     let expected = quote!(
@@ -154,6 +165,10 @@ fn simple_actor() {
             pub fn no_params_fate(&self, world: &mut World) {
                 world.send(self._raw_id, MSG_SomeActor_no_params_fate());
             }
+
+            pub fn static_ish(some_param: usize, world: &mut World) {
+                world.send_to_id_of::<Swarm<SomeActor>>(MSG_SomeActor_static_ish(some_param));
+            }
         }
 
         #[allow(non_camel_case_types)]
@@ -162,17 +177,27 @@ fn simple_actor() {
         #[allow(non_camel_case_types)]
         #[derive(Copy, Clone)]
         struct MSG_SomeActor_no_params_fate();
+        #[allow(non_camel_case_types)]
+        #[derive(Compact, Clone)]
+        struct MSG_SomeActor_static_ish(usize);
 
         pub fn auto_setup(system: &mut ActorSystem) {
-            system.extend::<Swarm<SomeActor>, _>(Swarm::<SomeActor>::subactors(|mut definer| {
-                definer.on(|&MSG_SomeActor_some_method(ref some_param), actor, world| {
-                    actor.some_method(some_param, world);
+            system.extend::<Swarm<SomeActor>, _>(Swarm::<SomeActor>::subactors(|mut each_subactor| {
+                each_subactor.on(|&MSG_SomeActor_some_method(ref some_param), subactor, world| {
+                    subactor.some_method(some_param, world);
                     Fate::Live
                 });
-                definer.on(|&MSG_SomeActor_no_params_fate(), actor, world| {
-                    actor.no_params_fate(world)
+                each_subactor.on(|&MSG_SomeActor_no_params_fate(), subactor, world| {
+                    subactor.no_params_fate(world)
                 });
             }));
+
+            system.extend::<Swarm<SomeActor>, _>(|mut the_swarm| {
+                the_swarm.on(|&MSG_SomeActor_static_ish(ref some_param), _, world| {
+                    SomeActor::static_ish(some_param, world);
+                    Fate::Live
+                });
+            });
         }
     );
 
@@ -250,15 +275,17 @@ fn trait_and_impl() {
         }
 
         pub fn auto_setup(system: &mut ActorSystem) {
-            system.extend::<Swarm<SomeActor>, _>(Swarm::<SomeActor>::subactors(|mut definer| {
-                definer.on(|&MSG_SomeTrait_some_method(ref some_param), actor, world| {
-                    actor.some_method(some_param, world);
+            system.extend::<Swarm<SomeActor>, _>(Swarm::<SomeActor>::subactors(|mut each_subactor| {
+                each_subactor.on(|&MSG_SomeTrait_some_method(ref some_param), subactor, world| {
+                    subactor.some_method(some_param, world);
                     Fate::Live
                 });
-                definer.on(|&MSG_SomeTrait_no_params_fate(), actor, world| {
-                    actor.no_params_fate(world)
+                each_subactor.on(|&MSG_SomeTrait_no_params_fate(), subactor, world| {
+                    subactor.no_params_fate(world)
                 });
             }));
+
+            system.extend::<Swarm<SomeActor>, _>(|mut the_swarm| {});
         }
     );
 

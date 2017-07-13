@@ -5,57 +5,112 @@ use BindingMode::{ByRef, ByValue};
 use Mutability::Immutable;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub enum WhichHandlers {
+pub enum HandlerOrigin {
     OnlyOwn,
     AlsoFromTraits,
 }
-use self::WhichHandlers::*;
+use self::HandlerOrigin::*;
 
-impl Model {
-    pub fn map_handlers<O, F>(&self, han: WhichHandlers, map_f: F) -> Vec<Vec<O>>
+use {HandlerScope, ActorDef, TraitDef};
+
+impl ActorDef {
+    pub fn map_handlers<O, F>(
+        &self,
+        name: &ActorName,
+        origin: HandlerOrigin,
+        scope: HandlerScope,
+        map_f: F,
+    ) -> Vec<O>
     where
         F: Fn(&ActorName, &Handler) -> O,
     {
-        self.actors
+        self.handlers
             .iter()
-            .map(|(actor_name, actor_def)| {
-                actor_def
-                    .handlers
-                    .iter()
-                    .filter(|&handler| {
-                        han == AlsoFromTraits || handler.from_trait.is_none()
-                    })
-                    .map(|handler| map_f(actor_name, handler))
-                    .collect()
+            .filter(|&handler| {
+                (origin == AlsoFromTraits || handler.from_trait.is_none()) &&
+                    (handler.scope == scope)
             })
+            .map(|handler| map_f(name, handler))
             .collect()
     }
+}
 
-    pub fn map_handlers_args<O, F>(&self, han: WhichHandlers, map_f: F) -> Vec<Vec<Vec<O>>>
+impl TraitDef {
+    pub fn map_handlers<O, F>(&self, name: &TraitName, scope: HandlerScope, map_f: F) -> Vec<O>
+    where
+        F: Fn(&TraitName, &Handler) -> O,
+    {
+        self.handlers
+            .iter()
+            .filter(|&handler| handler.scope == scope)
+            .map(|handler| map_f(name, handler))
+            .collect()
+    }
+}
+
+impl Model {
+    pub fn map_handlers<O, F>(&self, origin: HandlerOrigin, map_f: F) -> (Vec<Vec<O>>, Vec<Vec<O>>)
+    where
+        F: Fn(&ActorName, &Handler) -> O,
+    {
+        let mut for_subactor = Vec::<Vec<O>>::new();
+        let mut for_swarm = Vec::<Vec<O>>::new();
+
+        for (actor_name, actor_def) in self.actors.iter() {
+            for_subactor.push(actor_def.map_handlers(
+                actor_name,
+                origin,
+                HandlerScope::SubActor,
+                &map_f,
+            ));
+            for_swarm.push(actor_def.map_handlers(
+                actor_name,
+                origin,
+                HandlerScope::Swarm,
+                &map_f,
+            ));
+        }
+
+        (for_subactor, for_swarm)
+    }
+
+    pub fn map_handlers_args<O, F>(
+        &self,
+        origin: HandlerOrigin,
+        map_f: F,
+    ) -> (Vec<Vec<Vec<O>>>, Vec<Vec<Vec<O>>>)
     where
         F: Fn(&FnArg) -> O,
     {
-        self.map_handlers(han, |_, handler| {
+        self.map_handlers(origin, |_, handler| {
             handler.arguments.iter().map(&map_f).collect()
         })
     }
 
-    pub fn map_trait_handlers<O, F>(&self, map_f: F) -> Vec<Vec<O>>
+    pub fn map_trait_handlers<O, F>(&self, map_f: F) -> (Vec<Vec<O>>, Vec<Vec<O>>)
     where
         F: Fn(&TraitName, &Handler) -> O,
     {
-        self.traits
-            .iter()
-            .map(|(name, def)| {
-                def.handlers
-                    .iter()
-                    .map(|handler| map_f(name, handler))
-                    .collect()
-            })
-            .collect()
+        let mut for_subactor = Vec::<Vec<O>>::new();
+        let mut for_swarm = Vec::<Vec<O>>::new();
+
+        for (trait_name, trait_def) in self.traits.iter() {
+            for_subactor.push(trait_def.map_handlers(
+                trait_name,
+                HandlerScope::SubActor,
+                &map_f,
+            ));
+            for_swarm.push(trait_def.map_handlers(
+                trait_name,
+                HandlerScope::Swarm,
+                &map_f,
+            ));
+        }
+
+        (for_subactor, for_swarm)
     }
 
-    pub fn map_trait_handlers_args<O, F>(&self, map_f: F) -> Vec<Vec<Vec<O>>>
+    pub fn map_trait_handlers_args<O, F>(&self, map_f: F) -> (Vec<Vec<Vec<O>>>, Vec<Vec<Vec<O>>>)
     where
         F: Fn(&FnArg) -> O,
     {
@@ -64,19 +119,20 @@ impl Model {
 
     pub fn generate_setups(&self) -> Tokens {
         let setup_types_1: Vec<_> = self.actors.iter().map(|(ty, _)| ty).collect();
-        let setup_types_2 = setup_types_1.clone();
-        let handler_mods: Vec<Vec<_>> = self.map_handlers(AlsoFromTraits, |_, handler| {
+        let (setup_types_2, setup_types_3) = (setup_types_1.clone(), setup_types_1.clone());
+        let (handler_mods, swarm_handler_mods) = self.map_handlers(AlsoFromTraits, |_, handler| {
             Ident::from(if handler.critical {
                 "on_critical"
             } else {
                 "on"
             })
         });
-        let msg_names: Vec<Vec<_>> = self.map_handlers(AlsoFromTraits, |actor_name, handler| {
-            let msg_prefix = typ_to_message_prefix(actor_name, handler.from_trait.as_ref());
-            Ident::new(format!("{}_{}", msg_prefix, handler.name))
-        });
-        let msg_args: Vec<Vec<Vec<_>>> = self.map_handlers_args(AlsoFromTraits, |arg| match arg {
+        let (msg_names, swarm_msg_names) =
+            self.map_handlers(AlsoFromTraits, |actor_name, handler| {
+                let msg_prefix = typ_to_message_prefix(actor_name, handler.from_trait.as_ref());
+                Ident::new(format!("{}_{}", msg_prefix, handler.name))
+            });
+        let (msg_args, swarm_msg_args) = self.map_handlers_args(AlsoFromTraits, |arg| match arg {
             &FnArg::Captured(Pat::Ident(_, ref ident, _), ref ty) => {
                 match ty {
                     &Ty::Rptr(_, _) => Pat::Ident(ByRef(Immutable), ident.clone(), None),
@@ -85,28 +141,39 @@ impl Model {
             }
             _ => unimplemented!(),
         });
-        let handler_names = self.map_handlers(AlsoFromTraits, |_, handler| handler.name.clone());
-        let handler_params: Vec<Vec<Vec<_>>> =
+        let (handler_names, swarm_handler_names) =
+            self.map_handlers(AlsoFromTraits, |_, handler| handler.name.clone());
+        let (handler_params, swarm_handler_params) =
             self.map_handlers_args(AlsoFromTraits, |arg| match arg {
                 &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
                 _ => unimplemented!(),
             });
-        let maybe_fate_returns: Vec<Vec<_>> =
+        let (maybe_fate_returns, swarm_maybe_fate_returns) =
             self.map_handlers(AlsoFromTraits, |_, handler| if handler.returns_fate {
                 quote!()
             } else {
                 quote!(; Fate::Live)
             });
+        let (_, types_for_swarm_handlers) =
+            self.map_handlers(AlsoFromTraits, |actor_name, _| actor_name.clone());
 
         quote!(
             #(
-                system.extend::<Swarm<#setup_types_1>, _>(Swarm::<#setup_types_2>::subactors(|mut definer| {
+                system.extend::<Swarm<#setup_types_1>, _>(Swarm::<#setup_types_2>::subactors(|mut each_subactor| {
                 #(
-                    definer.#handler_mods(|&#msg_names(#(#msg_args),*), actor, world| {
-                        actor.#handler_names(#(#handler_params,)* world)#maybe_fate_returns
+                    each_subactor.#handler_mods(|&#msg_names(#(#msg_args),*), subactor, world| {
+                        subactor.#handler_names(#(#handler_params,)* world)#maybe_fate_returns
                     });
                 )*
                 }));
+
+                system.extend::<Swarm<#setup_types_3>, _>(|mut the_swarm| {
+                #(
+                    the_swarm.#swarm_handler_mods(|&#swarm_msg_names(#(#swarm_msg_args),*), _, world| {
+                        #types_for_swarm_handlers::#swarm_handler_names(#(#swarm_handler_params,)* world)#swarm_maybe_fate_returns
+                    });
+                )*
+                });
             )*
         )
     }
@@ -114,16 +181,19 @@ impl Model {
     pub fn generate_trait_ids_and_messages(&self) -> Tokens {
         let trait_ids_1: Vec<_> = self.traits.keys().map(trait_name_to_id).collect();
         let trait_ids_2 = trait_ids_1.clone();
-        let handler_names: Vec<Vec<_>> = self.map_trait_handlers(|_, handler| handler.name.clone());
-        let handler_args: Vec<Vec<Vec<_>>> = self.map_trait_handlers_args(arg_as_ident_and_type);
-        let msg_names_1: Vec<Vec<_>> = self.map_trait_handlers(|trait_name, handler| {
+        let (handler_names, swarm_handler_names) =
+            self.map_trait_handlers(|_, handler| handler.name.clone());
+        let (handler_args, swarm_handler_args) =
+            self.map_trait_handlers_args(arg_as_ident_and_type);
+        let (msg_names_1, swarm_msg_names_1) = self.map_trait_handlers(|trait_name, handler| {
             let msg_prefix = trait_to_message_prefix(&trait_name.segments.last().unwrap().ident);
             Ident::new(format!("{}_{}", msg_prefix, handler.name))
         });
-        let msg_names_2 = msg_names_1.clone();
-        let msg_params: Vec<Vec<Vec<_>>> = self.map_trait_handlers_args(arg_as_value);
-        let msg_param_types: Vec<Vec<Vec<_>>> = self.map_trait_handlers_args(arg_as_value_type);
-        let msg_derives: Vec<Vec<_>> =
+        let (msg_names_2, swarm_msg_names_2) = (msg_names_1.clone(), swarm_msg_names_1.clone());
+        let (msg_params, swarm_msg_params) = self.map_trait_handlers_args(arg_as_value);
+        let (msg_param_types, swarm_msg_param_types) =
+            self.map_trait_handlers_args(arg_as_value_type);
+        let (msg_derives, swarm_msg_derives) =
             self.map_trait_handlers(|_, handler| if handler.arguments.is_empty() {
                 quote!(#[derive(Copy, Clone)])
             } else {
@@ -143,12 +213,24 @@ impl Model {
                     world.send(self._raw_id, #msg_names_1(#(#msg_params),*));
                 }
                 )*
+
+                #(
+                pub fn #swarm_handler_names(&self #(,#swarm_handler_args)*, world: &mut World) {
+                    world.send_to_id_of::<Swarm<Self>>(#swarm_msg_names_1(#(#swarm_msg_params),*));
+                }
+                )*
             }
 
             #(
             #[allow(non_camel_case_types)]
             #msg_derives
             struct #msg_names_2(#(#msg_param_types),*);
+            )*
+
+            #(
+            #[allow(non_camel_case_types)]
+            #swarm_msg_derives
+            struct #swarm_msg_names_2(#(#swarm_msg_param_types),*);
             )*
             )*
         )
@@ -175,21 +257,26 @@ impl Model {
             (actor_here_ids_1.clone(), actor_here_ids_1.clone());
 
         let actor_ids: Vec<_> = self.actors.keys().map(actor_name_to_id).collect();
-        let handler_names = self.map_handlers(OnlyOwn, |_, handler| handler.name.clone());
-        let handler_args: Vec<Vec<Vec<_>>> = self.map_handlers_args(OnlyOwn, arg_as_ident_and_type);
-        let msg_names_1: Vec<Vec<_>> = self.map_handlers(OnlyOwn, |actor_name, handler| {
+        let (handler_names, swarm_handler_names) =
+            self.map_handlers(OnlyOwn, |_, handler| handler.name.clone());
+        let (handler_args, swarm_handler_args) =
+            self.map_handlers_args(OnlyOwn, arg_as_ident_and_type);
+        let (msg_names_1, swarm_msg_names_1) = self.map_handlers(OnlyOwn, |actor_name, handler| {
             let msg_prefix = typ_to_message_prefix(actor_name, None);
             Ident::new(format!("{}_{}", msg_prefix, handler.name))
         });
-        let msg_names_2 = msg_names_1.clone();
-        let msg_params: Vec<Vec<Vec<_>>> = self.map_handlers_args(OnlyOwn, arg_as_value);
-        let msg_param_types: Vec<Vec<Vec<_>>> = self.map_handlers_args(OnlyOwn, arg_as_value_type);
-        let msg_derives: Vec<Vec<_>> =
+        let (msg_names_2, swarm_msg_names_2) = (msg_names_1.clone(), swarm_msg_names_1.clone());
+        let (msg_params, swarm_msg_params) = self.map_handlers_args(OnlyOwn, arg_as_value);
+        let (msg_param_types, swarm_msg_param_types) =
+            self.map_handlers_args(OnlyOwn, arg_as_value_type);
+        let (msg_derives, swarm_msg_derives) =
             self.map_handlers(OnlyOwn, |_, handler| if handler.arguments.is_empty() {
                 quote!(#[derive(Copy, Clone)])
             } else {
                 quote!(#[derive(Compact, Clone)])
             });
+        let (_, actor_types_for_swarm_handlers) =
+            self.map_handlers(OnlyOwn, |actor_name, _| actor_name.clone());
 
         let actor_trait_ids_1: Vec<Vec<_>> = self.actors
             .iter()
@@ -230,12 +317,25 @@ impl Model {
                     world.send(self._raw_id, #msg_names_1(#(#msg_params),*));
                 }
                 )*
+
+                #(
+                pub fn #swarm_handler_names(#(#swarm_handler_args,)* world: &mut World) {
+                    world.send_to_id_of::<Swarm<#actor_types_for_swarm_handlers>>(
+                        #swarm_msg_names_1(#(#swarm_msg_params),*)
+                    );
+                }
+                )*
             }
 
             #(
             #[allow(non_camel_case_types)]
             #msg_derives
             struct #msg_names_2(#(#msg_param_types),*);
+            )*
+            #(
+            #[allow(non_camel_case_types)]
+            #swarm_msg_derives
+            struct #swarm_msg_names_2(#(#swarm_msg_param_types),*);
             )*
             )*
 

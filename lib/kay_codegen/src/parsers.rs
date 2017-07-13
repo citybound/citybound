@@ -1,5 +1,5 @@
 use syn::*;
-use {Model, TraitName, Handler};
+use {Model, TraitName, Handler, HandlerScope};
 
 pub fn parse(file: &str) -> Model {
     let mut model = Model::default();
@@ -98,7 +98,7 @@ fn handler_from(
     attrs: &[Attribute],
     from_trait: Option<TraitName>,
 ) -> Option<Handler> {
-    check_handler(sig).map(|args| {
+    check_handler(sig).map(|(args, scope)| {
         let returns_fate = match sig.decl.output {
             FunctionRetTy::Default => false,
             FunctionRetTy::Ty(Ty::Path(_, Path { ref segments, .. })) => {
@@ -115,6 +115,7 @@ fn handler_from(
         Handler {
             name: fn_name.clone(),
             arguments: args.to_vec(),
+            scope: scope,
             critical: is_critical,
             returns_fate: returns_fate,
             from_trait: from_trait.clone(),
@@ -122,19 +123,24 @@ fn handler_from(
     })
 }
 
-pub fn check_handler(sig: &MethodSig) -> Option<&[FnArg]> {
-    if let Some(&FnArg::SelfRef(_, Mutability::Mutable)) = sig.decl.inputs.get(0) {
-        if let Some(&FnArg::Captured(_, Ty::Rptr(_, ref ty_box))) = sig.decl.inputs.last() {
-            if let &MutTy {
-                mutability: Mutability::Mutable,
-                ty: Ty::Path(_, ref path),
-            } = &**ty_box
-            {
-                if path.segments.last().unwrap().ident == Ident::new("World") {
-                    let args = &sig.decl.inputs[1..(sig.decl.inputs.len() - 1)];
-                    Some(args)
-                } else {
-                    None
+pub fn check_handler(sig: &MethodSig) -> Option<(&[FnArg], HandlerScope)> {
+    if let Some(&FnArg::Captured(_, Ty::Rptr(_, ref ty_box))) = sig.decl.inputs.last() {
+        if let &MutTy {
+            mutability: Mutability::Mutable,
+            ty: Ty::Path(_, ref path),
+        } = &**ty_box
+        {
+            if path.segments.last().unwrap().ident == Ident::new("World") {
+                match sig.decl.inputs.get(0) {
+                    Some(&FnArg::SelfRef(_, _)) => {
+                        let args = &sig.decl.inputs[1..(sig.decl.inputs.len() - 1)];
+                        Some((args, HandlerScope::SubActor))
+                    }
+                    Some(&FnArg::SelfValue(_)) => None,
+                    _ => {
+                        let args = &sig.decl.inputs[0..(sig.decl.inputs.len() - 1)];
+                        Some((args, HandlerScope::Swarm))
+                    }
                 }
             } else {
                 None
