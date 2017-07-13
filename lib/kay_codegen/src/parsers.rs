@@ -19,16 +19,23 @@ pub fn parse(file: &str) -> Model {
                 let actor_def = model.actors.entry((**actor_name).clone()).or_insert_with(
                     Default::default,
                 );
+                let actor_path = match **actor_name {
+                    Ty::Path(_, ref path) => path,
+                    _ => unimplemented!(),
+                };
                 if let Some(ref trait_name) = *maybe_trait {
                     actor_def.impls.push(trait_name.clone());
                     actor_def.handlers.extend(handlers_from_impl_items(
                         impl_items,
                         Some(trait_name.clone()),
+                        actor_path,
                     ));
                 } else {
-                    actor_def.handlers.extend(
-                        handlers_from_impl_items(impl_items, None),
-                    );
+                    actor_def.handlers.extend(handlers_from_impl_items(
+                        impl_items,
+                        None,
+                        actor_path,
+                    ));
                 }
             }
             ItemKind::Trait(_, _, _, ref trait_items) => {
@@ -36,9 +43,11 @@ pub fn parse(file: &str) -> Model {
                 let trait_def = model.traits.entry(trait_name.clone()).or_insert_with(
                     Default::default,
                 );
-                trait_def.handlers.extend(
-                    handlers_from_trait_items(trait_items),
-                );
+                let as_segment: PathSegment = ident.clone().into();
+                trait_def.handlers.extend(handlers_from_trait_items(
+                    trait_items,
+                    &::syn::Path::from(as_segment),
+                ));
             }
             _ => {}
         }
@@ -54,6 +63,7 @@ pub fn parse(file: &str) -> Model {
 fn handlers_from_impl_items(
     impl_items: &[ImplItem],
     with_trait: Option<TraitName>,
+    parent_path: &::syn::Path,
 ) -> Vec<Handler> {
     impl_items
         .iter()
@@ -66,7 +76,7 @@ fn handlers_from_impl_items(
         } = impl_item
         {
             if with_trait.is_some() || *vis == Visibility::Public {
-                handler_from(fn_name, sig, attrs, with_trait.clone())
+                handler_from(fn_name, sig, attrs, with_trait.clone(), parent_path)
             } else {
                 None
             }
@@ -76,7 +86,7 @@ fn handlers_from_impl_items(
         .collect()
 }
 
-fn handlers_from_trait_items(trait_items: &[TraitItem]) -> Vec<Handler> {
+fn handlers_from_trait_items(trait_items: &[TraitItem], parent_path: &::syn::Path) -> Vec<Handler> {
     trait_items
         .iter()
         .filter_map(|trait_item| if let &TraitItem {
@@ -85,7 +95,7 @@ fn handlers_from_trait_items(trait_items: &[TraitItem]) -> Vec<Handler> {
             ..
         } = trait_item
         {
-            handler_from(fn_name, sig, &[], None)
+            handler_from(fn_name, sig, &[], None, parent_path)
         } else {
             None
         })
@@ -97,8 +107,9 @@ fn handler_from(
     sig: &MethodSig,
     attrs: &[Attribute],
     from_trait: Option<TraitName>,
+    parent_path: &::syn::Path,
 ) -> Option<Handler> {
-    check_handler(sig).map(|(args, scope)| {
+    check_handler(sig, parent_path.clone()).map(|(args, scope)| {
         let returns_fate = match sig.decl.output {
             FunctionRetTy::Default => false,
             FunctionRetTy::Ty(Ty::Path(_, Path { ref segments, .. })) => {
@@ -123,7 +134,10 @@ fn handler_from(
     })
 }
 
-pub fn check_handler(sig: &MethodSig) -> Option<(&[FnArg], HandlerScope)> {
+pub fn check_handler(
+    sig: &MethodSig,
+    parent_path: ::syn::Path,
+) -> Option<(&[FnArg], HandlerScope)> {
     if let Some(&FnArg::Captured(_, Ty::Rptr(_, ref ty_box))) = sig.decl.inputs.last() {
         if let &MutTy {
             mutability: Mutability::Mutable,
@@ -138,8 +152,19 @@ pub fn check_handler(sig: &MethodSig) -> Option<(&[FnArg], HandlerScope)> {
                     }
                     Some(&FnArg::SelfValue(_)) => None,
                     _ => {
-                        let args = &sig.decl.inputs[0..(sig.decl.inputs.len() - 1)];
-                        Some((args, HandlerScope::Swarm))
+                        let self_segment: PathSegment = Ident::new("Self").into();
+                        match sig.decl.output {
+                            FunctionRetTy::Ty(Ty::Path(_, ref ret_ty_path))
+                                if *ret_ty_path == ::syn::Path::from(self_segment) ||
+                                       *ret_ty_path == parent_path => {
+                                let args = &sig.decl.inputs[1..(sig.decl.inputs.len() - 1)];
+                                Some((args, HandlerScope::Init))
+                            }
+                            _ => {
+                                let args = &sig.decl.inputs[0..(sig.decl.inputs.len() - 1)];
+                                Some((args, HandlerScope::Swarm))
+                            }
+                        }
                     }
                 }
             } else {

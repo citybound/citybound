@@ -96,6 +96,7 @@ pub struct Handler {
 pub enum HandlerScope {
     SubActor,
     Swarm,
+    Init,
 }
 
 pub fn generate(model: &Model) -> String {
@@ -138,6 +139,13 @@ fn simple_actor() {
             pub fn static_ish(some_param: &usize, world: &mut World) {
                 let bla = some_param;
             }
+
+            pub fn init_ish(id: SomeActorID, some_param: &usize, world: &mut World) -> SomeActor {
+                SomeActor {
+                    _id: Some(id),
+                    field: some_param
+                }
+            }
         }
     );
     let expected = quote!(
@@ -169,6 +177,10 @@ fn simple_actor() {
             pub fn static_ish(some_param: usize, world: &mut World) {
                 world.send_to_id_of::<Swarm<SomeActor>>(MSG_SomeActor_static_ish(some_param));
             }
+
+            pub fn init_ish(some_param: usize, world: &mut World) {
+                world.send_to_id_of::<Swarm<SomeActor>>(MSG_SomeActor_init_ish(some_param));
+            }
         }
 
         #[allow(non_camel_case_types)]
@@ -180,6 +192,9 @@ fn simple_actor() {
         #[allow(non_camel_case_types)]
         #[derive(Compact, Clone)]
         struct MSG_SomeActor_static_ish(usize);
+        #[allow(non_camel_case_types)]
+        #[derive(Compact, Clone)]
+        struct MSG_SomeActor_init_ish(usize);
 
         pub fn auto_setup(system: &mut ActorSystem) {
             system.extend::<Swarm<SomeActor>, _>(Swarm::<SomeActor>::subactors(|mut each_subactor| {
@@ -197,16 +212,26 @@ fn simple_actor() {
                     SomeActor::static_ish(some_param, world);
                     Fate::Live
                 });
+
+                the_swarm.on(|&MSG_SomeActor_init_ish(ref some_param), swarm, world| {
+                    let id = unsafe{swarm.allocate_id(world.id_of::<Swarm<SomeActor>>())};
+                    let subactor = SomeActor::init_ish(id, some_param);
+                    unsafe {swarm.add_with_id(subactor, id) };
+                    Fate::Live
+                });
             });
         }
     );
 
-    assert_eq!(expected.into_string(), generate(&parse(&input.into_string())));
+    assert_eq!(
+        expected.into_string(),
+        generate(&parse(&input.into_string()))
+    );
 }
 
 #[test]
 fn trait_and_impl() {
-        let input = quote!(
+    let input = quote!(
         pub struct SomeActor {
             _id: Option<SomeActorID>,
             field: usize
@@ -289,5 +314,8 @@ fn trait_and_impl() {
         }
     );
 
-    assert_eq!(expected.into_string(), generate(&parse(&input.into_string())));
+    assert_eq!(
+        expected.into_string(),
+        generate(&parse(&input.into_string()))
+    );
 }
