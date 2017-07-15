@@ -316,6 +316,7 @@ impl <'a, K: Copy + Eq + Hash,V: Clone + Compact> Iterator for OpenAddressingMap
 impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator> OpenAddressingMap<K, CompactVec<I, A1>, A2> {
     /// Push a value onto the `CompactVec` at the key `query`
     pub fn push_at(&mut self, query: K, item: I) {
+        self.ensure_capacity();
         let index = self.find_pos(query);
         match index {
             Some(i) => {
@@ -328,9 +329,11 @@ impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator> OpenAddressi
                     self.entries[i].value = vec;
                     self.entries[i].hash = self.hash(query);
                     self.entries[i].key = query;
+                    self.size += 1;
                 }
             },
             None => {
+                println!("{:?}",self.display());
                 panic!("should always have place");
             }
         }
@@ -472,12 +475,12 @@ fn push_at() {
     println!("starting push_at");
     let mut map: OpenAddressingMap<usize, CompactVec<usize>> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);
-    for n in 0..100 {
+    for n in 0..10000 {
         map.push_at(n, elem(n));
         map.push_at(n, elem(n)+1);
     }
     
-    for n in 0..100 {
+    for n in 0..10000 {
         println!("n {:?}", n);
         let mut iter = map.get_iter(n);
         assert!(iter.find(|&i|{ *i == elem(n)}).is_some());
@@ -498,4 +501,15 @@ fn remove_iter() {
     let mut iter = map.remove_iter(50);
     assert!(iter.find(|i|{ *i == elem(50)}).is_some());
     assert!(iter.find(|i|{ *i == elem(50) + 1}).is_some());
+}
+
+//#[test]
+fn ensure_capacity_works() {
+    let mut map: OpenAddressingMap<usize, CompactVec<usize>> = OpenAddressingMap::new();
+    assert!(map.is_empty() == true);
+    for n in 0..100 {
+        map.push_at(n, elem(n));
+        map.push_at(n, elem(n)+1);
+    }
+    assert!(map.is_empty() == false);
 }

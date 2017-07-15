@@ -290,6 +290,7 @@ fn iter() {
         assert!(values.find(|i| **i == elem(h)).is_some());
     }
 }
+
 //#[test]
 fn values_mut() {
     let mut map: CompactDict<usize, usize> = CompactDict::new();
