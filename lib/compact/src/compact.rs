@@ -56,3 +56,52 @@ impl<T: Copy> Compact for T {
         *self
     }
 }
+
+pub struct UnsafeFakeCompact<T> {
+    reference: Box<T>,
+}
+
+impl<T> UnsafeFakeCompact<T> {
+    pub fn new(content: T) -> Self {
+        UnsafeFakeCompact { reference: Box::new(content) }
+    }
+
+    pub fn into_box(self) -> Box<T> {
+        self.reference
+    }
+}
+
+impl<T> Clone for UnsafeFakeCompact<T> {
+    fn clone(&self) -> Self {
+        unsafe { ::std::ptr::read_unaligned(self as *const Self) }
+    }
+}
+
+impl<T> Compact for UnsafeFakeCompact<T> {
+    fn is_still_compact(&self) -> bool {
+        true
+    }
+    fn dynamic_size_bytes(&self) -> usize {
+        0
+    }
+    unsafe fn compact_from(&mut self, source: &Self, _new_dynamic_part: *mut u8) {
+        *self = ::std::ptr::read_unaligned(source as *const Self)
+    }
+    unsafe fn decompact(&self) -> Self {
+        ::std::ptr::read_unaligned(self as *const Self)
+    }
+}
+
+impl<T> ::std::ops::Deref for UnsafeFakeCompact<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &*self.reference
+    }
+}
+
+impl<T> ::std::ops::DerefMut for UnsafeFakeCompact<T> {
+    fn deref_mut(&mut self) -> &mut T {
+        &mut *self.reference
+    }
+}

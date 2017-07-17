@@ -57,6 +57,20 @@ pub fn parse(file: &str) -> Model {
         !actor_def.handlers.is_empty()
     });
 
+    model.traits.retain(|ref _name, ref trait_def| {
+        !trait_def.handlers.is_empty()
+    });
+
+    {
+        let traits = &model.traits;
+        let actors = &mut model.actors;
+        for actor_def in actors.values_mut() {
+            actor_def.impls.retain(
+                |trait_name| traits.get(trait_name).is_some(),
+            );
+        }
+    }
+
     model
 }
 

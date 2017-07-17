@@ -26,6 +26,6 @@ mod compact;
 mod compact_vec;
 mod compact_dict;
 
-pub use self::compact::Compact;
+pub use self::compact::{Compact, UnsafeFakeCompact};
 pub use self::compact_vec::CompactVec as CVec;
 pub use self::compact_dict::CompactDict as CDict;

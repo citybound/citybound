@@ -107,7 +107,7 @@ pub fn generate(model: &Model) -> String {
     quote!(
         //! This is all auto-generated. Do not touch.
         use kay::ActorSystem;
-        use kay::swarm::Swarm;
+        use kay::swarm::{Swarm, SubActor};
         use super::*;
 
         #traits_msgs
@@ -151,8 +151,17 @@ fn simple_actor() {
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
         use kay::ActorSystem;
-        use kay::swarm::Swarm;
+        use kay::swarm::{Swarm, SubActor};
         use super::*;
+
+        impl SubActor for SomeActor {
+            fn id(&self) -> ID {
+                self.id._raw_id
+            }
+            unsafe fn set_id(&mut self, id: ID) {
+                self.id._raw_id = id;
+            }
+        }
 
         #[derive(Copy, Clone)]
         pub struct SomeActorID {
@@ -175,26 +184,26 @@ fn simple_actor() {
             }
 
             pub fn static_ish(some_param: usize, world: &mut World) {
-                world.send_to_id_of::<Swarm<SomeActor>>(MSG_SomeActor_static_ish(some_param));
+                world.send_to_id_of::<Swarm<SomeActor>, _>(MSG_SomeActor_static_ish(some_param));
             }
 
             pub fn init_ish(some_param: usize, world: &mut World) {
-                world.send_to_id_of::<Swarm<SomeActor>>(MSG_SomeActor_init_ish(some_param));
+                world.send_to_id_of::<Swarm<SomeActor>, _>(MSG_SomeActor_init_ish(some_param));
             }
         }
 
         #[allow(non_camel_case_types)]
         #[derive(Compact, Clone)]
-        struct MSG_SomeActor_some_method(usize);
+        pub struct MSG_SomeActor_some_method(pub usize);
         #[allow(non_camel_case_types)]
         #[derive(Copy, Clone)]
-        struct MSG_SomeActor_no_params_fate();
+        pub struct MSG_SomeActor_no_params_fate();
         #[allow(non_camel_case_types)]
         #[derive(Compact, Clone)]
-        struct MSG_SomeActor_static_ish(usize);
+        pub struct MSG_SomeActor_static_ish(pub usize);
         #[allow(non_camel_case_types)]
         #[derive(Compact, Clone)]
-        struct MSG_SomeActor_init_ish(usize);
+        pub struct MSG_SomeActor_init_ish(pub usize);
 
         pub fn auto_setup(system: &mut ActorSystem) {
             system.extend::<Swarm<SomeActor>, _>(Swarm::<SomeActor>::subactors(|mut each_subactor| {
@@ -214,9 +223,9 @@ fn simple_actor() {
                 });
 
                 the_swarm.on(|&MSG_SomeActor_init_ish(ref some_param), swarm, world| {
-                    let id = unsafe{swarm.allocate_id(world.id_of::<Swarm<SomeActor>>())};
-                    let subactor = SomeActor::init_ish(id, some_param);
-                    unsafe {swarm.add_with_id(subactor, id) };
+                    let id = unsafe{swarm.allocate_id(world.id::<Swarm<SomeActor>>())};
+                    let subactor = SomeActor::init_ish(SomeActorID{_raw_id: id}, some_param, world);
+                    unsafe {swarm.add_with_id(&subactor, id) };
                     Fate::Live
                 });
             });
@@ -251,11 +260,19 @@ fn trait_and_impl() {
                 Fate::Die
             }
         }
+
+        // This shouldn't generate any ID
+        impl Deref for SomeActor {
+            type Target = usize;
+            fn deref(&self) -> &usize {
+                &self.field
+            }
+        }
     );
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
         use kay::ActorSystem;
-        use kay::swarm::Swarm;
+        use kay::swarm::{Swarm, SubActor};
         use super::*;
 
         #[derive(Copy, Clone)]
@@ -275,10 +292,19 @@ fn trait_and_impl() {
 
         #[allow(non_camel_case_types)]
         #[derive(Compact, Clone)]
-        struct MSG_SomeTrait_some_method(usize);
+        pub struct MSG_SomeTrait_some_method(pub usize);
         #[allow(non_camel_case_types)]
         #[derive(Copy, Clone)]
-        struct MSG_SomeTrait_no_params_fate();
+        pub struct MSG_SomeTrait_no_params_fate();
+
+        impl SubActor for SomeActor {
+            fn id(&self) -> ID {
+                self.id._raw_id
+            }
+            unsafe fn set_id(&mut self, id: ID) {
+                self.id._raw_id = id;
+            }
+        }
 
         #[derive(Copy, Clone)]
         pub struct SomeActorID {
