@@ -28,7 +28,7 @@
 ## Parts
 
 * Engine & Simulation Core (10%)
-* Traffic (5%)
+* [Traffic](lanes_and_cars/README.md) (5%)
 * Economy (1%)
 * Construction (1%)
 * Environment
