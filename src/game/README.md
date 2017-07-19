@@ -27,6 +27,8 @@
 
 ## Parts
 
+*% indicate "felt implementation completion"*
+
 * Engine & Simulation Core (10%)
 * [Traffic](lanes_and_cars/README.md) (5%)
 * Economy (1%)
