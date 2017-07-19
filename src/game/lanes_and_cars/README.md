@@ -2,11 +2,11 @@
 
 ## Design Philosophy
 
-* Traffic is the pulse of a city
-* Traffic is a chaotic emergent phenomenon
-* Traffic shapes the city and the city shapes traffic
-* Traffic shapes lives and lives shape traffic
-* People and goods use a multitude of transport systems, usually even combinations of different ones
+* Traffic is the pulse of a city (CITY = ORGANISM)
+* Traffic is a chaotic emergent phenomenon (EMERGENT COMPLEXITY)
+* Traffic shapes the city and the city shapes traffic (INTERDEPENDENT SYSTEMS)
+* Traffic shapes lives and lives shape traffic (INTERDEPENDENT SYSTEMS)
+* People and goods use a multitude/combinations of transport systems (UNIQUENESS)
 
 ## Design Decisions
 
