@@ -9,9 +9,9 @@ Find out more about Citybound [on its homepage](http://cityboundsim.com) and [on
 
 # Design Documentation
 
-This repository contains not only the code of Citybound, but also a detailed **Design Doc**, describing the philosophy and decisions taken for design and implementation.
+*This repository contains not only the code of Citybound, but also a detailed **Design Doc**, describing the philosophy and decisions taken for design and implementation. It is interwoven with the code, to make it clear which abstract parts of the game are implemented where. Just follow the links below to get into the more detailed sections.*
 
-**Just like the code, the Design Doc is open for contribution.** You can suggest changes by making a pull request, which can be discussed and refined before deciding if it will be taken fully, partially, or not - documenting the whole decision process publicly.
+***Just like the code, the Design Doc is open for contribution.** You can suggest changes by making a pull request, which can be discussed and refined before deciding if it will be taken fully, partially, or not - documenting the whole decision process publicly.*
 
 ## Design Philosophy
 
