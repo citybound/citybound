@@ -15,7 +15,7 @@
 
 * Play in large continuous regions with several million inhabitants (VASTNESS)
 * Overlayed time-scales: Daily and yearly activities happen at a similar pace (MULTI-SCALE)
-* Persistent and unique individuals (people & businesses) (UNIQUENESS)
+* Persistent and unique individuals (people & businesses) (DIVERSITY)
 
 ## Implementation Philosophy
 
