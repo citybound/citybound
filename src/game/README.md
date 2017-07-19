@@ -1,24 +1,27 @@
 # Citybound
 
+*Words in ALLCAPS refer to reocurring central ideas behind Citybound*
+
 ## Design Philosophy
 
-* A game about the beautiful complexity of real cities
-* A joyful balance between authoritative control and organic, serendipitous development
-* Interaction through powerful but simple tools with haptic qualities
-* Clear visual means to see patterns of behavior and consequences of one’s actions - in the small and in the large
-* Collaboration is the way humans work to achieve great things
+* A game about the beautiful, emergent complexity of real cities (EMERGENT COMPLEXITY)
+* A joyful balance between authoritative control and organic development (CITY = ORGANISM)
+* The challenge of understanding interdependent systems that form a whole (INTERDEPENDENT SYSTEMS) 
+* Interaction through powerful but simple tools with haptic qualities (PAINTING A WORLD)
+* Clear means to see patterns of behavior and consequences of one’s actions - in the small and in the large (VISIBILITY)
+* Planning & collaboration is the way humans work to achieve great things (PLANNING & COLLABORATION)
 
 ## Design Decisions
 
-* Play in large continuous regions with several million inhabitants
+* Play in large continuous regions with several million inhabitants (VASTNESS)
 * Overlayed time-scales: Daily and yearly activities happen at a similar pace (MULTI-SCALE)
-* Persistent and unique individuals (people & businesses)
+* Persistent and unique individuals (people & businesses) (UNIQUENESS)
 
 ## Implementation Philosophy
 
-* Develop systems from first principles, with complex behaviors emerging from simple microscopic interactions
-* Never build lossy simplifications, rather rely on full simulation of individuals
-* Solve problems generally, do not restrict thinking in specialized problem instances
+* Develop systems from first principles, with complex behaviors emerging from simple microscopic interactions (MICROSCOPIC-UP)
+* Solve problems generally, do not restrict thinking in specialized problem instances (ACTUAL PROBLEM)
+* Be brave to do things in new ways, where necessary (NEW & DIFFERENT)
 
 ## Implementation Decisions
 
