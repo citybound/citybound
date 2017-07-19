@@ -5,10 +5,7 @@ Find out more about Citybound [on its homepage](http://cityboundsim.com) and [on
 
 * [Latest game releases](https://github.com/aeickhoff/citybound/releases)
 * [Contributing & Development](CONTRIBUTING.md) ([Docs](http://citybound.github.io/citybound), [Gitter](https://gitter.im/citybound/Lobby))
-
-## License
-
-Citybound is licensed under AGPL (see [LICENSE.txt](LICENSE.txt)), for interest in commercial licenses please contact me.
+* [LICENSE](LICENSE.txt) (AGPL)
 
 # Design Documentation
 
