@@ -458,7 +458,7 @@ fn values_mut() {
     }
 }
 
-//#[test]
+#[test]
 fn pairs() {
     let mut map: OpenAddressingMap<usize, usize> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);

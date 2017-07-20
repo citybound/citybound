@@ -334,7 +334,7 @@ fn find() {
     assert!(arr.iter().find(|&i| *i == 0).is_some());
 }
 
-//#[test]
+#[test]
 fn clone() {
     let mut arr: CompactArray<u32> = CompactArray::with_capacity(3);
     arr[0] = 5;
