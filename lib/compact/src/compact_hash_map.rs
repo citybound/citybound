@@ -8,17 +8,23 @@ use std::hash::Hasher;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::fmt::Write;
-
+use std;
 
 #[derive(Clone)]
-struct Entry<K: Copy + Hash + Eq, V: Compact + Clone> {
+struct Entry<K: Default + Copy + Hash + Eq, V: Default + Compact + Clone> {
     key: K,
     hash: u64,
     value: V,
     used: bool,
 }
 
-impl<K: Copy + Hash + Eq, V: Compact + Clone> Compact for Entry<K, V> {
+impl<K: Copy + Hash + Eq + Default, V: Compact + Clone + Default> std::fmt::Debug for Entry<K, V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Entry {:?}, {:?}", self.hash, self.used)
+    }
+}
+
+impl<K: Copy + Hash + Eq + Default, V: Compact + Clone + Default> Compact for Entry<K, V> {
     fn is_still_compact(&self) -> bool {
         self.value.is_still_compact()
     }
@@ -41,12 +47,23 @@ impl<K: Copy + Hash + Eq, V: Compact + Clone> Compact for Entry<K, V> {
     }
 }
 
-struct OpenAddressingMap<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator = DefaultHeap> {
+impl<K: Copy + Hash + Eq + Default, V: Compact + Clone + Default> Default for Entry<K, V> {
+    fn default() -> Self {
+        Entry{
+            key: K::default(),
+            value: V::default(),
+            hash: 0,
+            used: false
+        }
+    }
+}
+
+struct OpenAddressingMap<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator = DefaultHeap> {
     size: usize,
     entries: CompactArray<Entry<K, V>, A>,
 }
 
-impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K, V, A> {
+impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> OpenAddressingMap<K, V, A> {
     
     pub fn new() -> Self {
         Self::with_capacity(100)
@@ -55,9 +72,6 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
         let mut map = OpenAddressingMap {
             entries: CompactArray::with_capacity(l),
             size: 0,
-        };
-        for mut entry in map.entries.iter_mut() {
-            entry.used = false;
         };
         map
     }
@@ -100,12 +114,10 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
         let len = self.entries.capacity();
         let hash = self.hash(query);
         let h = hash as usize;
-        println!(" len {:?}", len);
         for i in 0..len {
             let index = (h + i*i) % len;
             let entry = &mut self.entries[index];
             if !entry.used {
-                println!("addd new at {:?} with hash {:?}", index, h);
                 entry.key = query;
                 entry.value = value;
                 entry.used = true;
@@ -113,14 +125,12 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
                 self.size += 1;
                 return None
             } else if entry.key == query {
-                println!("replaced at {:?} with hash {:?}", index, h);
                 let old_val: V = entry.value.clone();
                 entry.value = value;
                 entry.hash = hash;
                 self.size += 1;
                 return Some(old_val)
             } else {
-                println!("something at {:?} with hash {:?} while our hash {:?}", index, entry.hash, h);
             }
         }
         panic!("should always have place");
@@ -210,10 +220,8 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
             let index = (h + i*i) % len;
             let entry = &self.entries[index];
             if entry.used && (entry.key == query) {
-                //println!("found used at {:?} with hash {:?}", index, h);
                 return Some(index);
             } else if !entry.used {
-                //println!("found not used at {:?}", index);
                 return Some(index);
             }
         }
@@ -229,7 +237,7 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> OpenAddressingMap<K,
     }
 }
 
-impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> Compact for OpenAddressingMap<K, V, A> {
+impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> Compact for OpenAddressingMap<K, V, A> {
     fn is_still_compact(&self) -> bool {
         self.entries.is_still_compact()
     }
@@ -259,7 +267,7 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> Compact for OpenAddr
     }
 }
 
-impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> Clone for OpenAddressingMap<K, V, A> {
+impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> Clone for OpenAddressingMap<K, V, A> {
     fn clone(&self) -> Self {
         OpenAddressingMap {
             entries: self.entries.clone(),
@@ -268,13 +276,13 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> Clone for OpenAddres
     }
 }
 
-impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> Default for OpenAddressingMap<K, V, A> {
+impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> Default for OpenAddressingMap<K, V, A> {
     fn default() -> Self {
         OpenAddressingMap::with_capacity(100)
     }
 }
 
-impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> ::std::iter::FromIterator<(K, V)>
+impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> ::std::iter::FromIterator<(K, V)>
     for OpenAddressingMap<K, V, A> {
     /// Construct a compact dictionary from an interator over key-value pairs
     fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
@@ -286,7 +294,7 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> ::std::iter::FromIte
     }
 }
 
-struct OpenAddressingMapIter<'a, K: 'a + Copy + Compact + Eq + Hash, V: 'a + Clone + Compact> {
+struct OpenAddressingMapIter<'a, K: 'a + Copy + Compact + Eq + Hash + Default, V: 'a + Clone + Compact + Default> {
     idx: usize,
     left: usize,
     _k: PhantomData<K>,
@@ -294,7 +302,7 @@ struct OpenAddressingMapIter<'a, K: 'a + Copy + Compact + Eq + Hash, V: 'a + Clo
     arr_iter: Iterator<Item=(&'a(Entry<K,V>))>,
 }
 
-impl <'a, K: Copy + Eq + Hash,V: Clone + Compact> Iterator for OpenAddressingMapIter<'a, K, V> {
+impl <'a, K: Copy + Eq + Hash + Default,V: Default + Clone + Compact> Iterator for OpenAddressingMapIter<'a, K, V> {
     type Item = &'a(Entry<K, V>);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -313,7 +321,7 @@ impl <'a, K: Copy + Eq + Hash,V: Clone + Compact> Iterator for OpenAddressingMap
     }
 }
 
-impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator> OpenAddressingMap<K, CompactVec<I, A1>, A2> {
+impl<K: Hash + Eq + Copy + Default, I: Compact, A1: Allocator, A2: Allocator> OpenAddressingMap<K, CompactVec<I, A1>, A2> {
     /// Push a value onto the `CompactVec` at the key `query`
     pub fn push_at(&mut self, query: K, item: I) {
         self.ensure_capacity();
@@ -323,10 +331,9 @@ impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator> OpenAddressi
                 if self.entries[i].used {
                     self.entries[i].value.push(item);
                 } else {
-                    let mut vec = CompactVec::new();
-                    vec.push(item);
                     self.entries[i].used = true;
-                    self.entries[i].value = vec;
+                    self.entries[i].value = CompactVec::new();
+                    self.entries[i].value.push(item);
                     self.entries[i].hash = self.hash(query);
                     self.entries[i].key = query;
                     self.size += 1;
@@ -370,7 +377,7 @@ fn elem(n: usize) -> usize {
     (n * n) as usize
 }
 
-//#[test]
+#[test]
 fn very_basic() {
     let mut map: OpenAddressingMap<u32, u32> = OpenAddressingMap::with_capacity(2);
     println!("map {:?}", map.display());
@@ -381,7 +388,7 @@ fn very_basic() {
     assert!(*map.get(1).unwrap() == 48);
 }
 
-//#[test]
+#[test]
 fn very_basic2() {
     let mut map: OpenAddressingMap<u32, u32> = OpenAddressingMap::with_capacity(3);
     map.insert(0, 54);
@@ -391,7 +398,7 @@ fn very_basic2() {
 }
 
 
-//#[test]
+#[test]
 fn basic() {
     let n: usize = 10000;
     let mut map: OpenAddressingMap<usize, usize> = OpenAddressingMap::with_capacity(n);
@@ -417,7 +424,7 @@ fn basic() {
     assert!(map.get_mru(500).is_none());
 }
 
-//#[test]
+#[test]
 fn iter() {
     let mut map: OpenAddressingMap<usize, usize> = OpenAddressingMap::with_capacity(200);
     let n = 10;
@@ -440,7 +447,7 @@ fn iter() {
 
 }
 
-//#[test]
+#[test]
 fn values_mut() {
     let mut map: OpenAddressingMap<usize, usize> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);
@@ -490,7 +497,7 @@ fn push_at() {
     println!("finishing push_at");
 }
 
-//#[test]
+#[test]
 fn remove_iter() {
     let mut map: OpenAddressingMap<usize, CompactVec<usize>> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);
@@ -503,7 +510,7 @@ fn remove_iter() {
     assert!(iter.find(|i|{ *i == elem(50) + 1}).is_some());
 }
 
-//#[test]
+#[test]
 fn ensure_capacity_works() {
     let mut map: OpenAddressingMap<usize, CompactVec<usize>> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);

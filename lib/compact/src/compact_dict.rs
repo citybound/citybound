@@ -225,7 +225,7 @@ fn elem(n: usize) -> usize {
     (n * n) as usize
 }
 
-//#[test]
+#[test]
 fn very_basic() {
     let mut map: CompactDict<usize, usize> = CompactDict::new();
     map.insert(0, 54);
@@ -234,7 +234,7 @@ fn very_basic() {
     assert!(*map.get(1).unwrap() == 48);
 }
 
-//#[test]
+#[test]
 fn very_basic2() {
     let mut map: CompactDict<usize, usize> = CompactDict::new();
     map.insert(0, 54);
@@ -244,19 +244,17 @@ fn very_basic2() {
 }
 
 
-//#[test]
+#[test]
 fn basic() {
     let n: usize = 1000;
     let mut map: CompactDict<usize, usize> = CompactDict::new();
     assert!(map.is_empty() == true);
     for i in 0..n {
         let e = elem(i);
-        // println!("elem {:?} {:?}", i, e);
         map.insert(i, e);
     }
     assert!(map.is_empty() == false);
     for i in 0..n {
-        // println!("trying {:?}", i);
         let test = map.get(i).unwrap();
         let exp = elem(i);
         assert!( *test == exp, " failed exp {:?}  was {:?}", exp, test);
@@ -270,7 +268,7 @@ fn basic() {
     assert!(map.get_mru(500).is_none());
 }
 
-//#[test]
+#[test]
 fn iter() {
     let mut map: CompactDict<usize, usize> = CompactDict::new();
     let n = 10;
@@ -291,7 +289,7 @@ fn iter() {
     }
 }
 
-//#[test]
+#[test]
 fn values_mut() {
     let mut map: CompactDict<usize, usize> = CompactDict::new();
     assert!(map.is_empty() == true);
@@ -309,7 +307,7 @@ fn values_mut() {
     }
 }
 
-//#[test]
+#[test]
 fn pairs() {
     let mut map: CompactDict<usize, usize> = CompactDict::new();
     assert!(map.is_empty() == true);
@@ -321,7 +319,7 @@ fn pairs() {
     }
 }
 
-//#[test]
+#[test]
 fn push_at() {
     let mut map: CompactDict<usize, CompactVec<usize>> = CompactDict::new();
     assert!(map.is_empty() == true);
@@ -337,7 +335,7 @@ fn push_at() {
     }
 }
 
-//#[test]
+#[test]
 fn remove_iter() {
     let mut map: CompactDict<usize, CompactVec<usize>> = CompactDict::new();
     assert!(map.is_empty() == true);

@@ -199,6 +199,10 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
     pub fn clear(&mut self) {
         self.truncate(0);
     }
+
+    pub fn ptr_to_string(&self) -> String {
+        self.ptr.to_string()
+    }
 }
 
 impl<T, A: Allocator> From<Vec<T>> for CompactVec<T, A> {
@@ -422,4 +426,9 @@ impl<T: Compact + ::std::fmt::Debug, A: Allocator> ::std::fmt::Debug for Compact
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         (self.deref()).fmt(f)
     }
+}
+
+#[test]
+fn test_empty() {
+    let vec: CompactVec<u32> = CompactVec::new();
 }

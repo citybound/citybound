@@ -1,3 +1,4 @@
+use std;
 /// Specifies the 3 states that the pointer can be in:
 /// 1. Free: On the heap - Stores a pointer
 /// 2. Compact: On the dynamic part - Stores an offset
@@ -16,6 +17,12 @@ pub struct PointerToMaybeCompact<T> {
 impl<T> Default for PointerToMaybeCompact<T> {
     fn default() -> PointerToMaybeCompact<T> {
         PointerToMaybeCompact { inner: Inner::Uninitialized }
+    }
+}
+
+impl<T> std::fmt::Debug for PointerToMaybeCompact<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Ptr {:?}", self.to_string())
     }
 }
 
@@ -59,6 +66,28 @@ impl<T> PointerToMaybeCompact<T> {
             Inner::Free(_) => false,
             Inner::Compact(_) |
             Inner::Uninitialized => true,
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        match self.inner {
+            Inner::Free(p) => format!("Free {:p}", p),
+            Inner::Compact(i) => format!("Compact {:?}", i),
+            Inner::Uninitialized => String::from("uninitialized"),
+        }
+    }
+}
+
+impl<T: Default> PointerToMaybeCompact<T> {
+    pub fn initialize_with_default(&self, i: isize) {
+        match self.inner {
+            Inner::Uninitialized => (),
+            Inner::Compact(i) => (),
+            Inner::Free(p) => (
+                unsafe {
+                    std::ptr::write(p.offset(i),T::default())
+                }
+            )
         }
     }
 }
