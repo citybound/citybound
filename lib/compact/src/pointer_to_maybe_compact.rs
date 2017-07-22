@@ -83,11 +83,7 @@ impl<T: Default> PointerToMaybeCompact<T> {
         match self.inner {
             Inner::Uninitialized => (),
             Inner::Compact(i) => (),
-            Inner::Free(p) => (
-                unsafe {
-                    std::ptr::write(p.offset(i),T::default())
-                }
-            )
+            Inner::Free(p) => (unsafe { std::ptr::write(p.offset(i), T::default()) }),
         }
     }
 }
