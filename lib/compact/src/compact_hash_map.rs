@@ -133,12 +133,12 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
 
     /// Iterator over mutable references to all values in the dictionary
     pub fn values_mut<'a>(& 'a mut self) -> impl Iterator<Item = & 'a mut V>  + 'a { 
-         self.entries.iter_mut().filter(|e| e.used).map(|e| & mut e.value);
+         self.entries.iter_mut().filter(|e| e.used).map(|e| & mut e.value)
     }
 
     /// Iterator over all key-value pairs in the dictionary
     pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)>  + 'a {
-        self.entries.iter().filter(|e| {e.used}).map(|e|{(&e.key, &e.value)});
+        self.entries.iter().filter(|e| {e.used}).map(|e|{(&e.key, &e.value)})
     }
 
     fn hash(&self, key: K) -> u64 {
@@ -306,33 +306,6 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
             map.insert(key, value);
         }
         map
-    }
-}
-
-struct OpenAddressingMapIter<'a, K: 'a + Copy + Compact + Eq + Hash + Default, V: 'a + Clone + Compact + Default> {
-    idx: usize,
-    left: usize,
-    _k: PhantomData<K>,
-    _v: PhantomData<V>,
-    arr_iter: Iterator<Item=(&'a(Entry<K,V>))>,
-}
-
-impl <'a, K: Copy + Eq + Hash + Default,V: Default + Clone + Compact> Iterator for OpenAddressingMapIter<'a, K, V> {
-    type Item = &'a(Entry<K, V>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.left == 0 {
-            return None;
-        }
-        loop {
-            let res = self.arr_iter
-                .next().unwrap();
-            self.idx += 1;
-            if res.used {
-                self.left -= 1;
-                return Some(res);
-            }
-        }
     }
 }
 
