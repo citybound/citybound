@@ -76,7 +76,6 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
             entries: CompactArray::with_capacity(l),
             size: 0,
         };
-        //println!("with capacity {:?}", map.display());
         map
     }
 
@@ -114,46 +113,32 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
 
     /// Insert new value at key `query` and return the previous value at that key, if any existed
     pub fn insert(&mut self, query: K, value: V) -> Option<V> {
-        //println!("inserting");
-        //let state = self.display();
-        let res = self.insert_inner_growing(query, value);
-        //println!("state: {:?}", state);
-        res
+        self.insert_inner_growing(query, value)
     }
     
     /// Remove value at key `query` and return it, if it existed
     pub fn remove(&mut self, query: K) -> Option<V> {
-         //println!("removing");
          self.remove_inner(query)
     }
 
     /// Iterator over all keys in the dictionary
     pub fn keys<'a>(& 'a self) -> impl Iterator<Item = & 'a K> + 'a {
-         //println!("keys");
          self.entries.iter().filter(|e| {e.used}).map(|e|{(&e.key)})
     }
 
     /// Iterator over all values in the dictionary
     pub fn values<'a>(& 'a self) -> impl Iterator<Item = & 'a V>  + 'a {
-         //println!("values");
          self.entries.iter().filter(|e| e.used).map(|e|{(&e.value)})
     }
 
     /// Iterator over mutable references to all values in the dictionary
-    pub fn values_mut<'a>(& 'a mut self) -> impl Iterator<Item = & 'a mut V>  + 'a {
-         //println!("values mut");
-         let state = self.display();
-         let res = self.entries.iter_mut().filter(|e| e.used).map(|e| & mut e.value);
-         println!("state {:?}", state);
-         res
+    pub fn values_mut<'a>(& 'a mut self) -> impl Iterator<Item = & 'a mut V>  + 'a { 
+         self.entries.iter_mut().filter(|e| e.used).map(|e| & mut e.value);
     }
 
     /// Iterator over all key-value pairs in the dictionary
     pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)>  + 'a {
-        //println!("pairs");
-        let res = self.entries.iter().filter(|e| {e.used}).map(|e|{(&e.key, &e.value)});
-        //println!("state {:?}", self.display());
-        res
+        self.entries.iter().filter(|e| {e.used}).map(|e|{(&e.key, &e.value)});
     }
 
     fn hash(&self, key: K) -> u64 {
@@ -169,7 +154,6 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
     }
 
     fn get_inner_mut(&mut self, query: K) -> Option<&mut Entry<K,V>> {
-        //println!("get inner mut");
         self.find_pos(query).map(move |i| {&mut self.entries[i]})
     }
 
@@ -221,7 +205,6 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
 
     fn ensure_capacity(&mut self) {
         if 10 * self.size > 7 * self.entries.capacity() {
-            //println!("growing");
             let old_entries = self.entries.clone();
             self.entries = CompactArray::with_capacity(old_entries.capacity() * 2);
             self.size = 0;
@@ -283,7 +266,6 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
     }
 
     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
-        //println!("compact from");
         self.size = source.size;
         self.entries.compact_from(
             &source.entries,
@@ -293,7 +275,6 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
     }
 
     unsafe fn decompact(&self) -> OpenAddressingMap<K, V, A> {
-        //println!("decompact");
         OpenAddressingMap {
             entries: self.entries.decompact(),
             size: self.size,
@@ -303,7 +284,6 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
 
 impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> Clone for OpenAddressingMap<K, V, A> {
     fn clone(&self) -> Self {
-        //println!("clone");
         OpenAddressingMap {
             entries: self.entries.clone(),
             size: self.size,
@@ -321,7 +301,6 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
     for OpenAddressingMap<K, V, A> {
     /// Construct a compact dictionary from an interator over key-value pairs
     fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
-        //println!("fromIterator");
         let mut map = Self::with_capacity(100);
         for (key, value) in iter {
             map.insert(key, value);
@@ -385,7 +364,6 @@ impl<K: Hash + Eq + Copy + Default, I: Compact, A1: Allocator, A2: Allocator> Op
     /// Iterator over the `CompactVec` at the key `query`
     #[allow(needless_lifetimes)]
     pub fn get_iter<'a>(&'a self, query: K) -> impl Iterator<Item = &'a I> + 'a {
-        //println!("get_iter");
         self.get(query).into_iter().flat_map(|vec_in_option| {
             vec_in_option.iter()
         })
@@ -394,7 +372,6 @@ impl<K: Hash + Eq + Copy + Default, I: Compact, A1: Allocator, A2: Allocator> Op
     /// Remove the `CompactVec` at the key `query` and iterate over its elements (if it existed)
     #[allow(needless_lifetimes)]
     pub fn remove_iter<'a>(&'a mut self, query: K) -> impl Iterator<Item = I> + 'a {
-        //println!("remove_iter");
         self.remove(query).into_iter().flat_map(|vec_in_option| {
             vec_in_option.into_iter()
         })
@@ -418,10 +395,8 @@ fn elem(n: usize) -> usize {
 #[test]
 fn very_basic() {
     let mut map: OpenAddressingMap<u32, u32> = OpenAddressingMap::with_capacity(2);
-    println!("map {:?}", map.display());
     map.insert(0, 54);
     assert!(*map.get(0).unwrap() == 54);
-    println!("map {:?}", map.display());
     map.insert(1, 48);
     assert!(*map.get(1).unwrap() == 48);
 }
@@ -443,12 +418,10 @@ fn basic() {
     assert!(map.is_empty() == true);
     for i in 0..n {
         let e = elem(i);
-        // println!("elem {:?} {:?}", i, e);
         map.insert(i, e);
     }
     assert!(map.is_empty() == false);
     for i in 0..n {
-        // println!("trying {:?}", i);
         let test = map.get(i).unwrap();
         let exp = elem(i);
         assert!( *test == exp, " failed exp {:?}  was {:?}", exp, test);
@@ -517,7 +490,6 @@ fn pairs() {
 
 #[test]
 fn push_at() {
-    println!("starting push_at");
     let mut map: OpenAddressingMap<usize, CompactVec<usize>> = OpenAddressingMap::new();
     assert!(map.is_empty() == true);
     for n in 0..10000 {
@@ -532,7 +504,6 @@ fn push_at() {
         let mut iter2 = map.get_iter(n);
         assert!(iter2.find(|&i|{ *i == elem(n) + 1}).is_some());
     }
-    println!("finishing push_at");
 }
 
 #[test]
