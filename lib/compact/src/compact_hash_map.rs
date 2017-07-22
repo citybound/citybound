@@ -58,7 +58,7 @@ impl<K: Copy + Hash + Eq + Default, V: Compact + Clone + Default> Default for En
     }
 }
 
-struct OpenAddressingMap<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator = DefaultHeap> {
+pub struct OpenAddressingMap<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator = DefaultHeap> {
     size: usize,
     entries: CompactArray<Entry<K, V>, A>,
 }

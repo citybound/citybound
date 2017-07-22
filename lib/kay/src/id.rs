@@ -1,7 +1,7 @@
 use super::type_registry::ShortTypeId;
 
 /// An ID that uniquely identifies an `Actor`, or even a `SubActor` within a `Swarm`
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Default, Hash)]
 pub struct ID {
     /// An ID for the type of the identified `Actor`, used to dispatch messages
     /// to the message handling functions registered for this type
@@ -46,10 +46,12 @@ impl ID {
 
 impl ::std::fmt::Debug for ID {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f,
-               "ID {}_{}_{}",
-               u16::from(self.type_id),
-               self.version,
-               self.sub_actor_id)
+        write!(
+            f,
+            "ID {}_{}_{}",
+            u16::from(self.type_id),
+            self.version,
+            self.sub_actor_id
+        )
     }
 }

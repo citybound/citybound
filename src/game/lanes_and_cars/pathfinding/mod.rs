@@ -1,4 +1,4 @@
-use compact::{CDict, CVec};
+use compact::{CDict, CVec, CHashMap};
 use kay::{ID, ActorSystem, Fate, World};
 use kay::swarm::{Swarm, SubActor};
 use stagemaster::geometry::AnyShape;
@@ -13,14 +13,14 @@ pub struct PathfindingInfo {
     pub as_destination: Option<Destination>,
     pub hops_from_landmark: u8,
     pub learned_landmark_from: Option<ID>,
-    pub routes: CDict<Destination, RoutingInfo>,
+    pub routes: CHashMap<Destination, RoutingInfo>,
     pub routes_changed: bool,
     pub tell_to_forget_next_tick: CVec<Destination>,
     pub query_routes_next_tick: bool,
     pub routing_timeout: u16,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Default, Hash, Debug)]
 pub struct Destination {
     pub landmark: ID,
     pub node: ID,
@@ -38,7 +38,7 @@ impl Destination {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct RoutingInfo {
     pub outgoing_idx: u8,
     pub distance: f32,
@@ -101,7 +101,7 @@ pub fn tick(lane: &mut Lane, world: &mut World) {
             as_destination: Some(Destination::landmark(lane.id())),
             hops_from_landmark: 0,
             learned_landmark_from: Some(lane.id()),
-            routes: CDict::new(),
+            routes: CHashMap::new(),
             routes_changed: true,
             query_routes_next_tick: false,
             tell_to_forget_next_tick: CVec::new(),
@@ -248,19 +248,20 @@ pub fn setup(system: &mut ActorSystem) {
                 })
                 .unwrap_or(true);
             if join {
-                lane.pathfinding = PathfindingInfo {
-                    as_destination: Some(join_as),
-                    learned_landmark_from: Some(from),
-                    hops_from_landmark: hops_from_landmark,
-                    routes: CDict::new(),
-                    routes_changed: true,
-                    query_routes_next_tick: true,
-                    tell_to_forget_next_tick: lane.pathfinding
+                let tell_to_forget_next_tick = lane.pathfinding
                         .routes
                         .keys()
                         .cloned()
                         .chain(lane.pathfinding.as_destination.into_iter())
-                        .collect(),
+                        .collect();
+                lane.pathfinding = PathfindingInfo {
+                    as_destination: Some(join_as),
+                    learned_landmark_from: Some(from),
+                    hops_from_landmark: hops_from_landmark,
+                    routes: CHashMap::new(),
+                    routes_changed: true,
+                    query_routes_next_tick: true,
+                    tell_to_forget_next_tick: tell_to_forget_next_tick,
                     routing_timeout: ROUTING_TIMEOUT_AFTER_CHANGE,
                 };
             }

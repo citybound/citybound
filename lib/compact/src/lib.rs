@@ -31,3 +31,4 @@ mod compact_hash_map;
 pub use self::compact::Compact;
 pub use self::compact_vec::CompactVec as CVec;
 pub use self::compact_dict::CompactDict as CDict;
+pub use self::compact_hash_map::OpenAddressingMap as CHashMap;
