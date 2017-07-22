@@ -72,6 +72,7 @@ impl<T: Default, A: Allocator> From<Vec<T>> for CompactArray<T, A> {
 impl<T: Default, A: Allocator> Drop for CompactArray<T, A> {
     /// Drop elements and deallocate free heap storage, if any is allocated
     fn drop(&mut self) {
+        println!("dropping drop");
         unsafe { ptr::drop_in_place(&mut self[..]) };
         if !self.ptr.is_compact() {
             unsafe {
@@ -118,6 +119,7 @@ impl<T, A: Allocator> Iterator for IntoIter<T, A> {
 
 impl<T, A: Allocator> Drop for IntoIter<T, A> {
     fn drop(&mut self) {
+        println!("dropping");
         // drop all remaining elements
         unsafe {
             ptr::drop_in_place(&mut ::std::slice::from_raw_parts(
@@ -126,6 +128,7 @@ impl<T, A: Allocator> Drop for IntoIter<T, A> {
             ))
         };
         if !self.ptr.is_compact() {
+            println!("dropping still");
             unsafe {
                 A::deallocate(self.ptr.mut_ptr(), self.cap);
             }
@@ -249,7 +252,7 @@ impl<T: Compact + Clone + Default, A: Allocator> FromIterator<T> for CompactArra
     }
 }
 
-impl<T: Compact + Clone + Default, A: Allocator> Extend<T> for CompactArray<T, A> {
+/*impl<T: Compact + Clone + Default, A: Allocator> Extend<T> for CompactArray<T, A> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         let mut i = 0;
         for item in iter {
@@ -257,7 +260,7 @@ impl<T: Compact + Clone + Default, A: Allocator> Extend<T> for CompactArray<T, A
             i = i + 1;
         }
     }
-}
+}*/
 
 impl<T: Compact + Default, A: Allocator> Default for CompactArray<T, A> {
     fn default() -> CompactArray<T, A> {

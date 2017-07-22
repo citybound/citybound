@@ -318,6 +318,7 @@ pub fn setup(system: &mut ActorSystem) {
                             .map(|&RoutingInfo { distance, .. }| new_distance < distance)
                             .unwrap_or(true);
                         if insert {
+                            println!("path finding {:?}", lane.pathfinding.routes.display());
                             lane.pathfinding.routes.insert(destination,
                                                            RoutingInfo {
                                                                distance: new_distance,

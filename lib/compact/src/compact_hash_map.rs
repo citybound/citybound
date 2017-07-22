@@ -34,6 +34,9 @@ impl<K: Copy + Hash + Eq + Default, V: Compact + Clone + Default> Compact for En
     }
 
     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
+        self.key = source.key;
+        self.hash = source.hash;
+        self.used = source.used;
         self.value.compact_from(&source.value, new_dynamic_part);
     }
 
@@ -73,6 +76,7 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
             entries: CompactArray::with_capacity(l),
             size: 0,
         };
+        //println!("with capacity {:?}", map.display());
         map
     }
 
@@ -110,7 +114,71 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
 
     /// Insert new value at key `query` and return the previous value at that key, if any existed
     pub fn insert(&mut self, query: K, value: V) -> Option<V> {
+        //println!("inserting");
+        //let state = self.display();
+        let res = self.insert_inner_growing(query, value);
+        //println!("state: {:?}", state);
+        res
+    }
+    
+    /// Remove value at key `query` and return it, if it existed
+    pub fn remove(&mut self, query: K) -> Option<V> {
+         //println!("removing");
+         self.remove_inner(query)
+    }
+
+    /// Iterator over all keys in the dictionary
+    pub fn keys<'a>(& 'a self) -> impl Iterator<Item = & 'a K> + 'a {
+         //println!("keys");
+         self.entries.iter().filter(|e| {e.used}).map(|e|{(&e.key)})
+    }
+
+    /// Iterator over all values in the dictionary
+    pub fn values<'a>(& 'a self) -> impl Iterator<Item = & 'a V>  + 'a {
+         //println!("values");
+         self.entries.iter().filter(|e| e.used).map(|e|{(&e.value)})
+    }
+
+    /// Iterator over mutable references to all values in the dictionary
+    pub fn values_mut<'a>(& 'a mut self) -> impl Iterator<Item = & 'a mut V>  + 'a {
+         //println!("values mut");
+         let state = self.display();
+         let res = self.entries.iter_mut().filter(|e| e.used).map(|e| & mut e.value);
+         println!("state {:?}", state);
+         res
+    }
+
+    /// Iterator over all key-value pairs in the dictionary
+    pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)>  + 'a {
+        //println!("pairs");
+        let res = self.entries.iter().filter(|e| {e.used}).map(|e|{(&e.key, &e.value)});
+        //println!("state {:?}", self.display());
+        res
+    }
+
+    fn hash(&self, key: K) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        key.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    fn get_inner(&self, query: K) -> Option<&Entry<K,V>> {
+        self.find_pos_used(query).map(move |i| {
+            &self.entries[i]
+        })
+    }
+
+    fn get_inner_mut(&mut self, query: K) -> Option<&mut Entry<K,V>> {
+        //println!("get inner mut");
+        self.find_pos(query).map(move |i| {&mut self.entries[i]})
+    }
+
+    fn insert_inner_growing(&mut self, query: K, value: V) -> Option<V> {
         self.ensure_capacity();
+        self.insert_inner(query, value)
+    }
+
+    fn insert_inner(&mut self, query: K, value: V) -> Option<V> {
         let len = self.entries.capacity();
         let hash = self.hash(query);
         let h = hash as usize;
@@ -128,54 +196,14 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
                 let old_val: V = entry.value.clone();
                 entry.value = value;
                 entry.hash = hash;
-                self.size += 1;
                 return Some(old_val)
             } else {
             }
         }
-        panic!("should always have place");
+        panic!("should have place")
     }
 
-    /// Remove value at key `query` and return it, if it existed
-    pub fn remove(&mut self, query: K) -> Option<V> {
-         self.remove_inner(query)
-    }
-
-    /// Iterator over all keys in the dictionary
-    pub fn keys<'a>(& 'a self) -> impl Iterator<Item = & 'a K> + 'a {
-         self.entries.iter().filter(|e| {e.used}).map(|e|{(&e.key)})
-    }
-
-    /// Iterator over all values in the dictionary
-    pub fn values<'a>(& 'a self) -> impl Iterator<Item = & 'a V>  + 'a {
-         self.entries.iter().filter(|e| e.used).map(|e|{(&e.value)})
-    }
-
-    /// Iterator over mutable references to all values in the dictionary
-    pub fn values_mut<'a>(& 'a mut self) -> impl Iterator<Item = & 'a mut V>  + 'a {
-         self.entries.iter_mut().filter(|e| e.used).map(|e| & mut e.value)
-    }
-
-    /// Iterator over all key-value pairs in the dictionary
-    pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)>  + 'a {
-        self.entries.iter().filter(|e| {e.used}).map(|e|{(&e.key, &e.value)})
-    }
-
-    fn hash(&self, key: K) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        key.hash(&mut hasher);
-        hasher.finish()
-    }
-
-    fn get_inner(&self, query: K) -> Option<&Entry<K,V>> {
-        self.find_pos_used(query).map(move |i| {
-            &self.entries[i]
-        })
-    }
-
-    fn get_inner_mut(&mut self, query: K) -> Option<&mut Entry<K,V>> {
-        self.find_pos(query).map(move |i| {&mut self.entries[i]})
-    }
+    
 
     fn remove_inner(&mut self, query: K) -> Option<V> {
         let len = self.entries.capacity();
@@ -184,6 +212,7 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
             let index = (h + i*i) % len;
             if self.entries[index].used && (self.entries[index].key == query) {
                 self.entries[index].used = false;
+                self.size -= 1;
                 return Some(self.entries[index].value.clone());
             }
         }
@@ -192,6 +221,7 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
 
     fn ensure_capacity(&mut self) {
         if 10 * self.size > 7 * self.entries.capacity() {
+            //println!("growing");
             let old_entries = self.entries.clone();
             self.entries = CompactArray::with_capacity(old_entries.capacity() * 2);
             self.size = 0;
@@ -230,9 +260,15 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
 
     pub fn display(&self) -> String {
         let mut res = String::new(); 
+        writeln!(&mut res, "size: {:?}", self.size);
+        let mut size_left: isize = self.size as isize;
         for entry in self.entries.iter() {
-            write!(&mut res, "{:?} {:?}\n", entry.used, entry.hash).unwrap();
+            if (entry.used) {
+                size_left -= 1;
+            }
+            writeln!(&mut res, "  {:?} {:?}", entry.used, entry.hash).unwrap();
         }
+        writeln!(&mut res, "size_left : {:?}", size_left);
         res
     }
 }
@@ -247,19 +283,17 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
     }
 
     unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
+        //println!("compact from");
+        self.size = source.size;
         self.entries.compact_from(
             &source.entries,
             new_dynamic_part,
         );
-        self.size.compact_from(
-            &source.size,
-            new_dynamic_part.offset(
-                (self.entries.dynamic_size_bytes()) as isize,
-            ),
-        )
+
     }
 
     unsafe fn decompact(&self) -> OpenAddressingMap<K, V, A> {
+        //println!("decompact");
         OpenAddressingMap {
             entries: self.entries.decompact(),
             size: self.size,
@@ -269,6 +303,7 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
 
 impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> Clone for OpenAddressingMap<K, V, A> {
     fn clone(&self) -> Self {
+        //println!("clone");
         OpenAddressingMap {
             entries: self.entries.clone(),
             size: self.size,
@@ -286,6 +321,7 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
     for OpenAddressingMap<K, V, A> {
     /// Construct a compact dictionary from an interator over key-value pairs
     fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
+        //println!("fromIterator");
         let mut map = Self::with_capacity(100);
         for (key, value) in iter {
             map.insert(key, value);
@@ -349,6 +385,7 @@ impl<K: Hash + Eq + Copy + Default, I: Compact, A1: Allocator, A2: Allocator> Op
     /// Iterator over the `CompactVec` at the key `query`
     #[allow(needless_lifetimes)]
     pub fn get_iter<'a>(&'a self, query: K) -> impl Iterator<Item = &'a I> + 'a {
+        //println!("get_iter");
         self.get(query).into_iter().flat_map(|vec_in_option| {
             vec_in_option.iter()
         })
@@ -357,6 +394,7 @@ impl<K: Hash + Eq + Copy + Default, I: Compact, A1: Allocator, A2: Allocator> Op
     /// Remove the `CompactVec` at the key `query` and iterate over its elements (if it existed)
     #[allow(needless_lifetimes)]
     pub fn remove_iter<'a>(&'a mut self, query: K) -> impl Iterator<Item = I> + 'a {
+        //println!("remove_iter");
         self.remove(query).into_iter().flat_map(|vec_in_option| {
             vec_in_option.into_iter()
         })
