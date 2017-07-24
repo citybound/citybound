@@ -1,4 +1,4 @@
-use monet::{Thing, Instance, Renderer};
+use monet::{Thing, Instance, RendererID};
 use compact::CDict;
 use kay::{ID, ActorSystem, Fate};
 use std::marker::PhantomData;
@@ -25,12 +25,15 @@ pub struct ThingCollector<T: Clone> {
 }
 
 
-use monet::SetupInScene;
+use monet::MSG_Renderable_setup_in_scene;
+use monet::MSG_Renderable_render_to_scene;
 
-pub fn setup<T: Clone + 'static>(system: &mut ActorSystem,
-                                 instance_color: [f32; 3],
-                                 base_thing_id: u16,
-                                 is_decal: bool) {
+pub fn setup<T: Clone + 'static>(
+    system: &mut ActorSystem,
+    instance_color: [f32; 3],
+    base_thing_id: u16,
+    is_decal: bool,
+) {
     let initial = ThingCollector::<T> {
         instance_color: instance_color,
         base_thing_id: base_thing_id,
@@ -46,7 +49,7 @@ pub fn setup<T: Clone + 'static>(system: &mut ActorSystem,
     system.add(initial, |mut the_collector| {
         let collector_id = the_collector.world().id::<ThingCollector<T>>();
 
-        the_collector.on(|_: &SetupInScene, _, _| Fate::Live);
+        the_collector.on(|_: &MSG_Renderable_setup_in_scene, _, _| Fate::Live);
 
         the_collector.on(|control, coll, _| {
             match *control {
@@ -77,7 +80,8 @@ pub fn setup<T: Clone + 'static>(system: &mut ActorSystem,
             Fate::Live
         });
 
-        the_collector.on(move |&RenderToScene { renderer_id, scene_id },
+        the_collector.on(move |&MSG_Renderable_render_to_scene(renderer_id,
+                                              scene_id),
               coll,
               world| {
             // TODO: this introduces 1 frame delay
@@ -86,70 +90,79 @@ pub fn setup<T: Clone + 'static>(system: &mut ActorSystem,
             }
 
             if coll.cached_frozen_things_dirty {
-                let cached_frozen_things_grouped = coll.frozen_things
-                    .values()
-                    .cloned()
-                    .coalesce(|a, b| if a.vertices.len() + b.vertices.len() >
-                                        u16::max_value() as usize {
-                                  Err((a, b))
-                              } else {
-                                  Ok(a + b)
-                              });
+                let cached_frozen_things_grouped = coll.frozen_things.values().cloned().coalesce(
+                    |a, b| {
+                        if a.vertices.len() + b.vertices.len() > u16::max_value() as usize {
+                            Err((a, b))
+                        } else {
+                            Ok(a + b)
+                        }
+                    },
+                );
                 coll.cached_frozen_things_dirty = false;
 
                 coll.n_frozen_groups = 0;
 
                 for frozen_group in cached_frozen_things_grouped {
-                    renderer_id.update_thing(scene_id,
-                                             coll.base_thing_id + coll.n_frozen_groups as u16,
-                                             frozen_group,
-                                             Instance {
-                                                 instance_position: [0.0, 0.0, -0.1],
-                                                 instance_direction: [1.0, 0.0],
-                                                 instance_color: coll.instance_color,
-                                             },
-                                             coll.is_decal,
-                                             world);
+                    renderer_id.update_thing(
+                        scene_id,
+                        coll.base_thing_id + coll.n_frozen_groups as u16,
+                        frozen_group,
+                        Instance {
+                            instance_position: [0.0, 0.0, -0.1],
+                            instance_direction: [1.0, 0.0],
+                            instance_color: coll.instance_color,
+                        },
+                        coll.is_decal,
+                        world,
+                    );
 
                     coll.n_frozen_groups += 1;
                 }
             }
 
-            let living_thing_groups = coll.living_things
-                .values()
-                .cloned()
-                .coalesce(|a, b| if a.vertices.len() + b.vertices.len() >
-                                    u16::max_value() as usize {
-                              Err((a, b))
-                          } else {
-                              Ok(a + b)
-                          });
+            let living_thing_groups = coll.living_things.values().cloned().coalesce(
+                |a, b| if a.vertices.len() + b.vertices.len() >
+                    u16::max_value() as
+                        usize
+                {
+                    Err((a, b))
+                } else {
+                    Ok(a + b)
+                },
+            );
 
             let mut new_n_total_groups = coll.n_frozen_groups;
 
             for living_thing_group in living_thing_groups {
-                Renderer::id(world).update_thing(scene_id,
-                                                 coll.base_thing_id + new_n_total_groups as u16,
-                                                 living_thing_group,
-                                                 Instance {
-                                                     instance_position: [0.0, 0.0, -0.1],
-                                                     instance_direction: [1.0, 0.0],
-                                                     instance_color: coll.instance_color,
-                                                 },
-                                                 coll.is_decal,
-                                                 world);
+                // TODO: ugly/wrong
+                RendererID::broadcast(world).update_thing(
+                    scene_id,
+                    coll.base_thing_id + new_n_total_groups as u16,
+                    living_thing_group,
+                    Instance {
+                        instance_position: [0.0, 0.0, -0.1],
+                        instance_direction: [1.0, 0.0],
+                        instance_color: coll.instance_color,
+                    },
+                    coll.is_decal,
+                    world,
+                );
 
                 new_n_total_groups += 1;
             }
 
             if new_n_total_groups > coll.n_total_groups {
                 for thing_to_empty_id in new_n_total_groups..coll.n_total_groups {
-                    Renderer::id(world).update_thing(scene_id,
-                                                     coll.base_thing_id + thing_to_empty_id as u16,
-                                                     Thing::new(vec![], vec![]),
-                                                     Instance::with_color([0.0, 0.0, 0.0]),
-                                                     coll.is_decal,
-                                                     world);
+                    // TODO: ugly/wrong
+                    RendererID::broadcast(world).update_thing(
+                        scene_id,
+                        coll.base_thing_id + thing_to_empty_id as u16,
+                        Thing::new(vec![], vec![]),
+                        Instance::with_color([0.0, 0.0, 0.0]),
+                        coll.is_decal,
+                        world,
+                    );
                 }
             }
 
@@ -167,9 +180,6 @@ pub enum Control {
     Unfreeze(ID),
     Remove(ID),
 }
-
-
-use monet::RenderToScene;
 
 #[derive(Copy, Clone)]
 pub struct RenderToCollector(pub ID);

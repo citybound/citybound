@@ -2,7 +2,7 @@ use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Norm, Path, Dot, Roughl
 use compact::CVec;
 use kay::{ActorSystem, Fate, World};
 use kay::swarm::{Swarm, SubActor};
-use monet::{Instance, Thing, Vertex, Renderer};
+use monet::{Instance, Thing, Vertex, RendererID};
 use stagemaster::geometry::{band_to_thing, dash_path};
 use super::lane::{Lane, TransferLane};
 use super::connectivity::InteractionKind;
@@ -17,12 +17,12 @@ mod traffic_light;
 pub mod lane_thing_collector;
 use self::lane_thing_collector::ThingCollector;
 
-use monet::SetupInScene;
+use monet::MSG_Renderable_setup_in_scene;
 
 pub fn setup(system: &mut ActorSystem) {
 
     system.extend::<Swarm<Lane>, _>(|mut the_lane_swarm| {
-        the_lane_swarm.on(|&SetupInScene { renderer_id, scene_id }, _, world| {
+        the_lane_swarm.on(|&MSG_Renderable_setup_in_scene (renderer_id, scene_id ), _, world| {
             renderer_id.add_batch(scene_id, 8000, car::create(), world);
             renderer_id.add_batch(scene_id, 8001, traffic_light::create(), world);
             renderer_id.add_batch(scene_id, 8002, traffic_light::create_light(), world);
@@ -95,7 +95,7 @@ pub fn setup(system: &mut ActorSystem) {
             Fate::Live
         });
 
-        each_lane.on(|&RenderToScene { renderer_id, scene_id }, lane, world| {
+        each_lane.on(|&MSG_Renderable_render_to_scene (renderer_id, scene_id ), lane, world| {
             let mut cars_iter = lane.microtraffic.cars.iter();
             let mut current_offset = 0.0;
             let mut car_instances = CVec::with_capacity(lane.microtraffic.cars.len());
@@ -290,7 +290,7 @@ pub fn setup(system: &mut ActorSystem) {
     }));
 
     system.extend::<Swarm<TransferLane>, _>(|mut the_t_lane_swarm| {
-        the_t_lane_swarm.on(|_: &SetupInScene, _, _| Fate::Live)
+        the_t_lane_swarm.on(|_: &MSG_Renderable_setup_in_scene, _, _| Fate::Live)
     });
 
     system.extend(Swarm::<TransferLane>::subactors(|mut each_t_lane| {
@@ -327,7 +327,7 @@ pub fn setup(system: &mut ActorSystem) {
             Fate::Live
         });
 
-        each_t_lane.on(|&RenderToScene { renderer_id, scene_id }, lane, world| {
+        each_t_lane.on(|&MSG_Renderable_render_to_scene (renderer_id, scene_id), lane, world| {
             let mut cars_iter = lane.microtraffic.cars.iter();
             let mut current_offset = 0.0;
             let mut car_instances = CVec::with_capacity(lane.microtraffic.cars.len());
@@ -460,7 +460,7 @@ use self::lane_thing_collector::Control::{Update, Freeze};
 
 const CONSTRUCTION_ANIMATION_DELAY: f32 = 120.0;
 
-use monet::RenderToScene;
+use monet::MSG_Renderable_render_to_scene;
 
 const DEBUG_VIEW_LANDMARKS: bool = false;
 const DEBUG_VIEW_SIGNALS: bool = false;
@@ -490,8 +490,8 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
     }
 
     if DEBUG_VIEW_LANDMARKS {
-        // TODO: ugly
-        Renderer::id(world).update_thing(0,
+        // TODO: ugly/wrong
+        RendererID::broadcast(world).update_thing(0,
                                          4000 + lane.id().sub_actor_id as u16,
                                          Thing::new(vec![], vec![]),
                                          Instance::with_color([0.0, 0.0, 0.0]),
@@ -500,7 +500,7 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
     }
 
     if DEBUG_VIEW_SIGNALS {
-        Renderer::id(world).update_thing(0,
+        RendererID::broadcast(world).update_thing(0,
                                          4000 + lane.id().sub_actor_id as u16,
                                          Thing::new(vec![], vec![]),
                                          Instance::with_color([0.0, 0.0, 0.0]),

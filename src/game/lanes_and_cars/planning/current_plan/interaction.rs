@@ -19,21 +19,24 @@ struct InteractionSettings {
 impl Default for InteractionSettings {
     fn default() -> Self {
         InteractionSettings {
-            bindings: Bindings::new(vec![("Materialize Plan", Combo2::new(&[Return], &[])),
-                                         ("Undo Step", Combo2::new(&[LControl, Z], &[LWin, Z])),
-                                         ("Redo Step",
-                                          Combo2::new(&[LControl, LShift, Z],
-                                                      &[LWin, LShift, Z])),
-                                         ("Spawn Cars", Combo2::new(&[C], &[])),
-                                         ("Create Small Grid", Combo2::new(&[G], &[])),
-                                         ("Create Large Grid", Combo2::new(&[LShift, G], &[])),
-                                         ("Delete Selection", Combo2::new(&[Back], &[Delete]))]),
+            bindings: Bindings::new(vec![
+                ("Materialize Plan", Combo2::new(&[Return], &[])),
+                ("Undo Step", Combo2::new(&[LControl, Z], &[LWin, Z])),
+                (
+                    "Redo Step",
+                    Combo2::new(&[LControl, LShift, Z], &[LWin, LShift, Z])
+                ),
+                ("Spawn Cars", Combo2::new(&[C], &[])),
+                ("Create Small Grid", Combo2::new(&[G], &[])),
+                ("Create Large Grid", Combo2::new(&[LShift, G], &[])),
+                ("Delete Selection", Combo2::new(&[Back], &[Delete])),
+            ]),
         }
     }
 }
 
 use super::InitInteractable;
-use monet::Renderer;
+use monet::{RendererID, EyeListenerID, MSG_EyeListener_eye_moved};
 use stagemaster::{UserInterface, AddInteractable, AddInteractable2d, Focus};
 use game::lanes_and_cars::lane::Lane;
 
@@ -41,7 +44,6 @@ pub fn setup(system: &mut ActorSystem) {
     system.extend::<CurrentPlan, _>(|mut the_cp| {
         let ui_id = the_cp.world().id::<UserInterface>();
         let cp_id = the_cp.world().id::<CurrentPlan>();
-        let renderer_id = the_cp.world().id::<Renderer>();
         let lanes_swarm_id = the_cp.world().id::<Swarm<Lane>>();
 
         the_cp.on(move |_: &InitInteractable, plan, world| {
@@ -49,11 +51,16 @@ pub fn setup(system: &mut ActorSystem) {
             world.send(ui_id, AddInteractable(cp_id, AnyShape::Everywhere, 0));
             world.send(ui_id, AddInteractable2d(cp_id));
             world.send(ui_id, Focus(cp_id));
-            Renderer::id(world).add_eye_listener(0, cp_id, world);
+            // TODO: ugly/wrong
+            RendererID::broadcast(world).add_eye_listener(
+                0,
+                EyeListenerID { _raw_id: cp_id },
+                world,
+            );
             Fate::Live
         });
 
-        the_cp.on(|&EyeMoved { eye, .. }, plan, _| {
+        the_cp.on(|&MSG_EyeListener_eye_moved(eye, ..), plan, _| {
             if eye.position.z < 100.0 {
                 plan.settings.select_parallel = false;
                 plan.settings.select_opposite = false;
@@ -70,10 +77,9 @@ pub fn setup(system: &mut ActorSystem) {
         the_cp.on(move |event, plan, world| {
             match *event {
                 Event3d::Combos(combos) => {
-                    plan.interaction
-                        .settings
-                        .bindings
-                        .do_rebinding(&combos.current);
+                    plan.interaction.settings.bindings.do_rebinding(
+                        &combos.current,
+                    );
                     let bindings = &plan.interaction.settings.bindings;
 
                     if bindings["Materialize Plan"].is_freshly_in(&combos) {
@@ -95,16 +101,18 @@ pub fn setup(system: &mut ActorSystem) {
                         //       *Uh.. next week maybe?*
                         use kay::swarm::ToRandom;
                         use descartes::P3;
-                        world.send(lanes_swarm_id,
-                                   ToRandom {
-                                       n_recipients: 5000,
-                                       message: Event3d::DragFinished {
-                                           from: P3::new(0.0, 0.0, 0.0),
-                                           from2d: P2::new(0.0, 0.0),
-                                           to: P3::new(0.0, 0.0, 0.0),
-                                           to2d: P2::new(0.0, 0.0),
-                                       },
-                                   });
+                        world.send(
+                            lanes_swarm_id,
+                            ToRandom {
+                                n_recipients: 5000,
+                                message: Event3d::DragFinished {
+                                    from: P3::new(0.0, 0.0, 0.0),
+                                    from2d: P2::new(0.0, 0.0),
+                                    to: P3::new(0.0, 0.0, 0.0),
+                                    to2d: P2::new(0.0, 0.0),
+                                },
+                            },
+                        );
                     }
 
                     let maybe_grid_size = if bindings["Create Large Grid"].is_freshly_in(&combos) {
@@ -118,27 +126,42 @@ pub fn setup(system: &mut ActorSystem) {
                     if let Some(grid_size) = maybe_grid_size {
                         const GRID_SPACING: N = 1000.0;
                         for x in 0..grid_size {
-                            world.send(cp_id,
-                                       Stroke(vec![P2::new((x as f32 + 0.5) * GRID_SPACING, 0.0),
-                                                   P2::new((x as f32 + 0.5) * GRID_SPACING,
-                                                           grid_size as f32 * GRID_SPACING)]
-                                                  .into(),
-                                              StrokeState::Finished));
+                            world.send(
+                                cp_id,
+                                Stroke(
+                                    vec![
+                                        P2::new((x as f32 + 0.5) * GRID_SPACING, 0.0),
+                                        P2::new(
+                                            (x as f32 + 0.5) * GRID_SPACING,
+                                            grid_size as f32 * GRID_SPACING
+                                        ),
+                                    ].into(),
+                                    StrokeState::Finished,
+                                ),
+                            );
                         }
                         for y in 0..grid_size {
-                            world.send(cp_id,
-                                       Stroke(vec![P2::new(0.0, (y as f32 + 0.5) * GRID_SPACING),
-                                                   P2::new(grid_size as f32 * GRID_SPACING,
-                                                           (y as f32 + 0.5) * GRID_SPACING)]
-                                                  .into(),
-                                              StrokeState::Finished));
+                            world.send(
+                                cp_id,
+                                Stroke(
+                                    vec![
+                                        P2::new(0.0, (y as f32 + 0.5) * GRID_SPACING),
+                                        P2::new(
+                                            grid_size as f32 * GRID_SPACING,
+                                            (y as f32 + 0.5) * GRID_SPACING
+                                        ),
+                                    ].into(),
+                                    StrokeState::Finished,
+                                ),
+                            );
                         }
                     }
 
                     if bindings["Delete Selection"].is_freshly_in(&combos) {
-                        world.send(cp_id,
-                                   ChangeIntent(Intent::DeleteSelection,
-                                                IntentProgress::Immediate));
+                        world.send(
+                            cp_id,
+                            ChangeIntent(Intent::DeleteSelection, IntentProgress::Immediate),
+                        );
                     }
                 }
                 Event3d::ButtonDown(NumberKey(num)) => {
@@ -174,8 +197,6 @@ pub fn setup(system: &mut ActorSystem) {
         the_cp.world().send(cp_id, InitInteractable);
     });
 }
-
-use monet::EyeMoved;
 
 use stagemaster::Event3d;
 use super::{Intent, ChangeIntent, IntentProgress, Materialize, Undo, Redo, SetNLanes,

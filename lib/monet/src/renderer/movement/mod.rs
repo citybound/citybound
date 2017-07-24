@@ -1,9 +1,9 @@
 
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
                     WithUniqueOrthogonal, Inverse, Rotate};
-use kay::{Fate, ActorSystem};
+use kay::{Fate, ActorSystem, World};
 
-use {Renderer, Eye};
+use {Renderer, RendererID, Eye};
 
 #[derive(Copy, Clone)]
 pub enum Movement {
@@ -14,40 +14,26 @@ pub enum Movement {
     Pitch(N),
 }
 
-#[derive(Copy, Clone)]
-pub struct MoveEye {
-    pub scene_id: usize,
-    pub movement: Movement,
-}
-#[derive(Copy, Clone)]
-pub struct EyeMoved {
-    pub eye: Eye,
-    pub movement: Movement,
+pub trait EyeListener {
+    fn eye_moved(&mut self, eye: Eye, movement: Movement, world: &mut World);
 }
 
-pub fn setup(system: &mut ActorSystem) {
-    system.extend::<Renderer, _>(|mut the_renderer| {
-        the_renderer.on_critical(|&MoveEye { scene_id, movement }, renderer, world| {
-            match movement {
-                Movement::Shift(delta) => renderer.movement_shift(scene_id, delta),
-                Movement::ShiftAbsolute(delta) => renderer.movement_shift_absolute(scene_id, delta),
-                Movement::Zoom(delta, mouse_position) => {
-                    renderer.movement_zoom(scene_id, delta, mouse_position)
-                }
-                Movement::Yaw(delta) => renderer.movement_yaw(scene_id, delta),
-                Movement::Pitch(delta) => renderer.movement_pitch(scene_id, delta),
+impl Renderer {
+    pub fn move_eye(&mut self, scene_id: usize, movement: Movement, world: &mut World) {
+        match movement {
+            Movement::Shift(delta) => self.movement_shift(scene_id, delta),
+            Movement::ShiftAbsolute(delta) => self.movement_shift_absolute(scene_id, delta),
+            Movement::Zoom(delta, mouse_position) => {
+                self.movement_zoom(scene_id, delta, mouse_position)
             }
+            Movement::Yaw(delta) => self.movement_yaw(scene_id, delta),
+            Movement::Pitch(delta) => self.movement_pitch(scene_id, delta),
+        }
 
-            for &id in &renderer.scenes[scene_id].eye_listeners {
-                world.send(id,
-                           EyeMoved {
-                               eye: renderer.scenes[scene_id].eye,
-                               movement: movement,
-                           });
-            }
-            Fate::Live
-        });
-    });
+        for listener in &self.scenes[scene_id].eye_listeners {
+            listener.eye_moved(self.scenes[scene_id].eye, movement, world);
+        }
+    }
 }
 
 impl Renderer {
@@ -55,8 +41,8 @@ impl Renderer {
         let eye = &mut self.scenes[scene_id].eye;
         let eye_direction_2d = (eye.target - eye.position).into_2d().normalize();
         let absolute_delta = delta.x * eye_direction_2d.into_3d() +
-                             delta.y * eye_direction_2d.orthogonal().into_3d() +
-                             V3::new(0.0, 0.0, delta.z);
+            delta.y * eye_direction_2d.orthogonal().into_3d() +
+            V3::new(0.0, 0.0, delta.z);
 
         let dist_to_target = (eye.target - eye.position).norm();
 
@@ -87,7 +73,7 @@ impl Renderer {
         // Scale the distance from eye.target to zoom_point
         // with the scale between zoom distances
         eye.target = ((new_zoom_distance * (eye.target - zoom_point)) / zoom_distance +
-                      zoom_point.to_vector())
+                          zoom_point.to_vector())
             .to_point();
     }
 
@@ -125,3 +111,6 @@ impl Renderer {
         eye.position = eye.target + V3::new(x, y, z);
     }
 }
+
+mod kay_auto;
+pub use self::kay_auto::*;

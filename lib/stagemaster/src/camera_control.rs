@@ -1,5 +1,5 @@
 use kay::{ActorSystem, Fate};
-use monet::{Renderer, MoveEye, Movement};
+use monet::{RendererID, Movement};
 use descartes::{P2, P3, V3};
 use combo::Button::*;
 use super::combo::{Bindings, Combo2};
@@ -22,13 +22,15 @@ impl Default for CameraControlSettings {
             zoom_speed: 1.0f32,
             move_speed: 1.0f32,
             invert_y: false,
-            bindings: Bindings::new(vec![("Move Forward", Combo2::new(&[Up], &[W])),
-                                         ("Move Backward", Combo2::new(&[Down], &[S])),
-                                         ("Move Left", Combo2::new(&[Left], &[A])),
-                                         ("Move Right", Combo2::new(&[Right], &[D])),
-                                         ("Pan", Combo2::new(&[LShift], &[RShift])),
-                                         ("Yaw", Combo2::new(&[LAlt], &[RightMouseButton])),
-                                         ("Pitch", Combo2::new(&[LAlt], &[RightMouseButton]))]),
+            bindings: Bindings::new(vec![
+                ("Move Forward", Combo2::new(&[Up], &[W])),
+                ("Move Backward", Combo2::new(&[Down], &[S])),
+                ("Move Left", Combo2::new(&[Left], &[A])),
+                ("Move Right", Combo2::new(&[Right], &[D])),
+                ("Pan", Combo2::new(&[LShift], &[RShift])),
+                ("Yaw", Combo2::new(&[LAlt], &[RightMouseButton])),
+                ("Pitch", Combo2::new(&[LAlt], &[RightMouseButton])),
+            ]),
         }
     }
 }
@@ -72,7 +74,8 @@ pub fn setup(system: &mut ActorSystem, env: &'static Environment) {
     use super::Event3d;
 
     system.add(state, |mut the_renderer| {
-        let renderer_id = the_renderer.world().id::<Renderer>();
+        // TODO: ugly/wrong
+        let renderer_id = RendererID::broadcast(&mut the_renderer.world());
 
         the_renderer.on_critical(move |event, cc, world| {
             match *event {
@@ -91,28 +94,23 @@ pub fn setup(system: &mut ActorSystem, env: &'static Environment) {
                     cc.last_cursor_2d = cursor_2d;
 
                     if cc.yaw_modifier {
-                        world.send(renderer_id,
-                                   MoveEye {
-                                       scene_id: 0,
-                                       movement: Movement::Yaw(-delta.x *
-                                                               cc.settings.rotation_speed /
-                                                               300.0),
-                                   });
+                        renderer_id.move_eye(
+                            0,
+                            Movement::Yaw(-delta.x * cc.settings.rotation_speed / 300.0),
+                            world,
+                        );
                     }
 
                     if cc.pitch_modifier {
-                        world.send(renderer_id,
-                                   MoveEye {
-                                       scene_id: 0,
-                                       movement: Movement::Pitch(-delta.y *
-                                                                 cc.settings.rotation_speed *
-                                                                 if cc.settings.invert_y {
-                                                                     -1.0
-                                                                 } else {
-                                                                     1.0
-                                                                 } /
-                                                                 300.0),
-                                   });
+                        renderer_id.move_eye(
+                            0,
+                            Movement::Pitch(
+                                -delta.y * cc.settings.rotation_speed *
+                                    if cc.settings.invert_y { -1.0 } else { 1.0 } /
+                                    300.0,
+                            ),
+                            world,
+                        );
                     }
                 }
                 Event3d::MouseMove3d(cursor_3d) => {
@@ -120,63 +118,51 @@ pub fn setup(system: &mut ActorSystem, env: &'static Environment) {
                     cc.last_cursor_3d = cursor_3d;
 
                     if cc.pan_modifier {
-                        world.send(renderer_id,
-                                   MoveEye {
-                                       scene_id: 0,
-                                       movement: Movement::ShiftAbsolute(-delta),
-                                   });
+                        renderer_id.move_eye(0, Movement::ShiftAbsolute(-delta), world);
                         // predict next movement to avoid jitter
                         cc.last_cursor_3d -= delta;
                     }
                 }
                 Event3d::Scroll(delta) => {
-                    world.send(renderer_id,
-                               MoveEye {
-                                   scene_id: 0,
-                                   movement: Movement::Zoom(delta.y * cc.settings.zoom_speed,
-                                                            cc.last_cursor_3d),
-                               });
+                    renderer_id.move_eye(
+                        0,
+                        Movement::Zoom(delta.y * cc.settings.zoom_speed, cc.last_cursor_3d),
+                        world,
+                    );
                 }
                 Event3d::Frame => {
                     if cc.forward {
-                        world.send(renderer_id,
-                                   MoveEye {
-                                       scene_id: 0,
-                                       movement: Movement::Shift(V3::new(5.0 *
-                                                                         cc.settings.move_speed,
-                                                                         0.0,
-                                                                         0.0)),
-                                   });
+                        renderer_id.move_eye(
+                            0,
+                            Movement::Shift(V3::new(5.0 * cc.settings.move_speed, 0.0, 0.0)),
+                            world,
+                        );
+
                     }
                     if cc.backward {
-                        world.send(renderer_id,
-                                   MoveEye {
-                                       scene_id: 0,
-                                       movement: Movement::Shift(V3::new(-5.0 *
-                                                                         cc.settings.move_speed,
-                                                                         0.0,
-                                                                         0.0)),
-                                   });
+                        renderer_id.move_eye(
+                            0,
+                            Movement::Shift(
+                                V3::new(-5.0 * cc.settings.move_speed, 0.0, 0.0),
+                            ),
+                            world,
+                        );
                     }
                     if cc.left {
-                        world.send(renderer_id,
-                                   MoveEye {
-                                       scene_id: 0,
-                                       movement: Movement::Shift(V3::new(0.0,
-                                                                         -5.0 *
-                                                                         cc.settings.move_speed,
-                                                                         0.0)),
-                                   });
+                        renderer_id.move_eye(
+                            0,
+                            Movement::Shift(
+                                V3::new(0.0, -5.0 * cc.settings.move_speed, 0.0),
+                            ),
+                            world,
+                        );
                     }
                     if cc.right {
-                        world.send(renderer_id,
-                                   MoveEye {
-                                       scene_id: 0,
-                                       movement: Movement::Shift(V3::new(0.0,
-                                                                         5.0 *
-                                                                         cc.settings.move_speed,
-                                                                         0.0)),
-                                   });
+                        renderer_id.move_eye(
+                            0,
+                            Movement::Shift(V3::new(0.0, 5.0 * cc.settings.move_speed, 0.0)),
+                            world,
+                        );
                     }
                 }
                 _ => {}
@@ -203,13 +189,12 @@ pub fn setup(system: &mut ActorSystem, env: &'static Environment) {
 
                     ui.text(im_str!("Move Speed"));
                     ui.same_line(150.0);
-                    settings_changed =
-                        settings_changed ||
+                    settings_changed = settings_changed ||
                         ui.slider_float(im_str!(""), &mut cc.settings.move_speed, 0.1, 10.0)
                             .build();
 
                     settings_changed = settings_changed ||
-                                       ui.checkbox(im_str!("Invert Y"), &mut cc.settings.invert_y);
+                        ui.checkbox(im_str!("Invert Y"), &mut cc.settings.invert_y);
 
                     settings_changed = settings_changed || cc.settings.bindings.settings_ui(&ui);
 
@@ -228,11 +213,14 @@ pub fn setup(system: &mut ActorSystem, env: &'static Environment) {
         let ui_id = the_renderer.world().id::<super::UserInterface>();
         let cc_id = the_renderer.world().id::<CameraControl>();
 
-        the_renderer.world().send(ui_id,
-                                  super::AddInteractable(cc_id, super::AnyShape::Everywhere, 0));
-        the_renderer
-            .world()
-            .send(ui_id, super::AddInteractable2d(cc_id));
+        the_renderer.world().send(
+            ui_id,
+            super::AddInteractable(cc_id, super::AnyShape::Everywhere, 0),
+        );
+        the_renderer.world().send(
+            ui_id,
+            super::AddInteractable2d(cc_id),
+        );
         the_renderer.world().send(ui_id, super::Focus(cc_id));
     });
 }

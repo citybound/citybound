@@ -2,55 +2,77 @@
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
                     WithUniqueOrthogonal, Inverse, Rotate};
 use compact::CVec;
-use kay::{ID, Fate, World, ActorSystem};
+use kay::{ID, Fate, World, ActorSystem, External};
+use kay::swarm::Swarm;
 
 use glium::backend::glutin_backend::GlutinFacade;
 
-use {Batch, Instance, Scene, Thing, RenderContext};
+use {Batch, Instance, Scene, SceneDescription, Thing, RenderContext};
 
 mod control;
-mod movement;
+pub mod movement;
 mod project;
 
 pub use self::control::Submitted;
-pub use self::movement::{Movement, MoveEye, EyeMoved};
-pub use self::project::{Project2dTo3d, Projected3d};
+pub use self::movement::{Movement, EyeListener, EyeListenerID, MSG_EyeListener_eye_moved};
+pub use self::project::{ProjectionRequester, ProjectionRequesterID,
+                        MSG_ProjectionRequester_projected_3d};
 
-
+#[derive(Compact, Clone)]
 pub struct Renderer {
+    id: RendererID,
+    inner: External<RendererState>,
+}
+
+pub struct RendererState {
     pub scenes: Vec<Scene>,
     pub render_context: RenderContext,
 }
 
+impl ::std::ops::Deref for Renderer {
+    type Target = RendererState;
+
+    fn deref(&self) -> &RendererState {
+        &self.inner
+    }
+}
+
+impl ::std::ops::DerefMut for Renderer {
+    fn deref_mut(&mut self) -> &mut RendererState {
+        External::get_mut(&mut self.inner).expect("expected exclusive access to RendererState")
+    }
+}
+
 impl Renderer {
-    pub fn new(window: GlutinFacade) -> Renderer {
+    pub fn spawn(
+        id: RendererID,
+        window: &External<GlutinFacade>,
+        scenes: &CVec<SceneDescription>,
+        world: &mut World,
+    ) -> Renderer {
         Renderer {
-            scenes: Vec::new(),
-            render_context: RenderContext::new(window),
+            id: id,
+            inner: External::new(RendererState {
+                scenes: scenes
+                    .iter()
+                    .map(|description| description.to_scene())
+                    .collect(),
+                render_context: RenderContext::new(window.clone()),
+            }),
         }
     }
 }
 
 impl Renderer {
-    pub fn id(world: &mut World) -> RendererID {
-        RendererID::in_world(world)
-    }
-
     /// Critical
-    pub fn add_eye_listener(&mut self, scene_id: usize, listener: ID, _: &mut World) {
+    pub fn add_eye_listener(&mut self, scene_id: usize, listener: EyeListenerID, _: &mut World) {
         self.scenes[scene_id].eye_listeners.push(listener);
     }
 
     /// Critical
     pub fn add_batch(&mut self, scene_id: usize, batch_id: u16, thing: &Thing, _: &mut World) {
-        let window = &self.render_context.window;
-        self.scenes[scene_id].batches.insert(
-            batch_id,
-            Batch::new(
-                thing.clone(),
-                window,
-            ),
-        );
+        let batch = Batch::new(thing.clone(), &self.render_context.window);
+        self.scenes[scene_id].batches.insert(batch_id, batch);
     }
 
     /// Critical
@@ -111,11 +133,12 @@ pub trait Renderable {
 }
 
 
-pub fn setup(system: &mut ActorSystem, initial: Renderer) {
+pub fn setup(system: &mut ActorSystem) {
+    system.add(Swarm::<Renderer>::new(), |_| {});
     auto_setup(system);
     control::auto_setup(system);
-    movement::setup(system);
-    project::setup(system);
+    movement::auto_setup(system);
+    project::auto_setup(system);
 }
 
 mod kay_auto;

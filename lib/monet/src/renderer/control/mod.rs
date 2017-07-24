@@ -10,12 +10,13 @@ impl Renderer {
     pub fn setup(&mut self, world: &mut World) {
         for (scene_id, scene) in self.scenes.iter().enumerate() {
             for renderable in &scene.renderables {
-                renderable.setup_in_scene(Renderer::id(world), scene_id, world);
+                renderable.setup_in_scene(self.id, scene_id, world);
             }
         }
     }
 
     pub fn render(&mut self, world: &mut World) {
+        let self_id = self.id;
         for (scene_id, mut scene) in self.scenes.iter_mut().enumerate() {
             for batch_to_clear in (&mut scene).batches.values_mut().filter(|batch| {
                 batch.clear_every_frame
@@ -24,18 +25,15 @@ impl Renderer {
                 batch_to_clear.instances.clear();
             }
             for renderable in &scene.renderables {
-                renderable.render_to_scene(Renderer::id(world), scene_id, world);
+                renderable.render_to_scene(self_id, scene_id, world);
             }
         }
-
-        let id = RendererID::in_world(world);
-        id.setup(world);
     }
 
     pub fn submit(&mut self, target_ptr: usize, return_to: ID, world: &mut World) {
         let mut target = unsafe { Box::from_raw(target_ptr as *mut Frame) };
 
-        for scene in &mut self.scenes {
+        for scene in &self.scenes {
             self.render_context.submit(scene, &mut *target);
         }
 
