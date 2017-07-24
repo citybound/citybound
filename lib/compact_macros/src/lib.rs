@@ -29,9 +29,10 @@ pub fn derive_compact(input: TokenStream) -> TokenStream {
     quote!(#expanded).to_string().parse().unwrap()
 }
 
-fn get_field_idents(variant_data: &syn::VariantData,
-                    tuple_prefix: &'static str)
-                    -> Vec<syn::Ident> {
+fn get_field_idents(
+    variant_data: &syn::VariantData,
+    tuple_prefix: &'static str,
+) -> Vec<syn::Ident> {
     match *variant_data {
         syn::VariantData::Tuple(ref fields) => {
             fields
@@ -54,7 +55,9 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
             let fields: Vec<_> = data.fields()
                 .iter()
                 .enumerate()
-                .map(|(i, ref f)| f.ident.clone().unwrap_or(format!("{}", i).into()))
+                .map(|(i, ref f)| {
+                    f.ident.clone().unwrap_or(format!("{}", i).into())
+                })
                 .collect();
             let fields_ref = &fields;
             let fields_ref2 = &fields;
@@ -85,13 +88,11 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                     }
 
                     #[allow(unused_assignments)]
-                    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
+                    unsafe fn compact_to(&mut self, new_dynamic_part: *mut u8) {
                         let mut offset: isize = 0;
                         #(
-                            let source_field = &source.#fields_ref2;
-                            self.#fields_ref.compact_from(source_field,
-                                                          new_dynamic_part.offset(offset));
-                            offset += source_field.dynamic_size_bytes() as isize;
+                            self.#fields_ref.compact_to(new_dynamic_part.offset(offset));
+                            offset += self.#fields_ref2.dynamic_size_bytes() as isize;
                         )*
                     }
 
@@ -142,14 +143,12 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                 })
                 .collect();
 
-            let variants_compact_from: &Vec<_> = &data.iter()
+            let variants_compact_to: &Vec<_> = &data.iter()
                 .map(|variant| {
                     let ident = &variant.ident;
                     let fields = get_field_idents(&variant.data, "f");
-                    let source_fields = get_field_idents(&variant.data, "source_f");
                     let fields_ref = &fields;
-                    let source_fields_ref = &source_fields;
-                    let source_fields_ref_2 = &source_fields;
+                    let fields_ref2 = &fields;
 
                     if fields.is_empty() {
                         quote! {
@@ -159,19 +158,12 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                         }
                     } else {
                         quote! {
-                            #name::#ident(#(ref #source_fields_ref),*) => {
-                                ::std::ptr::copy_nonoverlapping(source as *const #name,
-                                                                self as *mut #name, 1);
+                            #name::#ident(#(ref mut #fields_ref),*) => {
                                 let mut offset: isize = 0;
-                                if let #name::#ident(#(ref mut #fields_ref),*) = *self {
-                                    #(
-                                        #fields_ref.compact_from(#source_fields_ref,
-                                                                new_dynamic_part
-                                                                    .offset(offset));
-                                        offset += #source_fields_ref_2
-                                            .dynamic_size_bytes() as isize;
-                                    )*
-                                } else {unreachable!()}
+                                #(
+                                    #fields_ref.compact_to(new_dynamic_part.offset(offset));
+                                    offset += #fields_ref2.dynamic_size_bytes() as isize;
+                                )*
                             }
                         }
                     }
@@ -217,9 +209,9 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
 
                     #[allow(unused_assignments)]
                     #[allow(match_same_arms)]
-                    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
-                        match *source {
-                            #(#variants_compact_from),*
+                    unsafe fn compact_to(&mut self, new_dynamic_part: *mut u8) {
+                        match *self {
+                            #(#variants_compact_to),*
                         }
                     }
 

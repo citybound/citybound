@@ -15,9 +15,8 @@ pub trait Compact: Sized + Clone {
         self.dynamic_size_bytes() + mem::size_of::<Self>()
     }
 
-    /// Copy the static part of `source` to `self` and compactly store
-    /// the dynamic part of `source` as the new dynamic part of `self` at `new_dynamic_part`.
-    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8);
+    /// Compactly store the dynamic part of `self` at `new_dynamic_part`.
+    unsafe fn compact_to(&mut self, new_dynamic_part: *mut u8);
 
     /// Get a pointer to behind the static part of `self` (commonly used place for the dynamic part)
     unsafe fn behind(&mut self) -> *mut u8 {
@@ -26,9 +25,9 @@ pub trait Compact: Sized + Clone {
     }
 
     /// Like `compact_from` with `new_dynamic_part` set to `self.behind()`
-    unsafe fn compact_behind_from(&mut self, source: &Self) {
+    unsafe fn compact_behind(&mut self) {
         let behind_self = Self::behind(self);
-        self.compact_from(source, behind_self)
+        self.compact_to(behind_self)
     }
 
     /// Creates a clone of self with the dynamic part guaranteed to be stored freely.
@@ -49,59 +48,9 @@ impl<T: Copy> Compact for T {
     fn dynamic_size_bytes(&self) -> usize {
         0
     }
-    unsafe fn compact_from(&mut self, source: &Self, _new_dynamic_part: *mut u8) {
-        *self = *source;
-    }
+    unsafe fn compact_to(&mut self, _new_dynamic_part: *mut u8) {}
+
     unsafe fn decompact(&self) -> Self {
         *self
-    }
-}
-
-pub struct UnsafeFakeCompact<T> {
-    reference: Box<T>,
-}
-
-impl<T> UnsafeFakeCompact<T> {
-    pub fn new(content: T) -> Self {
-        UnsafeFakeCompact { reference: Box::new(content) }
-    }
-
-    pub fn into_box(self) -> Box<T> {
-        self.reference
-    }
-}
-
-impl<T> Clone for UnsafeFakeCompact<T> {
-    fn clone(&self) -> Self {
-        unsafe { ::std::ptr::read_unaligned(self as *const Self) }
-    }
-}
-
-impl<T> Compact for UnsafeFakeCompact<T> {
-    fn is_still_compact(&self) -> bool {
-        true
-    }
-    fn dynamic_size_bytes(&self) -> usize {
-        0
-    }
-    unsafe fn compact_from(&mut self, source: &Self, _new_dynamic_part: *mut u8) {
-        *self = ::std::ptr::read_unaligned(source as *const Self)
-    }
-    unsafe fn decompact(&self) -> Self {
-        ::std::ptr::read_unaligned(self as *const Self)
-    }
-}
-
-impl<T> ::std::ops::Deref for UnsafeFakeCompact<T> {
-    type Target = T;
-
-    fn deref(&self) -> &T {
-        &*self.reference
-    }
-}
-
-impl<T> ::std::ops::DerefMut for UnsafeFakeCompact<T> {
-    fn deref_mut(&mut self) -> &mut T {
-        &mut *self.reference
     }
 }

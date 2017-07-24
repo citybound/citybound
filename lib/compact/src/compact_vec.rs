@@ -256,10 +256,10 @@ impl<T, A: Allocator> Drop for IntoIter<T, A> {
     fn drop(&mut self) {
         // drop all remaining elements
         unsafe {
-            ptr::drop_in_place(&mut ::std::slice::from_raw_parts(self.ptr
-                                                                     .ptr()
-                                                                     .offset(self.index as isize),
-                                                                 self.len))
+            ptr::drop_in_place(&mut ::std::slice::from_raw_parts(
+                self.ptr.ptr().offset(self.index as isize),
+                self.len,
+            ))
         };
         if !self.ptr.is_compact() {
             unsafe {
@@ -311,19 +311,17 @@ impl<T: Compact + Clone, A: Allocator> Compact for CompactVec<T, A> {
 
     default fn dynamic_size_bytes(&self) -> usize {
         self.cap * ::std::mem::size_of::<T>() +
-        self.iter()
-            .map(|elem| elem.dynamic_size_bytes())
-            .sum::<usize>()
+            self.iter()
+                .map(|elem| elem.dynamic_size_bytes())
+                .sum::<usize>()
     }
 
-    default unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
-        self.cap = source.cap;
-        self.len = source.len;
+    default unsafe fn compact_to(&mut self, new_dynamic_part: *mut u8) {
         self.ptr.set_to_compact(new_dynamic_part as *mut T);
 
         let mut offset = self.cap * ::std::mem::size_of::<T>();
         for i in 0..self.len {
-            self[i].compact_from(&source[i], new_dynamic_part.offset(offset as isize));
+            self[i].compact_to(new_dynamic_part.offset(offset as isize));
             offset += self[i].dynamic_size_bytes();
         }
     }
@@ -352,11 +350,9 @@ impl<T: Copy, A: Allocator> Compact for CompactVec<T, A> {
         self.cap * ::std::mem::size_of::<T>()
     }
 
-    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
-        self.cap = source.cap;
-        self.len = source.len;
+    unsafe fn compact_to(&mut self, new_dynamic_part: *mut u8) {
+        ptr::copy_nonoverlapping(self.ptr.ptr(), new_dynamic_part as *mut T, self.len);
         self.ptr.set_to_compact(new_dynamic_part as *mut T);
-        ptr::copy_nonoverlapping(source.ptr.ptr(), self.ptr.mut_ptr(), self.len);
     }
 }
 
