@@ -36,17 +36,17 @@ pub enum SelectableStrokeRef {
 }
 
 impl SelectableStrokeRef {
-    pub fn get_stroke<'a>(&self,
-                          plan_delta: &'a PlanDelta,
-                          still_built_strokes: &'a BuiltStrokes)
-                          -> &'a LaneStroke {
+    pub fn get_stroke<'a>(
+        &self,
+        plan_delta: &'a PlanDelta,
+        still_built_strokes: &'a BuiltStrokes,
+    ) -> &'a LaneStroke {
         match *self {
             SelectableStrokeRef::New(node_idx) => &plan_delta.new_strokes[node_idx],
             SelectableStrokeRef::Built(old_ref) => {
-                still_built_strokes
-                    .mapping
-                    .get(old_ref)
-                    .expect("Expected old_ref to exist!")
+                still_built_strokes.mapping.get(old_ref).expect(
+                    "Expected old_ref to exist!",
+                )
             }
         }
     }
@@ -121,13 +121,14 @@ impl CurrentPlan {
                     .mapping
                     .pairs()
                     .filter_map(|(built_ref, stroke)| if self.current
-                                       .plan_delta
-                                       .strokes_to_destroy
-                                       .contains_key(*built_ref) {
-                                    None
-                                } else {
-                                    Some((*built_ref, stroke.clone()))
-                                })
+                        .plan_delta
+                        .strokes_to_destroy
+                        .contains_key(*built_ref)
+                    {
+                        None
+                    } else {
+                        Some((*built_ref, stroke.clone()))
+                    })
                     .collect(),
             }
         })
@@ -143,14 +144,16 @@ impl CurrentPlan {
 
     pub fn update_preview(&mut self, world: &mut World) -> &PlanStep {
         if self.preview.is_none() {
-            let preview = apply_intent(&self.current,
-                                       self.still_built_strokes().as_ref(),
-                                       &self.settings);
+            let preview = apply_intent(
+                &self.current,
+                self.still_built_strokes().as_ref(),
+                &self.settings,
+            );
             let plan_id = world.id::<Self>();
             world.send_to_id_of::<MaterializedReality, _>(Simulate {
-                                                              requester: plan_id,
-                                                              delta: preview.plan_delta.clone(),
-                                                          });
+                requester: plan_id,
+                delta: preview.plan_delta.clone(),
+            });
             self.preview = Some(preview);
         }
         self.preview.as_ref().unwrap()
@@ -171,51 +174,58 @@ impl CurrentPlan {
                 Intent::ContinueRoadAround(..) => {}
                 _ => {
                     for (i, stroke) in self.current.plan_delta.new_strokes.iter().enumerate() {
-                        let selectable = Selectable::new(SelectableStrokeRef::New(i),
-                                                         stroke.path().clone());
-                        world.send_to_id_of::<Swarm<Selectable>, _>(CreateWith(selectable,
-                                                                               InitInteractable));
+                        let selectable =
+                            Selectable::new(SelectableStrokeRef::New(i), stroke.path().clone());
+                        world.send_to_id_of::<Swarm<Selectable>, _>(
+                            CreateWith(selectable, InitInteractable),
+                        );
                     }
                     for (old_stroke_ref, stroke) in still_built_strokes.mapping.pairs() {
-                        let selectable =
-                            Selectable::new(SelectableStrokeRef::Built(*old_stroke_ref),
-                                            stroke.path().clone());
-                        world.send_to_id_of::<Swarm<Selectable>, _>(CreateWith(selectable,
-                                                                               InitInteractable));
+                        let selectable = Selectable::new(
+                            SelectableStrokeRef::Built(*old_stroke_ref),
+                            stroke.path().clone(),
+                        );
+                        world.send_to_id_of::<Swarm<Selectable>, _>(
+                            CreateWith(selectable, InitInteractable),
+                        );
                     }
                 }
             }
             for (&selection_ref, &(start, end)) in self.current.selections.pairs() {
-                let stroke = selection_ref
-                    .get_stroke(&self.current.plan_delta, &still_built_strokes);
+                let stroke =
+                    selection_ref.get_stroke(&self.current.plan_delta, &still_built_strokes);
                 if let Some(subsection) = stroke.path().subsection(start, end) {
                     let draggable = Draggable::new(selection_ref, subsection.clone());
-                    world.send_to_id_of::<Swarm<Draggable>, _>(CreateWith(draggable,
-                                                                          InitInteractable));
+                    world.send_to_id_of::<Swarm<Draggable>, _>(
+                        CreateWith(draggable, InitInteractable),
+                    );
                     if let Some(next_lane_path) = subsection.shift_orthogonally(5.0) {
                         let addable = Addable::new(next_lane_path);
-                        world.send_to_id_of::<Swarm<Addable>, _>(CreateWith(addable,
-                                                                            InitInteractable));
+                        world.send_to_id_of::<Swarm<Addable>, _>(
+                            CreateWith(addable, InitInteractable),
+                        );
                     }
                 }
             }
             self.interactables_valid = true;
         } else {
-            // TODO: kinda stupid to get initial built strokes like this
+            // TODO: stupid to get initial built strokes like this -> move to future constructor!!!!
             let plan_id = world.id::<Self>();
             world.send_to_id_of::<MaterializedReality, _>(Apply {
-                                                              requester: plan_id,
-                                                              delta: PlanDelta::default(),
-                                                          })
+                requester: plan_id,
+                delta: PlanDelta::default(),
+            })
         }
     }
 
     fn commit(&mut self) {
         self.undo_history.push(self.current.clone());
         self.redo_history.clear();
-        self.current = apply_intent(&self.current,
-                                    self.still_built_strokes().as_ref(),
-                                    &self.settings);
+        self.current = apply_intent(
+            &self.current,
+            self.still_built_strokes().as_ref(),
+            &self.settings,
+        );
         self.invalidate_preview();
         self.invalidate_interactables();
     }
@@ -235,9 +245,11 @@ impl CurrentPlan {
         history_current.intent = Intent::None;
         self.undo_history.push(history_current);
         self.redo_history.clear();
-        self.current = apply_intent(&self.current,
-                                    self.still_built_strokes().as_ref(),
-                                    &self.settings);
+        self.current = apply_intent(
+            &self.current,
+            self.still_built_strokes().as_ref(),
+            &self.settings,
+        );
         self.invalidate_preview();
         self.invalidate_interactables();
     }
@@ -258,12 +270,14 @@ pub fn setup(system: &mut ActorSystem) {
             let previous_state = plan.undo_history.pop().unwrap_or_default();
             plan.redo_history.push(plan.current.clone());
             plan.current = previous_state;
-            world.send(canvas_id,
-                       SetPoints(match plan.current.intent {
-                                     Intent::ContinueRoad(_, ref points, _) |
-                                     Intent::NewRoad(ref points) => points.clone(),
-                                     _ => CVec::new(),
-                                 }));
+            world.send(
+                canvas_id,
+                SetPoints(match plan.current.intent {
+                    Intent::ContinueRoad(_, ref points, _) |
+                    Intent::NewRoad(ref points) => points.clone(),
+                    _ => CVec::new(),
+                }),
+            );
             plan.invalidate_preview();
             plan.invalidate_interactables();
             Fate::Live
@@ -273,12 +287,14 @@ pub fn setup(system: &mut ActorSystem) {
             if let Some(next_state) = plan.redo_history.pop() {
                 plan.undo_history.push(plan.current.clone());
                 plan.current = next_state;
-                world.send(canvas_id,
-                           SetPoints(match plan.current.intent {
-                                         Intent::ContinueRoad(_, ref points, _) |
-                                         Intent::NewRoad(ref points) => points.clone(),
-                                         _ => CVec::new(),
-                                     }));
+                world.send(
+                    canvas_id,
+                    SetPoints(match plan.current.intent {
+                        Intent::ContinueRoad(_, ref points, _) |
+                        Intent::NewRoad(ref points) => points.clone(),
+                        _ => CVec::new(),
+                    }),
+                );
                 plan.invalidate_preview();
                 plan.invalidate_interactables();
             }
@@ -299,9 +315,11 @@ pub fn setup(system: &mut ActorSystem) {
         the_cp.on(|&Stroke(ref points, state), plan, _| {
             let maybe_new_intent = match plan.current.intent {
                 Intent::ContinueRoad(ref continue_from, _, start_reference_point) => {
-                    Some(Intent::ContinueRoad(continue_from.clone(),
-                                              points.clone(),
-                                              start_reference_point))
+                    Some(Intent::ContinueRoad(
+                        continue_from.clone(),
+                        points.clone(),
+                        start_reference_point,
+                    ))
                 }
                 _ => {
                     if points.len() >= 2 {
@@ -363,11 +381,13 @@ pub fn setup(system: &mut ActorSystem) {
                 _ => {}
             }
 
-            world.send(mr_id,
-                       Apply {
-                           requester: current_plan_id,
-                           delta: plan.current.plan_delta.clone(),
-                       });
+            world.send(
+                mr_id,
+                Apply {
+                    requester: current_plan_id,
+                    delta: plan.current.plan_delta.clone(),
+                },
+            );
 
             *plan = CurrentPlan {
                 settings: plan.settings.clone(),

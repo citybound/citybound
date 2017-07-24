@@ -105,7 +105,7 @@ fn main() {
         .build_glium()
         .unwrap();
 
-    let renderables = vec![
+    let renderables: Vec<_> = vec![
         system.id::<Swarm<Lane>>().broadcast(),
         system.id::<Swarm<TransferLane>>().broadcast(),
         system.id::<ThingCollector<LaneAsphalt>>(),

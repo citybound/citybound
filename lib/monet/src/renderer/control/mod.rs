@@ -45,25 +45,6 @@ impl Renderer {
     }
 }
 
-// #[derive(Copy, Clone)]
-// pub struct SetupInScene {
-//     pub renderer_id: RendererID,
-//     pub scene_id: usize,
-// }
-
-// #[derive(Copy, Clone)]
-// pub struct RenderToScene {
-//     pub renderer_id: RendererID,
-//     pub scene_id: usize,
-// }
-
-// #[derive(Copy, Clone)]
-// pub enum Control {
-//     Setup,
-//     Render,
-//     Submit { target_ptr: usize, return_to: ID },
-// }
-
 #[derive(Copy, Clone)]
 pub struct Submitted {
     pub target_ptr: usize,

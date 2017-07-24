@@ -317,6 +317,7 @@ impl<T: Compact + Clone, A: Allocator> Compact for CompactVec<T, A> {
     }
 
     default unsafe fn compact_to(&mut self, new_dynamic_part: *mut u8) {
+        ptr::copy_nonoverlapping(self.ptr.ptr(), new_dynamic_part as *mut T, self.len);
         self.ptr.set_to_compact(new_dynamic_part as *mut T);
 
         let mut offset = self.cap * ::std::mem::size_of::<T>();
