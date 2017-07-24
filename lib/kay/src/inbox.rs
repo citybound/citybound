@@ -33,7 +33,8 @@ impl Inbox {
             let packet_in_queue = &mut *(payload_ptr as *mut Packet<M>);
 
             // Write the packet into the queue
-            packet_in_queue.compact_behind_from(&packet);
+            ::std::ptr::write_unaligned(payload_ptr as *mut Packet<M>, packet);
+            packet_in_queue.compact_behind();
         }
     }
 
@@ -63,16 +64,16 @@ impl<'a> Iterator for InboxIterator<'a> {
             None
         } else {
             unsafe {
-                let ptr = self.queue
-                    .dequeue()
-                    .expect("should have something left for sure");
+                let ptr = self.queue.dequeue().expect(
+                    "should have something left for sure",
+                );
                 let message_type = *(ptr as *mut ShortTypeId);
                 let payload_ptr = ptr.offset(::std::mem::size_of::<ShortTypeId>() as isize);
                 self.n_messages_to_read -= 1;
                 Some(DispatchablePacket {
-                         message_type: message_type,
-                         packet_ptr: payload_ptr as *const (),
-                     })
+                    message_type: message_type,
+                    packet_ptr: payload_ptr as *const (),
+                })
             }
         }
     }

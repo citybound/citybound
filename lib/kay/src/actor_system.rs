@@ -2,6 +2,7 @@ use super::messaging::{Message, Packet, Fate};
 use super::inbox::{Inbox, DispatchablePacket};
 use super::id::ID;
 use super::type_registry::{ShortTypeId, TypeRegistry};
+use super::swarm::{Swarm, SubActor};
 use std::any::Any;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -106,12 +107,15 @@ impl ActorSystem {
         define(ActorDefiner::with(self));
     }
 
-    fn add_dispatcher<M: Message,
-                      A: 'static,
-                      F: Fn(&Packet<M>, &mut A, &mut World) -> Fate + 'static>
-        (&mut self,
-         handler: F,
-         critical: bool) {
+    fn add_dispatcher<
+        M: Message,
+        A: 'static,
+        F: Fn(&Packet<M>, &mut A, &mut World) -> Fate + 'static,
+    >(
+        &mut self,
+        handler: F,
+        critical: bool,
+    ) {
         let actor_id = self.actor_registry.get::<A>();
         let message_id = self.message_registry.get_or_register::<M>();
         // println!("adding to {} inbox for {}",
@@ -121,14 +125,15 @@ impl ActorSystem {
 
         let actor_ptr = self.actors[actor_id.as_usize()].unwrap() as *mut A;
 
-        self.dispatchers[actor_id.as_usize()][message_id.as_usize()] =
-            Some(Dispatcher {
-                function: Box::new(move |packet_ptr: *const (), world: &mut World| unsafe {
-                    let packet = &*(packet_ptr as *const Packet<M>);
-                    handler(packet, &mut *actor_ptr, world);
-                }),
-                critical: critical,
-            });
+        self.dispatchers[actor_id.as_usize()][message_id.as_usize()] = Some(Dispatcher {
+            function: Box::new(move |packet_ptr: *const (), world: &mut World| unsafe {
+                let packet = &*(packet_ptr as *const Packet<M>);
+                handler(packet, &mut *actor_ptr, world);
+                // TODO: not sure if this is the best place to drop the message
+                ::std::ptr::drop_in_place(packet_ptr as *mut Packet<M>);
+            }),
+            critical: critical,
+        });
     }
 
     /// Send a message to the actor with a given `ID`.
@@ -144,10 +149,13 @@ impl ActorSystem {
         if let Some(inbox) = self.inboxes[recipient.type_id.as_usize()].as_mut() {
             inbox.put(packet, &self.message_registry);
         } else {
-            panic!("{} has no inbox for {}",
-                   self.actor_registry.get_name(recipient.type_id),
-                   self.message_registry
-                       .get_name(self.message_registry.get::<M>()));
+            panic!(
+                "{} has no inbox for {}",
+                self.actor_registry.get_name(recipient.type_id),
+                self.message_registry.get_name(
+                    self.message_registry.get::<M>(),
+                )
+            );
         }
     }
 
@@ -173,15 +181,18 @@ impl ActorSystem {
             if let Some(inbox) = maybe_inbox.as_mut() {
                 for DispatchablePacket { message_type, packet_ptr } in inbox.empty() {
                     if let Some(handler) = self.dispatchers[recipient_type.as_usize()]
-                           [message_type.as_usize()]
-                           .as_mut() {
+                        [message_type.as_usize()]
+                        .as_mut()
+                    {
                         if handler.critical || !self.panic_happened {
                             (handler.function)(packet_ptr, &mut world);
                         }
                     } else {
-                        panic!("Dispatcher not found ({} << {})",
-                               self.actor_registry.get_name(recipient_type),
-                               self.message_registry.get_name(message_type));
+                        panic!(
+                            "Dispatcher not found ({} << {})",
+                            self.actor_registry.get_name(recipient_type),
+                            self.message_registry.get_name(message_type)
+                        );
                     }
                 }
             }
@@ -199,14 +210,20 @@ impl ActorSystem {
     /// in a fixed order of "turns" during each main-loop iteration.
     pub fn process_all_messages(&mut self) {
         let result = catch_unwind(AssertUnwindSafe(|| for _i in 0..1000 {
-                                                       self.single_message_cycle();
-                                                   }));
+            self.single_message_cycle();
+        }));
 
         if result.is_err() {
             self.panic_happened = true;
-            (self.panic_callback)(result.unwrap_err(),
-                                  &mut World(self as *const Self as *mut Self));
+            (self.panic_callback)(
+                result.unwrap_err(),
+                &mut World(self as *const Self as *mut Self),
+            );
         }
+    }
+
+    pub fn world(&mut self) -> World {
+        World(self as *mut Self)
     }
 }
 
@@ -243,14 +260,16 @@ impl<'a, A: 'static> ActorDefiner<'a, A> {
     /// });
     /// ```
     pub fn on<M: Message, F>(&mut self, handler: F)
-        where F: Fn(&M, &mut A, &mut World) -> Fate + 'static
+    where
+        F: Fn(&M, &mut A, &mut World) -> Fate + 'static,
     {
         self.on_maybe_critical(handler, false);
     }
 
     /// Same as [`on`](#method.on) but continues to receive after the ActorSystem panicked.
     pub fn on_critical<M: Message, F>(&mut self, handler: F)
-        where F: Fn(&M, &mut A, &mut World) -> Fate + 'static
+    where
+        F: Fn(&M, &mut A, &mut World) -> Fate + 'static,
     {
         self.on_maybe_critical(handler, true);
     }
@@ -278,13 +297,15 @@ impl<'a, A: 'static> ActorDefiner<'a, A> {
     /// a particular sub-actor needs to be identified in the handler,
     /// like [`Swarm`](swarm/struct.Swarm.html) does.
     pub fn on_packet<M: Message, F>(&mut self, handler: F, critical: bool)
-        where F: Fn(&Packet<M>, &mut A, &mut World) -> Fate + 'static
+    where
+        F: Fn(&Packet<M>, &mut A, &mut World) -> Fate + 'static,
     {
         self.system.add_dispatcher(handler, critical);
     }
 
     fn on_maybe_critical<M: Message, F>(&mut self, handler: F, critical: bool)
-        where F: Fn(&M, &mut A, &mut World) -> Fate + 'static
+    where
+        F: Fn(&M, &mut A, &mut World) -> Fate + 'static,
     {
         self.system.add_dispatcher(
             move |packet: &Packet<M>, state, world| handler(&packet.message, state, world),
@@ -340,5 +361,14 @@ impl World {
     pub fn broadcast_to_id_of<A: 'static, M: Message>(&mut self, message: M) {
         let id = self.id::<A>().broadcast();
         self.send(id, message);
+    }
+
+    pub fn allocate_subactor_id<SA: 'static + SubActor>(&mut self) -> ID {
+        let system: &mut ActorSystem = unsafe { &mut *self.0 };
+        let swarm = unsafe {
+            &mut *(system.actors[system.actor_registry.get::<Swarm<SA>>().as_usize()]
+                       .expect("Subactor type not found.") as *mut Swarm<SA>)
+        };
+        unsafe { swarm.allocate_id(self.id::<Swarm<SA>>()) }
     }
 }

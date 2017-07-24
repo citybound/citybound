@@ -32,7 +32,9 @@ mod messaging;
 mod type_registry;
 mod id;
 mod actor_system;
+mod external;
 
 pub use self::messaging::{Message, Packet, Fate};
 pub use self::id::ID;
 pub use self::actor_system::{ActorSystem, ActorDefiner, World};
+pub use self::external::External;

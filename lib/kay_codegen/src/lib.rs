@@ -106,7 +106,7 @@ pub fn generate(model: &Model) -> String {
 
     quote!(
         //! This is all auto-generated. Do not touch.
-        use kay::ActorSystem;
+        use kay::{ActorSystem, ID};
         use kay::swarm::{Swarm, SubActor};
         use super::*;
 
@@ -123,7 +123,7 @@ pub fn generate(model: &Model) -> String {
 fn simple_actor() {
     let input = quote!(
         pub struct SomeActor {
-            _id: Option<SomeActorID>,
+            id: Option<SomeActorID>,
             field: usize
         }
 
@@ -142,7 +142,7 @@ fn simple_actor() {
 
             pub fn init_ish(id: SomeActorID, some_param: &usize, world: &mut World) -> SomeActor {
                 SomeActor {
-                    _id: Some(id),
+                    id: Some(id),
                     field: some_param
                 }
             }
@@ -150,7 +150,7 @@ fn simple_actor() {
     );
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
-        use kay::ActorSystem;
+        use kay::{ActorSystem, ID};
         use kay::swarm::{Swarm, SubActor};
         use super::*;
 
@@ -169,8 +169,8 @@ fn simple_actor() {
         }
 
         impl SomeActorID {
-            pub fn in_world(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.id::<Swarm<SomeActor>>() }
+            pub fn broadcast(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.id::<Swarm<SomeActor>>().broadcast() }
             }
         }
 
@@ -187,8 +187,10 @@ fn simple_actor() {
                 world.send_to_id_of::<Swarm<SomeActor>, _>(MSG_SomeActor_static_ish(some_param));
             }
 
-            pub fn init_ish(some_param: usize, world: &mut World) {
-                world.send_to_id_of::<Swarm<SomeActor>, _>(MSG_SomeActor_init_ish(some_param));
+            pub fn init_ish(some_param: usize, world: &mut World) -> Self {
+                let id = SomeActorID { _raw_id: world.allocate_subactor_id::<SomeActor>() };
+                world.send_to_id_of::<Swarm<SomeActor>, _>(MSG_SomeActor_init_ish(id, some_param));
+                id
             }
         }
 
@@ -203,7 +205,7 @@ fn simple_actor() {
         pub struct MSG_SomeActor_static_ish(pub usize);
         #[allow(non_camel_case_types)]
         #[derive(Compact, Clone)]
-        pub struct MSG_SomeActor_init_ish(pub usize);
+        pub struct MSG_SomeActor_init_ish(pub SomeActorID, pub usize);
 
         pub fn auto_setup(system: &mut ActorSystem) {
             system.extend::<Swarm<SomeActor>, _>(Swarm::<SomeActor>::subactors(|mut each_subactor| {
@@ -222,10 +224,9 @@ fn simple_actor() {
                     Fate::Live
                 });
 
-                the_swarm.on(|&MSG_SomeActor_init_ish(ref some_param), swarm, world| {
-                    let id = unsafe{swarm.allocate_id(world.id::<Swarm<SomeActor>>())};
-                    let subactor = SomeActor::init_ish(SomeActorID{_raw_id: id}, some_param, world);
-                    unsafe {swarm.add_with_id(&subactor, id) };
+                the_swarm.on(|&MSG_SomeActor_init_ish(id, ref some_param), swarm, world| {
+                    let subactor = SomeActor::init_ish(id, some_param, world);
+                    unsafe {swarm.add_with_id(subactor, id._raw_id) };
                     Fate::Live
                 });
             });
@@ -271,7 +272,7 @@ fn trait_and_impl() {
     );
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
-        use kay::ActorSystem;
+        use kay::{ActorSystem, ID};
         use kay::swarm::{Swarm, SubActor};
         use super::*;
 
@@ -312,8 +313,8 @@ fn trait_and_impl() {
         }
 
         impl SomeActorID {
-            pub fn in_world(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.id::<Swarm<SomeActor>>() }
+            pub fn broadcast(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.id::<Swarm<SomeActor>>().broadcast() }
             }
         }
 

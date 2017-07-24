@@ -84,14 +84,14 @@ impl<SA: SubActor> Swarm<SA> {
         ID::new(base_id.type_id, sub_actor_id as u32, version as u8)
     }
 
-    fn add(&mut self, initial_state: &SA, base_id: ID) -> ID {
+    fn add(&mut self, initial_state: SA, base_id: ID) -> ID {
         let id = unsafe { self.allocate_id(base_id) };
         unsafe { self.add_with_id(initial_state, id) };
         *self.n_sub_actors += 1;
         id
     }
 
-    pub unsafe fn add_with_id(&mut self, initial_state: &SA, id: ID) {
+    pub unsafe fn add_with_id(&mut self, initial_state: SA, id: ID) {
         let size = initial_state.total_size_bytes();
         let bin_index = self.sub_actors.size_to_index(size);
         let bin = &mut self.sub_actors.bin_for_size_mut(size);
@@ -108,7 +108,8 @@ impl<SA: SubActor> Swarm<SA> {
 
         unsafe {
             let actor_in_slot = &mut *(ptr as *mut SA);
-            actor_in_slot.compact_behind_from(initial_state);
+            ::std::ptr::write_unaligned(ptr as *mut SA, initial_state);
+            actor_in_slot.compact_behind();
             actor_in_slot.set_id(id)
         }
     }
@@ -137,6 +138,11 @@ impl<SA: SubActor> Swarm<SA> {
     }
 
     fn remove_at_index(&mut self, i: SlotIndices, id: ID) {
+        // TODO: not sure if this is the best place to drop actor state
+        let old_actor_ptr = self.at_index_mut(i) as *mut SA;
+        unsafe {
+            ::std::ptr::drop_in_place(old_actor_ptr);
+        }
         self.swap_remove(i);
         self.slot_map.free(
             id.sub_actor_id as usize,
@@ -152,8 +158,9 @@ impl<SA: SubActor> Swarm<SA> {
 
     fn resize_at_index(&mut self, old_i: SlotIndices) -> bool {
         let old_actor_ptr = self.at_index(old_i) as *const SA;
-        let old_actor = unsafe { &*old_actor_ptr };
-        unsafe { self.add_with_id(old_actor, old_actor.id()) };
+        let old_actor = unsafe { ::std::ptr::read(old_actor_ptr) };
+        let old_actor_id = old_actor.id();
+        unsafe { self.add_with_id(old_actor, old_actor_id) };
         self.swap_remove(old_i)
     }
 
@@ -288,8 +295,8 @@ impl<SA: SubActor> Swarm<SA> {
 
     fn define_control_handlers<'a>(the_swarm: &mut ActorDefiner<'a, Self>) {
         let swarm_id = the_swarm.world().id::<Self>();
-        the_swarm.on(move |&Create(ref initial_state), swarm, _| {
-            swarm.add(initial_state, swarm_id);
+        the_swarm.on(move |&Create(ref initial_state): &Create<SA>, swarm, _| {
+            swarm.add(initial_state.clone(), swarm_id);
             Fate::Live
         });
     }
@@ -367,7 +374,7 @@ impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
                     SA,
                     M,
                 > = message;
-                let id = swarm.add(init_state, recipient_id.unwrap());
+                let id = swarm.add(init_state.clone(), recipient_id.unwrap());
                 world.send(id, (*init_message).clone());
                 Fate::Live
             },

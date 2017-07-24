@@ -123,13 +123,13 @@ fn handler_from(
     from_trait: Option<TraitName>,
     parent_path: &::syn::Path,
 ) -> Option<Handler> {
-    check_handler(sig, parent_path.clone()).map(|(args, scope)| {
+    check_handler(sig, parent_path.clone()).and_then(|(args, scope)| {
         let returns_fate = match sig.decl.output {
             FunctionRetTy::Default => false,
             FunctionRetTy::Ty(Ty::Path(_, Path { ref segments, .. })) => {
                 segments.iter().any(|s| s.ident.as_ref() == "Fate")
             }
-            _ => unimplemented!(),
+            _ => return None,
         };
 
         let is_critical = attrs.iter().any(|attr| {
@@ -137,14 +137,14 @@ fn handler_from(
                 attr.value == MetaItem::NameValue("doc".into(), "/// Critical".into())
         });
 
-        Handler {
+        Some(Handler {
             name: fn_name.clone(),
             arguments: args.to_vec(),
             scope: scope,
             critical: is_critical,
             returns_fate: returns_fate,
             from_trait: from_trait.clone(),
-        }
+        })
     })
 }
 

@@ -179,8 +179,6 @@ impl Model {
         let (_, types_for_swarm_handlers, types_for_init_handlers_1) =
             self.map_handlers(AlsoFromTraits, |actor_name, _| actor_name.clone());
         let types_for_init_handlers_2 = types_for_init_handlers_1.clone();
-        let (_, _, type_ids_for_init_handlers) =
-            self.map_handlers(AlsoFromTraits, |actor_name, _| actor_name_to_id(actor_name));
 
         quote!(
             #(
@@ -200,12 +198,11 @@ impl Model {
                 )*
 
                 #(
-                    the_swarm.#init_handler_mods(|&#init_msg_names(#(#init_msg_args),*), swarm, world| {
-                        let id = unsafe{swarm.allocate_id(world.id::<Swarm<#types_for_init_handlers_1>>())};
+                    the_swarm.#init_handler_mods(|&#init_msg_names(id, #(#init_msg_args),*), swarm, world| {
                         let subactor = #types_for_init_handlers_2::#init_handler_names(
-                            #type_ids_for_init_handlers {_raw_id: id}, #(#init_handler_params,)* world
+                            id, #(#init_handler_params,)* world
                         );
-                        unsafe {swarm.add_with_id(&subactor, id)};
+                        unsafe {swarm.add_with_id(subactor, id._raw_id)};
                         Fate::Live
                     });
                 )*
@@ -318,8 +315,13 @@ impl Model {
             } else {
                 quote!(#[derive(Compact, Clone)])
             });
-        let (_, actor_types_for_swarm_handlers, actor_types_for_init_handlers) =
+        let (_, actor_types_for_swarm_handlers, actor_types_for_init_handlers_1) =
             self.map_handlers(OnlyOwn, |actor_name, _| actor_name.clone());
+        let actor_types_for_init_handlers_2 = actor_types_for_init_handlers_1.clone();
+
+        let (_, _, actor_ids_for_init_handlers) =
+            self.map_handlers(OnlyOwn, |actor_name, _| actor_name_to_id(actor_name));
+        let actor_ids_for_init_msgs = actor_ids_for_init_handlers.clone();
 
         let actor_trait_ids_1: Vec<Vec<_>> = self.actors
             .iter()
@@ -356,8 +358,8 @@ impl Model {
             }
 
             impl #actor_here_ids_2 {
-                pub fn in_world(world: &mut World) -> Self {
-                    #actor_here_ids_3 { _raw_id: world.id::<Swarm<#actor_here_names_2>>() }
+                pub fn broadcast(world: &mut World) -> Self {
+                    #actor_here_ids_3 { _raw_id: world.id::<Swarm<#actor_here_names_2>>().broadcast() }
                 }
             }
             )*
@@ -379,10 +381,14 @@ impl Model {
                 )*
 
                 #(
-                pub fn #init_handler_names(#(#init_handler_args,)* world: &mut World) {
-                    world.send_to_id_of::<Swarm<#actor_types_for_init_handlers>, _>(
-                        #init_msg_names_1(#(#init_msg_params),*)
+                pub fn #init_handler_names(#(#init_handler_args,)* world: &mut World) -> Self {
+                    let id = #actor_ids_for_init_handlers {
+                        _raw_id: world.allocate_subactor_id::<#actor_types_for_init_handlers_1>()
+                    };
+                    world.send_to_id_of::<Swarm<#actor_types_for_init_handlers_2>, _>(
+                        #init_msg_names_1(id, #(#init_msg_params),*)
                     );
+                    id
                 }
                 )*
             }
@@ -402,7 +408,7 @@ impl Model {
             #(
             #[allow(non_camel_case_types)]
             #init_msg_derives
-            pub struct #init_msg_names_2(#(pub #init_msg_param_types),*);
+            pub struct #init_msg_names_2(pub #actor_ids_for_init_msgs, #(pub #init_msg_param_types),*);
             )*
             )*
 
