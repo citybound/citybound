@@ -66,10 +66,6 @@ impl<SA: SubActor> Swarm<SA> {
         self.slot_map.allocate_id()
     }
 
-    fn at_index(&self, index: SlotIndices) -> &SA {
-        unsafe { &*(self.sub_actors.bins[index.bin()].at(index.slot()) as *const SA) }
-    }
-
     fn at_index_mut(&mut self, index: SlotIndices) -> &mut SA {
         unsafe { &mut *(self.sub_actors.bins[index.bin()].at_mut(index.slot()) as *mut SA) }
     }
@@ -79,6 +75,7 @@ impl<SA: SubActor> Swarm<SA> {
         self.at_index_mut(index)
     }
 
+    /// Allocate a subactor ID for later use when manually adding a subactor (see `add_with_id`)
     pub unsafe fn allocate_id(&mut self, base_id: ID) -> ID {
         let (sub_actor_id, version) = self.allocate_sub_actor_id();
         ID::new(base_id.type_id, sub_actor_id as u32, version as u8)
@@ -93,6 +90,8 @@ impl<SA: SubActor> Swarm<SA> {
         id
     }
 
+    /// Used internally, but can also be used externally when manually adding a subactor,
+    /// making use of a previously allocated ID (see `allocate_id`)
     pub unsafe fn add_with_id(&mut self, initial_state: *mut SA, id: ID) {
         let size = (*initial_state).total_size_bytes();
         let bin_index = self.sub_actors.size_to_index(size);

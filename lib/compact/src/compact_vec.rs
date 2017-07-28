@@ -58,6 +58,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         let new_ptr = A::allocate::<T>(new_cap);
 
         // items should be decompacted, else internal relative pointers get messed up!
+        #[allow(needless_range_loop)]
         for i in 0..self.len() {
             unsafe { ptr::write(new_ptr.offset(i as isize), Compact::decompact(&self[i])) };
         }
@@ -157,6 +158,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         {
             let v = &mut **self;
 
+            #[allow(needless_range_loop)]
             for i in 0..len {
                 if !keep(&v[i]) {
                     del += 1;
@@ -336,7 +338,8 @@ impl<T: Compact + Clone, A: Allocator> Compact for CompactVec<T, A> {
             offset += size_of_this_item;
         }
 
-        // we want to free any allocated space, but not semantically drop our contents (they just moved)
+        // we want to free any allocated space,
+        // but not semantically drop our contents (they just moved)
         if !(*source).ptr.is_compact() {
             A::deallocate((*source).ptr.mut_ptr(), (*source).cap);
         }
@@ -377,7 +380,8 @@ impl<T: Copy, A: Allocator> Compact for CompactVec<T, A> {
             (*source).len,
         );
 
-        // we want to free any allocated space, but not semantically drop our contents (they just moved)
+        // we want to free any allocated space,
+        // but not semantically drop our contents (they just moved)
         if !(*source).ptr.is_compact() {
             A::deallocate((*source).ptr.mut_ptr(), (*source).cap);
         }

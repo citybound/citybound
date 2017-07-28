@@ -107,11 +107,15 @@ pub fn generate(model: &Model) -> String {
     quote!(
         //! This is all auto-generated. Do not touch.
         use kay::{ActorSystem, ID};
+        #[allow(unused_imports)]
         use kay::swarm::{Swarm, SubActor};
         use super::*;
 
         #traits_msgs
         #actors_msgs
+
+        #[allow(unused_variables)]
+        #[allow(unused_mut)]
         pub fn auto_setup(system: &mut ActorSystem) {
             #setup
         }
@@ -151,6 +155,7 @@ fn simple_actor() {
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
         use kay::{ActorSystem, ID};
+        #[allow(unused_imports)]
         use kay::swarm::{Swarm, SubActor};
         use super::*;
 
@@ -207,6 +212,8 @@ fn simple_actor() {
         #[derive(Compact, Clone)]
         pub struct MSG_SomeActor_init_ish(pub SomeActorID, pub usize);
 
+        #[allow(unused_variables)]
+        #[allow(unused_mut)]
         pub fn auto_setup(system: &mut ActorSystem) {
             system.extend::<Swarm<SomeActor>, _>(Swarm::<SomeActor>::subactors(|mut each_subactor| {
                 each_subactor.on(|&MSG_SomeActor_some_method(ref some_param), subactor, world| {
@@ -274,6 +281,7 @@ fn trait_and_impl() {
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
         use kay::{ActorSystem, ID};
+        #[allow(unused_imports)]
         use kay::swarm::{Swarm, SubActor};
         use super::*;
 
@@ -327,6 +335,8 @@ fn trait_and_impl() {
             }
         }
 
+        #[allow(unused_variables)]
+        #[allow(unused_mut)]
         pub fn auto_setup(system: &mut ActorSystem) {
             system.extend::<Swarm<SomeActor>, _>(Swarm::<SomeActor>::subactors(|mut each_subactor| {
                 each_subactor.on(|&MSG_SomeTrait_some_method(ref some_param), subactor, world| {

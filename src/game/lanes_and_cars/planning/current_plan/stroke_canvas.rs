@@ -56,8 +56,10 @@ pub fn setup(system: &mut ActorSystem) {
                     if !finished {
                         canvas.points.push(new_point);
                         if canvas.points.len() > 1 {
-                            world.send(cp_id,
-                                       Stroke(canvas.points.clone(), StrokeState::Intermediate));
+                            world.send(
+                                cp_id,
+                                Stroke(canvas.points.clone(), StrokeState::Intermediate),
+                            );
                         }
                     }
                 }

@@ -16,7 +16,6 @@
 #![feature(conservative_impl_trait)]
 #![feature(box_syntax)]
 #![feature(nonzero)]
-#![allow(no_effect)]
 extern crate chunked;
 extern crate compact;
 #[macro_use]

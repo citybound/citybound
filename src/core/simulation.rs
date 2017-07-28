@@ -19,8 +19,10 @@ pub fn setup(system: &mut ActorSystem, simulatables: Vec<ID>) {
     system.add(initial, |mut the_simulation| {
         the_simulation.on(|&Tick { dt, .. }, sim, world| {
             for simulatable in &sim.simulatables {
-                world.send(*simulatable,
-                           Tick { dt: dt, current_tick: sim.current_tick });
+                world.send(
+                    *simulatable,
+                    Tick { dt: dt, current_tick: sim.current_tick },
+                );
             }
             sim.current_tick += 1;
             Fate::Live

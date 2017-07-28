@@ -17,8 +17,8 @@ Recommended setup:
 * `git clone https://github.com/citybound/citybound.git`
 * `cd citybound`
 * Windows:
-  * `rustup override add nightly-2017-06-08-x86_64-pc-windows-msvc` **(new!)**
-  * Install the [Visual C++ 2015 Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools) (unless you have Visual Studio 2015)
+  * `rustup override add nightly-2017-06-08-x86_64-pc-windows-msvc`
+  * Install the [Visual C++ 2015 Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools), unless you have Visual Studio 2015
 * MacOS:
   * `rustup override add nightly-2017-06-08-x86_64-apple-darwin`
 * Linux:
@@ -45,10 +45,10 @@ Recommended setup:
 
 ## Conforming to style
 
-* install rustfmt: `cargo install rustfmt` **and make sure to keep it up-to date**
+* install rustfmt: `cargo install rustfmt --vers 0.9.0` **and please make sure to use the same version as noted here** (pinned now, but might change from time to time)
 * run rustfmt on the whole repo:
   `rustfmt --write-mode=overwrite ./src/main.rs ./lib/*/src/lib.rs`
-  (using default settings)
+  (using default settings) - if there are any overlong lines it can't fix, please fix them manually.
 * You should also **fix all clippy warnings** properly
 
 ## Have a question? Want to discuss something?

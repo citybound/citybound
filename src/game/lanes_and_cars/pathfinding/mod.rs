@@ -53,10 +53,13 @@ const DEBUG_CARS_ON_LANES: bool = false;
 pub fn on_build(lane: &mut Lane, world: &mut World) {
     lane.pathfinding.as_destination = None;
     if DEBUG_CARS_ON_LANES {
-        world.send_to_id_of::<UserInterface, _>(
-                   AddInteractable(lane.id(),
-                                   AnyShape::Band(Band::new(lane.construction.path.clone(), 3.0)),
-                                   5));
+        world.send_to_id_of::<UserInterface, _>(AddInteractable(
+            lane.id(),
+            AnyShape::Band(
+                Band::new(lane.construction.path.clone(), 3.0),
+            ),
+            5,
+        ));
     }
 }
 
@@ -68,11 +71,13 @@ pub fn on_disconnect(lane: &mut Lane, disconnected_id: ID) {
     let new_routes = lane.pathfinding
         .routes
         .pairs()
-        .filter_map(|(destination, route)| if route.learned_from == disconnected_id {
-                        None
-                    } else {
-                        Some((*destination, *route))
-                    })
+        .filter_map(|(destination, route)| if route.learned_from ==
+            disconnected_id
+        {
+            None
+        } else {
+            Some((*destination, *route))
+        })
         .collect();
     lane.pathfinding.routes = new_routes;
     lane.pathfinding.routes_changed = true;
@@ -85,18 +90,21 @@ const ROUTING_TIMEOUT_AFTER_CHANGE: u16 = 15;
 pub fn tick(lane: &mut Lane, world: &mut World) {
     if let Some(as_destination) = lane.pathfinding.as_destination {
         for successor in successors(lane) {
-            world.send(successor,
-                       JoinLandmark {
-                           from: lane.id(),
-                           join_as: Destination {
-                               landmark: as_destination.landmark,
-                               node: successor,
-                           },
-                           hops_from_landmark: lane.pathfinding.hops_from_landmark + 1,
-                       })
+            world.send(
+                successor,
+                JoinLandmark {
+                    from: lane.id(),
+                    join_as: Destination {
+                        landmark: as_destination.landmark,
+                        node: successor,
+                    },
+                    hops_from_landmark: lane.pathfinding.hops_from_landmark + 1,
+                },
+            )
         }
     } else if !lane.connectivity.on_intersection &&
-              predecessors(lane).count() >= MIN_LANDMARK_INCOMING {
+               predecessors(lane).count() >= MIN_LANDMARK_INCOMING
+    {
         lane.pathfinding = PathfindingInfo {
             as_destination: Some(Destination::landmark(lane.id())),
             hops_from_landmark: 0,
@@ -114,19 +122,23 @@ pub fn tick(lane: &mut Lane, world: &mut World) {
     } else {
         if lane.pathfinding.query_routes_next_tick {
             for successor in successors(lane) {
-                world.send(successor,
-                           QueryRoutes { requester: lane.id(), is_transfer: false });
+                world.send(
+                    successor,
+                    QueryRoutes { requester: lane.id(), is_transfer: false },
+                );
             }
             lane.pathfinding.query_routes_next_tick = false;
         }
 
         if !lane.pathfinding.tell_to_forget_next_tick.is_empty() {
             for (_, predecessor, _) in predecessors(lane) {
-                world.send(predecessor,
-                           ForgetRoutes {
-                               forget: lane.pathfinding.tell_to_forget_next_tick.clone(),
-                               from: lane.id(),
-                           })
+                world.send(
+                    predecessor,
+                    ForgetRoutes {
+                        forget: lane.pathfinding.tell_to_forget_next_tick.clone(),
+                        from: lane.id(),
+                    },
+                )
             }
             lane.pathfinding.tell_to_forget_next_tick.clear();
         }
@@ -178,22 +190,23 @@ pub fn tick(lane: &mut Lane, world: &mut World) {
 
 #[allow(needless_lifetimes)]
 fn successors<'a>(lane: &'a Lane) -> impl Iterator<Item = ID> + 'a {
-    lane.connectivity
-        .interactions
-        .iter()
-        .filter_map(|interaction| match *interaction {
-                        Interaction {
-                            partner_lane,
-                            kind: InteractionKind::Overlap { kind: OverlapKind::Transfer, .. },
-                            ..
-                        } |
-                        Interaction {
-                            partner_lane,
-                            kind: InteractionKind::Next { .. },
-                            ..
-                        } => Some(partner_lane),
-                        _ => None,
-                    })
+    lane.connectivity.interactions.iter().filter_map(
+        |interaction| {
+            match *interaction {
+                Interaction {
+                    partner_lane,
+                    kind: InteractionKind::Overlap { kind: OverlapKind::Transfer, .. },
+                    ..
+                } |
+                Interaction {
+                    partner_lane,
+                    kind: InteractionKind::Next { .. },
+                    ..
+                } => Some(partner_lane),
+                _ => None,
+            }
+        },
+    )
 }
 
 #[allow(needless_lifetimes)]
@@ -203,18 +216,18 @@ fn predecessors<'a>(lane: &'a Lane) -> impl Iterator<Item = (u8, ID, bool)> + 'a
         .iter()
         .enumerate()
         .filter_map(|(i, interaction)| match *interaction {
-                        Interaction {
-                            partner_lane,
-                            kind: InteractionKind::Overlap { kind: OverlapKind::Transfer, .. },
-                            ..
-                        } => Some((i as u8, partner_lane, true)),
-                        Interaction {
-                            partner_lane,
-                            kind: InteractionKind::Previous { .. },
-                            ..
-                        } => Some((i as u8, partner_lane, false)),
-                        _ => None,
-                    })
+            Interaction {
+                partner_lane,
+                kind: InteractionKind::Overlap { kind: OverlapKind::Transfer, .. },
+                ..
+            } => Some((i as u8, partner_lane, true)),
+            Interaction {
+                partner_lane,
+                kind: InteractionKind::Previous { .. },
+                ..
+            } => Some((i as u8, partner_lane, false)),
+            _ => None,
+        })
 }
 
 #[derive(Copy, Clone)]
@@ -235,16 +248,16 @@ pub fn setup(system: &mut ActorSystem) {
                 .as_destination
                 .map(|self_destination| {
                     join_as != self_destination &&
-                    (if self_destination.is_landmark() {
-                         hops_from_landmark < IDEAL_LANDMARK_RADIUS &&
-                         join_as.landmark.sub_actor_id < lane.id().sub_actor_id
-                     } else {
-                         hops_from_landmark < lane.pathfinding.hops_from_landmark ||
-                         lane.pathfinding
-                             .learned_landmark_from
-                             .map(|learned_from| learned_from == from)
-                             .unwrap_or(false)
-                     })
+                        (if self_destination.is_landmark() {
+                             hops_from_landmark < IDEAL_LANDMARK_RADIUS &&
+                                 join_as.landmark.sub_actor_id < lane.id().sub_actor_id
+                         } else {
+                             hops_from_landmark < lane.pathfinding.hops_from_landmark ||
+                                 lane.pathfinding
+                                     .learned_landmark_from
+                                     .map(|learned_from| learned_from == from)
+                                     .unwrap_or(false)
+                         })
                 })
                 .unwrap_or(true);
             if join {
@@ -283,15 +296,13 @@ pub fn setup(system: &mut ActorSystem) {
                           &RoutingInfo { distance, distance_hops, .. })| {
                             (destination, (distance + self_cost, distance_hops + 1))
                         })
-                        .chain(
-                            if lane.connectivity.on_intersection {
-                                None
-                            } else {
-                                lane.pathfinding
-                                    .as_destination
-                                    .map(|destination| (destination, (self_cost, 0)))
-                            },
-                        )
+                        .chain(if lane.connectivity.on_intersection {
+                            None
+                        } else {
+                            lane.pathfinding.as_destination.map(|destination| {
+                                (destination, (self_cost, 0))
+                            })
+                        })
                         .collect(),
                     from: lane.id(),
                 },
@@ -301,31 +312,35 @@ pub fn setup(system: &mut ActorSystem) {
 
         each_lane.on(|&ShareRoutes { ref new_routes, from }, lane, _| {
             if let Some(from_interaction_idx) =
-                lane.connectivity
-                    .interactions
-                    .iter()
-                    .position(|interaction| interaction.partner_lane == from) {
+                lane.connectivity.interactions.iter().position(
+                    |interaction| {
+                        interaction.partner_lane == from
+                    },
+                )
+            {
                 for (&destination, &(new_distance, new_distance_hops)) in new_routes.pairs() {
                     if destination.is_landmark() || new_distance_hops <= IDEAL_LANDMARK_RADIUS ||
-                       lane.pathfinding
-                           .as_destination
-                           .map(|self_dest| self_dest.landmark == destination.landmark)
-                           .unwrap_or(false) {
+                        lane.pathfinding
+                            .as_destination
+                            .map(|self_dest| self_dest.landmark == destination.landmark)
+                            .unwrap_or(false)
+                    {
                         let insert = lane.pathfinding
                             .routes
                             .get_mru(destination)
                             .map(|&RoutingInfo { distance, .. }| new_distance < distance)
                             .unwrap_or(true);
                         if insert {
-                            lane.pathfinding.routes.insert(destination,
-                                                           RoutingInfo {
-                                                               distance: new_distance,
-                                                               distance_hops: new_distance_hops,
-                                                               outgoing_idx: from_interaction_idx as
-                                                                             u8,
-                                                               learned_from: from,
-                                                               fresh: true,
-                                                           });
+                            lane.pathfinding.routes.insert(
+                                destination,
+                                RoutingInfo {
+                                    distance: new_distance,
+                                    distance_hops: new_distance_hops,
+                                    outgoing_idx: from_interaction_idx as u8,
+                                    learned_from: from,
+                                    fresh: true,
+                                },
+                            );
                             lane.pathfinding.routes_changed = true;
                         }
                     }
@@ -340,7 +355,8 @@ pub fn setup(system: &mut ActorSystem) {
             let mut forgotten = CVec::<Destination>::new();
             for destination_to_forget in forget.iter() {
                 let forget = if let Some(routing_info) =
-                    lane.pathfinding.routes.get(*destination_to_forget) {
+                    lane.pathfinding.routes.get(*destination_to_forget)
+                {
                     routing_info.learned_from == from
                 } else {
                     false
@@ -352,9 +368,9 @@ pub fn setup(system: &mut ActorSystem) {
                             car.destination.landmark != destination_to_forget.landmark
                         })
                     } else {
-                        lane.microtraffic
-                            .cars
-                            .retain(|car| &car.destination != destination_to_forget)
+                        lane.microtraffic.cars.retain(|car| {
+                            &car.destination != destination_to_forget
+                        })
                     }
                     forgotten.push(*destination_to_forget);
                 }
@@ -364,11 +380,13 @@ pub fn setup(system: &mut ActorSystem) {
         });
 
         each_lane.on(|&QueryAsDestination { requester }, lane, world| {
-            world.send(requester,
-                       TellAsDestination {
-                           id: lane.id(),
-                           as_destination: lane.pathfinding.as_destination,
-                       });
+            world.send(
+                requester,
+                TellAsDestination {
+                    id: lane.id(),
+                    as_destination: lane.pathfinding.as_destination,
+                },
+            );
             Fate::Live
         })
     }));
@@ -377,21 +395,25 @@ pub fn setup(system: &mut ActorSystem) {
         each_t_lane.on(|&JoinLandmark { join_as, hops_from_landmark, from },
          lane,
          world| {
-            world.send(lane.other_side(from),
-                       JoinLandmark {
-                           join_as: Destination {
-                               landmark: join_as.landmark,
-                               node: lane.other_side(from),
-                           },
-                           hops_from_landmark: hops_from_landmark,
-                           from: lane.id(),
-                       });
+            world.send(
+                lane.other_side(from),
+                JoinLandmark {
+                    join_as: Destination {
+                        landmark: join_as.landmark,
+                        node: lane.other_side(from),
+                    },
+                    hops_from_landmark: hops_from_landmark,
+                    from: lane.id(),
+                },
+            );
             Fate::Live
         });
 
         each_t_lane.on(|&QueryRoutes { requester, .. }, lane, world| {
-            world.send(lane.other_side(requester),
-                       QueryRoutes { requester: lane.id(), is_transfer: true });
+            world.send(
+                lane.other_side(requester),
+                QueryRoutes { requester: lane.id(), is_transfer: true },
+            );
             Fate::Live
         });
 
@@ -402,14 +424,20 @@ pub fn setup(system: &mut ActorSystem) {
                     new_routes: new_routes
                         .pairs()
                         .map(|(&destination, &(distance, hops))| {
-                            (destination,
-                             (distance +
-                              if from == lane.connectivity.left.expect("should have left").0 {
-                                  LANE_CHANGE_COST_RIGHT
-                              } else {
-                                  LANE_CHANGE_COST_LEFT
-                              },
-                              hops))
+                            (destination, (
+                                distance +
+                                    if from ==
+                                        lane.connectivity
+                                            .left
+                                            .expect("should have left")
+                                            .0
+                                    {
+                                        LANE_CHANGE_COST_RIGHT
+                                    } else {
+                                        LANE_CHANGE_COST_LEFT
+                                    },
+                                hops,
+                            ))
                         })
                         .collect(),
                     from: lane.id(),
@@ -419,8 +447,10 @@ pub fn setup(system: &mut ActorSystem) {
         });
 
         each_t_lane.on(|&ForgetRoutes { ref forget, from }, lane, world| {
-            world.send(lane.other_side(from),
-                       ForgetRoutes { forget: forget.clone(), from: lane.id() });
+            world.send(
+                lane.other_side(from),
+                ForgetRoutes { forget: forget.clone(), from: lane.id() },
+            );
             Fate::Live
         })
     }));

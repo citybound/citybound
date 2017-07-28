@@ -1,15 +1,22 @@
 use compact::Compact;
 use std::sync::Arc;
 
+/// A reference to local state outside the actor system.
+/// Can safely be embedded in actor states and messages, as long as they stay on one machine.
+/// Reference counting and deallocation is handled, since it uses an `Arc` internally
 pub struct External<T> {
     ext: Arc<T>,
 }
 
 impl<T> External<T> {
+    /// Allocate `content` on the heap and create a sharable `External` reference to it
     pub fn new(content: T) -> Self {
         External { ext: Arc::new(content) }
     }
 
+    /// Try to get mutable (exclusive) access to the referenced resource.
+    /// Just like `Arc::get_mut`, this only succeeds
+    /// if the caller is the only holder of a reference.
     pub fn get_mut(external: &mut Self) -> Option<&mut T> {
         Arc::get_mut(&mut external.ext)
     }

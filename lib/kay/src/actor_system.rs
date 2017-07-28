@@ -222,6 +222,7 @@ impl ActorSystem {
         }
     }
 
+    /// Get a world context directly from the system, typically to send messages from outside
     pub fn world(&mut self) -> World {
         World(self as *mut Self)
     }
@@ -363,6 +364,8 @@ impl World {
         self.send(id, message);
     }
 
+    /// Synchronously allocate a subactor id for a subactor
+    /// that will later manually be added to a Swarm
     pub fn allocate_subactor_id<SA: 'static + SubActor>(&mut self) -> ID {
         let system: &mut ActorSystem = unsafe { &mut *self.0 };
         let swarm = unsafe {

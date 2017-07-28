@@ -182,7 +182,8 @@ impl Model {
 
         quote!(
             #(
-                system.extend::<Swarm<#setup_types_1>, _>(Swarm::<#setup_types_2>::subactors(|mut each_subactor| {
+                system.extend::<Swarm<#setup_types_1>, _>(
+                    Swarm::<#setup_types_2>::subactors(|mut each_subactor| {
                 #(
                     each_subactor.#handler_mods(|&#msg_names(#(#msg_args),*), subactor, world| {
                         subactor.#handler_names(#(#handler_params,)* world)#maybe_fate_returns
@@ -192,13 +193,17 @@ impl Model {
 
                 system.extend::<Swarm<#setup_types_3>, _>(|mut the_swarm| {
                 #(
-                    the_swarm.#swarm_handler_mods(|&#swarm_msg_names(#(#swarm_msg_args),*), _, world| {
-                        #types_for_swarm_handlers::#swarm_handler_names(#(#swarm_handler_params,)* world)#swarm_maybe_fate_returns
+                    the_swarm.#swarm_handler_mods(
+                        |&#swarm_msg_names(#(#swarm_msg_args),*), _, world| {
+                            #types_for_swarm_handlers::#swarm_handler_names(
+                                #(#swarm_handler_params,)* world
+                            )#swarm_maybe_fate_returns
                     });
                 )*
 
                 #(
-                    the_swarm.#init_handler_mods(|&#init_msg_names(id, #(#init_msg_args),*), swarm, world| {
+                    the_swarm.#init_handler_mods(
+                        |&#init_msg_names(id, #(#init_msg_args),*), swarm, world| {
                         let mut subactor = #types_for_init_handlers_2::#init_handler_names(
                             id, #(#init_handler_params,)* world
                         );
@@ -250,7 +255,9 @@ impl Model {
 
                 #(
                 pub fn #swarm_handler_names(#(#swarm_handler_args,)* world: &mut World) {
-                    world.send_to_id_of::<Swarm<Self>, _>(#swarm_msg_names_1(#(#swarm_msg_params),*));
+                    world.send_to_id_of::<Swarm<Self>, _>(
+                        #swarm_msg_names_1(#(#swarm_msg_params),*)
+                    );
                 }
                 )*
             }
@@ -360,7 +367,9 @@ impl Model {
 
             impl #actor_here_ids_2 {
                 pub fn broadcast(world: &mut World) -> Self {
-                    #actor_here_ids_3 { _raw_id: world.id::<Swarm<#actor_here_names_2>>().broadcast() }
+                    #actor_here_ids_3 {
+                        _raw_id: world.id::<Swarm<#actor_here_names_2>>().broadcast()
+                    }
                 }
             }
             )*
@@ -409,7 +418,9 @@ impl Model {
             #(
             #[allow(non_camel_case_types)]
             #init_msg_derives
-            pub struct #init_msg_names_2(pub #actor_ids_for_init_msgs, #(pub #init_msg_param_types),*);
+            pub struct #init_msg_names_2(
+                pub #actor_ids_for_init_msgs, #(pub #init_msg_param_types),*
+            );
             )*
             )*
 

@@ -22,8 +22,10 @@ pub fn setup(system: &mut ActorSystem) {
         Swarm::<Trip>::new(),
         Swarm::<Trip>::subactors(|mut each_trip| {
             each_trip.on_create_with(|_: &Start, trip, world| {
-                world.send(trip.rough_destination,
-                           QueryAsDestination { requester: trip.id() });
+                world.send(
+                    trip.rough_destination,
+                    QueryAsDestination { requester: trip.id() },
+                );
                 Fate::Live
             });
 
@@ -35,21 +37,23 @@ pub fn setup(system: &mut ActorSystem) {
              world| {
                 if let Some(as_destination) = maybe_destination {
                     trip.destination = Some(as_destination);
-                    world.send(trip.source,
-                               AddCar {
-                                   car: LaneCar {
-                                       trip: trip.id(),
-                                       as_obstacle: Obstacle {
-                                           position: OrderedFloat(-1.0),
-                                           velocity: 0.0,
-                                           max_velocity: 15.0,
-                                       },
-                                       acceleration: 0.0,
-                                       destination: as_destination,
-                                       next_hop_interaction: 0,
-                                   },
-                                   from: None,
-                               });
+                    world.send(
+                        trip.source,
+                        AddCar {
+                            car: LaneCar {
+                                trip: trip.id(),
+                                as_obstacle: Obstacle {
+                                    position: OrderedFloat(-1.0),
+                                    velocity: 0.0,
+                                    max_velocity: 15.0,
+                                },
+                                acceleration: 0.0,
+                                destination: as_destination,
+                                next_hop_interaction: 0,
+                            },
+                            from: None,
+                        },
+                    );
                     Fate::Live
                 } else {
                     println!("{:?} is not a destination yet", id);
@@ -78,14 +82,18 @@ pub fn setup(system: &mut ActorSystem) {
 
             the_creator.on(move |&AddLaneForTrip(lane_id), tc, world| {
                 if let Some(source) = tc.current_source_lane {
-                    world.send(trips_id,
-                               CreateWith(Trip {
-                                              _id: None,
-                                              source: source,
-                                              rough_destination: lane_id,
-                                              destination: None,
-                                          },
-                                          Start));
+                    world.send(
+                        trips_id,
+                        CreateWith(
+                            Trip {
+                                _id: None,
+                                source: source,
+                                rough_destination: lane_id,
+                                destination: None,
+                            },
+                            Start,
+                        ),
+                    );
                     tc.current_source_lane = None;
                 } else {
                     tc.current_source_lane = Some(lane_id);

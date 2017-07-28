@@ -76,10 +76,12 @@ impl LaneStroke {
                 self.nodes
                     .windows(2)
                     .flat_map(|window| {
-                        Segment::biarc(window[0].position,
-                                       window[0].direction,
-                                       window[1].position,
-                                       window[1].direction)
+                        Segment::biarc(
+                            window[0].position,
+                            window[0].direction,
+                            window[1].position,
+                            window[1].direction,
+                        )
                     })
                     .collect::<Vec<_>>(),
             )
@@ -88,8 +90,10 @@ impl LaneStroke {
     }
 
     pub fn preview_thing(&self) -> Thing {
-        band_to_thing(&Band::new(Band::new(self.path().clone(), 4.85).outline(), 0.6),
-                      0.0)
+        band_to_thing(
+            &Band::new(Band::new(self.path().clone(), 4.85).outline(), 0.6),
+            0.0,
+        )
     }
 
     // TODO: this is slightly ugly
@@ -127,7 +131,9 @@ impl LaneStroke {
     pub fn with_subsection_moved(&self, start: N, end: N, delta: V2) -> MovedSubsectionInfo {
         let nodes_before = self.nodes
             .iter()
-            .take_while(|node| self.path().project(node.position).unwrap() < start - 5.0)
+            .take_while(|node| {
+                self.path().project(node.position).unwrap() < start - 5.0
+            })
             .cloned()
             .collect::<Vec<_>>();
 
@@ -144,7 +150,9 @@ impl LaneStroke {
 
         let nodes_after = self.nodes
             .iter()
-            .skip_while(|node| self.path().project(node.position).unwrap() < end + 5.0)
+            .skip_while(|node| {
+                self.path().project(node.position).unwrap() < end + 5.0
+            })
             .cloned()
             .collect::<Vec<_>>();
 
@@ -152,42 +160,51 @@ impl LaneStroke {
         let mut maybe_after_connector = None;
 
         if let (Some(&last_node_before), Some(&first_moved_node)) =
-            (nodes_before.last(), new_subsection.get(0)) {
+            (nodes_before.last(), new_subsection.get(0))
+        {
             maybe_before_connector = biarc_connection_node(last_node_before, first_moved_node);
         }
 
         if let (Some(&last_moved_node), Some(&first_node_after)) =
-            (new_subsection.last(), nodes_after.get(0)) {
+            (new_subsection.last(), nodes_after.get(0))
+        {
             maybe_after_connector = biarc_connection_node(last_moved_node, first_node_after);
         }
 
-        (nodes_before, maybe_before_connector, new_subsection, maybe_after_connector, nodes_after)
+        (
+            nodes_before,
+            maybe_before_connector,
+            new_subsection,
+            maybe_after_connector,
+            nodes_after,
+        )
     }
 
     pub fn build(&self, report_to: ID, report_as: BuildableRef, world: &mut World) {
-        world.send_to_id_of::<Swarm<Lane>, _>(CreateWith(Lane::new(self.path().clone(),
-                                                                   false,
-                                                                   CVec::new()),
-                                                         AdvertiseToTransferAndReport(report_to,
-                                                                                      report_as)));
+        world.send_to_id_of::<Swarm<Lane>, _>(CreateWith(
+            Lane::new(self.path().clone(), false, CVec::new()),
+            AdvertiseToTransferAndReport(report_to, report_as),
+        ));
     }
 
-    pub fn build_intersection(&self,
-                              report_to: ID,
-                              report_as: BuildableRef,
-                              timings: CVec<bool>,
-                              world: &mut World) {
-        world.send_to_id_of::<Swarm<Lane>, _>(CreateWith(Lane::new(self.path().clone(),
-                                                                   true,
-                                                                   timings),
-                                                         AdvertiseToTransferAndReport(report_to,
-                                                                                      report_as)));
+    pub fn build_intersection(
+        &self,
+        report_to: ID,
+        report_as: BuildableRef,
+        timings: CVec<bool>,
+        world: &mut World,
+    ) {
+        world.send_to_id_of::<Swarm<Lane>, _>(CreateWith(
+            Lane::new(self.path().clone(), true, timings),
+            AdvertiseToTransferAndReport(report_to, report_as),
+        ));
     }
 
     pub fn build_transfer(&self, report_to: ID, report_as: BuildableRef, world: &mut World) {
-        world.send_to_id_of::<Swarm<TransferLane>, _>(
-                   CreateWith(TransferLane::new(self.path().clone()),
-                              AdvertiseToTransferAndReport(report_to, report_as)));
+        world.send_to_id_of::<Swarm<TransferLane>, _>(CreateWith(
+            TransferLane::new(self.path().clone()),
+            AdvertiseToTransferAndReport(report_to, report_as),
+        ));
     }
 }
 
@@ -197,25 +214,31 @@ pub type MovedSubsectionInfo = (Vec<LaneStrokeNode>,
                                 Option<LaneStrokeNode>,
                                 Vec<LaneStrokeNode>);
 
-fn biarc_connection_node(start_node: LaneStrokeNode,
-                         end_node: LaneStrokeNode)
-                         -> Option<LaneStrokeNode> {
-    let connection_segments = Segment::biarc(start_node.position,
-                                             start_node.direction,
-                                             end_node.position,
-                                             end_node.direction);
+fn biarc_connection_node(
+    start_node: LaneStrokeNode,
+    end_node: LaneStrokeNode,
+) -> Option<LaneStrokeNode> {
+    let connection_segments = Segment::biarc(
+        start_node.position,
+        start_node.direction,
+        end_node.position,
+        end_node.direction,
+    );
 
     if connection_segments.len() > 1 {
         let connection_node = LaneStrokeNode {
             position: connection_segments[0].end(),
             direction: connection_segments[0].end_direction(),
         };
-        if !connection_node
-               .position
-               .is_roughly_within(start_node.position, MIN_NODE_DISTANCE) &&
-           !connection_node
-               .position
-               .is_roughly_within(end_node.position, MIN_NODE_DISTANCE) {
+        if !connection_node.position.is_roughly_within(
+            start_node.position,
+            MIN_NODE_DISTANCE,
+        ) &&
+            !connection_node.position.is_roughly_within(
+                end_node.position,
+                MIN_NODE_DISTANCE,
+            )
+        {
             Some(connection_node)
         } else {
             None
@@ -228,10 +251,9 @@ fn biarc_connection_node(start_node: LaneStrokeNode,
 impl<'a> RoughlyComparable for &'a LaneStroke {
     fn is_roughly_within(&self, other: &LaneStroke, tolerance: N) -> bool {
         self.nodes.len() == other.nodes.len() &&
-        self.nodes
-            .iter()
-            .zip(other.nodes.iter())
-            .all(|(n1, n2)| n1.is_roughly_within(n2, tolerance))
+            self.nodes.iter().zip(other.nodes.iter()).all(|(n1, n2)| {
+                n1.is_roughly_within(n2, tolerance)
+            })
     }
 }
 

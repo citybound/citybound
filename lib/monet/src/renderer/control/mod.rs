@@ -1,7 +1,7 @@
 
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
                     WithUniqueOrthogonal, Inverse, Rotate};
-use kay::{ID, Fate, ActorSystem, World};
+use kay::{ID, Fate, World};
 use glium::Frame;
 
 use super::{Renderer, RendererID};

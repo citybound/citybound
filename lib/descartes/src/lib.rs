@@ -138,12 +138,15 @@ impl RoughlyComparable for V2 {
 
 pub trait Curve: Sized {
     fn project_with_max_distance(&self, point: P2, max_distance: N, tolerance: N) -> Option<N> {
-        self.project_with_tolerance(point, tolerance)
-            .and_then(|offset| if self.distance_to(point) < max_distance {
-                          Some(offset)
-                      } else {
-                          None
-                      })
+        self.project_with_tolerance(point, tolerance).and_then(
+            |offset| {
+                if self.distance_to(point) < max_distance {
+                    Some(offset)
+                } else {
+                    None
+                }
+            },
+        )
     }
     fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<N>;
     fn project(&self, point: P2) -> Option<N> {
@@ -192,7 +195,7 @@ impl BoundingBox {
 
     pub fn overlaps(&self, other: &BoundingBox) -> bool {
         self.max.x >= other.min.x && other.max.x >= self.min.x && self.max.y >= other.min.y &&
-        other.max.y >= self.min.y
+            other.max.y >= self.min.y
     }
 
     pub fn point(p: P2) -> Self {
