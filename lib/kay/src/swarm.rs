@@ -84,15 +84,17 @@ impl<SA: SubActor> Swarm<SA> {
         ID::new(base_id.type_id, sub_actor_id as u32, version as u8)
     }
 
-    fn add(&mut self, initial_state: SA, base_id: ID) -> ID {
+    fn add(&mut self, mut initial_state: SA, base_id: ID) -> ID {
         let id = unsafe { self.allocate_id(base_id) };
-        unsafe { self.add_with_id(initial_state, id) };
+        unsafe { self.add_with_id(&mut initial_state, id) };
         *self.n_sub_actors += 1;
+        // this acts like a move!
+        ::std::mem::forget(initial_state);
         id
     }
 
-    pub unsafe fn add_with_id(&mut self, initial_state: SA, id: ID) {
-        let size = initial_state.total_size_bytes();
+    pub unsafe fn add_with_id(&mut self, initial_state: *mut SA, id: ID) {
+        let size = (*initial_state).total_size_bytes();
         let bin_index = self.sub_actors.size_to_index(size);
         let bin = &mut self.sub_actors.bin_for_size_mut(size);
         let (ptr, index) = bin.push();
@@ -106,12 +108,9 @@ impl<SA: SubActor> Swarm<SA> {
             bin_index
         );
 
-        unsafe {
-            let actor_in_slot = &mut *(ptr as *mut SA);
-            ::std::ptr::write_unaligned(ptr as *mut SA, initial_state);
-            actor_in_slot.compact_behind();
-            actor_in_slot.set_id(id)
-        }
+        Compact::compact_behind(initial_state, ptr as *mut SA);
+        let actor_in_slot = &mut *(ptr as *mut SA);
+        actor_in_slot.set_id(id);
     }
 
     fn swap_remove(&mut self, indices: SlotIndices) -> bool {
@@ -157,10 +156,8 @@ impl<SA: SubActor> Swarm<SA> {
     }
 
     fn resize_at_index(&mut self, old_i: SlotIndices) -> bool {
-        let old_actor_ptr = self.at_index(old_i) as *const SA;
-        let old_actor = unsafe { ::std::ptr::read(old_actor_ptr) };
-        let old_actor_id = old_actor.id();
-        unsafe { self.add_with_id(old_actor, old_actor_id) };
+        let old_actor_ptr = self.at_index_mut(old_i) as *mut SA;
+        unsafe { self.add_with_id(old_actor_ptr, (*old_actor_ptr).id()) };
         self.swap_remove(old_i)
     }
 

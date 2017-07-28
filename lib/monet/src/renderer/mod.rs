@@ -50,6 +50,7 @@ impl Renderer {
         scenes: &CVec<SceneDescription>,
         world: &mut World,
     ) -> Renderer {
+        id.setup(world);
         Renderer {
             id: id,
             inner: External::new(RendererState {

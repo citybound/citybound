@@ -1,6 +1,10 @@
 //! Automatic `#[derive(Compact)]` macro for structs whose fields are all `Compact`
 
-#![recursion_limit="100"]
+#![recursion_limit="256"]
+
+#[cfg(test)]
+#[macro_use]
+extern crate pretty_assertions;
 
 extern crate proc_macro;
 use proc_macro::TokenStream;
@@ -61,18 +65,19 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                 .collect();
             let fields_ref = &fields;
             let fields_ref2 = &fields;
+            let fields_ref3 = &fields;
 
             let decompact_body = if data.fields()[0].ident.is_some() {
                 quote! {
                     #name{
                         #(
-                            #fields_ref: self.#fields_ref2.decompact()
+                            #fields_ref: ::compact::Compact::decompact(&(*source).#fields_ref2)
                         ),*
                     }
                 }
             } else {
                 quote! {
-                    #name(#(self.#fields_ref2.decompact()),*)
+                    #name(#(::compact::Compact::decompact(&(*source).#fields_ref2)),*)
                 }
             };
 
@@ -88,15 +93,16 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                     }
 
                     #[allow(unused_assignments)]
-                    unsafe fn compact_to(&mut self, new_dynamic_part: *mut u8) {
+                    unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
                         let mut offset: isize = 0;
                         #(
-                            self.#fields_ref.compact_to(new_dynamic_part.offset(offset));
-                            offset += self.#fields_ref2.dynamic_size_bytes() as isize;
+                            let size_of_this_field = (*source).#fields_ref.dynamic_size_bytes() as isize;
+                            ::compact::Compact::compact(&mut (*source).#fields_ref2, &mut (*dest).#fields_ref3, new_dynamic_part.offset(offset));
+                            offset += size_of_this_field;
                         )*
                     }
 
-                    unsafe fn decompact(&self) -> Self {
+                    unsafe fn decompact(source: *const Self) -> Self {
                         #decompact_body
                     }
                 }
@@ -147,23 +153,28 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                 .map(|variant| {
                     let ident = &variant.ident;
                     let fields = get_field_idents(&variant.data, "f");
+                    let dest_fields = get_field_idents(&variant.data, "dest_f");
                     let fields_ref = &fields;
                     let fields_ref2 = &fields;
+                    let dest_fields_ref = &dest_fields;
 
                     if fields.is_empty() {
                         quote! {
-                            #name::#ident => {
-                                *self = #name::#ident;
-                            }
+                            #name::#ident => {}
                         }
                     } else {
                         quote! {
                             #name::#ident(#(ref mut #fields_ref),*) => {
                                 let mut offset: isize = 0;
-                                #(
-                                    #fields_ref.compact_to(new_dynamic_part.offset(offset));
-                                    offset += #fields_ref2.dynamic_size_bytes() as isize;
-                                )*
+                                if let #name::#ident(#(ref mut #dest_fields_ref),*) = *dest {
+                                      #(
+                                          let size_of_this_field = #fields_ref.dynamic_size_bytes() as isize;
+                                          ::compact::Compact::compact(#fields_ref2, #dest_fields_ref,
+                                                                  new_dynamic_part
+                                                                      .offset(offset));
+                                          offset += size_of_this_field;
+                                      )*
+                                  } else {unreachable!()}
                             }
                         }
                     }
@@ -183,7 +194,7 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                     } else {
                         quote! {
                             #name::#ident(#(ref #fields_ref),*) => {
-                                #name::#ident(#(#fields_ref.decompact()),*)
+                                #name::#ident(#(::compact::Compact::decompact(#fields_ref)),*)
                             }
                         }
                     }
@@ -209,15 +220,16 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
 
                     #[allow(unused_assignments)]
                     #[allow(match_same_arms)]
-                    unsafe fn compact_to(&mut self, new_dynamic_part: *mut u8) {
-                        match *self {
+                    unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
+                        ::std::ptr::copy_nonoverlapping(source, dest, 1);
+                        match *source {
                             #(#variants_compact_to),*
                         }
                     }
 
                     #[allow(match_same_arms)]
-                    unsafe fn decompact(&self) -> Self {
-                        match *self {
+                    unsafe fn decompact(source: *const Self) -> Self {
+                        match *source {
                             #(#variants_decompact),*
                         }
                     }
@@ -227,4 +239,158 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
     };
 
     tokens
+}
+
+#[test]
+fn basic_struct() {
+    let input = quote!(
+        struct Test {
+            number: u32,
+            list: CVec<f32>,
+            truth: bool
+        }
+    );
+
+    let expected = quote!(
+        impl ::compact::Compact for Test {
+            fn is_still_compact(&self) -> bool {
+                self.number.is_still_compact() &&
+                    self.list.is_still_compact() &&
+                    self.truth.is_still_compact()
+            }
+
+            fn dynamic_size_bytes(&self) -> usize {
+                self.number.dynamic_size_bytes() +
+                    self.list.dynamic_size_bytes() +
+                    self.truth.dynamic_size_bytes()
+            }
+
+            #[allow(unused_assignments)]
+            unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
+                let mut offset: isize = 0;
+                let size_of_this_field = (*source).number.dynamic_size_bytes() as isize;
+                ::compact::Compact::compact(&mut (*source).number, &mut (*dest).number, new_dynamic_part.offset(offset));
+                offset += size_of_this_field;
+
+                let size_of_this_field = (*source).list.dynamic_size_bytes() as isize;
+                ::compact::Compact::compact(&mut (*source).list, &mut (*dest).list, new_dynamic_part.offset(offset));
+                offset += size_of_this_field;
+
+                let size_of_this_field = (*source).truth.dynamic_size_bytes() as isize;
+                ::compact::Compact::compact(&mut (*source).truth, &mut (*dest).truth, new_dynamic_part.offset(offset));
+                offset += size_of_this_field;
+            }
+
+            unsafe fn decompact(source: *const Self) -> Self {
+                Test {
+                    number: ::compact::Compact::decompact(&(*source).number),
+                    list: ::compact::Compact::decompact(&(*source).list),
+                    truth: ::compact::Compact::decompact(&(*source).truth)
+                }
+            }
+        }
+    );
+
+    assert_eq!(
+        expected.into_string(),
+        expand_derive_compact(&syn::parse_macro_input(input.into_string().as_str())
+            .unwrap()).into_string()
+    );
+}
+
+#[test]
+fn basic_enum() {
+    let input = quote!(
+        enum Test2 {
+            A(u32, bool, f32),
+            B(CVec<u8>),
+            C
+        }
+    );
+
+    let expected = quote!(
+        impl ::compact::Compact for Test2 {
+            #[allow(match_same_arms)]
+            fn is_still_compact(&self) -> bool {
+                match *self {
+                    Test2::A(ref f0, ref f1, ref f2) => {
+                        f0.is_still_compact() && f1.is_still_compact() && f2.is_still_compact()
+                    },
+                    Test2::B(ref f0) => {
+                        f0.is_still_compact()
+                    },
+                    Test2::C => true
+                }
+            }
+
+            #[allow(match_same_arms)]
+            fn dynamic_size_bytes(&self) -> usize {
+                match *self {
+                    Test2::A(ref f0, ref f1, ref f2) => {
+                        f0.dynamic_size_bytes() + f1.dynamic_size_bytes() + f2.dynamic_size_bytes()
+                    },
+                    Test2::B(ref f0) => {
+                        f0.dynamic_size_bytes()
+                    },
+                    Test2::C => 0
+                }
+            }
+
+            #[allow(unused_assignments)]
+            #[allow(match_same_arms)]
+            unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
+                ::std::ptr::copy_nonoverlapping(source, dest, 1);
+                match *source {
+                    Test2::A(ref mut f0, ref mut f1, ref mut f2) => {
+                        let mut offset: isize = 0;
+                        if let Test2::A(ref mut dest_f0, ref mut dest_f1, ref mut dest_f2) = *dest {
+                            let size_of_this_field = f0.dynamic_size_bytes() as isize;
+                            ::compact::Compact::compact(f0, dest_f0, new_dynamic_part.offset(offset));
+                            offset += size_of_this_field;
+
+                            let size_of_this_field = f1.dynamic_size_bytes() as isize;
+                            ::compact::Compact::compact(f1, dest_f1, new_dynamic_part.offset(offset));
+                            offset += size_of_this_field;
+
+                            let size_of_this_field = f2.dynamic_size_bytes() as isize;
+                            ::compact::Compact::compact(f2, dest_f2, new_dynamic_part.offset(offset));
+                            offset += size_of_this_field;
+                        } else {unreachable!()}
+                    },
+                    Test2::B(ref mut f0) => {
+                        let mut offset: isize = 0;
+                        if let Test2::B(ref mut dest_f0) = *dest {
+                            let size_of_this_field = f0.dynamic_size_bytes() as isize;
+                            ::compact::Compact::compact(f0, dest_f0, new_dynamic_part.offset(offset));
+                            offset += size_of_this_field;
+                        } else {unreachable!()}
+                    },
+                    Test2::C => {}
+                }
+            }
+
+            #[allow(match_same_arms)]
+            unsafe fn decompact(source: *const Self) -> Self {
+                match *source {
+                    Test2::A(ref f0, ref f1, ref f2) => {
+                        Test2::A(
+                            ::compact::Compact::decompact(f0),
+                            ::compact::Compact::decompact(f1),
+                            ::compact::Compact::decompact(f2)
+                        )
+                    },
+                    Test2::B(ref f0) => {
+                        Test2::B(::compact::Compact::decompact(f0))
+                    },
+                    Test2::C => Test2::C
+                }
+            }
+        }
+    );
+
+    assert_eq!(
+        expected.into_string(),
+        expand_derive_compact(&syn::parse_macro_input(input.into_string().as_str())
+            .unwrap()).into_string()
+    );
 }

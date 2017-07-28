@@ -225,8 +225,9 @@ fn simple_actor() {
                 });
 
                 the_swarm.on(|&MSG_SomeActor_init_ish(id, ref some_param), swarm, world| {
-                    let subactor = SomeActor::init_ish(id, some_param, world);
-                    unsafe {swarm.add_with_id(subactor, id._raw_id) };
+                    let mut subactor = SomeActor::init_ish(id, some_param, world);
+                    unsafe {swarm.add_with_id(&mut subactor, id._raw_id) };
+                    ::std::mem::forget(subactor);
                     Fate::Live
                 });
             });

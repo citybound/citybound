@@ -15,7 +15,7 @@ impl Inbox {
         Inbox { queue: ChunkedQueue::new(chunker) }
     }
 
-    pub fn put<M: Message>(&mut self, packet: Packet<M>, message_registry: &TypeRegistry) {
+    pub fn put<M: Message>(&mut self, mut packet: Packet<M>, message_registry: &TypeRegistry) {
         let packet_size = packet.total_size_bytes();
         let total_size = ::std::mem::size_of::<ShortTypeId>() + packet_size;
 
@@ -29,12 +29,9 @@ impl Inbox {
 
             let payload_ptr = queue_ptr.offset(::std::mem::size_of::<ShortTypeId>() as isize);
 
-            // Get the address of the location in the queue
-            let packet_in_queue = &mut *(payload_ptr as *mut Packet<M>);
-
             // Write the packet into the queue
-            ::std::ptr::write_unaligned(payload_ptr as *mut Packet<M>, packet);
-            packet_in_queue.compact_behind();
+            Compact::compact_behind(&mut packet, payload_ptr as *mut Packet<M>);
+            ::std::mem::forget(packet);
         }
     }
 

@@ -199,10 +199,11 @@ impl Model {
 
                 #(
                     the_swarm.#init_handler_mods(|&#init_msg_names(id, #(#init_msg_args),*), swarm, world| {
-                        let subactor = #types_for_init_handlers_2::#init_handler_names(
+                        let mut subactor = #types_for_init_handlers_2::#init_handler_names(
                             id, #(#init_handler_params,)* world
                         );
-                        unsafe {swarm.add_with_id(subactor, id._raw_id)};
+                        unsafe {swarm.add_with_id(&mut subactor, id._raw_id)};
+                        ::std::mem::forget(subactor);
                         Fate::Live
                     });
                 )*

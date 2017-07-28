@@ -49,16 +49,27 @@ impl Compact for AnyShape {
         }
     }
 
-    unsafe fn compact_to(&mut self, new_dynamic_part: *mut u8) {
-        if let AnyShape::Band(Band { ref mut path, .. }) = *self {
-            path.compact_to(new_dynamic_part);
+    unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
+        ::std::ptr::copy_nonoverlapping(source, dest, 1);
+        if let AnyShape::Band(Band { ref mut path, width }) = *source {
+            if let AnyShape::Band(Band {
+                                      path: ref mut dest_path,
+                                      width: ref mut dest_width,
+                                  }) = *dest
+            {
+                Compact::compact(path, dest_path, new_dynamic_part);
+                *dest_width = width;
+            }
         }
     }
 
-    unsafe fn decompact(&self) -> AnyShape {
-        match *self {
+    unsafe fn decompact(source: *const Self) -> AnyShape {
+        match *source {
             AnyShape::Band(Band { ref path, width }) => {
-                AnyShape::Band(Band { path: path.decompact(), width: width })
+                AnyShape::Band(Band {
+                    path: Compact::decompact(path),
+                    width: width,
+                })
             }
             AnyShape::Circle(circle) => AnyShape::Circle(circle),
             AnyShape::Everywhere => AnyShape::Everywhere,
