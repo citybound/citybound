@@ -175,8 +175,8 @@ pub fn setup(system: &mut ActorSystem, env: &'static Environment) {
         use super::Ui2dDrawn;
         use imgui::ImGuiSetCond_FirstUseEver;
 
-        the_renderer.on_critical(|&DrawUI2d { ui_ptr, return_to }, cc, world| {
-            let ui = unsafe { Box::from_raw(ui_ptr as *mut ::imgui::Ui) };
+        the_renderer.on_critical(|&DrawUI2d { ref imgui_ui, return_to }, cc, world| {
+            let ui = imgui_ui.steal();
 
             let mut settings_changed = false;
 
@@ -206,7 +206,7 @@ pub fn setup(system: &mut ActorSystem, env: &'static Environment) {
                 cc.env.write_settings("Camera Control", &cc.settings);
             }
 
-            world.send(return_to, Ui2dDrawn { ui_ptr: Box::into_raw(ui) as usize });
+            world.send(return_to, Ui2dDrawn { imgui_ui: ui });
             Fate::Live
         });
 

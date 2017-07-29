@@ -1,7 +1,7 @@
 
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
                     WithUniqueOrthogonal, Inverse, Rotate};
-use kay::{ID, Fate, World};
+use kay::{Fate, World, External};
 use glium::Frame;
 
 use super::{Renderer, RendererID};
@@ -30,24 +30,23 @@ impl Renderer {
         }
     }
 
-    pub fn submit(&mut self, target_ptr: usize, return_to: ID, world: &mut World) {
-        let mut target = unsafe { Box::from_raw(target_ptr as *mut Frame) };
-
+    pub fn submit(
+        &mut self,
+        given_target: &External<Frame>,
+        return_to: TargetProviderID,
+        world: &mut World,
+    ) {
+        let mut target = given_target.steal();
         for scene in &self.scenes {
             self.render_context.submit(scene, &mut *target);
         }
 
-        world.send(
-            return_to,
-            Submitted { target_ptr: Box::into_raw(target) as usize },
-        );
-
+        return_to.submitted(target, world);
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct Submitted {
-    pub target_ptr: usize,
+pub trait TargetProvider {
+    fn submitted(&mut self, target: &External<Frame>, world: &mut World);
 }
 
 mod kay_auto;

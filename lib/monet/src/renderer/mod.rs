@@ -13,7 +13,7 @@ mod control;
 pub mod movement;
 mod project;
 
-pub use self::control::Submitted;
+pub use self::control::{TargetProvider, TargetProviderID, MSG_TargetProvider_submitted};
 pub use self::movement::{Movement, EyeListener, EyeListenerID, MSG_EyeListener_eye_moved};
 pub use self::project::{ProjectionRequester, ProjectionRequesterID,
                         MSG_ProjectionRequester_projected_3d};
@@ -39,7 +39,7 @@ impl ::std::ops::Deref for Renderer {
 
 impl ::std::ops::DerefMut for Renderer {
     fn deref_mut(&mut self) -> &mut RendererState {
-        External::get_mut(&mut self.inner).expect("expected exclusive access to RendererState")
+        &mut self.inner
     }
 }
 

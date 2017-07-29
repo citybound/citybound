@@ -50,7 +50,7 @@ pub struct Swarm<SubActor> {
 
 const CHUNK_SIZE: usize = 4096 * 4096 * 4;
 
-impl<SA: SubActor> Swarm<SA> {
+impl<SA: SubActor + Clone> Swarm<SA> {
     /// Create an empty `Swarm`.
     pub fn new() -> Self {
         let chunker = MemChunker::from_settings("", CHUNK_SIZE);
@@ -331,7 +331,7 @@ pub struct ToRandom<M: Message> {
 /// [`Swarm::subactors`](struct.Swarm.html#method.subactors).
 pub struct SubActorDefiner<'a, SA: 'static>(ActorDefiner<'a, Swarm<SA>>);
 
-impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
+impl<'a, SA: SubActor + Clone + 'static> SubActorDefiner<'a, SA> {
     /// Analogous to [`ActorDefiner::on`](../struct.ActorDefiner.html#method.on),
     /// the closure argument is passed:
     ///
@@ -360,7 +360,7 @@ impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
     ///
     /// This can then be triggered by sending a [`CreateWith`](struct.CreateWith.html)
     /// message to the swarm.
-    pub fn on_create_with<M: Message, F>(&mut self, handler: F)
+    pub fn on_create_with<M: Message + Clone, F>(&mut self, handler: F)
     where
         F: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
     {
@@ -386,7 +386,7 @@ impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
     ///
     /// This can then be triggered by sending a [`ToRandom`](struct.ToRandom.html)
     /// message to the swarm.
-    pub fn on_random<M: Message, F>(&mut self, handler: F)
+    pub fn on_random<M: Message + Clone, F>(&mut self, handler: F)
     where
         F: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
     {

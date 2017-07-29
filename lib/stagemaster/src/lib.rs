@@ -446,21 +446,19 @@ pub fn setup(
                 target.finish().unwrap();
             }
 
-            let target = Box::new(ui.window.draw());
+            let target = External::new(ui.window.draw());
 
-            let target_ptr = Box::into_raw(target);
-
-            renderer_id.submit(target_ptr as usize, ui_id, world);
+            renderer_id.submit(target, monet::TargetProviderID { _raw_id: ui_id }, world);
 
             Fate::Live
         });
 
-        use monet::Submitted;
+        use monet::MSG_TargetProvider_submitted;
 
-        the_ui.on_critical(move |&Submitted { target_ptr }, ui, world| {
-            ui.parked_frame = Some(unsafe {
-                Box::from_raw(target_ptr as *mut ::monet::glium::Frame)
-            });
+        the_ui.on_critical(move |&MSG_TargetProvider_submitted(ref given_target),
+              ui,
+              world| {
+            ui.parked_frame = Some(given_target.steal().into_box());
 
             let size_points = ui.window
                 .get_window()
@@ -472,7 +470,14 @@ pub fn setup(
                 .unwrap()
                 .get_inner_size_pixels()
                 .unwrap();
-            let imgui_ui = Box::new(ui.imgui.frame(size_points, size_pixels, 1.0 / 60.0));
+
+            // somewhat of a hack to override the local lifetime of the returned imgui::Ui
+            let imgui_ui_shortlived = ui.imgui.frame(size_points, size_pixels, 1.0 / 60.0);
+            let imgui_ui = unsafe {
+                Box::new(std::mem::transmute::<_, ::imgui::Ui<'static>>(
+                    imgui_ui_shortlived,
+                ))
+            };
 
             ui.imgui_capture_keyboard = imgui_ui.want_capture_keyboard();
             ui.imgui_capture_mouse = imgui_ui.want_capture_mouse();
@@ -492,23 +497,17 @@ pub fn setup(
 
             ui.interactables_2d_todo = ui.interactables_2d.clone();
 
-            world.send(
-                ui_id,
-                Ui2dDrawn { ui_ptr: Box::into_raw(imgui_ui) as usize },
-            );
-
+            world.send(ui_id, Ui2dDrawn { imgui_ui: External::from_box(imgui_ui) });
 
             Fate::Live
         });
 
-        the_ui.on_critical(move |&Ui2dDrawn { ui_ptr }, ui, world| {
-            let imgui_ui = unsafe { Box::from_raw(ui_ptr as *mut ::imgui::Ui) };
-
+        the_ui.on_critical(move |&Ui2dDrawn { ref imgui_ui }, ui, world| {
             if let Some(id) = ui.interactables_2d_todo.pop() {
                 world.send(
                     id,
                     DrawUI2d {
-                        ui_ptr: Box::into_raw(imgui_ui) as usize,
+                        imgui_ui: imgui_ui.steal(),
                         return_to: ui_id,
                     },
                 );
@@ -516,7 +515,11 @@ pub fn setup(
                 let mut target = std::mem::replace(&mut ui.parked_frame, None).expect(
                     "Should have parked target",
                 );
-                ui.imgui_renderer.render(&mut *target, *imgui_ui).unwrap();
+                ui.imgui_renderer
+                    .render(&mut *target, unsafe {
+                        ::std::ptr::read(Box::into_raw(imgui_ui.steal().into_box()))
+                    })
+                    .unwrap();
                 target.finish().unwrap();
             }
 
@@ -597,15 +600,15 @@ pub enum Event3d {
 #[derive(Copy, Clone)]
 pub struct StartFrame;
 
-#[derive(Copy, Clone)]
+#[derive(Compact, Clone)]
 pub struct DrawUI2d {
-    pub ui_ptr: usize,
+    pub imgui_ui: External<::imgui::Ui<'static>>,
     pub return_to: ID,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Compact, Clone)]
 pub struct Ui2dDrawn {
-    pub ui_ptr: usize,
+    pub imgui_ui: External<::imgui::Ui<'static>>,
 }
 
 use compact::CVec;

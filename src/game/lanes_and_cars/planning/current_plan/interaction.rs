@@ -176,8 +176,8 @@ pub fn setup(system: &mut ActorSystem) {
             Fate::Live
         });
 
-        the_cp.on(|&DrawUI2d { ui_ptr, return_to }, plan, world| {
-            let ui = unsafe { Box::from_raw(ui_ptr as *mut ::imgui::Ui) };
+        the_cp.on(|&DrawUI2d { ref imgui_ui, return_to }, plan, world| {
+            let ui = imgui_ui.steal();
 
             ui.window(im_str!("Controls")).build(|| {
                 ui.text(im_str!("Plan Editing"));
@@ -190,7 +190,7 @@ pub fn setup(system: &mut ActorSystem) {
                 ui.spacing();
             });
 
-            world.send(return_to, Ui2dDrawn { ui_ptr: Box::into_raw(ui) as usize });
+            world.send(return_to, Ui2dDrawn { imgui_ui: ui });
             Fate::Live
         });
 

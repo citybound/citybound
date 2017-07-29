@@ -19,11 +19,11 @@ impl RenderContext {
     #[allow(redundant_closure)]
     pub fn new(window: External<GlutinFacade>) -> RenderContext {
         RenderContext {
-            batch_program: program!(&**window, 140 => {
+            batch_program: program!(&*window, 140 => {
                 vertex: include_str!("shader/solid_140.glslv"),
                 fragment: include_str!("shader/solid_140.glslf")
             }).unwrap(),
-            window: window,
+            window: window.steal(),
         }
     }
 
@@ -85,7 +85,7 @@ impl RenderContext {
             if instances.len() > 1 {
                 render_debug_text.push_str(&format!("batch{}: {} instances\n", i, instances.len()));
             }
-            let instance_buffer = glium::VertexBuffer::new(&**self.window, instances).unwrap();
+            let instance_buffer = glium::VertexBuffer::new(&*self.window, instances).unwrap();
             target
                 .draw(
                     (vertices, instance_buffer.per_instance().unwrap()),
