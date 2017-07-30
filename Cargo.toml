@@ -3,6 +3,7 @@ name = "citybound"
 version = "0.1.2"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 license = "AGPL-3.0"
+build = "src/build.rs"
 
 [workspace]
 members = [
@@ -51,6 +52,9 @@ path = "./lib/monet/"
 
 [dependencies.stagemaster]
 path = "./lib/stagemaster/"
+
+[build-dependencies]
+kay_codegen = {path = "./lib/kay_codegen/"}
 
 [profile.dev]
 opt-level = 1

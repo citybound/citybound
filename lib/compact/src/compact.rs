@@ -15,20 +15,20 @@ pub trait Compact: Sized + Clone {
         self.dynamic_size_bytes() + mem::size_of::<Self>()
     }
 
-    /// Copy the static part of `source` to `self` and compactly store
-    /// the dynamic part of `source` as the new dynamic part of `self` at `new_dynamic_part`.
-    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8);
+    /// Copy the static part of `source` to `dest` and compactly store
+    /// the dynamic part of `source` as the new dynamic part of `dest` at `new_dynamic_part`.
+    /// This semantically moves source into dest.
+    unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8);
 
     /// Get a pointer to behind the static part of `self` (commonly used place for the dynamic part)
-    unsafe fn behind(&mut self) -> *mut u8 {
-        let behind_self = (self as *mut Self).offset(1);
-        transmute(behind_self)
+    unsafe fn behind(ptr: *mut Self) -> *mut u8 {
+        transmute(ptr.offset(1))
     }
 
-    /// Like `compact_from` with `new_dynamic_part` set to `self.behind()`
-    unsafe fn compact_behind_from(&mut self, source: &Self) {
-        let behind_self = Self::behind(self);
-        self.compact_from(source, behind_self)
+    /// Like `compact` with `new_dynamic_part` set to `dest.behind()`
+    unsafe fn compact_behind(source: *mut Self, dest: *mut Self) {
+        let behind_dest = Self::behind(dest);
+        Self::compact(source, dest, behind_dest)
     }
 
     /// Creates a clone of self with the dynamic part guaranteed to be stored freely.
@@ -38,7 +38,7 @@ pub trait Compact: Sized + Clone {
     ///
     /// This is mostly used internally to correctly implement
     /// `Compact` datastructures that contain `Compact` elements.
-    unsafe fn decompact(&self) -> Self;
+    unsafe fn decompact(source: *const Self) -> Self;
 }
 
 /// Trivial implementation for fixed-sized, `Copy` types (no dynamic part)
@@ -49,10 +49,11 @@ impl<T: Copy> Compact for T {
     fn dynamic_size_bytes(&self) -> usize {
         0
     }
-    unsafe fn compact_from(&mut self, source: &Self, _new_dynamic_part: *mut u8) {
-        *self = *source;
+    unsafe fn compact(source: *mut Self, dest: *mut Self, _new_dynamic_part: *mut u8) {
+        *dest = *source
     }
-    unsafe fn decompact(&self) -> Self {
-        *self
+
+    unsafe fn decompact(source: *const Self) -> Self {
+        *source
     }
 }

@@ -33,11 +33,14 @@ pub fn setup(system: &mut ActorSystem) {
             let cp_id = each_selectable.world().id::<CurrentPlan>();
 
             each_selectable.on_create_with(move |_: &InitInteractable, selectable, world| {
-                world.send(ui_id,
-                           AddInteractable(selectable.id(),
-                                           AnyShape::Band(Band::new(selectable.path.clone(),
-                                                                    5.0)),
-                                           3));
+                world.send(
+                    ui_id,
+                    AddInteractable(
+                        selectable.id(),
+                        AnyShape::Band(Band::new(selectable.path.clone(), 5.0)),
+                        3,
+                    ),
+                );
                 Fate::Live
             });
 
@@ -47,68 +50,93 @@ pub fn setup(system: &mut ActorSystem) {
             });
 
             each_selectable.on(move |&event, selectable, world| {
-            match event {
-                Event3d::DragOngoing { from, to, .. } => {
-                    if let (Some(selection_start), Some(selection_end)) =
-                        (selectable
-                             .path
-                             .project_with_tolerance(from.into_2d(),
-                                                     SELECTION_OVERSHOOT_TOLERANCE),
-                         selectable
-                             .path
-                             .project_with_tolerance(to.into_2d(),
-                                                     SELECTION_OVERSHOOT_TOLERANCE)) {
-                        let mut start = selection_start.min(selection_end);
-                        let mut end = selection_end.max(selection_start);
-                        snap_start_end(&mut start, &mut end, &selectable.path);
-                        world.send(cp_id,
-                                   ChangeIntent(Intent::Select(selectable.stroke_ref, start, end),
-                                                IntentProgress::Preview));
-                    } else {
-                        world.send(cp_id, ChangeIntent(Intent::None, IntentProgress::Preview));
-                    }
-                }
-                Event3d::DragFinished { from, to, .. } => {
-                    if let (Some(selection_start), Some(selection_end)) =
-                        (selectable
-                             .path
-                             .project_with_tolerance(from.into_2d(),
-                                                     SELECTION_OVERSHOOT_TOLERANCE),
-                         selectable
-                             .path
-                             .project_with_tolerance(to.into_2d(),
-                                                     SELECTION_OVERSHOOT_TOLERANCE)) {
-                        let mut start = selection_start.min(selection_end);
-                        let mut end = selection_end.max(selection_start);
-                        if end < CONTINUE_DISTANCE {
-                            world.send(cp_id,
-                            ChangeIntent(Intent::ContinueRoadAround(selectable.stroke_ref,
-                                                                    ContinuationMode::Prepend,
-                                                                    to.into_2d()),
-                                         IntentProgress::Finished));
-                        } else if start > selectable.path.length() - CONTINUE_DISTANCE {
-                            world.send(cp_id,
-                            ChangeIntent(Intent::ContinueRoadAround(selectable.stroke_ref,
-                                                                    ContinuationMode::Append,
-                                                                    to.into_2d()),
-                                         IntentProgress::Finished));
-                        } else {
+                match event {
+                    Event3d::DragOngoing { from, to, .. } => {
+                        if let (Some(selection_start), Some(selection_end)) =
+                            (
+                                selectable.path.project_with_tolerance(
+                                    from.into_2d(),
+                                    SELECTION_OVERSHOOT_TOLERANCE,
+                                ),
+                                selectable.path.project_with_tolerance(
+                                    to.into_2d(),
+                                    SELECTION_OVERSHOOT_TOLERANCE,
+                                ),
+                            )
+                        {
+                            let mut start = selection_start.min(selection_end);
+                            let mut end = selection_end.max(selection_start);
                             snap_start_end(&mut start, &mut end, &selectable.path);
-                            start = start.min(end - MIN_SELECTION_SIZE).max(0.0);
-                            end = end.max(start + MIN_SELECTION_SIZE)
-                                .min(selectable.path.length());
-                            world.send(cp_id,
-                                       ChangeIntent(Intent::Select(selectable.stroke_ref,
-                                                                   start,
-                                                                   end),
-                                                    IntentProgress::Immediate));
+                            world.send(
+                                cp_id,
+                                ChangeIntent(
+                                    Intent::Select(selectable.stroke_ref, start, end),
+                                    IntentProgress::Preview,
+                                ),
+                            );
+                        } else {
+                            world.send(cp_id, ChangeIntent(Intent::None, IntentProgress::Preview));
                         }
                     }
+                    Event3d::DragFinished { from, to, .. } => {
+                        if let (Some(selection_start), Some(selection_end)) =
+                            (
+                                selectable.path.project_with_tolerance(
+                                    from.into_2d(),
+                                    SELECTION_OVERSHOOT_TOLERANCE,
+                                ),
+                                selectable.path.project_with_tolerance(
+                                    to.into_2d(),
+                                    SELECTION_OVERSHOOT_TOLERANCE,
+                                ),
+                            )
+                        {
+                            let mut start = selection_start.min(selection_end);
+                            let mut end = selection_end.max(selection_start);
+                            if end < CONTINUE_DISTANCE {
+                                world.send(
+                                    cp_id,
+                                    ChangeIntent(
+                                        Intent::ContinueRoadAround(
+                                            selectable.stroke_ref,
+                                            ContinuationMode::Prepend,
+                                            to.into_2d(),
+                                        ),
+                                        IntentProgress::Finished,
+                                    ),
+                                );
+                            } else if start > selectable.path.length() - CONTINUE_DISTANCE {
+                                world.send(
+                                    cp_id,
+                                    ChangeIntent(
+                                        Intent::ContinueRoadAround(
+                                            selectable.stroke_ref,
+                                            ContinuationMode::Append,
+                                            to.into_2d(),
+                                        ),
+                                        IntentProgress::Finished,
+                                    ),
+                                );
+                            } else {
+                                snap_start_end(&mut start, &mut end, &selectable.path);
+                                start = start.min(end - MIN_SELECTION_SIZE).max(0.0);
+                                end = end.max(start + MIN_SELECTION_SIZE).min(
+                                    selectable.path.length(),
+                                );
+                                world.send(
+                                    cp_id,
+                                    ChangeIntent(
+                                        Intent::Select(selectable.stroke_ref, start, end),
+                                        IntentProgress::Immediate,
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                    _ => {}
                 }
-                _ => {}
-            }
-            Fate::Live
-        });
+                Fate::Live
+            });
         }),
     );
 }

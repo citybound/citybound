@@ -6,37 +6,39 @@ pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, In
 
 use glium::Surface;
 use glium::backend::glutin_backend::GlutinFacade;
+use kay::External;
 
 use {Batch, Scene};
 
 pub struct RenderContext {
-    pub window: GlutinFacade,
+    pub window: External<GlutinFacade>,
     batch_program: glium::Program,
 }
 
 impl RenderContext {
     #[allow(redundant_closure)]
-    pub fn new(window: GlutinFacade) -> RenderContext {
+    pub fn new(window: External<GlutinFacade>) -> RenderContext {
         RenderContext {
-            batch_program: program!(&window, 140 => {
+            batch_program: program!(&*window, 140 => {
                 vertex: include_str!("shader/solid_140.glslv"),
                 fragment: include_str!("shader/solid_140.glslf")
             }).unwrap(),
-            window: window,
+            window: window.steal(),
         }
     }
 
-    pub fn submit<S: Surface>(&mut self, scene: &Scene, target: &mut S) {
+    pub fn submit<S: Surface>(&self, scene: &Scene, target: &mut S) {
         let view: [[f32; 4]; 4] =
             *Iso3::look_at_rh(&scene.eye.position, &scene.eye.target, &scene.eye.up)
                 .to_homogeneous()
                 .as_ref();
-        let perspective: [[f32; 4]; 4] = *Persp3::new(target.get_dimensions().0 as f32 /
-                                                      target.get_dimensions().1 as f32,
-                                                      scene.eye.field_of_view,
-                                                      0.1,
-                                                      50000.0)
-            .to_matrix()
+        let perspective: [[f32; 4]; 4] = *Persp3::new(
+            target.get_dimensions().0 as f32 /
+                target.get_dimensions().1 as f32,
+            scene.eye.field_of_view,
+            0.1,
+            50000.0,
+        ).to_matrix()
             .as_ref();
 
         let uniforms =
@@ -78,17 +80,20 @@ impl RenderContext {
                  ref instances,
                  is_decal,
                  ..
-             }) in batches_todo {
+             }) in batches_todo
+        {
             if instances.len() > 1 {
                 render_debug_text.push_str(&format!("batch{}: {} instances\n", i, instances.len()));
             }
-            let instance_buffer = glium::VertexBuffer::new(&self.window, instances).unwrap();
+            let instance_buffer = glium::VertexBuffer::new(&*self.window, instances).unwrap();
             target
-                .draw((vertices, instance_buffer.per_instance().unwrap()),
-                      indices,
-                      &self.batch_program,
-                      &uniforms,
-                      if is_decal { &decal_params } else { &params })
+                .draw(
+                    (vertices, instance_buffer.per_instance().unwrap()),
+                    indices,
+                    &self.batch_program,
+                    &uniforms,
+                    if is_decal { &decal_params } else { &params },
+                )
                 .unwrap();
         }
 

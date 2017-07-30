@@ -20,46 +20,55 @@ impl Environment {
     }
 
     pub fn load_settings<S>(&self, category: &str) -> S
-        where for<'a> S: Deserialize<'a> + Default
+    where
+        for<'a> S: Deserialize<'a> + Default,
     {
         if let Err(err) = create_dir_all(self.setting_dir()) {
-            println!("Error creating settings dir {:?} {}",
-                     self.setting_dir(),
-                     err);
+            println!(
+                "Error creating settings dir {:?} {}",
+                self.setting_dir(),
+                err
+            );
         };
         match File::open(self.setting_path(category))
-                  .as_mut()
-                  .map_err(|err| format!("{}", err))
-                  .and_then(|file| {
-            ::serde_json::from_reader(file).map_err(|err| format!("{}", err))
-        }) {
+            .as_mut()
+            .map_err(|err| format!("{}", err))
+            .and_then(|file| {
+                ::serde_json::from_reader(file).map_err(|err| format!("{}", err))
+            }) {
             Ok(settings) => settings,
             Err(err) => {
-                println!("Error loading {} settings: {} from {:?}",
-                         category,
-                         err,
-                         self.setting_path(category));
+                println!(
+                    "Error loading {} settings: {} from {:?}",
+                    category,
+                    err,
+                    self.setting_path(category)
+                );
                 S::default()
             }
         }
     }
 
     pub fn write_settings<S>(&self, category: &str, settings: &S)
-        where S: Serialize + Default
+    where
+        S: Serialize + Default,
     {
         if let Err(err) = OpenOptions::new()
-               .write(true)
-               .create(true)
-               .open(self.setting_path(category))
-               .as_mut()
-               .map_err(|err| format!("{}", err))
-               .and_then(|file| {
-            ::serde_json::to_writer_pretty(file, settings).map_err(|err| format!("{}", err))
-        }) {
-            println!("Error writing {} settings: {} to {:?}",
-                     category,
-                     err,
-                     self.setting_path(category));
+            .write(true)
+            .create(true)
+            .open(self.setting_path(category))
+            .as_mut()
+            .map_err(|err| format!("{}", err))
+            .and_then(|file| {
+                ::serde_json::to_writer_pretty(file, settings).map_err(|err| format!("{}", err))
+            })
+        {
+            println!(
+                "Error writing {} settings: {} to {:?}",
+                category,
+                err,
+                self.setting_path(category)
+            );
         } else {
             println!("Write {} settings", category);
         }

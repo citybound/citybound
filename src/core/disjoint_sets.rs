@@ -55,15 +55,18 @@ impl<T> DisjointSets<T> {
         }
     }
 
-    pub fn union_all_with_accelerator<Acc,
-                                      FAdd: Fn(&T, usize, &mut Acc),
-                                      FPairs: Fn(&Acc) -> &Vec<(usize, RoaringBitmap<u32>)>,
-                                      F: Fn(&T, &T) -> bool>
-        (&mut self,
-         initial_accelerator: Acc,
-         add: FAdd,
-         pairs: FPairs,
-         should_union: F) {
+    pub fn union_all_with_accelerator<
+        Acc,
+        FAdd: Fn(&T, usize, &mut Acc),
+        FPairs: Fn(&Acc) -> &Vec<(usize, RoaringBitmap<u32>)>,
+        F: Fn(&T, &T) -> bool,
+    >(
+        &mut self,
+        initial_accelerator: Acc,
+        add: FAdd,
+        pairs: FPairs,
+        should_union: F,
+    ) {
         let mut accelerator = initial_accelerator;
         for (i, element) in self.elements.iter().enumerate() {
             add(element, i, &mut accelerator);
@@ -114,16 +117,16 @@ impl<T> DisjointSets<T> {
                 new_to_old_idx_map[new_idx] = idx;
 
                 unsafe {
-                    ::std::ptr::copy_nonoverlapping(&self.elements[idx],
-                                                    new_elements
-                                                        .as_mut_ptr()
-                                                        .offset(new_idx as isize),
-                                                    1);
-                    ::std::ptr::copy_nonoverlapping(&self.ranks[idx],
-                                                    new_ranks
-                                                        .as_mut_ptr()
-                                                        .offset(new_idx as isize),
-                                                    1);
+                    ::std::ptr::copy_nonoverlapping(
+                        &self.elements[idx],
+                        new_elements.as_mut_ptr().offset(new_idx as isize),
+                        1,
+                    );
+                    ::std::ptr::copy_nonoverlapping(
+                        &self.ranks[idx],
+                        new_ranks.as_mut_ptr().offset(new_idx as isize),
+                        1,
+                    );
                 }
             }
 
@@ -166,9 +169,10 @@ impl<'a, T: 'a> Iterator for SetsIterator<'a, T> {
             let mut set_end_idx = set_start_idx + 1;
 
             while self.input_iter
-                      .peek()
-                      .map(|&(_, next_root)| next_root == root)
-                      .unwrap_or(false) {
+                .peek()
+                .map(|&(_, next_root)| next_root == root)
+                .unwrap_or(false)
+            {
                 self.input_iter.next();
                 set_end_idx += 1;
             }

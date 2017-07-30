@@ -40,7 +40,7 @@ pub const ENV: &'static Environment = &Environment {
 mod core;
 mod game;
 
-use monet::{Renderer, Control};
+use monet::{RendererID, RenderableID};
 use monet::glium::{DisplayBuild, glutin};
 use core::simulation::{Simulation, DoTick};
 use stagemaster::{ProcessEvents, StartFrame, UserInterface, AddDebugText, OnPanic};
@@ -75,21 +75,25 @@ fn main() {
             }
         };
         println!("Simulation Panic!\n{:?}", message);
-        world.send(ui_id,
-                   AddDebugText {
-                       key: "SIMULATION PANIC".chars().collect(),
-                       text: message.as_str().chars().collect(),
-                       color: [1.0, 0.0, 0.0, 1.0],
-                       persistent: true,
-                   });
+        world.send(
+            ui_id,
+            AddDebugText {
+                key: "SIMULATION PANIC".chars().collect(),
+                text: message.as_str().chars().collect(),
+                color: [1.0, 0.0, 0.0, 1.0],
+                persistent: true,
+            },
+        );
         world.send(ui_id, OnPanic);
     }));
 
     game::setup(&mut system);
     game::setup_ui(&mut system);
 
-    let simulatables = vec![system.id::<Swarm<Lane>>().broadcast(),
-                            system.id::<Swarm<TransferLane>>().broadcast()];
+    let simulatables = vec![
+        system.id::<Swarm<Lane>>().broadcast(),
+        system.id::<Swarm<TransferLane>>().broadcast(),
+    ];
     core::simulation::setup(&mut system, simulatables);
 
     let window = glutin::WindowBuilder::new()
@@ -100,44 +104,54 @@ fn main() {
         .build_glium()
         .unwrap();
 
-    let renderables = vec![system.id::<Swarm<Lane>>().broadcast(),
-                           system.id::<Swarm<TransferLane>>().broadcast(),
-                           system.id::<ThingCollector<LaneAsphalt>>(),
-                           system.id::<ThingCollector<LaneMarker>>(),
-                           system.id::<ThingCollector<TransferLaneMarkerGaps>>(),
-                           system.id::<CurrentPlan>(),
-                           system.id::<Swarm<Building>>().broadcast()];
+    let renderables: Vec<_> = vec![
+        system.id::<Swarm<Lane>>().broadcast(),
+        system.id::<Swarm<TransferLane>>().broadcast(),
+        system.id::<ThingCollector<LaneAsphalt>>(),
+        system.id::<ThingCollector<LaneMarker>>(),
+        system.id::<ThingCollector<TransferLaneMarkerGaps>>(),
+        system.id::<CurrentPlan>(),
+        system.id::<Swarm<Building>>().broadcast()
+    ].into_iter()
+        .map(|id| RenderableID { _raw_id: id })
+        .collect();
     stagemaster::setup(&mut system, renderables, ENV, &window);
 
     let mut last_frame = std::time::Instant::now();
 
     let ui_id = system.id::<UserInterface>();
     let sim_id = system.id::<Simulation>();
-    let renderer_id = system.id::<Renderer>();
+    // TODO: ugly/wrong
+    let renderer_id = RendererID::broadcast(&mut system.world());
 
-    system.send(ui_id,
-                AddDebugText {
-                    key: "Version".chars().collect(),
-                    text: ENV.version.chars().collect(),
-                    color: [0.0, 0.0, 0.0, 1.0],
-                    persistent: true,
-                });
+    system.send(
+        ui_id,
+        AddDebugText {
+            key: "Version".chars().collect(),
+            text: ENV.version.chars().collect(),
+            color: [0.0, 0.0, 0.0, 1.0],
+            persistent: true,
+        },
+    );
 
     system.process_all_messages();
 
     loop {
-        system.send(ui_id,
-                    AddDebugText {
-                        key: "Frame".chars().collect(),
-                        text: format!("{:.2} ms",
-                                      last_frame.elapsed().as_secs() as f32 * 1000.0 +
-                                      last_frame.elapsed().subsec_nanos() as f32 / 10.0E5)
-                            .as_str()
-                            .chars()
-                            .collect(),
-                        color: [0.0, 0.0, 0.0, 0.5],
-                        persistent: false,
-                    });
+        system.send(
+            ui_id,
+            AddDebugText {
+                key: "Frame".chars().collect(),
+                text: format!(
+                    "{:.2} ms",
+                    last_frame.elapsed().as_secs() as f32 * 1000.0 +
+                        last_frame.elapsed().subsec_nanos() as f32 / 10.0E5
+                ).as_str()
+                    .chars()
+                    .collect(),
+                color: [0.0, 0.0, 0.0, 0.5],
+                persistent: false,
+            },
+        );
         last_frame = std::time::Instant::now();
 
         system.send(ui_id, ProcessEvents);
@@ -148,7 +162,7 @@ fn main() {
 
         system.process_all_messages();
 
-        system.send(renderer_id, Control::Render);
+        renderer_id.render(&mut system.world());
 
         system.process_all_messages();
 

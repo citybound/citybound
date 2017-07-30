@@ -21,20 +21,25 @@ impl<P: Path> Band<P> {
 
     pub fn outline(&self) -> P {
         if let (Some(left_path), Some(right_path)) =
-            (self.path.shift_orthogonally(-self.width / 2.0),
-             self.path
-                 .shift_orthogonally(self.width / 2.0)
-                 .map(|p| p.reverse())) {
+            (
+                self.path.shift_orthogonally(-self.width / 2.0),
+                self.path.shift_orthogonally(self.width / 2.0).map(|p| {
+                    p.reverse()
+                }),
+            )
+        {
             let connector1 = Segment::line(left_path.end(), right_path.start());
             let connector2 = Segment::line(right_path.end(), left_path.start());
-            P::new(left_path
-                       .segments()
-                       .iter()
-                       .chain(&[connector1])
-                       .chain(right_path.segments().iter())
-                       .chain(&[connector2])
-                       .cloned()
-                       .collect())
+            P::new(
+                left_path
+                    .segments()
+                    .iter()
+                    .chain(&[connector1])
+                    .chain(right_path.segments().iter())
+                    .chain(&[connector2])
+                    .cloned()
+                    .collect(),
+            )
         } else {
             self.path.clone()
         }
@@ -42,19 +47,22 @@ impl<P: Path> Band<P> {
 
     pub fn outline_distance_to_path_distance(&self, distance: N) -> N {
         if let (Some(left_path_length), Some(right_path_length)) =
-            (self.path
-                 .shift_orthogonally(-self.width / 2.0)
-                 .map(|p| p.length()),
-             self.path
-                 .shift_orthogonally(self.width / 2.0)
-                 .map(|p| p.length())) {
+            (
+                self.path.shift_orthogonally(-self.width / 2.0).map(|p| {
+                    p.length()
+                }),
+                self.path.shift_orthogonally(self.width / 2.0).map(
+                    |p| p.length(),
+                ),
+            )
+        {
             if distance > left_path_length + self.width + right_path_length {
                 // on connector2
                 0.0
             } else if distance > left_path_length + self.width {
                 // on right side
                 (1.0 - (distance - left_path_length - self.width) / right_path_length) *
-                self.path.length()
+                    self.path.length()
             } else if distance > left_path_length {
                 // on connector1
                 self.path.length()

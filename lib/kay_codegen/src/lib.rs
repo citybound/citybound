@@ -1,276 +1,359 @@
-#![recursion_limit="128"]
+#![recursion_limit="256"]
+#![feature(conservative_impl_trait)]
+
+#[cfg(test)]
+#[macro_use]
+extern crate pretty_assertions;
+
 extern crate syn;
 #[macro_use]
 extern crate quote;
 use syn::*;
-use quote::Tokens;
+extern crate glob;
+use glob::glob;
 
-use std::collections::HashMap;
+use std::fs::{File, metadata};
+use std::io::Read;
+use std::io::Write;
+use std::process::Command;
 
-pub fn generate(file: &str) -> String {
+extern crate ordermap;
+use ordermap::OrderMap;
 
-    let mut setup_map = HashMap::<Ty, (usize, Vec<Tokens>)>::new();
-    let mut id_map = HashMap::<Ty, Vec<Tokens>>::new();
-    let mut msg_map = HashMap::<Ty, Vec<Tokens>>::new();
+mod generators;
+mod parsers;
+use parsers::parse;
 
-    let mut next_actor_index = 0;
+pub fn scan_and_generate() {
+    for maybe_mod_path in glob("src/**/mod.rs").unwrap() {
+        if let Ok(mod_path) = maybe_mod_path {
+            let auto_path = mod_path.clone().to_str().unwrap().replace(
+                "mod.rs",
+                "kay_auto.rs",
+            );
+            if let Ok(src_meta) = metadata(&mod_path) {
+                let regenerate = match metadata(&auto_path) {
+                    Ok(auto_meta) => src_meta.modified().unwrap() > auto_meta.modified().unwrap(),
+                    _ => true,
+                };
 
-    for item in parse_crate(file).unwrap().items.iter() {
-        if let ItemKind::Impl(_, _, _, None, ref typ, ref impl_items) = item.node {
-            if !setup_map.contains_key(typ) {
-                setup_map.insert((**typ).clone(), (next_actor_index, Vec::new()));
-                next_actor_index += 1;
-            };
-            setup_map
-                .get_mut(typ)
-                .unwrap()
-                .1
-                .extend(generate_setup(typ, impl_items));
-            id_map
-                .entry((**typ).clone())
-                .or_insert_with(Vec::new)
-                .extend(generate_id(typ, impl_items));
-            msg_map
-                .entry((**typ).clone())
-                .or_insert_with(Vec::new)
-                .push(generate_msgs(typ, impl_items));
-        }
-    }
+                if regenerate {
+                    let auto_file = if let Ok(ref mut file) = File::open(&mod_path) {
+                        let mut file_str = String::new();
+                        file.read_to_string(&mut file_str).unwrap();
+                        generate(&parse(&file_str))
+                    } else {
+                        panic!("couldn't load");
+                    };
 
-    let (setup_types, setup_idxs, setup_defs) =
-        (setup_map.keys(),
-         setup_map.values().map(|&(idx, _)| Ident::new(idx)),
-         setup_map.values().map(|&(_, ref defs)| defs));
-    let (types, id_defs) = (id_map.keys().collect::<Vec<_>>(), id_map.values());
-    let msg_defs = msg_map.values().flat_map(|v| v);
-    let id_types = types
-        .iter()
-        .map(|typ| match typ {
-                 &&Ty::Path(None, Path { global, ref segments }) => {
-                     let mut new_segments = segments.clone();
-                     new_segments.last_mut().unwrap().ident =
-                         Ident::new(new_segments.last_mut().unwrap().ident.as_ref().to_owned() +
-                                    "ID");
-                     Ty::Path(None, Path { global, segments: new_segments })
-                 }
-                 _ => unimplemented!(),
-             })
-        .collect::<Vec<_>>();
-    let types_1 = types.iter();
-    let id_types_1 = id_types.iter();
-    let id_types_2 = id_types.iter();
-    let id_types_3 = id_types.iter();
-    let id_types_4 = id_types.iter();
+                    if let Ok(ref mut file) = File::create(&auto_path) {
+                        file.write_all(auto_file.as_bytes()).unwrap();
+                    }
 
-    quote!(
-        use kay::ActorSystem;
-        use super::*;
-
-        pub fn auto_setup(system: &mut ActorSystem, initial: (#(#setup_types),*,)) {
-            #(
-                system.add(initial.#setup_idxs, |mut definer| {
-                    #(#setup_defs)*
-                });
-            )*
-        }
-
-        #(#msg_defs)*
-
-        #(
-            #[derive(Copy, Clone)]
-            pub struct #id_types_1 {
-                raw_id: ID,
-            }
-
-            impl #id_types_2 {
-                pub fn in_world(world: &mut World) -> Self {
-                    #id_types_3 {raw_id: world.id::<#types_1>()}
+                    let _ = Command::new("rustfmt")
+                        .arg("--write-mode")
+                        .arg("overwrite")
+                        .arg(&auto_path)
+                        .spawn();
                 }
             }
+        }
+    }
+}
 
-            impl #id_types_4 {
-                #(#id_defs)*
-            }
-        )*
+type ActorName = Ty;
+type TraitName = syn::Path;
+
+#[derive(Default)]
+pub struct Model {
+    pub actors: OrderMap<ActorName, ActorDef>,
+    pub traits: OrderMap<TraitName, TraitDef>,
+}
+
+#[derive(Default)]
+pub struct ActorDef {
+    pub handlers: Vec<Handler>,
+    pub impls: Vec<TraitName>,
+    pub defined_here: bool,
+}
+
+#[derive(Default)]
+pub struct TraitDef {
+    pub handlers: Vec<Handler>,
+}
+
+#[derive(Clone)]
+pub struct Handler {
+    name: Ident,
+    arguments: Vec<FnArg>,
+    scope: HandlerScope,
+    critical: bool,
+    returns_fate: bool,
+    from_trait: Option<TraitName>,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum HandlerScope {
+    SubActor,
+    Swarm,
+    Init,
+}
+
+pub fn generate(model: &Model) -> String {
+    let traits_msgs = model.generate_trait_ids_and_messages();
+    let actors_msgs = model.generate_actor_ids_messages_and_conversions();
+    let setup = model.generate_setups();
+
+    quote!(
+        //! This is all auto-generated. Do not touch.
+        use kay::{ActorSystem, ID};
+        #[allow(unused_imports)]
+        use kay::swarm::{Swarm, SubActor};
+        use super::*;
+
+        #traits_msgs
+        #actors_msgs
+
+        #[allow(unused_variables)]
+        #[allow(unused_mut)]
+        pub fn auto_setup(system: &mut ActorSystem) {
+            #setup
+        }
+
     ).into_string()
 }
 
-pub fn generate_setup(typ: &Ty, impl_items: &[ImplItem]) -> Vec<Tokens> {
-    let setup_calls = impl_items.iter().filter_map(|impl_item| if let &ImplItem {
-               ident: ref fn_name,
-               vis: Visibility::Public,
-               node: ImplItemKind::Method(ref sig, _),
-               ref attrs,
-               ..
-           } = impl_item {
-        check_handler(sig).map(|args| {
-            let reffed_args = args.iter()
-                .map(|arg| match arg {
-                         &FnArg::Captured(Pat::Ident(_, ref ident, _), ref ty) => {
-                             match ty {
-                                 &Ty::Rptr(_, _) => {
-                                     Pat::Ident(BindingMode::ByRef(Mutability::Immutable),
-                                                ident.clone(),
-                                                None)
-                                 }
-                                 _ => {
-                                     Pat::Ident(BindingMode::ByValue(Mutability::Immutable),
-                                                ident.clone(),
-                                                None)
-                                 }
-
-                             }
-                         }
-                         _ => unimplemented!(),
-                     })
-                .collect::<Vec<_>>();
-            let params = args.iter()
-                .map(|arg| match arg {
-                         &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
-                         _ => unimplemented!(),
-                     })
-                .collect::<Vec<_>>();
-            let msg_name = message_name(typ, fn_name);
-            let returns_fate = match sig.decl.output {
-                FunctionRetTy::Default => false,
-                FunctionRetTy::Ty(Ty::Path(_, Path { ref segments, .. })) => {
-                    segments.iter().any(|s| s.ident.as_ref() == "Fate")
-                }
-                _ => unimplemented!(),
-            };
-            let inner = if returns_fate {
-                quote!(
-                        actor.#fn_name(#(#params),*, world)
-                    )
-            } else {
-                quote!(
-                        actor.#fn_name(#(#params),*, world);
-                        Fate::Live
-                    )
-            };
-            let is_critical = attrs.iter().any(|attr| {
-                attr.is_sugared_doc &&
-                attr.value == MetaItem::NameValue("doc".into(), "/// Critical".into())
-            });
-            if is_critical {
-                quote!(
-                        definer.on_critical(|&#msg_name(#(#reffed_args),*), actor, world| {
-                            #inner
-                        });
-                    )
-            } else {
-                quote!(
-                        definer.on(|&#msg_name(#(#reffed_args),*), actor, world| {
-                            #inner
-                        });
-                    )
-            }
-        })
-    } else {
-        None
-    });
-
-    setup_calls.collect()
-}
-
-pub fn generate_id(typ: &Ty, impl_items: &[ImplItem]) -> Vec<Tokens> {
-    let id_methods = impl_items.iter().filter_map(|impl_item| if let &ImplItem {
-               ident: ref fn_name,
-               vis: Visibility::Public,
-               node: ImplItemKind::Method(ref sig, _),
-               ..
-           } = impl_item {
-        check_handler(sig).map(|args| {
-            let owned_sig =
-                args.iter().map(|arg| match arg {
-                                    &FnArg::Captured(ref ident, Ty::Rptr(_, ref ty_box)) => {
-                                        FnArg::Captured(ident.clone(), ty_box.ty.clone())
-                                    }
-                                    other => other.clone(),
-                                });
-            let params = args.iter().map(|arg| match arg {
-                                             &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => {
-                                                 ident.clone()
-                                             }
-                                             _ => unimplemented!(),
-                                         });
-            let msg_name = message_name(typ, fn_name);
-            quote!(
-                    pub fn #fn_name(&self, #(#owned_sig),*, world: &mut World) {
-                        world.send(self.raw_id, #msg_name(#(#params),*))
-                    }
-                )
-        })
-    } else {
-        None
-    });
-
-    id_methods.collect()
-}
-
-pub fn generate_msgs(typ: &Ty, impl_items: &[ImplItem]) -> Tokens {
-    let msg_definitions = impl_items.iter().filter_map(|impl_item| if let &ImplItem {
-               ident: ref fn_name,
-               vis: Visibility::Public,
-               node: ImplItemKind::Method(ref sig, _),
-               ..
-           } = impl_item {
-        check_handler(sig).map(|args| {
-            let field_types =
-                args.iter().map(|arg| match arg {
-                                    &FnArg::Captured(_, Ty::Rptr(_, ref ty_box)) => &ty_box.ty,
-                                    &FnArg::Captured(_, ref other) => other,
-                                    _ => unimplemented!(),
-                                });
-            let msg_name = message_name(typ, fn_name);
-            quote!(
-                    #[allow(non_camel_case_types)]
-                    #[derive(Compact, Clone)]
-                    struct #msg_name(#(#field_types),*);
-                )
-        })
-    } else {
-        None
-    });
-
-    quote!(
-            #(#msg_definitions)*
-    )
-}
-
-fn message_name(typ: &Ty, fn_name: &Ident) -> Ident {
-    if let &Ty::Path(_, Path { ref segments, .. }) = typ {
-        let path = segments
-            .iter()
-            .map(|s| s.ident.as_ref())
-            .collect::<Vec<_>>()
-            .join("_");
-        Ident::new(format!("MSG_{}_{}", path, fn_name))
-    } else {
-        unimplemented!()
-    }
-}
-
-pub fn check_handler(sig: &MethodSig) -> Option<&[FnArg]> {
-    if let Some(&FnArg::SelfRef(_, Mutability::Mutable)) = sig.decl.inputs.get(0) {
-        if let Some(&FnArg::Captured(_, Ty::Rptr(_, ref ty_box))) = sig.decl.inputs.last() {
-            if let &MutTy {
-                       mutability: Mutability::Mutable,
-                       ty: Ty::Path(_, ref path),
-                   } = &**ty_box {
-                if path.segments.last().unwrap().ident == Ident::new("World") {
-                    let args = &sig.decl.inputs[1..(sig.decl.inputs.len() - 1)];
-                    Some(args)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        } else {
-            None
+#[test]
+fn simple_actor() {
+    let input = quote!(
+        pub struct SomeActor {
+            id: Option<SomeActorID>,
+            field: usize
         }
-    } else {
-        None
-    }
+
+        impl SomeActor {
+            pub fn some_method(&mut self, some_param: &usize, world: &mut World) {
+                self.id().some_method(42, world);
+            }
+
+            pub fn no_params_fate(&mut self, world: &mut World) -> Fate {
+                Fate::Die
+            }
+
+            pub fn static_ish(some_param: &usize, world: &mut World) {
+                let bla = some_param;
+            }
+
+            pub fn init_ish(id: SomeActorID, some_param: &usize, world: &mut World) -> SomeActor {
+                SomeActor {
+                    id: Some(id),
+                    field: some_param
+                }
+            }
+        }
+    );
+    let expected = quote!(
+        //! This is all auto-generated. Do not touch.
+        use kay::{ActorSystem, ID};
+        #[allow(unused_imports)]
+        use kay::swarm::{Swarm, SubActor};
+        use super::*;
+
+        impl SubActor for SomeActor {
+            fn id(&self) -> ID {
+                self.id._raw_id
+            }
+            unsafe fn set_id(&mut self, id: ID) {
+                self.id._raw_id = id;
+            }
+        }
+
+        #[derive(Copy, Clone)]
+        pub struct SomeActorID {
+            pub _raw_id: ID
+        }
+
+        impl SomeActorID {
+            pub fn broadcast(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.id::<Swarm<SomeActor>>().broadcast() }
+            }
+        }
+
+        impl SomeActorID {
+            pub fn some_method(&self, some_param: usize, world: &mut World) {
+                world.send(self._raw_id, MSG_SomeActor_some_method(some_param));
+            }
+
+            pub fn no_params_fate(&self, world: &mut World) {
+                world.send(self._raw_id, MSG_SomeActor_no_params_fate());
+            }
+
+            pub fn static_ish(some_param: usize, world: &mut World) {
+                world.send_to_id_of::<Swarm<SomeActor>, _>(MSG_SomeActor_static_ish(some_param));
+            }
+
+            pub fn init_ish(some_param: usize, world: &mut World) -> Self {
+                let id = SomeActorID { _raw_id: world.allocate_subactor_id::<SomeActor>() };
+                world.send_to_id_of::<Swarm<SomeActor>, _>(MSG_SomeActor_init_ish(id, some_param));
+                id
+            }
+        }
+
+        #[allow(non_camel_case_types)]
+        #[derive(Compact, Clone)]
+        pub struct MSG_SomeActor_some_method(pub usize);
+        #[allow(non_camel_case_types)]
+        #[derive(Copy, Clone)]
+        pub struct MSG_SomeActor_no_params_fate();
+        #[allow(non_camel_case_types)]
+        #[derive(Compact, Clone)]
+        pub struct MSG_SomeActor_static_ish(pub usize);
+        #[allow(non_camel_case_types)]
+        #[derive(Compact, Clone)]
+        pub struct MSG_SomeActor_init_ish(pub SomeActorID, pub usize);
+
+        #[allow(unused_variables)]
+        #[allow(unused_mut)]
+        pub fn auto_setup(system: &mut ActorSystem) {
+            system.extend::<Swarm<SomeActor>, _>(Swarm::<SomeActor>::subactors(|mut each_subactor| {
+                each_subactor.on(|&MSG_SomeActor_some_method(ref some_param), subactor, world| {
+                    subactor.some_method(some_param, world);
+                    Fate::Live
+                });
+                each_subactor.on(|&MSG_SomeActor_no_params_fate(), subactor, world| {
+                    subactor.no_params_fate(world)
+                });
+            }));
+
+            system.extend::<Swarm<SomeActor>, _>(|mut the_swarm| {
+                the_swarm.on(|&MSG_SomeActor_static_ish(ref some_param), _, world| {
+                    SomeActor::static_ish(some_param, world);
+                    Fate::Live
+                });
+
+                the_swarm.on(|&MSG_SomeActor_init_ish(id, ref some_param), swarm, world| {
+                    let mut subactor = SomeActor::init_ish(id, some_param, world);
+                    unsafe {swarm.add_with_id(&mut subactor, id._raw_id) };
+                    ::std::mem::forget(subactor);
+                    Fate::Live
+                });
+            });
+        }
+    );
+
+    assert_eq!(
+        expected.into_string(),
+        generate(&parse(&input.into_string()))
+    );
+}
+
+#[test]
+fn trait_and_impl() {
+    let input = quote!(
+        pub struct SomeActor {
+            _id: Option<SomeActorID>,
+            field: usize
+        }
+
+        trait SomeTrait {
+            fn some_method(&mut self, some_param: &usize, world: &mut World);
+            fn no_params_fate(&mut self, world: &mut World) -> Fate;
+        }
+
+        impl SomeTrait for SomeActor {
+            fn some_method(&mut self, some_param: &usize, world: &mut World) {
+                self.id().some_method(42, world);
+            }
+
+            fn no_params_fate(&mut self, world: &mut World) -> Fate {
+                Fate::Die
+            }
+        }
+
+        // This shouldn't generate any ID
+        impl Deref for SomeActor {
+            type Target = usize;
+            fn deref(&self) -> &usize {
+                &self.field
+            }
+        }
+    );
+    let expected = quote!(
+        //! This is all auto-generated. Do not touch.
+        use kay::{ActorSystem, ID};
+        #[allow(unused_imports)]
+        use kay::swarm::{Swarm, SubActor};
+        use super::*;
+
+        #[derive(Copy, Clone)]
+        pub struct SomeTraitID {
+            pub _raw_id: ID
+        }
+
+        impl SomeTraitID {
+            pub fn some_method(&self, some_param: usize, world: &mut World) {
+                world.send(self._raw_id, MSG_SomeTrait_some_method(some_param));
+            }
+
+            pub fn no_params_fate(&self, world: &mut World) {
+                world.send(self._raw_id, MSG_SomeTrait_no_params_fate());
+            }
+        }
+
+        #[allow(non_camel_case_types)]
+        #[derive(Compact, Clone)]
+        pub struct MSG_SomeTrait_some_method(pub usize);
+        #[allow(non_camel_case_types)]
+        #[derive(Copy, Clone)]
+        pub struct MSG_SomeTrait_no_params_fate();
+
+        impl SubActor for SomeActor {
+            fn id(&self) -> ID {
+                self.id._raw_id
+            }
+            unsafe fn set_id(&mut self, id: ID) {
+                self.id._raw_id = id;
+            }
+        }
+
+        #[derive(Copy, Clone)]
+        pub struct SomeActorID {
+            pub _raw_id: ID
+        }
+
+        impl SomeActorID {
+            pub fn broadcast(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.id::<Swarm<SomeActor>>().broadcast() }
+            }
+        }
+
+        impl SomeActorID { }
+
+        impl Into<SomeTraitID> for SomeActorID {
+            fn into(self) -> SomeTraitID {
+                unsafe {::std::mem::transmute(self)}
+            }
+        }
+
+        #[allow(unused_variables)]
+        #[allow(unused_mut)]
+        pub fn auto_setup(system: &mut ActorSystem) {
+            system.extend::<Swarm<SomeActor>, _>(Swarm::<SomeActor>::subactors(|mut each_subactor| {
+                each_subactor.on(|&MSG_SomeTrait_some_method(ref some_param), subactor, world| {
+                    subactor.some_method(some_param, world);
+                    Fate::Live
+                });
+                each_subactor.on(|&MSG_SomeTrait_no_params_fate(), subactor, world| {
+                    subactor.no_params_fate(world)
+                });
+            }));
+
+            system.extend::<Swarm<SomeActor>, _>(|mut the_swarm| {});
+        }
+    );
+
+    assert_eq!(
+        expected.into_string(),
+        generate(&parse(&input.into_string()))
+    );
 }

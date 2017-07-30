@@ -7,5 +7,8 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 syn = "=0.10.6"
 quote = "0.3"
 
+[dev-dependencies]
+pretty_assertions = "0.2.1"
+
 [lib]
 proc-macro = true

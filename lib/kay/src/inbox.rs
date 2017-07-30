@@ -15,7 +15,7 @@ impl Inbox {
         Inbox { queue: ChunkedQueue::new(chunker) }
     }
 
-    pub fn put<M: Message>(&mut self, packet: Packet<M>, message_registry: &TypeRegistry) {
+    pub fn put<M: Message>(&mut self, mut packet: Packet<M>, message_registry: &TypeRegistry) {
         let packet_size = packet.total_size_bytes();
         let total_size = ::std::mem::size_of::<ShortTypeId>() + packet_size;
 
@@ -29,11 +29,9 @@ impl Inbox {
 
             let payload_ptr = queue_ptr.offset(::std::mem::size_of::<ShortTypeId>() as isize);
 
-            // Get the address of the location in the queue
-            let packet_in_queue = &mut *(payload_ptr as *mut Packet<M>);
-
             // Write the packet into the queue
-            packet_in_queue.compact_behind_from(&packet);
+            Compact::compact_behind(&mut packet, payload_ptr as *mut Packet<M>);
+            ::std::mem::forget(packet);
         }
     }
 
@@ -63,16 +61,16 @@ impl<'a> Iterator for InboxIterator<'a> {
             None
         } else {
             unsafe {
-                let ptr = self.queue
-                    .dequeue()
-                    .expect("should have something left for sure");
+                let ptr = self.queue.dequeue().expect(
+                    "should have something left for sure",
+                );
                 let message_type = *(ptr as *mut ShortTypeId);
                 let payload_ptr = ptr.offset(::std::mem::size_of::<ShortTypeId>() as isize);
                 self.n_messages_to_read -= 1;
                 Some(DispatchablePacket {
-                         message_type: message_type,
-                         packet_ptr: payload_ptr as *const (),
-                     })
+                    message_type: message_type,
+                    packet_ptr: payload_ptr as *const (),
+                })
             }
         }
     }
