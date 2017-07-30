@@ -138,12 +138,15 @@ impl RoughlyComparable for V2 {
 
 pub trait Curve: Sized {
     fn project_with_max_distance(&self, point: P2, max_distance: N, tolerance: N) -> Option<N> {
-        self.project_with_tolerance(point, tolerance)
-            .and_then(|offset| if self.distance_to(point) < max_distance {
-                          Some(offset)
-                      } else {
-                          None
-                      })
+        self.project_with_tolerance(point, tolerance).and_then(
+            |offset| {
+                if self.distance_to(point) < max_distance {
+                    Some(offset)
+                } else {
+                    None
+                }
+            },
+        )
     }
     fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<N>;
     fn project(&self, point: P2) -> Option<N> {
@@ -185,14 +188,14 @@ pub struct BoundingBox {
 impl BoundingBox {
     pub fn infinite() -> Self {
         BoundingBox {
-            min: P2::new(std::f32::INFINITY, std::f32::INFINITY),
+            min: P2::new(std::f32::NEG_INFINITY, std::f32::NEG_INFINITY),
             max: P2::new(std::f32::INFINITY, std::f32::INFINITY),
         }
     }
 
     pub fn overlaps(&self, other: &BoundingBox) -> bool {
         self.max.x >= other.min.x && other.max.x >= self.min.x && self.max.y >= other.min.y &&
-        other.max.y >= self.min.y
+            other.max.y >= self.min.y
     }
 
     pub fn point(p: P2) -> Self {
@@ -204,19 +207,6 @@ impl BoundingBox {
             min: self.min - V2::new(offset, offset),
             max: self.max + V2::new(offset, offset),
         }
-    }
-}
-
-impl ::std::iter::Sum<BoundingBox> for BoundingBox {
-    fn sum<I: IntoIterator<Item = BoundingBox>>(iter: I) -> Self {
-        let mut bb = BoundingBox::infinite();
-
-        for other_bb in iter {
-            bb.min = P2::new(bb.min.x.min(other_bb.min.x), bb.min.y.min(other_bb.min.y));
-            bb.max = P2::new(bb.max.x.max(other_bb.max.x), bb.max.y.max(other_bb.max.y));
-        }
-
-        bb
     }
 }
 

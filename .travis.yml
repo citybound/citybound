@@ -35,6 +35,7 @@ install:
   - cargo install rustfmt || true
 
 script:
+  - cargo build --verbose
   - bash ci/script.sh
 
 after_script: set +e
