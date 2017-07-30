@@ -10,6 +10,7 @@ pub trait ProjectionRequester {
 }
 
 impl Renderer {
+    /// Critical
     pub fn project_2d_to_3d(
         &mut self,
         scene_id: usize,

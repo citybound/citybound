@@ -7,6 +7,7 @@ use glium::Frame;
 use super::{Renderer, RendererID};
 
 impl Renderer {
+    /// Critical
     pub fn setup(&mut self, world: &mut World) {
         for (scene_id, scene) in self.scenes.iter().enumerate() {
             for renderable in &scene.renderables {
@@ -15,6 +16,7 @@ impl Renderer {
         }
     }
 
+    /// Critical
     pub fn render(&mut self, world: &mut World) {
         let self_id = self.id;
         for (scene_id, mut scene) in self.scenes.iter_mut().enumerate() {
@@ -30,6 +32,7 @@ impl Renderer {
         }
     }
 
+    /// Critical
     pub fn submit(
         &mut self,
         given_target: &External<Frame>,

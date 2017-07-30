@@ -19,6 +19,7 @@ pub trait EyeListener {
 }
 
 impl Renderer {
+    /// Critical
     pub fn move_eye(&mut self, scene_id: usize, movement: Movement, world: &mut World) {
         match movement {
             Movement::Shift(delta) => self.movement_shift(scene_id, delta),
