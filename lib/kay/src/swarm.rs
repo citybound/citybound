@@ -298,6 +298,13 @@ impl<SA: SubActor + Clone> Swarm<SA> {
     }
 }
 
+use super::actor_system::SubActorsCountable;
+impl<SA: SubActor> SubActorsCountable for Swarm<SA> {
+    fn subactor_count(&self) -> usize {
+        *self.n_sub_actors
+    }
+}
+
 /// A message for adding a new sub-actor to a `Swarm` given its initial state.
 #[derive(Compact, Clone)]
 pub struct Create<SA: SubActor>(pub SA);

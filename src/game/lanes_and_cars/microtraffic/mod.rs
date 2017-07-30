@@ -140,10 +140,11 @@ struct AddObstacles {
 }
 
 use self::pathfinding::RoutingInfo;
+use self::pathfinding::trip::TripResult;
 
 pub fn setup(system: &mut ActorSystem) {
     system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
-        each_lane.on(|&AddCar { car, .. }, lane, _| {
+        each_lane.on(|&AddCar { car, .. }, lane, world| {
             // TODO: horrible hack to encode it like this
             let car_forcibly_spawned = *car.as_obstacle.position < 0.0;
 
@@ -208,7 +209,7 @@ pub fn setup(system: &mut ActorSystem) {
                     None => lane.microtraffic.cars.push(routed_car),
                 }
             } else {
-                // TODO: cancel trip
+                world.send(car.trip, TripResult::Failure);
             }
 
             Fate::Live
@@ -406,7 +407,9 @@ pub fn setup(system: &mut ActorSystem) {
 
                 if let Some((idx_to_remove, next_lane, start, partner_start)) = maybe_switch_car {
                     let car = lane.microtraffic.cars.remove(idx_to_remove);
-                    if lane.id() != car.destination.node {
+                    if lane.id() == car.destination.node {
+                        world.send(car.trip, TripResult::Success);
+                    } else {
                         world.send(
                             next_lane,
                             AddCar {
@@ -635,37 +638,45 @@ pub fn setup(system: &mut ActorSystem) {
                             (*car.position > lane.construction.length &&
                                  car.transfer_acceleration > 0.0)
                         {
-                            world.send(
-                                right,
-                                AddCar {
-                                    car: car.as_lane_car.offset_by(
-                                        right_start +
-                                            lane.self_to_interaction_offset(
-                                                *car.position,
-                                                false,
-                                            ),
-                                    ),
-                                    from: Some(lane.id()),
-                                },
-                            );
+                            if car.destination.node == right {
+                                world.send(car.trip, TripResult::Success);
+                            } else {
+                                world.send(
+                                    right,
+                                    AddCar {
+                                        car: car.as_lane_car.offset_by(
+                                            right_start +
+                                                lane.self_to_interaction_offset(
+                                                    *car.position,
+                                                    false,
+                                                ),
+                                        ),
+                                        from: Some(lane.id()),
+                                    },
+                                );
+                            }
                             (true, false)
                         } else if car.transfer_position < -1.0 ||
                                    (*car.position > lane.construction.length &&
                                         car.transfer_acceleration <= 0.0)
                         {
-                            world.send(
-                                left,
-                                AddCar {
-                                    car: car.as_lane_car.offset_by(
-                                        left_start +
-                                            lane.self_to_interaction_offset(
-                                                *car.position,
-                                                true,
-                                            ),
-                                    ),
-                                    from: Some(lane.id()),
-                                },
-                            );
+                            if car.destination.node == left {
+                                world.send(car.trip, TripResult::Success);
+                            } else {
+                                world.send(
+                                    left,
+                                    AddCar {
+                                        car: car.as_lane_car.offset_by(
+                                            left_start +
+                                                lane.self_to_interaction_offset(
+                                                    *car.position,
+                                                    true,
+                                                ),
+                                        ),
+                                        from: Some(lane.id()),
+                                    },
+                                );
+                            }
                             (true, false)
                         } else {
                             i += 1;
