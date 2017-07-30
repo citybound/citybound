@@ -28,6 +28,9 @@ mod compact_dict;
 mod compact_array;
 mod compact_hash_map;
 
+#[macro_use]
+extern crate lazy_static;
+
 pub use self::compact::Compact;
 pub use self::compact_vec::CompactVec as CVec;
 pub use self::compact_dict::CompactDict as CDict;

@@ -68,6 +68,12 @@ pub struct OpenAddressingMap<K: Copy + Eq + Hash + Default, V: Compact + Clone +
     entries: CompactArray<Entry<K, V>, A>,
 }
 
+lazy_static! {
+    static ref PRIME_SIEVE: primal::Sieve = {
+        primal::Sieve::new(1_000_000)
+    };
+}
+
 impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator>
     OpenAddressingMap<K, V, A> {
     pub fn new() -> Self {
@@ -247,7 +253,7 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator>
     }
 
     fn find_prime_larger_than(n: usize) -> usize {
-        primal::Primes::all().find(|&i| i > n).unwrap()
+        PRIME_SIEVE.primes_from(n).find(|&i| i > n).unwrap()
     }
 
     pub fn display(&self) -> String {
