@@ -5,10 +5,13 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 build = "src/build.rs"
 
 [dependencies]
-glium = "0.16.0"
 clippy = { version = "0.0.138", optional = true }
 fnv = "1.0.3"
 lazy_static = "0.2.8"
+
+[dependencies.glium]
+git = "https://github.com/bogdad/glium"
+features = ["glutin"]
 
 [dependencies.kay]
 path = "../kay"

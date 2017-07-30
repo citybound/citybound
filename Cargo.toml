@@ -33,7 +33,7 @@ roaring = "0.4.0"
 open = "1.1.1"
 serde = "1.0"
 serde_derive = "1.0"
-imgui = "0.0.11"
+imgui = { git = "https://github.com/bogdad/imgui-rs" }
 
 [dependencies.compact]
 path = "./engine/compact/"
