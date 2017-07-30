@@ -135,18 +135,16 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator>
 
     /// Iterator over mutable references to all values in the dictionary
     pub fn values_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut V> + 'a {
-        self.entries
-            .iter_mut()
-            .filter(|e| e.used)
-            .map(|e| &mut e.value)
+        self.entries.iter_mut().filter(|e| e.used).map(
+            |e| &mut e.value,
+        )
     }
 
     /// Iterator over all key-value pairs in the dictionary
     pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)> + 'a {
-        self.entries
-            .iter()
-            .filter(|e| e.used)
-            .map(|e| (&e.key, &e.value))
+        self.entries.iter().filter(|e| e.used).map(
+            |e| (&e.key, &e.value),
+        )
     }
 
     fn hash(&self, key: K) -> u64 {
@@ -212,9 +210,9 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator>
     fn ensure_capacity(&mut self) {
         if self.size > self.entries.capacity() / 2 {
             let old_entries = self.entries.clone();
-            self.entries =
-                CompactArray::with_capacity(Self::find_prime_larger_than(old_entries.capacity() *
-                                                                         2));
+            self.entries = CompactArray::with_capacity(
+                Self::find_prime_larger_than(old_entries.capacity() * 2),
+            );
             self.size = 0;
             for entry in old_entries {
                 if entry.used {
@@ -225,11 +223,12 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator>
     }
 
     fn find_pos_used(&self, query: K) -> Option<usize> {
-        self.find_pos(query)
-            .and_then(|i| match self.entries[i].used {
-                          true => Some(i),
-                          false => None,
-                      })
+        self.find_pos(query).and_then(
+            |i| match self.entries[i].used {
+                true => Some(i),
+                false => None,
+            },
+        )
     }
 
     fn find_pos(&self, query: K) -> Option<usize> {
@@ -278,9 +277,11 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
 
     unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
         (*dest).size = (*source).size;
-        Compact::compact(&mut (*source).entries,
-                         &mut (*dest).entries,
-                         new_dynamic_part);
+        Compact::compact(
+            &mut (*source).entries,
+            &mut (*dest).entries,
+            new_dynamic_part,
+        );
 
     }
 
@@ -314,7 +315,7 @@ impl<
     V: Compact + Clone + Default,
     A: Allocator,
 > ::std::iter::FromIterator<(K, V)> for OpenAddressingMap<K, V, A> {
-/// Construct a compact dictionary from an interator over key-value pairs
+    /// Construct a compact dictionary from an interator over key-value pairs
     fn from_iter<T: IntoIterator<Item = (K, V)>>(iter_to_be: T) -> Self {
         let iter = iter_to_be.into_iter();
         let mut map = Self::with_capacity(iter.size_hint().0);
@@ -354,17 +355,17 @@ impl<K: Hash + Eq + Copy + Default, I: Compact, A1: Allocator, A2: Allocator>
     /// Iterator over the `CompactVec` at the key `query`
     #[allow(needless_lifetimes)]
     pub fn get_iter<'a>(&'a self, query: K) -> impl Iterator<Item = &'a I> + 'a {
-        self.get(query)
-            .into_iter()
-            .flat_map(|vec_in_option| vec_in_option.iter())
+        self.get(query).into_iter().flat_map(|vec_in_option| {
+            vec_in_option.iter()
+        })
     }
 
     /// Remove the `CompactVec` at the key `query` and iterate over its elements (if it existed)
     #[allow(needless_lifetimes)]
     pub fn remove_iter<'a>(&'a mut self, query: K) -> impl Iterator<Item = I> + 'a {
-        self.remove(query)
-            .into_iter()
-            .flat_map(|vec_in_option| vec_in_option.into_iter())
+        self.remove(query).into_iter().flat_map(|vec_in_option| {
+            vec_in_option.into_iter()
+        })
     }
 }
 
@@ -439,13 +440,14 @@ fn iter() {
     }
     for n in 0..n {
         let mut keys = map.keys();
-        assert!(keys.find(|&i| {
+        assert!(
+            keys.find(|&i| {
                 println!("find {:?} {:?}", i, n);
                 *i == n
-            })
-                    .is_some(),
-                "fail n {:?} ",
-                n);
+            }).is_some(),
+            "fail n {:?} ",
+            n
+        );
     }
     for n in 0..n {
         let mut values = map.values();
