@@ -219,6 +219,10 @@ impl<K: Copy + Eq, V: Compact + Clone, A: Allocator> ::std::iter::Extend<(K, V)>
     }
 }
 
+fn elem(n: usize) -> usize {
+    (n * n) as usize
+}
+
 #[test]
 fn very_basic() {
     let mut map: CompactDict<usize, usize> = CompactDict::new();

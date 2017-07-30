@@ -10,6 +10,8 @@ use std::marker::PhantomData;
 use std::fmt::Write;
 use std;
 
+extern crate primal;
+
 #[derive(Clone)]
 struct Entry<K: Default + Copy + Hash + Eq, V: Default + Compact + Clone> {
     key: K,
@@ -73,7 +75,7 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator>
     }
     pub fn with_capacity(l: usize) -> Self {
         let mut map = OpenAddressingMap {
-            entries: CompactArray::with_capacity(l),
+            entries: CompactArray::with_capacity(Self::find_prime_larger_than(l)),
             size: 0,
         };
         map
@@ -206,9 +208,11 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator>
     }
 
     fn ensure_capacity(&mut self) {
-        if 10 * self.size > 7 * self.entries.capacity() {
+        if self.size > self.entries.capacity() / 2 {
             let old_entries = self.entries.clone();
-            self.entries = CompactArray::with_capacity(old_entries.capacity() * 2);
+            self.entries = CompactArray::with_capacity(
+                Self::find_prime_larger_than(old_entries.capacity() * 2),
+            );
             self.size = 0;
             for entry in old_entries {
                 if entry.used {
@@ -240,6 +244,10 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator>
             }
         }
         None
+    }
+
+    fn find_prime_larger_than(n: usize) -> usize {
+        primal::Primes::all().find(|&i| i > n).unwrap()
     }
 
     pub fn display(&self) -> String {
