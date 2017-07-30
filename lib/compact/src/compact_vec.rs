@@ -347,7 +347,10 @@ impl<T: Compact + Clone, A: Allocator> Compact for CompactVec<T, A> {
 
     default unsafe fn decompact(source: *const Self) -> Self {
         if (*source).ptr.is_compact() {
-            (*source).clone()
+            (*source)
+                .iter()
+                .map(|item| Compact::decompact(item))
+                .collect()
         } else {
             CompactVec {
                 ptr: ptr::read(&(*source).ptr as *const PointerToMaybeCompact<T>),
@@ -446,18 +449,25 @@ fn basic_vector() {
 
     assert_eq!(&[1, 2, 3], &*list);
 
-    let storage = Vec::<u8>::with_capacity(list.total_size_bytes()).as_mut_ptr();
+    let bytes = list.total_size_bytes();
+    let storage = DefaultHeap::allocate(bytes);
 
     unsafe {
-        list.compact_to_behind(storage as *mut CompactVec<u32>);
+        Compact::compact_behind(&mut list, storage as *mut CompactVec<u32>);
+        ::std::mem::forget(list);
         assert_eq!(&[1, 2, 3], &**(storage as *mut CompactVec<u32>));
+        println!("before decompact!");
+        let decompacted = Compact::decompact(storage as *mut CompactVec<u32>);
+        println!("after decompact!");
+        assert_eq!(&[1, 2, 3], &*decompacted);
+        DefaultHeap::deallocate(storage, bytes);
     }
 }
 
 #[test]
 fn nested_vector() {
-    type lol_type = CompactVec<CompactVec<u32>>;
-    let mut list_of_lists: lol_type = CompactVec::new();
+    type NestedType = CompactVec<CompactVec<u32>>;
+    let mut list_of_lists: NestedType = CompactVec::new();
 
     list_of_lists.push(vec![1, 2, 3].into());
     list_of_lists.push(vec![4, 5, 6, 7, 8, 9].into());
@@ -465,11 +475,19 @@ fn nested_vector() {
     assert_eq!(&[1, 2, 3], &*list_of_lists[0]);
     assert_eq!(&[4, 5, 6, 7, 8, 9], &*list_of_lists[1]);
 
-    let storage = Vec::<u8>::with_capacity(list_of_lists.total_size_bytes()).as_mut_ptr();
+    let bytes = list_of_lists.total_size_bytes();
+    let storage = DefaultHeap::allocate(bytes);
 
     unsafe {
-        list_of_lists.compact_to_behind(storage as *mut lol_type);
-        assert_eq!(&[1, 2, 3], &*(*(storage as *mut lol_type))[0]);
-        assert_eq!(&[4, 5, 6, 7, 8, 9], &*(*(storage as *mut lol_type))[1]);
+        Compact::compact_behind(&mut list_of_lists, storage as *mut NestedType);
+        ::std::mem::forget(list_of_lists);
+        assert_eq!(&[1, 2, 3], &*(*(storage as *mut NestedType))[0]);
+        assert_eq!(&[4, 5, 6, 7, 8, 9], &*(*(storage as *mut NestedType))[1]);
+        println!("before decompact!");
+        let decompacted = Compact::decompact(storage as *mut NestedType);
+        println!("after decompact!");
+        assert_eq!(&[1, 2, 3], &*decompacted[0]);
+        assert_eq!(&[4, 5, 6, 7, 8, 9], &*decompacted[1]);
+        DefaultHeap::deallocate(storage, bytes);
     }
 }
