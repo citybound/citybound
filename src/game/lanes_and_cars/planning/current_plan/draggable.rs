@@ -33,10 +33,14 @@ pub fn setup(system: &mut ActorSystem) {
             let cp_id = each_draggable.world().id::<CurrentPlan>();
 
             each_draggable.on_create_with(move |_: &InitInteractable, draggable, world| {
-                world.send(ui_id,
-                           AddInteractable(draggable.id(),
-                                           AnyShape::Band(Band::new(draggable.path.clone(), 5.0)),
-                                           4));
+                world.send(
+                    ui_id,
+                    AddInteractable(
+                        draggable.id(),
+                        AnyShape::Band(Band::new(draggable.path.clone(), 5.0)),
+                        4,
+                    ),
+                );
                 Fate::Live
             });
 
@@ -48,21 +52,29 @@ pub fn setup(system: &mut ActorSystem) {
             each_draggable.on(move |event, _, world| {
                 match *event {
                     Event3d::DragOngoing { from, to, .. } => {
-                        world.send(cp_id,
-                                   ChangeIntent(Intent::MoveSelection(to.into_2d() -
-                                                                      from.into_2d()),
-                                                IntentProgress::Preview));
+                        world.send(
+                            cp_id,
+                            ChangeIntent(
+                                Intent::MoveSelection(to.into_2d() - from.into_2d()),
+                                IntentProgress::Preview,
+                            ),
+                        );
                     }
                     Event3d::DragFinished { from, to, .. } => {
                         let delta = to.into_2d() - from.into_2d();
                         if delta.norm() < MAXIMIZE_DISTANCE {
-                            world.send(cp_id,
-                                       ChangeIntent(Intent::MaximizeSelection,
-                                                    IntentProgress::Immediate));
+                            world.send(
+                                cp_id,
+                                ChangeIntent(Intent::MaximizeSelection, IntentProgress::Immediate),
+                            );
                         } else {
-                            world.send(cp_id,
-                                       ChangeIntent(Intent::MoveSelection(delta),
-                                                    IntentProgress::Immediate));
+                            world.send(
+                                cp_id,
+                                ChangeIntent(
+                                    Intent::MoveSelection(delta),
+                                    IntentProgress::Immediate,
+                                ),
+                            );
                         }
                     }
                     _ => {}

@@ -61,10 +61,11 @@ impl TransferLane {
     }
 
     #[allow(needless_range_loop)]
-    pub fn interaction_to_self_offset(&self,
-                                      distance_on_interaction: N,
-                                      came_from_left: bool)
-                                      -> N {
+    pub fn interaction_to_self_offset(
+        &self,
+        distance_on_interaction: N,
+        came_from_left: bool,
+    ) -> N {
         let map = if came_from_left {
             &self.connectivity.left_distance_map
         } else {
@@ -73,12 +74,12 @@ impl TransferLane {
 
         for i in 0..map.len() {
             let (next_self, next_other) = map[i];
-            let &(prev_self, prev_other) = i.checked_sub(1)
-                .and_then(|p| map.get(p))
-                .unwrap_or(&(0.0, 0.0));
+            let &(prev_self, prev_other) = i.checked_sub(1).and_then(|p| map.get(p)).unwrap_or(
+                &(0.0, 0.0),
+            );
             if prev_other <= distance_on_interaction && next_other >= distance_on_interaction {
                 let amount_of_segment = (distance_on_interaction - prev_other) /
-                                        (next_other - prev_other);
+                    (next_other - prev_other);
                 let distance_on_self = prev_self + amount_of_segment * (next_self - prev_self);
                 return distance_on_self - distance_on_interaction;
             }
@@ -96,9 +97,9 @@ impl TransferLane {
 
         for i in 0..map.len() {
             let (next_self, next_other) = map[i];
-            let &(prev_self, prev_other) = i.checked_sub(1)
-                .and_then(|p| map.get(p))
-                .unwrap_or(&(0.0, 0.0));
+            let &(prev_self, prev_other) = i.checked_sub(1).and_then(|p| map.get(p)).unwrap_or(
+                &(0.0, 0.0),
+            );
             if prev_self <= distance_on_self && next_self >= distance_on_self {
                 let amount_of_segment = (distance_on_self - prev_self) / (next_self - prev_self);
                 let distance_on_other = prev_other + amount_of_segment * (next_other - prev_other);

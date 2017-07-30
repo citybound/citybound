@@ -45,25 +45,22 @@ pub struct Intersection {
 impl<'a> RoughlyComparable for &'a Intersection {
     fn is_roughly_within(&self, other: &Intersection, tolerance: N) -> bool {
         (&self.shape).is_roughly_within(&other.shape, tolerance) &&
-        self.incoming.len() == other.incoming.len() &&
-        self.incoming.values().all(|self_incoming| {
-            other
-                .incoming
-                .values()
-                .any(|other_incoming| self_incoming.is_roughly_within(other_incoming, tolerance))
-        }) && self.outgoing.len() == other.outgoing.len() &&
-        self.outgoing.values().all(|self_outgoing| {
-            other
-                .outgoing
-                .values()
-                .any(|other_outgoing| self_outgoing.is_roughly_within(other_outgoing, tolerance))
-        }) && self.strokes.len() == other.strokes.len() &&
-        self.strokes.iter().all(|self_stroke| {
-            other
-                .strokes
-                .iter()
-                .any(|other_stroke| self_stroke.is_roughly_within(other_stroke, tolerance))
-        })
+            self.incoming.len() == other.incoming.len() &&
+            self.incoming.values().all(|self_incoming| {
+                other.incoming.values().any(|other_incoming| {
+                    self_incoming.is_roughly_within(other_incoming, tolerance)
+                })
+            }) && self.outgoing.len() == other.outgoing.len() &&
+            self.outgoing.values().all(|self_outgoing| {
+                other.outgoing.values().any(|other_outgoing| {
+                    self_outgoing.is_roughly_within(other_outgoing, tolerance)
+                })
+            }) && self.strokes.len() == other.strokes.len() &&
+            self.strokes.iter().all(|self_stroke| {
+                other.strokes.iter().any(|other_stroke| {
+                    self_stroke.is_roughly_within(other_stroke, tolerance)
+                })
+            })
     }
 }
 
@@ -88,15 +85,21 @@ const RESULT_DELTA_TOLERANCE: N = 0.1;
 impl PlanResult {
     pub fn delta(&self, old: &Self) -> PlanResultDelta {
         PlanResultDelta {
-            intersections: ReferencedDelta::compare_roughly(&self.intersections,
-                                                            &old.intersections,
-                                                            RESULT_DELTA_TOLERANCE),
-            trimmed_strokes: ReferencedDelta::compare_roughly(&self.trimmed_strokes,
-                                                              &old.trimmed_strokes,
-                                                              RESULT_DELTA_TOLERANCE),
-            transfer_strokes: ReferencedDelta::compare_roughly(&self.transfer_strokes,
-                                                               &old.transfer_strokes,
-                                                               RESULT_DELTA_TOLERANCE),
+            intersections: ReferencedDelta::compare_roughly(
+                &self.intersections,
+                &old.intersections,
+                RESULT_DELTA_TOLERANCE,
+            ),
+            trimmed_strokes: ReferencedDelta::compare_roughly(
+                &self.trimmed_strokes,
+                &old.trimmed_strokes,
+                RESULT_DELTA_TOLERANCE,
+            ),
+            transfer_strokes: ReferencedDelta::compare_roughly(
+                &self.transfer_strokes,
+                &old.transfer_strokes,
+                RESULT_DELTA_TOLERANCE,
+            ),
         }
     }
 }
@@ -116,27 +119,29 @@ pub struct ReferencedDelta<Ref: Copy + Eq, T: ::compact::Compact + Clone> {
 }
 
 impl<Ref: Copy + Eq, T: ::compact::Compact + Clone> ReferencedDelta<Ref, T> {
-    pub fn compare<'a, F: Fn(&'a T, &'a T) -> bool>(new: &'a CDict<Ref, T>,
-                                                    old: &'a CDict<Ref, T>,
-                                                    equivalent: F)
-                                                    -> Self {
+    pub fn compare<'a, F: Fn(&'a T, &'a T) -> bool>(
+        new: &'a CDict<Ref, T>,
+        old: &'a CDict<Ref, T>,
+        equivalent: F,
+    ) -> Self {
         let pairs = new.pairs().cartesian_product(old.pairs());
         let old_to_new = pairs
             .filter_map(|pair| match pair {
-                            ((new_ref, new), (old_ref, old)) => {
-                                if equivalent(new, old) {
-                                    Some((*old_ref, *new_ref))
-                                } else {
-                                    None
-                                }
-                            }
-                        })
+                ((new_ref, new), (old_ref, old)) => {
+                    if equivalent(new, old) {
+                        Some((*old_ref, *new_ref))
+                    } else {
+                        None
+                    }
+                }
+            })
             .collect::<CDict<_, _>>();
 
         let to_create = new.pairs()
             .filter_map(|(new_ref, new)| if old_to_new.values().any(
                 |not_really_new_ref| not_really_new_ref == new_ref,
-            ) {
+            )
+            {
                 None
             } else {
                 Some((*new_ref, new.clone()))
@@ -144,14 +149,15 @@ impl<Ref: Copy + Eq, T: ::compact::Compact + Clone> ReferencedDelta<Ref, T> {
             .collect();
 
         let to_destroy = old.pairs()
-            .filter_map(|(old_ref, old)| if old_to_new.keys().any(
-                |revived_old_ref| {
+            .filter_map(|(old_ref, old)| {
+                let has_revived = old_to_new.keys().any(|revived_old_ref| {
                     revived_old_ref == old_ref
-                },
-            ) {
-                None
-            } else {
-                Some((*old_ref, old.clone()))
+                });
+                if has_revived {
+                    None
+                } else {
+                    Some((*old_ref, old.clone()))
+                }
             })
             .collect();
 
@@ -163,7 +169,8 @@ impl<Ref: Copy + Eq, T: ::compact::Compact + Clone> ReferencedDelta<Ref, T> {
     }
 
     pub fn compare_roughly<'a>(new: &'a CDict<Ref, T>, old: &'a CDict<Ref, T>, tolerance: N) -> Self
-        where &'a T: RoughlyComparable + 'a
+    where
+        &'a T: RoughlyComparable + 'a,
     {
         Self::compare(new, old, |new_item, old_item| {
             new_item.is_roughly_within(old_item, tolerance)
@@ -211,11 +218,14 @@ impl Plan {
         let built_old_refs_and_strokes = self.strokes
             .iter()
             .enumerate()
-            .filter_map(|(i, stroke)| if delta.strokes_to_destroy.contains_key(LaneStrokeRef(i)) {
-                            None
-                        } else {
-                            Some((LaneStrokeRef(i), stroke.clone()))
-                        })
+            .filter_map(|(i, stroke)| if delta.strokes_to_destroy.contains_key(
+                LaneStrokeRef(i),
+            )
+            {
+                None
+            } else {
+                Some((LaneStrokeRef(i), stroke.clone()))
+            })
             .collect::<CDict<_, _>>();
         let new_plan = Plan {
             strokes: built_old_refs_and_strokes
@@ -224,13 +234,16 @@ impl Plan {
                 .cloned()
                 .collect(),
         };
-        (new_plan, BuiltStrokes { mapping: built_old_refs_and_strokes })
+        (
+            new_plan,
+            BuiltStrokes { mapping: built_old_refs_and_strokes },
+        )
     }
 
     pub fn get_result(&self) -> PlanResult {
         let mut intersections = find_intersections(&self.strokes);
-        let trimmed_strokes = trim_strokes_and_add_incoming_outgoing(&self.strokes,
-                                                                     &mut intersections);
+        let trimmed_strokes =
+            trim_strokes_and_add_incoming_outgoing(&self.strokes, &mut intersections);
         create_connecting_strokes(&mut intersections);
         let transfer_strokes = find_transfer_strokes(&trimmed_strokes);
         determine_signal_timings(&mut intersections);
@@ -249,7 +262,9 @@ impl Plan {
             transfer_strokes: transfer_strokes
                 .into_iter()
                 .enumerate()
-                .map(|(i, transfer_stroke)| (TransferStrokeRef(i), transfer_stroke))
+                .map(|(i, transfer_stroke)| {
+                    (TransferStrokeRef(i), transfer_stroke)
+                })
                 .collect(),
         }
     }

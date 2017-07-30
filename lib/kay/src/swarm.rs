@@ -50,7 +50,7 @@ pub struct Swarm<SubActor> {
 
 const CHUNK_SIZE: usize = 4096 * 4096 * 4;
 
-impl<SA: SubActor> Swarm<SA> {
+impl<SA: SubActor + Clone> Swarm<SA> {
     /// Create an empty `Swarm`.
     pub fn new() -> Self {
         let chunker = MemChunker::from_settings("", CHUNK_SIZE);
@@ -66,10 +66,6 @@ impl<SA: SubActor> Swarm<SA> {
         self.slot_map.allocate_id()
     }
 
-    fn at_index(&self, index: SlotIndices) -> &SA {
-        unsafe { &*(self.sub_actors.bins[index.bin()].at(index.slot()) as *const SA) }
-    }
-
     fn at_index_mut(&mut self, index: SlotIndices) -> &mut SA {
         unsafe { &mut *(self.sub_actors.bins[index.bin()].at_mut(index.slot()) as *mut SA) }
     }
@@ -79,30 +75,41 @@ impl<SA: SubActor> Swarm<SA> {
         self.at_index_mut(index)
     }
 
-    fn add(&mut self, initial_state: &SA, base_id: ID) -> ID {
+    /// Allocate a subactor ID for later use when manually adding a subactor (see `add_with_id`)
+    pub unsafe fn allocate_id(&mut self, base_id: ID) -> ID {
         let (sub_actor_id, version) = self.allocate_sub_actor_id();
-        let id = ID::new(base_id.type_id, sub_actor_id as u32, version as u8);
-        self.add_with_id(initial_state, id);
+        ID::new(base_id.type_id, sub_actor_id as u32, version as u8)
+    }
+
+    fn add(&mut self, mut initial_state: SA, base_id: ID) -> ID {
+        let id = unsafe { self.allocate_id(base_id) };
+        unsafe { self.add_with_id(&mut initial_state, id) };
         *self.n_sub_actors += 1;
+        // this acts like a move!
+        ::std::mem::forget(initial_state);
         id
     }
 
-    fn add_with_id(&mut self, initial_state: &SA, id: ID) {
-        let size = initial_state.total_size_bytes();
+    /// Used internally, but can also be used externally when manually adding a subactor,
+    /// making use of a previously allocated ID (see `allocate_id`)
+    pub unsafe fn add_with_id(&mut self, initial_state: *mut SA, id: ID) {
+        let size = (*initial_state).total_size_bytes();
         let bin_index = self.sub_actors.size_to_index(size);
         let bin = &mut self.sub_actors.bin_for_size_mut(size);
         let (ptr, index) = bin.push();
 
-        self.slot_map
-            .associate(id.sub_actor_id as usize, SlotIndices::new(bin_index, index));
-        assert_eq!(self.slot_map.indices_of(id.sub_actor_id as usize).bin(),
-                   bin_index);
+        self.slot_map.associate(
+            id.sub_actor_id as usize,
+            SlotIndices::new(bin_index, index),
+        );
+        assert_eq!(
+            self.slot_map.indices_of(id.sub_actor_id as usize).bin(),
+            bin_index
+        );
 
-        unsafe {
-            let actor_in_slot = &mut *(ptr as *mut SA);
-            actor_in_slot.compact_behind_from(initial_state);
-            actor_in_slot.set_id(id)
-        }
+        Compact::compact_behind(initial_state, ptr as *mut SA);
+        let actor_in_slot = &mut *(ptr as *mut SA);
+        actor_in_slot.set_id(id);
     }
 
     fn swap_remove(&mut self, indices: SlotIndices) -> bool {
@@ -111,8 +118,10 @@ impl<SA: SubActor> Swarm<SA> {
             match bin.swap_remove(indices.slot()) {
                 Some(ptr) => {
                     let swapped_actor = &*(ptr as *mut SA);
-                    self.slot_map
-                        .associate(swapped_actor.id().sub_actor_id as usize, indices);
+                    self.slot_map.associate(
+                        swapped_actor.id().sub_actor_id as usize,
+                        indices,
+                    );
                     true
                 }
                 None => false,
@@ -127,9 +136,16 @@ impl<SA: SubActor> Swarm<SA> {
     }
 
     fn remove_at_index(&mut self, i: SlotIndices, id: ID) {
+        // TODO: not sure if this is the best place to drop actor state
+        let old_actor_ptr = self.at_index_mut(i) as *mut SA;
+        unsafe {
+            ::std::ptr::drop_in_place(old_actor_ptr);
+        }
         self.swap_remove(i);
-        self.slot_map
-            .free(id.sub_actor_id as usize, id.version as usize);
+        self.slot_map.free(
+            id.sub_actor_id as usize,
+            id.version as usize,
+        );
         *self.n_sub_actors -= 1;
     }
 
@@ -139,23 +155,26 @@ impl<SA: SubActor> Swarm<SA> {
     }
 
     fn resize_at_index(&mut self, old_i: SlotIndices) -> bool {
-        let old_actor_ptr = self.at_index(old_i) as *const SA;
-        let old_actor = unsafe { &*old_actor_ptr };
-        self.add_with_id(old_actor, old_actor.id());
+        let old_actor_ptr = self.at_index_mut(old_i) as *mut SA;
+        unsafe { self.add_with_id(old_actor_ptr, (*old_actor_ptr).id()) };
         self.swap_remove(old_i)
     }
 
-    fn receive_instance<M: Message, H>(&mut self,
-                                       packet: &Packet<M>,
-                                       handler: &H,
-                                       world: &mut World)
-        where H: Fn(&Packet<M>, &mut SA, &mut World) -> Fate + 'static
+    fn receive_instance<M: Message, H>(
+        &mut self,
+        packet: &Packet<M>,
+        handler: &H,
+        world: &mut World,
+    ) where
+        H: Fn(&Packet<M>, &mut SA, &mut World) -> Fate + 'static,
     {
         let (fate, is_still_compact) = {
-            let actor = self.at_mut(packet
-                                        .recipient_id
-                                        .expect("Recipient ID not set")
-                                        .sub_actor_id as usize);
+            let actor = self.at_mut(
+                packet
+                    .recipient_id
+                    .expect("Recipient ID not set")
+                    .sub_actor_id as usize,
+            );
             let fate = handler(packet, actor, world);
             (fate, actor.is_still_compact())
         };
@@ -163,21 +182,25 @@ impl<SA: SubActor> Swarm<SA> {
         match fate {
             Fate::Live => {
                 if !is_still_compact {
-                    self.resize(packet
-                                    .recipient_id
-                                    .expect("Recipient ID not set")
-                                    .sub_actor_id as usize);
+                    self.resize(
+                        packet
+                            .recipient_id
+                            .expect("Recipient ID not set")
+                            .sub_actor_id as usize,
+                    );
                 }
             }
             Fate::Die => self.remove(packet.recipient_id.expect("Recipient ID not set")),
         }
     }
 
-    fn receive_broadcast<M: Message, H>(&mut self,
-                                        packet: &Packet<M>,
-                                        handler: &H,
-                                        world: &mut World)
-        where H: Fn(&Packet<M>, &mut SA, &mut World) -> Fate + 'static
+    fn receive_broadcast<M: Message, H>(
+        &mut self,
+        packet: &Packet<M>,
+        handler: &H,
+        world: &mut World,
+    ) where
+        H: Fn(&Packet<M>, &mut SA, &mut World) -> Fate + 'static,
     {
         // this function has to deal with the fact that during the iteration,
         // receivers of the broadcast can be resized
@@ -215,7 +238,7 @@ impl<SA: SubActor> Swarm<SA> {
                             // this should also work in the case where the "resized" actor
                             // itself is added to the same bin again
                             let swapped_in_another_receiver = self.sub_actors.bins[c].len() <
-                                                              index_after_last_recipient;
+                                index_after_last_recipient;
                             if swapped_in_another_receiver {
                                 index_after_last_recipient -= 1;
                                 true
@@ -229,7 +252,7 @@ impl<SA: SubActor> Swarm<SA> {
                         // this should also work in the case where the "resized" actor
                         // itself is added to the same bin again
                         let swapped_in_another_receiver = self.sub_actors.bins[c].len() <
-                                                          index_after_last_recipient;
+                            index_after_last_recipient;
                         if swapped_in_another_receiver {
                             index_after_last_recipient -= 1;
                             true
@@ -257,7 +280,8 @@ impl<SA: SubActor> Swarm<SA> {
     ///    });
     /// }));
     pub fn subactors<S>(subactor_definition: S) -> impl Fn(ActorDefiner<Self>)
-        where S: Fn(SubActorDefiner<SA>) + 'static
+    where
+        S: Fn(SubActorDefiner<SA>) + 'static,
     {
         move |mut the_swarm| {
             Self::define_control_handlers(&mut the_swarm);
@@ -267,8 +291,8 @@ impl<SA: SubActor> Swarm<SA> {
 
     fn define_control_handlers<'a>(the_swarm: &mut ActorDefiner<'a, Self>) {
         let swarm_id = the_swarm.world().id::<Self>();
-        the_swarm.on(move |&Create(ref initial_state), swarm, _| {
-            swarm.add(initial_state, swarm_id);
+        the_swarm.on(move |&Create(ref initial_state): &Create<SA>, swarm, _| {
+            swarm.add(initial_state.clone(), swarm_id);
             Fate::Live
         });
     }
@@ -307,7 +331,7 @@ pub struct ToRandom<M: Message> {
 /// [`Swarm::subactors`](struct.Swarm.html#method.subactors).
 pub struct SubActorDefiner<'a, SA: 'static>(ActorDefiner<'a, Swarm<SA>>);
 
-impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
+impl<'a, SA: SubActor + Clone + 'static> SubActorDefiner<'a, SA> {
     /// Analogous to [`ActorDefiner::on`](../struct.ActorDefiner.html#method.on),
     /// the closure argument is passed:
     ///
@@ -316,7 +340,8 @@ impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
     /// * a [`World`](struct.World.html) to identify and send
     ///   messages to other actors
     pub fn on<M: Message, F>(&mut self, handler: F)
-        where F: Fn(&M, &mut SA, &mut World) -> Fate + 'static
+    where
+        F: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
     {
         self.on_maybe_critical(handler, false);
     }
@@ -324,7 +349,8 @@ impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
     /// Same as [`on`](#method.on) but continues to receive after the ActorSystem panicked.
     /// (Analogous to [`ActorDefiner::on_critical`](../struct.ActorDefiner.html#method.on_critical))
     pub fn on_critical<M: Message, F>(&mut self, handler: F)
-        where F: Fn(&M, &mut SA, &mut World) -> Fate + 'static
+    where
+        F: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
     {
         self.on_maybe_critical(handler, true);
     }
@@ -334,14 +360,17 @@ impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
     ///
     /// This can then be triggered by sending a [`CreateWith`](struct.CreateWith.html)
     /// message to the swarm.
-    pub fn on_create_with<M: Message, F>(&mut self, handler: F)
-        where F: Fn(&M, &mut SA, &mut World) -> Fate + 'static
+    pub fn on_create_with<M: Message + Clone, F>(&mut self, handler: F)
+    where
+        F: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
     {
         self.0.on_packet(
             move |&Packet { ref message, recipient_id }, swarm, world| {
-                let &CreateWith(ref init_state, ref init_message): &CreateWith<SA,
-                                                                               M> = message;
-                let id = swarm.add(init_state, recipient_id.unwrap());
+                let &CreateWith(ref init_state, ref init_message): &CreateWith<
+                    SA,
+                    M,
+                > = message;
+                let id = swarm.add(init_state.clone(), recipient_id.unwrap());
                 world.send(id, (*init_message).clone());
                 Fate::Live
             },
@@ -357,16 +386,19 @@ impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
     ///
     /// This can then be triggered by sending a [`ToRandom`](struct.ToRandom.html)
     /// message to the swarm.
-    pub fn on_random<M: Message, F>(&mut self, handler: F)
-        where F: Fn(&M, &mut SA, &mut World) -> Fate + 'static
+    pub fn on_random<M: Message + Clone, F>(&mut self, handler: F)
+    where
+        F: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
     {
         self.0.on_packet(
             move |packet: &Packet<ToRandom<M>>, swarm, world| {
                 if swarm.slot_map.len() > 0 {
                     for _i in 0..packet.message.n_recipients {
-                        let random_id = ID::new(packet.recipient_id.unwrap().type_id,
-                                                swarm.slot_map.random_used() as u32,
-                                                0);
+                        let random_id = ID::new(
+                            packet.recipient_id.unwrap().type_id,
+                            swarm.slot_map.random_used() as u32,
+                            0,
+                        );
                         world.send(random_id, packet.message.message.clone());
                     }
                 }
@@ -393,14 +425,16 @@ impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
     ///
     /// (Analogous to [`ActorDefiner::on_packet`](../struct.ActorDefiner.html#method.on_packet))
     pub fn on_packet<M: Message, F>(&mut self, handler: F, critical: bool)
-        where F: Fn(&Packet<M>, &mut SA, &mut World) -> Fate + 'static
+    where
+        F: Fn(&Packet<M>, &mut SA, &mut World) -> Fate + 'static,
     {
         self.0.on_packet(
             move |packet: &Packet<M>, swarm, world| {
                 if packet
-                       .recipient_id
-                       .expect("Recipient ID not set")
-                       .sub_actor_id == broadcast_sub_actor_id() {
+                    .recipient_id
+                    .expect("Recipient ID not set")
+                    .sub_actor_id == broadcast_sub_actor_id()
+                {
                     swarm.receive_broadcast(packet, &handler, world);
                 } else {
                     swarm.receive_instance(packet, &handler, world);
@@ -414,7 +448,8 @@ impl<'a, SA: SubActor + 'static> SubActorDefiner<'a, SA> {
     }
 
     fn on_maybe_critical<M: Message, F>(&mut self, handler: F, critical: bool)
-        where F: Fn(&M, &mut SA, &mut World) -> Fate + 'static
+    where
+        F: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
     {
         self.on_packet(
             move |packet: &Packet<M>, state, world| handler(&packet.message, state, world),

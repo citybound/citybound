@@ -22,9 +22,9 @@ pub mod environment;
 pub mod combo;
 pub mod camera_control;
 
-use kay::{ID, ActorSystem, Fate};
+use kay::{ID, ActorSystem, Fate, External};
 use descartes::{N, P2, V2, P3, Into2d, Shape};
-use monet::{Renderer, Scene, GlutinFacade};
+use monet::{RendererID, RenderableID, SceneDescription, GlutinFacade};
 use monet::glium::glutin::{Event, MouseScrollDelta, ElementState, MouseButton};
 pub use monet::glium::glutin::VirtualKeyCode;
 use geometry::AnyShape;
@@ -68,11 +68,13 @@ impl UserInterface {
             ImFontConfig_DefaultConstructor(&mut config);
             config.oversample_h = 2;
             config.oversample_v = 2;
-            imgui_sys::ImFontAtlas_AddFontFromFileTTF(atlas,
-                                                      default_font.as_ptr(),
-                                                      16.0,
-                                                      &config,
-                                                      ::std::ptr::null());
+            imgui_sys::ImFontAtlas_AddFontFromFileTTF(
+                atlas,
+                default_font.as_ptr(),
+                16.0,
+                &config,
+                ::std::ptr::null(),
+            );
 
             let style = imgui.style_mut();
             style.window_rounding = 4.0;
@@ -150,23 +152,26 @@ impl UserInterface {
 #[derive(Copy, Clone)]
 pub struct ProcessEvents;
 
-pub fn setup(system: &mut ActorSystem,
-             renderables: Vec<ID>,
-             env: &'static environment::Environment,
-             window: &GlutinFacade) {
-    let mut renderer = Renderer::new(window.clone());
-    let mut scene = Scene::new();
-    scene.eye.position *= 30.0;
-    scene.renderables = renderables;
-    renderer.scenes.insert(0, scene);
+pub fn setup(
+    system: &mut ActorSystem,
+    renderables: Vec<RenderableID>,
+    env: &'static environment::Environment,
+    window: &GlutinFacade,
+) {
+    ::monet::setup(system);
 
-    ::monet::setup(system, renderer);
-
-    system.add(UserInterface::new(window.clone()), |mut the_ui| {
+    system.add(UserInterface::new(window.clone()), move |mut the_ui| {
         let ui_id = the_ui.world().id::<UserInterface>();
-        let renderer_id = the_ui.world().id::<::monet::Renderer>();
 
-        use monet::Project2dTo3d;
+        let mut scene = SceneDescription::new(renderables.clone().into());
+        scene.eye.position *= 30.0;
+        let renderer_id = RendererID::spawn(
+            External::new(window.clone()),
+            vec![scene].into(),
+            &mut the_ui.world(),
+        );
+
+        use monet::{ProjectionRequesterID, MSG_ProjectionRequester_projected_3d};
 
         the_ui.on_critical(move |_: &ProcessEvents, ui, world| {
             let scale = ui.imgui.display_framebuffer_scale();
@@ -194,19 +199,21 @@ pub fn setup(system: &mut ActorSystem,
                     Event::MouseMoved(x, y) => {
                         ui.cursor_2d = P2::new(x as N, y as N);
 
-                        ui.imgui
-                            .set_mouse_pos(ui.cursor_2d.x / scale.0, ui.cursor_2d.y / scale.1);
+                        ui.imgui.set_mouse_pos(
+                            ui.cursor_2d.x / scale.0,
+                            ui.cursor_2d.y / scale.1,
+                        );
 
                         for interactable in &ui.focused_interactables {
                             world.send(*interactable, Event3d::MouseMove(ui.cursor_2d));
                         }
 
-                        world.send(renderer_id,
-                                   Project2dTo3d {
-                                       scene_id: 0,
-                                       position_2d: ui.cursor_2d,
-                                       requester: ui_id,
-                                   });
+                        renderer_id.project_2d_to_3d(
+                            0,
+                            ui.cursor_2d,
+                            ProjectionRequesterID { _raw_id: ui_id },
+                            world,
+                        );
                     }
                     Event::MouseInput(button_state, button) => {
                         let button_idx = match button {
@@ -231,24 +238,29 @@ pub fn setup(system: &mut ActorSystem,
                                 //ui.receive(&Projected3d { position_3d: cursor_3d });
                                 ui.active_interactable = ui.hovered_interactable;
                                 if let Some(active_interactable) = ui.active_interactable {
-                                    world.send(active_interactable,
-                                               Event3d::DragStarted {
-                                                   at: ui.cursor_3d,
-                                                   at2d: ui.cursor_2d,
-                                               });
+                                    world.send(
+                                        active_interactable,
+                                        Event3d::DragStarted {
+                                            at: ui.cursor_3d,
+                                            at2d: ui.cursor_2d,
+                                        },
+                                    );
                                 }
                             } else {
                                 if let Some(active_interactable) = ui.active_interactable {
-                                    world.send(active_interactable,
-                                    Event3d::DragFinished {
-                                        from: ui.drag_start_3d
-                                            .expect("active interactable but no drag start"),
-                                        from2d:
-                                            ui.drag_start_2d
-                                                .expect("active interactable but no drag start"),
-                                        to: ui.cursor_3d,
-                                        to2d: ui.cursor_2d,
-                                    });
+                                    world.send(
+                                        active_interactable,
+                                        Event3d::DragFinished {
+                                            from: ui.drag_start_3d.expect(
+                                                "active interactable but no drag start",
+                                            ),
+                                            from2d: ui.drag_start_2d.expect(
+                                                "active interactable but no drag start",
+                                            ),
+                                            to: ui.cursor_3d,
+                                            to2d: ui.cursor_2d,
+                                        },
+                                    );
                                 }
                                 ui.drag_start_2d = None;
                                 ui.drag_start_3d = None;
@@ -256,12 +268,14 @@ pub fn setup(system: &mut ActorSystem,
                             }
 
                             for interactable in &ui.focused_interactables {
-                                world.send(*interactable,
-                                           if pressed {
-                                               Event3d::ButtonDown(button.into())
-                                           } else {
-                                               Event3d::ButtonUp(button.into())
-                                           });
+                                world.send(
+                                    *interactable,
+                                    if pressed {
+                                        Event3d::ButtonDown(button.into())
+                                    } else {
+                                        Event3d::ButtonUp(button.into())
+                                    },
+                                );
 
                                 world.send(*interactable, Event3d::Combos(ui.combo_listener));
                             }
@@ -309,12 +323,14 @@ pub fn setup(system: &mut ActorSystem,
                             ui.combo_listener.update(&event);
 
                             for interactable in &ui.focused_interactables {
-                                world.send(*interactable,
-                                           if pressed {
-                                               Event3d::ButtonDown(key_code.into())
-                                           } else {
-                                               Event3d::ButtonUp(key_code.into())
-                                           });
+                                world.send(
+                                    *interactable,
+                                    if pressed {
+                                        Event3d::ButtonDown(key_code.into())
+                                    } else {
+                                        Event3d::ButtonUp(key_code.into())
+                                    },
+                                );
 
                                 world.send(*interactable, Event3d::Combos(ui.combo_listener));
                             }
@@ -370,24 +386,30 @@ pub fn setup(system: &mut ActorSystem,
             Fate::Live
         });
 
-        use monet::Projected3d;
-
-        the_ui.on_critical(|&Projected3d { position_3d }, ui, world| {
+        the_ui.on_critical(|&MSG_ProjectionRequester_projected_3d(position_3d),
+         ui,
+         world| {
             ui.cursor_3d = position_3d;
             if let Some(active_interactable) = ui.active_interactable {
-                world.send(active_interactable,
-                           Event3d::DragOngoing {
-                               from: ui.drag_start_3d
-                                   .expect("active interactable but no drag start"),
-                               from2d: ui.drag_start_2d
-                                   .expect("active interactable but no drag start"),
-                               to: position_3d,
-                               to2d: ui.cursor_2d,
-                           });
+                world.send(
+                    active_interactable,
+                    Event3d::DragOngoing {
+                        from: ui.drag_start_3d.expect(
+                            "active interactable but no drag start",
+                        ),
+                        from2d: ui.drag_start_2d.expect(
+                            "active interactable but no drag start",
+                        ),
+                        to: position_3d,
+                        to2d: ui.cursor_2d,
+                    },
+                );
             } else {
                 let new_hovered_interactable = ui.interactables
                     .iter()
-                    .filter(|&(_id, &(ref shape, _z_index))| shape.contains(position_3d.into_2d()))
+                    .filter(|&(_id, &(ref shape, _z_index))| {
+                        shape.contains(position_3d.into_2d())
+                    })
                     .max_by_key(|&(_id, &(ref _shape, z_index))| z_index)
                     .map(|(id, _shape)| *id);
 
@@ -396,12 +418,16 @@ pub fn setup(system: &mut ActorSystem,
                         world.send(previous, Event3d::HoverStopped);
                     }
                     if let Some(next) = new_hovered_interactable {
-                        world.send(next,
-                                   Event3d::HoverStarted { at: ui.cursor_3d, at2d: ui.cursor_2d });
+                        world.send(
+                            next,
+                            Event3d::HoverStarted { at: ui.cursor_3d, at2d: ui.cursor_2d },
+                        );
                     }
                 } else if let Some(hovered_interactable) = ui.hovered_interactable {
-                    world.send(hovered_interactable,
-                               Event3d::HoverOngoing { at: ui.cursor_3d, at2d: ui.cursor_2d });
+                    world.send(
+                        hovered_interactable,
+                        Event3d::HoverOngoing { at: ui.cursor_3d, at2d: ui.cursor_2d },
+                    );
                 }
                 ui.hovered_interactable = new_hovered_interactable;
             }
@@ -414,29 +440,25 @@ pub fn setup(system: &mut ActorSystem,
 
         the_ui.on_critical(move |_: &StartFrame, ui, world| {
             if ui.parked_frame.is_some() {
-                let target = std::mem::replace(&mut ui.parked_frame, None)
-                    .expect("Should have parked target");
+                let target = std::mem::replace(&mut ui.parked_frame, None).expect(
+                    "Should have parked target",
+                );
                 target.finish().unwrap();
             }
 
-            let target = Box::new(ui.window.draw());
+            let target = External::new(ui.window.draw());
 
-            let target_ptr = Box::into_raw(target);
-
-            world.send(renderer_id,
-                       ::monet::Control::Submit {
-                           target_ptr: target_ptr as usize,
-                           return_to: ui_id,
-                       });
+            renderer_id.submit(target, monet::TargetProviderID { _raw_id: ui_id }, world);
 
             Fate::Live
         });
 
-        use monet::Submitted;
+        use monet::MSG_TargetProvider_submitted;
 
-        the_ui.on_critical(move |&Submitted { target_ptr }, ui, world| {
-            ui.parked_frame =
-                Some(unsafe { Box::from_raw(target_ptr as *mut ::monet::glium::Frame) });
+        the_ui.on_critical(move |&MSG_TargetProvider_submitted(ref given_target),
+              ui,
+              world| {
+            ui.parked_frame = Some(given_target.steal().into_box());
 
             let size_points = ui.window
                 .get_window()
@@ -448,7 +470,14 @@ pub fn setup(system: &mut ActorSystem,
                 .unwrap()
                 .get_inner_size_pixels()
                 .unwrap();
-            let imgui_ui = Box::new(ui.imgui.frame(size_points, size_pixels, 1.0 / 60.0));
+
+            // somewhat of a hack to override the local lifetime of the returned imgui::Ui
+            let imgui_ui_shortlived = ui.imgui.frame(size_points, size_pixels, 1.0 / 60.0);
+            let imgui_ui = unsafe {
+                Box::new(std::mem::transmute::<_, ::imgui::Ui<'static>>(
+                    imgui_ui_shortlived,
+                ))
+            };
 
             ui.imgui_capture_keyboard = imgui_ui.want_capture_keyboard();
             ui.imgui_capture_mouse = imgui_ui.want_capture_mouse();
@@ -463,31 +492,34 @@ pub fn setup(system: &mut ActorSystem,
                 .size((600.0, 200.0), ImGuiSetCond_FirstUseEver)
                 .collapsible(false)
                 .build(|| for (key, &(ref text, ref color)) in texts {
-                           imgui_ui.text_colored(*color, im_str!("{}:\n{}", key, text));
-                       });
+                    imgui_ui.text_colored(*color, im_str!("{}:\n{}", key, text));
+                });
 
             ui.interactables_2d_todo = ui.interactables_2d.clone();
 
-            world.send(ui_id,
-                       Ui2dDrawn { ui_ptr: Box::into_raw(imgui_ui) as usize });
-
+            world.send(ui_id, Ui2dDrawn { imgui_ui: External::from_box(imgui_ui) });
 
             Fate::Live
         });
 
-        the_ui.on_critical(move |&Ui2dDrawn { ui_ptr }, ui, world| {
-            let imgui_ui = unsafe { Box::from_raw(ui_ptr as *mut ::imgui::Ui) };
-
+        the_ui.on_critical(move |&Ui2dDrawn { ref imgui_ui }, ui, world| {
             if let Some(id) = ui.interactables_2d_todo.pop() {
-                world.send(id,
-                           DrawUI2d {
-                               ui_ptr: Box::into_raw(imgui_ui) as usize,
-                               return_to: ui_id,
-                           });
+                world.send(
+                    id,
+                    DrawUI2d {
+                        imgui_ui: imgui_ui.steal(),
+                        return_to: ui_id,
+                    },
+                );
             } else {
-                let mut target = std::mem::replace(&mut ui.parked_frame, None)
-                    .expect("Should have parked target");
-                ui.imgui_renderer.render(&mut *target, *imgui_ui).unwrap();
+                let mut target = std::mem::replace(&mut ui.parked_frame, None).expect(
+                    "Should have parked target",
+                );
+                ui.imgui_renderer
+                    .render(&mut *target, unsafe {
+                        ::std::ptr::read(Box::into_raw(imgui_ui.steal().into_box()))
+                    })
+                    .unwrap();
                 target.finish().unwrap();
             }
 
@@ -507,8 +539,10 @@ pub fn setup(system: &mut ActorSystem,
             } else {
                 &mut ui.debug_text
             };
-            target.insert(key.iter().cloned().collect(),
-                          (text.iter().cloned().collect(), *color));
+            target.insert(key.iter().cloned().collect(), (
+                text.iter().cloned().collect(),
+                *color,
+            ));
             Fate::Live
         });
     });
@@ -566,15 +600,15 @@ pub enum Event3d {
 #[derive(Copy, Clone)]
 pub struct StartFrame;
 
-#[derive(Copy, Clone)]
+#[derive(Compact, Clone)]
 pub struct DrawUI2d {
-    pub ui_ptr: usize,
+    pub imgui_ui: External<::imgui::Ui<'static>>,
     pub return_to: ID,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Compact, Clone)]
 pub struct Ui2dDrawn {
-    pub ui_ptr: usize,
+    pub imgui_ui: External<::imgui::Ui<'static>>,
 }
 
 use compact::CVec;

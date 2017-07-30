@@ -4,26 +4,30 @@ use super::intersect::{Intersect, Intersection};
 use ordered_float::OrderedFloat;
 
 type ScannerFn<'a> = fn(&mut StartOffsetState, &'a Segment) -> Option<(&'a Segment, N)>;
-type ScanIter<'a> = ::std::iter::Scan<::std::slice::Iter<'a, Segment>,
-                                      StartOffsetState,
-                                      ScannerFn<'a>>;
+type ScanIter<'a> = ::std::iter::Scan<
+    ::std::slice::Iter<'a, Segment>,
+    StartOffsetState,
+    ScannerFn<'a>,
+>;
 
 pub trait Path: Sized + Clone {
     fn segments(&self) -> &[Segment];
     fn new(vec: Vec<Segment>) -> Self;
 
-    fn scan_segments<'a>(start_offset: &mut StartOffsetState,
-                         segment: &'a Segment)
-                         -> Option<(&'a Segment, N)> {
+    fn scan_segments<'a>(
+        start_offset: &mut StartOffsetState,
+        segment: &'a Segment,
+    ) -> Option<(&'a Segment, N)> {
         let pair = (segment, start_offset.0);
         start_offset.0 += segment.length;
         Some(pair)
     }
 
     fn segments_with_start_offsets(&self) -> ScanIter {
-        self.segments()
-            .into_iter()
-            .scan(StartOffsetState(0.0), Self::scan_segments)
+        self.segments().into_iter().scan(
+            StartOffsetState(0.0),
+            Self::scan_segments,
+        )
     }
 
     fn find_on_segment(&self, distance: N) -> Option<(&Segment, N)> {
@@ -54,28 +58,28 @@ pub trait Path: Sized + Clone {
                         (segment_a, segment_b)
                             .intersect()
                             .into_iter()
-                            .filter_map(|intersection| if intersection
-                                               .along_a
-                                               .is_roughly_within(0.0, THICKNESS) ||
-                                                          intersection
-                                                              .along_a
-                                                              .is_roughly_within(segment_a.length(),
-                                                                                 THICKNESS) ||
-                                                          intersection
-                                                              .along_b
-                                                              .is_roughly_within(0.0, THICKNESS) ||
-                                                          intersection
-                                                              .along_b
-                                                              .is_roughly_within(segment_b.length(),
-                                                                                 THICKNESS) {
-                                            None
-                                        } else {
-                                            Some(Intersection {
-                                                     position: intersection.position,
-                                                     along_a: offset_a + intersection.along_a,
-                                                     along_b: offset_b + intersection.along_b,
-                                                 })
-                                        })
+                            .filter_map(|intersection| if intersection.along_a.is_roughly_within(
+                                0.0,
+                                THICKNESS,
+                            ) ||
+                                intersection.along_a.is_roughly_within(
+                                    segment_a.length(),
+                                    THICKNESS,
+                                ) ||
+                                intersection.along_b.is_roughly_within(0.0, THICKNESS) ||
+                                intersection.along_b.is_roughly_within(
+                                    segment_b.length(),
+                                    THICKNESS,
+                                )
+                            {
+                                None
+                            } else {
+                                Some(Intersection {
+                                    position: intersection.position,
+                                    along_a: offset_a + intersection.along_a,
+                                    along_b: offset_b + intersection.along_b,
+                                })
+                            })
                             .collect::<Vec<_>>()
                     })
                     .collect::<Vec<_>>()
@@ -197,17 +201,19 @@ impl<T: Path> Curve for T {
         self.segments_with_start_offsets()
             .filter_map(|pair: (&Segment, N)| {
                 let (segment, start_offset) = pair;
-                segment
-                    .project_with_tolerance(point, tolerance)
-                    .map(|offset| offset + start_offset)
+                segment.project_with_tolerance(point, tolerance).map(
+                    |offset| {
+                        offset + start_offset
+                    },
+                )
             })
             .min_by_key(|offset| OrderedFloat((self.along(*offset) - point).norm()))
     }
 
     fn includes(&self, point: P2) -> bool {
-        self.segments()
-            .into_iter()
-            .any(|segment| segment.includes(point))
+        self.segments().into_iter().any(
+            |segment| segment.includes(point),
+        )
     }
 
     fn distance_to(&self, _point: P2) -> N {
@@ -224,10 +230,9 @@ impl<T: Path> Curve for T {
 impl<'a, T: Path> RoughlyComparable for &'a T {
     fn is_roughly_within(&self, other: &T, tolerance: N) -> bool {
         self.segments().len() == other.segments().len() &&
-        self.segments()
-            .iter()
-            .zip(other.segments().iter())
-            .all(|(segment_1, segment_2)| segment_1.is_roughly_within(segment_2, tolerance))
+            self.segments().iter().zip(other.segments().iter()).all(
+                |(segment_1, segment_2)| segment_1.is_roughly_within(segment_2, tolerance),
+            )
     }
 }
 

@@ -50,10 +50,11 @@ impl Combo {
 
     pub fn is_in(&self, other: &Combo) -> bool {
         !self.is_empty() &&
-        self.0.iter().all(|opt| {
-            opt.map(|item| other.0.contains(&Some(item)))
-                .unwrap_or(true)
-        })
+            self.0.iter().all(|opt| {
+                opt.map(|item| other.0.contains(&Some(item))).unwrap_or(
+                    true,
+                )
+            })
     }
 
     pub fn is_freshly_in(&self, listener: &ComboListener) -> bool {
@@ -83,13 +84,15 @@ impl Combo {
 
 impl ::std::fmt::Display for Combo {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f,
-               "{}",
-               self.0
-                   .iter()
-                   .filter_map(|mb| mb.map(|b| format!("{:?}", b)))
-                   .collect::<Vec<_>>()
-                   .join(" + "))
+        write!(
+            f,
+            "{}",
+            self.0
+                .iter()
+                .filter_map(|mb| mb.map(|b| format!("{:?}", b)))
+                .collect::<Vec<_>>()
+                .join(" + ")
+        )
     }
 }
 
@@ -371,10 +374,13 @@ impl Bindings {
                 _ => (false, false),
             };
 
-            if ui.selectable(im_str!("{}", combos.0[0]),
-                             target_is.0,
-                             ImGuiSelectableFlags::empty(),
-                             ImVec2::new(200.0, 0.0)) {
+            if ui.selectable(
+                im_str!("{}", combos.0[0]),
+                target_is.0,
+                ImGuiSelectableFlags::empty(),
+                ImVec2::new(200.0, 0.0),
+            )
+            {
                 if target_is.0 {
                     new_target = None;
                     finished_changing = true;
@@ -384,10 +390,13 @@ impl Bindings {
                 }
             }
             ui.same_line(350.0);
-            if ui.selectable(im_str!("(2nd: {})", combos.0[1]),
-                             target_is.1,
-                             ImGuiSelectableFlags::empty(),
-                             ImVec2::new(200.0, 0.0)) {
+            if ui.selectable(
+                im_str!("(2nd: {})", combos.0[1]),
+                target_is.1,
+                ImGuiSelectableFlags::empty(),
+                ImVec2::new(200.0, 0.0),
+            )
+            {
                 if target_is.1 {
                     new_target = None;
                     finished_changing = true;

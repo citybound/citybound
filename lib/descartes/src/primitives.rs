@@ -10,8 +10,8 @@ pub struct Circle {
 
 impl Curve for Circle {
     fn project_with_tolerance(&self, point: P2, _tolerance: N) -> Option<N> {
-        Some(self.radius *
-             angle_along_to(V2::new(1.0, 0.0), V2::new(0.0, 1.0), (point - self.center)))
+        let angle = angle_along_to(V2::new(1.0, 0.0), V2::new(0.0, 1.0), (point - self.center));
+        Some(self.radius * angle)
     }
 
     fn distance_to(&self, point: P2) -> N {
@@ -87,89 +87,113 @@ impl Segment {
 
     pub fn biarc(start: P2, start_direction: V2, end: P2, end_direction: V2) -> Vec<Segment> {
         if start.is_roughly_within(end, MIN_START_TO_END) {
-            panic!("invalid biarc! {:?}, {:?} -> {:?}, {:?}",
-                   start,
-                   start_direction,
-                   end,
-                   end_direction);
+            panic!(
+                "invalid biarc! {:?}, {:?} -> {:?}, {:?}",
+                start,
+                start_direction,
+                end,
+                end_direction
+            );
         }
         let simple_curve = Segment::arc_with_direction(start, start_direction, end);
-        if simple_curve
-               .end_direction()
-               .is_roughly_within(end_direction, DIRECTION_TOLERANCE) {
+        if simple_curve.end_direction().is_roughly_within(
+            end_direction,
+            DIRECTION_TOLERANCE,
+        )
+        {
             vec![simple_curve]
         } else if (end - start).norm() < MAX_SIMPLE_LINE_LENGTH {
             vec![Segment::line(start, end)]
         } else {
-            let maybe_linear_intersection = (&Line { start: start, direction: start_direction },
-                                             &Line { start: end, direction: -end_direction })
-                .intersect()
+            let maybe_linear_intersection = (
+                &Line { start: start, direction: start_direction },
+                &Line { start: end, direction: -end_direction },
+            ).intersect()
                 .into_iter()
                 .next()
                 .and_then(|intersection| if intersection.along_a > 0.0 &&
-                                            intersection.along_b > 0.0 {
-                              Some(intersection)
-                          } else {
-                              None
-                          });
-
-            let (connection_position, connection_direction) = if let Some(Intersection {
-                                                                              position, ..
-                                                                          }) =
-                maybe_linear_intersection {
-                let start_to_intersection_distance = (start - position).norm();
-                let end_to_intersection_distance = (end - position).norm();
-
-                if start_to_intersection_distance < end_to_intersection_distance {
-                    // arc then line
-                    (position + start_to_intersection_distance * end_direction, end_direction)
+                    intersection.along_b > 0.0
+                {
+                    Some(intersection)
                 } else {
-                    // line then arc
-                    (position + end_to_intersection_distance * -start_direction, start_direction)
-                }
-            } else {
-                // http://www.ryanjuckett.com/programming/biarc-interpolation/
-                let v = end - start;
-                let t = start_direction + end_direction;
-                let same_direction = start_direction
-                    .is_roughly_within(end_direction, DIRECTION_TOLERANCE);
-                let end_orthogonal_of_start = v.dot(&end_direction).is_roughly(0.0);
+                    None
+                });
 
-                if same_direction && end_orthogonal_of_start {
-                    //    __
-                    //   /  \
-                    //  ^    v    ^
-                    //        \__/
-                    (((start.to_vector() + end.to_vector()) / 2.0).to_point(), -start_direction)
-                } else {
-                    let d = if same_direction {
-                        v.dot(&v) / (4.0 * v.dot(&end_direction))
+            let (connection_position, connection_direction) =
+                if let Some(Intersection { position, .. }) = maybe_linear_intersection {
+                    let start_to_intersection_distance = (start - position).norm();
+                    let end_to_intersection_distance = (end - position).norm();
+
+                    if start_to_intersection_distance < end_to_intersection_distance {
+                        // arc then line
+                        (
+                            position + start_to_intersection_distance * end_direction,
+                            end_direction,
+                        )
                     } else {
-                        // magic - I'm pretty sure this can be simplified
-                        let v_dot_t = v.dot(&t);
-                        (-v_dot_t +
-                         (v_dot_t * v_dot_t +
-                          2.0 * (1.0 - start_direction.dot(&end_direction)) * v.dot(&v))
-                             .sqrt()) /
-                        (2.0 * (1.0 - start_direction.dot(&end_direction)))
-                    };
+                        // line then arc
+                        (
+                            position + end_to_intersection_distance * -start_direction,
+                            start_direction,
+                        )
+                    }
+                } else {
+                    // http://www.ryanjuckett.com/programming/biarc-interpolation/
+                    let v = end - start;
+                    let t = start_direction + end_direction;
+                    let same_direction =
+                        start_direction.is_roughly_within(end_direction, DIRECTION_TOLERANCE);
+                    let end_orthogonal_of_start = v.dot(&end_direction).is_roughly(0.0);
 
-                    let start_offset_point = start + d * start_direction;
-                    let end_offset_point = end - d * end_direction;
-                    let connection_direction = (end_offset_point - start_offset_point).normalize();
+                    if same_direction && end_orthogonal_of_start {
+                        //    __
+                        //   /  \
+                        //  ^    v    ^
+                        //        \__/
+                        (
+                            ((start.to_vector() + end.to_vector()) / 2.0).to_point(),
+                            -start_direction,
+                        )
+                    } else {
+                        let d = if same_direction {
+                            v.dot(&v) / (4.0 * v.dot(&end_direction))
+                        } else {
+                            // magic - I'm pretty sure this can be simplified
+                            let v_dot_t = v.dot(&t);
+                            (-v_dot_t +
+                                 (v_dot_t * v_dot_t +
+                                      2.0 * (1.0 - start_direction.dot(&end_direction)) *
+                                          v.dot(&v))
+                                     .sqrt()) /
+                                (2.0 * (1.0 - start_direction.dot(&end_direction)))
+                        };
 
-                    (start_offset_point + d * connection_direction, connection_direction)
-                }
+                        let start_offset_point = start + d * start_direction;
+                        let end_offset_point = end - d * end_direction;
+                        let connection_direction = (end_offset_point - start_offset_point)
+                            .normalize();
 
-            };
+                        (
+                            start_offset_point + d * connection_direction,
+                            connection_direction,
+                        )
+                    }
+
+                };
 
             if start.is_roughly_within(connection_position, MIN_START_TO_END) {
-                vec![Segment::arc_with_direction(connection_position, connection_direction, end)]
+                vec![
+                    Segment::arc_with_direction(connection_position, connection_direction, end),
+                ]
             } else if end.is_roughly_within(connection_position, MIN_START_TO_END) {
-                vec![Segment::arc_with_direction(start, start_direction, connection_position)]
+                vec![
+                    Segment::arc_with_direction(start, start_direction, connection_position),
+                ]
             } else {
-                vec![Segment::arc_with_direction(start, start_direction, connection_position),
-                     Segment::arc_with_direction(connection_position, connection_direction, end)]
+                vec![
+                    Segment::arc_with_direction(start, start_direction, connection_position),
+                    Segment::arc_with_direction(connection_position, connection_direction, end),
+                ]
             }
         }
     }
@@ -198,8 +222,10 @@ impl FiniteCurve for Segment {
         } else {
             let center_to_start = self.start - self.center();
             let angle_to_rotate = distance / -self.signed_radius;
-            let center_to_point = rotate(&Rotation2::new(Vector1::new(angle_to_rotate)),
-                                         &center_to_start);
+            let center_to_point = rotate(
+                &Rotation2::new(Vector1::new(angle_to_rotate)),
+                &center_to_start,
+            );
             self.center() + center_to_point
         }
     }
@@ -210,8 +236,10 @@ impl FiniteCurve for Segment {
         } else {
             let center_to_start = self.start - self.center();
             let angle_to_rotate = distance / -self.signed_radius;
-            let center_to_point = rotate(&Rotation2::new(Vector1::new(angle_to_rotate)),
-                                         &center_to_start);
+            let center_to_point = rotate(
+                &Rotation2::new(Vector1::new(angle_to_rotate)),
+                &center_to_start,
+            );
             center_to_point.normalize().orthogonal() * self.signed_radius.signum()
         }
     }
@@ -257,12 +285,15 @@ impl FiniteCurve for Segment {
         if true_end - true_start < MIN_START_TO_END {
             None
         } else if self.is_linear() || true_end.is_roughly(0.0) ||
-                  true_start.is_roughly(self.length) {
+                   true_start.is_roughly(self.length)
+        {
             Some(Segment::line(self.along(true_start), self.along(true_end)))
         } else {
-            Some(Segment::arc_with_direction(self.along(true_start),
-                                             self.direction_along(true_start),
-                                             self.along(true_end)))
+            Some(Segment::arc_with_direction(
+                self.along(true_start),
+                self.direction_along(true_start),
+                self.along(true_end),
+            ))
         }
     }
 
@@ -276,7 +307,11 @@ impl FiniteCurve for Segment {
             if start.is_roughly_within(end, MIN_START_TO_END) {
                 None
             } else {
-                Some(Segment::arc_with_direction(start, self.start_direction(), end))
+                Some(Segment::arc_with_direction(
+                    start,
+                    self.start_direction(),
+                    end,
+                ))
             }
         }
     }
@@ -295,9 +330,11 @@ impl Curve for Segment {
                 None
             }
         } else {
-            let angle_start_to_point = angle_along_to(self.start - self.center(),
-                                                      self.start_direction(),
-                                                      point - self.center());
+            let angle_start_to_point = angle_along_to(
+                self.start - self.center(),
+                self.start_direction(),
+                point - self.center(),
+            );
 
             let tolerance_angle = (tolerance / self.radius()).max(MIN_TOLERANCE_ANGLE);
             let angle_span = self.length / self.radius();
@@ -355,7 +392,7 @@ impl<'a> RoughlyComparable for &'a Segment {
         && self.end.is_roughly_within(other.end, tolerance)
         // much stricter tolerance here!
         && self.start_direction().is_roughly(other.start_direction()) &&
-        self.end_direction().is_roughly(other.end_direction())
+            self.end_direction().is_roughly(other.end_direction())
     }
 }
 

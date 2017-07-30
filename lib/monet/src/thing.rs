@@ -32,16 +32,18 @@ impl ::std::ops::Add for Thing {
 
     fn add(self, rhs: Thing) -> Thing {
         let self_n_vertices = self.vertices.len();
-        Thing::new(self.vertices
-                       .iter()
-                       .chain(rhs.vertices.iter())
-                       .cloned()
-                       .collect(),
-                   self.indices
-                       .iter()
-                       .cloned()
-                       .chain(rhs.indices.iter().map(|i| *i + self_n_vertices as u16))
-                       .collect())
+        Thing::new(
+            self.vertices
+                .iter()
+                .chain(rhs.vertices.iter())
+                .cloned()
+                .collect(),
+            self.indices
+                .iter()
+                .cloned()
+                .chain(rhs.indices.iter().map(|i| *i + self_n_vertices as u16))
+                .collect(),
+        )
     }
 }
 

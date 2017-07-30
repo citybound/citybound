@@ -28,10 +28,14 @@ pub fn setup(system: &mut ActorSystem) {
             let cp_id = each_addable.world().id::<CurrentPlan>();
 
             each_addable.on_create_with(move |_: &InitInteractable, addable, world| {
-                world.send(ui_id,
-                           AddInteractable(addable.id(),
-                                           AnyShape::Band(Band::new(addable.path.clone(), 3.0)),
-                                           3));
+                world.send(
+                    ui_id,
+                    AddInteractable(
+                        addable.id(),
+                        AnyShape::Band(Band::new(addable.path.clone(), 3.0)),
+                        3,
+                    ),
+                );
                 Fate::Live
             });
 
@@ -44,15 +48,19 @@ pub fn setup(system: &mut ActorSystem) {
                 match *event {
                     Event3d::HoverStarted { .. } |
                     Event3d::HoverOngoing { .. } => {
-                        world.send(cp_id,
-                                   ChangeIntent(Intent::CreateNextLane, IntentProgress::Preview));
+                        world.send(
+                            cp_id,
+                            ChangeIntent(Intent::CreateNextLane, IntentProgress::Preview),
+                        );
                     }
                     Event3d::HoverStopped => {
                         world.send(cp_id, ChangeIntent(Intent::None, IntentProgress::Preview));
                     }
                     Event3d::DragStarted { .. } => {
-                        world.send(cp_id,
-                                   ChangeIntent(Intent::CreateNextLane, IntentProgress::Immediate));
+                        world.send(
+                            cp_id,
+                            ChangeIntent(Intent::CreateNextLane, IntentProgress::Immediate),
+                        );
                     }
                     _ => {}
                 };

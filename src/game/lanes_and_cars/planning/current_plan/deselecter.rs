@@ -15,8 +15,10 @@ pub fn setup(system: &mut ActorSystem) {
         let cp_id = the_deselecter.world().id::<CurrentPlan>();
 
         the_deselecter.on(move |_: &InitInteractable, _, world| {
-            world.send(ui_id,
-                       AddInteractable(deselecter_id, AnyShape::Everywhere, 2));
+            world.send(
+                ui_id,
+                AddInteractable(deselecter_id, AnyShape::Everywhere, 2),
+            );
             Fate::Live
         });
 
@@ -27,8 +29,10 @@ pub fn setup(system: &mut ActorSystem) {
 
         the_deselecter.on(move |&event, _, world| {
             if let Event3d::DragFinished { .. } = event {
-                world.send(cp_id,
-                           ChangeIntent(Intent::Deselect, IntentProgress::Immediate));
+                world.send(
+                    cp_id,
+                    ChangeIntent(Intent::Deselect, IntentProgress::Immediate),
+                );
             }
             Fate::Live
         })

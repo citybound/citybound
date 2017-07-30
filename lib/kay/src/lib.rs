@@ -16,7 +16,6 @@
 #![feature(conservative_impl_trait)]
 #![feature(box_syntax)]
 #![feature(nonzero)]
-#![allow(no_effect)]
 extern crate chunked;
 extern crate compact;
 #[macro_use]
@@ -32,7 +31,9 @@ mod messaging;
 mod type_registry;
 mod id;
 mod actor_system;
+mod external;
 
 pub use self::messaging::{Message, Packet, Fate};
 pub use self::id::ID;
 pub use self::actor_system::{ActorSystem, ActorDefiner, World};
+pub use self::external::External;

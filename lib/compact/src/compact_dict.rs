@@ -120,7 +120,6 @@ impl<K: Eq + Copy, V: Compact + Clone, A: Allocator> CompactDict<K, V, A> {
     }
 
     /// Iterator over all key-value pairs in the dictionary
-    #[allow(needless_lifetimes)]
     pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)> + Clone + 'a {
         self.keys().zip(self.values())
     }
@@ -142,19 +141,17 @@ impl<K: Eq + Copy, I: Compact, A1: Allocator, A2: Allocator> CompactDict<K, Comp
     }
 
     /// Iterator over the `CompactVec` at the key `query`
-    #[allow(needless_lifetimes)]
     pub fn get_iter<'a>(&'a self, query: K) -> impl Iterator<Item = &'a I> + 'a {
-        self.get(query)
-            .into_iter()
-            .flat_map(|vec_in_option| vec_in_option.iter())
+        self.get(query).into_iter().flat_map(|vec_in_option| {
+            vec_in_option.iter()
+        })
     }
 
     /// Remove the `CompactVec` at the key `query` and iterate over its elements (if it existed)
-    #[allow(needless_lifetimes)]
     pub fn remove_iter<'a>(&'a mut self, query: K) -> impl Iterator<Item = I> + 'a {
-        self.remove(query)
-            .into_iter()
-            .flat_map(|vec_in_option| vec_in_option.into_iter())
+        self.remove(query).into_iter().flat_map(|vec_in_option| {
+            vec_in_option.into_iter()
+        })
     }
 }
 
@@ -167,16 +164,20 @@ impl<K: Copy, V: Compact + Clone, A: Allocator> Compact for CompactDict<K, V, A>
         self.keys.dynamic_size_bytes() + self.values.dynamic_size_bytes()
     }
 
-    unsafe fn compact_from(&mut self, source: &Self, new_dynamic_part: *mut u8) {
-        self.keys.compact_from(&source.keys, new_dynamic_part);
-        self.values.compact_from(&source.values,
-                                 new_dynamic_part.offset(self.keys.dynamic_size_bytes() as isize));
+    unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
+        let values_offset = (*source).keys.dynamic_size_bytes() as isize;
+        Compact::compact(&mut (*source).keys, &mut (*dest).keys, new_dynamic_part);
+        Compact::compact(
+            &mut (*source).values,
+            &mut (*dest).values,
+            new_dynamic_part.offset(values_offset),
+        );
     }
 
-    unsafe fn decompact(&self) -> CompactDict<K, V, A> {
+    unsafe fn decompact(source: *const Self) -> CompactDict<K, V, A> {
         CompactDict {
-            keys: self.keys.decompact(),
-            values: self.values.decompact(),
+            keys: Compact::decompact(&(*source).keys),
+            values: Compact::decompact(&(*source).values),
         }
     }
 }

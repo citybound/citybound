@@ -68,18 +68,16 @@ pub fn setup(system: &mut ActorSystem) {
                     }
 
                     for old_ref in result_delta.trimmed_strokes.to_destroy.keys() {
-                        let id = state
-                            .built_trimmed_lanes
-                            .remove(*old_ref)
-                            .expect("tried to unbuild a non-existing lane");
+                        let id = state.built_trimmed_lanes.remove(*old_ref).expect(
+                            "tried to unbuild a non-existing lane",
+                        );
                         ids_to_unbuild.push(id);
                     }
 
                     for old_ref in result_delta.transfer_strokes.to_destroy.keys() {
-                        let id = state
-                            .built_transfer_lanes
-                            .remove(*old_ref)
-                            .expect("tried to unbuild a non-existing transfer lane");
+                        let id = state.built_transfer_lanes.remove(*old_ref).expect(
+                            "tried to unbuild a non-existing transfer lane",
+                        );
                         ids_to_unbuild.push(id);
                     }
 
@@ -88,12 +86,14 @@ pub fn setup(system: &mut ActorSystem) {
                     }
 
                     world.send(mr_id, ReportLaneUnbuilt(None));
-                    WaitingForUnbuild(requester,
-                                      ids_to_unbuild,
-                                      state.clone(),
-                                      new_plan,
-                                      new_result,
-                                      result_delta)
+                    WaitingForUnbuild(
+                        requester,
+                        ids_to_unbuild,
+                        state.clone(),
+                        new_plan,
+                        new_result,
+                        result_delta,
+                    )
                 }
             };
             Fate::Live
@@ -107,31 +107,39 @@ pub fn setup(system: &mut ActorSystem) {
                     match buildable_ref {
                         BuildableRef::Intersection(index) => {
                             if let Some(other_intersection_lanes) =
-                                state.built_intersection_lanes.get(IntersectionRef(index)) {
-                                world.send(id,
-                                           AdvertiseForOverlaps {
-                                               lanes: other_intersection_lanes.clone(),
-                                           });
+                                state.built_intersection_lanes.get(IntersectionRef(index))
+                            {
+                                world.send(
+                                    id,
+                                    AdvertiseForOverlaps {
+                                        lanes: other_intersection_lanes.clone(),
+                                    },
+                                );
                             }
-                            state
-                                .built_intersection_lanes
-                                .push_at(IntersectionRef(index), id);
+                            state.built_intersection_lanes.push_at(
+                                IntersectionRef(index),
+                                id,
+                            );
                         }
                         BuildableRef::TrimmedStroke(index) => {
-                            state
-                                .built_trimmed_lanes
-                                .insert(TrimmedStrokeRef(index), id);
+                            state.built_trimmed_lanes.insert(
+                                TrimmedStrokeRef(index),
+                                id,
+                            );
                         }
                         BuildableRef::TransferStroke(index) => {
-                            state
-                                .built_transfer_lanes
-                                .insert(TransferStrokeRef(index), id);
+                            state.built_transfer_lanes.insert(
+                                TransferStrokeRef(index),
+                                id,
+                            );
                         }
                     }
                 }
                 WaitingForUnbuild(..) => {
-                    panic!("a waiting materialized reality
-                                shouldn't get build reports")
+                    panic!(
+                        "a waiting materialized reality
+                                shouldn't get build reports"
+                    )
                 }
             }
             Fate::Live
@@ -154,43 +162,51 @@ pub fn setup(system: &mut ActorSystem) {
                     }
                     if ids_to_unbuild.is_empty() {
                         for (&IntersectionRef(new_index), new_intersection) in
-                            result_delta.intersections.to_create.pairs() {
+                            result_delta.intersections.to_create.pairs()
+                        {
                             for (stroke, timings) in
-                                new_intersection
-                                    .strokes
-                                    .iter()
-                                    .zip(new_intersection.timings.iter()) {
-                                stroke.build_intersection(mr_id,
-                                                          BuildableRef::Intersection(new_index),
-                                                          timings.clone(),
-                                                          world);
+                                new_intersection.strokes.iter().zip(
+                                    new_intersection
+                                        .timings
+                                        .iter(),
+                                )
+                            {
+                                stroke.build_intersection(
+                                    mr_id,
+                                    BuildableRef::Intersection(new_index),
+                                    timings.clone(),
+                                    world,
+                                );
                             }
                         }
 
                         for (&TrimmedStrokeRef(new_index), new_stroke) in
-                            result_delta.trimmed_strokes.to_create.pairs() {
+                            result_delta.trimmed_strokes.to_create.pairs()
+                        {
                             new_stroke.build(mr_id, BuildableRef::TrimmedStroke(new_index), world);
                         }
 
                         for (&TransferStrokeRef(new_index), new_stroke) in
-                            result_delta.transfer_strokes.to_create.pairs() {
-                            new_stroke.build_transfer(mr_id,
-                                                      BuildableRef::TransferStroke(new_index),
-                                                      world);
+                            result_delta.transfer_strokes.to_create.pairs()
+                        {
+                            new_stroke.build_transfer(
+                                mr_id,
+                                BuildableRef::TransferStroke(new_index),
+                                world,
+                            );
                         }
 
-                        let new_built_intersection_lanes =
-                            state
-                                .built_intersection_lanes
-                                .pairs()
-                                .map(|(old_ref, ids)| {
-                                    let new_ref = result_delta.intersections
-                                        .old_to_new
-                                        .get(*old_ref)
-                                        .expect("attempted to resurrect a destroyed intersection");
-                                    (*new_ref, ids.clone())
-                                })
-                                .collect();
+                        let new_built_intersection_lanes = state
+                            .built_intersection_lanes
+                            .pairs()
+                            .map(|(old_ref, ids)| {
+                                let new_ref =
+                                    result_delta.intersections.old_to_new.get(*old_ref).expect(
+                                        "attempted to resurrect a destroyed intersection",
+                                    );
+                                (*new_ref, ids.clone())
+                            })
+                            .collect();
 
                         let new_built_trimmed_lanes = state
                             .built_trimmed_lanes
@@ -200,8 +216,10 @@ pub fn setup(system: &mut ActorSystem) {
                                     .trimmed_strokes
                                     .old_to_new
                                     .get(*old_ref)
-                                    .expect("attempted to resurrect a destroyed trimmed \
-                                                 stroke");
+                                    .expect(
+                                        "attempted to resurrect a destroyed trimmed \
+                                                 stroke",
+                                    );
                                 (*new_ref, *id)
                             })
                             .collect();
@@ -214,8 +232,10 @@ pub fn setup(system: &mut ActorSystem) {
                                     .transfer_strokes
                                     .old_to_new
                                     .get(*old_ref)
-                                    .expect("attempted to resurrect a destroyed transfer \
-                                                 stroke");
+                                    .expect(
+                                        "attempted to resurrect a destroyed transfer \
+                                                 stroke",
+                                    );
                                 (*new_ref, *id)
                             })
                             .collect();
@@ -232,12 +252,12 @@ pub fn setup(system: &mut ActorSystem) {
                         world.send(requester, BuiltStrokesChanged(built_strokes));
 
                         Some(Ready(MaterializedRealityState {
-                                       current_plan: new_plan.clone(),
-                                       current_result: new_result.clone(),
-                                       built_intersection_lanes: new_built_intersection_lanes,
-                                       built_trimmed_lanes: new_built_trimmed_lanes,
-                                       built_transfer_lanes: new_built_transfer_lanes,
-                                   }))
+                            current_plan: new_plan.clone(),
+                            current_result: new_result.clone(),
+                            built_intersection_lanes: new_built_intersection_lanes,
+                            built_trimmed_lanes: new_built_trimmed_lanes,
+                            built_transfer_lanes: new_built_transfer_lanes,
+                        }))
                     } else {
                         None
                     }
@@ -274,11 +294,11 @@ pub struct ReportLaneUnbuilt(pub Option<ID>);
 impl Default for MaterializedReality {
     fn default() -> Self {
         Ready(MaterializedRealityState {
-                  current_plan: Plan::default(),
-                  current_result: PlanResult::default(),
-                  built_intersection_lanes: CDict::new(),
-                  built_trimmed_lanes: CDict::new(),
-                  built_transfer_lanes: CDict::new(),
-              })
+            current_plan: Plan::default(),
+            current_result: PlanResult::default(),
+            built_intersection_lanes: CDict::new(),
+            built_trimmed_lanes: CDict::new(),
+            built_transfer_lanes: CDict::new(),
+        })
     }
 }
