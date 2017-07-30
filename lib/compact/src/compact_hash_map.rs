@@ -12,7 +12,7 @@ use std;
 
 extern crate primal;
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 struct Entry<K: Default + Copy + Hash + Eq, V: Default + Compact + Clone> {
     key: K,
     hash: u64,
@@ -28,7 +28,7 @@ impl<K: Copy + Hash + Eq + Default, V: Compact + Clone + Default> std::fmt::Debu
 
 impl<K: Copy + Hash + Eq + Default, V: Compact + Clone + Default> Compact for Entry<K, V> {
     fn is_still_compact(&self) -> bool {
-        self.value.is_still_compact()
+        !self.used || self.value.is_still_compact()
     }
 
     fn dynamic_size_bytes(&self) -> usize {
@@ -273,15 +273,15 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator>
 
 impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> Compact
     for OpenAddressingMap<K, V, A> {
-    fn is_still_compact(&self) -> bool {
+    default fn is_still_compact(&self) -> bool {
         self.entries.is_still_compact()
     }
 
-    fn dynamic_size_bytes(&self) -> usize {
+    default fn dynamic_size_bytes(&self) -> usize {
         self.entries.dynamic_size_bytes()
     }
 
-    unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
+    default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
         (*dest).size = (*source).size;
         Compact::compact(
             &mut (*source).entries,
