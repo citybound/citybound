@@ -142,16 +142,16 @@ impl<K: Eq + Copy, I: Compact, A1: Allocator, A2: Allocator> CompactDict<K, Comp
 
     /// Iterator over the `CompactVec` at the key `query`
     pub fn get_iter<'a>(&'a self, query: K) -> impl Iterator<Item = &'a I> + 'a {
-        self.get(query).into_iter().flat_map(|vec_in_option| {
-            vec_in_option.iter()
-        })
+        self.get(query)
+            .into_iter()
+            .flat_map(|vec_in_option| vec_in_option.iter())
     }
 
     /// Remove the `CompactVec` at the key `query` and iterate over its elements (if it existed)
     pub fn remove_iter<'a>(&'a mut self, query: K) -> impl Iterator<Item = I> + 'a {
-        self.remove(query).into_iter().flat_map(|vec_in_option| {
-            vec_in_option.into_iter()
-        })
+        self.remove(query)
+            .into_iter()
+            .flat_map(|vec_in_option| vec_in_option.into_iter())
     }
 }
 
@@ -167,11 +167,9 @@ impl<K: Copy, V: Compact + Clone, A: Allocator> Compact for CompactDict<K, V, A>
     unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
         let values_offset = (*source).keys.dynamic_size_bytes() as isize;
         Compact::compact(&mut (*source).keys, &mut (*dest).keys, new_dynamic_part);
-        Compact::compact(
-            &mut (*source).values,
-            &mut (*dest).values,
-            new_dynamic_part.offset(values_offset),
-        );
+        Compact::compact(&mut (*source).values,
+                         &mut (*dest).values,
+                         new_dynamic_part.offset(values_offset));
     }
 
     unsafe fn decompact(source: *const Self) -> CompactDict<K, V, A> {
@@ -217,6 +215,10 @@ impl<K: Copy + Eq, V: Compact + Clone, A: Allocator> ::std::iter::Extend<(K, V)>
             self.insert(key, value);
         }
     }
+}
+
+fn elem(n: usize) -> usize {
+    (n * n) as usize
 }
 
 #[test]
