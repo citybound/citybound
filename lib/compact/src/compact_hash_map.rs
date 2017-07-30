@@ -69,7 +69,7 @@ pub struct OpenAddressingMap<K: Copy + Eq + Hash + Default, V: Compact + Clone +
 impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator>
     OpenAddressingMap<K, V, A> {
     pub fn new() -> Self {
-        Self::with_capacity(100)
+        Self::with_capacity(4)
     }
     pub fn with_capacity(l: usize) -> Self {
         let mut map = OpenAddressingMap {
@@ -298,7 +298,7 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
 impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> Default
     for OpenAddressingMap<K, V, A> {
     fn default() -> Self {
-        OpenAddressingMap::with_capacity(100)
+        OpenAddressingMap::with_capacity(4)
     }
 }
 
