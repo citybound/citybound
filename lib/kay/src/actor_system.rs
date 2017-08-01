@@ -29,6 +29,7 @@ pub struct ActorSystem {
     actors: [Option<*mut u8>; MAX_RECIPIENT_TYPES],
     message_registry: TypeRegistry,
     dispatchers: [[Option<Dispatcher>; MAX_MESSAGE_TYPES]; MAX_RECIPIENT_TYPES],
+    actors_as_countables: Vec<(String, *const SubActorsCountable)>,
 }
 
 macro_rules! make_array {
@@ -63,6 +64,7 @@ impl ActorSystem {
                     make_array!(MAX_MESSAGE_TYPES, |_| None)
                 })
             },
+            actors_as_countables: Vec::new(),
         }
     }
 
@@ -85,7 +87,14 @@ impl ActorSystem {
         // ...but still make sure it is only added once
         assert!(self.actors[actor_id.as_usize()].is_none());
         // Store pointer to the actor
-        self.actors[actor_id.as_usize()] = Some(Box::into_raw(Box::new(actor)) as *mut u8);
+        let actor_pointer = Box::into_raw(Box::new(actor));
+        self.actors[actor_id.as_usize()] = Some(actor_pointer as *mut u8);
+        self.actors_as_countables.push((
+            self.actor_registry
+                .get_name(self.actor_registry.get::<A>())
+                .clone(),
+            actor_pointer,
+        ));
         define(ActorDefiner::with(self));
     }
 
@@ -225,6 +234,21 @@ impl ActorSystem {
     /// Get a world context directly from the system, typically to send messages from outside
     pub fn world(&mut self) -> World {
         World(self as *mut Self)
+    }
+
+    /// Access to debugging statistics
+    pub fn get_subactor_counts(&self) -> String {
+        self.actors_as_countables
+            .iter()
+            .map(|&(ref actor_name, countable_ptr)| {
+                format!(
+                    "{}: {}\n", actor_name.split("::").last().unwrap().replace(">", ""),
+                    unsafe {
+                        (*countable_ptr).subactor_count()
+                    }
+                )
+            })
+            .collect()
     }
 }
 
@@ -373,5 +397,15 @@ impl World {
                        .expect("Subactor type not found.") as *mut Swarm<SA>)
         };
         unsafe { swarm.allocate_id(self.id::<Swarm<SA>>()) }
+    }
+}
+
+pub trait SubActorsCountable {
+    fn subactor_count(&self) -> usize;
+}
+
+impl<T> SubActorsCountable for T {
+    default fn subactor_count(&self) -> usize {
+        1
     }
 }

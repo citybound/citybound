@@ -136,16 +136,23 @@ fn main() {
 
     system.process_all_messages();
 
+    let mut elapsed_ms_collected = Vec::<f32>::new();
+
     loop {
+        let elapsed_ms = last_frame.elapsed().as_secs() as f32 * 1000.0 +
+            last_frame.elapsed().subsec_nanos() as f32 / 10.0E5;
+        elapsed_ms_collected.push(elapsed_ms);
+        if elapsed_ms_collected.len() > 10 {
+            elapsed_ms_collected.remove(0);
+        }
+        let avg_elapsed_ms = elapsed_ms_collected.iter().sum::<f32>() /
+            (elapsed_ms_collected.len() as f32);
         system.send(
             ui_id,
             AddDebugText {
                 key: "Frame".chars().collect(),
-                text: format!(
-                    "{:.2} ms",
-                    last_frame.elapsed().as_secs() as f32 * 1000.0 +
-                        last_frame.elapsed().subsec_nanos() as f32 / 10.0E5
-                ).as_str()
+                text: format!("{:.1} FPS", 1000.0 * 1.0 / avg_elapsed_ms)
+                    .as_str()
                     .chars()
                     .collect(),
                 color: [0.0, 0.0, 0.0, 0.5],
@@ -153,6 +160,17 @@ fn main() {
             },
         );
         last_frame = std::time::Instant::now();
+
+        let subactor_counts = system.get_subactor_counts();
+        system.send(
+            ui_id,
+            AddDebugText {
+                key: "Number of actors".chars().collect(),
+                text: subactor_counts.as_str().chars().collect(),
+                color: [0.0, 0.0, 0.0, 1.0],
+                persistent: false,
+            },
+        );
 
         system.send(ui_id, ProcessEvents);
 
