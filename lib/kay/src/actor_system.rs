@@ -241,9 +241,12 @@ impl ActorSystem {
         self.actors_as_countables
             .iter()
             .map(|&(ref actor_name, countable_ptr)| {
-                format!("{}: {}\n", actor_name.split("::").last().unwrap().replace(">", ""), unsafe {
-                    (*countable_ptr).subactor_count()
-                })
+                format!(
+                    "{}: {}\n", actor_name.split("::").last().unwrap().replace(">", ""),
+                    unsafe {
+                        (*countable_ptr).subactor_count()
+                    }
+                )
             })
             .collect()
     }
