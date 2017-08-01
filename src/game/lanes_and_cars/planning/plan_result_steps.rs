@@ -51,7 +51,7 @@ pub fn find_intersections(strokes: &CVec<LaneStroke>) -> CVec<Intersection> {
 }
 
 // TODO: this is obviously only a workaround
-const MAX_STROKE_LENGTH_FOR_GRID_ACCELERATOR: N = 100000.0;
+const MAX_STROKE_LENGTH_FOR_GRID_ACCELERATOR: N = 10000.0;
 
 use core::grid_accelerator::GridAccelerator;
 
