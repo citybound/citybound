@@ -11,6 +11,16 @@ use itertools::Itertools;
 #[path = "./resources/car.rs"]
 mod car;
 
+//ASSIGNING NEW VEHICALS
+/* #[path = "./resources/bus.rs"]
+mod bus;
+
+#[path = "./resources/truck.rs"]
+mod truck;
+
+#[path = "./resources/ute.rs"]
+mod ute;*/
+
 #[path = "./resources/traffic_light.rs"]
 mod traffic_light;
 
