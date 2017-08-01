@@ -41,7 +41,10 @@ pub fn scan_and_generate() {
                     let auto_file = if let Ok(ref mut file) = File::open(&mod_path) {
                         let mut file_str = String::new();
                         file.read_to_string(&mut file_str).unwrap();
-                        generate(&parse(&file_str))
+                        match parse(&file_str) {
+                            Ok(model) => generate(&model),
+                            Err(error) => format!("PARSE ERROR:\n {:?}", error),
+                        }
                     } else {
                         panic!("couldn't load");
                     };
@@ -168,7 +171,7 @@ fn simple_actor() {
             }
         }
 
-        #[derive(Copy, Clone)]
+        #[derive(Copy, Clone, PartialEq, Eq)]
         pub struct SomeActorID {
             pub _raw_id: ID
         }
@@ -243,7 +246,7 @@ fn simple_actor() {
 
     assert_eq!(
         expected.into_string(),
-        generate(&parse(&input.into_string()))
+        generate(&parse(&input.into_string()).unwrap())
     );
 }
 
@@ -270,6 +273,12 @@ fn trait_and_impl() {
             }
         }
 
+        impl ForeignTrait for SomeActor {
+            fn simple(&mut self, some_param: &usize, world: &mut World) {
+                self.id().some_method(some_param, world);
+            }
+        }
+
         // This shouldn't generate any ID
         impl Deref for SomeActor {
             type Target = usize;
@@ -285,7 +294,7 @@ fn trait_and_impl() {
         use kay::swarm::{Swarm, SubActor};
         use super::*;
 
-        #[derive(Copy, Clone)]
+        #[derive(Copy, Clone, PartialEq, Eq)]
         pub struct SomeTraitID {
             pub _raw_id: ID
         }
@@ -316,7 +325,7 @@ fn trait_and_impl() {
             }
         }
 
-        #[derive(Copy, Clone)]
+        #[derive(Copy, Clone, PartialEq, Eq)]
         pub struct SomeActorID {
             pub _raw_id: ID
         }
@@ -335,6 +344,12 @@ fn trait_and_impl() {
             }
         }
 
+        impl Into<ForeignTraitID> for SomeActorID {
+            fn into(self) -> ForeignTraitID {
+                unsafe {::std::mem::transmute(self)}
+            }
+        }
+
         #[allow(unused_variables)]
         #[allow(unused_mut)]
         pub fn auto_setup(system: &mut ActorSystem) {
@@ -346,6 +361,10 @@ fn trait_and_impl() {
                 each_subactor.on(|&MSG_SomeTrait_no_params_fate(), subactor, world| {
                     subactor.no_params_fate(world)
                 });
+                each_subactor.on(|&MSG_ForeignTrait_simple(ref some_param), subactor, world| {
+                    subactor.simple(some_param, world);
+                    Fate::Live
+                });
             }));
 
             system.extend::<Swarm<SomeActor>, _>(|mut the_swarm| {});
@@ -354,6 +373,6 @@ fn trait_and_impl() {
 
     assert_eq!(
         expected.into_string(),
-        generate(&parse(&input.into_string()))
+        generate(&parse(&input.into_string()).unwrap())
     );
 }

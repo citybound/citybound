@@ -1,10 +1,12 @@
 use syn::*;
 use {Model, TraitName, Handler, HandlerScope};
 
-pub fn parse(file: &str) -> Model {
+pub fn parse(file: &str) -> Result<Model, String> {
     let mut model = Model::default();
 
-    for item in parse_crate(file).unwrap().items.iter() {
+    let parsed = parse_crate(file)?;
+
+    for item in parsed.items.iter() {
         let ident = &item.ident;
         match item.node {
             ItemKind::Struct(_, _) => {
@@ -24,12 +26,12 @@ pub fn parse(file: &str) -> Model {
                     _ => unimplemented!(),
                 };
                 if let Some(ref trait_name) = *maybe_trait {
-                    actor_def.impls.push(trait_name.clone());
-                    actor_def.handlers.extend(handlers_from_impl_items(
-                        impl_items,
-                        Some(trait_name.clone()),
-                        actor_path,
-                    ));
+                    let new_actor_handlers =
+                        handlers_from_impl_items(impl_items, Some(trait_name.clone()), actor_path);
+                    if !new_actor_handlers.is_empty() {
+                        actor_def.impls.push(trait_name.clone());
+                    }
+                    actor_def.handlers.extend(new_actor_handlers);
                 } else {
                     actor_def.handlers.extend(handlers_from_impl_items(
                         impl_items,
@@ -61,17 +63,7 @@ pub fn parse(file: &str) -> Model {
         !trait_def.handlers.is_empty()
     });
 
-    {
-        let traits = &model.traits;
-        let actors = &mut model.actors;
-        for actor_def in actors.values_mut() {
-            actor_def.impls.retain(
-                |trait_name| traits.get(trait_name).is_some(),
-            );
-        }
-    }
-
-    model
+    Ok(model)
 }
 
 fn handlers_from_impl_items(
