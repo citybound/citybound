@@ -2,6 +2,7 @@ use kay::{ID, ActorSystem, Fate, World};
 use kay::swarm::{Swarm, SubActor};
 use core::simulation::{Tick, Timestamp, DurationSeconds, Simulation, WakeUpIn};
 use game::lanes_and_cars::pathfinding::RoughDestinationID;
+use game::lanes_and_cars::pathfinding::trip::TripID;
 use super::super::resources::ResourceId;
 use super::super::market::OfferID;
 
@@ -9,10 +10,10 @@ use super::MemberIdx;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum TaskState {
-    GettingReadyAt(ID),
-    InTrip(ID),
+    GettingReadyAt(RoughDestinationID),
+    InTrip(TripID),
     StartedAt(Timestamp, RoughDestinationID),
-    IdleAt(ID),
+    IdleAt(RoughDestinationID),
 }
 
 #[derive(Copy, Clone)]
@@ -34,7 +35,10 @@ pub struct ScheduleTaskEnd(Timestamp, ID, MemberIdx);
 #[derive(Copy, Clone)]
 pub enum Complete {
     Success { member: MemberIdx },
-    Failure { member: MemberIdx, location: ID },
+    Failure {
+        member: MemberIdx,
+        location: RoughDestinationID,
+    },
 }
 
 pub fn setup(system: &mut ActorSystem) {
@@ -93,7 +97,7 @@ impl super::Family {
         &mut self,
         member: MemberIdx,
         start: Timestamp,
-        location: ID,
+        location: RoughDestinationID,
         world: &mut World,
     ) {
         world.send_to_id_of::<TaskEndScheduler, _>(ScheduleTaskEnd(
@@ -104,7 +108,12 @@ impl super::Family {
         self.member_tasks[member.0].state = TaskState::StartedAt(start, location);
     }
 
-    pub fn stop_task(&mut self, member: MemberIdx, location: ID, world: &mut World) {
+    pub fn stop_task(
+        &mut self,
+        member: MemberIdx,
+        location: RoughDestinationID,
+        world: &mut World,
+    ) {
         self.member_tasks[member.0].state = TaskState::IdleAt(location);
         world.send_to_id_of::<Simulation, _>(
             WakeUpIn(DurationSeconds::new(0).into(), self.id.into()),

@@ -1,5 +1,5 @@
-use kay::{ID, ActorSystem, World, Fate};
-use kay::swarm::{Swarm, SubActor, CreateWith};
+use kay::{ActorSystem, World, Fate};
+use kay::swarm::SubActor;
 use compact::{CVec, CDict};
 use core::simulation::{TimeOfDay, Timestamp};
 
@@ -16,7 +16,7 @@ use super::market::{Deal, Market, OfferID, Search, EvaluatedDeal, EvaluationRequ
                     EvaluationRequesterID, MSG_EvaluationRequester_on_result,
                     EvaluatedSearchResult};
 use super::buildings::BuildingID;
-use super::super::lanes_and_cars::pathfinding::trip::{Trip, Start, TripListenerID,
+use super::super::lanes_and_cars::pathfinding::trip::{TripListenerID,
                                                       MSG_TripListener_trip_created,
                                                       MSG_TripListener_trip_result};
 use super::super::lanes_and_cars::pathfinding::RoughDestinationID;
@@ -25,7 +25,7 @@ use super::super::lanes_and_cars::pathfinding::RoughDestinationID;
 pub struct MemberIdx(usize);
 
 pub trait Household {
-    fn on_applicable_deal(&mut self, deal: Deal, member: MemberIdx, world: &mut World);
+    fn on_applicable_deal(&mut self, deal: &Deal, member: MemberIdx, world: &mut World);
 }
 
 #[derive(Compact, Clone)]
@@ -94,7 +94,7 @@ impl Family {
             };
 
             if let Some(&offer) = maybe_offer {
-                offer.evaluate(time, location, self.id.into(), world);
+                offer.evaluate(tick, location, self.id.into(), world);
             } else {
                 world.send_to_id_of::<Market, _>(Search {
                     time,
@@ -182,10 +182,7 @@ impl Family {
             ..
         } = self.member_tasks[member.0]
         {
-            world.send_to_id_of::<Swarm<Trip>, _>(CreateWith(
-                Trip::new(source, offer.into(), Some(self.id.into())),
-                Start(tick),
-            ));
+            TripID::spawn(source, offer.into(), Some(self.id.into()), tick, world);
         } else {
             panic!("Member should be getting ready before starting trip");
         }
@@ -218,7 +215,7 @@ impl EvaluationRequester for Family {
 }
 
 impl Household for Family {
-    fn on_applicable_deal(&mut self, deal: Deal, member: MemberIdx, world: &mut World) {
+    fn on_applicable_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
         let resource_deltas = deal.take
             .iter()
             .map(|&Entry(resource, amount)| (resource, -amount))
@@ -254,10 +251,10 @@ impl Sleeper for Family {
     }
 }
 
-use game::lanes_and_cars::pathfinding::trip::TripListener;
+use game::lanes_and_cars::pathfinding::trip::{TripListener, TripID};
 
 impl TripListener for Family {
-    fn trip_created(&mut self, trip: ID, world: &mut World) {
+    fn trip_created(&mut self, trip: TripID, _: &mut World) {
         self.decision_state = if let DecisionState::WaitingForTrip(member) = self.decision_state {
             self.member_tasks[member.0].state = TaskState::InTrip(trip);
             DecisionState::None
@@ -268,7 +265,7 @@ impl TripListener for Family {
 
     fn trip_result(
         &mut self,
-        trip: ID,
+        trip: TripID,
         location: RoughDestinationID,
         failed: bool,
         tick: Timestamp,
@@ -315,9 +312,9 @@ impl TripListener for Family {
         }
 
         if failed {
-            self.stop_task(matching_task_member, location._raw_id, world);
+            self.stop_task(matching_task_member, location, world);
         } else {
-            self.start_task(matching_task_member, tick, location._raw_id, world);
+            self.start_task(matching_task_member, tick, location, world);
         }
     }
 }

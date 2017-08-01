@@ -72,9 +72,12 @@ impl Obstacle {
     }
 }
 
+use super::pathfinding::trip::TripID;
+use super::pathfinding::RoughDestinationID;
+
 #[derive(Copy, Clone)]
 pub struct LaneCar {
-    pub trip: ID,
+    pub trip: TripID,
     pub as_obstacle: Obstacle,
     pub acceleration: f32,
     pub destination: pathfinding::Destination,
@@ -127,10 +130,13 @@ impl DerefMut for TransferringLaneCar {
     }
 }
 
+use core::simulation::Timestamp;
+
 #[derive(Copy, Clone)]
 pub struct AddCar {
     pub car: LaneCar,
     pub from: Option<ID>,
+    pub tick: Timestamp
 }
 
 #[derive(Compact, Clone)]
@@ -140,11 +146,10 @@ struct AddObstacles {
 }
 
 use self::pathfinding::RoutingInfo;
-use self::pathfinding::trip::TripResult;
 
 pub fn setup(system: &mut ActorSystem) {
     system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
-        each_lane.on(|&AddCar { car, .. }, lane, world| {
+        each_lane.on(|&AddCar { car, tick, .. }, lane, world| {
             // TODO: horrible hack to encode it like this
             let car_forcibly_spawned = *car.as_obstacle.position < 0.0;
 
@@ -209,7 +214,7 @@ pub fn setup(system: &mut ActorSystem) {
                     None => lane.microtraffic.cars.push(routed_car),
                 }
             } else {
-                world.send(car.trip, TripResult::Failure);
+                car.trip.fail_at(RoughDestinationID{_raw_id: lane.id()}, tick, world);
             }
 
             Fate::Live
@@ -409,13 +414,14 @@ pub fn setup(system: &mut ActorSystem) {
                 if let Some((idx_to_remove, next_lane, start, partner_start)) = maybe_switch_car {
                     let car = lane.microtraffic.cars.remove(idx_to_remove);
                     if lane.id() == car.destination.node {
-                        world.send(car.trip, TripResult::Success);
+                        car.trip.succeed(current_tick, world);
                     } else {
                         world.send(
                             next_lane,
                             AddCar {
                                 car: car.offset_by(partner_start - start),
                                 from: Some(lane.id()),
+                                tick: current_tick
                             },
                         );
                     }
@@ -473,7 +479,7 @@ pub fn setup(system: &mut ActorSystem) {
     }));
 
     system.extend(Swarm::<TransferLane>::subactors(|mut each_t_lane| {
-        each_t_lane.on(|&AddCar { car, from: maybe_from }, lane, _| {
+        each_t_lane.on(|&AddCar { car, from: maybe_from, .. }, lane, _| {
             let from = maybe_from.expect("car has to come from somewhere on transfer lane");
 
             let from_left = from == lane.connectivity.left.expect("should have a left lane").0;
@@ -640,7 +646,7 @@ pub fn setup(system: &mut ActorSystem) {
                                  car.transfer_acceleration > 0.0)
                         {
                             if car.destination.node == right {
-                                world.send(car.trip, TripResult::Success);
+                                car.trip.succeed(current_tick, world);
                             } else {
                                 world.send(
                                     right,
@@ -653,6 +659,7 @@ pub fn setup(system: &mut ActorSystem) {
                                                 ),
                                         ),
                                         from: Some(lane.id()),
+                                        tick: current_tick
                                     },
                                 );
                             }
@@ -662,7 +669,7 @@ pub fn setup(system: &mut ActorSystem) {
                                         car.transfer_acceleration <= 0.0)
                         {
                             if car.destination.node == left {
-                                world.send(car.trip, TripResult::Success);
+                                car.trip.succeed(current_tick, world);
                             } else {
                                 world.send(
                                     left,
@@ -675,6 +682,7 @@ pub fn setup(system: &mut ActorSystem) {
                                                 ),
                                         ),
                                         from: Some(lane.id()),
+                                        tick: current_tick
                                     },
                                 );
                             }

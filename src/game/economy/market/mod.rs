@@ -1,5 +1,4 @@
 use kay::{ActorSystem, ID, Fate, World};
-use kay::swarm::{Swarm, SubActor, CreateWith};
 use compact::{CVec, CDict};
 use super::resources::{ResourceMap, ResourceId, ResourceAmount};
 use super::households::{HouseholdID, MemberIdx};
@@ -26,12 +25,12 @@ pub struct Offer {
 impl Offer {
     pub fn evaluate(
         &mut self,
-        time: TimeOfDay,
+        tick: Timestamp,
         location: RoughDestinationID,
         requester: EvaluationRequesterID,
         world: &mut World,
     ) {
-        if time < self.to {
+        if TimeOfDay::from_tick(tick) < self.to {
             let search_result = EvaluatedSearchResult {
                 resource: self.deal.give.0,
                 n_to_expect: 1,
@@ -44,7 +43,14 @@ impl Offer {
                     },
                 ].into(),
             };
-            TripCostEstimatorID::spawn(requester, location, self.location, search_result, world);
+            TripCostEstimatorID::spawn(
+                requester,
+                location,
+                self.location,
+                search_result,
+                tick,
+                world,
+            );
         } else {
             requester.on_result(
                 EvaluatedSearchResult {
@@ -97,7 +103,7 @@ impl RoughDestination for Offer {
         &mut self,
         requester: AsDestinationRequesterID,
         rough_destination: RoughDestinationID,
-        tick: Option<Timestamp>,
+        tick: Timestamp,
         world: &mut World,
     ) {
         self.location.query_as_destination(
@@ -161,17 +167,18 @@ impl TripCostEstimator {
         requester: EvaluationRequesterID,
         rough_source: RoughDestinationID,
         rough_destination: RoughDestinationID,
-        base_result: EvaluatedSearchResult,
+        base_result: &EvaluatedSearchResult,
+        tick: Timestamp,
         world: &mut World,
     ) -> TripCostEstimator {
-        rough_source.query_as_destination(id.into(), rough_source, None, world);
-        rough_destination.query_as_destination(id.into(), rough_destination, None, world);
+        rough_source.query_as_destination(id.into(), rough_source, tick, world);
+        rough_destination.query_as_destination(id.into(), rough_destination, tick, world);
         TripCostEstimator {
             id,
             requester,
             rough_source,
             rough_destination,
-            base_result,
+            base_result: base_result.clone(),
             source: None,
             destination: None,
         }
@@ -183,7 +190,7 @@ impl AsDestinationRequester for TripCostEstimator {
         &mut self,
         rough_destination: RoughDestinationID,
         as_destination: Option<Destination>,
-        tick: Option<Timestamp>,
+        _tick: Timestamp,
         world: &mut World,
     ) {
         if self.rough_source == rough_destination {

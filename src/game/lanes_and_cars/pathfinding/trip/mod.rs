@@ -1,152 +1,168 @@
 use kay::{ID, World, ActorSystem, Fate};
-use kay::swarm::{Swarm, SubActor, CreateWith};
+use kay::swarm::{Swarm, SubActor};
 use ordered_float::OrderedFloat;
 use core::simulation::Timestamp;
 
 use super::Destination;
-use super::{RoughDestinationID, AsDestinationRequesterID,
+use super::{RoughDestinationID, AsDestinationRequester, AsDestinationRequesterID,
             MSG_AsDestinationRequester_tell_as_destination};
 
-#[derive(SubActor, Compact, Clone)]
+#[derive(Compact, Clone)]
 pub struct Trip {
-    _id: Option<ID>,
-    source: ID,
+    id: TripID,
+    rough_source: RoughDestinationID,
     rough_destination: RoughDestinationID,
+    source: Option<Destination>,
     destination: Option<Destination>,
     listener: Option<TripListenerID>,
 }
 
 impl Trip {
-    pub fn new(
-        source: ID,
+    pub fn spawn(
+        id: TripID,
+        rough_source: RoughDestinationID,
         rough_destination: RoughDestinationID,
         listener: Option<TripListenerID>,
+        tick: Timestamp,
+        world: &mut World,
     ) -> Self {
+
+        rough_source.query_as_destination(id.into(), rough_source, tick, world);
+        rough_destination.query_as_destination(id.into(), rough_destination, tick, world);
+
+        if let Some(listener) = listener {
+            listener.trip_created(id, world);
+        }
+
         Trip {
-            _id: None,
-            source,
+            id: id,
+            rough_source,
             rough_destination,
             listener,
+            source: None,
             destination: None,
+        }
+    }
+
+    pub fn fail_at(
+        &mut self,
+        location: RoughDestinationID,
+        tick: Timestamp,
+        world: &mut World,
+    ) -> Fate {
+        println!("Trip {:?} failed!", self.id());
+
+        if let Some(listener) = self.listener {
+            listener.trip_result(self.id, location, true, tick, world);
+        }
+
+        Fate::Die
+    }
+
+    pub fn succeed(&mut self, tick: Timestamp, world: &mut World) -> Fate {
+        println!("Trip {:?} succeeded!", self.id());
+
+        if let Some(listener) = self.listener {
+            listener.trip_result(self.id, self.rough_destination, false, tick, world);
+        }
+
+        Fate::Die
+    }
+}
+
+impl AsDestinationRequester for Trip {
+    fn tell_as_destination(
+        &mut self,
+        rough_destination: RoughDestinationID,
+        as_destination: Option<Destination>,
+        tick: Timestamp,
+        world: &mut World,
+    ) {
+        if let Some(precise) = as_destination {
+            if rough_destination == self.rough_source {
+                self.source = Some(precise);
+            } else if rough_destination == self.rough_destination {
+                self.destination = Some(precise);
+            } else {
+                unreachable!();
+            }
+
+            if let (Some(source), Some(destination)) = (self.source, self.destination) {
+                world.send(
+                    source.node,
+                    AddCar {
+                        car: LaneCar {
+                            trip: self.id,
+                            as_obstacle: Obstacle {
+                                position: OrderedFloat(-1.0),
+                                velocity: 0.0,
+                                max_velocity: 15.0,
+                            },
+                            acceleration: 0.0,
+                            destination: destination,
+                            next_hop_interaction: 0,
+                        },
+                        from: None,
+                        tick,
+                    },
+                );
+            }
+        } else {
+            println!(
+                "{:?} is not a source/destination yet",
+                rough_destination._raw_id
+            );
+            self.id.fail_at(self.rough_source, tick, world);
         }
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct Start(pub Timestamp);
+use core::simulation::{Simulation, SleeperID, WakeUpIn, MSG_Sleeper_wake};
+use core::simulation::DurationTicks;
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(
-        Swarm::<Trip>::new(),
-        Swarm::<Trip>::subactors(|mut each_trip| {
-            each_trip.on_create_with(|&Start(tick), trip, world| {
-                trip.rough_destination.query_as_destination(
-                    AsDestinationRequesterID { _raw_id: trip.id() },
-                    trip.rough_destination._raw_id,
-                    Some(tick),
-                    world,
-                );
-
-                if let Some(listener) = trip.listener {
-                    listener.trip_created(trip.id(), world);
-                }
-                Fate::Live
-            });
-
-            each_trip.on(
-                |&MSG_AsDestinationRequester_tell_as_destination(rough_destination,
-                                                                 maybe_destination,
-                                                                 tick),
-                 trip,
-                 world| {
-                    if let Some(as_destination) = maybe_destination {
-                        trip.destination = Some(as_destination);
-                        world.send(
-                            trip.source,
-                            AddCar {
-                                car: LaneCar {
-                                    trip: trip.id(),
-                                    as_obstacle: Obstacle {
-                                        position: OrderedFloat(-1.0),
-                                        velocity: 0.0,
-                                        max_velocity: 15.0,
-                                    },
-                                    acceleration: 0.0,
-                                    destination: as_destination,
-                                    next_hop_interaction: 0,
-                                },
-                                from: None,
-                            },
-                        );
-                        Fate::Live
-                    } else {
-                        println!("{:?} is not a destination yet", rough_destination._raw_id);
-                        if let Some(listener) = trip.listener {
-                            listener.trip_result(
-                                trip.id(),
-                                RoughDestinationID { _raw_id: trip.source },
-                                true,
-                                tick.expect("Should have a tick"),
-                                world,
-                            );
-                        }
-                        Fate::Die
-                    }
-                },
-            );
-
-            each_trip.on(|control, trip, world| {
-                match *control {
-                    TripControl::Fail { location, tick } => {
-                        println!("Trip {:?} failed!", trip.id());
-                        if let Some(listener) = trip.listener {
-                            listener.trip_result(trip.id(), location, true, tick, world);
-                        }
-                    }
-                    TripControl::Succeed { tick } => {
-                        println!("Trip {:?} succeeded!", trip.id());
-                        if let Some(listener) = trip.listener {
-                            listener.trip_result(
-                                trip.id(),
-                                trip.rough_destination,
-                                false,
-                                tick,
-                                world,
-                            );
-                        }
-                    }
-                }
-
-
-                Fate::Die
-            })
-        }),
-    );
+    auto_setup(system);
 
     system.add(
-        TripCreator { current_source_lane: None },
+        TripCreator {
+            current_source_lane: None,
+            current_destination_lane: None,
+        },
         |mut the_creator| {
-            let trips_id = the_creator.world().id::<Swarm<Trip>>();
+            let sim_id = the_creator.world().id::<Simulation>();
+            let tc_id = the_creator.world().id::<TripCreator>();
 
             the_creator.on(move |&AddLaneForTrip(lane_id), tc, world| {
-                if let Some(source) = tc.current_source_lane {
-                    world.send(
-                        trips_id,
-                        CreateWith(
-                            Trip {
-                                _id: None,
-                                source: source,
-                                rough_destination: RoughDestinationID { _raw_id: lane_id },
-                                destination: None,
-                                listener: None,
-                            },
-                            Start,
-                        ),
-                    );
-                    tc.current_source_lane = None;
+                if tc.current_source_lane.is_some() {
+                    tc.current_destination_lane = Some(lane_id)
                 } else {
                     tc.current_source_lane = Some(lane_id);
                 }
+                world.send(
+                    sim_id,
+                    WakeUpIn(DurationTicks::new(0), SleeperID { _raw_id: tc_id }),
+                );
+                Fate::Live
+            });
+
+            the_creator.on(move |&MSG_Sleeper_wake(current_tick), tc, world| {
+                TripID::spawn(
+                    RoughDestinationID {
+                        _raw_id: tc.current_source_lane.expect(
+                            "Should already have source lane",
+                        ),
+                    },
+                    RoughDestinationID {
+                        _raw_id: tc.current_destination_lane.expect(
+                            "Should already have destination lane",
+                        ),
+                    },
+                    None,
+                    current_tick,
+                    world,
+                );
+                tc.current_source_lane = None;
+                tc.current_destination_lane = None;
                 Fate::Live
             })
         },
@@ -177,20 +193,11 @@ pub fn setup(system: &mut ActorSystem) {
 
 use super::super::microtraffic::{AddCar, LaneCar, Obstacle};
 
-#[derive(Copy, Clone)]
-pub enum TripControl {
-    Succeed { tick: Timestamp },
-    Fail {
-        location: RoughDestinationID,
-        tick: Timestamp,
-    },
-}
-
 pub trait TripListener {
-    fn trip_created(&mut self, trip: ID, world: &mut World);
+    fn trip_created(&mut self, trip: TripID, world: &mut World);
     fn trip_result(
         &mut self,
-        trip: ID,
+        trip: TripID,
         location: RoughDestinationID,
         failed: bool,
         tick: Timestamp,
@@ -200,6 +207,7 @@ pub trait TripListener {
 
 pub struct TripCreator {
     current_source_lane: Option<ID>,
+    current_destination_lane: Option<ID>,
 }
 
 #[derive(Copy, Clone)]

@@ -130,7 +130,7 @@ pub fn setup(system: &mut ActorSystem) {
                                                               usize %
                                                               ::core::colors::RANDOM_COLORS.len()]
                         } else {
-                            ::core::colors::RANDOM_COLORS[car.trip.sub_actor_id as usize %
+                            ::core::colors::RANDOM_COLORS[car.trip._raw_id.sub_actor_id as usize %
                                                               ::core::colors::RANDOM_COLORS.len()]
                         },
                     })
@@ -395,7 +395,7 @@ pub fn setup(system: &mut ActorSystem) {
                                                               usize %
                                                               ::core::colors::RANDOM_COLORS.len()]
                         } else {
-                            ::core::colors::RANDOM_COLORS[car.trip.sub_actor_id as usize %
+                            ::core::colors::RANDOM_COLORS[car.trip._raw_id.sub_actor_id as usize %
                                                               ::core::colors::RANDOM_COLORS.len()]
                         },
                     })

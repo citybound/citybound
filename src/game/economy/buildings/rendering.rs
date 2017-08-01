@@ -1,8 +1,7 @@
-use descartes::{P2, V2, Band, Segment, WithUniqueOrthogonal, Norm, Path, Dot, RoughlyComparable};
+use descartes::{P2, V2, Band, Segment, Path};
 use kay::{ActorSystem, Fate};
 use kay::swarm::Swarm;
-use monet::{Instance, Vertex, Renderer, MSG_Renderable_setup_in_scene,
-            MSG_Renderable_render_to_scene};
+use monet::{Instance, MSG_Renderable_setup_in_scene, MSG_Renderable_render_to_scene};
 use stagemaster::geometry::{CPath, band_to_thing};
 
 use super::Building;

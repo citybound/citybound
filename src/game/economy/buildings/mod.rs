@@ -11,15 +11,22 @@ use game::lanes_and_cars::lane::Lane;
 
 mod rendering;
 
+use super::households::HouseholdID;
+
 #[derive(Compact, Clone)]
 pub struct Building {
     id: BuildingID,
-    households: CVec<ID>,
+    households: CVec<HouseholdID>,
     lot: Lot,
 }
 
 impl Building {
-    pub fn spawn(id: BuildingID, households: &CVec<ID>, lot: &Lot, _: &mut World) -> Building {
+    pub fn spawn(
+        id: BuildingID,
+        households: &CVec<HouseholdID>,
+        lot: &Lot,
+        _: &mut World,
+    ) -> Building {
         Building {
             id,
             households: households.clone(),
@@ -38,7 +45,7 @@ impl RoughDestination for Building {
         &mut self,
         requester: AsDestinationRequesterID,
         rough_destination: RoughDestinationID,
-        tick: Option<Timestamp>,
+        tick: Timestamp,
         world: &mut World,
     ) {
         let adjacent_lane = RoughDestinationID { _raw_id: self.lot.adjacent_lane };

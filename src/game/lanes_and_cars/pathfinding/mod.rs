@@ -500,7 +500,7 @@ pub trait RoughDestination {
         &mut self,
         requester: AsDestinationRequesterID,
         rough_destination: RoughDestinationID,
-        tick: Option<Timestamp>,
+        tick: Timestamp,
         world: &mut World,
     );
 }
@@ -510,7 +510,7 @@ pub trait AsDestinationRequester {
         &mut self,
         rough_destination: RoughDestinationID,
         as_destination: Option<Destination>,
-        tick: Option<Timestamp>,
+        tick: Timestamp,
         world: &mut World,
     );
 }
