@@ -104,7 +104,10 @@ impl TimeOfDay {
     }
 
     pub fn hours_minutes(&self) -> (usize, usize) {
-        ((self.minutes_since_midnight / 60) as usize, (self.minutes_since_midnight % 60) as usize)
+        (
+            (self.minutes_since_midnight / 60) as usize,
+            (self.minutes_since_midnight % 60) as usize,
+        )
     }
 }
 

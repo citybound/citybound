@@ -380,28 +380,29 @@ pub fn setup(system: &mut ActorSystem) {
             Fate::Live
         });
 
-        each_lane.on(|&QueryAsDestination {
-             tick,
-             requester,
-             rough_destination,
-         },
-         lane,
-         world| {
-            world.send(requester,
-                       TellAsDestination {
-                           tick,
-                           rough_destination,
-                           as_destination: lane.pathfinding.as_destination,
-                       });
-            Fate::Live
-        });
+        each_lane.on(
+            |&MSG_RoughDestination_query_as_destination(requester,
+                                                        rough_destination,
+                                                        tick),
+             lane,
+             world| {
+                requester.tell_as_destination(
+                    rough_destination,
+                    lane.pathfinding.as_destination,
+                    tick,
+                    world,
+                );
+                Fate::Live
+            },
+        );
 
         each_lane.on(|&GetDistanceTo { destination, requester }, lane, world| {
-            let maybe_distance = lane.pathfinding
-                .routes
-                .get(destination)
-                .map(|routing_info| routing_info.distance);
-            world.send(requester, DistanceInfo(maybe_distance));
+            let maybe_distance = lane.pathfinding.routes.get(destination).map(
+                |routing_info| {
+                    routing_info.distance
+                },
+            );
+            requester.on_distance(maybe_distance, world);
             Fate::Live
         });
     }));
@@ -494,24 +495,35 @@ pub struct ForgetRoutes {
     from: ID,
 }
 
-#[derive(Copy, Clone)]
-pub struct QueryAsDestination {
-    pub requester: ID,
-    pub rough_destination: ID,
-    pub tick: Option<Timestamp>,
+pub trait RoughDestination {
+    fn query_as_destination(
+        &mut self,
+        requester: AsDestinationRequesterID,
+        rough_destination: RoughDestinationID,
+        tick: Option<Timestamp>,
+        world: &mut World,
+    );
 }
-#[derive(Copy, Clone)]
-pub struct TellAsDestination {
-    pub rough_destination: ID,
-    pub as_destination: Option<Destination>,
-    pub tick: Option<Timestamp>,
+
+pub trait AsDestinationRequester {
+    fn tell_as_destination(
+        &mut self,
+        rough_destination: RoughDestinationID,
+        as_destination: Option<Destination>,
+        tick: Option<Timestamp>,
+        world: &mut World,
+    );
+}
+
+pub trait DistanceRequester {
+    fn on_distance(&mut self, maybe_distance: Option<f32>, world: &mut World);
 }
 
 #[derive(Copy, Clone)]
 pub struct GetDistanceTo {
     pub destination: Destination,
-    pub requester: ID,
+    pub requester: DistanceRequesterID,
 }
 
-#[derive(Copy, Clone)]
-pub struct DistanceInfo(pub Option<f32>);
+mod kay_auto;
+pub use self::kay_auto::*;

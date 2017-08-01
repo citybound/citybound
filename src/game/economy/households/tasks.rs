@@ -1,7 +1,9 @@
 use kay::{ID, ActorSystem, Fate, World};
 use kay::swarm::{Swarm, SubActor};
 use core::simulation::{Tick, Timestamp, DurationSeconds, Simulation, WakeUpIn};
+use game::lanes_and_cars::pathfinding::RoughDestinationID;
 use super::super::resources::ResourceId;
+use super::super::market::OfferID;
 
 use super::MemberIdx;
 
@@ -9,13 +11,13 @@ use super::MemberIdx;
 pub enum TaskState {
     GettingReadyAt(ID),
     InTrip(ID),
-    StartedAt(Timestamp, ID),
+    StartedAt(Timestamp, RoughDestinationID),
     IdleAt(ID),
 }
 
 #[derive(Copy, Clone)]
 pub struct Task {
-    pub offer: ID,
+    pub offer: OfferID,
     pub goal: ResourceId,
     pub duration: DurationSeconds,
     pub state: TaskState,
@@ -38,28 +40,30 @@ pub enum Complete {
 pub fn setup(system: &mut ActorSystem) {
     system.add(TaskEndScheduler::default(), |mut the_scheduler| {
         the_scheduler.on(|&ScheduleTaskEnd(end, family_id, member), scheduler, _| {
-            let maybe_idx = scheduler
-                .task_ends
-                .binary_search_by_key(&(end.iticks()), |&(e, _, _)| -(e.iticks()));
+            let maybe_idx = scheduler.task_ends.binary_search_by_key(
+                &(end.iticks()),
+                |&(e, _, _)| -(e.iticks()),
+            );
             let insert_idx = match maybe_idx {
                 Ok(idx) | Err(idx) => idx,
             };
-            scheduler
-                .task_ends
-                .insert(insert_idx, (end, family_id, member));
+            scheduler.task_ends.insert(
+                insert_idx,
+                (end, family_id, member),
+            );
             Fate::Live
         });
 
         the_scheduler.on(|&Tick { current_tick, .. }, scheduler, world| {
             while scheduler
-                      .task_ends
-                      .last()
-                      .map(|&(end, _, _)| end < current_tick)
-                      .unwrap_or(false) {
-                let (_, family_id, member) = scheduler
-                    .task_ends
-                    .pop()
-                    .expect("just checked that there are WIP tasks");
+                .task_ends
+                .last()
+                .map(|&(end, _, _)| end < current_tick)
+                .unwrap_or(false)
+            {
+                let (_, family_id, member) = scheduler.task_ends.pop().expect(
+                    "just checked that there are WIP tasks",
+                );
                 world.send(family_id, Complete::Success { member });
             }
             Fate::Live
@@ -85,21 +89,25 @@ pub fn setup(system: &mut ActorSystem) {
 }
 
 impl super::Family {
-    pub fn start_task(&mut self,
-                      member: MemberIdx,
-                      start: Timestamp,
-                      location: ID,
-                      world: &mut World) {
-        world.send_to_id_of::<TaskEndScheduler, _>(ScheduleTaskEnd(start +
-                                                                   self.member_tasks[member.0]
-                                                                       .duration,
-                                                                   self.id(),
-                                                                   member));
+    pub fn start_task(
+        &mut self,
+        member: MemberIdx,
+        start: Timestamp,
+        location: ID,
+        world: &mut World,
+    ) {
+        world.send_to_id_of::<TaskEndScheduler, _>(ScheduleTaskEnd(
+            start + self.member_tasks[member.0].duration,
+            self.id(),
+            member,
+        ));
         self.member_tasks[member.0].state = TaskState::StartedAt(start, location);
     }
 
     pub fn stop_task(&mut self, member: MemberIdx, location: ID, world: &mut World) {
         self.member_tasks[member.0].state = TaskState::IdleAt(location);
-        world.send_to_id_of::<Simulation, _>(WakeUpIn(DurationSeconds::new(0).into(), self.id()));
+        world.send_to_id_of::<Simulation, _>(
+            WakeUpIn(DurationSeconds::new(0).into(), self.id.into()),
+        );
     }
 }

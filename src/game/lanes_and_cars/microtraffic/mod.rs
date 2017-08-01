@@ -250,7 +250,7 @@ pub fn setup(system: &mut ActorSystem) {
                 true
             } else {
                 lane.microtraffic.timings[(current_tick.ticks() / 25) %
-                                          lane.microtraffic.timings.len()]
+                                              lane.microtraffic.timings.len()]
             };
 
             // TODO: this is just a hacky way to update new lanes about existing lane's green

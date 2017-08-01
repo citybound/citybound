@@ -220,8 +220,10 @@ impl<T: Path> Curve for T {
         if let Some(offset) = self.project(point) {
             (point - self.along(offset)).norm()
         } else {
-            *::std::cmp::min(OrderedFloat((point - self.start()).norm()),
-                             OrderedFloat((point - self.end()).norm()))
+            *::std::cmp::min(
+                OrderedFloat((point - self.start()).norm()),
+                OrderedFloat((point - self.end()).norm()),
+            )
         }
     }
 }

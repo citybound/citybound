@@ -111,7 +111,7 @@ fn main() {
         system.id::<ThingCollector<LaneMarker>>(),
         system.id::<ThingCollector<TransferLaneMarkerGaps>>(),
         system.id::<CurrentPlan>(),
-        system.id::<Swarm<Building>>().broadcast()
+        system.id::<Swarm<Building>>().broadcast(),
     ].into_iter()
         .map(|id| RenderableID { _raw_id: id })
         .collect();

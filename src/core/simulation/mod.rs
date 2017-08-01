@@ -1,4 +1,4 @@
-use kay::{ActorSystem, ID, Fate};
+use kay::{ActorSystem, World, ID, Fate};
 
 mod time;
 
@@ -15,17 +15,16 @@ pub struct Tick {
 }
 
 #[derive(Copy, Clone)]
-pub struct Wake {
-    pub current_tick: Timestamp,
-}
+pub struct WakeUpIn(pub DurationTicks, pub SleeperID);
 
-#[derive(Copy, Clone)]
-pub struct WakeUpIn(pub DurationTicks, pub ID);
+pub trait Sleeper {
+    fn wake(&mut self, current_tick: Timestamp, world: &mut World);
+}
 
 pub struct Simulation {
     simulatables: Vec<ID>,
     current_tick: Timestamp,
-    sleepers: Vec<(Timestamp, ID)>,
+    sleepers: Vec<(Timestamp, SleeperID)>,
 }
 
 pub fn setup(system: &mut ActorSystem, simulatables: Vec<ID>) {
@@ -37,20 +36,23 @@ pub fn setup(system: &mut ActorSystem, simulatables: Vec<ID>) {
     system.add(initial, |mut the_simulation| {
         the_simulation.on(|_: &DoTick, sim, world| {
             for simulatable in &sim.simulatables {
-                world.send(*simulatable,
-                           Tick {
-                               dt: 1.0 / (TICKS_PER_SIM_SECOND as f32),
-                               current_tick: sim.current_tick,
-                           });
+                world.send(
+                    *simulatable,
+                    Tick {
+                        dt: 1.0 / (TICKS_PER_SIM_SECOND as f32),
+                        current_tick: sim.current_tick,
+                    },
+                );
             }
             while sim.sleepers
-                      .last()
-                      .map(|&(end, _)| end < sim.current_tick)
-                      .unwrap_or(false) {
-                let (_, id) = sim.sleepers
-                    .pop()
-                    .expect("just checked that there are sleepers");
-                world.send(id, Wake { current_tick: sim.current_tick });
+                .last()
+                .map(|&(end, _)| end < sim.current_tick)
+                .unwrap_or(false)
+            {
+                let (_, sleeper) = sim.sleepers.pop().expect(
+                    "just checked that there are sleepers",
+                );
+                sleeper.wake(sim.current_tick, world);
             }
             sim.current_tick += DurationTicks::new(1);
             Fate::Live
@@ -58,9 +60,10 @@ pub fn setup(system: &mut ActorSystem, simulatables: Vec<ID>) {
 
         the_simulation.on(|&WakeUpIn(remaining_ticks, sleeper_id), sim, _| {
             let wake_up_at = sim.current_tick + remaining_ticks;
-            let maybe_idx =
-                sim.sleepers
-                    .binary_search_by_key(&wake_up_at.iticks(), |&(t, _)| -(t.iticks()));
+            let maybe_idx = sim.sleepers.binary_search_by_key(
+                &wake_up_at.iticks(),
+                |&(t, _)| -(t.iticks()),
+            );
             let insert_idx = match maybe_idx {
                 Ok(idx) | Err(idx) => idx,
             };
@@ -69,3 +72,6 @@ pub fn setup(system: &mut ActorSystem, simulatables: Vec<ID>) {
         });
     });
 }
+
+mod kay_auto;
+pub use self::kay_auto::*;

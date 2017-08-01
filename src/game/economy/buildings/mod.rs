@@ -1,5 +1,5 @@
-use kay::{ID, ActorSystem, Fate};
-use kay::swarm::{Swarm, Create, ToRandom};
+use kay::{ID, ActorSystem, Fate, World};
+use kay::swarm::{Swarm, ToRandom};
 use compact::CVec;
 use descartes::P2;
 use stagemaster::combo::{Bindings, Combo2};
@@ -11,11 +11,39 @@ use game::lanes_and_cars::lane::Lane;
 
 mod rendering;
 
-#[derive(SubActor, Compact, Clone)]
+#[derive(Compact, Clone)]
 pub struct Building {
-    _id: Option<ID>,
+    id: BuildingID,
     households: CVec<ID>,
     lot: Lot,
+}
+
+impl Building {
+    pub fn spawn(id: BuildingID, households: &CVec<ID>, lot: &Lot, _: &mut World) -> Building {
+        Building {
+            id,
+            households: households.clone(),
+            lot: lot.clone(),
+        }
+    }
+}
+
+use game::lanes_and_cars::pathfinding::{RoughDestination, AsDestinationRequesterID,
+                                        RoughDestinationID,
+                                        MSG_RoughDestination_query_as_destination};
+use core::simulation::Timestamp;
+
+impl RoughDestination for Building {
+    fn query_as_destination(
+        &mut self,
+        requester: AsDestinationRequesterID,
+        rough_destination: RoughDestinationID,
+        tick: Option<Timestamp>,
+        world: &mut World,
+    ) {
+        let adjacent_lane = RoughDestinationID { _raw_id: self.lot.adjacent_lane };
+        adjacent_lane.query_as_destination(requester, rough_destination, tick, world)
+    }
 }
 
 #[derive(Compact, Clone)]
@@ -23,8 +51,6 @@ pub struct Lot {
     pub position: P2,
     pub adjacent_lane: ID,
 }
-
-use game::lanes_and_cars::pathfinding::QueryAsDestination;
 
 #[derive(Serialize, Deserialize)]
 pub struct BuildingSpawner {
@@ -50,25 +76,13 @@ pub struct FoundLot(pub Lot);
 pub struct InitializeUI;
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(
-        Swarm::<Building>::new(),
-        Swarm::<Building>::subactors(|mut each_building| {
-            each_building.on(|query: &QueryAsDestination, building, world| {
-                world.send(building.lot.adjacent_lane, *query);
-                Fate::Live
-            });
-        }),
-    );
+    kay_auto::auto_setup(system);
 
     let spawner = ::ENV.load_settings("Building Spawning");
 
     system.add::<BuildingSpawner, _>(spawner, |mut the_spawner| {
         the_spawner.on(|&FoundLot(ref lot), _, world| {
-            world.send_to_id_of::<Swarm<Building>, _>(Create(Building {
-                                                                 _id: None,
-                                                                 households: CVec::new(),
-                                                                 lot: lot.clone(),
-                                                             }));
+            BuildingID::spawn(CVec::new(), lot.clone(), world);
             println!("Created a building {}", lot.position);
             Fate::Live
         });
@@ -81,11 +95,9 @@ pub fn setup(system: &mut ActorSystem) {
                 if bindings["Spawn Building"].is_freshly_in(&combos) {
                     let spawner_id = world.id::<BuildingSpawner>();
                     world.send_to_id_of::<Swarm<Lane>, _>(ToRandom {
-                                                              message: FindLot {
-                                                                  requester: spawner_id,
-                                                              },
-                                                              n_recipients: 50,
-                                                          })
+                        message: FindLot { requester: spawner_id },
+                        n_recipients: 50,
+                    })
                 }
             };
 
@@ -109,3 +121,6 @@ pub fn setup(system: &mut ActorSystem) {
 pub fn setup_ui(system: &mut ActorSystem) {
     rendering::setup(system);
 }
+
+mod kay_auto;
+pub use self::kay_auto::*;

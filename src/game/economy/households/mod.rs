@@ -12,12 +12,21 @@ use self::judgement_table::judgement_table;
 mod tasks;
 use self::tasks::Task;
 
-use super::market::{Market, Evaluate, Search, EvaluatedDeal, EvaluatedSearchResult,
-                    GetApplicableDeal, ApplicableDeal, StartedUsing, StoppedUsing};
-use super::super::lanes_and_cars::pathfinding::trip::{Trip, Start, CreatedTrip, TripResult};
+use super::market::{Deal, Market, OfferID, Search, EvaluatedDeal, EvaluationRequester,
+                    EvaluationRequesterID, MSG_EvaluationRequester_on_result,
+                    EvaluatedSearchResult};
+use super::buildings::BuildingID;
+use super::super::lanes_and_cars::pathfinding::trip::{Trip, Start, TripListenerID,
+                                                      MSG_TripListener_trip_created,
+                                                      MSG_TripListener_trip_result};
+use super::super::lanes_and_cars::pathfinding::RoughDestinationID;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct MemberIdx(usize);
+
+pub trait Household {
+    fn on_applicable_deal(&mut self, deal: Deal, member: MemberIdx, world: &mut World);
+}
 
 #[derive(Compact, Clone)]
 struct DecisionResourceEntry {
@@ -32,16 +41,16 @@ enum DecisionState {
     WaitingForTrip(MemberIdx),
 }
 
-#[derive(Compact, Clone, SubActor)]
+#[derive(Compact, Clone)]
 pub struct Family {
-    _id: Option<ID>,
-    home: ID,
+    id: FamilyID,
+    home: BuildingID,
     resources: ResourceMap<ResourceAmount>,
     member_resources: CVec<ResourceMap<ResourceAmount>>,
     member_tasks: CVec<Task>,
     decision_state: DecisionState,
-    used_offers: ResourceMap<ID>,
-    member_used_offers: CVec<ResourceMap<ID>>,
+    used_offers: ResourceMap<OfferID>,
+    member_used_offers: CVec<ResourceMap<OfferID>>,
 }
 
 const N_TOP_PROBLEMS: usize = 3;
@@ -67,11 +76,13 @@ impl Family {
         resource_graveness
     }
 
-    pub fn find_new_task_for(&mut self,
-                             member: MemberIdx,
-                             tick: Timestamp,
-                             location: ID,
-                             world: &mut World) {
+    pub fn find_new_task_for(
+        &mut self,
+        member: MemberIdx,
+        tick: Timestamp,
+        location: RoughDestinationID,
+        world: &mut World,
+    ) {
         let mut decision_entries = CDict::<ResourceId, DecisionResourceEntry>::new();
         let time = TimeOfDay::from_tick(tick);
 
@@ -83,21 +94,20 @@ impl Family {
             };
 
             if let Some(&offer) = maybe_offer {
-                world.send(offer, Evaluate { time, location, requester: self.id() });
+                offer.evaluate(time, location, self.id.into(), world);
             } else {
                 world.send_to_id_of::<Market, _>(Search {
-                                                     time,
-                                                     location,
-                                                     resource,
-                                                     requester: self.id(),
-                                                 });
+                    time,
+                    location,
+                    resource,
+                    requester: self.id(),
+                });
             }
 
-            decision_entries.insert(resource,
-                                    DecisionResourceEntry {
-                                        n_deals_expected: 1,
-                                        deals: CVec::new(),
-                                    });
+            decision_entries.insert(
+                resource,
+                DecisionResourceEntry { n_deals_expected: 1, deals: CVec::new() },
+            );
         }
 
         self.decision_state = DecisionState::Choosing(member, tick, decision_entries);
@@ -115,10 +125,11 @@ impl Family {
                             .iter()
                             .filter(|evaluated| evaluated.from < time && evaluated.to > time)
                             .map(|evaluated| {
-                                let give_alleviation =
-                                    resource_graveness_helper(evaluated.deal.give.0,
-                                                              -evaluated.deal.give.1,
-                                                              time);
+                                let give_alleviation = resource_graveness_helper(
+                                    evaluated.deal.give.0,
+                                    -evaluated.deal.give.1,
+                                    time,
+                                );
                                 let take_graveness: f32 = evaluated
                                     .deal
                                     .take
@@ -129,8 +140,7 @@ impl Family {
                                     .sum();
 
                                 let usefulness = give_alleviation /
-                                                 (take_graveness *
-                                                  evaluated.deal.duration.seconds() as f32);
+                                    (take_graveness * evaluated.deal.duration.seconds() as f32);
 
                                 (usefulness, evaluated)
                             })
@@ -161,170 +171,173 @@ impl Family {
             };
 
         self.decision_state = DecisionState::WaitingForTrip(member);
-        world.send(best_offer, GetApplicableDeal(self.id(), member));
+        best_offer.get_applicable_deal(self.id.into(), member, world);
         self.start_trip(member, tick, world);
     }
 
     pub fn start_trip(&mut self, member: MemberIdx, tick: Timestamp, world: &mut World) {
         if let Task {
-                   offer,
-                   state: TaskState::GettingReadyAt(source),
-                   ..
-               } = self.member_tasks[member.0] {
-            world.send_to_id_of::<Swarm<Trip>, _>(CreateWith(Trip::new(source,
-                                                                       offer,
-                                                                       Some(self.id())),
-                                                             Start(tick)));
+            offer,
+            state: TaskState::GettingReadyAt(source),
+            ..
+        } = self.member_tasks[member.0]
+        {
+            world.send_to_id_of::<Swarm<Trip>, _>(CreateWith(
+                Trip::new(source, offer.into(), Some(self.id.into())),
+                Start(tick),
+            ));
         } else {
             panic!("Member should be getting ready before starting trip");
         }
     }
 }
 
-use core::simulation::Wake;
+impl EvaluationRequester for Family {
+    fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World) {
+        let &EvaluatedSearchResult { resource, n_to_expect, ref some_results } = result;
+
+        let done = if let DecisionState::Choosing(_, _, ref mut entries) = self.decision_state {
+            {
+                let entry = entries.get_mut(resource).expect(
+                    "Should have an entry for queried resource",
+                );
+                entry.n_deals_expected = n_to_expect;
+                entry.deals.extend(some_results.clone());
+            }
+
+            entries.values().all(|entry| {
+                entry.n_deals_expected == entry.deals.len()
+            })
+        } else {
+            panic!("Received unexpected deal");
+        };
+        if done {
+            self.choose_deal(world);
+        }
+    }
+}
+
+impl Household for Family {
+    fn on_applicable_deal(&mut self, deal: Deal, member: MemberIdx, world: &mut World) {
+        let resource_deltas = deal.take
+            .iter()
+            .map(|&Entry(resource, amount)| (resource, -amount))
+            .chain(Some(deal.give));
+        for (resource, delta) in resource_deltas {
+            let resources = if r_properties(resource).ownership_shared {
+                &mut self.resources
+            } else {
+                &mut self.member_resources[member.0]
+            };
+            *resources.mut_entry_or(resource, 0.0) += delta;
+        }
+    }
+}
+
+use core::simulation::{Sleeper, SleeperID, MSG_Sleeper_wake};
+
+impl Sleeper for Family {
+    fn wake(&mut self, current_tick: Timestamp, world: &mut World) {
+        if let DecisionState::None = self.decision_state {
+            let maybe_idle_idx_loc = self.member_tasks
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, m)| match m.state {
+                    TaskState::IdleAt(loc) => Some((idx, loc)),
+                    _ => None,
+                })
+                .next();
+            if let Some((idle_member_idx, location)) = maybe_idle_idx_loc {
+                self.find_new_task_for(MemberIdx(idle_member_idx), current_tick, location, world);
+            }
+        };
+    }
+}
+
+use game::lanes_and_cars::pathfinding::trip::TripListener;
+
+impl TripListener for Family {
+    fn trip_created(&mut self, trip: ID, world: &mut World) {
+        self.decision_state = if let DecisionState::WaitingForTrip(member) = self.decision_state {
+            self.member_tasks[member.0].state = TaskState::InTrip(trip);
+            DecisionState::None
+        } else {
+            panic!("Should be in waiting for trip state")
+        };
+    }
+
+    fn trip_result(
+        &mut self,
+        trip: ID,
+        location: RoughDestinationID,
+        failed: bool,
+        tick: Timestamp,
+        world: &mut World,
+    ) {
+        let (matching_task_member, matching_resource, matching_offer) =
+            self.member_tasks
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, task)| if let TaskState::InTrip(task_trip_id) =
+                    task.state
+                {
+                    if task_trip_id == trip {
+                        Some((MemberIdx(idx), task.goal, task.offer))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                })
+                .next()
+                .expect("Should have a matching task");
+        {
+            let shared = r_properties(matching_resource).supplier_shared;
+            let used_offers = if shared {
+                &mut self.used_offers
+            } else {
+                &mut self.member_used_offers[matching_task_member.0]
+            };
+
+            let maybe_member = if shared {
+                Some(matching_task_member)
+            } else {
+                None
+            };
+
+            if failed {
+                used_offers.remove(matching_resource);
+                matching_offer.stopped_using(self.id.into(), maybe_member, world);
+            } else {
+                used_offers.insert(matching_resource, matching_offer);
+                matching_offer.started_using(self.id.into(), maybe_member, world);
+            }
+        }
+
+        if failed {
+            self.stop_task(matching_task_member, location._raw_id, world);
+        } else {
+            self.start_task(matching_task_member, tick, location._raw_id, world);
+        }
+    }
+}
+
 use self::tasks::TaskState;
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(
-        Swarm::<Family>::new(),
-        Swarm::<Family>::subactors(|mut each_family| {
-            each_family.on(|&Wake { current_tick }, family, world| {
-                if let DecisionState::None = family.decision_state {
-                    let maybe_idle_idx_loc = family
-                        .member_tasks
-                        .iter()
-                        .enumerate()
-                        .filter_map(|(idx, m)| match m.state {
-                                        TaskState::IdleAt(loc) => Some((idx, loc)),
-                                        _ => None,
-                                    })
-                        .next();
-                    if let Some((idle_member_idx, location)) = maybe_idle_idx_loc {
-                        family.find_new_task_for(MemberIdx(idle_member_idx),
-                                                 current_tick,
-                                                 location,
-                                                 world);
-                    }
-                };
-                Fate::Live
-            });
-
-            each_family.on(|&EvaluatedSearchResult {
-                 resource,
-                 n_to_expect,
-                 ref some_results,
-             },
-             family,
-             world| {
-                let done = if let DecisionState::Choosing(_, _, ref mut entries) =
-                    family.decision_state {
-                    {
-                        let entry = entries
-                            .get_mut(resource)
-                            .expect("Should have an entry for queried resource");
-                        entry.n_deals_expected = n_to_expect;
-                        entry.deals.extend(some_results.clone());
-                    }
-
-                    entries
-                        .values()
-                        .all(|entry| entry.n_deals_expected == entry.deals.len())
-                } else {
-                    panic!("Received unexpected deal");
-                };
-                if done {
-                    family.choose_deal(world);
-                }
-                Fate::Live
-            });
-
-            each_family.on(|&CreatedTrip(trip), family, _| {
-                family.decision_state = if let DecisionState::WaitingForTrip(member) =
-                    family.decision_state {
-                    family.member_tasks[member.0].state = TaskState::InTrip(trip);
-                    DecisionState::None
-                } else {
-                    panic!("Should be in waiting for trip state")
-                };
-                Fate::Live
-            });
-
-            each_family.on(move |&TripResult { id, location, tick, failed },
-                  family,
-                  world| {
-                let (matching_task_member, matching_resource, matching_offer) =
-                    family
-                        .member_tasks
-                        .iter()
-                        .enumerate()
-                        .filter_map(|(idx, task)| if let TaskState::InTrip(trip_id) = task.state {
-                                        if trip_id == id {
-                                            Some((MemberIdx(idx), task.goal, task.offer))
-                                        } else {
-                                            None
-                                        }
-                                    } else {
-                                        None
-                                    })
-                        .next()
-                        .expect("Should have a matching task");
-                {
-                    let family_id = family.id();
-                    let shared = r_properties(matching_resource).supplier_shared;
-                    let used_offers = if shared {
-                        &mut family.used_offers
-                    } else {
-                        &mut family.member_used_offers[matching_task_member.0]
-                    };
-
-                    let maybe_member = if shared {
-                        Some(matching_task_member)
-                    } else {
-                        None
-                    };
-
-                    if failed {
-                        used_offers.remove(matching_resource);
-                        world.send(matching_offer, StoppedUsing(family_id, maybe_member));
-                    } else {
-                        used_offers.insert(matching_resource, matching_offer);
-                        world.send(matching_offer, StartedUsing(family_id, maybe_member));
-                    }
-                }
-
-                if failed {
-                    family.stop_task(matching_task_member, location, world);
-                } else {
-                    family.start_task(matching_task_member, tick, location, world);
-                }
-                Fate::Live
-            });
-
-            each_family.on(|&ApplicableDeal(ref deal, member), family, _| {
-                let resource_deltas = deal.take
-                    .iter()
-                    .map(|&Entry(resource, amount)| (resource, -amount))
-                    .chain(Some(deal.give));
-                for (resource, delta) in resource_deltas {
-                    let resources = if r_properties(resource).ownership_shared {
-                        &mut family.resources
-                    } else {
-                        &mut family.member_resources[member.0]
-                    };
-                    *resources.mut_entry_or(resource, 0.0) += delta;
-                }
-                Fate::Live
-            });
-        }),
-    );
+    auto_setup(system);
 }
 
-#[derive(Compact, Clone, SubActor)]
-pub struct Company {
-    _id: Option<ID>,
-    site: ID,
-    resources: ResourceMap<ResourceAmount>,
-    worker_tasks: CVec<Task>,
-    used_offers: ResourceMap<ID>,
-    own_offers: CVec<ID>,
-}
+// #[derive(Compact, Clone)]
+// pub struct Company {
+//     id: CompanyID,
+//     site: ID,
+//     resources: ResourceMap<ResourceAmount>,
+//     worker_tasks: CVec<Task>,
+//     used_offers: ResourceMap<ID>,
+//     own_offers: CVec<ID>,
+// }
+
+
+mod kay_auto;
+pub use self::kay_auto::*;

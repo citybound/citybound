@@ -47,15 +47,19 @@ impl Default for ResourceRegistry {
 }
 
 impl ResourceRegistry {
-    fn add(&mut self,
-           resource: &str,
-           description: &str,
-           ownership_shared: bool,
-           supplier_shared: bool) {
+    fn add(
+        &mut self,
+        resource: &str,
+        description: &str,
+        ownership_shared: bool,
+        supplier_shared: bool,
+    ) {
         let id = self.next_id;
         self.name_to_id.insert(resource.to_owned(), id);
-        self.id_to_info.insert(id,
-                               ResourceDescription(resource.to_owned(), description.to_owned()));
+        self.id_to_info.insert(
+            id,
+            ResourceDescription(resource.to_owned(), description.to_owned()),
+        );
         self.properties[id.as_index()] = ResourceProperties { ownership_shared, supplier_shared };
         self.next_id = match self.next_id {
             ResourceId(id) => ResourceId(id + 1),
@@ -63,12 +67,13 @@ impl ResourceRegistry {
     }
 
     fn id(&self, resource: &str) -> ResourceId {
-        *self.name_to_id
-            .get(resource)
-            .expect(format!("Resource {} doesn't exist. Loaded resources: {:?}",
-                            resource,
-                            self.name_to_id)
-                        .as_str())
+        *self.name_to_id.get(resource).expect(
+            format!(
+                "Resource {} doesn't exist. Loaded resources: {:?}",
+                resource,
+                self.name_to_id
+            ).as_str(),
+        )
     }
 }
 
@@ -89,7 +94,13 @@ pub fn setup() {
     for table in &tables {
         let c = &table.columns;
         for (resource, own, sup, info) in
-            multizip((&c["resource"], &c["ownership"], &c["supplier"], &c["description"])) {
+            multizip((
+                &c["resource"],
+                &c["ownership"],
+                &c["supplier"],
+                &c["description"],
+            ))
+        {
             resources.add(resource, info, own == "shared", sup == "shared");
         }
     }
@@ -123,12 +134,15 @@ impl<AssociatedValue: Compact> ResourceMap<AssociatedValue> {
             .map(|i| &self.entries[i].1)
     }
 
-    pub fn mut_entry_or(&mut self,
-                        key: ResourceId,
-                        default: AssociatedValue)
-                        -> &mut AssociatedValue {
-        match self.entries
-                  .binary_search_by_key(&key, |&Entry(ref k, ref _v)| *k) {
+    pub fn mut_entry_or(
+        &mut self,
+        key: ResourceId,
+        default: AssociatedValue,
+    ) -> &mut AssociatedValue {
+        match self.entries.binary_search_by_key(
+            &key,
+            |&Entry(ref k, ref _v)| *k,
+        ) {
             Ok(index) => &mut self.entries[index].1,
             Err(index) => {
                 self.entries.insert(index, Entry(key, default));
@@ -138,8 +152,10 @@ impl<AssociatedValue: Compact> ResourceMap<AssociatedValue> {
     }
 
     pub fn insert(&mut self, key: ResourceId, value: AssociatedValue) {
-        match self.entries
-                  .binary_search_by_key(&key, |&Entry(ref k, ref _v)| *k) {
+        match self.entries.binary_search_by_key(
+            &key,
+            |&Entry(ref k, ref _v)| *k,
+        ) {
             Ok(index) => self.entries[index] = Entry(key, value),
             Err(index) => {
                 self.entries.insert(index, Entry(key, value));
@@ -148,8 +164,10 @@ impl<AssociatedValue: Compact> ResourceMap<AssociatedValue> {
     }
 
     pub fn remove(&mut self, key: ResourceId) -> Option<AssociatedValue> {
-        match self.entries
-                  .binary_search_by_key(&key, |&Entry(ref k, ref _v)| *k) {
+        match self.entries.binary_search_by_key(
+            &key,
+            |&Entry(ref k, ref _v)| *k,
+        ) {
             Ok(index) => Some(self.entries.remove(index).1),
             Err(_) => None,
         }

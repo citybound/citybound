@@ -26,15 +26,19 @@ pub fn setup() {
     let mut table = Box::<JudgementTable>::default();
 
     for md_table in read_md_tables::read(&"simulation_parameters/judgement/adult.data.md")
-            .expect("Expected judgement table to exist") {
+        .expect("Expected judgement table to exist")
+    {
         let c = &md_table.columns;
 
         for (idx, (resource, resource_id)) in
-            c["resource"].iter().map(|s| (s, r_id(s))).enumerate() {
+            c["resource"].iter().map(|s| (s, r_id(s))).enumerate()
+        {
             for i in 0..12 {
                 table.0[resource_id.as_index()][i] =
-                    c.get(&format!("{}h", 2 * i))
-                        .expect(&format!("no entries for {}", resource))
+                    c.get(&format!("{}h", 2 * i)).expect(&format!(
+                        "no entries for {}",
+                        resource
+                    ))
                         [idx]
                         .parse::<u8>()
                         .expect(&format!("weird entry for {} for {}h", resource, 2 * i));
