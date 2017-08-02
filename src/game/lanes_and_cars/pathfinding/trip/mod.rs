@@ -129,15 +129,14 @@ pub fn setup(system: &mut ActorSystem) {
             current_destination_lane: None,
         },
         |mut the_creator| {
-            let sim_id = the_creator.world().id::<Simulation>();
-            let tc_id = the_creator.world().id::<TripCreator>();
-
             the_creator.on(move |&AddLaneForTrip(lane_id), tc, world| {
                 if tc.current_source_lane.is_some() {
                     tc.current_destination_lane = Some(lane_id)
                 } else {
                     tc.current_source_lane = Some(lane_id);
                 }
+                let sim_id = world.id::<Simulation>();
+                let tc_id = world.id::<TripCreator>();
                 world.send(
                     sim_id,
                     WakeUpIn(DurationTicks::new(0), SleeperID { _raw_id: tc_id }),
