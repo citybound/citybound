@@ -14,7 +14,9 @@ The [Design Doc](game/README.md) outlines the philosophy and decisions that I fo
 
 You can make suggestions from individual features to complete system design proposals.
 
-* If you have some rough ideas, it is probably best to discuss them in the [official community](https://reddit.com/r/Citybound) first, where people can give you first feedback and point you to existing relevant [Design Proposal pull-requests](https://github.com/citybound/citybound/pulls?utf8=✓&q=is%3Apr%20label%3A%22DESIGN%20PROPOSAL%22%20)
+* **[All existing design proposals](https://github.com/citybound/citybound/pulls?utf8=✓&q=is%3Apr%20label%3A%22DESIGN%20PROPOSAL%22%20)**
+
+* If you have some rough ideas, it is probably best to discuss them in the [official community](https://reddit.com/r/Citybound) first, where people can give you first feedback and point you to existing relevant Design Proposals
 * If you have an original and detailed proposal, start editing relevant documents of the Design Doc, or add new ones
   * [Small tutorial on how to do that in the GitHub Web interface](https://help.github.com/articles/editing-files-in-another-user-s-repository/)
   * Please give your Pull Request the DESIGN PROPOSAL label
