@@ -1,4 +1,4 @@
-# Citybound
+<img src="cb.png" alt="Citybound" width="192"/>
 
 Citybound is an independently developed city building game, open source and funded though Patreon.
 
