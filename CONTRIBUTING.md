@@ -12,7 +12,7 @@ Make sure you read: [how to report bugs](https://github.com/citybound/citybound/
 
 The [Design Doc](game/README.md) outlines the philosophy and decisions that I follow when implementing Citybound.
 
-You can make suggestions from individual features to complete system design proposals.
+You can make suggestions from typos/clarification to feature requests to complete system design proposals.
 
 * **[All existing design proposals](https://github.com/citybound/citybound/pulls?utf8=✓&q=is%3Apr%20label%3A%22DESIGN%20PROPOSAL%22%20)**
 
