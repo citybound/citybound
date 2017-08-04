@@ -3,19 +3,24 @@ name = "citybound"
 version = "0.1.2"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 license = "AGPL-3.0"
+build = "./game/build.rs"
+
+[[bin]]
+name = "citybound"
+path = "./game/main.rs"
 
 [workspace]
 members = [
-    "./lib/allocators",
-    "./lib/chunked",
-    "./lib/compact",
-    "./lib/compact_macros",
-    "./lib/descartes",
-    "./lib/kay",
-    "./lib/kay_macros",
-    "./lib/kay_codegen",
-    "./lib/monet",
-    './lib/stagemaster'
+    "./engine/allocators",
+    "./engine/chunked",
+    "./engine/compact",
+    "./engine/compact_macros",
+    "./engine/descartes",
+    "./engine/kay",
+    "./engine/kay_macros",
+    "./engine/kay_codegen",
+    "./engine/monet",
+    './engine/stagemaster'
 ]
 
 [dependencies]
@@ -31,25 +36,28 @@ serde_derive = "1.0"
 imgui = "0.0.11"
 
 [dependencies.compact]
-path = "./lib/compact/"
+path = "./engine/compact/"
 
 [dependencies.compact_macros]
-path = "./lib/compact_macros/"
+path = "./engine/compact_macros/"
 
 [dependencies.kay]
-path = "./lib/kay/"
+path = "./engine/kay/"
 
 [dependencies.kay_macros]
-path = "./lib/kay_macros/"
+path = "./engine/kay_macros/"
 
 [dependencies.descartes]
-path = "./lib/descartes/"
+path = "./engine/descartes/"
 
 [dependencies.monet]
-path = "./lib/monet/"
+path = "./engine/monet/"
 
 [dependencies.stagemaster]
-path = "./lib/stagemaster/"
+path = "./engine/stagemaster/"
+
+[build-dependencies]
+kay_codegen = {path = "./engine/kay_codegen/"}
 
 [profile.dev]
 opt-level = 1

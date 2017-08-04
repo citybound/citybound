@@ -1,0 +1,11 @@
+[package]
+name = "kay_macros"
+version = "0.1.0"
+authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
+
+[dependencies]
+syn = "=0.11.11"
+quote = "0.3"
+
+[lib]
+proc-macro = true
