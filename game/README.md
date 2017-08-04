@@ -1,6 +1,8 @@
-# Citybound
+# Citybound Design Doc
 
-*Words in ALLCAPS refer to reocurring central ideas behind Citybound*
+This file gives a bird's-eye overview of what Citybound should become and why.
+
+*Words in ALLCAPS refer to reocurring central themes of Citybound*
 
 ## Design Philosophy
 
