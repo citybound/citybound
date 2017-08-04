@@ -1,8 +1,12 @@
 # Citybound Design Doc
 
-This document gives a bird's-eye overview of what Citybound should become and why, how it will be implemented and all the different things that inspire it. It links to more in-depth documents about all the different aspects of Citybound
+This document gives a bird's-eye overview of what Citybound should become and why, how it will be implemented and all the different things that inspire it. It links to more in-depth documents about all the different aspects of Citybound.
 
-*Words in `(typewriter)` refer to reocurring central themes of Citybound*
+**This is a living and open document, find out [how to contribute your suggestions](../CONTRIBUTING.md).**
+
+*Words in `(typewriter)` refer to reocurring central themes of Citybound.*
+
+*Links in ~~strike-thorugh~~ link to a document that hasn't been written yet.*
 
 ## Design Philosophy
 
@@ -39,25 +43,25 @@ This document gives a bird's-eye overview of what Citybound should become and wh
 
 ## Parts
 
-* [Engine](../engine/README.md) & [Simulation Core](core/README.md) (30% alpha)
+* ~~[Engine](../engine/README.md)~~ & ~~[Simulation Core](core/README.md)~~ (30% alpha)
 * [Transport](transport/README.md) (20% alpha)
-* [Economy](economy/README.md) (5% alpha)
-* [Construction](construction/README.md) (20% alpha)
-* [Environment](environment/README.md) (0% alpha)
+* ~~[Economy](economy/README.md)~~ (5% alpha)
+* ~~[Construction](construction/README.md)~~ (20% alpha)
+* ~~[Environment](environment/README.md)~~ (0% alpha)
 
 ## Gameplay Aspects
 
 * Planning
-  * [Transport Infrastructure](transport/planning/README.md) (20% alpha)
-  * [Utility Infrastructure](utilities/README.md) (0% alpha)
-  * [Zoning](zoning/README.md) (0% alpha)
-  * [Services](services/README.md) (0% alpha)
-  * [Terraforming](environment/terraforming/README.md) (0% alpha)
+  * ~~[Transport Infrastructure](transport/planning/README.md)~~ (20% alpha)
+  * ~~[Utility Infrastructure](utilities/README.md)~~ (0% alpha)
+  * ~~[Zoning](zoning/README.md)~~ (0% alpha)
+  * ~~[Services](services/README.md)~~ (0% alpha)
+  * ~~[Terraforming](environment/terraforming/README.md)~~ (0% alpha)
 * Finances
-  * [Projects & Grants](projects/README.md) (0% alpha)
-  * [Budgeting](finances/README.md) (0% alpha)
-  * [Taxing](finances/README.md) (0% alpha)
+  * ~~[Projects & Grants](projects/README.md)~~ (0% alpha)
+  * ~~[Budgeting](finances/README.md)~~ (0% alpha)
+  * ~~[Taxing](finances/README.md)~~ (0% alpha)
 * Inspection
-  * [Statistics & Maps](inspection/stats/README.md) (0% alpha)
-  * [Individual Households](inspection/households/README.md) (0% alpha)
-  * [Stories](inspection/stories/README.md) (0% alpha)
+  * ~~[Statistics & Maps](inspection/stats/README.md)~~ (0% alpha)
+  * ~~[Individual Households](inspection/households/README.md)~~ (0% alpha)
+  * ~~[Stories](inspection/stories/README.md)~~ (0% alpha)
