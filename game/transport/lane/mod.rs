@@ -5,7 +5,8 @@ use descartes::{N, FiniteCurve};
 use stagemaster::geometry::CPath;
 
 use super::construction::ConstructionInfo;
-use super::connectivity::{ConnectivityInfo, TransferConnectivityInfo};
+pub mod connectivity;
+use self::connectivity::{ConnectivityInfo, TransferConnectivityInfo};
 use super::microtraffic::{Microtraffic, TransferringMicrotraffic};
 use super::pathfinding::PathfindingInfo;
 

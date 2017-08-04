@@ -1,5 +1,4 @@
 pub mod lane;
-pub mod connectivity;
 pub mod construction;
 pub mod microtraffic;
 pub mod rendering;

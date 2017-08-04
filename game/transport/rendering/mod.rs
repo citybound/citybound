@@ -5,7 +5,7 @@ use kay::swarm::{Swarm, SubActor};
 use monet::{Instance, Thing, Vertex, RendererID};
 use stagemaster::geometry::{band_to_thing, dash_path};
 use super::lane::{Lane, TransferLane};
-use super::connectivity::InteractionKind;
+use super::lane::connectivity::InteractionKind;
 use itertools::Itertools;
 
 #[path = "./resources/car.rs"]

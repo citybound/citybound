@@ -38,7 +38,7 @@ impl Default for InteractionSettings {
 use super::InitInteractable;
 use monet::{RendererID, EyeListenerID, MSG_EyeListener_eye_moved};
 use stagemaster::{UserInterface, AddInteractable, AddInteractable2d, Focus};
-use lanes_and_cars::lane::Lane;
+use transport::lane::Lane;
 
 pub fn setup(system: &mut ActorSystem) {
     system.extend::<CurrentPlan, _>(|mut the_cp| {

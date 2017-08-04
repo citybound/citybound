@@ -38,16 +38,16 @@ pub const ENV: &'static Environment = &Environment {
 };
 
 mod core;
-mod lanes_and_cars;
+mod transport;
 
 use monet::{RendererID, RenderableID};
 use monet::glium::{DisplayBuild, glutin};
 use core::simulation::{Simulation, Tick};
 use stagemaster::{ProcessEvents, StartFrame, UserInterface, AddDebugText, OnPanic};
-use lanes_and_cars::lane::{Lane, TransferLane};
-use lanes_and_cars::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
-use lanes_and_cars::rendering::lane_thing_collector::ThingCollector;
-use lanes_and_cars::planning::current_plan::CurrentPlan;
+use transport::lane::{Lane, TransferLane};
+use transport::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
+use transport::rendering::lane_thing_collector::ThingCollector;
+use transport::planning::current_plan::CurrentPlan;
 use kay::swarm::Swarm;
 use std::any::Any;
 
@@ -88,8 +88,8 @@ fn main() {
         world.send(ui_id, OnPanic);
     }));
 
-    lanes_and_cars::setup(&mut system);
-    lanes_and_cars::setup_ui(&mut system);
+    transport::setup(&mut system);
+    transport::setup_ui(&mut system);
 
     let simulatables = vec![
         system.id::<Swarm<Lane>>().broadcast(),
