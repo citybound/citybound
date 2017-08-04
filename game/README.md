@@ -1,6 +1,6 @@
 # Citybound Design Doc
 
-This file gives a bird's-eye overview of what Citybound should become and why.
+This file gives a bird's-eye overview of what Citybound should become and why, how it will be implemented and all the different things that inspire it.
 
 *Words in ALLCAPS refer to reocurring central themes of Citybound*
 
@@ -12,6 +12,13 @@ This file gives a bird's-eye overview of what Citybound should become and why.
 * Interaction through powerful but simple tools with haptic qualities (PAINTING A WORLD)
 * Clear means to see patterns of behavior and consequences of one’s actions - in the small and in the large (VISIBILITY)
 * Planning & collaboration is the way humans work to achieve great things (PLANNING & COLLABORATION)
+
+## Design Prior Art & Inspiration
+
+* [SimCity Series](https://en.wikipedia.org/wiki/SimCity)
+* [A-Train (Take the A-Train III)](https://en.wikipedia.org/wiki/A-Train#A-Train_III)
+* [Rollercoaster Tycoon Series](https://en.wikipedia.org/wiki/RollerCoaster_Tycoon)
+* [Factorio](https://en.wikipedia.org/wiki/Factorio)
 
 ## Design Decisions
 
@@ -32,26 +39,25 @@ This file gives a bird's-eye overview of what Citybound should become and why.
 
 ## Parts
 
-*% indicate "felt implementation completion"*
-
-* Engine & Simulation Core (10%)
-* [Traffic](lanes_and_cars/README.md) (5%)
-* Economy (1%)
-* Construction (1%)
-* Environment
+* [Engine](../engine/README.md) & [Simulation Core](core/README.md) (30% alpha)
+* [Transport](transport/README.md) (20% alpha)
+* [Economy](economy/README.md) (5% alpha)
+* [Construction](construction/README.md) (20% alpha)
+* [Environment](environment/README.md) (0% alpha)
 
 ## Gameplay Aspects
 
 * Planning
-  * Transport Infrastructure (5%)
-  * Zoning
-  * Services
-  * Terraforming
+  * [Transport Infrastructure](transport/planning/README.md) (20% alpha)
+  * [Utility Infrastructure](utilities/README.md) (0% alpha)
+  * [Zoning](zoning/README.md) (0% alpha)
+  * [Services](services/README.md) (0% alpha)
+  * [Terraforming](environment/terraforming/README.md) (0% alpha)
 * Finances
-  * Budgeting
-  * Taxing
-  * Grants
+  * [Projects & Grants](projects/README.md) (0% alpha)
+  * [Budgeting](finances/README.md) (0% alpha)
+  * [Taxing](finances/README.md) (0% alpha)
 * Inspection
-  * Individual Households
-  * Statistics & Maps
-  * Stories
+  * [Statistics & Maps](inspection/stats/README.md) (0% alpha)
+  * [Individual Households](inspection/households/README.md) (0% alpha)
+  * [Stories](inspection/stories/README.md) (0% alpha)
