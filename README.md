@@ -8,7 +8,7 @@ Citybound is an independently developed city building game, open source and fund
 * [Contributing & Development](CONTRIBUTING.md) ([Docs](http://citybound.github.io/citybound), [Gitter](https://gitter.im/citybound/Lobby))
 * [LICENSE](LICENSE.txt) (AGPL)
 
-# Design Documentation
+# Design Document
 
 *This repository contains not only the code of Citybound, but also a detailed **Design Doc**, describing the philosophy and decisions taken for design and implementation. It is interwoven with the code, to make it clear which abstract parts of the game are implemented where. Just follow the link below to get started.*
 
