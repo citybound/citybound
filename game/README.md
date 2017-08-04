@@ -2,16 +2,16 @@
 
 This file gives a bird's-eye overview of what Citybound should become and why, how it will be implemented and all the different things that inspire it.
 
-*Words in ALLCAPS refer to reocurring central themes of Citybound*
+*Words in `(typewriter)` refer to reocurring central themes of Citybound*
 
 ## Design Philosophy
 
-* A game about the beautiful, emergent complexity of real cities (EMERGENT COMPLEXITY)
-* A joyful balance between authoritative control and organic development (CITY = ORGANISM)
-* The challenge of understanding interdependent systems that form a whole (INTERDEPENDENT SYSTEMS) 
-* Interaction through powerful but simple tools with haptic qualities (PAINTING A WORLD)
-* Clear means to see patterns of behavior and consequences of one’s actions - in the small and in the large (VISIBILITY)
-* Planning & collaboration is the way humans work to achieve great things (PLANNING & COLLABORATION)
+* A game about the beautiful, emergent complexity of real cities `(emergent complexity)`
+* A joyful balance between authoritative control and organic development `(city = organism)`
+* The challenge of understanding interdependent systems that form a whole `(interdependent systems) `
+* Interaction through powerful but simple tools with haptic qualities `(painting a world)`
+* Clear means to see patterns of behavior and consequences of one’s actions - in the small and in the large `(clarity)`
+* Planning & collaboration is the way humans work to achieve great things `(planning)` `(collaboration)`
 
 ## Design Prior Art & Inspiration
 
@@ -22,15 +22,15 @@ This file gives a bird's-eye overview of what Citybound should become and why, h
 
 ## Design Decisions
 
-* Play in large continuous regions with several million inhabitants (VASTNESS)
-* Overlayed time-scales: Daily and yearly activities happen at a similar pace (MULTI-SCALE)
-* Persistent and unique individuals (people & businesses) (DIVERSITY)
+* Play in large continuous regions with several million inhabitants `(vastness)` `(multi-scale)`
+* Overlayed time-scales: Daily and yearly activities happen at a similar pace `(multi-scale)`
+* Persistent and unique individuals (people & businesses) `(diverse individuals)`
 
 ## Implementation Philosophy
 
-* Develop systems from first principles, with complex behaviors emerging from simple microscopic interactions (MICROSCOPIC-UP)
-* Solve problems generally, do not restrict thinking in specialized problem instances (ACTUAL PROBLEM)
-* Be brave to do things in new ways, where necessary (NEW & DIFFERENT)
+* Develop systems from first principles, with complex behaviors emerging from simple microscopic interactions `(emergence)`
+* Solve problems generally, do not restrict thinking in specialized problem instances `(actual problem)`
+* Be brave to do things in new ways, where necessary `(radicality)`
 
 ## Implementation Decisions
 
