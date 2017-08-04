@@ -14,4 +14,4 @@ Citybound is an independently developed city building game, open source and fund
 
 ***Just like the code, the Design Doc is open for contribution.** You can suggest changes by making a pull request, which can be discussed and refined before deciding if it will be taken fully, partially, or not - documenting the whole decision process publicly.*
 
-**→ Read the [Design Doc](src/game/README.md)**
+**→ Read the [Design Doc](game/README.md)**
