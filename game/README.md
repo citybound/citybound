@@ -1,6 +1,6 @@
 # Citybound Design Doc
 
-This file gives a bird's-eye overview of what Citybound should become and why, how it will be implemented and all the different things that inspire it.
+This document gives a bird's-eye overview of what Citybound should become and why, how it will be implemented and all the different things that inspire it. It links to more in-depth documents about all the different aspects of Citybound
 
 *Words in `(typewriter)` refer to reocurring central themes of Citybound*
 
