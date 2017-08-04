@@ -4,7 +4,7 @@ use kay::swarm::{Swarm, SubActor};
 use stagemaster::geometry::AnyShape;
 use descartes::Band;
 use super::lane::{Lane, TransferLane};
-use super::connectivity::{Interaction, InteractionKind, OverlapKind};
+use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
 
 pub mod trip;
 
