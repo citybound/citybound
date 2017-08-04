@@ -37,10 +37,10 @@
 
 * Pedestrian Traffic (0% alpha)
 * Road Traffic (50% alpha)
-   * [Road Lanes](lane/README.md) & [Car Microtraffic](microtraffic/README.md)
-   * [Car Pathfinding](pathfinding/README.md)
-   * [Car Trips](trips/README.md)
-   * [Rendering](rendering/README.md)
+   * ~~[Road Lanes](lane/README.md)~~ & ~~[Car Microtraffic](microtraffic/README.md)~~
+   * ~~[Car Pathfinding](pathfinding/README.md)~~
+   * ~~[Car Trips](trips/README.md)~~
+   * ~~[Rendering](rendering/README.md)~~
 * Rail Traffic (0% alpha)
 * Water Traffic (0% beta)
 * Air Traffic (0% beta)
@@ -48,6 +48,6 @@
 ## Gameplay Aspects
 
 * Planning
-   * [Roads](planning/README.md) (40% alpha)
+   * ~~[Road planning](planning/README.md)~~ (40% alpha)
 * Construction
-   * [Roads](construction/README.md) (50% alpha)
+   * ~~[Road planning](construction/README.md)~~ (50% alpha)
