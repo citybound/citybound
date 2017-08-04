@@ -1,8 +1,8 @@
 # Overview
 
-* [Reporting bugs]()
-* [Contributing to the Design Doc]()
-* [Contributing to the code]()
+* [Reporting bugs](#reporting-bugs)
+* [Contributing to the Design Doc](#contributing-to-the-design-doc)
+* [Contributing to the code](#contributing-code)
 
 # Reporting Bugs
 
