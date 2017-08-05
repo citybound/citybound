@@ -8,7 +8,7 @@ use std::iter::FromIterator;
 
 /// A dynamically-sized array that can be stored in compact sequential storage and
 /// automatically spills over into free heap storage using `Allocator`.
-pub struct CompactArray<T: Default, A: Allocator = DefaultHeap> {
+pub struct CompactArray<T, A: Allocator = DefaultHeap> {
     /// Points to either compact or free storage
     ptr: PointerToMaybeCompact<T>,
     /// Maximum capacity before needing to spill onto the heap
@@ -16,7 +16,11 @@ pub struct CompactArray<T: Default, A: Allocator = DefaultHeap> {
     _alloc: PhantomData<*const A>,
 }
 
-impl<T: Compact + Clone + Default, A: Allocator> CompactArray<T, A> {
+trait HowToInit<T> {
+    fn init(&mut self, cap: usize);
+}
+
+impl<T, A: Allocator> CompactArray<T, A> {
     /// Is the vector empty?
     pub fn is_empty(&self) -> bool {
         self.cap == 0
@@ -40,9 +44,8 @@ impl<T: Compact + Clone + Default, A: Allocator> CompactArray<T, A> {
         };
 
         vec.ptr.set_to_free(A::allocate::<T>(cap));
-        for i in 0..cap {
-            vec.ptr.initialize_with_default(i as isize);
-        }
+
+        vec.init(cap);
 
         vec
     }
@@ -52,7 +55,20 @@ impl<T: Compact + Clone + Default, A: Allocator> CompactArray<T, A> {
     }
 }
 
-impl<T: Default, A: Allocator> From<Vec<T>> for CompactArray<T, A> {
+impl<T, A: Allocator> HowToInit<T> for CompactArray<T, A> {
+    default fn init(&mut self, cap: usize) {}
+}
+
+impl<T: Default, A: Allocator> HowToInit<T> for CompactArray<T, A> {
+    fn init(&mut self, cap: usize) {
+        for i in 0..cap {
+            self.ptr.initialize_with_default(i as isize);
+        }
+    }
+}
+
+
+impl<T, A: Allocator> From<Vec<T>> for CompactArray<T, A> {
     /// Create a `CompactArray` from a normal `Vec`,
     /// directly using the backing storage as free heap storage
     fn from(mut vec: Vec<T>) -> Self {
@@ -69,7 +85,7 @@ impl<T: Default, A: Allocator> From<Vec<T>> for CompactArray<T, A> {
     }
 }
 
-impl<T: Default, A: Allocator> Drop for CompactArray<T, A> {
+impl<T, A: Allocator> Drop for CompactArray<T, A> {
     /// Drop elements and deallocate free heap storage, if any is allocated
     fn drop(&mut self) {
         unsafe { ptr::drop_in_place(&mut self[..]) };
@@ -81,7 +97,7 @@ impl<T: Default, A: Allocator> Drop for CompactArray<T, A> {
     }
 }
 
-impl<T: Default, A: Allocator> Deref for CompactArray<T, A> {
+impl<T, A: Allocator> Deref for CompactArray<T, A> {
     type Target = [T];
 
     fn deref(&self) -> &[T] {
@@ -89,7 +105,7 @@ impl<T: Default, A: Allocator> Deref for CompactArray<T, A> {
     }
 }
 
-impl<T: Default, A: Allocator> DerefMut for CompactArray<T, A> {
+impl<T, A: Allocator> DerefMut for CompactArray<T, A> {
     fn deref_mut(&mut self) -> &mut [T] {
         unsafe { ::std::slice::from_raw_parts_mut(self.ptr.mut_ptr(), self.cap) }
     }
@@ -133,7 +149,7 @@ impl<T, A: Allocator> Drop for IntoIter<T, A> {
     }
 }
 
-impl<T: Default, A: Allocator> IntoIterator for CompactArray<T, A> {
+impl<T, A: Allocator> IntoIterator for CompactArray<T, A> {
     type Item = T;
     type IntoIter = IntoIter<T, A>;
 
@@ -149,7 +165,7 @@ impl<T: Default, A: Allocator> IntoIterator for CompactArray<T, A> {
     }
 }
 
-impl<'a, T: Default, A: Allocator> IntoIterator for &'a CompactArray<T, A> {
+impl<'a, T, A: Allocator> IntoIterator for &'a CompactArray<T, A> {
     type Item = &'a T;
     type IntoIter = ::std::slice::Iter<'a, T>;
 
@@ -158,7 +174,7 @@ impl<'a, T: Default, A: Allocator> IntoIterator for &'a CompactArray<T, A> {
     }
 }
 
-impl<'a, T: Default, A: Allocator> IntoIterator for &'a mut CompactArray<T, A> {
+impl<'a, T, A: Allocator> IntoIterator for &'a mut CompactArray<T, A> {
     type Item = &'a mut T;
     type IntoIter = ::std::slice::IterMut<'a, T>;
 
@@ -167,7 +183,7 @@ impl<'a, T: Default, A: Allocator> IntoIterator for &'a mut CompactArray<T, A> {
     }
 }
 
-impl<T: Default + Compact + Clone, A: Allocator> Compact for CompactArray<T, A> {
+impl<T: Compact + Clone, A: Allocator> Compact for CompactArray<T, A> {
     default fn is_still_compact(&self) -> bool {
         self.ptr.is_compact() && self.iter().all(|elem| elem.is_still_compact())
     }
@@ -208,7 +224,7 @@ impl<T: Default + Compact + Clone, A: Allocator> Compact for CompactArray<T, A> 
     }
 }
 
-impl<T: Default + Copy, A: Allocator> Compact for CompactArray<T, A> {
+impl<T: Copy, A: Allocator> Compact for CompactArray<T, A> {
     fn is_still_compact(&self) -> bool {
         self.ptr.is_compact()
     }
@@ -224,13 +240,13 @@ impl<T: Default + Copy, A: Allocator> Compact for CompactArray<T, A> {
     }
 }
 
-impl<T: Clone + Default, A: Allocator> Clone for CompactArray<T, A> {
+impl<T: Clone, A: Allocator> Clone for CompactArray<T, A> {
     default fn clone(&self) -> CompactArray<T, A> {
         self.iter().cloned().collect::<Vec<_>>().into()
     }
 }
 
-impl<T: Copy + Default, A: Allocator> Clone for CompactArray<T, A> {
+impl<T: Copy, A: Allocator> Clone for CompactArray<T, A> {
     fn clone(&self) -> CompactArray<T, A> {
         let mut new_vec = Self::with_capacity(self.cap);
         unsafe {
@@ -253,14 +269,13 @@ impl<T: Compact + Clone + Default, A: Allocator> FromIterator<T> for CompactArra
     }
 }
 
-impl<T: Compact + Default, A: Allocator> Default for CompactArray<T, A> {
+impl<T, A: Allocator> Default for CompactArray<T, A> {
     fn default() -> CompactArray<T, A> {
         CompactArray::new()
     }
 }
 
-impl<T: Compact + Default + ::std::fmt::Debug, A: Allocator> ::std::fmt::Debug
-    for CompactArray<T, A> {
+impl<T: Compact + ::std::fmt::Debug, A: Allocator> ::std::fmt::Debug for CompactArray<T, A> {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         (self.deref()).fmt(f)
     }
