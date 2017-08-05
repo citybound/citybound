@@ -1,7 +1,7 @@
 use super::allocators::{Allocator, DefaultHeap};
 use super::compact::Compact;
 use super::compact_vec::CompactVec;
-use super::compact_array::{CompactArray, IntoIter as ArrayIntoIter};
+use super::compact_array::{CompactArray, TrivialCompact, IntoIter as ArrayIntoIter};
 use std::iter::{Iterator, Map};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
@@ -20,6 +20,7 @@ struct Entry<K, V> {
     used: bool,
 }
 
+
 impl<K, V> std::fmt::Debug for Entry<K, V> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "Entry {:?}, {:?}", self.hash, self.used)
@@ -37,6 +38,8 @@ impl<K, V: Compact> Entry<K, V> {
         !self.used || self.value.is_still_compact()
     }
 }
+
+impl<K: Copy, V: Copy> TrivialCompact for Entry<K, V> {}
 
 impl<K: Copy, V: Compact> Compact for Entry<K, V> {
     default fn is_still_compact(&self) -> bool {

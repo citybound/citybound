@@ -16,6 +16,8 @@ pub struct CompactArray<T, A: Allocator = DefaultHeap> {
     _alloc: PhantomData<*const A>,
 }
 
+pub trait TrivialCompact {}
+
 trait HowToInit<T> {
     fn init(&mut self, cap: usize);
 }
@@ -183,7 +185,7 @@ impl<'a, T, A: Allocator> IntoIterator for &'a mut CompactArray<T, A> {
     }
 }
 
-impl<T: Compact + Clone, A: Allocator> Compact for CompactArray<T, A> {
+impl<T: Compact + Sized, A: Allocator> Compact for CompactArray<T, A> {
     default fn is_still_compact(&self) -> bool {
         self.ptr.is_compact() && self.iter().all(|elem| elem.is_still_compact())
     }
@@ -224,7 +226,9 @@ impl<T: Compact + Clone, A: Allocator> Compact for CompactArray<T, A> {
     }
 }
 
-impl<T: Copy, A: Allocator> Compact for CompactArray<T, A> {
+
+
+impl<T: TrivialCompact + Compact, A: Allocator> Compact for CompactArray<T, A> {
     fn is_still_compact(&self) -> bool {
         self.ptr.is_compact()
     }
