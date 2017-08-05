@@ -262,11 +262,11 @@ pub fn setup(system: &mut ActorSystem) {
                 .unwrap_or(true);
             if join {
                 let tell_to_forget_next_tick = lane.pathfinding
-                        .routes
-                        .keys()
-                        .cloned()
-                        .chain(lane.pathfinding.as_destination.into_iter())
-                        .collect();
+                    .routes
+                    .keys()
+                    .cloned()
+                    .chain(lane.pathfinding.as_destination.into_iter())
+                    .collect();
                 lane.pathfinding = PathfindingInfo {
                     as_destination: Some(join_as),
                     learned_landmark_from: Some(from),
