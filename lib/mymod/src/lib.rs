@@ -16,6 +16,6 @@ impl CityboundMod for MyMod {
     }
 }
 
-register_mod! {
-    cb_mod: MyMod,
+register_module! {
+    module: MyMod,
 }

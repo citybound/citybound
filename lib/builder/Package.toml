@@ -1,4 +1,4 @@
-[mod]
-name = "builder"
+[package]
+name = "citybound/builder"
 pretty-name = "Builder"
 version = "0.1.0"

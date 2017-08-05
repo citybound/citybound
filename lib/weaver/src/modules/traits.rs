@@ -1,6 +1,9 @@
 
+use std::error::Error;
+
 use kay::ActorSystem;
-use super::LoadingPackage;
+
+use packages::Package;
 
 /// Trait which must be implemented for any mod of Citybound.
 pub trait CityboundMod: Sized {
@@ -8,16 +11,13 @@ pub trait CityboundMod: Sized {
     fn setup(&mut ActorSystem) -> Self;
 
     /// Called before a dependant of this package is loaded.
-    fn dependant_loading(&mut self, &mut LoadingPackage, &mut ActorSystem) -> Result<(), String> {
-        Ok(())
+    ///
+    /// This function should fast, because it cannot run in parallel.
+    /// Please use `dep_res` for loading non-critical things.
+    fn dep_setup(&mut self, &Package, &mut ActorSystem) -> Option<Module> {
+        None
     }
-}
 
-#[doc(hidden)]
-pub trait ModWrapper {
-    fn setup(&mut self, &mut ActorSystem);
-    fn dependant_loading(&mut self, &mut LoadingPackage, &mut ActorSystem) -> Result<(), String>;
-
-    fn has_instance(&mut self) -> bool;
-    fn drop_instance(&mut self);
+    /// Used to do heavy loading of packages. Might be run in parallel.
+    fn dep_res(&mut self, &Package) {}
 }

@@ -1,0 +1,7 @@
+[package]
+name = "citybound/mymod"
+pretty-name = "My Mod"
+version = "0.1.0"
+
+[dependencies]
+"citybound/builder" = { version = "0.1.0" }

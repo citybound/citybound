@@ -1,4 +1,6 @@
-#![feature(plugin, conservative_impl_trait)]
+#![feature(conservative_impl_trait)]
+#![feature(slice_patterns)]
+#![feature(plugin)]
 #![plugin(clippy)]
 
 //! Crate for loading and defining mods.
@@ -17,79 +19,112 @@
 //!    }
 //! }
 //!
-//! register_mod! {
-//!     cb_mod: MyMod,
+//! register_module! {
+//!     module: MyMod,
 //! }
 //! #
 //! # // make rustdoc happy
 //! # fn main() {}
 //! ```
 
+extern crate libloading;
+#[macro_use]
+extern crate lazy_static;
+extern crate rayon;
+extern crate regex;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-extern crate toml;
 extern crate semver;
-extern crate libloading;
+extern crate toml;
 
 pub extern crate kay;
 
-pub mod package;
+pub mod packages;
 pub mod modules;
 mod weaver;
 
-pub use modules::{CityboundMod, ModWrapper};
-pub use package::Package;
+pub use modules::CityboundMod;
 pub use weaver::Weaver;
+
+/// Version of weaver. Used to verify API compatibility.
+pub const API_VERSION: &'static [u8] = &b"v0.1\0"[..];
+
+/// Version of rustc used to compile weaver. Used to verify ABI compatibility.
+pub const ABI_VERSION: &'static [u8] = include!(concat!(env!("OUT_DIR"), "/rustc_version.rs"));
 
 /// This macro helps to create the right functions for registering
 /// this crate as a mod when the crate is loaded by weaver.
 #[macro_export]
-macro_rules! register_mod {
+macro_rules! register_module {
     {
-        cb_mod: $mod_:path
-        $(,)*
+        module: $mod_:path,
     } => {
         #[no_mangle]
         #[doc(hidden)]
-        pub fn __register_mod(register: &mut $crate::modules::Register) {
-            struct Wrapper {
-                inner: Option<$mod_>,
+        pub static __MODULE_VERSION: $crate::ModuleVersion = {
+            api_version: $crate::API_VERSION,
+            abi_version: $crate::ABI_VERSION,
+        };
+
+        #[no_mangle]
+        #[doc(hidden)]
+        pub fn __module_setup(system: &mut $crate::kay::ActorSystem) -> $crate::Module {
+            unsafe fn module_drop(handle: *mut ()) {
+                Box::from_raw(handle as *mut $mod_);
             }
 
-            impl $crate::ModWrapper for Wrapper {
-                fn setup(&mut self, system: &mut $crate::kay::ActorSystem) {
-                    let m = <$mod_ as $crate::CityboundMod>::setup(system);
-                    self.inner = Some(m);
-                }
+            unsafe fn module_dep_setup(handle: *mut (),
+                                       package: &$crate::Package,
+                                       system: &mut $crate::kay::ActorSystem)
+                                       -> Option<Module>
+            {
+                let handle = (handle as *mut $mod_).as_mut().expect("handle was null");
+                handle.dep_setup(package, system).unwrap();
+            }
 
-                fn dependant_loading(&mut self,
-                                     loading: &mut $crate::modules::LoadingPackage,
-                                     system: &mut $crate::kay::ActorSystem)
-                                     -> ::std::result::Result<(), String>
-                {
-                    match self.inner {
-                        Some(ref mut mod_) =>
-                            <$mod_ as $crate::CityboundMod>::dependant_loading(mod_,
-                                                                               loading,
-                                                                               system),
-                        None => panic!("mod not loaded"),
+            // Can we let unwinds/panics pass over the library boundry?
+            fn _module_print_unwind(error: Box<std::any::Any>) {
+                match error.downcast::<String>() {
+                    Ok(string) => println!("{:?}", string),
+                    Err(any) => {
+                        match any.downcast::<&'static str>() {
+                            Ok(string) => println!("{:?}", string),
+                            Err(_) => println!("Weird error type"),
+                        }
                     }
                 }
-
-                fn has_instance(&mut self) -> bool {
-                    self.inner.is_some()
-                }
-
-                fn drop_instance(&mut self) {
-                    self.inner = None;
-                }
             }
 
-            let wrapper = Wrapper {
-                inner: None,
+            let def = $crate::ModuleDef {
+                drop: module_drop,
+                dep_setup: dep_setup,
+                dep_res: dep_res,
             };
-            let _mod_ = register.register_mod(wrapper);
+
+            let module = <$mod_ as $crate::CityboundMod>::setup(system);
+            let handle = Box::into_raw(Box::new(module)) as *mut ();
+
+            $crate::Module::new(def, handle)
         }
     };
+}
+
+#[cfg(test)]
+#[allow(private_no_mangle_fns)]
+mod tests {
+    use super::CityboundMod;
+    use super::kay::ActorSystem;
+
+    struct MyMod;
+
+    impl CityboundMod for MyMod {
+        fn setup(_system: &mut ActorSystem) -> MyMod {
+            MyMod
+        }
+    }
+
+    register_module! {
+        module: MyMod,
+    }
 }

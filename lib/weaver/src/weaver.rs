@@ -1,18 +1,19 @@
 
 use std::io;
+use std::error::Error;
 use std::path::Path;
 use std::str::FromStr;
 
 use kay::ActorSystem;
 
-use ::package::{PackageHold, PackagePath};
-use ::modules::ModuleHold;
+use packages::{PackageManager, Ident};
+use modules::ModuleManager;
 
 /// The weaver takes care of loading and keeping track of mods.
 #[derive(Default)]
 pub struct Weaver {
-    packages: PackageHold,
-    modules: ModuleHold,
+    packages: PackageManager,
+    modules: ModuleManager,
 }
 
 impl Weaver {
@@ -49,14 +50,15 @@ impl Weaver {
     ///
     /// `name` can either be an ident or just the name of the mod,
     /// in case of the latter, the latest version will be chosen.
-    pub fn load_package(&mut self, name: &str, system: &mut ActorSystem) -> Result<(), String> {
+    pub fn load_package(&mut self, name: &str, system: &mut ActorSystem) -> Result<(), Box<Error>> {
         let path = PackagePath::from_str(name)?;
         let latest = self.packages
             .resolve(&path)
             .latest()
             .ok_or_else(|| format!("couldn't resolve: {:?}", name))?;
 
-        self.modules.load(latest.ident(), &self.packages, system)?;
+        self.modules
+            .load(latest.ident(), &self.packages, system)?;
         Ok(())
     }
 }

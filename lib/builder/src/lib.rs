@@ -285,12 +285,12 @@ impl CityboundMod for BuilderMod {
     fn dependant_loading(&mut self,
                          loading: &mut LoadingPackage,
                          _system: &mut ActorSystem)
-                         -> Result<(), String> {
+                         -> Result<(), Box<::std::error::Error>> {
         println!("detected {:?}", loading);
         Ok(())
     }
 }
 
-register_mod! {
-    cb_mod: BuilderMod,
+register_module! {
+    module: BuilderMod,
 }

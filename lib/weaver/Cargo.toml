@@ -3,12 +3,18 @@ name = "weaver"
 version = "0.1.0"
 authors = ["The Citybound Developers"]
 
+build = "build.rs"
+
 [dependencies]
 clippy = "0.0.106"
-serde = "=0.8.21"
-serde_derive = "=0.8.21"
-toml = { version = "0.2.1", features = ["serde"], default-features = false }
-semver = "0.5.1"
-libloading = "0.3.1"
+libloading = "0.4"
+lazy_static = "0.2"
+notify = "4.0"
+rayon = "0.7"
+regex = "0.2"
+serde = "1.0"
+serde_derive = "1.0"
+semver = "0.6"
+toml = "0.4"
 
 kay = { path = "../kay" }
