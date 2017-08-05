@@ -26,9 +26,21 @@ impl<K, V> std::fmt::Debug for Entry<K, V> {
     }
 }
 
+impl<K, V> Entry<K, V> {
+    fn is_still_compact_const(&self) -> bool {
+        true
+    }
+}
+
+impl<K, V: Compact> Entry<K, V> {
+    fn is_still_compact_inner_default(&self) -> bool {
+        !self.used || self.value.is_still_compact()
+    }
+}
+
 impl<K: Copy, V: Compact> Compact for Entry<K, V> {
     default fn is_still_compact(&self) -> bool {
-        !self.used || self.value.is_still_compact()
+        Self::is_still_compact_inner_default(&self)
     }
 
     default fn dynamic_size_bytes(&self) -> usize {
@@ -54,7 +66,7 @@ impl<K: Copy, V: Compact> Compact for Entry<K, V> {
 
 impl<K: Copy, V: Copy> Compact for Entry<K, V> {
     fn is_still_compact(&self) -> bool {
-        true
+        Self::is_still_compact_const()
     }
 
     fn dynamic_size_bytes(&self) -> usize {
