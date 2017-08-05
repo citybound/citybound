@@ -66,7 +66,7 @@ impl<K: Copy, V: Compact> Compact for Entry<K, V> {
 
 impl<K: Copy, V: Copy> Compact for Entry<K, V> {
     fn is_still_compact(&self) -> bool {
-        Self::is_still_compact_const()
+        Self::is_still_compact_const(&self)
     }
 
     fn dynamic_size_bytes(&self) -> usize {
