@@ -12,37 +12,37 @@ use std;
 
 extern crate primal;
 
-#[derive(Copy, Clone)]
-struct Entry<K: Default + Copy + Hash + Eq, V: Default + Compact + Clone> {
+#[derive(Clone)]
+struct Entry<K, V> {
     key: K,
     hash: u64,
     value: V,
     used: bool,
 }
 
-impl<K: Copy + Hash + Eq + Default, V: Compact + Clone + Default> std::fmt::Debug for Entry<K, V> {
+impl<K, V> std::fmt::Debug for Entry<K, V> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "Entry {:?}, {:?}", self.hash, self.used)
     }
 }
 
-impl<K: Copy + Hash + Eq + Default, V: Compact + Clone + Default> Compact for Entry<K, V> {
-    fn is_still_compact(&self) -> bool {
+impl<K: Copy, V: Compact> Compact for Entry<K, V> {
+    default fn is_still_compact(&self) -> bool {
         !self.used || self.value.is_still_compact()
     }
 
-    fn dynamic_size_bytes(&self) -> usize {
+    default fn dynamic_size_bytes(&self) -> usize {
         self.value.dynamic_size_bytes()
     }
 
-    unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
+    default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
         (*dest).key = (*source).key;
         (*dest).hash = (*source).hash;
         (*dest).used = (*source).used;
         Compact::compact(&mut (*source).value, &mut (*dest).value, new_dynamic_part);
     }
 
-    unsafe fn decompact(source: *const Self) -> Entry<K, V> {
+    default unsafe fn decompact(source: *const Self) -> Entry<K, V> {
         Entry {
             key: (*source).key.clone(),
             value: Compact::decompact(&(*source).value),
@@ -52,7 +52,33 @@ impl<K: Copy + Hash + Eq + Default, V: Compact + Clone + Default> Compact for En
     }
 }
 
-impl<K: Copy + Hash + Eq + Default, V: Compact + Clone + Default> Default for Entry<K, V> {
+impl<K: Copy, V: Copy> Compact for Entry<K, V> {
+    fn is_still_compact(&self) -> bool {
+        true
+    }
+
+    fn dynamic_size_bytes(&self) -> usize {
+        0
+    }
+
+    unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
+        (*dest).key = (*source).key;
+        (*dest).hash = (*source).hash;
+        (*dest).used = (*source).used;
+        (*dest).value = (*source).value;
+    }
+
+    unsafe fn decompact(source: *const Self) -> Entry<K, V> {
+        Entry {
+            key: (*source).key,
+            value: (*source).value,
+            hash: (*source).hash,
+            used: (*source).used,
+        }
+    }
+}
+
+impl<K: Default, V: Default> Default for Entry<K, V> {
     fn default() -> Self {
         Entry {
             key: K::default(),
@@ -63,7 +89,7 @@ impl<K: Copy + Hash + Eq + Default, V: Compact + Clone + Default> Default for En
     }
 }
 
-pub struct OpenAddressingMap<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator = DefaultHeap> {
+pub struct OpenAddressingMap<K, V, A: Allocator = DefaultHeap> {
     size: usize,
     entries: CompactArray<Entry<K, V>, A>,
 }
@@ -74,8 +100,7 @@ lazy_static! {
     };
 }
 
-impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator>
-    OpenAddressingMap<K, V, A> {
+impl<K: Copy + Eq + Hash + Default, V: Compact + Default, A: Allocator> OpenAddressingMap<K, V, A> {
     pub fn new() -> Self {
         Self::with_capacity(4)
     }
@@ -271,7 +296,7 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator>
     }
 }
 
-impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> Compact
+impl<K: Copy + Eq + Hash + Default, V: Compact + Default, A: Allocator> Compact
     for OpenAddressingMap<K, V, A> {
     default fn is_still_compact(&self) -> bool {
         self.entries.is_still_compact()
@@ -299,8 +324,7 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
     }
 }
 
-impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> Clone
-    for OpenAddressingMap<K, V, A> {
+impl<K: Copy + Default, V: Clone, A: Allocator> Clone for OpenAddressingMap<K, V, A> {
     fn clone(&self) -> Self {
         OpenAddressingMap {
             entries: self.entries.clone(),
@@ -309,7 +333,7 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> 
     }
 }
 
-impl<K: Copy + Eq + Hash + Default, V: Compact + Clone + Default, A: Allocator> Default
+impl<K: Copy + Eq + Hash + Default, V: Compact + Default, A: Allocator> Default
     for OpenAddressingMap<K, V, A> {
     fn default() -> Self {
         OpenAddressingMap::with_capacity(4)
@@ -375,8 +399,6 @@ impl<K: Hash + Eq + Copy + Default, I: Compact, A1: Allocator, A2: Allocator>
     }
 }
 
-type EntryIter<K, V, A> = ArrayIntoIter<Entry<K, V>, A>;
-
 impl<T: Hash> Hash for CompactVec<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         for elem in self {
@@ -385,6 +407,7 @@ impl<T: Hash> Hash for CompactVec<T> {
     }
 }
 
+#[test]
 fn elem(n: usize) -> usize {
     (n * n) as usize
 }
