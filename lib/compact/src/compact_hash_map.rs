@@ -25,6 +25,30 @@ struct Entry<K, V> {
     used: bool,
 }
 
+/// A dynamically-sized array that can be stored in compact sequential storage and
+/// automatically spills over into free heap storage using `Allocator`.
+struct CompactArray<T, A: Allocator = DefaultHeap> {
+    /// Points to either compact or free storage
+    ptr: PointerToMaybeCompact<T>,
+    /// Maximum capacity before needing to spill onto the heap
+    cap: usize,
+    _alloc: PhantomData<*const A>,
+}
+
+pub struct IntoIter<T, A: Allocator> {
+    ptr: PointerToMaybeCompact<T>,
+    cap: usize,
+    index: usize,
+    _alloc: PhantomData<*const A>,
+}
+
+/// A dynamically-sized open adressing quadratic probing hashmap
+/// that can be stored in compact sequential storage and
+/// automatically spills over into free heap storage using `Allocator`.
+pub struct OpenAddressingMap<K, V, A: Allocator = DefaultHeap> {
+    size: usize,
+    entries: CompactArray<Entry<K, V>, A>,
+}
 
 impl<K, V> std::fmt::Debug for Entry<K, V> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -109,15 +133,7 @@ impl<K: Default, V: Default> Default for Entry<K, V> {
     }
 }
 
-/// A dynamically-sized array that can be stored in compact sequential storage and
-/// automatically spills over into free heap storage using `Allocator`.
-struct CompactArray<T, A: Allocator = DefaultHeap> {
-    /// Points to either compact or free storage
-    ptr: PointerToMaybeCompact<T>,
-    /// Maximum capacity before needing to spill onto the heap
-    cap: usize,
-    _alloc: PhantomData<*const A>,
-}
+
 
 pub trait TrivialCompact {}
 
@@ -216,12 +232,7 @@ impl<T, A: Allocator> DerefMut for CompactArray<T, A> {
     }
 }
 
-pub struct IntoIter<T, A: Allocator> {
-    ptr: PointerToMaybeCompact<T>,
-    cap: usize,
-    index: usize,
-    _alloc: PhantomData<*const A>,
-}
+
 
 impl<T, A: Allocator> Iterator for IntoIter<T, A> {
     type Item = T;
@@ -389,10 +400,7 @@ impl<T: Compact + ::std::fmt::Debug, A: Allocator> ::std::fmt::Debug for Compact
 }
 
 
-pub struct OpenAddressingMap<K, V, A: Allocator = DefaultHeap> {
-    size: usize,
-    entries: CompactArray<Entry<K, V>, A>,
-}
+
 
 lazy_static! {
     static ref PRIME_SIEVE: primal::Sieve = {
