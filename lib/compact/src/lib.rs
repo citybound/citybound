@@ -25,7 +25,6 @@ mod pointer_to_maybe_compact;
 mod compact;
 mod compact_vec;
 mod compact_dict;
-mod compact_array;
 mod compact_hash_map;
 
 #[macro_use]
