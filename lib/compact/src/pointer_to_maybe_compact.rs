@@ -79,7 +79,7 @@ impl<T> PointerToMaybeCompact<T> {
 }
 
 impl<T: Default> PointerToMaybeCompact<T> {
-    pub fn initialize_with_default(&self, i: isize) {
+    pub fn init_with_default(&self, i: isize) {
         match self.inner {
             Inner::Uninitialized => (),
             Inner::Compact(i) => (),

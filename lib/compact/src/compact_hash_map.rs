@@ -10,6 +10,7 @@ use std::iter::{Iterator, Map};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 use std::hash::Hash;
+
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::fmt::Write;
@@ -18,17 +19,25 @@ use std::ptr;
 use std::iter::FromIterator;
 
 #[derive(Clone)]
-struct Entry<K, V> {
-    used: bool,
-    hash: u64,
-    key_value: KeyValue<K, V>,
-}
-
-#[derive(Clone)]
 struct KeyValue<K, V> {
     key: K,
     value: V,
 }
+
+#[derive(Clone)]
+struct CompactOption<T> {
+    inner: Option<T>,
+}
+
+#[derive(Clone)]
+struct Entry<K, V> {
+    hash: u64,
+    inner: CompactOption<KeyValue<K, V>>,
+}
+
+
+
+pub trait TrivialCompact {}
 
 /// A dynamically-sized array that can be stored in compact sequential storage and
 /// automatically spills over into free heap storage using `Allocator`.
@@ -55,38 +64,158 @@ pub struct OpenAddressingMap<K, V, A: Allocator = DefaultHeap> {
     entries: CompactArray<Entry<K, V>, A>,
 }
 
-impl<K, V> std::fmt::Debug for Entry<K, V> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Entry {:?}, {:?}", self.hash, self.used)
+
+impl<K: Copy, V: Compact> Compact for KeyValue<K, V> {
+    default fn is_still_compact(&self) -> bool {
+        self.value.is_still_compact()
+    }
+
+    default fn dynamic_size_bytes(&self) -> usize {
+        self.value.dynamic_size_bytes()
+    }
+
+    default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
+        (*dest).key = (*source).key;
+        Compact::compact(&mut (*source).value, &mut (*dest).value, new_dynamic_part)
+    }
+
+    default unsafe fn decompact(source: *const Self) -> KeyValue<K, V> {
+        KeyValue {
+            key: (*source).key,
+            value: Compact::decompact(&(*source).value),
+        }
+    }
+}
+
+impl<T> CompactOption<T> {
+    fn is_some(&self) -> bool {
+        self.inner.is_some()
+    }
+
+    fn is_none(&self) -> bool {
+        self.inner.is_none()
+    }
+
+    fn none() -> CompactOption<T> {
+        CompactOption { inner: None }
+    }
+
+    fn some(t: T) -> CompactOption<T> {
+        CompactOption { inner: Some(t) }
+    }
+
+    fn as_mut(&mut self) -> Option<&mut T> {
+        self.inner.as_mut()
+    }
+
+    fn map_or<U, F: FnOnce(T) -> U>(&self, default: U, f: F) -> U {
+        self.inner.map_or(default, f)
+    }
+}
+
+impl<T: Compact> Compact for CompactOption<T> {
+    default fn is_still_compact(&self) -> bool {
+        self.inner.map_or(true, |t| t.is_still_compact())
+    }
+
+    default fn dynamic_size_bytes(&self) -> usize {
+        self.inner.map_or(0, |t| t.dynamic_size_bytes())
+    }
+
+    default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
+        if (*source).is_none() {
+            *dest = *source;
+        } else {
+            Compact::compact(
+                &mut (*source).inner.unwrap(),
+                &mut (*dest).inner.unwrap(),
+                new_dynamic_part,
+            )
+        }
+    }
+
+    default unsafe fn decompact(source: *const Self) -> CompactOption<T> {
+        if (*source).is_none() {
+            CompactOption::none()
+        } else {
+            CompactOption::some(Compact::decompact(&(*source).inner.unwrap()))
+        }
+    }
+}
+
+impl<K, V: Clone> Entry<K, V> {
+    fn new_used(hash: u64, key: K, value: V) -> Entry<K, V> {
+        Entry {
+            hash: hash,
+            inner: CompactOption::some(KeyValue { key: key, value: value }),
+        }
+    }
+    fn replace_value(&mut self, new_val: V) -> Option<V> {
+        match self.inner.as_mut() {
+            None => None,
+            Some(&mut kv) => {
+                let old = kv.value.clone();
+                kv.value = new_val;
+                Some(old)
+            }
+        }
+    }
+
+    fn used(&self) -> bool {
+        self.inner.is_some()
+    }
+    fn key<'a>(&self) -> &'a K {
+        &self.inner.inner.unwrap().key
+    }
+    fn key_option(&self) -> Option<&K> {
+        self.inner.inner.map(|kv| &kv.key)
+    }
+    fn value(&self) -> &V {
+        self.inner.inner.map(|kv| &kv.value).unwrap()
+    }
+    fn value_option(&self) -> Option<&V> {
+        self.inner.inner.map(|kv| &kv.value)
+    }
+    fn mut_value(&mut self) -> &mut V {
+        self.inner.inner.map(|kv| &mut kv.value).unwrap()
+    }
+    fn mut_value_option(&mut self) -> Option<&mut V> {
+        self.inner.inner.map(|kv| &mut kv.value)
     }
 }
 
 impl<K: Copy, V: Copy> TrivialCompact for Entry<K, V> {}
 
+impl<K, V> std::fmt::Debug for Entry<K, V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Entry {:?}, {:?}", self.hash, self.inner.is_some())
+    }
+}
+
+impl<K, V> Default for Entry<K, V> {
+    fn default() -> Self {
+        Entry { hash: 0, inner: CompactOption::none() }
+    }
+}
+
 impl<K: Copy, V: Compact> Compact for Entry<K, V> {
     default fn is_still_compact(&self) -> bool {
-        !self.used || self.key_value.is_still_compact()
+        self.inner.is_still_compact()
     }
 
     default fn dynamic_size_bytes(&self) -> usize {
-        self.key_value.dynamic_size_bytes()
+        self.inner.dynamic_size_bytes()
     }
 
     default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
         (*dest).hash = (*source).hash;
-        (*dest).used = (*source).used;
-        Compact::compact(
-            &mut (*source).key_value,
-            &mut (*dest).key_value,
-            new_dynamic_part,
-        );
+        Compact::compact(&mut (*source).inner, &mut (*dest).inner, new_dynamic_part)
     }
 
     default unsafe fn decompact(source: *const Self) -> Entry<K, V> {
         Entry {
             hash: (*source).hash,
-            used: (*source).used,
-            key_value: Compact::decompact(&(*source).key_value),
+            inner: Compact::decompact(&(*source).inner),
         }
     }
 }
@@ -102,86 +231,18 @@ impl<K: Copy, V: Copy> Compact for Entry<K, V> {
 
     unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
         (*dest).hash = (*source).hash;
-        (*dest).used = (*source).used;
-        (*dest).key_value = (*source).key_value;
+        (*dest).inner = (*source).inner;
     }
 
     unsafe fn decompact(source: *const Self) -> Entry<K, V> {
         Entry {
-            key_value: (*source).key_value,
             hash: (*source).hash,
-            used: (*source).used,
+            inner: (*source).inner,
         }
     }
 }
 
-impl<K: Default, V: Default> Default for Entry<K, V> {
-    fn default() -> Self {
-        Entry {
-            key_value: KeyValue::default(),
-            hash: 0,
-            used: false,
-        }
-    }
-}
-
-impl<K: Copy, V: Compact> Compact for KeyValue<K, V> {
-    default fn is_still_compact(&self) -> bool {
-        self.value.is_still_compact()
-    }
-
-    default fn dynamic_size_bytes(&self) -> usize {
-        self.value.dynamic_size_bytes()
-    }
-
-    default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
-        (*dest).key = (*source).key;
-        Compact::compact(&mut (*source).value, &mut (*dest).value, new_dynamic_part);
-    }
-
-    default unsafe fn decompact(source: *const Self) -> KeyValue<K, V> {
-        KeyValue {
-            key: (*source).key.clone(),
-            value: Compact::decompact(&(*source).value),
-        }
-    }
-}
-
-impl<K: Copy, V: Copy> Compact for KeyValue<K, V> {
-    fn is_still_compact(&self) -> bool {
-        true
-    }
-
-    fn dynamic_size_bytes(&self) -> usize {
-        0
-    }
-
-    unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
-        (*dest).key = (*source).key;
-        (*dest).value = (*source).value;
-    }
-
-    unsafe fn decompact(source: *const Self) -> KeyValue<K, V> {
-        KeyValue {
-            key: (*source).key,
-            value: (*source).value,
-        }
-    }
-}
-
-impl<K: Default, V: Default> Default for KeyValue<K, V> {
-    fn default() -> Self {
-        KeyValue { key: K::default(), value: V::default() }
-    }
-}
-
-pub trait TrivialCompact {}
-
-trait HowToInit<T> {
-    fn init(&mut self, cap: usize);
-}
-
-impl<T, A: Allocator> CompactArray<T, A> {
+impl<T: Default, A: Allocator> CompactArray<T, A> {
     /// Is the vector empty?
     pub fn is_empty(&self) -> bool {
         self.cap == 0
@@ -206,7 +267,9 @@ impl<T, A: Allocator> CompactArray<T, A> {
 
         vec.ptr.set_to_free(A::allocate::<T>(cap));
 
-        vec.init(cap);
+        for i in 0..cap {
+            vec.ptr.init_with_default(i as isize);
+        }
 
         vec
     }
@@ -215,19 +278,6 @@ impl<T, A: Allocator> CompactArray<T, A> {
         self.cap
     }
 }
-
-impl<T, A: Allocator> HowToInit<T> for CompactArray<T, A> {
-    default fn init(&mut self, cap: usize) {}
-}
-
-impl<T: Default, A: Allocator> HowToInit<T> for CompactArray<T, A> {
-    fn init(&mut self, cap: usize) {
-        for i in 0..cap {
-            self.ptr.initialize_with_default(i as isize);
-        }
-    }
-}
-
 
 impl<T, A: Allocator> From<Vec<T>> for CompactArray<T, A> {
     /// Create a `CompactArray` from a normal `Vec`,
@@ -380,8 +430,6 @@ impl<T: Compact + Sized, A: Allocator> Compact for CompactArray<T, A> {
     }
 }
 
-
-
 impl<T: TrivialCompact + Compact, A: Allocator> Compact for CompactArray<T, A> {
     fn is_still_compact(&self) -> bool {
         self.ptr.is_compact()
@@ -404,7 +452,7 @@ impl<T: Clone, A: Allocator> Clone for CompactArray<T, A> {
     }
 }
 
-impl<T: Copy, A: Allocator> Clone for CompactArray<T, A> {
+impl<T: Copy + Default, A: Allocator> Clone for CompactArray<T, A> {
     fn clone(&self) -> CompactArray<T, A> {
         let mut new_vec = Self::with_capacity(self.cap);
         unsafe {
@@ -414,33 +462,11 @@ impl<T: Copy, A: Allocator> Clone for CompactArray<T, A> {
     }
 }
 
-impl<T: Compact + Clone + Default, A: Allocator> FromIterator<T> for CompactArray<T, A> {
-    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let into_iter = iter.into_iter();
-        let mut vec = CompactArray::with_capacity(into_iter.size_hint().0);
-        let mut i = 0;
-        for item in into_iter {
-            vec[i] = item;
-            i = i + 1;
-        }
-        vec
-    }
-}
-
-impl<T, A: Allocator> Default for CompactArray<T, A> {
-    fn default() -> CompactArray<T, A> {
-        CompactArray::new()
-    }
-}
-
 impl<T: Compact + ::std::fmt::Debug, A: Allocator> ::std::fmt::Debug for CompactArray<T, A> {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         (self.deref()).fmt(f)
     }
 }
-
-
-
 
 lazy_static! {
     static ref PRIME_SIEVE: primal::Sieve = {
@@ -448,7 +474,7 @@ lazy_static! {
     };
 }
 
-impl<K: Copy + Eq + Hash + Default, V: Compact + Default, A: Allocator> OpenAddressingMap<K, V, A> {
+impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     pub fn new() -> Self {
         Self::with_capacity(4)
     }
@@ -472,19 +498,19 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Default, A: Allocator> OpenAddr
 
     /// Look up the value for key `query`, if it exists
     pub fn get(&self, query: K) -> Option<&V> {
-        self.get_inner(query).map(|e| &e.value)
+        self.get_inner(query).and_then(|e| e.value_option())
     }
 
     pub fn get_mru(&self, query: K) -> Option<&V> {
-        self.get_inner(query).map(|e| &e.value)
+        self.get_inner(query).and_then(|e| e.value_option())
     }
 
     pub fn get_mfu(&self, query: K) -> Option<&V> {
-        self.get_inner(query).map(|e| &e.value)
+        self.get_inner(query).and_then(|e| e.value_option())
     }
 
     pub fn get_mut(&mut self, query: K) -> Option<&mut V> {
-        self.get_inner_mut(query).map(|e| &mut e.value)
+        self.get_inner_mut(query).and_then(|e| e.mut_value_option())
     }
 
     /// Does the dictionary contain a value for `query`?
@@ -504,32 +530,42 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Default, A: Allocator> OpenAddr
 
     /// Iterator over all keys in the dictionary
     pub fn keys<'a>(&'a self) -> impl Iterator<Item = &'a K> + 'a {
-        self.entries.iter().filter(|e| e.used).map(|e| (&e.key))
+        self.entries.iter().filter(|e| e.used()).map(|e| e.key())
     }
 
     /// Iterator over all values in the dictionary
     pub fn values<'a>(&'a self) -> impl Iterator<Item = &'a V> + 'a {
-        self.entries.iter().filter(|e| e.used).map(|e| (&e.value))
+        self.entries.iter().filter(|e| e.used()).map(|e| e.value())
     }
 
     /// Iterator over mutable references to all values in the dictionary
     pub fn values_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut V> + 'a {
-        self.entries.iter_mut().filter(|e| e.used).map(
-            |e| &mut e.value,
-        )
+        self.entries.iter_mut().filter(|e| e.used()).map(|e| {
+            e.mut_value()
+        })
     }
 
     /// Iterator over all key-value pairs in the dictionary
     pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)> + 'a {
-        self.entries.iter().filter(|e| e.used).map(
-            |e| (&e.key, &e.value),
-        )
+        self.entries.iter().filter(|e| e.used()).map(|e| {
+            (e.key(), e.value())
+        })
     }
 
     fn hash(&self, key: K) -> u64 {
         let mut hasher = DefaultHasher::new();
         key.hash(&mut hasher);
         hasher.finish()
+    }
+
+    fn write(&mut self, i: usize, hash: u64, query: K, value: V) -> Option<V> {
+        if !self.entries[i].used() {
+            self.entries[i] = Entry::new_used(hash, query, value);
+            self.size += 1;
+            None
+        } else {
+            self.entries[i].replace_value(value)
+        }
     }
 
     fn get_inner(&self, query: K) -> Option<&Entry<K, V>> {
@@ -551,19 +587,10 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Default, A: Allocator> OpenAddr
         let h = hash as usize;
         for i in 0..len {
             let index = (h + i * i) % len;
-            let entry = &mut self.entries[index];
-            if !entry.used {
-                entry.key = query;
-                entry.value = value;
-                entry.used = true;
-                entry.hash = hash;
-                self.size += 1;
-                return None;
-            } else if entry.key == query {
-                let old_val: V = entry.value.clone();
-                entry.value = value;
-                entry.hash = hash;
-                return Some(old_val);
+            if !self.entries[index].used() {
+                return self.write(index, hash, query, value);
+            } else if *self.entries[i].key() == query {
+                return self.write(index, hash, query, value);
             } else {
             }
         }
@@ -644,8 +671,7 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Default, A: Allocator> OpenAddr
     }
 }
 
-impl<K: Copy + Eq + Hash + Default, V: Compact + Default, A: Allocator> Compact
-    for OpenAddressingMap<K, V, A> {
+impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> Compact for OpenAddressingMap<K, V, A> {
     default fn is_still_compact(&self) -> bool {
         self.entries.is_still_compact()
     }
@@ -672,7 +698,7 @@ impl<K: Copy + Eq + Hash + Default, V: Compact + Default, A: Allocator> Compact
     }
 }
 
-impl<K: Copy + Default, V: Clone, A: Allocator> Clone for OpenAddressingMap<K, V, A> {
+impl<K: Copy, V: Clone, A: Allocator> Clone for OpenAddressingMap<K, V, A> {
     fn clone(&self) -> Self {
         OpenAddressingMap {
             entries: self.entries.clone(),
@@ -681,18 +707,14 @@ impl<K: Copy + Default, V: Clone, A: Allocator> Clone for OpenAddressingMap<K, V
     }
 }
 
-impl<K: Copy + Eq + Hash + Default, V: Compact + Default, A: Allocator> Default
-    for OpenAddressingMap<K, V, A> {
+impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> Default for OpenAddressingMap<K, V, A> {
     fn default() -> Self {
-        OpenAddressingMap::with_capacity(4)
+        OpenAddressingMap::with_capacity(5)
     }
 }
 
-impl<
-    K: Copy + Eq + Hash + Default,
-    V: Compact + Clone + Default,
-    A: Allocator,
-> ::std::iter::FromIterator<(K, V)> for OpenAddressingMap<K, V, A> {
+impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> ::std::iter::FromIterator<(K, V)>
+    for OpenAddressingMap<K, V, A> {
     /// Construct a compact dictionary from an interator over key-value pairs
     fn from_iter<T: IntoIterator<Item = (K, V)>>(iter_to_be: T) -> Self {
         let iter = iter_to_be.into_iter();
@@ -704,23 +726,21 @@ impl<
     }
 }
 
-impl<K: Hash + Eq + Copy + Default, I: Compact, A1: Allocator, A2: Allocator>
+impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator>
     OpenAddressingMap<K, CompactVec<I, A1>, A2> {
     /// Push a value onto the `CompactVec` at the key `query`
     pub fn push_at(&mut self, query: K, item: I) {
         self.ensure_capacity();
+        let hash = self.hash(query);
         let index = self.find_pos(query);
         match index {
             Some(i) => {
                 if self.entries[i].used {
                     self.entries[i].value.push(item);
                 } else {
-                    self.entries[i].used = true;
-                    self.entries[i].value = CompactVec::new();
-                    self.entries[i].value.push(item);
-                    self.entries[i].hash = self.hash(query);
-                    self.entries[i].key = query;
-                    self.size += 1;
+                    let mut val = CompactVec::new();
+                    val.push(item);
+                    self.write(i, hash, query, val);
                 }
             }
             None => {
