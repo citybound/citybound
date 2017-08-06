@@ -715,6 +715,12 @@ impl<T: Hash> Hash for CompactVec<T> {
     }
 }
 
+
+
+fn elem(n: usize) -> usize {
+    (n * n) as usize
+}
+
 #[test]
 fn array_basic() {
     let mut arr: CompactArray<u32> = CompactArray::with_capacity(2);
@@ -759,13 +765,6 @@ fn array_clone() {
     assert!(arr.iter().find(|&i| *i == 0).is_some());
     let mut arr2 = arr.clone();
     assert!(arr2.iter().find(|&i| *i == 0).is_some());
-}
-
-
-
-#[test]
-fn elem(n: usize) -> usize {
-    (n * n) as usize
 }
 
 #[test]
