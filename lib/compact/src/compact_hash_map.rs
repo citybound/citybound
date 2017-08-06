@@ -19,10 +19,15 @@ use std::iter::FromIterator;
 
 #[derive(Clone)]
 struct Entry<K, V> {
-    key: K,
-    hash: u64,
-    value: V,
     used: bool,
+    hash: u64,
+    key_value: KeyValue<K, V>,
+}
+
+#[derive(Clone)]
+struct KeyValue<K, V> {
+    key: K,
+    value: V,
 }
 
 /// A dynamically-sized array that can be stored in compact sequential storage and
@@ -56,49 +61,39 @@ impl<K, V> std::fmt::Debug for Entry<K, V> {
     }
 }
 
-impl<K, V> Entry<K, V> {
-    fn is_still_compact_const(&self) -> bool {
-        true
-    }
-}
-
-impl<K, V: Compact> Entry<K, V> {
-    fn is_still_compact_inner_default(&self) -> bool {
-        !self.used || self.value.is_still_compact()
-    }
-}
-
 impl<K: Copy, V: Copy> TrivialCompact for Entry<K, V> {}
 
 impl<K: Copy, V: Compact> Compact for Entry<K, V> {
     default fn is_still_compact(&self) -> bool {
-        Self::is_still_compact_inner_default(&self)
+        !self.used || self.key_value.is_still_compact()
     }
 
     default fn dynamic_size_bytes(&self) -> usize {
-        self.value.dynamic_size_bytes()
+        self.key_value.dynamic_size_bytes()
     }
 
     default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
-        (*dest).key = (*source).key;
         (*dest).hash = (*source).hash;
         (*dest).used = (*source).used;
-        Compact::compact(&mut (*source).value, &mut (*dest).value, new_dynamic_part);
+        Compact::compact(
+            &mut (*source).key_value,
+            &mut (*dest).key_value,
+            new_dynamic_part,
+        );
     }
 
     default unsafe fn decompact(source: *const Self) -> Entry<K, V> {
         Entry {
-            key: (*source).key.clone(),
-            value: Compact::decompact(&(*source).value),
             hash: (*source).hash,
             used: (*source).used,
+            key_value: Compact::decompact(&(*source).key_value),
         }
     }
 }
 
 impl<K: Copy, V: Copy> Compact for Entry<K, V> {
     fn is_still_compact(&self) -> bool {
-        Self::is_still_compact_const(&self)
+        true
     }
 
     fn dynamic_size_bytes(&self) -> usize {
@@ -106,16 +101,14 @@ impl<K: Copy, V: Copy> Compact for Entry<K, V> {
     }
 
     unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
-        (*dest).key = (*source).key;
         (*dest).hash = (*source).hash;
         (*dest).used = (*source).used;
-        (*dest).value = (*source).value;
+        (*dest).key_value = (*source).key_value;
     }
 
     unsafe fn decompact(source: *const Self) -> Entry<K, V> {
         Entry {
-            key: (*source).key,
-            value: (*source).value,
+            key_value: (*source).key_value,
             hash: (*source).hash,
             used: (*source).used,
         }
@@ -125,15 +118,62 @@ impl<K: Copy, V: Copy> Compact for Entry<K, V> {
 impl<K: Default, V: Default> Default for Entry<K, V> {
     fn default() -> Self {
         Entry {
-            key: K::default(),
-            value: V::default(),
+            key_value: KeyValue::default(),
             hash: 0,
             used: false,
         }
     }
 }
 
+impl<K: Copy, V: Compact> Compact for KeyValue<K, V> {
+    default fn is_still_compact(&self) -> bool {
+        self.value.is_still_compact()
+    }
 
+    default fn dynamic_size_bytes(&self) -> usize {
+        self.value.dynamic_size_bytes()
+    }
+
+    default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
+        (*dest).key = (*source).key;
+        Compact::compact(&mut (*source).value, &mut (*dest).value, new_dynamic_part);
+    }
+
+    default unsafe fn decompact(source: *const Self) -> KeyValue<K, V> {
+        KeyValue {
+            key: (*source).key.clone(),
+            value: Compact::decompact(&(*source).value),
+        }
+    }
+}
+
+impl<K: Copy, V: Copy> Compact for KeyValue<K, V> {
+    fn is_still_compact(&self) -> bool {
+        true
+    }
+
+    fn dynamic_size_bytes(&self) -> usize {
+        0
+    }
+
+    unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
+        (*dest).key = (*source).key;
+        (*dest).value = (*source).value;
+    }
+
+    unsafe fn decompact(source: *const Self) -> KeyValue<K, V> {
+        KeyValue {
+            key: (*source).key,
+            value: (*source).value,
+        }
+    }
+}
+
+impl<K: Default, V: Default> Default for KeyValue<K, V> {
+    fn default() -> Self {
+        KeyValue { key: K::default(), value: V::default() }
+    }
+}
 
 pub trait TrivialCompact {}
 
