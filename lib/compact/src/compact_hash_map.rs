@@ -56,6 +56,22 @@ pub struct IntoIter<T, A: Allocator> {
     _alloc: PhantomData<*const A>,
 }
 
+
+struct QuadraticProbingIterator<'a, K: 'a, V: 'a> {
+    i: usize,
+    len: usize,
+    hash: u64,
+    map: &'a OpenAddressingMap<K, V>,
+}
+
+struct QuadraticProbingMutIterator<'a, K: 'a, V: 'a> {
+    i: usize,
+    len: usize,
+    hash: u64,
+    map: &'a mut OpenAddressingMap<K, V>,
+}
+
+
 /// A dynamically-sized open adressing quadratic probing hashmap
 /// that can be stored in compact sequential storage and
 /// automatically spills over into free heap storage using `Allocator`.
@@ -111,6 +127,10 @@ impl<T> CompactOption<T> {
     fn map_or<U, F: FnOnce(T) -> U>(&self, default: U, f: F) -> U {
         self.inner.map_or(default, f)
     }
+
+    fn unwrap(&self) -> T {
+        self.inner.unwrap()
+    }
 }
 
 impl<T: Compact> Compact for CompactOption<T> {
@@ -143,7 +163,7 @@ impl<T: Compact> Compact for CompactOption<T> {
     }
 }
 
-impl<K, V: Clone> Entry<K, V> {
+impl<K: Eq, V: Clone> Entry<K, V> {
     fn new_used(hash: u64, key: K, value: V) -> Entry<K, V> {
         Entry {
             hash: hash,
@@ -160,7 +180,11 @@ impl<K, V: Clone> Entry<K, V> {
             }
         }
     }
-
+    fn remove(&mut self) -> Option<V> {
+        let old_val = self.value_option().map(|v| v.clone());
+        self.inner = CompactOption::none();
+        old_val
+    }
     fn used(&self) -> bool {
         self.inner.is_some()
     }
@@ -181,6 +205,13 @@ impl<K, V: Clone> Entry<K, V> {
     }
     fn mut_value_option(&mut self) -> Option<&mut V> {
         self.inner.inner.map(|kv| &mut kv.value)
+    }
+    fn is_this(&self, key: K) -> bool {
+        self.inner.map_or(false, |kv| kv.key == key)
+    }
+    fn as_tuple(&self) -> (K, V) {
+        debug_assert!(self.used());
+        (self.inner.unwrap().key, self.inner.unwrap().value)
     }
 }
 
@@ -474,6 +505,54 @@ lazy_static! {
     };
 }
 
+impl<'a, K, V> QuadraticProbingIterator<'a, K, V> {
+    fn new(map: &'a OpenAddressingMap<K, V>, hash: u64) -> QuadraticProbingIterator<K, V> {
+        QuadraticProbingIterator {
+            i: 0,
+            len: map.entries.cap,
+            hash: hash,
+            map: map,
+        }
+    }
+}
+
+impl<'a, K, V> QuadraticProbingMutIterator<'a, K, V> {
+    fn new(map: &'a mut OpenAddressingMap<K, V>, hash: u64) -> QuadraticProbingMutIterator<K, V> {
+        QuadraticProbingMutIterator {
+            i: 0,
+            len: map.entries.cap,
+            hash: hash,
+            map: map,
+        }
+    }
+}
+
+impl<'a, K, V> Iterator for QuadraticProbingIterator<'a, K, V> {
+    type Item = &'a Entry<K, V>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.i >= self.len {
+            return None;
+        }
+        self.i += 1;
+        let index = (self.hash as usize + self.i * self.i) % self.len;
+        Some(&self.map.entries[index])
+    }
+}
+
+impl<'a, K, V> Iterator for QuadraticProbingMutIterator<'a, K, V> {
+    type Item = &'a mut Entry<K, V>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.i >= self.len {
+            return None;
+        }
+        self.i += 1;
+        let index = (self.hash as usize + self.i * self.i) % self.len;
+        Some(&self.map.entries[index])
+    }
+}
+
 impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     pub fn new() -> Self {
         Self::with_capacity(4)
@@ -498,19 +577,19 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     /// Look up the value for key `query`, if it exists
     pub fn get(&self, query: K) -> Option<&V> {
-        self.get_inner(query).and_then(|e| e.value_option())
+        self.find_used(query).and_then(|e| e.value_option())
     }
 
     pub fn get_mru(&self, query: K) -> Option<&V> {
-        self.get_inner(query).and_then(|e| e.value_option())
+        self.find_used(query).and_then(|e| e.value_option())
     }
 
     pub fn get_mfu(&self, query: K) -> Option<&V> {
-        self.get_inner(query).and_then(|e| e.value_option())
+        self.find_used(query).and_then(|e| e.value_option())
     }
 
     pub fn get_mut(&mut self, query: K) -> Option<&mut V> {
-        self.get_inner_mut(query).and_then(|e| e.mut_value_option())
+        self.find_used_mut(query).and_then(|e| e.mut_value_option())
     }
 
     /// Does the dictionary contain a value for `query`?
@@ -558,56 +637,27 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
         hasher.finish()
     }
 
-    fn write(&mut self, i: usize, hash: u64, query: K, value: V) -> Option<V> {
-        if !self.entries[i].used() {
-            self.entries[i] = Entry::new_used(hash, query, value);
-            self.size += 1;
-            None
-        } else {
-            self.entries[i].replace_value(value)
-        }
-    }
-
-    fn get_inner(&self, query: K) -> Option<&Entry<K, V>> {
-        self.find_pos_used(query).map(move |i| &self.entries[i])
-    }
-
-    fn get_inner_mut(&mut self, query: K) -> Option<&mut Entry<K, V>> {
-        self.find_pos(query).map(move |i| &mut self.entries[i])
-    }
-
     fn insert_inner_growing(&mut self, query: K, value: V) -> Option<V> {
         self.ensure_capacity();
         self.insert_inner(query, value)
     }
 
     fn insert_inner(&mut self, query: K, value: V) -> Option<V> {
-        let len = self.entries.capacity();
         let hash = self.hash(query);
-        let h = hash as usize;
-        for i in 0..len {
-            let index = (h + i * i) % len;
-            if !self.entries[index].used() {
-                return self.write(index, hash, query, value);
-            } else if *self.entries[i].key() == query {
-                return self.write(index, hash, query, value);
-            } else {
+        for entry in self.quadratic_iterator_mut(hash) {
+            if entry.is_this(query) {
+                return entry.replace_value(value);
             }
         }
         panic!("should have place")
     }
 
-
-
     fn remove_inner(&mut self, query: K) -> Option<V> {
-        let len = self.entries.capacity();
-        let h = self.hash(query) as usize;
-        for i in 0..len {
-            let index = (h + i * i) % len;
-            if self.entries[index].used && (self.entries[index].key == query) {
-                self.entries[index].used = false;
+        let hash = self.hash(query);
+        for entry in self.quadratic_iterator_mut(hash) {
+            if entry.is_this(query) {
                 self.size -= 1;
-                return Some(self.entries[index].value.clone());
+                return entry.remove();
             }
         }
         None
@@ -621,35 +671,55 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
             );
             self.size = 0;
             for entry in old_entries {
-                if entry.used {
-                    self.insert(entry.key, entry.value);
+                if entry.used() {
+                    let tuple = entry.as_tuple();
+                    self.insert(tuple.0, tuple.1);
                 }
             }
         }
     }
 
-    fn find_pos_used(&self, query: K) -> Option<usize> {
-        self.find_pos(query).and_then(
-            |i| match self.entries[i].used {
-                true => Some(i),
-                false => None,
-            },
-        )
-    }
-
-    fn find_pos(&self, query: K) -> Option<usize> {
+    fn find_pos(&self, query: K) -> Option<&Entry<K, V>> {
         let len = self.entries.capacity();
-        let h = self.hash(query) as usize;
-        for i in 0..len {
-            let index = (h + i * i) % len;
-            let entry = &self.entries[index];
-            if entry.used && (entry.key == query) {
-                return Some(index);
-            } else if !entry.used {
-                return Some(index);
+        let h = self.hash(query);
+        for entry in self.quadratic_iterator(h) {
+            if entry.is_this(query) {
+                return Some(entry);
+            } else if !entry.used() {
+                return Some(entry);
             }
         }
         None
+    }
+
+    fn find_used(&self, query: K) -> Option<&Entry<K, V>> {
+        let len = self.entries.capacity();
+        let h = self.hash(query);
+        for entry in self.quadratic_iterator(h) {
+            if entry.is_this(query) {
+                return Some(entry);
+            }
+        }
+        None
+    }
+
+    fn find_used_mut(&mut self, query: K) -> Option<&mut Entry<K, V>> {
+        let len = self.entries.capacity();
+        let h = self.hash(query);
+        for entry in self.quadratic_iterator_mut(h) {
+            if entry.is_this(query) {
+                return Some(entry);
+            }
+        }
+        None
+    }
+
+    fn quadratic_iterator(&self, hash: u64) -> QuadraticProbingIterator<K, V> {
+        QuadraticProbingIterator::new(self, hash)
+    }
+
+    fn quadratic_iterator_mut(&mut self, hash: u64) -> QuadraticProbingIterator<K, V> {
+        QuadraticProbingMutIterator::new(self, hash)
     }
 
     fn find_prime_larger_than(n: usize) -> usize {
@@ -661,10 +731,10 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
         writeln!(&mut res, "size: {:?}", self.size);
         let mut size_left: isize = self.size as isize;
         for entry in self.entries.iter() {
-            if entry.used {
+            if entry.used() {
                 size_left -= 1;
             }
-            writeln!(&mut res, "  {:?} {:?}", entry.used, entry.hash).unwrap();
+            writeln!(&mut res, "  {:?} {:?}", entry.used(), entry.hash).unwrap();
         }
         writeln!(&mut res, "size_left : {:?}", size_left);
         res
@@ -725,6 +795,9 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> ::std::iter::FromIte
         map
     }
 }
+
+
+
 
 impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator>
     OpenAddressingMap<K, CompactVec<I, A1>, A2> {
