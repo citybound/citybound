@@ -269,13 +269,13 @@ impl<K: Copy, V: Copy> Compact for Entry<K, V> {
 
     unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
         (*dest).hash = (*source).hash;
-        (*dest).inner = (*source).inner;
+        (*dest).inner = (*source).inner.clone();
     }
 
     unsafe fn decompact(source: *const Self) -> Entry<K, V> {
         Entry {
             hash: (*source).hash,
-            inner: (*source).inner,
+            inner: (*source).inner.clone(),
         }
     }
 }
@@ -554,14 +554,15 @@ impl<'a, K, V, A: Allocator> Iterator for QuadraticProbingIterator<'a, K, V, A> 
     }
 }
 
-impl<'a, K, V, A: Allocator> QuadraticProbingMutIterator<'a, K, V, A> {
-    fn next(&'a mut self) -> Option<&'a mut Entry<K, V>> {
+impl<'a, K, V, A: Allocator> Iterator for QuadraticProbingMutIterator<'a, K, V, A> {
+    type Item = &'a mut Entry<K, V>;
+    fn next(&mut self) -> Option<&'a mut Entry<K, V>> {
         if self.i >= self.len {
             return None;
         }
         self.i += 1;
         let index = (self.hash as usize + self.i * self.i) % self.len;
-        Some(&mut self.map.entries[index])
+        Some(unsafe { std::mem::transmute(&mut self.map.entries[index]) })
     }
 }
 
@@ -656,32 +657,26 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     fn insert_inner(&mut self, query: K, value: V) -> Option<V> {
         let hash = self.hash(query);
-        let mut iter = self.quadratic_iterator_mut(hash);
-        while true {
-            let mut maybe_entry = iter.next();
-            match maybe_entry {
-                Some(entry) => {
-                    if entry.is_this(query) {
-                        return entry.replace_value(value);
-                    }
-                }
-                None => break,
+        for entry in self.quadratic_iterator_mut(hash) {
+            if entry.is_this(query) {
+                return entry.replace_value(value);
             }
         }
         panic!("should have place")
     }
 
     fn remove_inner(&mut self, query: K) -> Option<V> {
+        let res = self.remove_inner_inner(query);
+        if res.is_some() {
+            self.size -= 1;
+        }
+        res
+    }
+
+    fn remove_inner_inner(&mut self, query: K) -> Option<V> {
         let hash = self.hash(query);
-        let iter = self.quadratic_iterator_mut(hash);
-        while true {
-            let maybe_entry = iter.next();
-            if maybe_entry.is_none() {
-                break;
-            }
-            let entry = maybe_entry.unwrap();
+        for entry in self.quadratic_iterator_mut(hash) {
             if entry.is_this(query) {
-                self.size -= 1;
                 return entry.remove();
             }
         }
@@ -835,15 +830,9 @@ impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator>
     pub fn push_at(&mut self, query: K, item: I) {
         self.ensure_capacity();
         let hash = self.hash(query);
-        let mut iter = self.quadratic_iterator_mut(hash);
-        while true {
-            let maybe_entry = iter.next();
-            if maybe_entry.is_none() {
-                break;
-            }
-            let entry = maybe_entry.unwrap();
+        for entry in self.quadratic_iterator_mut(hash) {
             if entry.used() {
-                entry.value().push(item);
+                entry.mut_value().push(item);
                 return;
             } else {
                 let mut val = CompactVec::new();
