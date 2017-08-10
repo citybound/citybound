@@ -57,18 +57,19 @@ pub struct IntoIter<T, A: Allocator> {
 }
 
 
-struct QuadraticProbingIterator<'a, K: 'a, V: 'a> {
+struct QuadraticProbingIterator<'a, K: 'a, V: 'a, A: 'a + Allocator> {
     i: usize,
     len: usize,
     hash: u64,
-    map: &'a OpenAddressingMap<K, V>,
+    map: &'a OpenAddressingMap<K, V, A>,
 }
 
-struct QuadraticProbingMutIterator<'a, K: 'a, V: 'a> {
+struct QuadraticProbingMutIterator<'a, K: 'a, V: 'a, A: 'a + Allocator> {
     i: usize,
     len: usize,
     hash: u64,
-    map: &'a mut OpenAddressingMap<K, V>,
+    map: &'a mut OpenAddressingMap<K, V, A>,
+    next: Option<&'a mut Entry<K, V>>,
 }
 
 
@@ -505,8 +506,11 @@ lazy_static! {
     };
 }
 
-impl<'a, K, V> QuadraticProbingIterator<'a, K, V> {
-    fn new(map: &'a OpenAddressingMap<K, V>, hash: u64) -> QuadraticProbingIterator<K, V> {
+impl<'a, K, V, A: Allocator> QuadraticProbingIterator<'a, K, V, A> {
+    fn for_map(
+        map: &'a OpenAddressingMap<K, V, A>,
+        hash: u64,
+    ) -> QuadraticProbingIterator<K, V, A> {
         QuadraticProbingIterator {
             i: 0,
             len: map.entries.cap,
@@ -516,18 +520,22 @@ impl<'a, K, V> QuadraticProbingIterator<'a, K, V> {
     }
 }
 
-impl<'a, K, V> QuadraticProbingMutIterator<'a, K, V> {
-    fn new(map: &'a mut OpenAddressingMap<K, V>, hash: u64) -> QuadraticProbingMutIterator<K, V> {
+impl<'a, K, V, A: Allocator> QuadraticProbingMutIterator<'a, K, V, A> {
+    fn for_map(
+        map: &'a mut OpenAddressingMap<K, V, A>,
+        hash: u64,
+    ) -> QuadraticProbingMutIterator<K, V, A> {
         QuadraticProbingMutIterator {
             i: 0,
             len: map.entries.cap,
             hash: hash,
             map: map,
+            next: None,
         }
     }
 }
 
-impl<'a, K, V> Iterator for QuadraticProbingIterator<'a, K, V> {
+impl<'a, K, V, A: Allocator> Iterator for QuadraticProbingIterator<'a, K, V, A> {
     type Item = &'a Entry<K, V>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -540,7 +548,7 @@ impl<'a, K, V> Iterator for QuadraticProbingIterator<'a, K, V> {
     }
 }
 
-impl<'a, K, V> Iterator for QuadraticProbingMutIterator<'a, K, V> {
+impl<'a, K, V, A: Allocator> Iterator for QuadraticProbingMutIterator<'a, K, V, A> {
     type Item = &'a mut Entry<K, V>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -549,7 +557,14 @@ impl<'a, K, V> Iterator for QuadraticProbingMutIterator<'a, K, V> {
         }
         self.i += 1;
         let index = (self.hash as usize + self.i * self.i) % self.len;
-        Some(&self.map.entries[index])
+        self.next = Some(&mut self.map.entries[index]);
+        self.next
+
+
+        self.next.map(|node| {
+            self.next = node.next.as_mut().map(|node| &mut **node);
+            &mut node.elem
+        })
     }
 }
 
@@ -714,12 +729,12 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
         None
     }
 
-    fn quadratic_iterator(&self, hash: u64) -> QuadraticProbingIterator<K, V> {
-        QuadraticProbingIterator::new(self, hash)
+    fn quadratic_iterator(&self, hash: u64) -> QuadraticProbingIterator<K, V, A> {
+        QuadraticProbingIterator::for_map(self, hash)
     }
 
-    fn quadratic_iterator_mut(&mut self, hash: u64) -> QuadraticProbingIterator<K, V> {
-        QuadraticProbingMutIterator::new(self, hash)
+    fn quadratic_iterator_mut(&mut self, hash: u64) -> QuadraticProbingMutIterator<K, V, A> {
+        QuadraticProbingMutIterator::for_map(self, hash)
     }
 
     fn find_prime_larger_than(n: usize) -> usize {
@@ -805,22 +820,19 @@ impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator>
     pub fn push_at(&mut self, query: K, item: I) {
         self.ensure_capacity();
         let hash = self.hash(query);
-        let index = self.find_pos(query);
-        match index {
-            Some(i) => {
-                if self.entries[i].used {
-                    self.entries[i].value.push(item);
-                } else {
-                    let mut val = CompactVec::new();
-                    val.push(item);
-                    self.write(i, hash, query, val);
-                }
-            }
-            None => {
-                println!("{:?}", self.display());
-                panic!("should always have place");
+        for entry in self.quadratic_iterator_mut(hash) {
+            if entry.used() {
+                entry.value().push(item);
+                return;
+            } else {
+                let mut val = CompactVec::new();
+                val.push(item);
+                entry.replace_value(val);
+                return;
             }
         }
+        println!("{:?}", self.display());
+        panic!("should always have place");
     }
 
     /// Iterator over the `CompactVec` at the key `query`
