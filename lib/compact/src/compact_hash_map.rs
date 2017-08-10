@@ -170,13 +170,13 @@ impl<T: Compact> Compact for CompactOption<T> {
 }
 
 impl<K: Eq, V: Clone> Entry<K, V> {
-    fn new_used(hash: u64, key: K, value: V) -> Entry<K, V> {
-        Entry {
-            hash: hash,
-            inner: CompactOption::some(KeyValue { key: key, value: value }),
-        }
+    fn make_used(&mut self, hash: u64, key: K, value: V) {
+        self.hash = hash;
+        self.inner = CompactOption::some(KeyValue{ key: key, value: value});
     }
+    
     fn replace_value(&mut self, new_val: V) -> Option<V> {
+        debug_assert!(self.used());
         match self.inner.as_mut() {
             None => None,
             Some(kv) => {
@@ -548,8 +548,9 @@ impl<'a, K, V, A: Allocator> Iterator for QuadraticProbingIterator<'a, K, V, A> 
         if self.i >= self.len {
             return None;
         }
-        self.i += 1;
         let index = (self.hash as usize + self.i * self.i) % self.len;
+        self.i += 1;
+        println!("i {}", self.i);
         Some(&self.map.entries[index])
     }
 }
@@ -560,8 +561,9 @@ impl<'a, K, V, A: Allocator> Iterator for QuadraticProbingMutIterator<'a, K, V, 
         if self.i >= self.len {
             return None;
         }
-        self.i += 1;
         let index = (self.hash as usize + self.i * self.i) % self.len;
+        self.i += 1;
+        println!("i {}", self.i);
         Some(unsafe { std::mem::transmute(&mut self.map.entries[index]) })
     }
 }
@@ -612,7 +614,9 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     /// Insert new value at key `query` and return the previous value at that key, if any existed
     pub fn insert(&mut self, query: K, value: V) -> Option<V> {
-        self.insert_inner_growing(query, value)
+        let res = self.insert_inner_growing(query, value);
+        println!("after insert {}", self.display());
+        res
     }
 
     /// Remove value at key `query` and return it, if it existed
@@ -658,7 +662,10 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     fn insert_inner(&mut self, query: K, value: V) -> Option<V> {
         let hash = self.hash(query);
         for entry in self.quadratic_iterator_mut(hash) {
-            if entry.is_this(query) {
+            if !entry.used() {
+                entry.make_used(hash, query, value);
+                return None;
+            } else if entry.is_this(query) {
                 return entry.replace_value(value);
             }
         }
@@ -923,9 +930,11 @@ fn array_clone() {
 }
 
 #[test]
-fn very_basic() {
+fn very_basic1() {
     let mut map: OpenAddressingMap<u32, u32> = OpenAddressingMap::with_capacity(2);
+    println!("{}", map.display());
     map.insert(0, 54);
+    println!("{}", map.display());
     assert!(*map.get(0).unwrap() == 54);
     map.insert(1, 48);
     assert!(*map.get(1).unwrap() == 48);
