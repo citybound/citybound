@@ -121,35 +121,39 @@ impl<T> CompactOption<T> {
         CompactOption { inner: Some(t) }
     }
 
+    fn as_ref(&mut self) -> Option<&T> {
+        self.inner.as_ref()
+    }
+
     fn as_mut(&mut self) -> Option<&mut T> {
         self.inner.as_mut()
     }
 
-    fn map_or<U, F: FnOnce(T) -> U>(&self, default: U, f: F) -> U {
+    fn map_or<U, F: FnOnce(T) -> U>(self, default: U, f: F) -> U {
         self.inner.map_or(default, f)
     }
 
-    fn unwrap(&self) -> T {
+    fn unwrap(self) -> T {
         self.inner.unwrap()
     }
 }
 
 impl<T: Compact> Compact for CompactOption<T> {
     default fn is_still_compact(&self) -> bool {
-        self.inner.map_or(true, |t| t.is_still_compact())
+        self.inner.as_ref().map_or(true, |t| t.is_still_compact())
     }
 
     default fn dynamic_size_bytes(&self) -> usize {
-        self.inner.map_or(0, |t| t.dynamic_size_bytes())
+        self.inner.as_ref().map_or(0, |t| t.dynamic_size_bytes())
     }
 
     default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
         if (*source).is_none() {
-            *dest = *source;
+            *dest = CompactOption::none();
         } else {
             Compact::compact(
-                &mut (*source).inner.unwrap(),
-                &mut (*dest).inner.unwrap(),
+                &mut (*source).inner.as_ref().unwrap(),
+                &mut (*dest).inner.as_ref().unwrap(),
                 new_dynamic_part,
             )
         }
@@ -159,7 +163,8 @@ impl<T: Compact> Compact for CompactOption<T> {
         if (*source).is_none() {
             CompactOption::none()
         } else {
-            CompactOption::some(Compact::decompact(&(*source).inner.unwrap()))
+            let insides = (*source).inner.as_ref().unwrap();
+            CompactOption::some(Compact::decompact(insides))
         }
     }
 }
@@ -174,7 +179,7 @@ impl<K: Eq, V: Clone> Entry<K, V> {
     fn replace_value(&mut self, new_val: V) -> Option<V> {
         match self.inner.as_mut() {
             None => None,
-            Some(&mut kv) => {
+            Some(kv) => {
                 let old = kv.value.clone();
                 kv.value = new_val;
                 Some(old)
@@ -189,30 +194,31 @@ impl<K: Eq, V: Clone> Entry<K, V> {
     fn used(&self) -> bool {
         self.inner.is_some()
     }
-    fn key<'a>(&self) -> &'a K {
-        &self.inner.inner.unwrap().key
+    fn key<'a>(&'a self) -> &'a K {
+        &self.inner.inner.as_ref().unwrap().key
     }
     fn key_option(&self) -> Option<&K> {
-        self.inner.inner.map(|kv| &kv.key)
+        self.inner.inner.as_ref().map(|kv| &kv.key)
     }
     fn value(&self) -> &V {
-        self.inner.inner.map(|kv| &kv.value).unwrap()
+        self.inner.inner.as_ref().map(|kv| &kv.value).unwrap()
     }
     fn value_option(&self) -> Option<&V> {
-        self.inner.inner.map(|kv| &kv.value)
+        self.inner.inner.as_ref().map(|kv| &kv.value)
     }
     fn mut_value(&mut self) -> &mut V {
-        self.inner.inner.map(|kv| &mut kv.value).unwrap()
+        self.inner.inner.as_mut().map(|kv| &mut kv.value).unwrap()
     }
     fn mut_value_option(&mut self) -> Option<&mut V> {
-        self.inner.inner.map(|kv| &mut kv.value)
+        self.inner.inner.as_mut().map(|kv| &mut kv.value)
     }
     fn is_this(&self, key: K) -> bool {
-        self.inner.map_or(false, |kv| kv.key == key)
+        self.inner.inner.as_ref().map_or(false, |kv| kv.key == key)
     }
-    fn as_tuple(&self) -> (K, V) {
+    fn as_tuple(self) -> (K, V) {
         debug_assert!(self.used());
-        (self.inner.unwrap().key, self.inner.unwrap().value)
+        let kv = self.inner.inner.unwrap();
+        (kv.key, kv.value)
     }
 }
 
@@ -548,23 +554,14 @@ impl<'a, K, V, A: Allocator> Iterator for QuadraticProbingIterator<'a, K, V, A> 
     }
 }
 
-impl<'a, K, V, A: Allocator> Iterator for QuadraticProbingMutIterator<'a, K, V, A> {
-    type Item = &'a mut Entry<K, V>;
-
-    fn next(&mut self) -> Option<Self::Item> {
+impl<'a, K, V, A: Allocator> QuadraticProbingMutIterator<'a, K, V, A> {
+    fn next(&'a mut self) -> Option<&'a mut Entry<K, V>> {
         if self.i >= self.len {
             return None;
         }
         self.i += 1;
         let index = (self.hash as usize + self.i * self.i) % self.len;
-        self.next = Some(&mut self.map.entries[index]);
-        self.next
-
-
-        self.next.map(|node| {
-            self.next = node.next.as_mut().map(|node| &mut **node);
-            &mut node.elem
-        })
+        Some(&mut self.map.entries[index])
     }
 }
 
@@ -659,9 +656,16 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     fn insert_inner(&mut self, query: K, value: V) -> Option<V> {
         let hash = self.hash(query);
-        for entry in self.quadratic_iterator_mut(hash) {
-            if entry.is_this(query) {
-                return entry.replace_value(value);
+        let mut iter = self.quadratic_iterator_mut(hash);
+        while true {
+            let mut maybe_entry = iter.next();
+            match maybe_entry {
+                Some(entry) => {
+                    if entry.is_this(query) {
+                        return entry.replace_value(value);
+                    }
+                }
+                None => break,
             }
         }
         panic!("should have place")
@@ -669,7 +673,13 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     fn remove_inner(&mut self, query: K) -> Option<V> {
         let hash = self.hash(query);
-        for entry in self.quadratic_iterator_mut(hash) {
+        let iter = self.quadratic_iterator_mut(hash);
+        while true {
+            let maybe_entry = iter.next();
+            if maybe_entry.is_none() {
+                break;
+            }
+            let entry = maybe_entry.unwrap();
             if entry.is_this(query) {
                 self.size -= 1;
                 return entry.remove();
@@ -718,10 +728,15 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
         None
     }
 
-    fn find_used_mut(&mut self, query: K) -> Option<&mut Entry<K, V>> {
-        let len = self.entries.capacity();
+    fn find_used_mut<'a>(&'a mut self, query: K) -> Option<&'a mut Entry<K, V>> {
         let h = self.hash(query);
-        for entry in self.quadratic_iterator_mut(h) {
+        let mut iter = self.quadratic_iterator_mut(h);
+        while true {
+            let maybe_entry = iter.next();
+            if maybe_entry.is_none() {
+                break;
+            }
+            let entry = maybe_entry.unwrap();
             if entry.is_this(query) {
                 return Some(entry);
             }
@@ -820,7 +835,13 @@ impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator>
     pub fn push_at(&mut self, query: K, item: I) {
         self.ensure_capacity();
         let hash = self.hash(query);
-        for entry in self.quadratic_iterator_mut(hash) {
+        let mut iter = self.quadratic_iterator_mut(hash);
+        while true {
+            let maybe_entry = iter.next();
+            if maybe_entry.is_none() {
+                break;
+            }
+            let entry = maybe_entry.unwrap();
             if entry.used() {
                 entry.value().push(item);
                 return;
