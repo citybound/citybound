@@ -138,6 +138,7 @@ impl<T: Compact> Compact for CompactOption<T> {
         if (*source).is_none() {
             *dest = CompactOption::none();
         } else {
+            *dest = (*source).clone();
             Compact::compact(
                 &mut (*source).inner.as_ref().unwrap(),
                 &mut (*dest).inner.as_ref().unwrap(),
@@ -1089,6 +1090,29 @@ fn compact_notcopy() {
     for n in 0..1000 {
         map.push_at(n, elem(n));
         map.push_at(n, elem(n) + 1);
+    }
+    assert_fun(&map, 500);
+    let bytes = map.total_size_bytes();
+    let storage = DefaultHeap::allocate(bytes);
+    unsafe {
+        Compact::compact_behind(&mut map, storage as *mut NestedType);
+        ::std::mem::forget(map);
+        assert_fun(&(*(storage as *mut NestedType)), 449);
+        let decompacted = Compact::decompact(storage as *mut NestedType);
+        assert_fun(&decompacted, 449);
+        DefaultHeap::deallocate(storage, bytes);
+    }
+}
+
+#[test]
+fn compact_copy() {
+    type NestedType = OpenAddressingMap<usize, usize>;
+
+    let mut map: NestedType = OpenAddressingMap::new();
+    let assert_fun = |map: &NestedType, t: usize| assert!(map.get(t).is_some());
+
+    for n in 0..1000 {
+        map.insert(n, elem(n));
     }
     assert_fun(&map, 500);
     let bytes = map.total_size_bytes();
