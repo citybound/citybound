@@ -19,25 +19,13 @@ use std;
 use std::ptr;
 
 #[derive(Clone)]
-struct KeyValue<K, V> {
-    key: K,
-    value: V,
-}
-
-#[derive(Clone)]
-struct CompactOption<T> {
-    inner: Option<T>,
-}
-
-#[derive(Clone)]
 struct Entry<K, V> {
     hash: u32,
     tombstoned: bool,
-    inner: CompactOption<KeyValue<K, V>>,
+    inner: Option<(K, V)>,
 }
 
-
-
+// to fix Copmact<T:Copy> clash
 pub trait TrivialCompact {}
 
 /// A dynamically-sized array that can be stored in compact sequential storage and
@@ -81,87 +69,10 @@ pub struct OpenAddressingMap<K, V, A: Allocator = DefaultHeap> {
     entries: CompactArray<Entry<K, V>, A>,
 }
 
-
-impl<K: Copy, V: Compact> Compact for KeyValue<K, V> {
-    default fn is_still_compact(&self) -> bool {
-        self.value.is_still_compact()
-    }
-
-    default fn dynamic_size_bytes(&self) -> usize {
-        self.value.dynamic_size_bytes()
-    }
-
-    default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
-        (*dest).key = (*source).key;
-        Compact::compact(&mut (*source).value, &mut (*dest).value, new_dynamic_part)
-    }
-
-    default unsafe fn decompact(source: *const Self) -> KeyValue<K, V> {
-        KeyValue {
-            key: (*source).key,
-            value: Compact::decompact(&(*source).value),
-        }
-    }
-}
-
-impl<T> CompactOption<T> {
-    fn is_some(&self) -> bool {
-        self.inner.is_some()
-    }
-
-    fn is_none(&self) -> bool {
-        self.inner.is_none()
-    }
-
-    fn none() -> CompactOption<T> {
-        CompactOption { inner: None }
-    }
-
-    fn some(t: T) -> CompactOption<T> {
-        CompactOption { inner: Some(t) }
-    }
-
-    fn as_mut(&mut self) -> Option<&mut T> {
-        self.inner.as_mut()
-    }
-}
-
-impl<T: Compact> Compact for CompactOption<T> {
-    default fn is_still_compact(&self) -> bool {
-        self.inner.as_ref().map_or(true, |t| t.is_still_compact())
-    }
-
-    default fn dynamic_size_bytes(&self) -> usize {
-        self.inner.as_ref().map_or(0, |t| t.dynamic_size_bytes())
-    }
-
-    default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
-        if (*source).is_none() {
-            *dest = CompactOption::none();
-        } else {
-            *dest = (*source).clone();
-            Compact::compact(
-                &mut (*source).inner.as_ref().unwrap(),
-                &mut (*dest).inner.as_ref().unwrap(),
-                new_dynamic_part,
-            )
-        }
-    }
-
-    default unsafe fn decompact(source: *const Self) -> CompactOption<T> {
-        if (*source).is_none() {
-            CompactOption::none()
-        } else {
-            let insides = (*source).inner.as_ref().unwrap();
-            CompactOption::some(Compact::decompact(insides))
-        }
-    }
-}
-
 impl<K: Eq, V: Clone> Entry<K, V> {
     fn make_used(&mut self, hash: u32, key: K, value: V) {
         self.hash = hash;
-        self.inner = CompactOption::some(KeyValue { key: key, value: value });
+        self.inner = Some((key, value));
     }
 
     fn replace_value(&mut self, new_val: V) -> Option<V> {
@@ -169,8 +80,8 @@ impl<K: Eq, V: Clone> Entry<K, V> {
         match self.inner.as_mut() {
             None => None,
             Some(kv) => {
-                let old = kv.value.clone();
-                kv.value = new_val;
+                let old = kv.1.clone();
+                kv.1 = new_val;
                 Some(old)
             }
         }
@@ -178,7 +89,7 @@ impl<K: Eq, V: Clone> Entry<K, V> {
 
     fn remove(&mut self) -> Option<V> {
         let old_val = self.value_option().map(|v| v.clone());
-        self.inner = CompactOption::none();
+        self.inner = None;
         self.tombstoned = true;
         old_val
     }
@@ -196,33 +107,33 @@ impl<K: Eq, V: Clone> Entry<K, V> {
     }
 
     fn key<'a>(&'a self) -> &'a K {
-        &self.inner.inner.as_ref().unwrap().key
+        &self.inner.as_ref().unwrap().0
     }
 
     fn value(&self) -> &V {
-        self.inner.inner.as_ref().map(|kv| &kv.value).unwrap()
+        self.inner.as_ref().map(|kv| &kv.1).unwrap()
     }
 
     fn value_option(&self) -> Option<&V> {
-        self.inner.inner.as_ref().map(|kv| &kv.value)
+        self.inner.as_ref().map(|kv| &kv.1)
     }
 
     fn mut_value(&mut self) -> &mut V {
-        self.inner.inner.as_mut().map(|kv| &mut kv.value).unwrap()
+        self.inner.as_mut().map(|kv| &mut kv.1).unwrap()
     }
 
     fn mut_value_option(&mut self) -> Option<&mut V> {
-        self.inner.inner.as_mut().map(|kv| &mut kv.value)
+        self.inner.as_mut().map(|kv| &mut kv.1)
     }
 
     fn is_this(&self, key: K) -> bool {
-        self.inner.inner.as_ref().map_or(false, |kv| kv.key == key)
+        self.inner.as_ref().map_or(false, |kv| kv.0 == key)
     }
 
     fn as_tuple(self) -> (K, V) {
-        debug_assert!(self.used());
-        let kv = self.inner.inner.unwrap();
-        (kv.key, kv.value)
+        debug_assert!(self.alive());
+        let kv = self.inner.unwrap();
+        (kv.0, kv.1)
     }
 }
 
@@ -236,34 +147,50 @@ impl<K, V> std::fmt::Debug for Entry<K, V> {
 
 impl<K, V> Default for Entry<K, V> {
     fn default() -> Self {
-        Entry {
-            hash: 0,
-            tombstoned: false,
-            inner: CompactOption::none(),
-        }
+        Entry { hash: 0, tombstoned: false, inner: None }
     }
 }
 
 impl<K: Copy, V: Compact> Compact for Entry<K, V> {
     default fn is_still_compact(&self) -> bool {
-        self.inner.is_still_compact()
+        self.inner.as_ref().map_or(true, |kv_tuple| {
+            kv_tuple.1.is_still_compact()
+        })
     }
 
     default fn dynamic_size_bytes(&self) -> usize {
-        self.inner.dynamic_size_bytes()
+        self.inner.as_ref().map_or(0, |kv_tuple| {
+            kv_tuple.1.dynamic_size_bytes()
+        })
     }
 
     default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
         (*dest).hash = (*source).hash;
         (*dest).tombstoned = (*source).tombstoned;
-        Compact::compact(&mut (*source).inner, &mut (*dest).inner, new_dynamic_part)
+        (*dest).inner = (*source).inner.clone();
+        if (*dest).inner.is_some() {
+            Compact::compact(
+                &mut (*source).inner.as_mut().unwrap().1,
+                &mut (*dest).inner.as_mut().unwrap().1,
+                new_dynamic_part,
+            )
+        }
     }
 
     default unsafe fn decompact(source: *const Self) -> Entry<K, V> {
-        Entry {
-            hash: (*source).hash,
-            tombstoned: (*source).tombstoned,
-            inner: Compact::decompact(&(*source).inner),
+        if (*source).inner.is_none() {
+            Entry {
+                hash: (*source).hash,
+                tombstoned: (*source).tombstoned,
+                inner: None,
+            }
+        } else {
+            let insides = (*source).inner.as_ref().unwrap();
+            Entry {
+                hash: (*source).hash,
+                tombstoned: (*source).tombstoned,
+                inner: Some((insides.0, (Compact::decompact(&insides.1)))),
+            }
         }
     }
 }
