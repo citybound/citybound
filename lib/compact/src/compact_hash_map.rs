@@ -10,6 +10,7 @@ use std::iter::Iterator;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 use std::hash::Hash;
+use std::collections::HashMap;
 
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
@@ -30,7 +31,7 @@ struct CompactOption<T> {
 
 #[derive(Clone)]
 struct Entry<K, V> {
-    hash: u64,
+    hash: u32,
     tombstoned: bool,
     inner: CompactOption<KeyValue<K, V>>,
 }
@@ -57,17 +58,17 @@ pub struct IntoIter<T, A: Allocator> {
 }
 
 
-struct QuadraticProbingIterator<'a, K: 'a, V: 'a, A: 'a + Allocator> {
+struct QuadraticProbingIterator<'a, K: 'a, V: 'a, A: 'a + Allocator = DefaultHeap> {
     i: usize,
     len: usize,
-    hash: u64,
+    hash: u32,
     map: &'a OpenAddressingMap<K, V, A>,
 }
 
-struct QuadraticProbingMutIterator<'a, K: 'a, V: 'a, A: 'a + Allocator> {
+struct QuadraticProbingMutIterator<'a, K: 'a, V: 'a, A: 'a + Allocator = DefaultHeap> {
     i: usize,
     len: usize,
-    hash: u64,
+    hash: u32,
     map: &'a mut OpenAddressingMap<K, V, A>,
 }
 
@@ -158,13 +159,9 @@ impl<T: Compact> Compact for CompactOption<T> {
 }
 
 impl<K: Eq, V: Clone> Entry<K, V> {
-    fn make_used(&mut self, hash: u64, key: K, value: V) {
+    fn make_used(&mut self, hash: u32, key: K, value: V) {
         self.hash = hash;
         self.inner = CompactOption::some(KeyValue { key: key, value: value });
-    }
-
-    fn tombstoned(&mut self) {
-        self.tombstoned = true;
     }
 
     fn replace_value(&mut self, new_val: V) -> Option<V> {
@@ -182,11 +179,12 @@ impl<K: Eq, V: Clone> Entry<K, V> {
     fn remove(&mut self) -> Option<V> {
         let old_val = self.value_option().map(|v| v.clone());
         self.inner = CompactOption::none();
+        self.tombstoned = true;
         old_val
     }
 
     fn used(&self) -> bool {
-        self.inner.is_some()
+        self.tombstoned || self.inner.is_some()
     }
 
     fn key<'a>(&'a self) -> &'a K {
@@ -519,10 +517,7 @@ lazy_static! {
 }
 
 impl<'a, K, V, A: Allocator> QuadraticProbingIterator<'a, K, V, A> {
-    fn for_map(
-        map: &'a OpenAddressingMap<K, V, A>,
-        hash: u64,
-    ) -> QuadraticProbingIterator<K, V, A> {
+    fn for_map(map: &'a OpenAddressingMap<K, V, A>, hash: u32) -> QuadraticProbingIterator<K, V, A> {
         QuadraticProbingIterator {
             i: 0,
             len: map.entries.cap,
@@ -535,7 +530,7 @@ impl<'a, K, V, A: Allocator> QuadraticProbingIterator<'a, K, V, A> {
 impl<'a, K, V, A: Allocator> QuadraticProbingMutIterator<'a, K, V, A> {
     fn for_map(
         map: &'a mut OpenAddressingMap<K, V, A>,
-        hash: u64,
+        hash: u32,
     ) -> QuadraticProbingMutIterator<K, V, A> {
         QuadraticProbingMutIterator {
             i: 0,
@@ -655,10 +650,10 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
         })
     }
 
-    fn hash(&self, key: K) -> u64 {
+    fn hash(key: K) -> u32 {
         let mut hasher = DefaultHasher::new();
         key.hash(&mut hasher);
-        hasher.finish()
+        hasher.finish() as u32
     }
 
     fn insert_inner_growing(&mut self, query: K, value: V) -> Option<V> {
@@ -675,7 +670,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     }
 
     fn insert_inner_inner(&mut self, query: K, value: V) -> Option<V> {
-        let hash = self.hash(query);
+        let hash = Self::hash(query);
         for entry in self.quadratic_iterator_mut(hash) {
             if !entry.used() {
                 entry.make_used(hash, query, value);
@@ -689,14 +684,12 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     fn remove_inner(&mut self, query: K) -> Option<V> {
         let res = self.remove_inner_inner(query);
-        if res.is_some() {
-            self.size -= 1;
-        }
+        // remove inner does not alter the size because of tombstones
         res
     }
 
     fn remove_inner_inner(&mut self, query: K) -> Option<V> {
-        let hash = self.hash(query);
+        let hash = Self::hash(query);
         for entry in self.quadratic_iterator_mut(hash) {
             if entry.is_this(query) {
                 return entry.remove();
@@ -731,7 +724,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     }
 
     fn find_used_mut<'a>(&'a mut self, query: K) -> Option<&'a mut Entry<K, V>> {
-        let h = self.hash(query);
+        let h = Self::hash(query);
         for entry in self.quadratic_iterator_mut(h) {
             if entry.is_this(query) {
                 return Some(entry);
@@ -741,10 +734,10 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     }
 
     fn quadratic_iterator(&self, query: K) -> QuadraticProbingIterator<K, V, A> {
-        QuadraticProbingIterator::for_map(self, self.hash(query))
+        QuadraticProbingIterator::for_map(self, Self::hash(query))
     }
 
-    fn quadratic_iterator_mut(&mut self, hash: u64) -> QuadraticProbingMutIterator<K, V, A> {
+    fn quadratic_iterator_mut(&mut self, hash: u32) -> QuadraticProbingMutIterator<K, V, A> {
         QuadraticProbingMutIterator::for_map(self, hash)
     }
 
@@ -837,7 +830,7 @@ impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator>
     /// return true if new value pushed
     fn push_at_inner(&mut self, query: K, item: I) -> bool {
         self.ensure_capacity();
-        let hash = self.hash(query);
+        let hash = Self::hash(query);
         for entry in self.quadratic_iterator_mut(hash) {
             if entry.is_this(query) {
                 entry.mut_value().push(item);
@@ -1070,6 +1063,50 @@ fn ensure_capacity_works() {
         map.push_at(n, elem(n) + 1);
     }
     assert!(map.is_empty() == false);
+}
+
+#[test]
+fn insert_after_remove_works_same_hash() {
+
+    // get 2 elems with the same hash
+    let mut hashToUsize: HashMap<u32, usize> = HashMap::new();
+    let mut bad_pair_opt = None;
+    for i in 0..<usize>::max_value() {
+        if i % 10000 == 0 {
+            println!("i {}", i);
+        }
+        let hash = OpenAddressingMap::<usize, usize>::hash(i);
+        if (hashToUsize.contains_key(&hash)) {
+            let p: usize = *hashToUsize.get(&hash).unwrap();
+            bad_pair_opt = Some((i, p));
+            break;
+        }
+        hashToUsize.insert(hash, i);
+    }
+
+
+    type NestedType = OpenAddressingMap<usize, usize>;
+    let mut map: NestedType = OpenAddressingMap::new();
+
+    let bad_pair = bad_pair_opt.unwrap();
+    println!("bad pair {:?}", bad_pair);
+    map.insert(bad_pair.0, 1);
+    println!("map {}", map.display());
+    map.insert(bad_pair.1, 2);
+    println!("map {}", map.display());
+    map.remove(bad_pair.0);
+    println!("map {}", map.display());
+    map.insert(bad_pair.1, 3);
+    println!("map {}", map.display());
+    
+    let mut n1 = 0;
+    for (key, value) in map.pairs() {
+        if *key == bad_pair.1 {
+            n1 += 1;
+        }
+    }
+    assert!(n1 == 1);
+
 }
 
 #[test]
