@@ -187,6 +187,14 @@ impl<K: Eq, V: Clone> Entry<K, V> {
         self.tombstoned || self.inner.is_some()
     }
 
+    fn alive(&self) -> bool {
+        self.inner.is_some()
+    }
+
+    fn free(&self) -> bool {
+        self.inner.is_none() && (!self.tombstoned)
+    }
+
     fn key<'a>(&'a self) -> &'a K {
         &self.inner.inner.as_ref().unwrap().key
     }
@@ -517,7 +525,10 @@ lazy_static! {
 }
 
 impl<'a, K, V, A: Allocator> QuadraticProbingIterator<'a, K, V, A> {
-    fn for_map(map: &'a OpenAddressingMap<K, V, A>, hash: u32) -> QuadraticProbingIterator<K, V, A> {
+    fn for_map(
+        map: &'a OpenAddressingMap<K, V, A>,
+        hash: u32,
+    ) -> QuadraticProbingIterator<K, V, A> {
         QuadraticProbingIterator {
             i: 0,
             len: map.entries.cap,
@@ -628,24 +639,24 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     /// Iterator over all keys in the dictionary
     pub fn keys<'a>(&'a self) -> impl Iterator<Item = &'a K> + 'a {
-        self.entries.iter().filter(|e| e.used()).map(|e| e.key())
+        self.entries.iter().filter(|e| e.alive()).map(|e| e.key())
     }
 
     /// Iterator over all values in the dictionary
     pub fn values<'a>(&'a self) -> impl Iterator<Item = &'a V> + 'a {
-        self.entries.iter().filter(|e| e.used()).map(|e| e.value())
+        self.entries.iter().filter(|e| e.alive()).map(|e| e.value())
     }
 
     /// Iterator over mutable references to all values in the dictionary
     pub fn values_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut V> + 'a {
-        self.entries.iter_mut().filter(|e| e.used()).map(|e| {
+        self.entries.iter_mut().filter(|e| e.alive()).map(|e| {
             e.mut_value()
         })
     }
 
     /// Iterator over all key-value pairs in the dictionary
     pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)> + 'a {
-        self.entries.iter().filter(|e| e.used()).map(|e| {
+        self.entries.iter().filter(|e| e.alive()).map(|e| {
             (e.key(), e.value())
         })
     }
@@ -672,7 +683,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     fn insert_inner_inner(&mut self, query: K, value: V) -> Option<V> {
         let hash = Self::hash(query);
         for entry in self.quadratic_iterator_mut(hash) {
-            if !entry.used() {
+            if entry.free() {
                 entry.make_used(hash, query, value);
                 return None;
             } else if entry.is_this(query) {
@@ -1098,7 +1109,7 @@ fn insert_after_remove_works_same_hash() {
     println!("map {}", map.display());
     map.insert(bad_pair.1, 3);
     println!("map {}", map.display());
-    
+
     let mut n1 = 0;
     for (key, value) in map.pairs() {
         if *key == bad_pair.1 {
