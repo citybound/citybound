@@ -38,7 +38,7 @@ impl Destination {
     }
 }
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct RoutingInfo {
     pub outgoing_idx: u8,
     pub distance: f32,
