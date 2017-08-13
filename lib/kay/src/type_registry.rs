@@ -16,12 +16,6 @@ impl ShortTypeId {
     }
 }
 
-impl Default for ShortTypeId {
-    fn default() -> Self {
-        ShortTypeId::new(<u16>::max_value())
-    }
-}
-
 impl From<ShortTypeId> for u16 {
     fn from(id: ShortTypeId) -> Self {
         id.0.get()
