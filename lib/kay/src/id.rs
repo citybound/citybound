@@ -1,7 +1,7 @@
 use super::type_registry::ShortTypeId;
 
 /// An ID that uniquely identifies an `Actor`, or even a `SubActor` within a `Swarm`
-#[derive(Copy, Clone, PartialEq, Eq, Default, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ID {
     /// An ID for the type of the identified `Actor`, used to dispatch messages
     /// to the message handling functions registered for this type

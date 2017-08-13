@@ -52,6 +52,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         vec
     }
 
+    /// current capacity
     pub fn capacity(&self) -> usize {
         self.cap
     }
@@ -62,7 +63,6 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         let new_ptr = A::allocate::<T>(new_cap);
 
         // items should be decompacted, else internal relative pointers get messed up!
-        #[allow(needless_range_loop)]
         for i in 0..self.len() {
             unsafe { ptr::write(new_ptr.offset(i as isize), Compact::decompact(&self[i])) };
         }
@@ -91,7 +91,8 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         }
     }
 
-    pub fn push_at(&mut self, i: usize, value: T) {
+    /// push at position
+    pub fn push_at(&mut self, _: usize, value: T) {
         if self.len == self.cap {
             self.double_buf();
         }
@@ -174,7 +175,6 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         {
             let v = &mut **self;
 
-            #[allow(needless_range_loop)]
             for i in 0..len {
                 if !keep(&v[i]) {
                     del += 1;
@@ -205,6 +205,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         self.truncate(0);
     }
 
+    /// debug printing
     pub fn ptr_to_string(&self) -> String {
         self.ptr.to_string()
     }
