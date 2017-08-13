@@ -8,6 +8,7 @@ dependencies = [
  "compact_macros 0.1.0",
  "descartes 0.1.0",
  "imgui 0.0.16-pre (git+https://github.com/bogdad/imgui-rs)",
+ "imgui-sys 0.0.16-pre (git+https://github.com/bogdad/imgui-rs)",
  "kay 0.1.0",
  "monet 0.1.0",
  "serde 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -400,6 +401,7 @@ source = "git+https://github.com/bogdad/imgui-rs#3474d8a51f80dc1e45df54bd661e006
 dependencies = [
  "bitflags 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "gcc 0.3.46 (registry+https://github.com/rust-lang/crates.io-index)",
+ "glium 0.17.0 (git+https://github.com/bogdad/glium)",
 ]
 
 [[package]]

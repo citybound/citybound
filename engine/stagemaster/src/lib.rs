@@ -24,18 +24,18 @@ pub mod camera_control;
 
 use kay::{ID, ActorSystem, Fate, External};
 use descartes::{N, P2, V2, P3, Into2d, Shape};
-use monet::{RendererID, RenderableID, SceneDescription, GlutinFacade};
+use monet::{RendererID, RenderableID, SceneDescription, Display};
 use monet::glium::glutin::{Event, MouseScrollDelta, ElementState, MouseButton};
 pub use monet::glium::glutin::VirtualKeyCode;
 use geometry::AnyShape;
 use std::collections::{HashMap, HashSet};
-use imgui::{ImGui, ImVec4, ImGuiSetCond_FirstUseEver, ImGuiKey};
-use imgui_sys::{ImFontConfig, ImGuiCol, ImGuiAlign_Center, ImFontConfig_DefaultConstructor};
+use imgui::{ImGui, ImVec2, ImVec4, ImGuiSetCond_FirstUseEver, ImGuiKey};
+use imgui_sys::{ImFontConfig, ImGuiCol, ImFontConfig_DefaultConstructor};
 use imgui::glium_renderer::Renderer as ImguiRenderer;
 use std::collections::BTreeMap;
 
 pub struct UserInterface {
-    window: GlutinFacade,
+    window: Display,
     mouse_button_state: [bool; 5],
     combo_listener: combo::ComboListener,
     cursor_2d: P2,
@@ -58,7 +58,7 @@ pub struct UserInterface {
 }
 
 impl UserInterface {
-    fn new(window: GlutinFacade) -> Self {
+    fn new(window: Display) -> Self {
         let mut imgui = ImGui::init();
         let default_font = im_str!("game/assets/ClearSans-Regular.ttf\0");
 
@@ -82,7 +82,8 @@ impl UserInterface {
             style.scrollbar_rounding = 3.0;
             style.frame_rounding = 3.0;
             style.scrollbar_size = 14.0;
-            style.window_title_align = ImGuiAlign_Center;
+            style.window_title_align = ImVec2::new(0.5, 0.5);
+
             style.colors[ImGuiCol::WindowBg as usize] = ImVec4::new(0.9, 0.9, 0.9, 0.8);
             style.colors[ImGuiCol::FrameBg as usize] = ImVec4::new(0.0, 0.0, 0.0, 0.2);
             style.colors[ImGuiCol::Text as usize] = ImVec4::new(0.0, 0.0, 0.0, 0.9);
@@ -156,7 +157,7 @@ pub fn setup(
     system: &mut ActorSystem,
     renderables: Vec<RenderableID>,
     env: &'static environment::Environment,
-    window: &GlutinFacade,
+    window: &Display,
 ) {
     ::monet::setup(system);
 
