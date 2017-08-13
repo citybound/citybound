@@ -5,7 +5,7 @@ use compact::CVec;
 use kay::{Fate, World, ActorSystem, External};
 use kay::swarm::Swarm;
 
-use glium::backend::glutin_backend::GlutinFacade;
+use glium::backend::glutin::Display;
 
 use {Batch, Instance, Scene, SceneDescription, Thing, RenderContext};
 
@@ -46,7 +46,7 @@ impl ::std::ops::DerefMut for Renderer {
 impl Renderer {
     pub fn spawn(
         id: RendererID,
-        window: &External<GlutinFacade>,
+        window: &External<Display>,
         scenes: &CVec<SceneDescription>,
         world: &mut World,
     ) -> Renderer {

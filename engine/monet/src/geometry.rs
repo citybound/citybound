@@ -3,7 +3,7 @@ pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, In
                     WithUniqueOrthogonal, Inverse, Rotate};
 
 use glium::{self, index};
-use glium::backend::glutin_backend::GlutinFacade;
+use glium::backend::glutin::Display;
 
 use Thing;
 
@@ -16,7 +16,7 @@ pub struct Batch {
 }
 
 impl Batch {
-    pub fn new(prototype: Thing, window: &GlutinFacade) -> Batch {
+    pub fn new(prototype: Thing, window: &Display) -> Batch {
         Batch {
             vertices: glium::VertexBuffer::new(window, &prototype.vertices).unwrap(),
             indices: glium::IndexBuffer::new(
@@ -34,7 +34,7 @@ impl Batch {
         thing: Thing,
         instance: Instance,
         is_decal: bool,
-        window: &GlutinFacade,
+        window: &Display,
     ) -> Batch {
         Batch {
             vertices: glium::VertexBuffer::new(window, &thing.vertices).unwrap(),

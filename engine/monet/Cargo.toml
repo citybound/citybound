@@ -11,6 +11,7 @@ lazy_static = "0.2.8"
 
 [dependencies.glium]
 git = "https://github.com/bogdad/glium"
+default-features = false
 features = ["glutin"]
 
 [dependencies.kay]

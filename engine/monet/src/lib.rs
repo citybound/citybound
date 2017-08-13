@@ -18,7 +18,7 @@ mod render_context;
 mod scene;
 mod thing;
 
-pub use glium::backend::glutin_backend::GlutinFacade;
+pub use glium::backend::glutin::Display;
 
 pub use geometry::{Batch, Vertex, Instance};
 pub use renderer::{setup, Renderer, RendererID, RenderableID, TargetProvider, TargetProviderID,
