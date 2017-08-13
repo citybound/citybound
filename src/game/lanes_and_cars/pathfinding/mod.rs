@@ -20,7 +20,7 @@ pub struct PathfindingInfo {
     pub routing_timeout: u16,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Default, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Destination {
     pub landmark: ID,
     pub node: ID,
