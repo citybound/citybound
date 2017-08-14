@@ -10,6 +10,8 @@ extern crate descartes;
 #[macro_use]
 extern crate imgui;
 extern crate imgui_sys;
+extern crate imgui_glium_renderer;
+extern crate glium;
 
 #[macro_use]
 extern crate serde_derive;
@@ -31,7 +33,7 @@ use geometry::AnyShape;
 use std::collections::{HashMap, HashSet};
 use imgui::{ImGui, ImVec2, ImVec4, ImGuiSetCond_FirstUseEver, ImGuiKey};
 use imgui_sys::{ImFontConfig, ImGuiCol, ImFontConfig_DefaultConstructor};
-use imgui::glium_renderer::Renderer as ImguiRenderer;
+use imgui_glium_renderer::Renderer as ImguiRenderer;
 use std::collections::BTreeMap;
 
 pub struct UserInterface {
