@@ -90,6 +90,8 @@ fn main() {
 
     transport::setup(&mut system);
     transport::setup_ui(&mut system);
+    economy::setup(&mut system);
+    economy::setup_ui(&mut system);
 
     let simulatables = vec![
         system.id::<Swarm<Lane>>().broadcast(),

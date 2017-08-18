@@ -82,6 +82,8 @@ pub struct FoundLot(pub Lot);
 pub struct InitializeUI;
 
 pub fn setup(system: &mut ActorSystem) {
+    system.add(Swarm::<Building>::new(), |_| {});
+
     kay_auto::auto_setup(system);
 
     let spawner = ::ENV.load_settings("Building Spawning");

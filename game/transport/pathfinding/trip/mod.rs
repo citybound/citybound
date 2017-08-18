@@ -121,6 +121,8 @@ use core::simulation::{Simulation, SleeperID, WakeUpIn, MSG_Sleeper_wake};
 use core::simulation::DurationTicks;
 
 pub fn setup(system: &mut ActorSystem) {
+    system.add(Swarm::<Trip>::new(), |_| {});
+
     auto_setup(system);
 
     system.add(

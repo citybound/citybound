@@ -1,5 +1,5 @@
 use kay::{ActorSystem, World, Fate};
-use kay::swarm::SubActor;
+use kay::swarm::{Swarm, SubActor};
 use compact::{CVec, CDict};
 use core::simulation::{TimeOfDay, Timestamp};
 
@@ -321,6 +321,8 @@ impl TripListener for Family {
 use self::tasks::TaskState;
 
 pub fn setup(system: &mut ActorSystem) {
+    system.add(Swarm::<Family>::new(), |_| {});
+
     auto_setup(system);
 }
 
