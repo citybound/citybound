@@ -25,8 +25,9 @@ impl Building {
         id: BuildingID,
         households: &CVec<HouseholdID>,
         lot: &Lot,
-        _: &mut World,
+        world: &mut World,
     ) -> Building {
+        rendering::on_add(id, lot.position, world);
         Building {
             id,
             households: households.clone(),
