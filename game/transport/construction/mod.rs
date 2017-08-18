@@ -370,37 +370,16 @@ pub fn setup(system: &mut ActorSystem) {
 
     // TODO: this is a horrible hack
     system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
-        each_lane.on_random(|&FindLot { requester }, _, world| {
-            const BUILDING_DISTANCE: f32 = 10.0;
+        each_lane.on_random(|&FindLot { requester }, lane, world| {
+            const BUILDING_DISTANCE: f32 = 15.0;
 
-            MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
-                let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
-
-                let (&lane_id, &(Band { ref path, .. }, _)) = memoized_bands_outlines
-                    .iter()
-                    .nth(
-                        ::random::default().read::<usize>() % memoized_bands_outlines.len(),
-                    )
-                    .unwrap();
-
+            if !lane.connectivity.on_intersection {
+                let path = &lane.construction.path;
                 let distance = ::random::default().read_f64() as f32 * path.length();
-                let point = path.along(distance) +
-                    BUILDING_DISTANCE * path.direction_along(distance).orthogonal();
+                let point = path.along(distance) + BUILDING_DISTANCE * path.direction_along(distance).orthogonal();
 
-                let viable = memoized_bands_outlines.values().all(|&(Band {
-                       ref path, ..
-                   },
-                   _)| {
-                    path.distance_to(point) >= BUILDING_DISTANCE
-                });
-
-                if viable {
-                    world.send(
-                        requester,
-                        FoundLot(Lot { position: point, adjacent_lane: lane_id }),
-                    )
-                }
-            });
+                world.send(requester, FoundLot(Lot {position: point, adjacent_lane: lane.id()}));
+            }
 
             Fate::Live
         });
