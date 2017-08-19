@@ -295,13 +295,12 @@ impl ComboListener {
         let something_changed = match *event {
             Event::WindowEvent {
                 event: WindowEvent::KeyboardInput {
-                    device_id: _,
                     input: KeyboardInput {
                         state: state,
                         virtual_keycode: Some(glutin_code),
-                        modifiers: _,
-                        scancode: _,
+                        ..
                     },
+                    ..
                 },
                 ..
             } => {
@@ -314,12 +313,7 @@ impl ComboListener {
                 true
             }
             Event::WindowEvent {
-                event: WindowEvent::MouseInput {
-                    device_id: _,
-                    state: state,
-                    button: glutin_button,
-                },
-                ..
+                event: WindowEvent::MouseInput { state: state, button: glutin_button, .. }, ..
             } => {
                 let pressed = state == ElementState::Pressed;
                 if pressed {
