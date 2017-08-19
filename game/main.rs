@@ -97,12 +97,14 @@ fn main() {
     ];
     core::simulation::setup(&mut system, simulatables);
 
+
+    let mut events_loop = EventsLoop::new();
     let window = glutin::WindowBuilder::new()
         .with_title("Citybound".to_string())
         .with_dimensions(1024, 512)
         .with_multitouch()
         .with_vsync()
-        .build_glium()
+        .build(events_loop)
         .unwrap();
 
     let renderables: Vec<_> = vec![

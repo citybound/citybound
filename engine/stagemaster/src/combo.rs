@@ -1,4 +1,4 @@
-pub use monet::glium::glutin::{VirtualKeyCode, MouseButton};
+pub use monet::glium::glutin::{WindowEvent, KeyboardInput, VirtualKeyCode, MouseButton};
 
 #[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Debug, Copy, Clone)]
 #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -293,7 +293,18 @@ impl ComboListener {
     pub fn update(&mut self, event: &Event) {
         let old_current = self.current;
         let something_changed = match *event {
-            Event::KeyboardInput(state, _, Some(glutin_code)) => {
+            Event::WindowEvent {
+                event: WindowEvent::KeyboardInput {
+                    device_id: _,
+                    input: KeyboardInput {
+                        state: state,
+                        virtual_keycode: Some(glutin_code),
+                        modifiers: _,
+                        scancode: _,
+                    },
+                },
+                ..
+            } => {
                 let pressed = state == ElementState::Pressed;
                 if pressed {
                     self.current.insert(glutin_code.into());
@@ -302,7 +313,14 @@ impl ComboListener {
                 }
                 true
             }
-            Event::MouseInput(state, glutin_button) => {
+            Event::WindowEvent {
+                event: WindowEvent::MouseInput {
+                    device_id: _,
+                    state: state,
+                    button: glutin_button,
+                },
+                ..
+            } => {
                 let pressed = state == ElementState::Pressed;
                 if pressed {
                     self.current.insert(glutin_button.into());
