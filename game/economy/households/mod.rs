@@ -314,12 +314,18 @@ impl Household for Family {
     fn decay(&mut self, dt: DurationSeconds, _: &mut World) {
         for member_resources in self.member_resources.iter_mut() {
             {
-                let sleep = member_resources.mut_entry_or(r_id("sleep"), 0.0);
-                *sleep += 0.001 * dt.seconds() as f32;
+                let awakeness = member_resources.mut_entry_or(r_id("awakeness"), 0.0);
+                *awakeness -= 0.001 * dt.seconds() as f32;
             }
             {
-                let hunger = member_resources.mut_entry_or(r_id("hunger"), 0.0);
-                *hunger += 0.001 * dt.seconds() as f32;
+
+                let satiety = member_resources.mut_entry_or(r_id("satiety"), 0.0);
+                if *satiety < -5.0 {
+                    let groceries = self.resources.mut_entry_or(r_id("groceries"), 0.0);
+                    *groceries -= 3.0;
+                    *satiety += 3.0;
+                }
+                *satiety -= 0.001 * dt.seconds() as f32;
             }
         }
     }
@@ -484,15 +490,17 @@ impl TripListener for Family {
 
 use core::simulation::{Tick, TICKS_PER_SIM_SECOND};
 
+const UPDATE_EVERY_N_SECS : usize = 100;
+
 pub fn setup(system: &mut ActorSystem) {
     judgement_table::setup();
     system.add(Swarm::<Family>::new(), |_| {});
 
     system.extend::<Swarm<Family>, _>(|mut family_swarm| {
         family_swarm.on(|&Tick { current_tick, .. }, _, world| {
-            if current_tick.ticks() % TICKS_PER_SIM_SECOND == 0 {
+            if current_tick.ticks() % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0 {
                 let families_as_households: HouseholdID = FamilyID::broadcast(world).into();
-                families_as_households.decay(DurationSeconds::new(1), world)
+                families_as_households.decay(DurationSeconds::new(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world)
             }
 
             Fate::Live
@@ -511,6 +519,14 @@ pub fn setup(system: &mut ActorSystem) {
 //     used_offers: ResourceMap<ID>,
 //     own_offers: CVec<ID>,
 // }
+
+// pub struct SimpleCompany {
+//     id: SimpleCompanyID,
+//     site: BuildingID,
+//     resources: ResourceMap<ResourceAmount>,
+//     own_offers: CVec<OfferID>
+// }
+
 
 
 mod kay_auto;
