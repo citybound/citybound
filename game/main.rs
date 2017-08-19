@@ -50,6 +50,7 @@ use transport::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use transport::rendering::lane_thing_collector::ThingCollector;
 use transport::planning::current_plan::CurrentPlan;
 use economy::households::Family;
+use economy::households::tasks::TaskEndScheduler;
 use economy::buildings::Building;
 use kay::swarm::Swarm;
 use std::any::Any;
@@ -98,6 +99,7 @@ fn main() {
         system.id::<Swarm<Lane>>().broadcast(),
         system.id::<Swarm<TransferLane>>().broadcast(),
         system.id::<Swarm<Family>>().broadcast(),
+        system.id::<TaskEndScheduler>(),
     ];
     core::simulation::setup(&mut system, simulatables);
 

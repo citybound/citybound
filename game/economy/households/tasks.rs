@@ -77,6 +77,7 @@ pub fn setup(system: &mut ActorSystem) {
         each_family.on(move |result, family, world| {
             match *result {
                 Complete::Success { member } => {
+                    println!("Task succeeded");
                     if let TaskState::StartedAt(_, location) = family.member_tasks[member.0].state {
                         family.stop_task(member, location, world)
                     } else {
@@ -99,6 +100,7 @@ impl super::Family {
         location: RoughDestinationID,
         world: &mut World,
     ) {
+        println!("Started task");
         world.send_to_id_of::<TaskEndScheduler, _>(ScheduleTaskEnd(
             start + self.member_tasks[member.0].duration,
             self.id(),
@@ -114,6 +116,7 @@ impl super::Family {
         world: &mut World,
     ) {
         self.member_tasks[member.0].state = TaskState::IdleAt(location);
+        println!("Task stopped");
         world.send_to_id_of::<Simulation, _>(
             WakeUpIn(DurationSeconds::new(0).into(), self.id.into()),
         );

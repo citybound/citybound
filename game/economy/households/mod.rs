@@ -9,7 +9,7 @@ use ordered_float::OrderedFloat;
 mod judgement_table;
 use self::judgement_table::judgement_table;
 
-mod tasks;
+pub mod tasks;
 use self::tasks::Task;
 
 use super::market::{Deal, MarketID, OfferID, EvaluatedDeal, EvaluationRequester,
@@ -33,9 +33,11 @@ pub trait Household {
     fn inspect(&mut self, imgui_ui: &External<Ui<'static>>, return_to: ID, world: &mut World);
 }
 
+use core::async_counter::AsyncCounter;
+
 #[derive(Compact, Clone)]
 struct DecisionResourceEntry {
-    n_results_expected: Option<usize>,
+    results_counter: AsyncCounter,
     deals: CVec<EvaluatedDeal>,
 }
 
@@ -128,15 +130,15 @@ impl Family {
         let mut decision_entries = CDict::<ResourceId, DecisionResourceEntry>::new();
         let time = TimeOfDay::from_tick(tick);
 
-        println!("Top N Problems for Family {:?}", self.id._raw_id);
+        // println!("Top N Problems for Family {:?}", self.id._raw_id);
 
         let top_problems = self.top_problems(member, time);
 
         if top_problems.is_empty() {
             world.send_to_id_of::<Simulation, _>(WakeUpIn(DurationTicks::new(1000), self.id.into()))
         } else {
-            for (resource, graveness) in top_problems {
-                println!("Member #{}: {} = {}", member.0, r_info(resource).0, graveness);
+            for (resource, _graveness) in top_problems {
+                // println!("Member #{}: {} = {}", member.0, r_info(resource).0, graveness);
                 let maybe_offer = if r_properties(resource).supplier_shared {
                     self.used_offers.get(resource)
                 } else {
@@ -153,7 +155,7 @@ impl Family {
                 decision_entries.insert(
                     resource,
                     DecisionResourceEntry {
-                        n_results_expected: None,
+                        results_counter: AsyncCounter::new(),
                         deals: CVec::new(),
                     },
                 );
@@ -261,18 +263,17 @@ fn most_useful_evaluated_deal(
 
 impl EvaluationRequester for Family {
     fn expect_n_results(&mut self, resource: ResourceId, n: usize, world: &mut World) {
-        println!("{} results to expect for {:?}", n, self.id._raw_id);
         let done = if let DecisionState::Choosing(_, _, ref mut entries) = self.decision_state {
             {
                 let entry = entries.get_mut(resource).expect(
                     "Should have an entry for queried resource",
                 );
 
-                entry.n_results_expected = Some(n);
+                entry.results_counter.set_target(n);
             }
 
             entries.values().all(
-                |entry| entry.n_results_expected == Some(0),
+                |entry| entry.results_counter.is_done(),
             )
         } else {
             panic!("Received unexpected deal / should be choosing");
@@ -285,23 +286,17 @@ impl EvaluationRequester for Family {
     fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World) {
         let &EvaluatedSearchResult { resource, ref evaluated_deals } = result;
 
-        println!("Result! Deals: {}", evaluated_deals.len());
-
         let done = if let DecisionState::Choosing(_, _, ref mut entries) = self.decision_state {
             {
                 let entry = entries.get_mut(resource).expect(
                     "Should have an entry for queried resource",
                 );
                 entry.deals.extend(evaluated_deals.clone());
-                let n_results_expected = entry.n_results_expected.as_mut().expect(
-                    "Should already know n expected",
-                );
-                *n_results_expected -= 1;
-                println!("{} results left", *n_results_expected);
+                entry.results_counter.increment();
             }
 
             entries.values().all(
-                |entry| entry.n_results_expected == Some(0),
+                |entry| entry.results_counter.is_done()
             )
         } else {
             panic!("Received unexpected deal / should be choosing");

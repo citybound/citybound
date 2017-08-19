@@ -99,7 +99,6 @@ pub fn setup(system: &mut ActorSystem) {
     system.add::<BuildingSpawner, _>(spawner, |mut the_spawner| {
         the_spawner.on(|&FoundLot(ref lot), _, world| {
             let building_id = BuildingID::spawn(CVec::new(), lot.clone(), world);
-            println!("Created a building {}", lot.position);
 
             if building_id._raw_id.sub_actor_id % 6 == 0 {
                 let shop_id = GroceryShopID::move_into(building_id, world);

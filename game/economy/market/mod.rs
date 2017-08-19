@@ -67,9 +67,7 @@ impl Offer {
         requester: EvaluationRequesterID,
         world: &mut World,
     ) {
-        println!("Evaluate");
         if TimeOfDay::from_tick(tick) < self.to {
-            println!("Early enough");
             let search_result = EvaluatedSearchResult {
                 resource: self.deal.give.0,
                 evaluated_deals: vec![
@@ -90,7 +88,6 @@ impl Offer {
                 world,
             );
         } else {
-            println!("Too late");
             requester.on_result(
                 EvaluatedSearchResult {
                     resource: self.deal.give.0,
@@ -243,7 +240,7 @@ impl TripCostEstimator {
     ) -> TripCostEstimator {
         rough_source.query_as_destination(id.into(), rough_source, tick, world);
         rough_destination.query_as_destination(id.into(), rough_destination, tick, world);
-        println!("Spawned TripCostEstimator");
+
         TripCostEstimator {
             id,
             requester,
@@ -266,10 +263,8 @@ impl AsDestinationRequester for TripCostEstimator {
         world: &mut World,
     ) {
         if self.rough_source == rough_destination {
-            println!("Resolved source");
             self.source = as_destination;
         } else if self.rough_destination == rough_destination {
-            println!("Resolved destination");
             self.destination = as_destination;
         } else {
             panic!("Should have this rough source/destination")
@@ -298,8 +293,6 @@ impl AsDestinationRequester for TripCostEstimator {
 impl DistanceRequester for TripCostEstimator {
     fn on_distance(&mut self, maybe_distance: Option<f32>, world: &mut World) {
         const ASSUMED_AVG_SPEED: f32 = 10.0; // m/s
-
-        println!("Maybe got distance: {:?}", maybe_distance);
 
         let result = if let Some(distance) = maybe_distance {
             EvaluatedSearchResult {
