@@ -30,12 +30,7 @@ impl Batch {
         }
     }
 
-    pub fn new_thing(
-        thing: Thing,
-        instance: Instance,
-        is_decal: bool,
-        window: &Display,
-    ) -> Batch {
+    pub fn new_thing(thing: Thing, instance: Instance, is_decal: bool, window: &Display) -> Batch {
         Batch {
             vertices: glium::VertexBuffer::new(window, &thing.vertices).unwrap(),
             indices: glium::IndexBuffer::new(

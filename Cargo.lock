@@ -359,7 +359,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "glutin"
 version = "0.9.2"
-source = "git+https://github.com/bogdad/glutin#9625c81c359d14458a197b571c3e566a76334084"
+source = "git+https://github.com/bogdad/glutin#eec855fd7ed3d3e1b5374550ae9fb93f4c160015"
 dependencies = [
  "android_glue 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "cgl 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",

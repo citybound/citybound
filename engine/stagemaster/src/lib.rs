@@ -67,9 +67,8 @@ struct UserInterfaceInner {
 }
 
 impl UserInterface {
-    fn new(window: Display) -> Self {
+    fn new(window: Display, events_loop: EventsLoop) -> Self {
         let mut imgui = ImGui::init();
-        let events_loop = EventsLoop::new();
         let default_font = im_str!("game/assets/ClearSans-Regular.ttf\0");
 
         unsafe {
@@ -179,7 +178,7 @@ pub fn setup(
     let display = Display::new(window, context, &events_loop).unwrap();
 
 
-    system.add(UserInterface::new(display.clone()), move |mut the_ui| {
+    system.add(UserInterface::new(display.clone(), events_loop), move |mut the_ui| {
         let ui_id = the_ui.world().id::<UserInterface>();
 
         let mut scene = SceneDescription::new(renderables.clone().into());
