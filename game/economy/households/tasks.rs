@@ -18,8 +18,7 @@ pub enum TaskState {
 
 #[derive(Copy, Clone)]
 pub struct Task {
-    pub offer: OfferID,
-    pub goal: ResourceId,
+    pub goal: Option<(ResourceId, OfferID)>,
     pub duration: DurationSeconds,
     pub state: TaskState,
 }

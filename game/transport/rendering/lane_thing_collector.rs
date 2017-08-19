@@ -1,4 +1,4 @@
-use monet::{Thing, Instance, RendererID};
+use monet::{Thing, Instance};
 use compact::CDict;
 use kay::{ID, ActorSystem, Fate};
 use std::marker::PhantomData;

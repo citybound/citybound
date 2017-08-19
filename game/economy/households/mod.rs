@@ -23,8 +23,13 @@ use transport::pathfinding::RoughDestinationID;
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct MemberIdx(usize);
 
+use imgui::Ui;
+use kay::{External, ID};
+use stagemaster::Ui2dDrawn;
+
 pub trait Household {
     fn on_applicable_deal(&mut self, deal: &Deal, member: MemberIdx, world: &mut World);
+    fn inspect(&mut self, imgui_ui: &External<Ui<'static>>, return_to: ID, world: &mut World);
 }
 
 #[derive(Compact, Clone)]
@@ -60,7 +65,37 @@ fn resource_graveness_helper(resource: ResourceId, amount: ResourceAmount, time:
     -amount * judgement_table().importance(resource, time)
 }
 
+use core::simulation::DurationSeconds;
+
 impl Family {
+    pub fn move_into(id: FamilyID, n_members: usize, home: BuildingID, _: &mut World) -> Family {
+        Family {
+            id,
+            home,
+            resources: ResourceMap::new(),
+            member_resources: (0..n_members)
+                .into_iter()
+                .map(|_| ResourceMap::new())
+                .collect(),
+            member_tasks: (0..n_members)
+                .into_iter()
+                .map(|_| {
+                    Task {
+                        goal: None,
+                        duration: DurationSeconds::new(0),
+                        state: TaskState::IdleAt(home.into()),
+                    }
+                })
+                .collect(),
+            decision_state: DecisionState::None,
+            used_offers: ResourceMap::new(),
+            member_used_offers: (0..n_members)
+                .into_iter()
+                .map(|_| ResourceMap::new())
+                .collect(),
+        }
+    }
+
     pub fn top_problems(&self, member: MemberIdx, time: TimeOfDay) -> Vec<(ResourceId, f32)> {
         let mut resource_graveness = self.resources
             .iter()
@@ -155,8 +190,7 @@ impl Family {
 
                 *task = if let TaskState::IdleAt(loc) = task.state {
                     Task {
-                        offer: best.offer,
-                        goal: best.deal.give.0,
+                        goal: Some((best.deal.give.0, best.offer)),
                         duration: best.deal.duration,
                         state: TaskState::GettingReadyAt(loc),
                     }
@@ -176,7 +210,7 @@ impl Family {
 
     pub fn start_trip(&mut self, member: MemberIdx, tick: Timestamp, world: &mut World) {
         if let Task {
-            offer,
+            goal: Some((_, offer)),
             state: TaskState::GettingReadyAt(source),
             ..
         } = self.member_tasks[member.0]
@@ -213,6 +247,8 @@ impl EvaluationRequester for Family {
     }
 }
 
+use economy::resources::{all_resource_ids, r_info};
+
 impl Household for Family {
     fn on_applicable_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
         let resource_deltas = deal.take
@@ -227,6 +263,69 @@ impl Household for Family {
             };
             *resources.mut_entry_or(resource, 0.0) += delta;
         }
+    }
+
+    fn inspect(&mut self, imgui_ui: &External<Ui<'static>>, return_to: ID, world: &mut World) {
+        let ui = imgui_ui.steal();
+
+        ui.window(im_str!("Building")).build(|| {
+            ui.tree_node(im_str!("Household ID: {:?}", self.id._raw_id))
+                .build(|| {
+                    ui.tree_node(im_str!("Shared")).build(|| {
+                        ui.text(im_str!("State"));
+                        ui.same_line(150.0);
+                        ui.text(im_str!(
+                            "{}",
+                            match self.decision_state {
+                                DecisionState::None => "None",
+                                DecisionState::Choosing(_, _, _) => "Waiting for choice",
+                                DecisionState::WaitingForTrip(_) => "Waiting for trip",
+                            }
+                        ));
+
+                        for resource in all_resource_ids() {
+                            if r_properties(resource).ownership_shared {
+                                ui.text(im_str!("{}", r_info(resource).0));
+                                ui.same_line(150.0);
+                                let amount = self.resources.get(resource).cloned().unwrap_or(0.0);
+                                ui.text(im_str!("{}", amount));
+                            }
+                        }
+                    });
+                    for (i, (member_resources, member_task)) in
+                        self.member_resources
+                            .iter()
+                            .zip(&self.member_tasks)
+                            .enumerate()
+                    {
+                        ui.tree_node(im_str!("Member #{}", i)).build(|| {
+                            ui.text(im_str!("Task"));
+                            ui.same_line(150.0);
+                            ui.text(im_str!(
+                                "{}",
+                                match member_task.state {
+                                    TaskState::IdleAt(_) => "Idle",
+                                    TaskState::GettingReadyAt(_) => "Getting ready",
+                                    TaskState::InTrip(_) => "In trip",
+                                    TaskState::StartedAt(_, _) => "Started",
+                                }
+                            ));
+
+                            for resource in all_resource_ids() {
+                                if !r_properties(resource).ownership_shared {
+                                    ui.text(im_str!("{}", r_info(resource).0));
+                                    ui.same_line(150.0);
+                                    let amount =
+                                        member_resources.get(resource).cloned().unwrap_or(0.0);
+                                    ui.text(im_str!("{}", amount));
+                                }
+                            }
+                        });
+                    }
+                })
+        });
+
+        world.send(return_to, Ui2dDrawn { imgui_ui: ui });
     }
 }
 
@@ -251,6 +350,7 @@ impl Sleeper for Family {
 }
 
 use transport::pathfinding::trip::{TripListener, TripID};
+use self::tasks::TaskState;
 
 impl TripListener for Family {
     fn trip_created(&mut self, trip: TripID, _: &mut World) {
@@ -278,7 +378,11 @@ impl TripListener for Family {
                     task.state
                 {
                     if task_trip_id == trip {
-                        Some((MemberIdx(idx), task.goal, task.offer))
+                        if let Some((goal, offer)) = task.goal {
+                            Some((MemberIdx(idx), goal, offer))
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
@@ -317,8 +421,6 @@ impl TripListener for Family {
         }
     }
 }
-
-use self::tasks::TaskState;
 
 pub fn setup(system: &mut ActorSystem) {
     system.add(Swarm::<Family>::new(), |_| {});

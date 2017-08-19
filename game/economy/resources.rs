@@ -19,8 +19,8 @@ impl ::std::fmt::Debug for ResourceId {
     }
 }
 
-#[derive(Debug)]
-struct ResourceDescription(String, String);
+#[derive(Clone, Debug)]
+pub struct ResourceDescription(pub String, pub String);
 
 #[derive(Default, Copy, Clone)]
 pub struct ResourceProperties {
@@ -83,8 +83,16 @@ pub fn r_id(resource: &str) -> ResourceId {
     unsafe { (*REGISTRY).id(resource) }
 }
 
+pub fn r_info(resource_id: ResourceId) -> ResourceDescription {
+    unsafe { (*REGISTRY).id_to_info[&resource_id].clone() }
+}
+
 pub fn r_properties(resource_id: ResourceId) -> ResourceProperties {
     unsafe { (*REGISTRY).properties[resource_id.as_index()] }
+}
+
+pub fn all_resource_ids() -> Vec<ResourceId> {
+    unsafe { (*REGISTRY).id_to_info.keys().cloned().collect() }
 }
 
 pub fn setup() {

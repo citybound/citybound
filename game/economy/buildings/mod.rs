@@ -34,6 +34,10 @@ impl Building {
             lot: lot.clone(),
         }
     }
+
+    pub fn add_household(&mut self, household: HouseholdID, _: &mut World) {
+        self.households.push(household);
+    }
 }
 
 use transport::pathfinding::{RoughDestination, AsDestinationRequesterID, RoughDestinationID,
@@ -82,6 +86,8 @@ pub struct FoundLot(pub Lot);
 #[derive(Copy, Clone)]
 pub struct InitializeUI;
 
+use super::households::FamilyID;
+
 pub fn setup(system: &mut ActorSystem) {
     system.add(Swarm::<Building>::new(), |_| {});
 
@@ -91,8 +97,12 @@ pub fn setup(system: &mut ActorSystem) {
 
     system.add::<BuildingSpawner, _>(spawner, |mut the_spawner| {
         the_spawner.on(|&FoundLot(ref lot), _, world| {
-            BuildingID::spawn(CVec::new(), lot.clone(), world);
+            let building_id = BuildingID::spawn(CVec::new(), lot.clone(), world);
             println!("Created a building {}", lot.position);
+
+            let family_id = FamilyID::move_into(3, building_id, world);
+            building_id.add_household(family_id.into(), world);
+
             Fate::Live
         });
 
