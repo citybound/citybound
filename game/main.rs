@@ -41,7 +41,7 @@ mod core;
 mod transport;
 
 use monet::{RendererID, RenderableID};
-use monet::glium::{DisplayBuild, glutin};
+use monet::glium::glutin;
 use core::simulation::{Simulation, Tick};
 use stagemaster::{ProcessEvents, StartFrame, UserInterface, AddDebugText, OnPanic};
 use transport::lane::{Lane, TransferLane};
@@ -97,15 +97,10 @@ fn main() {
     ];
     core::simulation::setup(&mut system, simulatables);
 
-
-    let mut events_loop = EventsLoop::new();
     let window = glutin::WindowBuilder::new()
         .with_title("Citybound".to_string())
         .with_dimensions(1024, 512)
-        .with_multitouch()
-        .with_vsync()
-        .build(events_loop)
-        .unwrap();
+        .with_multitouch();
 
     let renderables: Vec<_> = vec![
         system.id::<Swarm<Lane>>().broadcast(),
@@ -117,7 +112,7 @@ fn main() {
     ].into_iter()
         .map(|id| RenderableID { _raw_id: id })
         .collect();
-    stagemaster::setup(&mut system, renderables, ENV, &window);
+    stagemaster::setup(&mut system, renderables, ENV, window);
 
     let mut last_frame = std::time::Instant::now();
 

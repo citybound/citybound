@@ -27,8 +27,8 @@ pub mod camera_control;
 use kay::{ID, ActorSystem, World, Fate, External};
 use descartes::{N, P2, V2, P3, Into2d, Shape};
 use monet::{RendererID, ProjectionRequesterID, RenderableID, SceneDescription, Display};
-use monet::glium::glutin::{Event, WindowEvent, MouseScrollDelta, ElementState, MouseButton,
-                           KeyboardInput};
+use monet::glium::glutin::{ContextBuilder, Event, WindowBuilder, WindowEvent, MouseScrollDelta,
+                           ElementState, MouseButton, KeyboardInput};
 use monet::glium::glutin::EventsLoop;
 pub use monet::glium::glutin::VirtualKeyCode;
 use geometry::AnyShape;
@@ -355,17 +355,22 @@ pub fn setup(
     system: &mut ActorSystem,
     renderables: Vec<RenderableID>,
     env: &'static environment::Environment,
-    window: &Display,
+    window: WindowBuilder,
 ) {
     ::monet::setup(system);
 
-    system.add(UserInterface::new(window.clone()), move |mut the_ui| {
+    let context = ContextBuilder::new().with_vsync(true);
+    let events_loop = EventsLoop::new();
+    let display = Display::new(window, context, &events_loop).unwrap();
+
+
+    system.add(UserInterface::new(display.clone()), move |mut the_ui| {
         let ui_id = the_ui.world().id::<UserInterface>();
 
         let mut scene = SceneDescription::new(renderables.clone().into());
         scene.eye.position *= 30.0;
         let renderer_id = RendererID::spawn(
-            External::new(window.clone()),
+            External::new(display.clone()),
             vec![scene].into(),
             &mut the_ui.world(),
         );
