@@ -1,5 +1,5 @@
 use kay::{ActorSystem, World, Fate};
-use kay::swarm::{Swarm};
+use kay::swarm::Swarm;
 use compact::{CVec, CDict};
 use core::simulation::{TimeOfDay, Timestamp};
 
@@ -13,8 +13,8 @@ mod tasks;
 use self::tasks::Task;
 
 use super::market::{Deal, MarketID, OfferID, EvaluatedDeal, EvaluationRequester,
-                    EvaluationRequesterID, MSG_EvaluationRequester_on_result,
-                    EvaluatedSearchResult};
+                    EvaluationRequesterID, MSG_EvaluationRequester_expect_n_results,
+                    MSG_EvaluationRequester_on_result, EvaluatedSearchResult};
 use super::buildings::BuildingID;
 use transport::pathfinding::trip::{TripListenerID, MSG_TripListener_trip_created,
                                    MSG_TripListener_trip_result};
@@ -35,7 +35,7 @@ pub trait Household {
 
 #[derive(Compact, Clone)]
 struct DecisionResourceEntry {
-    n_deals_expected: usize,
+    n_results_expected: Option<usize>,
     deals: CVec<EvaluatedDeal>,
 }
 
@@ -69,9 +69,14 @@ fn resource_graveness_helper(resource: ResourceId, amount: ResourceAmount, time:
 use core::simulation::{DurationSeconds, DurationTicks, Simulation, WakeUpIn};
 
 impl Family {
-    pub fn move_into(id: FamilyID, n_members: usize, home: BuildingID, world: &mut World) -> Family {
+    pub fn move_into(
+        id: FamilyID,
+        n_members: usize,
+        home: BuildingID,
+        world: &mut World,
+    ) -> Family {
         world.send_to_id_of::<Simulation, _>(WakeUpIn(DurationTicks::new(0), id.into()));
-        
+
         Family {
             id,
             home,
@@ -139,7 +144,10 @@ impl Family {
 
             decision_entries.insert(
                 resource,
-                DecisionResourceEntry { n_deals_expected: 1, deals: CVec::new() },
+                DecisionResourceEntry {
+                    n_results_expected: None,
+                    deals: CVec::new(),
+                },
             );
         }
 
@@ -147,64 +155,40 @@ impl Family {
     }
 
     pub fn choose_deal(&mut self, world: &mut World) {
-        let (member, tick, best_offer) =
+        let maybe_best_info =
             if let DecisionState::Choosing(member, tick, ref entries) = self.decision_state {
                 let time = TimeOfDay::from_tick(tick);
-                let maybe_best = entries
-                    .values()
-                    .flat_map(|entry| {
-                        entry
-                            .deals
-                            .iter()
-                            .filter(|evaluated| evaluated.from < time && evaluated.to > time)
-                            .map(|evaluated| {
-                                let give_alleviation = resource_graveness_helper(
-                                    evaluated.deal.give.0,
-                                    -evaluated.deal.give.1,
-                                    time,
-                                );
-                                let take_graveness: f32 = evaluated
-                                    .deal
-                                    .take
-                                    .iter()
-                                    .map(|&Entry(resource, amount)| {
-                                        resource_graveness_helper(resource, -amount, time)
-                                    })
-                                    .sum();
+                let maybe_best = most_useful_evaluated_deal(entries, time);
 
-                                let usefulness = give_alleviation /
-                                    (take_graveness * evaluated.deal.duration.seconds() as f32);
+                if let Some(best) = maybe_best {
+                    let task = &mut self.member_tasks[member.0];
 
-                                (usefulness, evaluated)
-                            })
-                    })
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .max_by_key(|&(u, _e)| OrderedFloat(u));
+                    *task = if let TaskState::IdleAt(loc) = task.state {
+                        Task {
+                            goal: Some((best.deal.give.0, best.offer)),
+                            duration: best.deal.duration,
+                            state: TaskState::GettingReadyAt(loc),
+                        }
+                    } else {
+                        panic!("Member who gets new task should be idle");
+                    };
 
-                let best = maybe_best
-                    .expect("TODO: deal with no suitable offer at all")
-                    .1;
-                let task = &mut self.member_tasks[member.0];
-
-                *task = if let TaskState::IdleAt(loc) = task.state {
-                    Task {
-                        goal: Some((best.deal.give.0, best.offer)),
-                        duration: best.deal.duration,
-                        state: TaskState::GettingReadyAt(loc),
-                    }
+                    Some((member, tick, best.offer))
                 } else {
-                    panic!("Member who gets new task should be idle");
-                };
-
-                (member, tick, best.offer)
+                    None
+                }
             } else {
                 panic!("Tried to choose deal while not deciding");
             };
-
-        self.decision_state = DecisionState::WaitingForTrip(member);
-        best_offer.get_applicable_deal(self.id.into(), member, world);
-        self.start_trip(member, tick, world);
+        if let Some((member, tick, best_offer)) = maybe_best_info {
+            self.decision_state = DecisionState::WaitingForTrip(member);
+            best_offer.get_applicable_deal(self.id.into(), member, world);
+            self.start_trip(member, tick, world);
+        } else {
+            println!("{:?} didn't find any suitable offers at all", self.id._raw_id);
+            self.decision_state = DecisionState::None;
+            world.send_to_id_of::<Simulation, _>(WakeUpIn(DurationTicks::new(1000), self.id.into()));
+        }
     }
 
     pub fn start_trip(&mut self, member: MemberIdx, tick: Timestamp, world: &mut World) {
@@ -221,24 +205,87 @@ impl Family {
     }
 }
 
+fn most_useful_evaluated_deal(
+    entries: &CDict<ResourceId, DecisionResourceEntry>,
+    time: TimeOfDay,
+) -> Option<EvaluatedDeal> {
+    entries
+        .values()
+        .flat_map(|entry| {
+            entry
+                .deals
+                .iter()
+                .filter(|evaluated| evaluated.from < time && evaluated.to > time)
+                .map(|evaluated| {
+                    let give_alleviation = resource_graveness_helper(
+                        evaluated.deal.give.0,
+                        -evaluated.deal.give.1,
+                        time,
+                    );
+                    let take_graveness: f32 = evaluated
+                        .deal
+                        .take
+                        .iter()
+                        .map(|&Entry(resource, amount)| {
+                            resource_graveness_helper(resource, -amount, time)
+                        })
+                        .sum();
+
+                    let usefulness = give_alleviation /
+                        (take_graveness * evaluated.deal.duration.seconds() as f32);
+
+                    (usefulness, evaluated)
+                })
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
+        .max_by_key(|&(u, _e)| OrderedFloat(u))
+        .map(|(_, evaluated_deal)| evaluated_deal.clone())
+}
+
 impl EvaluationRequester for Family {
+    fn expect_n_results(&mut self, resource: ResourceId, n: usize, world: &mut World) {
+        println!("{} results to expect for {:?}", n, self.id._raw_id);
+        let done = if let DecisionState::Choosing(_, _, ref mut entries) = self.decision_state {
+            {
+                let entry = entries.get_mut(resource).expect(
+                    "Should have an entry for queried resource",
+                );
+
+                entry.n_results_expected = Some(n);
+            }
+
+            entries.values().all(
+                |entry| entry.n_results_expected == Some(0),
+            )
+        } else {
+            panic!("Received unexpected deal / should be choosing");
+        };
+        if done {
+            self.choose_deal(world);
+        }
+    }
+
     fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World) {
-        let &EvaluatedSearchResult { resource, n_to_expect, ref some_results } = result;
+        let &EvaluatedSearchResult { resource, ref evaluated_deals } = result;
 
         let done = if let DecisionState::Choosing(_, _, ref mut entries) = self.decision_state {
             {
                 let entry = entries.get_mut(resource).expect(
                     "Should have an entry for queried resource",
                 );
-                entry.n_deals_expected = n_to_expect;
-                entry.deals.extend(some_results.clone());
+                entry.deals.extend(evaluated_deals.clone());
+                let n_results_expected = entry.n_results_expected.as_mut().expect(
+                    "Should already know n expected",
+                );
+                *n_results_expected -= 1;
             }
 
-            entries.values().all(|entry| {
-                entry.n_deals_expected == entry.deals.len()
-            })
+            entries.values().all(
+                |entry| entry.n_results_expected == Some(0),
+            )
         } else {
-            panic!("Received unexpected deal");
+            panic!("Received unexpected deal / should be choosing");
         };
         if done {
             self.choose_deal(world);
@@ -442,7 +489,7 @@ pub fn setup(system: &mut ActorSystem) {
     system.add(Swarm::<Family>::new(), |_| {});
 
     system.extend::<Swarm<Family>, _>(|mut family_swarm| {
-        family_swarm.on(|&Tick{current_tick, ..}, _, world| {
+        family_swarm.on(|&Tick { current_tick, .. }, _, world| {
             if current_tick.ticks() % TICKS_PER_SIM_SECOND == 0 {
                 let families_as_households: HouseholdID = FamilyID::broadcast(world).into();
                 families_as_households.decay(DurationSeconds::new(1), world)

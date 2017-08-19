@@ -47,6 +47,19 @@ impl Offer {
         }
     }
 
+    // The offer stays alive until the withdrawal is confirmed
+    // to prevent offers being used while they're being withdrawn
+    pub fn withdraw(&mut self, world: &mut World) {
+        // TODO: notify users and wait for their confirmation as well
+
+        // TODO: ugly singleton send
+        MarketID::broadcast(world).withdraw(self.deal.give.0, self.id, world);
+    }
+
+    pub fn withdrawal_confirmed(&mut self, _: &mut World) -> Fate {
+        Fate::Die
+    }
+
     pub fn evaluate(
         &mut self,
         tick: Timestamp,
@@ -57,8 +70,7 @@ impl Offer {
         if TimeOfDay::from_tick(tick) < self.to {
             let search_result = EvaluatedSearchResult {
                 resource: self.deal.give.0,
-                n_to_expect: 1,
-                some_results: vec![
+                evaluated_deals: vec![
                     EvaluatedDeal {
                         offer: self.id,
                         deal: self.deal.clone(),
@@ -79,8 +91,7 @@ impl Offer {
             requester.on_result(
                 EvaluatedSearchResult {
                     resource: self.deal.give.0,
-                    n_to_expect: 0,
-                    some_results: CVec::new(),
+                    evaluated_deals: CVec::new(),
                 },
                 world,
             );
@@ -139,6 +150,7 @@ impl RoughDestination for Offer {
 }
 
 pub trait EvaluationRequester {
+    fn expect_n_results(&mut self, resource: ResourceId, n: usize, world: &mut World);
     fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World);
 }
 
@@ -149,6 +161,10 @@ pub struct Market {
 }
 
 impl Market {
+    pub fn spawn(id: MarketID, _: &mut World) -> Market {
+        Market { id, offers_by_resource: CDict::new() }
+    }
+
     pub fn search(
         &mut self,
         tick: Timestamp,
@@ -157,13 +173,28 @@ impl Market {
         requester: EvaluationRequesterID,
         world: &mut World,
     ) {
-        for offer in self.offers_by_resource.get_iter(resource) {
-            offer.evaluate(tick, location, requester, world);
-        }
+        let n_to_expect = if let Some(offers) = self.offers_by_resource.get(resource) {
+            for offer in offers.iter() {
+                offer.evaluate(tick, location, requester, world);
+            }
+
+            offers.len()
+        } else {
+            0
+        };
+
+        requester.expect_n_results(resource, n_to_expect, world);
     }
 
     pub fn register(&mut self, resource: ResourceId, offer: OfferID, _: &mut World) {
         self.offers_by_resource.push_at(resource, offer);
+    }
+
+    pub fn withdraw(&mut self, resource: ResourceId, offer: OfferID, world: &mut World) {
+        if let Some(offers) = self.offers_by_resource.get_mut(resource) {
+            offers.retain(|o| *o != offer);
+        }
+        offer.withdrawal_confirmed(world);
     }
 }
 
@@ -178,8 +209,7 @@ pub struct EvaluatedDeal {
 #[derive(Compact, Clone)]
 pub struct EvaluatedSearchResult {
     pub resource: ResourceId,
-    pub n_to_expect: usize,
-    pub some_results: CVec<EvaluatedDeal>,
+    pub evaluated_deals: CVec<EvaluatedDeal>,
 }
 
 use transport::pathfinding::{Destination, AsDestinationRequester, GetDistanceTo,
@@ -252,8 +282,8 @@ impl DistanceRequester for TripCostEstimator {
 
         let result = if let Some(distance) = maybe_distance {
             EvaluatedSearchResult {
-                some_results: self.base_result
-                    .some_results
+                evaluated_deals: self.base_result
+                    .evaluated_deals
                     .iter()
                     .map(|evaluated_deal| {
                         let estimated_travel_time =
@@ -271,8 +301,7 @@ impl DistanceRequester for TripCostEstimator {
         } else {
             EvaluatedSearchResult {
                 resource: self.base_result.resource,
-                n_to_expect: 0,
-                some_results: CVec::new(),
+                evaluated_deals: CVec::new(),
             }
         };
         self.requester.on_result(result, world)
@@ -285,6 +314,7 @@ pub fn setup(system: &mut ActorSystem) {
     system.add(Swarm::<TripCostEstimator>::new(), |_| {});
 
     kay_auto::auto_setup(system);
+    MarketID::spawn(&mut system.world());
 }
 
 mod kay_auto;
