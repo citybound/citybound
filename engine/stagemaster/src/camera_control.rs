@@ -74,7 +74,7 @@ pub fn setup(system: &mut ActorSystem, env: &'static Environment) {
     use super::Event3d;
 
     system.add(state, |mut the_renderer| {
-        // TODO: ugly/wrong
+        // TODO: ugly singleton send
         let renderer_id = RendererID::broadcast(&mut the_renderer.world());
 
         the_renderer.on_critical(move |event, cc, world| {

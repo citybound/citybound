@@ -49,6 +49,7 @@ use transport::lane::{Lane, TransferLane};
 use transport::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use transport::rendering::lane_thing_collector::ThingCollector;
 use transport::planning::current_plan::CurrentPlan;
+use economy::households::Family;
 use economy::buildings::Building;
 use kay::swarm::Swarm;
 use std::any::Any;
@@ -96,6 +97,7 @@ fn main() {
     let simulatables = vec![
         system.id::<Swarm<Lane>>().broadcast(),
         system.id::<Swarm<TransferLane>>().broadcast(),
+        system.id::<Swarm<Family>>().broadcast(),
     ];
     core::simulation::setup(&mut system, simulatables);
 
@@ -124,7 +126,7 @@ fn main() {
 
     let ui_id = system.id::<UserInterface>();
     let sim_id = system.id::<Simulation>();
-    // TODO: ugly/wrong
+    // TODO: ugly singleton send
     let renderer_id = RendererID::broadcast(&mut system.world());
 
     system.send(

@@ -1,5 +1,5 @@
 use kay::{ActorSystem, World, Fate};
-use kay::swarm::{Swarm, SubActor};
+use kay::swarm::{Swarm};
 use compact::{CVec, CDict};
 use core::simulation::{TimeOfDay, Timestamp};
 
@@ -12,7 +12,7 @@ use self::judgement_table::judgement_table;
 mod tasks;
 use self::tasks::Task;
 
-use super::market::{Deal, Market, OfferID, Search, EvaluatedDeal, EvaluationRequester,
+use super::market::{Deal, MarketID, OfferID, EvaluatedDeal, EvaluationRequester,
                     EvaluationRequesterID, MSG_EvaluationRequester_on_result,
                     EvaluatedSearchResult};
 use super::buildings::BuildingID;
@@ -29,6 +29,7 @@ use stagemaster::Ui2dDrawn;
 
 pub trait Household {
     fn on_applicable_deal(&mut self, deal: &Deal, member: MemberIdx, world: &mut World);
+    fn decay(&mut self, dt: DurationSeconds, world: &mut World);
     fn inspect(&mut self, imgui_ui: &External<Ui<'static>>, return_to: ID, world: &mut World);
 }
 
@@ -65,10 +66,12 @@ fn resource_graveness_helper(resource: ResourceId, amount: ResourceAmount, time:
     -amount * judgement_table().importance(resource, time)
 }
 
-use core::simulation::DurationSeconds;
+use core::simulation::{DurationSeconds, DurationTicks, Simulation, WakeUpIn};
 
 impl Family {
-    pub fn move_into(id: FamilyID, n_members: usize, home: BuildingID, _: &mut World) -> Family {
+    pub fn move_into(id: FamilyID, n_members: usize, home: BuildingID, world: &mut World) -> Family {
+        world.send_to_id_of::<Simulation, _>(WakeUpIn(DurationTicks::new(0), id.into()));
+        
         Family {
             id,
             home,
@@ -130,12 +133,8 @@ impl Family {
             if let Some(&offer) = maybe_offer {
                 offer.evaluate(tick, location, self.id.into(), world);
             } else {
-                world.send_to_id_of::<Market, _>(Search {
-                    time,
-                    location,
-                    resource,
-                    requester: self.id(),
-                });
+                // TODO: ugly singleton send
+                MarketID::broadcast(world).search(tick, location, resource, self.id.into(), world);
             }
 
             decision_entries.insert(
@@ -247,7 +246,7 @@ impl EvaluationRequester for Family {
     }
 }
 
-use economy::resources::{all_resource_ids, r_info};
+use economy::resources::{all_resource_ids, r_info, r_id};
 
 impl Household for Family {
     fn on_applicable_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
@@ -265,6 +264,20 @@ impl Household for Family {
         }
     }
 
+    fn decay(&mut self, dt: DurationSeconds, _: &mut World) {
+        for member_resources in self.member_resources.iter_mut() {
+            {
+                let sleep = member_resources.mut_entry_or(r_id("sleep"), 0.0);
+                *sleep += 0.001 * dt.seconds() as f32;
+            }
+            {
+                let hunger = member_resources.mut_entry_or(r_id("hunger"), 0.0);
+                *hunger += 0.001 * dt.seconds() as f32;
+            }
+        }
+    }
+
+    #[allow(useless_format)]
     fn inspect(&mut self, imgui_ui: &External<Ui<'static>>, return_to: ID, world: &mut World) {
         let ui = imgui_ui.steal();
 
@@ -422,8 +435,22 @@ impl TripListener for Family {
     }
 }
 
+use core::simulation::{Tick, TICKS_PER_SIM_SECOND};
+
 pub fn setup(system: &mut ActorSystem) {
+    judgement_table::setup();
     system.add(Swarm::<Family>::new(), |_| {});
+
+    system.extend::<Swarm<Family>, _>(|mut family_swarm| {
+        family_swarm.on(|&Tick{current_tick, ..}, _, world| {
+            if current_tick.ticks() % TICKS_PER_SIM_SECOND == 0 {
+                let families_as_households: HouseholdID = FamilyID::broadcast(world).into();
+                families_as_households.decay(DurationSeconds::new(1), world)
+            }
+
+            Fate::Live
+        });
+    });
 
     auto_setup(system);
 }

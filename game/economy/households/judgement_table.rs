@@ -35,7 +35,7 @@ pub fn setup() {
         {
             for i in 0..12 {
                 table.0[resource_id.as_index()][i] =
-                    c.get(&format!("{}h", 2 * i)).expect(&format!(
+                    c.get(&format!("{:02}h", 2 * i)).expect(&format!(
                         "no entries for {}",
                         resource
                     ))

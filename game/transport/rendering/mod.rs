@@ -537,7 +537,7 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
     }
 
     if DEBUG_VIEW_LANDMARKS {
-        // TODO: ugly/wrong
+        // TODO: ugly singleton send
         RendererID::broadcast(world).update_thing(
             0,
             4000 + lane.id().sub_actor_id as u16,

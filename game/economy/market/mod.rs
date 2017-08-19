@@ -1,4 +1,4 @@
-use kay::{ActorSystem, ID, Fate, World};
+use kay::{ActorSystem, Fate, World};
 use kay::swarm::Swarm;
 use compact::{CVec, CDict};
 use super::resources::{ResourceMap, ResourceId, ResourceAmount};
@@ -15,7 +15,7 @@ pub struct Deal {
 #[derive(Compact, Clone)]
 pub struct Offer {
     id: OfferID,
-    by: ID,
+    by: HouseholdID,
     location: RoughDestinationID,
     from: TimeOfDay,
     to: TimeOfDay,
@@ -24,6 +24,29 @@ pub struct Offer {
 }
 
 impl Offer {
+    pub fn register(
+        id: OfferID,
+        by: HouseholdID,
+        location: RoughDestinationID,
+        from: TimeOfDay,
+        to: TimeOfDay,
+        deal: &Deal,
+        world: &mut World,
+    ) -> Offer {
+        // TODO: ugly singleton send
+        MarketID::broadcast(world).register(deal.give.0, id, world);
+
+        Offer {
+            id,
+            by,
+            location,
+            from,
+            to,
+            deal: deal.clone(),
+            users: CVec::new(),
+        }
+    }
+
     pub fn evaluate(
         &mut self,
         tick: Timestamp,
@@ -119,16 +142,29 @@ pub trait EvaluationRequester {
     fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World);
 }
 
+#[derive(Compact, Clone)]
 pub struct Market {
+    id: MarketID,
     offers_by_resource: CDict<ResourceId, CVec<OfferID>>,
 }
 
-#[derive(Copy, Clone)]
-pub struct Search {
-    pub time: TimeOfDay,
-    pub location: RoughDestinationID,
-    pub resource: ResourceId,
-    pub requester: ID,
+impl Market {
+    pub fn search(
+        &mut self,
+        tick: Timestamp,
+        location: RoughDestinationID,
+        resource: ResourceId,
+        requester: EvaluationRequesterID,
+        world: &mut World,
+    ) {
+        for offer in self.offers_by_resource.get_iter(resource) {
+            offer.evaluate(tick, location, requester, world);
+        }
+    }
+
+    pub fn register(&mut self, resource: ResourceId, offer: OfferID, _: &mut World) {
+        self.offers_by_resource.push_at(resource, offer);
+    }
 }
 
 #[derive(Compact, Clone)]
@@ -245,6 +281,7 @@ impl DistanceRequester for TripCostEstimator {
 
 pub fn setup(system: &mut ActorSystem) {
     system.add(Swarm::<Offer>::new(), |_| {});
+    system.add(Swarm::<Market>::new(), |_| {});
     system.add(Swarm::<TripCostEstimator>::new(), |_| {});
 
     kay_auto::auto_setup(system);
