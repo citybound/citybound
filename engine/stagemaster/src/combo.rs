@@ -296,7 +296,7 @@ impl ComboListener {
             Event::WindowEvent {
                 event: WindowEvent::KeyboardInput {
                     input: KeyboardInput {
-                        state: state,
+                        state,
                         virtual_keycode: Some(glutin_code),
                         ..
                     },
@@ -312,14 +312,12 @@ impl ComboListener {
                 }
                 true
             }
-            Event::WindowEvent {
-                event: WindowEvent::MouseInput { state: state, button: glutin_button, .. }, ..
-            } => {
+            Event::WindowEvent { event: WindowEvent::MouseInput { state, button, .. }, .. } => {
                 let pressed = state == ElementState::Pressed;
                 if pressed {
-                    self.current.insert(glutin_button.into());
+                    self.current.insert(button.into());
                 } else {
-                    self.current.remove(&glutin_button.into());
+                    self.current.remove(&button.into());
                 }
                 true
             }
