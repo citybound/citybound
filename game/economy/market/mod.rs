@@ -67,7 +67,9 @@ impl Offer {
         requester: EvaluationRequesterID,
         world: &mut World,
     ) {
+        println!("Evaluate");
         if TimeOfDay::from_tick(tick) < self.to {
+            println!("Early enough");
             let search_result = EvaluatedSearchResult {
                 resource: self.deal.give.0,
                 evaluated_deals: vec![
@@ -88,6 +90,7 @@ impl Offer {
                 world,
             );
         } else {
+            println!("Too late");
             requester.on_result(
                 EvaluatedSearchResult {
                     resource: self.deal.give.0,
@@ -224,6 +227,7 @@ pub struct TripCostEstimator {
     source: Option<Destination>,
     rough_destination: RoughDestinationID,
     destination: Option<Destination>,
+    n_resolved: u8,
     base_result: EvaluatedSearchResult,
 }
 
@@ -239,6 +243,7 @@ impl TripCostEstimator {
     ) -> TripCostEstimator {
         rough_source.query_as_destination(id.into(), rough_source, tick, world);
         rough_destination.query_as_destination(id.into(), rough_destination, tick, world);
+        println!("Spawned TripCostEstimator");
         TripCostEstimator {
             id,
             requester,
@@ -246,6 +251,7 @@ impl TripCostEstimator {
             rough_destination,
             base_result: base_result.clone(),
             source: None,
+            n_resolved: 0,
             destination: None,
         }
     }
@@ -260,17 +266,30 @@ impl AsDestinationRequester for TripCostEstimator {
         world: &mut World,
     ) {
         if self.rough_source == rough_destination {
+            println!("Resolved source");
             self.source = as_destination;
         } else if self.rough_destination == rough_destination {
+            println!("Resolved destination");
             self.destination = as_destination;
         } else {
             panic!("Should have this rough source/destination")
         }
 
+        self.n_resolved += 1;
+
         if let (Some(source), Some(destination)) = (self.source, self.destination) {
             world.send(
                 source.node,
                 GetDistanceTo { destination, requester: self.id.into() },
+            );
+        } else if self.n_resolved == 2 {
+            println!("Either source or dest not resolvable");
+            self.requester.on_result(
+                EvaluatedSearchResult {
+                    resource: self.base_result.resource,
+                    evaluated_deals: CVec::new(),
+                },
+                world,
             );
         }
     }
@@ -279,6 +298,8 @@ impl AsDestinationRequester for TripCostEstimator {
 impl DistanceRequester for TripCostEstimator {
     fn on_distance(&mut self, maybe_distance: Option<f32>, world: &mut World) {
         const ASSUMED_AVG_SPEED: f32 = 10.0; // m/s
+
+        println!("Maybe got distance: {:?}", maybe_distance);
 
         let result = if let Some(distance) = maybe_distance {
             EvaluatedSearchResult {

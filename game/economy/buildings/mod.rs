@@ -87,6 +87,7 @@ pub struct FoundLot(pub Lot);
 pub struct InitializeUI;
 
 use super::households::FamilyID;
+use super::households::GroceryShopID;
 
 pub fn setup(system: &mut ActorSystem) {
     system.add(Swarm::<Building>::new(), |_| {});
@@ -100,8 +101,13 @@ pub fn setup(system: &mut ActorSystem) {
             let building_id = BuildingID::spawn(CVec::new(), lot.clone(), world);
             println!("Created a building {}", lot.position);
 
-            let family_id = FamilyID::move_into(3, building_id, world);
-            building_id.add_household(family_id.into(), world);
+            if building_id._raw_id.sub_actor_id % 6 == 0 {
+                let shop_id = GroceryShopID::move_into(building_id, world);
+                building_id.add_household(shop_id.into(), world);
+            } else {
+                let family_id = FamilyID::move_into(3, building_id, world);
+                building_id.add_household(family_id.into(), world);
+            }
 
             Fate::Live
         });

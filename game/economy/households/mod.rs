@@ -128,33 +128,44 @@ impl Family {
         let mut decision_entries = CDict::<ResourceId, DecisionResourceEntry>::new();
         let time = TimeOfDay::from_tick(tick);
 
-        for (resource, _) in self.top_problems(member, time) {
-            let maybe_offer = if r_properties(resource).supplier_shared {
-                self.used_offers.get(resource)
-            } else {
-                self.member_used_offers[member.0].get(resource)
-            };
+        println!("Top N Problems for Family {:?}", self.id._raw_id);
 
-            if let Some(&offer) = maybe_offer {
-                offer.evaluate(tick, location, self.id.into(), world);
-            } else {
-                // TODO: ugly singleton send
-                MarketID::broadcast(world).search(tick, location, resource, self.id.into(), world);
+        let top_problems = self.top_problems(member, time);
+
+        if top_problems.is_empty() {
+            world.send_to_id_of::<Simulation, _>(WakeUpIn(DurationTicks::new(1000), self.id.into()))
+        } else {
+            for (resource, graveness) in top_problems {
+                println!("Member #{}: {} = {}", member.0, r_info(resource).0, graveness);
+                let maybe_offer = if r_properties(resource).supplier_shared {
+                    self.used_offers.get(resource)
+                } else {
+                    self.member_used_offers[member.0].get(resource)
+                };
+
+                if let Some(&offer) = maybe_offer {
+                    offer.evaluate(tick, location, self.id.into(), world);
+                } else {
+                    // TODO: ugly singleton send
+                    MarketID::broadcast(world).search(tick, location, resource, self.id.into(), world);
+                }
+
+                decision_entries.insert(
+                    resource,
+                    DecisionResourceEntry {
+                        n_results_expected: None,
+                        deals: CVec::new(),
+                    },
+                );
             }
 
-            decision_entries.insert(
-                resource,
-                DecisionResourceEntry {
-                    n_results_expected: None,
-                    deals: CVec::new(),
-                },
-            );
+            self.decision_state = DecisionState::Choosing(member, tick, decision_entries);
         }
 
-        self.decision_state = DecisionState::Choosing(member, tick, decision_entries);
     }
 
     pub fn choose_deal(&mut self, world: &mut World) {
+        println!("Choosing deal!");
         let maybe_best_info =
             if let DecisionState::Choosing(member, tick, ref entries) = self.decision_state {
                 let time = TimeOfDay::from_tick(tick);
@@ -185,9 +196,14 @@ impl Family {
             best_offer.get_applicable_deal(self.id.into(), member, world);
             self.start_trip(member, tick, world);
         } else {
-            println!("{:?} didn't find any suitable offers at all", self.id._raw_id);
+            println!(
+                "{:?} didn't find any suitable offers at all",
+                self.id._raw_id
+            );
             self.decision_state = DecisionState::None;
-            world.send_to_id_of::<Simulation, _>(WakeUpIn(DurationTicks::new(1000), self.id.into()));
+            world.send_to_id_of::<Simulation, _>(
+                WakeUpIn(DurationTicks::new(1000), self.id.into()),
+            );
         }
     }
 
@@ -269,6 +285,8 @@ impl EvaluationRequester for Family {
     fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World) {
         let &EvaluatedSearchResult { resource, ref evaluated_deals } = result;
 
+        println!("Result! Deals: {}", evaluated_deals.len());
+
         let done = if let DecisionState::Choosing(_, _, ref mut entries) = self.decision_state {
             {
                 let entry = entries.get_mut(resource).expect(
@@ -279,6 +297,7 @@ impl EvaluationRequester for Family {
                     "Should already know n expected",
                 );
                 *n_results_expected -= 1;
+                println!("{} results left", *n_results_expected);
             }
 
             entries.values().all(
@@ -320,7 +339,7 @@ impl Household for Family {
             {
 
                 let satiety = member_resources.mut_entry_or(r_id("satiety"), 0.0);
-                if *satiety < -5.0 {
+                if *satiety < 0.0 {
                     let groceries = self.resources.mut_entry_or(r_id("groceries"), 0.0);
                     *groceries -= 3.0;
                     *satiety += 3.0;
@@ -335,7 +354,7 @@ impl Household for Family {
         let ui = imgui_ui.steal();
 
         ui.window(im_str!("Building")).build(|| {
-            ui.tree_node(im_str!("Household ID: {:?}", self.id._raw_id))
+            ui.tree_node(im_str!("Family ID: {:?}", self.id._raw_id))
                 .build(|| {
                     ui.tree_node(im_str!("Shared")).build(|| {
                         ui.text(im_str!("State"));
@@ -488,19 +507,97 @@ impl TripListener for Family {
     }
 }
 
+#[derive(Compact, Clone)]
+pub struct GroceryShop {
+    id: GroceryShopID,
+    site: BuildingID,
+    resources: ResourceMap<ResourceAmount>,
+    own_offer: OfferID,
+}
+
+impl GroceryShop {
+    pub fn move_into(id: GroceryShopID, site: BuildingID, world: &mut World) -> GroceryShop {
+        let mut offer_take = ResourceMap::new();
+        offer_take.insert(r_id("money"), 40.0);
+
+        let offer = OfferID::register(
+            id.into(),
+            site.into(),
+            TimeOfDay::new(7, 0),
+            TimeOfDay::new(20, 0),
+            Deal {
+                duration: DurationSeconds::new(5 * 60),
+                take: offer_take,
+                give: (r_id("groceries"), 30.0),
+            },
+            world,
+        );
+
+        GroceryShop {
+            id,
+            site,
+            resources: ResourceMap::new(),
+            own_offer: offer,
+        }
+    }
+}
+
+impl Household for GroceryShop {
+    fn on_applicable_deal(&mut self, _deal: &Deal, _member: MemberIdx, _world: &mut World) {
+        unimplemented!()
+    }
+
+    fn decay(&mut self, dt: DurationSeconds, _: &mut World) {
+        let groceries = self.resources.mut_entry_or(r_id("groceries"), 0.0);
+        *groceries += 0.001 * dt.seconds() as f32;
+    }
+
+    #[allow(useless_format)]
+    fn inspect(&mut self, imgui_ui: &External<Ui<'static>>, return_to: ID, world: &mut World) {
+        let ui = imgui_ui.steal();
+
+        ui.window(im_str!("Building")).build(|| {
+            ui.tree_node(im_str!("Grocery Shop ID: {:?}", self.id._raw_id))
+                .build(|| {
+                    ui.tree_node(im_str!("Resources")).build(|| for resource in
+                        all_resource_ids()
+                    {
+                        if r_properties(resource).ownership_shared {
+                            ui.text(im_str!("{}", r_info(resource).0));
+                            ui.same_line(150.0);
+                            let amount = self.resources.get(resource).cloned().unwrap_or(0.0);
+                            ui.text(im_str!("{}", amount));
+                        }
+                    });
+                });
+        });
+
+        world.send(return_to, Ui2dDrawn { imgui_ui: ui });
+    }
+}
+
 use core::simulation::{Tick, TICKS_PER_SIM_SECOND};
 
-const UPDATE_EVERY_N_SECS : usize = 100;
+const UPDATE_EVERY_N_SECS: usize = 100;
 
 pub fn setup(system: &mut ActorSystem) {
     judgement_table::setup();
+
     system.add(Swarm::<Family>::new(), |_| {});
+    system.add(Swarm::<GroceryShop>::new(), |_| {});
+
+    tasks::setup(system);
 
     system.extend::<Swarm<Family>, _>(|mut family_swarm| {
         family_swarm.on(|&Tick { current_tick, .. }, _, world| {
             if current_tick.ticks() % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0 {
                 let families_as_households: HouseholdID = FamilyID::broadcast(world).into();
-                families_as_households.decay(DurationSeconds::new(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world)
+                families_as_households.decay(
+                    DurationSeconds::new(
+                        UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND,
+                    ),
+                    world,
+                )
             }
 
             Fate::Live
@@ -519,15 +616,6 @@ pub fn setup(system: &mut ActorSystem) {
 //     used_offers: ResourceMap<ID>,
 //     own_offers: CVec<ID>,
 // }
-
-// pub struct SimpleCompany {
-//     id: SimpleCompanyID,
-//     site: BuildingID,
-//     resources: ResourceMap<ResourceAmount>,
-//     own_offers: CVec<OfferID>
-// }
-
-
 
 mod kay_auto;
 pub use self::kay_auto::*;

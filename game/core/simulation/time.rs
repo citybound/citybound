@@ -100,7 +100,9 @@ impl TimeOfDay {
     }
 
     pub fn from_tick(current_tick: Timestamp) -> Self {
-        TimeOfDay { minutes_since_midnight: (current_tick.ticks() / TICKS_PER_SIM_MINUTE) as u16 }
+        TimeOfDay {
+            minutes_since_midnight: 7 * 60 + (current_tick.ticks() / TICKS_PER_SIM_MINUTE) as u16,
+        }
     }
 
     pub fn hours_minutes(&self) -> (usize, usize) {
