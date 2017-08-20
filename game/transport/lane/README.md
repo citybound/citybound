@@ -12,7 +12,7 @@
 
 * Really make individual lanes the main abstraction, only group them into higher abstractions when absolutely necessary.
 * If possible, only handle a group of "nearby/related" lanes temporarily while using a tool
-* Also see ~[Road Planning](../planning/README.md)~
+* Also see [Road Planning](../planning/README.md)
 
 ## Implementation Decisions
 
