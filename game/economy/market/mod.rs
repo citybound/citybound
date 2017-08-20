@@ -98,13 +98,14 @@ impl Offer {
         }
     }
 
-    pub fn get_applicable_deal(
+    pub fn get_receivable_deal(
         &mut self,
         household: HouseholdID,
         member: MemberIdx,
         world: &mut World,
     ) {
-        household.on_applicable_deal(self.deal.clone(), member, world);
+        self.by.provide_deal(self.deal.clone(), world);
+        household.receive_deal(self.deal.clone(), member, world);
     }
 
     pub fn started_using(

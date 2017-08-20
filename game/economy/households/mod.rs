@@ -28,7 +28,8 @@ use kay::{External, ID};
 use stagemaster::Ui2dDrawn;
 
 pub trait Household {
-    fn on_applicable_deal(&mut self, deal: &Deal, member: MemberIdx, world: &mut World);
+    fn receive_deal(&mut self, deal: &Deal, member: MemberIdx, world: &mut World);
+    fn provide_deal(&mut self, deal: &Deal, world: &mut World);
     fn decay(&mut self, dt: DurationSeconds, world: &mut World);
     fn inspect(&mut self, imgui_ui: &External<Ui<'static>>, return_to: ID, world: &mut World);
 }
@@ -195,7 +196,7 @@ impl Family {
             };
         if let Some((member, tick, best_offer)) = maybe_best_info {
             self.decision_state = DecisionState::WaitingForTrip(member);
-            best_offer.get_applicable_deal(self.id.into(), member, world);
+            best_offer.get_receivable_deal(self.id.into(), member, world);
             self.start_trip(member, tick, world);
         } else {
             println!(
@@ -310,7 +311,7 @@ impl EvaluationRequester for Family {
 use economy::resources::{all_resource_ids, r_info, r_id};
 
 impl Household for Family {
-    fn on_applicable_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
+    fn receive_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
         let resource_deltas = deal.take
             .iter()
             .map(|&Entry(resource, amount)| (resource, -amount))
@@ -323,6 +324,10 @@ impl Household for Family {
             };
             *resources.mut_entry_or(resource, 0.0) += delta;
         }
+    }
+
+    fn provide_deal(&mut self, _deal: &Deal, _: &mut World) {
+        unimplemented!()
     }
 
     fn decay(&mut self, dt: DurationSeconds, _: &mut World) {
@@ -538,8 +543,17 @@ impl GroceryShop {
 }
 
 impl Household for GroceryShop {
-    fn on_applicable_deal(&mut self, _deal: &Deal, _member: MemberIdx, _world: &mut World) {
+    fn receive_deal(&mut self, _deal: &Deal, _member: MemberIdx, _: &mut World) {
         unimplemented!()
+    }
+
+    fn provide_deal(&mut self, deal: &Deal, _: &mut World) {
+        let (resource, amount) = deal.give;
+        *self.resources.mut_entry_or(resource, 0.0) -= amount;
+
+        for &Entry(resource, amount) in &*deal.take {
+            *self.resources.mut_entry_or(resource, 0.0) += amount;
+        }
     }
 
     fn decay(&mut self, dt: DurationSeconds, _: &mut World) {

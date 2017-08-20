@@ -12,7 +12,7 @@ struct Dispatcher {
 }
 
 const MAX_RECIPIENT_TYPES: usize = 64;
-const MAX_MESSAGE_TYPES: usize = 128;
+const MAX_MESSAGE_TYPES: usize = 256;
 
 /// The main thing inside of which all the magic happens.
 ///
