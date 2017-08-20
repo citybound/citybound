@@ -359,7 +359,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "glutin"
 version = "0.9.2"
-source = "git+https://github.com/bogdad/glutin#eec855fd7ed3d3e1b5374550ae9fb93f4c160015"
+source = "git+https://github.com/bogdad/glutin#e21a04b372eab91fdadbde6469ac97a56e250236"
 dependencies = [
  "android_glue 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "cgl 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -391,7 +391,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "imgui"
 version = "0.0.16-pre"
-source = "git+https://github.com/bogdad/imgui-rs#3474d8a51f80dc1e45df54bd661e00628ae99643"
+source = "git+https://github.com/bogdad/imgui-rs#9bf0f27f464f7fe2fd55740027dd0636cf52d37c"
 dependencies = [
  "imgui-sys 0.0.16-pre (git+https://github.com/bogdad/imgui-rs)",
 ]
@@ -399,7 +399,7 @@ dependencies = [
 [[package]]
 name = "imgui-glium-renderer"
 version = "0.0.16-pre"
-source = "git+https://github.com/bogdad/imgui-rs#796af0574363c82f13af7aecd951fdf22af0a2c8"
+source = "git+https://github.com/bogdad/imgui-rs#9bf0f27f464f7fe2fd55740027dd0636cf52d37c"
 dependencies = [
  "glium 0.17.0 (git+https://github.com/bogdad/glium)",
  "imgui 0.0.16-pre (git+https://github.com/bogdad/imgui-rs)",
@@ -409,7 +409,7 @@ dependencies = [
 [[package]]
 name = "imgui-sys"
 version = "0.0.16-pre"
-source = "git+https://github.com/bogdad/imgui-rs#3474d8a51f80dc1e45df54bd661e00628ae99643"
+source = "git+https://github.com/bogdad/imgui-rs#9bf0f27f464f7fe2fd55740027dd0636cf52d37c"
 dependencies = [
  "bitflags 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "gcc 0.3.46 (registry+https://github.com/rust-lang/crates.io-index)",
