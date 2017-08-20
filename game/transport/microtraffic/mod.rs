@@ -35,6 +35,10 @@ impl Microtraffic {
     }
 }
 
+// makes "time pass slower" for traffic, so we can still use realistic
+// unit values while traffic happening at a slower pace to be visible
+const MICROTRAFFIC_UNREALISTIC_SLOWDOWN: f32 = 10.0;
+
 #[derive(Compact, Clone, Default)]
 pub struct TransferringMicrotraffic {
     pub left_obstacles: CVec<Obstacle>,
@@ -234,6 +238,8 @@ pub fn setup(system: &mut ActorSystem) {
         });
 
         each_lane.on(|&Tick { dt, current_tick }, lane, world| {
+            let dt = dt / MICROTRAFFIC_UNREALISTIC_SLOWDOWN;
+
             lane.construction.progress += dt * 400.0;
 
             let do_traffic = current_tick.ticks() % TRAFFIC_LOGIC_THROTTLING ==
@@ -529,6 +535,8 @@ pub fn setup(system: &mut ActorSystem) {
         });
 
         each_t_lane.on(|&Tick { dt, current_tick }, lane, world| {
+            let dt = dt / MICROTRAFFIC_UNREALISTIC_SLOWDOWN;
+
             lane.construction.progress += dt * 400.0;
 
             let do_traffic = current_tick.ticks() % TRAFFIC_LOGIC_THROTTLING ==

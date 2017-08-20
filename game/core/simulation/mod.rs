@@ -27,6 +27,8 @@ pub struct Simulation {
     sleepers: Vec<(Timestamp, SleeperID)>,
 }
 
+use stagemaster::{UserInterface, AddDebugText};
+
 pub fn setup(system: &mut ActorSystem, simulatables: Vec<ID>) {
     let initial = Simulation {
         simulatables: simulatables,
@@ -55,6 +57,16 @@ pub fn setup(system: &mut ActorSystem, simulatables: Vec<ID>) {
                 sleeper.wake(sim.current_tick, world);
             }
             sim.current_tick += DurationTicks::new(1);
+
+            let time = TimeOfDay::from_tick(sim.current_tick).hours_minutes();
+
+            world.send_to_id_of::<UserInterface, _>(AddDebugText {
+                key: "Time".chars().collect(),
+                text: format!("{:02}:{:02}", time.0, time.1).chars().collect(),
+                color: [0.0, 0.0, 0.0, 1.0],
+                persistent: false,
+            });
+
             Fate::Live
         });
 
