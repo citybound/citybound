@@ -377,8 +377,8 @@ pub fn setup(system: &mut ActorSystem) {
                 let path = &lane.construction.path;
                 let distance = ::random::default().read_f64() as f32 * path.length();
                 let point = path.along(distance) + BUILDING_DISTANCE * path.direction_along(distance).orthogonal();
-
-                world.send(requester, FoundLot(Lot {position: point, adjacent_lane: lane.id()}));
+                
+                requester.found_lot(Lot {position: point, adjacent_lane: lane.id()}, world);
             }
 
             Fate::Live
@@ -589,6 +589,4 @@ pub struct Unbuild {
 }
 use self::materialized_reality::ReportLaneUnbuilt;
 
-use economy::buildings::FindLot;
-use economy::buildings::Lot;
-use economy::buildings::FoundLot;
+use economy::buildings::{FindLot, Lot};
