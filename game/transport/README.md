@@ -48,6 +48,6 @@
 ## Gameplay Aspects
 
 * Planning
-   * ~~[Road planning](planning/README.md)~~ (40% alpha)
+   * [Road planning](planning/README.md) (40% alpha)
 * Construction
    * ~~[Road construction](construction/README.md)~~ (50% alpha)
