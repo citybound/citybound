@@ -265,7 +265,7 @@ pub fn setup(system: &mut ActorSystem) {
                         if let BuildingSpawnerState::Idle = spawner.state {
                             world.send_to_id_of::<Swarm<Lane>, _>(ToRandom {
                                 message: FindLot { requester: spawner.id },
-                                n_recipients: 50,
+                                n_recipients: 5000,
                             });
                             world.send_to_id_of::<Simulation, _>(
                                 WakeUpIn(DurationTicks::new(10), spawner.id.into()),
