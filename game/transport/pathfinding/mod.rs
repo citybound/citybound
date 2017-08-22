@@ -328,7 +328,7 @@ pub fn setup(system: &mut ActorSystem) {
                     {
                         let insert = lane.pathfinding
                             .routes
-                            .get_mru(destination)
+                            .get(destination)
                             .map(|&RoutingInfo { distance, .. }| new_distance < distance)
                             .unwrap_or(true);
                         if insert {

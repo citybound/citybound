@@ -533,16 +533,6 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
         self.find_used(query).and_then(|e| e.value_option())
     }
 
-    /// legacy method for compatibility with compact_vec
-    pub fn get_mru(&self, query: K) -> Option<&V> {
-        self.get(query)
-    }
-
-    /// legacy method for compatibility with compact_vec
-    pub fn get_mfu(&self, query: K) -> Option<&V> {
-        self.get(query)
-    }
-
     /// get mutable
     pub fn get_mut(&mut self, query: K) -> Option<&mut V> {
         self.find_used_mut(query).and_then(|e| e.mut_value_option())
