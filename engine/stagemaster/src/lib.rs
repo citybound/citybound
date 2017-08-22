@@ -60,7 +60,7 @@ pub struct UserInterface {
 impl UserInterface {
     fn new(window: GlutinFacade) -> Self {
         let mut imgui = ImGui::init();
-        let default_font = im_str!("fonts/ClearSans-Regular.ttf\0");
+        let default_font = im_str!("game/assets/ClearSans-Regular.ttf\0");
 
         unsafe {
             let atlas = (*imgui_sys::igGetIO()).fonts;

@@ -6,7 +6,7 @@ use std::f32::INFINITY;
 use std::ops::{Deref, DerefMut};
 
 use super::lane::{Lane, TransferLane};
-use super::connectivity::{Interaction, InteractionKind, OverlapKind};
+use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
 use super::pathfinding;
 
 mod intelligent_acceleration;

@@ -8,7 +8,7 @@ use stagemaster::geometry::CPath;
 use ordered_float::OrderedFloat;
 
 use super::lane::{Lane, TransferLane};
-use super::connectivity::{Interaction, InteractionKind, OverlapKind};
+use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
 
 pub mod materialized_reality;
 use self::materialized_reality::BuildableRef;
