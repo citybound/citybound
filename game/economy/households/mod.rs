@@ -30,7 +30,7 @@ use stagemaster::Ui2dDrawn;
 pub trait Household {
     fn receive_deal(&mut self, deal: &Deal, member: MemberIdx, world: &mut World);
     fn provide_deal(&mut self, deal: &Deal, world: &mut World);
-    fn decay(&mut self, dt: DurationSeconds, world: &mut World);
+    fn decay(&mut self, dt: Seconds, world: &mut World);
     fn inspect(&mut self, imgui_ui: &External<Ui<'static>>, return_to: ID, world: &mut World);
 }
 
@@ -69,7 +69,7 @@ fn resource_graveness_helper(resource: ResourceId, amount: ResourceAmount, time:
     -amount * judgement_table().importance(resource, time)
 }
 
-use core::simulation::{DurationSeconds, DurationTicks, Simulation, WakeUpIn};
+use core::simulation::{Seconds, Ticks, Simulation, WakeUpIn};
 
 impl Family {
     pub fn move_into(
@@ -78,7 +78,7 @@ impl Family {
         home: BuildingID,
         world: &mut World,
     ) -> Family {
-        world.send_to_id_of::<Simulation, _>(WakeUpIn(DurationTicks::new(0), id.into()));
+        world.send_to_id_of::<Simulation, _>(WakeUpIn(Ticks(0), id.into()));
 
         Family {
             id,
@@ -93,7 +93,7 @@ impl Family {
                 .map(|_| {
                     Task {
                         goal: None,
-                        duration: DurationSeconds::new(0),
+                        duration: Seconds(0),
                         state: TaskState::IdleAt(home.into()),
                     }
                 })
@@ -136,7 +136,7 @@ impl Family {
         let top_problems = self.top_problems(member, time);
 
         if top_problems.is_empty() {
-            world.send_to_id_of::<Simulation, _>(WakeUpIn(DurationTicks::new(1000), self.id.into()))
+            world.send_to_id_of::<Simulation, _>(WakeUpIn(Ticks(1000), self.id.into()))
         } else {
             for (resource, _graveness) in top_problems {
                 // println!("Member #{}: {} = {}", member.0, r_info(resource).0, graveness);
@@ -205,7 +205,7 @@ impl Family {
             );
             self.decision_state = DecisionState::None;
             world.send_to_id_of::<Simulation, _>(
-                WakeUpIn(DurationTicks::new(1000), self.id.into()),
+                WakeUpIn(Ticks(1000), self.id.into()),
             );
         }
     }
@@ -330,7 +330,7 @@ impl Household for Family {
         unimplemented!()
     }
 
-    fn decay(&mut self, dt: DurationSeconds, _: &mut World) {
+    fn decay(&mut self, dt: Seconds, _: &mut World) {
         for member_resources in self.member_resources.iter_mut() {
             {
                 let awakeness = member_resources.mut_entry_or(r_id("awakeness"), 0.0);
@@ -530,7 +530,7 @@ impl GroceryShop {
                 Deal::new(
                     (r_id("groceries"), 30.0),
                     vec![(r_id("money"), 40.0)],
-                    DurationSeconds::new(5 * 60),
+                    Seconds(5 * 60),
                 ),
                 world,
             ),
@@ -542,7 +542,7 @@ impl GroceryShop {
                 Deal::new(
                     (r_id("money"), 50.0),
                     None,
-                    DurationSeconds::new(5 * 60 * 60)
+                    Seconds(5 * 60 * 60)
                 ),
                 world
             )
@@ -564,7 +564,7 @@ impl Household for GroceryShop {
         }
     }
 
-    fn decay(&mut self, dt: DurationSeconds, _: &mut World) {
+    fn decay(&mut self, dt: Seconds, _: &mut World) {
         let groceries = self.resources.mut_entry_or(r_id("groceries"), 0.0);
         *groceries += 0.001 * dt.seconds() as f32;
     }
@@ -610,7 +610,7 @@ pub fn setup(system: &mut ActorSystem) {
             if current_tick.ticks() % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0 {
                 let families_as_households: HouseholdID = FamilyID::broadcast(world).into();
                 families_as_households.decay(
-                    DurationSeconds::new(
+                    Seconds(
                         UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND,
                     ),
                     world,

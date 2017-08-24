@@ -1,6 +1,6 @@
 use kay::{ID, ActorSystem, Fate, World};
 use kay::swarm::{Swarm, SubActor};
-use core::simulation::{Tick, Timestamp, DurationSeconds, Simulation, WakeUpIn};
+use core::simulation::{Tick, Timestamp, Seconds, Simulation, WakeUpIn};
 use transport::pathfinding::RoughDestinationID;
 use transport::pathfinding::trip::TripID;
 use super::super::resources::ResourceId;
@@ -19,7 +19,7 @@ pub enum TaskState {
 #[derive(Copy, Clone)]
 pub struct Task {
     pub goal: Option<(ResourceId, OfferID)>,
-    pub duration: DurationSeconds,
+    pub duration: Seconds,
     pub state: TaskState,
 }
 
@@ -117,8 +117,6 @@ impl super::Family {
     ) {
         self.member_tasks[member.0].state = TaskState::IdleAt(location);
         println!("Task stopped");
-        world.send_to_id_of::<Simulation, _>(
-            WakeUpIn(DurationSeconds::new(0).into(), self.id.into()),
-        );
+        world.send_to_id_of::<Simulation, _>(WakeUpIn(Seconds(0).into(), self.id.into()));
     }
 }

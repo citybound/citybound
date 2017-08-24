@@ -200,9 +200,7 @@ impl Sleeper for BuildingSpawner {
                     }
                 }
                 buildings.find_conflicts(nonconflicting_lots.clone(), self.id, world);
-                world.send_to_id_of::<Simulation, _>(
-                    WakeUpIn(DurationTicks::new(10), self.id.into()),
-                );
+                world.send_to_id_of::<Simulation, _>(WakeUpIn(Ticks(10), self.id.into()));
                 let nonconclicting_lots_len = nonconflicting_lots.len();
                 BuildingSpawnerState::CheckingBuildings(
                     nonconflicting_lots,
@@ -220,9 +218,7 @@ impl Sleeper for BuildingSpawner {
                     .collect();
                 let lanes = LotConflictorID { _raw_id: world.id::<Swarm<Lane>>().broadcast() };
                 lanes.find_conflicts(new_lots.clone(), self.id, world);
-                world.send_to_id_of::<Simulation, _>(
-                    WakeUpIn(DurationTicks::new(10), self.id.into()),
-                );
+                world.send_to_id_of::<Simulation, _>(WakeUpIn(Ticks(10), self.id.into()));
                 let new_lots_len = new_lots.len();
                 BuildingSpawnerState::CheckingLanes(new_lots, vec![true; new_lots_len].into())
             }
@@ -249,7 +245,7 @@ pub struct InitializeUI;
 
 use super::households::FamilyID;
 use super::households::GroceryShopID;
-use core::simulation::{Simulation, WakeUpIn, DurationTicks};
+use core::simulation::{Simulation, WakeUpIn, Ticks};
 
 pub fn setup(system: &mut ActorSystem) {
     system.add(Swarm::<Building>::new(), |_| {});
@@ -268,7 +264,7 @@ pub fn setup(system: &mut ActorSystem) {
                                 n_recipients: 5000,
                             });
                             world.send_to_id_of::<Simulation, _>(
-                                WakeUpIn(DurationTicks::new(10), spawner.id.into()),
+                                WakeUpIn(Ticks(10), spawner.id.into()),
                             );
                             spawner.state = BuildingSpawnerState::Collecting(CVec::new());
                         }

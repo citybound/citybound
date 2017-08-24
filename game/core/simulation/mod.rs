@@ -2,8 +2,8 @@ use kay::{ActorSystem, World, ID, Fate};
 
 mod time;
 
-pub use self::time::{Timestamp, DurationTicks, DurationSeconds, TICKS_PER_SIM_MINUTE,
-                     TICKS_PER_SIM_SECOND, TimeOfDay};
+pub use self::time::{Timestamp, Ticks, Seconds, TICKS_PER_SIM_MINUTE, TICKS_PER_SIM_SECOND,
+                     TimeOfDay};
 
 #[derive(Copy, Clone)]
 pub struct DoTick;
@@ -15,7 +15,7 @@ pub struct Tick {
 }
 
 #[derive(Copy, Clone)]
-pub struct WakeUpIn(pub DurationTicks, pub SleeperID);
+pub struct WakeUpIn(pub Ticks, pub SleeperID);
 
 pub trait Sleeper {
     fn wake(&mut self, current_tick: Timestamp, world: &mut World);
@@ -56,7 +56,7 @@ pub fn setup(system: &mut ActorSystem, simulatables: Vec<ID>) {
                 );
                 sleeper.wake(sim.current_tick, world);
             }
-            sim.current_tick += DurationTicks::new(1);
+            sim.current_tick += Ticks(1);
 
             let time = TimeOfDay::from_tick(sim.current_tick).hours_minutes();
 

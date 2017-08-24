@@ -118,7 +118,7 @@ impl AsDestinationRequester for Trip {
 }
 
 use core::simulation::{Simulation, SleeperID, WakeUpIn, MSG_Sleeper_wake};
-use core::simulation::DurationTicks;
+use core::simulation::Ticks;
 
 pub fn setup(system: &mut ActorSystem) {
     system.add(Swarm::<Trip>::new(), |_| {});
@@ -139,10 +139,7 @@ pub fn setup(system: &mut ActorSystem) {
                 }
                 let sim_id = world.id::<Simulation>();
                 let tc_id = world.id::<TripCreator>();
-                world.send(
-                    sim_id,
-                    WakeUpIn(DurationTicks::new(0), SleeperID { _raw_id: tc_id }),
-                );
+                world.send(sim_id, WakeUpIn(Ticks(0), SleeperID { _raw_id: tc_id }));
                 Fate::Live
             });
 

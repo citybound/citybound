@@ -3,11 +3,11 @@ use kay::swarm::Swarm;
 use compact::{CVec, CDict};
 use super::resources::{ResourceMap, ResourceId, ResourceAmount};
 use super::households::{HouseholdID, MemberIdx};
-use core::simulation::{TimeOfDay, DurationSeconds, Timestamp};
+use core::simulation::{TimeOfDay, Seconds, Timestamp};
 
 #[derive(Compact, Clone)]
 pub struct Deal {
-    pub duration: DurationSeconds,
+    pub duration: Seconds,
     pub take: ResourceMap<ResourceAmount>,
     pub give: (ResourceId, ResourceAmount),
 }
@@ -16,7 +16,7 @@ impl Deal {
     pub fn new<T: IntoIterator<Item = (ResourceId, ResourceAmount)>>(
         give: (ResourceId, ResourceAmount),
         take: T,
-        duration: DurationSeconds,
+        duration: Seconds,
     ) -> Self {
         Deal {
             duration,
@@ -321,7 +321,7 @@ impl DistanceRequester for TripCostEstimator {
                     .iter()
                     .map(|evaluated_deal| {
                         let estimated_travel_time =
-                            DurationSeconds::new((distance / ASSUMED_AVG_SPEED) as usize);
+                            Seconds((distance / ASSUMED_AVG_SPEED) as usize);
                         let mut new_deal = evaluated_deal.clone();
                         new_deal.deal.duration += estimated_travel_time;
                         new_deal.from -= estimated_travel_time;
