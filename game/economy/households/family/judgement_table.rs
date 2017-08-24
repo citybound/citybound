@@ -1,4 +1,4 @@
-use super::super::resources::{r_id, ResourceId, MAX_N_RESOURCE_TYPES};
+use economy::resources::{r_id, ResourceId, MAX_N_RESOURCE_TYPES};
 use core::simulation::TimeOfDay;
 use core::read_md_tables;
 

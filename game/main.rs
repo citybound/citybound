@@ -49,7 +49,7 @@ use transport::lane::{Lane, TransferLane};
 use transport::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use transport::rendering::lane_thing_collector::ThingCollector;
 use transport::planning::current_plan::CurrentPlan;
-use economy::households::Family;
+use economy::households::family::Family;
 use economy::households::tasks::TaskEndScheduler;
 use economy::buildings::Building;
 use kay::swarm::Swarm;

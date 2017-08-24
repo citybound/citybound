@@ -243,8 +243,8 @@ pub struct FindLot {
 #[derive(Copy, Clone)]
 pub struct InitializeUI;
 
-use super::households::FamilyID;
-use super::households::GroceryShopID;
+use super::households::family::FamilyID;
+use super::households::grocery_shop::GroceryShopID;
 use core::simulation::{Simulation, WakeUpIn, Ticks};
 
 pub fn setup(system: &mut ActorSystem) {

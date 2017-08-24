@@ -1,12 +1,11 @@
-use kay::{ID, ActorSystem, Fate, World};
-use kay::swarm::{Swarm, SubActor};
-use core::simulation::{Tick, Timestamp, Seconds, Simulation, WakeUpIn};
+use kay::{ActorSystem, Fate};
+use core::simulation::{Tick, Timestamp, Seconds};
 use transport::pathfinding::RoughDestinationID;
 use transport::pathfinding::trip::TripID;
 use super::super::resources::ResourceId;
 use super::super::market::OfferID;
 
-use super::MemberIdx;
+use super::{HouseholdID, MemberIdx};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum TaskState {
@@ -23,26 +22,27 @@ pub struct Task {
     pub state: TaskState,
 }
 
+impl Task {
+    pub fn idle_at(location: RoughDestinationID) -> Self {
+        Task {
+            goal: None,
+            duration: Seconds(0),
+            state: TaskState::IdleAt(location),
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct TaskEndScheduler {
-    task_ends: Vec<(Timestamp, ID, MemberIdx)>,
+    task_ends: Vec<(Timestamp, HouseholdID, MemberIdx)>,
 }
 
 #[derive(Compact, Clone)]
-pub struct ScheduleTaskEnd(Timestamp, ID, MemberIdx);
-
-#[derive(Copy, Clone)]
-pub enum Complete {
-    Success { member: MemberIdx },
-    Failure {
-        member: MemberIdx,
-        location: RoughDestinationID,
-    },
-}
+pub struct ScheduleTaskEnd(pub Timestamp, pub HouseholdID, pub MemberIdx);
 
 pub fn setup(system: &mut ActorSystem) {
     system.add(TaskEndScheduler::default(), |mut the_scheduler| {
-        the_scheduler.on(|&ScheduleTaskEnd(end, family_id, member), scheduler, _| {
+        the_scheduler.on(|&ScheduleTaskEnd(end, household, member), scheduler, _| {
             let maybe_idx = scheduler.task_ends.binary_search_by_key(
                 &(end.iticks()),
                 |&(e, _, _)| -(e.iticks()),
@@ -52,7 +52,7 @@ pub fn setup(system: &mut ActorSystem) {
             };
             scheduler.task_ends.insert(
                 insert_idx,
-                (end, family_id, member),
+                (end, household, member),
             );
             Fate::Live
         });
@@ -64,59 +64,12 @@ pub fn setup(system: &mut ActorSystem) {
                 .map(|&(end, _, _)| end < current_tick)
                 .unwrap_or(false)
             {
-                let (_, family_id, member) = scheduler.task_ends.pop().expect(
+                let (_, household, member) = scheduler.task_ends.pop().expect(
                     "just checked that there are WIP tasks",
                 );
-                world.send(family_id, Complete::Success { member });
+                household.task_succeeded(member, world);
             }
             Fate::Live
         });
     });
-
-    system.extend(Swarm::<super::Family>::subactors(|mut each_family| {
-        each_family.on(move |result, family, world| {
-            match *result {
-                Complete::Success { member } => {
-                    println!("Task succeeded");
-                    if let TaskState::StartedAt(_, location) = family.member_tasks[member.0].state {
-                        family.stop_task(member, location, world)
-                    } else {
-                        panic!("Can't finish unstarted task");
-                    }
-                }
-                Complete::Failure { member, location } => family.stop_task(member, location, world),
-            };
-            Fate::Live
-        })
-    }));
-
-}
-
-impl super::Family {
-    pub fn start_task(
-        &mut self,
-        member: MemberIdx,
-        start: Timestamp,
-        location: RoughDestinationID,
-        world: &mut World,
-    ) {
-        println!("Started task");
-        world.send_to_id_of::<TaskEndScheduler, _>(ScheduleTaskEnd(
-            start + self.member_tasks[member.0].duration,
-            self.id(),
-            member,
-        ));
-        self.member_tasks[member.0].state = TaskState::StartedAt(start, location);
-    }
-
-    pub fn stop_task(
-        &mut self,
-        member: MemberIdx,
-        location: RoughDestinationID,
-        world: &mut World,
-    ) {
-        self.member_tasks[member.0].state = TaskState::IdleAt(location);
-        println!("Task stopped");
-        world.send_to_id_of::<Simulation, _>(WakeUpIn(Seconds(0).into(), self.id.into()));
-    }
 }
