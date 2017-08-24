@@ -12,6 +12,20 @@ pub struct Deal {
     pub give: (ResourceId, ResourceAmount),
 }
 
+impl Deal {
+    pub fn new<T: IntoIterator<Item = (ResourceId, ResourceAmount)>>(
+        give: (ResourceId, ResourceAmount),
+        take: T,
+        duration: DurationSeconds,
+    ) -> Self {
+        Deal {
+            duration,
+            give,
+            take: take.into_iter().collect(),
+        }
+    }
+}
+
 #[derive(Compact, Clone)]
 pub struct Offer {
     id: OfferID,

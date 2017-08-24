@@ -512,32 +512,40 @@ pub struct GroceryShop {
     id: GroceryShopID,
     site: BuildingID,
     resources: ResourceMap<ResourceAmount>,
-    own_offer: OfferID,
+    grocery_offer: OfferID,
+    job_offer: OfferID
 }
 
 impl GroceryShop {
     pub fn move_into(id: GroceryShopID, site: BuildingID, world: &mut World) -> GroceryShop {
-        let mut offer_take = ResourceMap::new();
-        offer_take.insert(r_id("money"), 40.0);
-
-        let offer = OfferID::register(
-            id.into(),
-            site.into(),
-            TimeOfDay::new(7, 0),
-            TimeOfDay::new(20, 0),
-            Deal {
-                duration: DurationSeconds::new(5 * 60),
-                take: offer_take,
-                give: (r_id("groceries"), 30.0),
-            },
-            world,
-        );
-
         GroceryShop {
             id,
             site,
             resources: ResourceMap::new(),
-            own_offer: offer,
+            grocery_offer: OfferID::register(
+                id.into(),
+                site.into(),
+                TimeOfDay::new(7, 0),
+                TimeOfDay::new(20, 0),
+                Deal::new(
+                    (r_id("groceries"), 30.0),
+                    vec![(r_id("money"), 40.0)],
+                    DurationSeconds::new(5 * 60),
+                ),
+                world,
+            ),
+            job_offer: OfferID::register(
+                id.into(),
+                site.into(),
+                TimeOfDay::new(7, 0),
+                TimeOfDay::new(20, 0),
+                Deal::new(
+                    (r_id("money"), 50.0),
+                    None,
+                    DurationSeconds::new(5 * 60 * 60)
+                ),
+                world
+            )
         }
     }
 }
@@ -623,7 +631,7 @@ pub fn setup(system: &mut ActorSystem) {
 //     resources: ResourceMap<ResourceAmount>,
 //     worker_tasks: CVec<Task>,
 //     used_offers: ResourceMap<ID>,
-//     own_offers: CVec<ID>,
+//     grocery_offers: CVec<ID>,
 // }
 
 mod kay_auto;
