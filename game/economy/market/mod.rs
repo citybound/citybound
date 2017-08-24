@@ -253,6 +253,10 @@ impl TripCostEstimator {
             destination: None,
         }
     }
+
+    pub fn done(&mut self, _: &mut World) -> Fate {
+        Fate::Die
+    }
 }
 
 impl AsDestinationRequester for TripCostEstimator {
@@ -287,6 +291,7 @@ impl AsDestinationRequester for TripCostEstimator {
                 },
                 world,
             );
+            self.id.done(world);
         }
     }
 }
@@ -319,7 +324,8 @@ impl DistanceRequester for TripCostEstimator {
                 evaluated_deals: CVec::new(),
             }
         };
-        self.requester.on_result(result, world)
+        self.requester.on_result(result, world);
+        self.id.done(world);
     }
 }
 
