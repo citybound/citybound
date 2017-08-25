@@ -77,14 +77,14 @@ impl Obstacle {
 }
 
 use super::pathfinding::trip::TripID;
-use super::pathfinding::RoughDestinationID;
+use super::pathfinding::RoughLocationID;
 
 #[derive(Copy, Clone)]
 pub struct LaneCar {
     pub trip: TripID,
     pub as_obstacle: Obstacle,
     pub acceleration: f32,
-    pub destination: pathfinding::Destination,
+    pub destination: pathfinding::Location,
     pub next_hop_interaction: u8,
 }
 
@@ -218,7 +218,7 @@ pub fn setup(system: &mut ActorSystem) {
                     None => lane.microtraffic.cars.push(routed_car),
                 }
             } else {
-                car.trip.fail_at(RoughDestinationID{_raw_id: lane.id()}, tick, world);
+                car.trip.fail_at(RoughLocationID{_raw_id: lane.id()}, tick, world);
             }
 
             Fate::Live

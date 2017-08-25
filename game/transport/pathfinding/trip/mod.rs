@@ -3,32 +3,32 @@ use kay::swarm::{Swarm, SubActor};
 use ordered_float::OrderedFloat;
 use core::simulation::Timestamp;
 
-use super::Destination;
-use super::{RoughDestinationID, AsDestinationRequester, AsDestinationRequesterID,
-            MSG_AsDestinationRequester_tell_as_destination};
+use super::Location;
+use super::{RoughLocationID, LocationRequester, LocationRequesterID,
+            MSG_AsLocationRequester_location_resolved};
 
 #[derive(Compact, Clone)]
 pub struct Trip {
     id: TripID,
-    rough_source: RoughDestinationID,
-    rough_destination: RoughDestinationID,
-    source: Option<Destination>,
-    destination: Option<Destination>,
+    rough_source: RoughLocationID,
+    rough_destination: RoughLocationID,
+    source: Option<Location>,
+    destination: Option<Location>,
     listener: Option<TripListenerID>,
 }
 
 impl Trip {
     pub fn spawn(
         id: TripID,
-        rough_source: RoughDestinationID,
-        rough_destination: RoughDestinationID,
+        rough_source: RoughLocationID,
+        rough_destination: RoughLocationID,
         listener: Option<TripListenerID>,
         tick: Timestamp,
         world: &mut World,
     ) -> Self {
 
-        rough_source.query_as_destination(id.into(), rough_source, tick, world);
-        rough_destination.query_as_destination(id.into(), rough_destination, tick, world);
+        rough_source.resolve_as_location(id.into(), rough_source, tick, world);
+        rough_destination.resolve_as_location(id.into(), rough_destination, tick, world);
 
         if let Some(listener) = listener {
             listener.trip_created(id, world);
@@ -46,7 +46,7 @@ impl Trip {
 
     pub fn fail_at(
         &mut self,
-        location: RoughDestinationID,
+        location: RoughLocationID,
         tick: Timestamp,
         world: &mut World,
     ) -> Fate {
@@ -70,18 +70,18 @@ impl Trip {
     }
 }
 
-impl AsDestinationRequester for Trip {
-    fn tell_as_destination(
+impl LocationRequester for Trip {
+    fn location_resolved(
         &mut self,
-        rough_destination: RoughDestinationID,
-        as_destination: Option<Destination>,
+        rough_location: RoughLocationID,
+        location: Option<Location>,
         tick: Timestamp,
         world: &mut World,
     ) {
-        if let Some(precise) = as_destination {
-            if rough_destination == self.rough_source {
+        if let Some(precise) = location {
+            if rough_location == self.rough_source {
                 self.source = Some(precise);
-            } else if rough_destination == self.rough_destination {
+            } else if rough_location == self.rough_destination {
                 self.destination = Some(precise);
             } else {
                 unreachable!();
@@ -110,7 +110,7 @@ impl AsDestinationRequester for Trip {
         } else {
             println!(
                 "{:?} is not a source/destination yet",
-                rough_destination._raw_id
+                rough_location._raw_id
             );
             self.id.fail_at(self.rough_source, tick, world);
         }
@@ -145,12 +145,12 @@ pub fn setup(system: &mut ActorSystem) {
 
             the_creator.on(move |&MSG_Sleeper_wake(current_tick), tc, world| {
                 TripID::spawn(
-                    RoughDestinationID {
+                    RoughLocationID {
                         _raw_id: tc.current_source_lane.expect(
                             "Should already have source lane",
                         ),
                     },
-                    RoughDestinationID {
+                    RoughLocationID {
                         _raw_id: tc.current_destination_lane.expect(
                             "Should already have destination lane",
                         ),
@@ -196,7 +196,7 @@ pub trait TripListener {
     fn trip_result(
         &mut self,
         trip: TripID,
-        location: RoughDestinationID,
+        location: RoughLocationID,
         failed: bool,
         tick: Timestamp,
         world: &mut World,

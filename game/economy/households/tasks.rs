@@ -1,6 +1,6 @@
 use kay::{ActorSystem, Fate};
 use core::simulation::{Tick, Timestamp, Seconds};
-use transport::pathfinding::RoughDestinationID;
+use transport::pathfinding::RoughLocationID;
 use transport::pathfinding::trip::TripID;
 use super::super::resources::ResourceId;
 use super::super::market::OfferID;
@@ -9,10 +9,10 @@ use super::{HouseholdID, MemberIdx};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum TaskState {
-    GettingReadyAt(RoughDestinationID),
+    GettingReadyAt(RoughLocationID),
     InTrip(TripID),
-    StartedAt(Timestamp, RoughDestinationID),
-    IdleAt(RoughDestinationID),
+    StartedAt(Timestamp, RoughLocationID),
+    IdleAt(RoughLocationID),
 }
 
 #[derive(Copy, Clone)]
@@ -23,7 +23,7 @@ pub struct Task {
 }
 
 impl Task {
-    pub fn idle_at(location: RoughDestinationID) -> Self {
+    pub fn idle_at(location: RoughLocationID) -> Self {
         Task {
             goal: None,
             duration: Seconds(0),

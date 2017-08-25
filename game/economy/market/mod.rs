@@ -30,7 +30,7 @@ impl Deal {
 pub struct Offer {
     id: OfferID,
     by: HouseholdID,
-    location: RoughDestinationID,
+    location: RoughLocationID,
     from: TimeOfDay,
     to: TimeOfDay,
     deal: Deal,
@@ -41,7 +41,7 @@ impl Offer {
     pub fn register(
         id: OfferID,
         by: HouseholdID,
-        location: RoughDestinationID,
+        location: RoughLocationID,
         from: TimeOfDay,
         to: TimeOfDay,
         deal: &Deal,
@@ -77,7 +77,7 @@ impl Offer {
     pub fn evaluate(
         &mut self,
         tick: Timestamp,
-        location: RoughDestinationID,
+        location: RoughLocationID,
         requester: EvaluationRequesterID,
         world: &mut World,
     ) {
@@ -143,21 +143,21 @@ impl Offer {
     }
 }
 
-use transport::pathfinding::{RoughDestination, RoughDestinationID,
-                             MSG_RoughDestination_query_as_destination, AsDestinationRequesterID,
-                             MSG_AsDestinationRequester_tell_as_destination};
+use transport::pathfinding::{RoughLocation, RoughLocationID,
+                             MSG_RoughLocation_resolve_as_location, LocationRequesterID,
+                             MSG_AsLocationRequester_location_resolved};
 
-impl RoughDestination for Offer {
-    fn query_as_destination(
+impl RoughLocation for Offer {
+    fn resolve_as_location(
         &mut self,
-        requester: AsDestinationRequesterID,
-        rough_destination: RoughDestinationID,
+        requester: LocationRequesterID,
+        rough_location: RoughLocationID,
         tick: Timestamp,
         world: &mut World,
     ) {
-        self.location.query_as_destination(
+        self.location.resolve_as_location(
             requester,
-            rough_destination,
+            rough_location,
             tick,
             world,
         );
@@ -185,7 +185,7 @@ impl Market {
     pub fn search(
         &mut self,
         tick: Timestamp,
-        location: RoughDestinationID,
+        location: RoughLocationID,
         resource: ResourceId,
         requester: EvaluationRequesterID,
         world: &mut World,
@@ -231,18 +231,17 @@ pub struct EvaluatedSearchResult {
     pub evaluated_deals: CVec<EvaluatedDeal>,
 }
 
-use transport::pathfinding::{Destination, AsDestinationRequester, GetDistanceTo,
-                             DistanceRequester, DistanceRequesterID,
-                             MSG_DistanceRequester_on_distance};
+use transport::pathfinding::{Location, LocationRequester, GetDistanceTo, DistanceRequester,
+                             DistanceRequesterID, MSG_DistanceRequester_on_distance};
 
 #[derive(Compact, Clone)]
 pub struct TripCostEstimator {
     id: TripCostEstimatorID,
     requester: EvaluationRequesterID,
-    rough_source: RoughDestinationID,
-    source: Option<Destination>,
-    rough_destination: RoughDestinationID,
-    destination: Option<Destination>,
+    rough_source: RoughLocationID,
+    source: Option<Location>,
+    rough_destination: RoughLocationID,
+    destination: Option<Location>,
     n_resolved: u8,
     base_result: EvaluatedSearchResult,
 }
@@ -251,14 +250,14 @@ impl TripCostEstimator {
     pub fn spawn(
         id: TripCostEstimatorID,
         requester: EvaluationRequesterID,
-        rough_source: RoughDestinationID,
-        rough_destination: RoughDestinationID,
+        rough_source: RoughLocationID,
+        rough_destination: RoughLocationID,
         base_result: &EvaluatedSearchResult,
         tick: Timestamp,
         world: &mut World,
     ) -> TripCostEstimator {
-        rough_source.query_as_destination(id.into(), rough_source, tick, world);
-        rough_destination.query_as_destination(id.into(), rough_destination, tick, world);
+        rough_source.resolve_as_location(id.into(), rough_source, tick, world);
+        rough_destination.resolve_as_location(id.into(), rough_destination, tick, world);
 
         TripCostEstimator {
             id,
@@ -277,18 +276,18 @@ impl TripCostEstimator {
     }
 }
 
-impl AsDestinationRequester for TripCostEstimator {
-    fn tell_as_destination(
+impl LocationRequester for TripCostEstimator {
+    fn location_resolved(
         &mut self,
-        rough_destination: RoughDestinationID,
-        as_destination: Option<Destination>,
+        rough_location: RoughLocationID,
+        location: Option<Location>,
         _tick: Timestamp,
         world: &mut World,
     ) {
-        if self.rough_source == rough_destination {
-            self.source = as_destination;
-        } else if self.rough_destination == rough_destination {
-            self.destination = as_destination;
+        if self.rough_source == rough_location {
+            self.source = location;
+        } else if self.rough_destination == rough_location {
+            self.destination = location;
         } else {
             panic!("Should have this rough source/destination")
         }

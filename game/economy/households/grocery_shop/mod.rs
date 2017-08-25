@@ -7,7 +7,7 @@ use economy::resources::{ResourceAmount, ResourceMap, Entry, r_id, r_properties,
                          all_resource_ids};
 use economy::market::{Deal, OfferID};
 use economy::buildings::BuildingID;
-use transport::pathfinding::RoughDestinationID;
+use transport::pathfinding::RoughLocationID;
 
 use super::{Household, HouseholdID, MemberIdx, MSG_Household_decay, MSG_Household_inspect,
             MSG_Household_provide_deal, MSG_Household_receive_deal, MSG_Household_task_succeeded,
@@ -70,7 +70,7 @@ impl Household for GroceryShop {
         unimplemented!()
     }
 
-    fn task_failed(&mut self, _member: MemberIdx, _location: RoughDestinationID, _: &mut World) {
+    fn task_failed(&mut self, _member: MemberIdx, _location: RoughLocationID, _: &mut World) {
         unimplemented!()
     }
 

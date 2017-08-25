@@ -1,7 +1,7 @@
 use kay::{ActorSystem, World};
 use core::simulation::Seconds;
 
-use transport::pathfinding::RoughDestinationID;
+use transport::pathfinding::RoughLocationID;
 
 pub mod tasks;
 pub mod family;
@@ -20,7 +20,7 @@ pub trait Household {
     fn provide_deal(&mut self, deal: &Deal, world: &mut World);
     fn decay(&mut self, dt: Seconds, world: &mut World);
     fn task_succeeded(&mut self, member: MemberIdx, world: &mut World);
-    fn task_failed(&mut self, member: MemberIdx, location: RoughDestinationID, world: &mut World);
+    fn task_failed(&mut self, member: MemberIdx, location: RoughLocationID, world: &mut World);
     fn inspect(&mut self, imgui_ui: &External<Ui<'static>>, return_to: ID, world: &mut World);
 }
 

@@ -40,20 +40,20 @@ impl Building {
     }
 }
 
-use transport::pathfinding::{RoughDestination, AsDestinationRequesterID, RoughDestinationID,
-                             MSG_RoughDestination_query_as_destination};
+use transport::pathfinding::{RoughLocation, LocationRequesterID, RoughLocationID,
+                             MSG_RoughLocation_resolve_as_location};
 use core::simulation::Timestamp;
 
-impl RoughDestination for Building {
-    fn query_as_destination(
+impl RoughLocation for Building {
+    fn resolve_as_location(
         &mut self,
-        requester: AsDestinationRequesterID,
-        rough_destination: RoughDestinationID,
+        requester: LocationRequesterID,
+        rough_location: RoughLocationID,
         tick: Timestamp,
         world: &mut World,
     ) {
-        let adjacent_lane = RoughDestinationID { _raw_id: self.lot.adjacent_lane };
-        adjacent_lane.query_as_destination(requester, rough_destination, tick, world)
+        let adjacent_lane = RoughLocationID { _raw_id: self.lot.adjacent_lane };
+        adjacent_lane.resolve_as_location(requester, rough_location, tick, world)
     }
 }
 

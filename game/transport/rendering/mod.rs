@@ -293,16 +293,16 @@ pub fn setup(system: &mut ActorSystem) {
 
             if DEBUG_VIEW_LANDMARKS && lane.pathfinding.routes_changed {
                 let (random_color, is_landmark) =
-                    if let Some(as_destination) = lane.pathfinding.as_destination {
+                    if let Some(location) = lane.pathfinding.location {
                         let random_color: [f32; 3] = ::core::colors::RANDOM_COLORS
-                            [as_destination.landmark.sub_actor_id as usize %
+                            [location.landmark.sub_actor_id as usize %
                             ::core::colors::RANDOM_COLORS.len()];
                         let weaker_random_color = [
                             (random_color[0] + 1.0) / 2.0,
                             (random_color[1] + 1.0) / 2.0,
                             (random_color[2] + 1.0) / 2.0,
                         ];
-                        (weaker_random_color, as_destination.is_landmark())
+                        (weaker_random_color, location.is_landmark())
                     } else {
                         ([1.0, 1.0, 1.0], false)
                     };

@@ -12,7 +12,7 @@ use economy::market::{Deal, MarketID, OfferID, EvaluatedDeal, EvaluationRequeste
 use economy::buildings::BuildingID;
 use transport::pathfinding::trip::{TripListenerID, MSG_TripListener_trip_created,
                                    MSG_TripListener_trip_result};
-use transport::pathfinding::RoughDestinationID;
+use transport::pathfinding::RoughLocationID;
 
 mod judgement_table;
 use self::judgement_table::judgement_table;
@@ -120,7 +120,7 @@ impl Family {
         &mut self,
         member: MemberIdx,
         tick: Timestamp,
-        location: RoughDestinationID,
+        location: RoughLocationID,
         world: &mut World,
     ) {
         println!("Top N Problems for Family {:?}", self.id._raw_id);
@@ -327,7 +327,7 @@ impl TripListener for Family {
     fn trip_result(
         &mut self,
         trip: TripID,
-        location: RoughDestinationID,
+        location: RoughLocationID,
         failed: bool,
         tick: Timestamp,
         world: &mut World,
@@ -389,7 +389,7 @@ impl Family {
         &mut self,
         member: MemberIdx,
         start: Timestamp,
-        location: RoughDestinationID,
+        location: RoughLocationID,
         world: &mut World,
     ) {
         println!("Started task");
@@ -404,7 +404,7 @@ impl Family {
     pub fn stop_task(
         &mut self,
         member: MemberIdx,
-        location: RoughDestinationID,
+        location: RoughLocationID,
         world: &mut World,
     ) {
         self.member_tasks[member.0].state = TaskState::IdleAt(location);
@@ -463,7 +463,7 @@ impl Household for Family {
         }
     }
 
-    fn task_failed(&mut self, member: MemberIdx, location: RoughDestinationID, world: &mut World) {
+    fn task_failed(&mut self, member: MemberIdx, location: RoughLocationID, world: &mut World) {
         self.stop_task(member, location, world);
     }
 
