@@ -381,28 +381,25 @@ pub fn setup(system: &mut ActorSystem) {
             Fate::Live
         });
 
-        each_lane.on(
-            |&MSG_RoughLocation_resolve_as_location(requester,
-                                                        rough_location,
-                                                        tick),
-             lane,
-             world| {
-                requester.location_resolved(
-                    rough_location,
-                    lane.pathfinding.location,
-                    tick,
-                    world,
-                );
-                Fate::Live
-            },
-        );
+        each_lane.on(|&MSG_RoughLocation_resolve_as_location(requester,
+                                                rough_location,
+                                                tick),
+         lane,
+         world| {
+            requester.location_resolved(rough_location, lane.pathfinding.location, tick, world);
+            Fate::Live
+        });
 
         each_lane.on(|&GetDistanceTo { destination, requester }, lane, world| {
-            let maybe_distance = lane.pathfinding.routes.get(destination).map(
-                |routing_info| {
-                    routing_info.distance
-                },
-            );
+            let maybe_distance = lane.pathfinding
+                .routes
+                .get(destination)
+                .or_else(|| {
+                    lane.pathfinding.routes.get(
+                        destination.landmark_destination(),
+                    )
+                })
+                .map(|routing_info| routing_info.distance);
             requester.on_distance(maybe_distance, world);
             Fate::Live
         });

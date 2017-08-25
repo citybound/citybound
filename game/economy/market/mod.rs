@@ -145,7 +145,7 @@ impl Offer {
 
 use transport::pathfinding::{RoughLocation, RoughLocationID,
                              MSG_RoughLocation_resolve_as_location, LocationRequesterID,
-                             MSG_AsLocationRequester_location_resolved};
+                             MSG_LocationRequester_location_resolved};
 
 impl RoughLocation for Offer {
     fn resolve_as_location(

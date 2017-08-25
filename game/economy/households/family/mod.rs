@@ -76,7 +76,7 @@ impl Family {
             member_tasks: vec![Task::idle_at(home.into()); n_members].into(),
             decision_state: DecisionState::None,
             used_offers: ResourceMap::new(),
-            member_used_offers: vec![ResourceMap::new(); n_members].into()
+            member_used_offers: vec![ResourceMap::new(); n_members].into(),
         }
     }
 }
@@ -134,16 +134,23 @@ impl Family {
             let mut decision_entries = CDict::<ResourceId, DecisionResourceEntry>::new();
 
             for (resource, graveness) in top_problems {
-                println!("Member #{}: {} = {}", member.0, r_info(resource).0, graveness);
+                println!(
+                    "Member #{}: {} = {}",
+                    member.0,
+                    r_info(resource).0,
+                    graveness
+                );
                 let maybe_offer = if r_properties(resource).supplier_shared {
                     self.used_offers.get(resource)
                 } else {
                     self.member_used_offers[member.0].get(resource)
                 };
 
-                if let Some(&offer) = maybe_offer {
+                let initial_counter = if let Some(&offer) = maybe_offer {
                     println!("Using favorite offer {:?}", offer._raw_id);
                     offer.evaluate(tick, location, self.id.into(), world);
+
+                    AsyncCounter::with_target(1)
                 } else {
                     println!("Doing market query for {}", r_info(resource).0);
                     // TODO: ugly singleton send
@@ -154,12 +161,14 @@ impl Family {
                         self.id.into(),
                         world,
                     );
-                }
+
+                    AsyncCounter::new()
+                };
 
                 decision_entries.insert(
                     resource,
                     DecisionResourceEntry {
-                        results_counter: AsyncCounter::new(),
+                        results_counter: initial_counter,
                         deals: CVec::new(),
                     },
                 );
@@ -167,19 +176,32 @@ impl Family {
 
             self.decision_state = DecisionState::Choosing(member, tick, decision_entries);
         }
-
     }
 }
 
-impl EvaluationRequester for Family {
-    fn expect_n_results(&mut self, resource: ResourceId, n: usize, world: &mut World) {
+#[derive(Compact, Clone)]
+enum ResultAspect {
+    AddDeals(CVec<EvaluatedDeal>),
+    SetTarget(usize),
+}
+
+impl Family {
+    fn update_results(&mut self, resource: ResourceId, update: ResultAspect, world: &mut World) {
         let done = if let DecisionState::Choosing(_, _, ref mut entries) = self.decision_state {
             {
                 let entry = entries.get_mut(resource).expect(
                     "Should have an entry for queried resource",
                 );
 
-                entry.results_counter.set_target(n);
+                match update {
+                    ResultAspect::AddDeals(deals) => {
+                        entry.deals.extend(deals);
+                        entry.results_counter.increment();
+                    }
+                    ResultAspect::SetTarget(n) => {
+                        entry.results_counter.set_target(n);
+                    }
+                }
             }
 
             entries.values().all(
@@ -188,32 +210,26 @@ impl EvaluationRequester for Family {
         } else {
             panic!("Received unexpected deal / should be choosing");
         };
+
         if done {
             self.choose_deal(world);
         }
+    }
+}
+
+
+impl EvaluationRequester for Family {
+    fn expect_n_results(&mut self, resource: ResourceId, n: usize, world: &mut World) {
+        self.update_results(resource, ResultAspect::SetTarget(n), world);
     }
 
     fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World) {
         let &EvaluatedSearchResult { resource, ref evaluated_deals } = result;
-
-        let done = if let DecisionState::Choosing(_, _, ref mut entries) = self.decision_state {
-            {
-                let entry = entries.get_mut(resource).expect(
-                    "Should have an entry for queried resource",
-                );
-                entry.deals.extend(evaluated_deals.clone());
-                entry.results_counter.increment();
-            }
-
-            entries.values().all(
-                |entry| entry.results_counter.is_done(),
-            )
-        } else {
-            panic!("Received unexpected deal / should be choosing");
-        };
-        if done {
-            self.choose_deal(world);
-        }
+        self.update_results(
+            resource,
+            ResultAspect::AddDeals(evaluated_deals.clone()),
+            world,
+        );
     }
 }
 
@@ -401,12 +417,7 @@ impl Family {
         self.member_tasks[member.0].state = TaskState::StartedAt(start, location);
     }
 
-    pub fn stop_task(
-        &mut self,
-        member: MemberIdx,
-        location: RoughLocationID,
-        world: &mut World,
-    ) {
+    pub fn stop_task(&mut self, member: MemberIdx, location: RoughLocationID, world: &mut World) {
         self.member_tasks[member.0].state = TaskState::IdleAt(location);
         println!("Task stopped");
         world.send_to_id_of::<Simulation, _>(WakeUpIn(Seconds(0).into(), self.id.into()));

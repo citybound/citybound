@@ -5,7 +5,7 @@ use core::simulation::Timestamp;
 
 use super::Location;
 use super::{RoughLocationID, LocationRequester, LocationRequesterID,
-            MSG_AsLocationRequester_location_resolved};
+            MSG_LocationRequester_location_resolved};
 
 #[derive(Compact, Clone)]
 pub struct Trip {

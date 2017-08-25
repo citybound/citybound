@@ -1,12 +1,16 @@
 #[derive(Compact, Clone)]
 pub struct AsyncCounter {
-    count: usize,
-    target: Option<usize>,
+    pub count: usize,
+    pub target: Option<usize>,
 }
 
 impl AsyncCounter {
     pub fn new() -> AsyncCounter {
         AsyncCounter { count: 0, target: None }
+    }
+
+    pub fn with_target(target: usize) -> AsyncCounter {
+        AsyncCounter { count: 0, target: Some(target) }
     }
 
     pub fn increment(&mut self) {
