@@ -49,7 +49,7 @@ pub struct Family {
     member_used_offers: CVec<ResourceMap<OfferID>>,
 }
 
-const N_TOP_PROBLEMS: usize = 3;
+const N_TOP_PROBLEMS: usize = 5;
 const DECISION_PAUSE: Ticks = Ticks(200);
 const UPDATE_EVERY_N_SECS: usize = 100;
 
@@ -123,18 +123,18 @@ impl Family {
         location: RoughDestinationID,
         world: &mut World,
     ) {
-        let mut decision_entries = CDict::<ResourceId, DecisionResourceEntry>::new();
+        println!("Top N Problems for Family {:?}", self.id._raw_id);
+
         let time = TimeOfDay::from_tick(tick);
-
-        // println!("Top N Problems for Family {:?}", self.id._raw_id);
-
         let top_problems = self.top_problems(member, time);
 
         if top_problems.is_empty() {
             world.send_to_id_of::<Simulation, _>(WakeUpIn(DECISION_PAUSE, self.id.into()))
         } else {
-            for (resource, _graveness) in top_problems {
-                // println!("Member #{}: {} = {}", member.0, r_info(resource).0, graveness);
+            let mut decision_entries = CDict::<ResourceId, DecisionResourceEntry>::new();
+
+            for (resource, graveness) in top_problems {
+                println!("Member #{}: {} = {}", member.0, r_info(resource).0, graveness);
                 let maybe_offer = if r_properties(resource).supplier_shared {
                     self.used_offers.get(resource)
                 } else {
@@ -142,8 +142,10 @@ impl Family {
                 };
 
                 if let Some(&offer) = maybe_offer {
+                    println!("Using favorite offer {:?}", offer._raw_id);
                     offer.evaluate(tick, location, self.id.into(), world);
                 } else {
+                    println!("Doing market query for {}", r_info(resource).0);
                     // TODO: ugly singleton send
                     MarketID::broadcast(world).search(
                         tick,

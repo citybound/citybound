@@ -175,6 +175,8 @@ pub struct Market {
     offers_by_resource: CDict<ResourceId, CVec<OfferID>>,
 }
 
+use economy::resources::r_info;
+
 impl Market {
     pub fn spawn(id: MarketID, _: &mut World) -> Market {
         Market { id, offers_by_resource: CDict::new() }
@@ -197,6 +199,8 @@ impl Market {
         } else {
             0
         };
+
+        println!("{} offers for {}", n_to_expect, r_info(resource).0);
 
         requester.expect_n_results(resource, n_to_expect, world);
     }
@@ -297,7 +301,10 @@ impl AsDestinationRequester for TripCostEstimator {
                 GetDistanceTo { destination, requester: self.id.into() },
             );
         } else if self.n_resolved == 2 {
-            println!("Either source or dest not resolvable");
+            println!(
+                "Either source or dest not resolvable for {}",
+                r_info(self.base_result.resource).0
+            );
             self.requester.on_result(
                 EvaluatedSearchResult {
                     resource: self.base_result.resource,
@@ -333,6 +340,12 @@ impl DistanceRequester for TripCostEstimator {
                 ..self.base_result
             }
         } else {
+            println!(
+                "No distance for {}, from {:?} to {:?}",
+                r_info(self.base_result.resource).0,
+                self.source,
+                self.destination
+            );
             EvaluatedSearchResult {
                 resource: self.base_result.resource,
                 evaluated_deals: CVec::new(),
