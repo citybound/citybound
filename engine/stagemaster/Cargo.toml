@@ -4,10 +4,10 @@ version = "0.1.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
-glium = {git = "https://github.com/bogdad/glium", default-features = false, features = ["glutin"] }
-imgui = {git = "https://github.com/bogdad/imgui-rs"}
-imgui-sys = {git = "https://github.com/bogdad/imgui-rs", features=["glium"]}
-imgui-glium-renderer = {git = "https://github.com/bogdad/imgui-rs", features=["glium"]}
+glium = "0.17.0"
+imgui = "0.0.15"
+imgui-sys = "0.0.15"
+imgui-glium-renderer = "0.0.15"
 clippy = { version = "0.0.138", optional = true }
 serde = "1.0"
 serde_derive = "1.0"
