@@ -5,6 +5,8 @@ use super::type_registry::{ShortTypeId, TypeRegistry};
 use super::swarm::{Swarm, SubActor};
 use std::any::Any;
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::net::{SocketAddr, TcpStream, TcpListener};
+use std::io::{Read, Write};
 
 struct Dispatcher {
     function: Box<Fn(*const (), &mut World)>,
@@ -30,6 +32,9 @@ pub struct ActorSystem {
     message_registry: TypeRegistry,
     dispatchers: [[Option<Dispatcher>; MAX_MESSAGE_TYPES]; MAX_RECIPIENT_TYPES],
     actors_as_countables: Vec<(String, *const SubActorsCountable)>,
+    machine_id: u8,
+    network: Vec<SocketAddr>,
+    network_connections: Vec<Option<TcpStream>>,
 }
 
 macro_rules! make_array {
@@ -51,7 +56,11 @@ impl ActorSystem {
     /// Note that after an actor panicking, the whole `ActorSystem` switches
     /// to a panicked state and only passes messages anymore which have been
     /// marked as *critically received* using `ActorDefiner::on_critical`.
-    pub fn new(panic_callback: Box<Fn(Box<Any>, &mut World)>) -> ActorSystem {
+    pub fn new(
+        panic_callback: Box<Fn(Box<Any>, &mut World)>,
+        machine_id: u8,
+        network: Vec<SocketAddr>,
+    ) -> ActorSystem {
         ActorSystem {
             panic_happened: false,
             panic_callback: panic_callback,
@@ -65,7 +74,47 @@ impl ActorSystem {
                 })
             },
             actors_as_countables: Vec::new(),
+            machine_id,
+            network_connections: (0..network.len()).into_iter().map(|_| None).collect(),
+            network,
         }
+    }
+
+    pub fn connect_to_network(&mut self) {
+        let mut unmapped_connections = Vec::<TcpStream>::new();
+
+        for (machine_id, address) in self.network.iter().enumerate() {
+            if machine_id > self.machine_id as usize {
+                unmapped_connections.push(TcpStream::connect(address).unwrap());
+            }
+        }
+
+        let listener = TcpListener::bind(self.network[self.machine_id as usize]).unwrap();
+
+        while unmapped_connections.len() < self.network.len() - 1 {
+            let (stream, connected_addr) = listener.accept().unwrap();
+
+            println!("{} connected!", connected_addr);
+
+            unmapped_connections.push(stream)
+        }
+
+        println!("All connected");
+
+        for connection in &mut unmapped_connections {
+            connection.write_all(&[self.machine_id]).unwrap();
+            connection.flush().unwrap();
+        }
+
+        for mut connection in unmapped_connections {
+            let mut buf = [0];
+            connection.read_exact(&mut buf).unwrap();
+
+            let remote_machine_id = buf[0];
+            self.network_connections[remote_machine_id as usize] = Some(connection)
+        }
+
+        println!("All mapped, {:?}", self.network_connections);
     }
 
     /// Add a new actor to the system given an initial actor state

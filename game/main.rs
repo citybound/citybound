@@ -50,6 +50,7 @@ use transport::rendering::lane_thing_collector::ThingCollector;
 use transport::planning::current_plan::CurrentPlan;
 use kay::swarm::Swarm;
 use std::any::Any;
+use std::net::SocketAddr;
 
 const SECONDS_PER_TICK: f32 = 1.0 / 20.0;
 
@@ -64,7 +65,7 @@ fn main() {
         ::std::fs::File::create(dir).expect("should be able to create tmp file");
     }
 
-    let mut system = kay::ActorSystem::new(Box::new(|error: Box<Any>, world| {
+    let panic_callback = Box::new(|error: Box<Any>, world: &mut ::kay::World| {
         let ui_id = world.id::<UserInterface>();
         let message = match error.downcast::<String>() {
             Ok(string) => (*string),
@@ -86,7 +87,25 @@ fn main() {
             },
         );
         world.send(ui_id, OnPanic);
-    }));
+    });
+
+    println!("{:?}", ::std::env::args().collect::<Vec<_>>());
+
+    let machine_id: u8 = ::std::env::args()
+        .nth(1)
+        .expect("expected machine_id")
+        .parse()
+        .unwrap();
+    let network: Vec<SocketAddr> = ::std::env::args()
+        .nth(2)
+        .expect("expected network")
+        .split(',')
+        .map(|addr_str| addr_str.parse().unwrap())
+        .collect();
+
+    let mut system = kay::ActorSystem::new(panic_callback, machine_id, network);
+
+    system.connect_to_network();
 
     transport::setup(&mut system);
     transport::setup_ui(&mut system);
