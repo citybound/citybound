@@ -45,7 +45,7 @@
 * Water Traffic (0% beta)
 * Air Traffic (0% beta)
 
-## Gameplay Aspects
+## Gameplay & Skills
 
 * Building a city
    * Planning
