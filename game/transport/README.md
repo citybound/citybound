@@ -37,7 +37,7 @@
 
 * Pedestrian Traffic (0% alpha)
 * Road Traffic (50% alpha)
-   * [Road Lanes](lane/README.md) & ~~[Car Microtraffic](microtraffic/README.md)~~
+   * [Road Lanes](lane/README.md) & [Car Microtraffic](microtraffic/README.md)
    * ~~[Car Pathfinding](pathfinding/README.md)~~
    * ~~[Car Trips](trips/README.md)~~
    * ~~[Rendering](rendering/README.md)~~
