@@ -23,4 +23,4 @@
    * instead, an invisible "transfer lane" is placed along their range of overlap
    * the lanes on either side have a special parallel overlap relation ship to the transfer lane only, not to each other.
    * the reason for this is that merging car behaviour is a more complex special case
-* Also see ~[Car Microtraffic](../microtraffic/README.md)~
+* Also see [Car Microtraffic](../microtraffic/README.md)
