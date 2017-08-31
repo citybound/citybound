@@ -222,7 +222,7 @@ impl ActorSystem {
     /// Inside actor message handlers you always have access to a
     /// [`World`](struct.World.html) that allows you to identify actors.
     pub fn id<A2: 'static>(&mut self) -> ID {
-        ID::new(self.short_id::<A2>(), 0, 0)
+        ID::new(self.short_id::<A2>(), 0, self.machine_id, 0)
     }
 
     fn short_id<A: 'static>(&mut self) -> ShortTypeId {
@@ -446,6 +446,11 @@ impl World {
                        .expect("Subactor type not found.") as *mut Swarm<SA>)
         };
         unsafe { swarm.allocate_id(self.id::<Swarm<SA>>()) }
+    }
+
+    pub fn local_machine_id(&mut self) -> u8 {
+        let system: &mut ActorSystem = unsafe { &mut *self.0 };
+        system.machine_id
     }
 }
 

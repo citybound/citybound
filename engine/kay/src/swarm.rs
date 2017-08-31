@@ -78,7 +78,12 @@ impl<SA: SubActor + Clone> Swarm<SA> {
     /// Allocate a subactor ID for later use when manually adding a subactor (see `add_with_id`)
     pub unsafe fn allocate_id(&mut self, base_id: ID) -> ID {
         let (sub_actor_id, version) = self.allocate_sub_actor_id();
-        ID::new(base_id.type_id, sub_actor_id as u32, version as u8)
+        ID::new(
+            base_id.type_id,
+            sub_actor_id as u32,
+            base_id.machine,
+            version as u8,
+        )
     }
 
     fn add(&mut self, mut initial_state: SA, base_id: ID) -> ID {
@@ -404,6 +409,7 @@ impl<'a, SA: SubActor + Clone + 'static> SubActorDefiner<'a, SA> {
                         let random_id = ID::new(
                             packet.recipient_id.unwrap().type_id,
                             swarm.slot_map.random_used() as u32,
+                            world.local_machine_id(),
                             0,
                         );
                         world.send(random_id, packet.message.message.clone());

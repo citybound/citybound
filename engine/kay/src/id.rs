@@ -24,10 +24,10 @@ pub fn broadcast_sub_actor_id() -> u32 {
 
 impl ID {
     /// Create a new ID
-    pub fn new(type_id: ShortTypeId, sub_actor_id: u32, version: u8) -> Self {
+    pub fn new(type_id: ShortTypeId, sub_actor_id: u32, machine: u8, version: u8) -> Self {
         ID {
             type_id: type_id,
-            machine: 0,
+            machine: machine,
             version: version,
             sub_actor_id: sub_actor_id,
         }
