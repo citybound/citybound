@@ -1,15 +1,15 @@
-## Car Pathfinding
+# Car Pathfinding
 
-# Design Philosophy
+## Design Philosophy
 
-# Design Decisions
+## Design Decisions
 
-# Implementation Philosophy
+## Implementation Philosophy
 
 * Keep pathfinding information local and dynamically changeable
 * Make use of the "highway effect" (for most of each trip, only the rough source and rough destination determine the typically important main connections to choose)
 
-# Implementation Decisions
+## Implementation Decisions
 
 * Use a simple two-layer landmark model:
    * "nodes" (individual lanes) and "landmarks" (groups of lanes, represented as one rough destination)
