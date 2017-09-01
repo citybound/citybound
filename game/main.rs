@@ -49,6 +49,7 @@ use transport::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use transport::rendering::lane_thing_collector::ThingCollector;
 use transport::planning::current_plan::CurrentPlan;
 use kay::swarm::Swarm;
+use kay::Networking;
 use std::any::Any;
 use std::net::SocketAddr;
 
@@ -103,9 +104,11 @@ fn main() {
         .map(|addr_str| addr_str.parse().unwrap())
         .collect();
 
-    let mut system = kay::ActorSystem::new(panic_callback, machine_id, network);
+    let networking = Networking::new(machine_id, network);
 
-    system.connect_to_network();
+    let mut system = kay::ActorSystem::new(panic_callback, networking);
+
+    system.networking.connect();
 
     transport::setup(&mut system);
     transport::setup_ui(&mut system);
@@ -158,6 +161,8 @@ fn main() {
     let mut elapsed_ms_collected = Vec::<f32>::new();
 
     loop {
+        system.networking.receive();
+
         let elapsed_ms = last_frame.elapsed().as_secs() as f32 * 1000.0 +
             last_frame.elapsed().subsec_nanos() as f32 / 10.0E5;
         elapsed_ms_collected.push(elapsed_ms);
