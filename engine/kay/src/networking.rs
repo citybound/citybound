@@ -2,6 +2,8 @@ use std::net::{SocketAddr, TcpStream, TcpListener};
 use std::io::{Read, Write, ErrorKind};
 use super::inbox::Inbox;
 use super::type_registry::ShortTypeId;
+use super::messaging::{Message, Packet};
+use compact::Compact;
 
 pub struct Networking {
     pub machine_id: u8,
@@ -49,7 +51,7 @@ impl Networking {
             stream.read_exact(&mut buf).unwrap();
 
             let remote_machine_id = buf[0];
-            stream.set_nonblocking(true);
+            stream.set_nonblocking(true).unwrap();
             self.network_connections[remote_machine_id as usize] = Some(Connection::new(stream))
         }
 
@@ -62,6 +64,47 @@ impl Networking {
                 connection.try_receive(inboxes)
             }
         }
+    }
+
+    pub fn send<M: Message>(&mut self, message_type_id: ShortTypeId, mut packet: Packet<M>) {
+        let total_size = ::std::mem::size_of::<ShortTypeId>() + Compact::total_size_bytes(&packet);
+        let machine_id = packet.recipient_id.machine;
+
+        let connection = self.network_connections[machine_id as usize]
+            .as_mut()
+            .expect("expected machine to exist");
+
+        // write total size (message type + packet)
+        connection
+            .stream
+            .write_all(unsafe {
+                ::std::slice::from_raw_parts(
+                    &total_size as *const usize as *const u8,
+                    ::std::mem::size_of::<usize>(),
+                )
+            })
+            .unwrap();
+
+        // write packet type
+        connection
+            .stream
+            .write_all(unsafe {
+                ::std::slice::from_raw_parts(
+                    &message_type_id as *const ShortTypeId as *const u8,
+                    ::std::mem::size_of::<ShortTypeId>(),
+                )
+            })
+            .unwrap();
+
+        // write packet
+        // TODO: extra buffer avoidable?
+        let mut buf = vec![0; Compact::total_size_bytes(&packet)];
+
+        unsafe {
+            Compact::compact_behind(&mut packet, &mut buf[0] as *mut u8 as *mut Packet<M>);
+        }
+
+        connection.stream.write_all(buf.as_slice()).unwrap()
     }
 }
 
@@ -99,7 +142,7 @@ impl Connection {
                 let mut buf = vec![0u8; length];
                 match self.stream.read_exact(&mut buf) {
                     Ok(()) => {
-                        
+                        println!("Receiving packet of size {}", length);
                         let type_id = (&buf[0] as *const u8) as *const ShortTypeId;
 
                         unsafe {

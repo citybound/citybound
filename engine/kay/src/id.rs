@@ -22,6 +22,10 @@ pub fn broadcast_sub_actor_id() -> u32 {
     u32::max_value()
 }
 
+pub fn broadcast_machine_id() -> u8 {
+    u8::max_value()
+}
+
 impl ID {
     /// Create a new ID
     pub fn new(type_id: ShortTypeId, sub_actor_id: u32, machine: u8, version: u8) -> Self {
@@ -39,8 +43,13 @@ impl ID {
     pub fn broadcast(&self) -> ID {
         ID {
             sub_actor_id: broadcast_sub_actor_id(),
+            machine: broadcast_machine_id(),
             ..*self
         }
+    }
+
+    pub fn is_broadcast(&self) -> bool {
+        self.sub_actor_id == broadcast_sub_actor_id()
     }
 }
 

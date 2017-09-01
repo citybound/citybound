@@ -147,11 +147,24 @@ impl ActorSystem {
 
 
         let actor_ptr = self.actors[actor_id.as_usize()].unwrap() as *mut A;
+        let local_machine_id = self.networking.machine_id;
 
         self.dispatchers[actor_id.as_usize()][message_id.as_usize()] = Some(Dispatcher {
             function: Box::new(move |packet_ptr: *const (), world: &mut World| unsafe {
                 let packet = &*(packet_ptr as *const Packet<M>);
-                handler(packet, &mut *actor_ptr, world);
+
+                // TODO: this is fucked with broadcast
+
+                if packet.recipient_id.machine == local_machine_id ||
+                    packet.recipient_id.is_broadcast()
+                {
+                    handler(packet, &mut *actor_ptr, world);
+                } else {
+                    world.networking_send(
+                        message_id,
+                        ::std::ptr::read(packet_ptr as *const Packet<M>),
+                    );
+                }
                 // TODO: not sure if this is the best place to drop the message
                 ::std::ptr::drop_in_place(packet_ptr as *mut Packet<M>);
             }),
@@ -165,7 +178,7 @@ impl ActorSystem {
     /// [`World`](struct.World.html) that allows you to send messages.
     pub fn send<M: Message>(&mut self, recipient: ID, message: M) {
         let packet = Packet {
-            recipient_id: Some(recipient),
+            recipient_id: recipient,
             message: message,
         };
 
@@ -416,6 +429,11 @@ impl World {
     pub fn local_machine_id(&mut self) -> u8 {
         let system: &mut ActorSystem = unsafe { &mut *self.0 };
         system.networking.machine_id
+    }
+
+    fn networking_send<M: Message>(&mut self, message_type_id: ShortTypeId, packet: Packet<M>) {
+        let system: &mut ActorSystem = unsafe { &mut *self.0 };
+        system.networking.send(message_type_id, packet);
     }
 }
 

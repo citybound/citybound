@@ -23,7 +23,7 @@ impl<T: Compact + 'static> Message for T {}
 #[derive(Compact, Clone)]
 pub struct Packet<M: Message> {
     /// ID of the `Actor`/`SubActor` that should receive this message
-    pub recipient_id: Option<ID>,
+    pub recipient_id: ID,
     /// The message itself
     pub message: M,
 }

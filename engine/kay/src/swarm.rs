@@ -174,12 +174,7 @@ impl<SA: SubActor + Clone> Swarm<SA> {
         H: Fn(&Packet<M>, &mut SA, &mut World) -> Fate + 'static,
     {
         let (fate, is_still_compact) = {
-            let actor = self.at_mut(
-                packet
-                    .recipient_id
-                    .expect("Recipient ID not set")
-                    .sub_actor_id as usize,
-            );
+            let actor = self.at_mut(packet.recipient_id.sub_actor_id as usize);
             let fate = handler(packet, actor, world);
             (fate, actor.is_still_compact())
         };
@@ -187,15 +182,10 @@ impl<SA: SubActor + Clone> Swarm<SA> {
         match fate {
             Fate::Live => {
                 if !is_still_compact {
-                    self.resize(
-                        packet
-                            .recipient_id
-                            .expect("Recipient ID not set")
-                            .sub_actor_id as usize,
-                    );
+                    self.resize(packet.recipient_id.sub_actor_id as usize);
                 }
             }
-            Fate::Die => self.remove(packet.recipient_id.expect("Recipient ID not set")),
+            Fate::Die => self.remove(packet.recipient_id),
         }
     }
 
@@ -382,7 +372,7 @@ impl<'a, SA: SubActor + Clone + 'static> SubActorDefiner<'a, SA> {
                     SA,
                     M,
                 > = message;
-                let id = swarm.add(init_state.clone(), recipient_id.unwrap());
+                let id = swarm.add(init_state.clone(), recipient_id);
                 world.send(id, (*init_message).clone());
                 Fate::Live
             },
@@ -407,7 +397,7 @@ impl<'a, SA: SubActor + Clone + 'static> SubActorDefiner<'a, SA> {
                 if swarm.slot_map.len() > 0 {
                     for _i in 0..packet.message.n_recipients {
                         let random_id = ID::new(
-                            packet.recipient_id.unwrap().type_id,
+                            packet.recipient_id.type_id,
                             swarm.slot_map.random_used() as u32,
                             world.local_machine_id(),
                             0,
@@ -443,11 +433,7 @@ impl<'a, SA: SubActor + Clone + 'static> SubActorDefiner<'a, SA> {
     {
         self.0.on_packet(
             move |packet: &Packet<M>, swarm, world| {
-                if packet
-                    .recipient_id
-                    .expect("Recipient ID not set")
-                    .sub_actor_id == broadcast_sub_actor_id()
-                {
+                if packet.recipient_id.sub_actor_id == broadcast_sub_actor_id() {
                     swarm.receive_broadcast(packet, &handler, world);
                 } else {
                     swarm.receive_instance(packet, &handler, world);
