@@ -31,7 +31,7 @@ pub struct ActorSystem {
     message_registry: TypeRegistry,
     dispatchers: [[Option<Dispatcher>; MAX_MESSAGE_TYPES]; MAX_RECIPIENT_TYPES],
     actors_as_countables: Vec<(String, *const SubActorsCountable)>,
-    pub networking: Networking,
+    networking: Networking,
 }
 
 macro_rules! make_array {
@@ -72,6 +72,14 @@ impl ActorSystem {
             actors_as_countables: Vec::new(),
             networking,
         }
+    }
+
+    pub fn networking_connect(&mut self) {
+        self.networking.connect();
+    }
+
+    pub fn networking_receive(&mut self) {
+        self.networking.receive(&mut self.inboxes);
     }
 
     /// Add a new actor to the system given an initial actor state

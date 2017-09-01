@@ -108,7 +108,7 @@ fn main() {
 
     let mut system = kay::ActorSystem::new(panic_callback, networking);
 
-    system.networking.connect();
+    system.networking_connect();
 
     transport::setup(&mut system);
     transport::setup_ui(&mut system);
@@ -161,7 +161,7 @@ fn main() {
     let mut elapsed_ms_collected = Vec::<f32>::new();
 
     loop {
-        system.networking.receive();
+        system.networking_receive();
 
         let elapsed_ms = last_frame.elapsed().as_secs() as f32 * 1000.0 +
             last_frame.elapsed().subsec_nanos() as f32 / 10.0E5;
