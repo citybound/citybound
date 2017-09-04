@@ -37,7 +37,7 @@
 * When new structures are added to a plan or previously planned and implemented structures are modified within the plan, they are compared geometrically in detail with the materialized reality to calculate the actual diff of what would change when implementing the new plan
 
 
-# "Transport Infrastructure Planning" (Skill)
+# "Road Planning" (Skill)
 
 ## Actions -> Effects
 
