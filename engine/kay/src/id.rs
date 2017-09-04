@@ -40,16 +40,26 @@ impl ID {
     /// Get a version of an actor ID that signals that a message
     /// should be delivered to all sub-actors of that actor,
     /// like in the case of a [`Swarm`](swarm/struct.Swarm.html).
-    pub fn broadcast(&self) -> ID {
+    pub fn local_broadcast(&self) -> ID {
         ID {
             sub_actor_id: broadcast_sub_actor_id(),
-            machine: broadcast_machine_id(),
             ..*self
+        }
+    }
+
+    pub fn global_broadcast(&self) -> ID {
+        ID {
+            machine: broadcast_machine_id(),
+            ..self.local_broadcast()
         }
     }
 
     pub fn is_broadcast(&self) -> bool {
         self.sub_actor_id == broadcast_sub_actor_id()
+    }
+
+    pub fn is_global_broadcast(&self) -> bool {
+        self.machine == broadcast_machine_id()
     }
 }
 

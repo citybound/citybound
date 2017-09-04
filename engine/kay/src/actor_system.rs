@@ -153,18 +153,8 @@ impl ActorSystem {
             function: Box::new(move |packet_ptr: *const (), world: &mut World| unsafe {
                 let packet = &*(packet_ptr as *const Packet<M>);
 
-                // TODO: this is fucked with broadcast
+                handler(packet, &mut *actor_ptr, world);
 
-                if packet.recipient_id.machine == local_machine_id ||
-                    packet.recipient_id.is_broadcast()
-                {
-                    handler(packet, &mut *actor_ptr, world);
-                } else {
-                    world.networking_send(
-                        message_id,
-                        ::std::ptr::read(packet_ptr as *const Packet<M>),
-                    );
-                }
                 // TODO: not sure if this is the best place to drop the message
                 ::std::ptr::drop_in_place(packet_ptr as *mut Packet<M>);
             }),
@@ -182,16 +172,28 @@ impl ActorSystem {
             message: message,
         };
 
-        if let Some(inbox) = self.inboxes[recipient.type_id.as_usize()].as_mut() {
-            inbox.put(packet, &self.message_registry);
-        } else {
-            panic!(
-                "{} has no inbox for {}",
-                self.actor_registry.get_name(recipient.type_id),
-                self.message_registry.get_name(
-                    self.message_registry.get::<M>(),
-                )
+        let to_here = recipient.machine == self.networking.machine_id;
+        let global = recipient.is_global_broadcast();
+
+        if !to_here || global {
+            self.networking.send(
+                self.message_registry.get::<M>(),
+                packet,
             );
+        }
+
+        if to_here || global {
+            if let Some(inbox) = self.inboxes[recipient.type_id.as_usize()].as_mut() {
+                inbox.put(packet, &self.message_registry);
+            } else {
+                panic!(
+                    "{} has no inbox for {}",
+                    self.actor_registry.get_name(recipient.type_id),
+                    self.message_registry.get_name(
+                        self.message_registry.get::<M>(),
+                    )
+                );
+            }
         }
     }
 
