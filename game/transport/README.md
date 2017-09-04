@@ -35,19 +35,24 @@
 
 ## Parts
 
-* Pedestrian Traffic (0% alpha)
-* Road Traffic (50% alpha)
-   * [Road Lanes](lane/README.md) & [Car Microtraffic](microtraffic/README.md)
-   * [Car Trips & Pathfinding](pathfinding/README.md)
-   * ~~[Rendering](rendering/README.md)~~
-* Rail Traffic (0% alpha)
-* Water Traffic (0% beta)
-* Air Traffic (0% beta)
+* Planning
+   * [Road](planning/README.md) (40% alpha)
+* Construction
+   * [Road](construction/README.md) (50% alpha)
+* Traffic
+   * Pedestrian (0% alpha)
+   * Road (50% alpha)
+      * [Road Lanes](lane/README.md) & [Car Microtraffic](microtraffic/README.md)
+      * [Car Trips & Pathfinding](pathfinding/README.md)
+      * ~~[Rendering](rendering/README.md)~~
+   * Rail (0% alpha)
+   * Water (0% beta)
+   * Air (0% beta)
 
 ## Gameplay & Skills
 
-* Building a city
-   * Planning
-      * [Road planning](planning/README.md) (40% alpha)
-   * Execution & Finances
-      * ~~[Road construction](construction/README.md)~~ (50% alpha)
+* Skill: Building a city
+   * Skill: Planning
+      * Skill: Road planning
+   * Skill: Execution & Finances
+      * Skill: Road construction
