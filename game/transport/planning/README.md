@@ -35,3 +35,12 @@
 
 * Instead of keeping a perfect, complicated two-way mapping between plans and implemented reality at all times, they are kept separate
 * When new structures are added to a plan or previously planned and implemented structures are modified within the plan, they are compared geometrically in detail with the materialized reality to calculate the actual diff of what would change when implementing the new plan
+
+
+# "Transport Infrastructure Planning" (Skill)
+
+## Actions -> Effects
+
+## Effects -> Feedback
+
+## Feedback -> Learning
