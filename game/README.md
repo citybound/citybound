@@ -57,7 +57,7 @@ This document gives a bird's-eye overview of what Citybound should become and wh
     * ~~[Individual Households](inspection/households/README.md)~~ (0% alpha)
     * ~~[Stories](inspection/stories/README.md)~~ (0% alpha)
   * Planning
-    * ~~[Transport Infrastructure](transport/planning/README.md)~~ (20% alpha)
+    * [Transport Infrastructure](transport/planning/README.md) (20% alpha)
     * ~~[Utility Infrastructure](utilities/README.md)~~ (0% alpha)
     * ~~[Zoning](zoning/README.md)~~ (0% alpha)
     * ~~[Services](services/README.md)~~ (0% alpha)
