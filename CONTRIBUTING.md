@@ -77,7 +77,7 @@ Recommended setup:
 
 * install rustfmt: `cargo install rustfmt --vers 0.9.0` **and please make sure to use the same version as noted here** (pinned now, but might change from time to time)
 * run rustfmt on the whole repo:
-  `rustfmt --write-mode=overwrite ./src/main.rs ./lib/*/src/lib.rs`
+  `rustfmt --write-mode=overwrite ./game/main.rs ./engine/*/src/lib.rs`
   (using default settings) - if there are any overlong lines it can't fix, please fix them manually.
 * You should also **fix all clippy warnings** properly
 

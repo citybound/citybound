@@ -1,1 +1,1 @@
-rustfmt --write-mode=diff ./src/main.rs ./lib/*/src/lib.rs
+rustfmt --write-mode=diff ./game/main.rs ./engine/*/src/lib.rs

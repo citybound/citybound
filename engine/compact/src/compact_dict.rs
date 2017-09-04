@@ -218,3 +218,130 @@ impl<K: Copy + Eq, V: Compact + Clone, A: Allocator> ::std::iter::Extend<(K, V)>
         }
     }
 }
+
+fn elem(n: usize) -> usize {
+    (n * n) as usize
+}
+
+#[test]
+fn very_basic() {
+    let mut map: CompactDict<usize, usize> = CompactDict::new();
+    map.insert(0, 54);
+    assert!(*map.get(0).unwrap() == 54);
+    map.insert(1, 48);
+    assert!(*map.get(1).unwrap() == 48);
+}
+
+#[test]
+fn very_basic2() {
+    let mut map: CompactDict<usize, usize> = CompactDict::new();
+    map.insert(0, 54);
+    map.insert(1, 48);
+    assert!(*map.get(0).unwrap() == 54);
+    assert!(*map.get(1).unwrap() == 48);
+}
+
+
+#[test]
+fn basic() {
+    let n: usize = 1000;
+    let mut map: CompactDict<usize, usize> = CompactDict::new();
+    assert!(map.is_empty() == true);
+    for i in 0..n {
+        let e = elem(i);
+        map.insert(i, e);
+    }
+    assert!(map.is_empty() == false);
+    for i in 0..n {
+        let test = map.get(i).unwrap();
+        let exp = elem(i);
+        assert!(*test == exp, " failed exp {:?}  was {:?}", exp, test);
+    }
+    assert!(map.len() == n as usize);
+    assert!(*map.get_mru(n - 1).unwrap() == elem(n - 1));
+    assert!(*map.get_mfu(n - 100).unwrap() == elem(n - 100));
+    assert!(map.contains_key(n - 300) == true);
+    assert!(map.contains_key(n + 1) == false);
+    assert!(map.remove(500) == Some(elem(500)));
+    assert!(map.get_mru(500).is_none());
+}
+
+#[test]
+fn iter() {
+    let mut map: CompactDict<usize, usize> = CompactDict::new();
+    let n = 10;
+    assert!(map.is_empty() == true);
+    for i in 0..n {
+        map.insert(i, i * i);
+    }
+    for k in map.keys() {
+        println!(" k {:?}", k);
+    }
+    for h in 0..n {
+        let mut keys = map.keys();
+        assert!(keys.find(|&i| *i == n - 1 - h).is_some());
+    }
+    for h in 0..n {
+        let mut values = map.values();
+        assert!(values.find(|i| **i == elem(h)).is_some());
+    }
+}
+
+#[test]
+fn values_mut() {
+    let mut map: CompactDict<usize, usize> = CompactDict::new();
+    assert!(map.is_empty() == true);
+    for n in 0..100 {
+        map.insert(n, n * n);
+    }
+    {
+        let mut values_mut = map.values_mut();
+        for i in &mut values_mut {
+            *i = *i + 1;
+        }
+    }
+    for i in 0..100 {
+        assert!(*map.get(i).unwrap() == i * i + 1);
+    }
+}
+
+#[test]
+fn pairs() {
+    let mut map: CompactDict<usize, usize> = CompactDict::new();
+    assert!(map.is_empty() == true);
+    for n in 0..100 {
+        map.insert(n, n * n);
+    }
+    for (key, value) in map.pairs() {
+        assert!(elem(*key) == *value);
+    }
+}
+
+#[test]
+fn push_at() {
+    let mut map: CompactDict<usize, CompactVec<usize>> = CompactDict::new();
+    assert!(map.is_empty() == true);
+    for n in 0..100 {
+        map.push_at(n, elem(n));
+        map.push_at(n, elem(n) + 1);
+    }
+
+    for n in 0..100 {
+        let mut iter = map.get_iter(n);
+        assert!(iter.find(|i| **i == elem(n)).is_some());
+        assert!(iter.find(|i| **i == elem(n) + 1).is_some());
+    }
+}
+
+#[test]
+fn remove_iter() {
+    let mut map: CompactDict<usize, CompactVec<usize>> = CompactDict::new();
+    assert!(map.is_empty() == true);
+    for n in 0..100 {
+        map.push_at(n, elem(n));
+        map.push_at(n, elem(n) + 1);
+    }
+    let mut iter = map.remove_iter(50);
+    assert!(iter.find(|i| *i == elem(50)).is_some());
+    assert!(iter.find(|i| *i == elem(50) + 1).is_some());
+}
