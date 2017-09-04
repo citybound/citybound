@@ -51,18 +51,18 @@ This document gives a bird's-eye overview of what Citybound should become and wh
 
 ## Gameplay & Skills
 
-* Building a city
-  * Observation & Inspection
-    * ~~[Statistics & Maps](inspection/stats/README.md)~~ (0% alpha)
-    * ~~[Individual Households](inspection/households/README.md)~~ (0% alpha)
-    * ~~[Stories](inspection/stories/README.md)~~ (0% alpha)
-  * Planning
-    * [Transport Infrastructure](transport/planning/README.md) (20% alpha)
-    * ~~[Utility Infrastructure](utilities/README.md)~~ (0% alpha)
-    * ~~[Zoning](zoning/README.md)~~ (0% alpha)
-    * ~~[Services](services/README.md)~~ (0% alpha)
-    * ~~[Terraforming](environment/terraforming/README.md)~~ (0% alpha)
-  * Execution & Finances
-    * ~~[Projects & Grants](projects/README.md)~~ (0% alpha)
-    * ~~[Budgeting](finances/README.md)~~ (0% alpha)
-    * ~~[Taxing](finances/README.md)~~ (0% alpha)
+* "Building a city"
+  * "Observation & Inspection"
+    * ~~["Reading Statistics & Maps"](inspection/stats/README.md)~~ (0% alpha)
+    * ~~["Inspecting Individual Households"](inspection/households/README.md)~~ (0% alpha)
+    * ~~["Reading Stories"](inspection/stories/README.md)~~ (0% alpha)
+  * "Planning"
+    * ["Transport Infrastructure Planning"](transport/planning/README.md) (20% alpha)
+    * ~~["Utility Infrastructure Planning"](utilities/README.md)~~ (0% alpha)
+    * ~~["Zoning"](zoning/README.md)~~ (0% alpha)
+    * ~~["Services Planning"](services/README.md)~~ (0% alpha)
+    * ~~["Terraforming"](environment/terraforming/README.md)~~ (0% alpha)
+  * "Execution & Finances"
+    * ~~["Projects & Grants"](projects/README.md)~~ (0% alpha)
+    * ~~["Budgeting"](finances/README.md)~~ (0% alpha)
+    * ~~["Taxation"](finances/README.md)~~ (0% alpha)
