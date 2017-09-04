@@ -51,8 +51,6 @@
 
 ## Gameplay & Skills
 
-* Skill: Building a city
-   * Skill: Planning
-      * Skill: Road planning
-   * Skill: Execution & Finances
-      * Skill: Road construction
+* "Building a city"
+   * "Planning"
+      * "Road Planning"
