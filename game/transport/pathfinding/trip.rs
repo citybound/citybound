@@ -106,7 +106,9 @@ pub fn setup(system: &mut ActorSystem) {
     system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
         let creator_id = each_lane.world().id::<TripCreator>();
 
-        each_lane.on_random(move |event, lane, world| {
+        each_lane.on_random(move |&MSG_Interactable3d_on_event(ref event),
+              lane,
+              world| {
             match *event {
                 Event3d::HoverStarted { .. } => {
                     lane.hovered = true;
@@ -143,4 +145,4 @@ pub struct TripCreator {
 pub struct AddLaneForTrip(ID);
 
 use super::super::lane::Lane;
-use stagemaster::Event3d;
+use stagemaster::{Event3d, MSG_Interactable3d_on_event};

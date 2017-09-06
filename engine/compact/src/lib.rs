@@ -18,11 +18,12 @@
 #![cfg_attr(feature="clippy", plugin(clippy))]
 #![feature(conservative_impl_trait)]
 #![feature(specialization)]
+#![feature(optin_builtin_traits)]
 
 extern crate allocators;
 mod pointer_to_maybe_compact;
-#[macro_use]
 mod compact;
+mod compact_option;
 mod compact_vec;
 mod compact_dict;
 mod compact_hash_map;
@@ -31,6 +32,7 @@ mod compact_hash_map;
 extern crate lazy_static;
 
 pub use self::compact::Compact;
+pub use self::compact_option::CompactOption as COption;
 pub use self::compact_vec::CompactVec as CVec;
 pub use self::compact_dict::CompactDict as CDict;
 pub use self::compact_hash_map::OpenAddressingMap as CHashMap;

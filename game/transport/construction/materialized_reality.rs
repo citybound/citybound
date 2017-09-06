@@ -15,21 +15,24 @@ pub struct MaterializedRealityState {
 #[allow(large_enum_variant)]
 pub enum MaterializedReality {
     Ready(MaterializedRealityState),
-    WaitingForUnbuild(ID, CVec<ID>, MaterializedRealityState, Plan, PlanResult, PlanResultDelta),
+    WaitingForUnbuild(
+        CurrentPlanID,
+        CVec<ID>,
+        MaterializedRealityState,
+        Plan,
+        PlanResult,
+        PlanResultDelta
+    ),
 }
 use self::MaterializedReality::{Ready, WaitingForUnbuild};
 
+use super::super::planning::current_plan::CurrentPlanID;
+
 #[derive(Compact, Clone)]
 pub struct Simulate {
-    pub requester: ID,
+    pub requester: CurrentPlanID,
     pub delta: PlanDelta,
 }
-
-#[derive(Compact, Clone)]
-pub struct SimulationResult(pub PlanResultDelta);
-
-#[derive(Compact, Clone)]
-pub struct BuiltStrokesChanged(pub BuiltStrokes);
 
 pub fn setup(system: &mut ActorSystem) {
     system.add(MaterializedReality::default(), |mut the_mr| {
@@ -45,7 +48,7 @@ pub fn setup(system: &mut ActorSystem) {
             let (new_plan, _) = state.current_plan.with_delta(delta);
             let result = new_plan.get_result();
             let result_delta = result.delta(&state.current_result);
-            world.send(requester, SimulationResult(result_delta));
+            requester.on_simulation_result(result_delta, world);
             Fate::Live
         });
 
@@ -249,7 +252,7 @@ pub fn setup(system: &mut ActorSystem) {
                                 .collect(),
                         };
 
-                        world.send(requester, BuiltStrokesChanged(built_strokes));
+                        requester.built_strokes_changed(built_strokes, world);
 
                         Some(Ready(MaterializedRealityState {
                             current_plan: new_plan.clone(),
@@ -274,7 +277,7 @@ pub fn setup(system: &mut ActorSystem) {
 
 #[derive(Compact, Clone)]
 pub struct Apply {
-    pub requester: ID,
+    pub requester: CurrentPlanID,
     pub delta: PlanDelta,
 }
 

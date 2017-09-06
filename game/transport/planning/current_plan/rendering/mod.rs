@@ -1,55 +1,49 @@
-use kay::{Fate, ActorSystem, World};
+use kay::{Fate, World};
 use compact::CDict;
 use descartes::{N, Band, Path, FiniteCurve};
 use monet::{Thing, Instance, RendererID};
 use stagemaster::geometry::band_to_thing;
-use super::{CurrentPlan, SelectableStrokeRef};
+use super::{CurrentPlan, CurrentPlanID, SelectableStrokeRef};
 use super::super::plan::{PlanDelta, BuiltStrokes, PlanResultDelta};
 use super::super::lane_stroke::LaneStroke;
 
-use monet::MSG_Renderable_setup_in_scene;
-use monet::MSG_Renderable_render_to_scene;
+use monet::{Renderable, RenderableID, MSG_Renderable_setup_in_scene,
+            MSG_Renderable_render_to_scene};
 
-pub fn setup(system: &mut ActorSystem) {
-    system.extend::<CurrentPlan, _>(|mut the_cp| {
-        the_cp.on(|_: &MSG_Renderable_setup_in_scene, _, _| Fate::Live);
+impl Renderable for CurrentPlan {
+    fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}
 
-        the_cp.on(|&MSG_Renderable_render_to_scene(renderer_id, scene_id),
-         plan,
-         world| {
-            if plan.preview.is_none() {
-                let preview = plan.update_preview(world);
-                render_strokes(&preview.plan_delta, renderer_id, scene_id, world);
+    fn render_to_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
+        if self.preview.is_none() {
+            let preview = self.update_preview(world);
+            render_strokes(&preview.plan_delta, renderer_id, scene_id, world);
 
+        }
+        if !self.interactables_valid {
+            self.update_interactables(world);
+        }
+        if let Some(ref result_delta) = *self.preview_result_delta {
+            // TODO: add something like prepare-render to monet to make sure
+            // we have new state in time
+            if !self.preview_result_delta_rendered {
+                self.preview_result_delta_rendered = true;
+
+                render_trimmed_strokes(result_delta, renderer_id, scene_id, world);
+                render_intersections(result_delta, renderer_id, scene_id, world);
+                render_transfer_lanes(result_delta, renderer_id, scene_id, world);
             }
-            if !plan.interactables_valid {
-                plan.update_interactables(world);
-            }
-            if let Some(ref result_delta) = plan.preview_result_delta {
-                // TODO: add something like prepare-render to monet to make sure
-                // we have new state in time
-                if !plan.preview_result_delta_rendered {
-                    plan.preview_result_delta_rendered = true;
-
-                    render_trimmed_strokes(result_delta, renderer_id, scene_id, world);
-                    render_intersections(result_delta, renderer_id, scene_id, world);
-                    render_transfer_lanes(result_delta, renderer_id, scene_id, world);
-                }
-            }
-            if let Some(ref built_strokes) = plan.built_strokes {
-                render_selections(
-                    &plan.preview.as_ref().unwrap().selections,
-                    &plan.preview.as_ref().unwrap().plan_delta,
-                    built_strokes,
-                    renderer_id,
-                    scene_id,
-                    world,
-                );
-            }
-
-            Fate::Live
-        });
-    });
+        }
+        if let Some(ref built_strokes) = *self.built_strokes {
+            render_selections(
+                &self.preview.as_ref().unwrap().selections,
+                &self.preview.as_ref().unwrap().plan_delta,
+                built_strokes,
+                renderer_id,
+                scene_id,
+                world,
+            );
+        }
+    }
 }
 
 fn render_strokes(delta: &PlanDelta, renderer_id: RendererID, scene_id: usize, world: &mut World) {
@@ -235,3 +229,6 @@ fn render_selections(
         world,
     );
 }
+
+mod kay_auto;
+pub use self::kay_auto::*;

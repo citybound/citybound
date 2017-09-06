@@ -40,14 +40,15 @@ pub const ENV: &'static Environment = &Environment {
 mod core;
 mod transport;
 
+use compact::CVec;
 use monet::{RendererID, RenderableID};
 use monet::glium::{DisplayBuild, glutin};
 use core::simulation::{Simulation, Tick};
-use stagemaster::{ProcessEvents, StartFrame, UserInterface, AddDebugText, OnPanic};
+use stagemaster::UserInterfaceID;
 use transport::lane::{Lane, TransferLane};
 use transport::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use transport::rendering::lane_thing_collector::ThingCollector;
-use transport::planning::current_plan::CurrentPlan;
+use transport::planning::current_plan::CurrentPlanID;
 use kay::swarm::Swarm;
 use std::any::Any;
 
@@ -65,7 +66,8 @@ fn main() {
     }
 
     let mut system = kay::ActorSystem::new(Box::new(|error: Box<Any>, world| {
-        let ui_id = world.id::<UserInterface>();
+        // TODO: ugly/wrong
+        let ui_id = UserInterfaceID::broadcast(world);
         let message = match error.downcast::<String>() {
             Ok(string) => (*string),
             Err(any) => {
@@ -76,16 +78,14 @@ fn main() {
             }
         };
         println!("Simulation Panic!\n{:?}", message);
-        world.send(
-            ui_id,
-            AddDebugText {
-                key: "SIMULATION PANIC".chars().collect(),
-                text: message.as_str().chars().collect(),
-                color: [1.0, 0.0, 0.0, 1.0],
-                persistent: true,
-            },
+        ui_id.add_debug_text(
+            "SIMULATION PANIC".chars().collect(),
+            message.as_str().chars().collect(),
+            [1.0, 0.0, 0.0, 1.0],
+            true,
+            world,
         );
-        world.send(ui_id, OnPanic);
+        ui_id.on_panic(world);
     }));
 
     transport::setup(&mut system);
@@ -105,33 +105,35 @@ fn main() {
         .build_glium()
         .unwrap();
 
-    let renderables: Vec<_> = vec![
+    let renderables: CVec<_> = vec![
         system.id::<Swarm<Lane>>().broadcast(),
         system.id::<Swarm<TransferLane>>().broadcast(),
         system.id::<ThingCollector<LaneAsphalt>>(),
         system.id::<ThingCollector<LaneMarker>>(),
         system.id::<ThingCollector<TransferLaneMarkerGaps>>(),
-        system.id::<CurrentPlan>(),
     ].into_iter()
         .map(|id| RenderableID { _raw_id: id })
+        .chain(vec![
+            // TODO: ugly/wrong
+            CurrentPlanID::broadcast(&mut system.world()).into(),
+        ])
         .collect();
-    stagemaster::setup(&mut system, renderables, ENV, &window);
+    stagemaster::setup(&mut system, renderables, *ENV, window);
 
     let mut last_frame = std::time::Instant::now();
 
-    let ui_id = system.id::<UserInterface>();
+    // TODO: ugly/wrong
+    let ui_id = UserInterfaceID::broadcast(&mut system.world());
     let sim_id = system.id::<Simulation>();
     // TODO: ugly/wrong
     let renderer_id = RendererID::broadcast(&mut system.world());
 
-    system.send(
-        ui_id,
-        AddDebugText {
-            key: "Version".chars().collect(),
-            text: ENV.version.chars().collect(),
-            color: [0.0, 0.0, 0.0, 1.0],
-            persistent: true,
-        },
+    ui_id.add_debug_text(
+        "Version".chars().collect(),
+        ENV.version.chars().collect(),
+        [0.0, 0.0, 0.0, 1.0],
+        true,
+        &mut system.world(),
     );
 
     system.process_all_messages();
@@ -147,32 +149,28 @@ fn main() {
         }
         let avg_elapsed_ms = elapsed_ms_collected.iter().sum::<f32>() /
             (elapsed_ms_collected.len() as f32);
-        system.send(
-            ui_id,
-            AddDebugText {
-                key: "Frame".chars().collect(),
-                text: format!("{:.1} FPS", 1000.0 * 1.0 / avg_elapsed_ms)
-                    .as_str()
-                    .chars()
-                    .collect(),
-                color: [0.0, 0.0, 0.0, 0.5],
-                persistent: false,
-            },
+        ui_id.add_debug_text(
+            "Frame".chars().collect(),
+            format!("{:.1} FPS", 1000.0 * 1.0 / avg_elapsed_ms)
+                .as_str()
+                .chars()
+                .collect(),
+            [0.0, 0.0, 0.0, 0.5],
+            false,
+            &mut system.world(),
         );
         last_frame = std::time::Instant::now();
 
         let subactor_counts = system.get_subactor_counts();
-        system.send(
-            ui_id,
-            AddDebugText {
-                key: "Number of actors".chars().collect(),
-                text: subactor_counts.as_str().chars().collect(),
-                color: [0.0, 0.0, 0.0, 1.0],
-                persistent: false,
-            },
+        ui_id.add_debug_text(
+            "Number of actors".chars().collect(),
+            subactor_counts.as_str().chars().collect(),
+            [0.0, 0.0, 0.0, 1.0],
+            false,
+            &mut system.world(),
         );
 
-        system.send(ui_id, ProcessEvents);
+        ui_id.process_events(&mut system.world());
 
         system.process_all_messages();
 
@@ -184,7 +182,7 @@ fn main() {
 
         system.process_all_messages();
 
-        system.send(ui_id, StartFrame);
+        ui_id.start_frame(&mut system.world());
 
         system.process_all_messages();
     }

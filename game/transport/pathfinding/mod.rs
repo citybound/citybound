@@ -1,8 +1,6 @@
 use compact::{CDict, CVec, CHashMap};
 use kay::{ID, ActorSystem, Fate, World};
 use kay::swarm::{Swarm, SubActor};
-use stagemaster::geometry::AnyShape;
-use descartes::Band;
 use super::lane::{Lane, TransferLane};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
 
@@ -47,21 +45,21 @@ pub struct RoutingInfo {
     fresh: bool,
 }
 
-use stagemaster::{UserInterface, AddInteractable};
-const DEBUG_CARS_ON_LANES: bool = false;
+// use stagemaster::{UserInterfaceID, MSG};
+// const DEBUG_CARS_ON_LANES: bool = false;
 
-pub fn on_build(lane: &mut Lane, world: &mut World) {
-    lane.pathfinding.as_destination = None;
-    if DEBUG_CARS_ON_LANES {
-        world.send_to_id_of::<UserInterface, _>(AddInteractable(
-            lane.id(),
-            AnyShape::Band(
-                Band::new(lane.construction.path.clone(), 3.0),
-            ),
-            5,
-        ));
-    }
-}
+// pub fn on_build(lane: &mut Lane, world: &mut World) {
+//     lane.pathfinding.as_destination = None;
+//     if DEBUG_CARS_ON_LANES {
+//         world.send_to_id_of::<UserInterface, _>(AddInteractable(
+//             lane.id(),
+//             AnyShape::Band(
+//                 Band::new(lane.construction.path.clone(), 3.0),
+//             ),
+//             5,
+//         ));
+//     }
+// }
 
 pub fn on_connect(lane: &mut Lane) {
     lane.pathfinding.routing_timeout = ROUTING_TIMEOUT_AFTER_CHANGE;

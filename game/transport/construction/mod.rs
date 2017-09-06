@@ -68,7 +68,7 @@ pub fn setup(system: &mut ActorSystem) {
             );
             world.send(report_to, ReportLaneBuilt(lane.id(), report_as));
             super::rendering::on_build(lane, world);
-            super::pathfinding::on_build(lane, world);
+            // super::pathfinding::on_build(lane, world);
             Fate::Live
         });
 

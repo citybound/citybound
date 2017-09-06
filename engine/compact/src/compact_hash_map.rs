@@ -883,12 +883,12 @@ fn basic() {
         assert!(*test == exp, " failed exp {:?}  was {:?}", exp, test);
     }
     assert!(map.len() == n as usize);
-    assert!(*map.get_mru(n - 1).unwrap() == elem(n - 1));
-    assert!(*map.get_mfu(n - 100).unwrap() == elem(n - 100));
+    assert!(*map.get(n - 1).unwrap() == elem(n - 1));
+    assert!(*map.get(n - 100).unwrap() == elem(n - 100));
     assert!(map.contains_key(n - 300) == true);
     assert!(map.contains_key(n + 1) == false);
     assert!(map.remove(500) == Some(elem(500)));
-    assert!(map.get_mru(500).is_none());
+    assert!(map.get(500).is_none());
 }
 
 #[test]
