@@ -3,7 +3,7 @@ use kay::swarm::Swarm;
 use compact::{COption, CVec, CDict};
 use descartes::{V2, N, P2, FiniteCurve};
 
-use super::super::construction::materialized_reality::MaterializedReality;
+use super::super::construction::materialized_reality::MaterializedRealityID;
 use super::lane_stroke::LaneStroke;
 use super::plan::{PlanDelta, PlanResultDelta, BuiltStrokes, LaneStrokeRef};
 
@@ -116,15 +116,11 @@ pub struct CurrentPlan {
     interaction: Interaction,
 }
 
-use super::super::construction::materialized_reality::Simulate;
-
 impl CurrentPlan {
     pub fn spawn(id: CurrentPlanID, world: &mut World) -> CurrentPlan {
         // TODO: is there a nicer way to get initial built strokes?
-        world.send_to_id_of::<MaterializedReality, _>(Apply {
-            requester: id,
-            delta: PlanDelta::default(),
-        });
+        // TODO: ugly/wrong
+        MaterializedRealityID::broadcast(world).apply(id, PlanDelta::default(), world);
 
         StrokeCanvasID::spawn(world);
 
@@ -180,10 +176,14 @@ impl CurrentPlan {
                 self.still_built_strokes().as_ref(),
                 &self.settings,
             );
-            world.send_to_id_of::<MaterializedReality, _>(Simulate {
-                requester: self.id,
-                delta: preview.plan_delta.clone(),
-            });
+            // TODO: ugly/wrong
+            MaterializedRealityID::broadcast(world).simulate(
+                self.id,
+                preview
+                    .plan_delta
+                    .clone(),
+                world,
+            );
             self.preview = COption(Some(preview));
         }
         self.preview.as_ref().unwrap()
@@ -373,8 +373,6 @@ impl CurrentPlan {
     }
 }
 
-use super::super::construction::materialized_reality::Apply;
-
 impl CurrentPlan {
     pub fn materialize(&mut self, world: &mut World) {
         match self.current.intent {
@@ -387,10 +385,14 @@ impl CurrentPlan {
             _ => {}
         }
 
-        world.send_to_id_of::<MaterializedReality, _>(Apply {
-            requester: self.id,
-            delta: self.current.plan_delta.clone(),
-        });
+        // TODO: ugly/wrong
+        MaterializedRealityID::broadcast(world).apply(
+            self.id,
+            self.current
+                .plan_delta
+                .clone(),
+            world,
+        );
 
         *self = CurrentPlan {
             id: self.id,
