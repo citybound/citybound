@@ -127,7 +127,7 @@ impl LocationRequester for Trip {
     }
 }
 
-use core::simulation::{Simulation, SleeperID, WakeUpIn, MSG_Sleeper_wake};
+use core::simulation::{SimulationID, SleeperID, MSG_Sleeper_wake};
 use core::simulation::Ticks;
 
 pub fn setup(system: &mut ActorSystem) {
@@ -144,9 +144,13 @@ pub fn setup(system: &mut ActorSystem) {
             the_creator.on(move |&AddLaneForTrip(lane_id), tc, world| {
                 if let Some(source_lane_id) = tc.current_source_lane {
                     tc.trips_to_create.push((source_lane_id, lane_id));
-                    let sim_id = world.id::<Simulation>();
                     let tc_id = world.id::<TripCreator>();
-                    world.send(sim_id, WakeUpIn(Ticks(0), SleeperID { _raw_id: tc_id }));
+                    // TODO: ugly/wrong
+                    SimulationID::broadcast(world).wake_up_in(
+                        Ticks(0),
+                        SleeperID { _raw_id: tc_id },
+                        world,
+                    );
                     tc.current_source_lane = None;
                 } else {
                     tc.current_source_lane = Some(lane_id);

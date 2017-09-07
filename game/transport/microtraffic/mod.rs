@@ -241,7 +241,7 @@ pub fn setup(system: &mut ActorSystem) {
             Fate::Live
         });
 
-        each_lane.on(|&Tick { dt, current_tick }, lane, world| {
+        each_lane.on(|&MSG_Simulatable_tick(dt, current_tick), lane, world| {
             let dt = dt / MICROTRAFFIC_UNREALISTIC_SLOWDOWN;
 
             lane.construction.progress += dt * 400.0;
@@ -538,7 +538,7 @@ pub fn setup(system: &mut ActorSystem) {
             Fate::Live
         });
 
-        each_t_lane.on(|&Tick { dt, current_tick }, lane, world| {
+        each_t_lane.on(|&MSG_Simulatable_tick(dt, current_tick), lane, world| {
             let dt = dt / MICROTRAFFIC_UNREALISTIC_SLOWDOWN;
 
             lane.construction.progress += dt * 400.0;
@@ -769,7 +769,7 @@ pub fn setup(system: &mut ActorSystem) {
     }))
 }
 
-use core::simulation::Tick;
+use core::simulation::MSG_Simulatable_tick;
 
 const TRAFFIC_LOGIC_THROTTLING: usize = 30;
 const PATHFINDING_THROTTLING: usize = 10;

@@ -44,13 +44,13 @@ mod economy;
 use compact::CVec;
 use monet::{RendererID, RenderableID};
 use monet::glium::{DisplayBuild, glutin};
-use core::simulation::{Simulation, DoTick};
+use core::simulation::{SimulationID, SimulatableID};
 use stagemaster::UserInterfaceID;
 use transport::lane::{Lane, TransferLane};
 use transport::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use transport::rendering::lane_thing_collector::ThingCollector;
 use transport::planning::current_plan::CurrentPlanID;
-use economy::households::family::Family;
+use economy::households::family::FamilyID;
 use economy::households::tasks::TaskEndScheduler;
 use economy::buildings::Building;
 use kay::swarm::Swarm;
@@ -98,9 +98,11 @@ fn main() {
     let simulatables = vec![
         system.id::<Swarm<Lane>>().broadcast(),
         system.id::<Swarm<TransferLane>>().broadcast(),
-        system.id::<Swarm<Family>>().broadcast(),
         system.id::<TaskEndScheduler>(),
-    ];
+    ].into_iter()
+        .map(|id| SimulatableID { _raw_id: id })
+        .chain(vec![FamilyID::broadcast(&mut system.world()).into()])
+        .collect();
     core::simulation::setup(&mut system, simulatables);
 
     let window = glutin::WindowBuilder::new()
@@ -131,7 +133,8 @@ fn main() {
 
     // TODO: ugly/wrong
     let ui_id = UserInterfaceID::broadcast(&mut system.world());
-    let sim_id = system.id::<Simulation>();
+    // TODO: ugly/wrong
+    let sim_id = SimulationID::broadcast(&mut system.world());
     // TODO: ugly singleton send
     let renderer_id = RendererID::broadcast(&mut system.world());
 
@@ -181,7 +184,7 @@ fn main() {
 
         system.process_all_messages();
 
-        system.send(sim_id, DoTick);
+        sim_id.do_tick(&mut system.world());
 
         system.process_all_messages();
 

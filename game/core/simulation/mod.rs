@@ -1,92 +1,92 @@
 use kay::{ActorSystem, World, ID, Fate};
+use kay::swarm::Swarm;
+use compact::CVec;
+use stagemaster::UserInterfaceID;
 
 mod time;
 
 pub use self::time::{Timestamp, Ticks, Seconds, TICKS_PER_SIM_MINUTE, TICKS_PER_SIM_SECOND,
                      TimeOfDay};
 
-#[derive(Copy, Clone)]
-pub struct DoTick;
-
-#[derive(Copy, Clone)]
-pub struct Tick {
-    pub dt: f32, // in seconds
-    pub current_tick: Timestamp,
+pub trait Simulatable {
+    fn tick(&mut self, dt: f32, current_tick: Timestamp, world: &mut World);
 }
-
-#[derive(Copy, Clone)]
-pub struct WakeUpIn(pub Ticks, pub SleeperID);
 
 pub trait Sleeper {
     fn wake(&mut self, current_tick: Timestamp, world: &mut World);
 }
 
+#[derive(Compact, Clone)]
 pub struct Simulation {
-    simulatables: Vec<ID>,
+    id: SimulationID,
+    simulatables: CVec<SimulatableID>,
     current_tick: Timestamp,
-    sleepers: Vec<(Timestamp, SleeperID)>,
+    sleepers: CVec<(Timestamp, SleeperID)>,
 }
 
-use stagemaster::UserInterfaceID;
+impl Simulation {
+    pub fn spawn(
+        id: SimulationID,
+        simulatables: &CVec<SimulatableID>,
+        _: &mut World,
+    ) -> Simulation {
+        Simulation {
+            id,
+            simulatables: simulatables.clone(),
+            current_tick: Timestamp::new(0),
+            sleepers: CVec::new(),
+        }
+    }
 
-pub fn setup(system: &mut ActorSystem, simulatables: Vec<ID>) {
-    let initial = Simulation {
-        simulatables: simulatables,
-        current_tick: Timestamp::new(0),
-        sleepers: Vec::new(),
-    };
-    system.add(initial, |mut the_simulation| {
-        the_simulation.on(|_: &DoTick, sim, world| {
-            for simulatable in &sim.simulatables {
-                world.send(
-                    *simulatable,
-                    Tick {
-                        dt: 1.0 / (TICKS_PER_SIM_SECOND as f32),
-                        current_tick: sim.current_tick,
-                    },
-                );
-            }
-            while sim.sleepers
-                .last()
-                .map(|&(end, _)| end < sim.current_tick)
-                .unwrap_or(false)
-            {
-                let (_, sleeper) = sim.sleepers.pop().expect(
-                    "just checked that there are sleepers",
-                );
-                sleeper.wake(sim.current_tick, world);
-            }
-            sim.current_tick += Ticks(1);
-
-            let time = TimeOfDay::from_tick(sim.current_tick).hours_minutes();
-
-            // TODO: ugly/wrong
-            UserInterfaceID::broadcast(world).add_debug_text(
-                "Time".chars().collect(),
-                format!("{:02}:{:02}", time.0, time.1)
-                    .chars()
-                    .collect(),
-                [0.0, 0.0, 0.0, 1.0],
-                false,
+    pub fn do_tick(&mut self, world: &mut World) {
+        for simulatable in &self.simulatables {
+            simulatable.tick(
+                1.0 / (TICKS_PER_SIM_SECOND as f32),
+                self.current_tick,
                 world,
             );
-
-            Fate::Live
-        });
-
-        the_simulation.on(|&WakeUpIn(remaining_ticks, sleeper_id), sim, _| {
-            let wake_up_at = sim.current_tick + remaining_ticks;
-            let maybe_idx = sim.sleepers.binary_search_by_key(
-                &wake_up_at.iticks(),
-                |&(t, _)| -(t.iticks()),
+        }
+        while self.sleepers
+            .last()
+            .map(|&(end, _)| end < self.current_tick)
+            .unwrap_or(false)
+        {
+            let (_, sleeper) = self.sleepers.pop().expect(
+                "just checked that there are sleepers",
             );
-            let insert_idx = match maybe_idx {
-                Ok(idx) | Err(idx) => idx,
-            };
-            sim.sleepers.insert(insert_idx, (wake_up_at, sleeper_id));
-            Fate::Live
-        });
-    });
+            sleeper.wake(self.current_tick, world);
+        }
+        self.current_tick += Ticks(1);
+
+        let time = TimeOfDay::from_tick(self.current_tick).hours_minutes();
+
+        // TODO: ugly/wrong
+        UserInterfaceID::broadcast(world).add_debug_text(
+            "Time".chars().collect(),
+            format!("{:02}:{:02}", time.0, time.1).chars().collect(),
+            [0.0, 0.0, 0.0, 1.0],
+            false,
+            world,
+        );
+    }
+
+    pub fn wake_up_in(&mut self, remaining_ticks: Ticks, sleeper_id: SleeperID, _: &mut World) {
+        let wake_up_at = self.current_tick + remaining_ticks;
+        let maybe_idx = self.sleepers.binary_search_by_key(
+            &wake_up_at.iticks(),
+            |&(t, _)| -(t.iticks()),
+        );
+        let insert_idx = match maybe_idx {
+            Ok(idx) | Err(idx) => idx,
+        };
+        self.sleepers.insert(insert_idx, (wake_up_at, sleeper_id));
+    }
+}
+
+pub fn setup(system: &mut ActorSystem, simulatables: Vec<SimulatableID>) {
+    system.add(Swarm::<Simulation>::new(), |_| {});
+
+    SimulationID::spawn(simulatables.into(), &mut system.world());
 }
 
 mod kay_auto;
