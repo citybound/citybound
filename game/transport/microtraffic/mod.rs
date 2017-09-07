@@ -140,7 +140,7 @@ use core::simulation::Timestamp;
 pub struct AddCar {
     pub car: LaneCar,
     pub from: Option<ID>,
-    pub tick: Timestamp
+    pub tick: Timestamp,
 }
 
 #[derive(Compact, Clone)]
@@ -218,7 +218,11 @@ pub fn setup(system: &mut ActorSystem) {
                     None => lane.microtraffic.cars.push(routed_car),
                 }
             } else {
-                car.trip.fail_at(RoughLocationID{_raw_id: lane.id()}, tick, world);
+                car.trip.fail_at(
+                    RoughLocationID { _raw_id: lane.id() },
+                    tick,
+                    world,
+                );
             }
 
             Fate::Live
@@ -427,7 +431,7 @@ pub fn setup(system: &mut ActorSystem) {
                             AddCar {
                                 car: car.offset_by(partner_start - start),
                                 from: Some(lane.id()),
-                                tick: current_tick
+                                tick: current_tick,
                             },
                         );
                     }
@@ -667,7 +671,7 @@ pub fn setup(system: &mut ActorSystem) {
                                                 ),
                                         ),
                                         from: Some(lane.id()),
-                                        tick: current_tick
+                                        tick: current_tick,
                                     },
                                 );
                             }
@@ -690,7 +694,7 @@ pub fn setup(system: &mut ActorSystem) {
                                                 ),
                                         ),
                                         from: Some(lane.id()),
-                                        tick: current_tick
+                                        tick: current_tick,
                                     },
                                 );
                             }

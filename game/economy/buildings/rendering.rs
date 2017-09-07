@@ -15,7 +15,7 @@ pub struct BuildingInspector {
     pub current_building: Option<BuildingID>,
     pub current_households: CVec<HouseholdID>,
     pub households_todo: CVec<HouseholdID>,
-    pub return_ui_to: Option<ID>
+    pub return_ui_to: Option<ID>,
 }
 
 #[derive(Compact, Clone)]
@@ -65,7 +65,10 @@ pub fn setup(system: &mut ActorSystem) {
         each_building.on(|event: &Event3d, building, world| {
             if let Event3d::DragFinished { .. } = *event {
                 let inspector_id = world.id::<BuildingInspector>();
-                world.send(inspector_id, SetInspectedBuilding(building.id, building.households.clone()));
+                world.send(
+                    inspector_id,
+                    SetInspectedBuilding(building.id, building.households.clone()),
+                );
             };
             Fate::Live
         });
@@ -85,7 +88,10 @@ pub fn setup(system: &mut ActorSystem) {
                     .opened(&mut opened)
                     .build(|| {
                         ui.text(im_str!("Building ID: {:?}", building._raw_id));
-                        ui.text(im_str!("# of households: {}", inspector.current_households.len()))
+                        ui.text(im_str!(
+                            "# of households: {}",
+                            inspector.current_households.len()
+                        ))
                     });
 
                 inspector.households_todo = inspector.current_households.clone();
@@ -93,11 +99,7 @@ pub fn setup(system: &mut ActorSystem) {
                 let inspector_id = world.id::<BuildingInspector>();
                 world.send(inspector_id, Ui2dDrawn { imgui_ui: ui });
 
-                if opened {
-                    Some(building)
-                } else {
-                    None
-                }
+                if opened { Some(building) } else { None }
             } else {
                 world.send(return_to, Ui2dDrawn { imgui_ui: ui });
                 None
@@ -108,20 +110,27 @@ pub fn setup(system: &mut ActorSystem) {
             Fate::Live
         });
 
-        the_inspector.on(|&Ui2dDrawn{ref imgui_ui}, inspector, world| {
+        the_inspector.on(|&Ui2dDrawn { ref imgui_ui }, inspector, world| {
             let ui = imgui_ui.steal();
 
             if let Some(household) = inspector.households_todo.pop() {
                 let inspector_id = world.id::<BuildingInspector>();
                 household.inspect(ui, inspector_id, world);
             } else {
-                world.send(inspector.return_ui_to.expect("Should have return to set for UI"), Ui2dDrawn { imgui_ui: ui });
+                world.send(
+                    inspector.return_ui_to.expect(
+                        "Should have return to set for UI",
+                    ),
+                    Ui2dDrawn { imgui_ui: ui },
+                );
             }
 
             Fate::Live
         });
 
-        the_inspector.on(|&SetInspectedBuilding(building, ref households), inspector, world| {
+        the_inspector.on(|&SetInspectedBuilding(building, ref households),
+         inspector,
+         world| {
             inspector.current_building = Some(building);
             inspector.current_households = households.clone();
             inspector.households_todo.clear();
@@ -136,5 +145,12 @@ pub fn setup(system: &mut ActorSystem) {
 
 pub fn on_add(building_id: BuildingID, pos: P2, world: &mut World) {
     let ui_id = world.id::<UserInterface>();
-                world.send(ui_id, AddInteractable( building_id._raw_id, AnyShape::Circle(Circle{center: pos, radius: 5.0}), 10))
+    world.send(
+        ui_id,
+        AddInteractable(
+            building_id._raw_id,
+            AnyShape::Circle(Circle { center: pos, radius: 5.0 }),
+            10,
+        ),
+    )
 }

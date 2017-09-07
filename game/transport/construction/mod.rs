@@ -376,9 +376,16 @@ pub fn setup(system: &mut ActorSystem) {
             if !lane.connectivity.on_intersection {
                 let path = &lane.construction.path;
                 let distance = ::random::default().read_f64() as f32 * path.length();
-                let point = path.along(distance) + BUILDING_DISTANCE * path.direction_along(distance).orthogonal();
-                
-                requester.found_lot(Lot {position: point, adjacent_lane: lane.id()}, world);
+                let point = path.along(distance) +
+                    BUILDING_DISTANCE * path.direction_along(distance).orthogonal();
+
+                requester.found_lot(
+                    Lot {
+                        position: point,
+                        adjacent_lane: lane.id(),
+                    },
+                    world,
+                );
             }
 
             Fate::Live
