@@ -11,7 +11,7 @@ pub mod grocery_shop;
 pub struct MemberIdx(usize);
 
 use imgui::Ui;
-use kay::{External, ID};
+use kay::External;
 
 use super::market::Deal;
 use super::buildings::rendering::BuildingInspectorID;

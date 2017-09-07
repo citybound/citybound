@@ -1,4 +1,4 @@
-use kay::{ActorSystem, World, Fate, External, ID};
+use kay::{ActorSystem, World, Fate, External};
 use kay::swarm::Swarm;
 use imgui::Ui;
 use core::simulation::{TimeOfDay, Seconds};

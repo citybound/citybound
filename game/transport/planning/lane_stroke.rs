@@ -1,6 +1,6 @@
 use descartes::{P2, V2, Path, Segment, Band, Curve, FiniteCurve, N, RoughlyComparable};
 use compact::CVec;
-use kay::{ID, World};
+use kay::World;
 use kay::swarm::{Swarm, CreateWith};
 use monet::Thing;
 use stagemaster::geometry::{CPath, band_to_thing};

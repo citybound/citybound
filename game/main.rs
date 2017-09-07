@@ -51,7 +51,7 @@ use transport::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use transport::rendering::lane_thing_collector::ThingCollector;
 use transport::planning::current_plan::CurrentPlanID;
 use economy::households::family::FamilyID;
-use economy::households::tasks::TaskEndScheduler;
+use economy::households::tasks::TaskEndSchedulerID;
 use economy::buildings::Building;
 use kay::swarm::Swarm;
 use std::any::Any;
@@ -98,10 +98,14 @@ fn main() {
     let simulatables = vec![
         system.id::<Swarm<Lane>>().broadcast(),
         system.id::<Swarm<TransferLane>>().broadcast(),
-        system.id::<TaskEndScheduler>(),
     ].into_iter()
         .map(|id| SimulatableID { _raw_id: id })
-        .chain(vec![FamilyID::broadcast(&mut system.world()).into()])
+        .chain(vec![
+            FamilyID::broadcast(&mut system.world()).into(),
+            // TODO: ugly/wrong
+            TaskEndSchedulerID::broadcast(&mut system.world())
+                .into(),
+        ])
         .collect();
     core::simulation::setup(&mut system, simulatables);
 

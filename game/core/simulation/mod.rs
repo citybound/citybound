@@ -1,4 +1,4 @@
-use kay::{ActorSystem, World, ID, Fate};
+use kay::{ActorSystem, World, Fate};
 use kay::swarm::Swarm;
 use compact::CVec;
 use stagemaster::UserInterfaceID;
@@ -85,6 +85,8 @@ impl Simulation {
 
 pub fn setup(system: &mut ActorSystem, simulatables: Vec<SimulatableID>) {
     system.add(Swarm::<Simulation>::new(), |_| {});
+
+    auto_setup(system);
 
     SimulationID::spawn(simulatables.into(), &mut system.world());
 }

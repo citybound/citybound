@@ -127,77 +127,8 @@ impl LocationRequester for Trip {
     }
 }
 
-use core::simulation::{SimulationID, SleeperID, MSG_Sleeper_wake};
+use core::simulation::{SimulationID, Sleeper, SleeperID, MSG_Sleeper_wake};
 use core::simulation::Ticks;
-
-pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<Trip>::new(), |_| {});
-
-    auto_setup(system);
-
-    system.add(
-        TripCreator {
-            current_source_lane: None,
-            trips_to_create: CVec::new(),
-        },
-        |mut the_creator| {
-            the_creator.on(move |&AddLaneForTrip(lane_id), tc, world| {
-                if let Some(source_lane_id) = tc.current_source_lane {
-                    tc.trips_to_create.push((source_lane_id, lane_id));
-                    let tc_id = world.id::<TripCreator>();
-                    // TODO: ugly/wrong
-                    SimulationID::broadcast(world).wake_up_in(
-                        Ticks(0),
-                        SleeperID { _raw_id: tc_id },
-                        world,
-                    );
-                    tc.current_source_lane = None;
-                } else {
-                    tc.current_source_lane = Some(lane_id);
-                }
-                Fate::Live
-            });
-
-            the_creator.on(move |&MSG_Sleeper_wake(current_tick), tc, world| {
-                for (source, dest) in tc.trips_to_create.clone() {
-                    TripID::spawn(
-                        RoughLocationID { _raw_id: source },
-                        RoughLocationID { _raw_id: dest },
-                        None,
-                        current_tick,
-                        world,
-                    );
-                }
-                tc.current_source_lane = None;
-                tc.trips_to_create = CVec::new();
-                Fate::Live
-            })
-        },
-    );
-
-    system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
-        let creator_id = each_lane.world().id::<TripCreator>();
-
-        each_lane.on_random(move |event, lane, world| {
-            match *event {
-                Event3d::HoverStarted { .. } => {
-                    lane.hovered = true;
-                }
-                Event3d::HoverStopped { .. } => {
-                    lane.hovered = false;
-                }
-                Event3d::DragFinished { .. } => {
-                    if !lane.connectivity.on_intersection {
-                        world.send(creator_id, AddLaneForTrip(lane.id()));
-                    }
-                }
-                _ => {}
-            };
-            Fate::Live
-        })
-    }));
-}
-
 use super::super::microtraffic::{AddCar, LaneCar, Obstacle};
 
 pub trait TripListener {
@@ -212,13 +143,77 @@ pub trait TripListener {
     );
 }
 
+#[derive(Compact, Clone)]
 pub struct TripCreator {
+    id: TripCreatorID,
     current_source_lane: Option<ID>,
     trips_to_create: CVec<(ID, ID)>,
 }
 
-#[derive(Copy, Clone)]
-pub struct AddLaneForTrip(ID);
+impl TripCreator {
+    pub fn spawn(id: TripCreatorID, _: &mut World) -> TripCreator {
+        TripCreator {
+            id,
+            current_source_lane: None,
+            trips_to_create: CVec::new(),
+        }
+    }
+
+    pub fn add_lane_for_trip(&mut self, lane_id: ID, world: &mut World) {
+        if let Some(source_lane_id) = self.current_source_lane {
+            self.trips_to_create.push((source_lane_id, lane_id));
+            // TODO: ugly/wrong
+            SimulationID::broadcast(world).wake_up_in(Ticks(0), self.id.into(), world);
+            self.current_source_lane = None;
+        } else {
+            self.current_source_lane = Some(lane_id);
+        }
+    }
+}
+
+impl Sleeper for TripCreator {
+    fn wake(&mut self, current_tick: Timestamp, world: &mut World) {
+        for (source, dest) in self.trips_to_create.clone() {
+            TripID::spawn(
+                RoughLocationID { _raw_id: source },
+                RoughLocationID { _raw_id: dest },
+                None,
+                current_tick,
+                world,
+            );
+        }
+        self.current_source_lane = None;
+        self.trips_to_create = CVec::new();
+    }
+}
+
+pub fn setup(system: &mut ActorSystem) {
+    system.add(Swarm::<Trip>::new(), |_| {});
+    system.add(Swarm::<TripCreator>::new(), |_| {});
+
+    auto_setup(system);
+
+    system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
+        each_lane.on_random(move |event, lane, world| {
+            match *event {
+                Event3d::HoverStarted { .. } => {
+                    lane.hovered = true;
+                }
+                Event3d::HoverStopped { .. } => {
+                    lane.hovered = false;
+                }
+                Event3d::DragFinished { .. } => {
+                    if !lane.connectivity.on_intersection {
+                        // TODO: ugly/wrong
+                        TripCreatorID::broadcast(world).add_lane_for_trip(lane.id(), world);
+                    }
+                }
+                _ => {}
+            };
+            Fate::Live
+        })
+    }));
+}
 
 use super::super::lane::Lane;
 use stagemaster::Event3d;
