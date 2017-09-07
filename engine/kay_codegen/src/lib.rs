@@ -24,41 +24,45 @@ mod generators;
 mod parsers;
 use parsers::parse;
 
-pub fn scan_and_generate() {
-    for maybe_mod_path in glob("./**/mod.rs").unwrap() {
-        let mod_path = maybe_mod_path.unwrap();
-        //println!("cargo:warning={:?}", mod_path);
-        let auto_path = mod_path.clone().to_str().unwrap().replace(
-            "mod.rs",
-            "kay_auto.rs",
-        );
-        let src_meta = metadata(&mod_path).unwrap();
-        let regenerate = match metadata(&auto_path) {
-            Ok(auto_meta) => src_meta.modified().unwrap() > auto_meta.modified().unwrap(),
-            _ => true,
-        };
+pub fn scan_and_generate(src_prefix: &str) {
+    for maybe_mod_path in glob(&format!("{}/**/mod.rs", src_prefix)).unwrap() {
+        if let Ok(mod_path) = maybe_mod_path {
+            //println!("cargo:warning={:?}", mod_path);
+            let auto_path = mod_path.clone().to_str().unwrap().replace(
+                "mod.rs",
+                "kay_auto.rs",
+            );
+            if let Ok(src_meta) = metadata(&mod_path) {
+                let regenerate = match metadata(&auto_path) {
+                    Ok(auto_meta) => src_meta.modified().unwrap() > auto_meta.modified().unwrap(),
+                    _ => true,
+                };
 
-        if regenerate {
-            let auto_file = if let Ok(ref mut file) = File::open(&mod_path) {
-                let mut file_str = String::new();
-                file.read_to_string(&mut file_str).unwrap();
-                match parse(&file_str) {
-                    Ok(model) => generate(&model),
-                    Err(error) => format!("PARSE ERROR:\n {:?}", error),
+                if regenerate {
+                    let auto_file = if let Ok(ref mut file) = File::open(&mod_path) {
+                        let mut file_str = String::new();
+                        file.read_to_string(&mut file_str).unwrap();
+                        match parse(&file_str) {
+                            Ok(model) => generate(&model),
+                            Err(error) => format!("PARSE ERROR:\n {:?}", error),
+                        }
+                    } else {
+                        panic!("couldn't load");
+                    };
+
+                    if let Ok(ref mut file) = File::create(&auto_path) {
+                        file.write_all(auto_file.as_bytes()).unwrap();
+                    }
+
+                    let _ = Command::new("rustfmt")
+                        .arg("--write-mode")
+                        .arg("overwrite")
+                        .arg(&auto_path)
+                        .spawn();
                 }
             } else {
                 panic!("couldn't load");
             };
-
-            if let Ok(ref mut file) = File::create(&auto_path) {
-                file.write_all(auto_file.as_bytes()).unwrap();
-            }
-
-            let _ = Command::new("rustfmt")
-                .arg("--write-mode")
-                .arg("overwrite")
-                .arg(&auto_path)
-                .spawn();
         }
     }
 }
@@ -235,7 +239,7 @@ fn simple_actor() {
 
                 the_swarm.on(|&MSG_SomeActor_init_ish(id, ref some_param), swarm, world| {
                     let mut subactor = SomeActor::init_ish(id, some_param, world);
-                    unsafe {swarm.add_with_id(&mut subactor, id._raw_id) };
+                    unsafe {swarm.add_manually_with_id(&mut subactor, id._raw_id) };
                     ::std::mem::forget(subactor);
                     Fate::Live
                 });

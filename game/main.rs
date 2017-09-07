@@ -39,20 +39,22 @@ pub const ENV: &'static Environment = &Environment {
 
 mod core;
 mod transport;
+mod economy;
 
 use compact::CVec;
 use monet::{RendererID, RenderableID};
 use monet::glium::{DisplayBuild, glutin};
-use core::simulation::{Simulation, Tick};
+use core::simulation::{Simulation, DoTick};
 use stagemaster::UserInterfaceID;
 use transport::lane::{Lane, TransferLane};
 use transport::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
 use transport::rendering::lane_thing_collector::ThingCollector;
 use transport::planning::current_plan::CurrentPlanID;
+use economy::households::family::Family;
+use economy::households::tasks::TaskEndScheduler;
+use economy::buildings::Building;
 use kay::swarm::Swarm;
 use std::any::Any;
-
-const SECONDS_PER_TICK: f32 = 1.0 / 20.0;
 
 fn main() {
     let mut dir = ::std::env::temp_dir();
@@ -90,10 +92,14 @@ fn main() {
 
     transport::setup(&mut system);
     transport::setup_ui(&mut system);
+    economy::setup(&mut system);
+    economy::setup_ui(&mut system);
 
     let simulatables = vec![
         system.id::<Swarm<Lane>>().broadcast(),
         system.id::<Swarm<TransferLane>>().broadcast(),
+        system.id::<Swarm<Family>>().broadcast(),
+        system.id::<TaskEndScheduler>(),
     ];
     core::simulation::setup(&mut system, simulatables);
 
@@ -111,6 +117,7 @@ fn main() {
         system.id::<ThingCollector<LaneAsphalt>>(),
         system.id::<ThingCollector<LaneMarker>>(),
         system.id::<ThingCollector<TransferLaneMarkerGaps>>(),
+        system.id::<Swarm<Building>>().broadcast(),
     ].into_iter()
         .map(|id| RenderableID { _raw_id: id })
         .chain(vec![
@@ -125,7 +132,7 @@ fn main() {
     // TODO: ugly/wrong
     let ui_id = UserInterfaceID::broadcast(&mut system.world());
     let sim_id = system.id::<Simulation>();
-    // TODO: ugly/wrong
+    // TODO: ugly singleton send
     let renderer_id = RendererID::broadcast(&mut system.world());
 
     ui_id.add_debug_text(
@@ -174,7 +181,7 @@ fn main() {
 
         system.process_all_messages();
 
-        system.send(sim_id, Tick { dt: SECONDS_PER_TICK, current_tick: 0 });
+        system.send(sim_id, DoTick);
 
         system.process_all_messages();
 

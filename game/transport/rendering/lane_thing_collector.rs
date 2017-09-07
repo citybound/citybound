@@ -1,4 +1,4 @@
-use monet::{Thing, Instance, RendererID};
+use monet::{Thing, Instance};
 use compact::CDict;
 use kay::{ID, ActorSystem, Fate};
 use std::marker::PhantomData;
@@ -135,8 +135,7 @@ pub fn setup<T: Clone + 'static>(
             let mut new_n_total_groups = coll.n_frozen_groups;
 
             for living_thing_group in living_thing_groups {
-                // TODO: ugly/wrong
-                RendererID::broadcast(world).update_thing(
+                renderer_id.update_thing(
                     scene_id,
                     coll.base_thing_id + new_n_total_groups as u16,
                     living_thing_group,
@@ -154,8 +153,7 @@ pub fn setup<T: Clone + 'static>(
 
             if new_n_total_groups > coll.n_total_groups {
                 for thing_to_empty_id in new_n_total_groups..coll.n_total_groups {
-                    // TODO: ugly/wrong
-                    RendererID::broadcast(world).update_thing(
+                    renderer_id.update_thing(
                         scene_id,
                         coll.base_thing_id + thing_to_empty_id as u16,
                         Thing::new(vec![], vec![]),
