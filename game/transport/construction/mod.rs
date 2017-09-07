@@ -13,6 +13,8 @@ use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
 pub mod materialized_reality;
 use self::materialized_reality::BuildableRef;
 
+use random::Source;
+
 #[derive(Compact, Clone)]
 pub struct ConstructionInfo {
     pub length: f32,
@@ -366,6 +368,30 @@ pub fn setup(system: &mut ActorSystem) {
         });
     }));
 
+    // TODO: this is a horrible hack
+    system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
+        each_lane.on_random(|&FindLot { requester }, lane, world| {
+            const BUILDING_DISTANCE: f32 = 15.0;
+
+            if !lane.connectivity.on_intersection {
+                let path = &lane.construction.path;
+                let distance = ::random::default().read_f64() as f32 * path.length();
+                let point = path.along(distance) +
+                    BUILDING_DISTANCE * path.direction_along(distance).orthogonal();
+
+                requester.found_lot(
+                    Lot {
+                        position: point,
+                        adjacent_lane: lane.id(),
+                    },
+                    world,
+                );
+            }
+
+            Fate::Live
+        });
+    }));
+
     system.extend(Swarm::<TransferLane>::subactors(move |mut each_t_lane| {
 
         each_t_lane.on_create_with(move |&AdvertiseToTransferAndReport(report_to,
@@ -569,3 +595,5 @@ pub struct Unbuild {
     pub report_to: ID,
 }
 use self::materialized_reality::ReportLaneUnbuilt;
+
+use economy::buildings::{FindLot, Lot};
