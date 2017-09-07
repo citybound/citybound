@@ -6,6 +6,10 @@
 //! Have a look at [`ActorSystem`](struct.ActorSystem.html),
 //! [`ActorDefiner`](struct.ActorDefiner.html), [`World`](struct.World.html)
 //! and [`Swarm`](swarm/struct.Swarm.html) to understand the main abstractions.
+//!
+//! Current Shortcomings:
+//!
+//! * Can't deal with messages to dead actors (undefined, often very confusing behaviour)
 
 #![warn(missing_docs)]
 #![cfg_attr(feature="clippy", feature(plugin))]

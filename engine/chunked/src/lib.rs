@@ -239,6 +239,7 @@ impl SizedChunkedArena {
     ///
     /// This is a O(1) way of removing an item if the order of items doesn't matter.
     pub unsafe fn swap_remove(&mut self, index: usize) -> Option<*const u8> {
+        assert!(*self.len > 0);
         let last_index = *self.len - 1;
         if last_index == index {
             // if swapping last item

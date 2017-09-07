@@ -1,5 +1,6 @@
 use kay::{ID, World, ActorSystem, Fate};
 use kay::swarm::{Swarm, SubActor};
+use compact::CVec;
 use ordered_float::OrderedFloat;
 use core::simulation::Timestamp;
 
@@ -26,9 +27,7 @@ impl Trip {
         tick: Timestamp,
         world: &mut World,
     ) -> Self {
-
         rough_source.resolve_as_location(id.into(), rough_source, tick, world);
-        rough_destination.resolve_as_location(id.into(), rough_destination, tick, world);
 
         if let Some(listener) = listener {
             listener.trip_created(id, world);
@@ -81,6 +80,17 @@ impl LocationRequester for Trip {
         if let Some(precise) = location {
             if rough_location == self.rough_source {
                 self.source = Some(precise);
+
+                if self.rough_source == self.rough_destination {
+                    self.destination = Some(precise);
+                } else {
+                    self.rough_destination.resolve_as_location(
+                        self.id.into(),
+                        self.rough_destination,
+                        tick,
+                        world,
+                    );
+                }
             } else if rough_location == self.rough_destination {
                 self.destination = Some(precise);
             } else {
@@ -128,39 +138,34 @@ pub fn setup(system: &mut ActorSystem) {
     system.add(
         TripCreator {
             current_source_lane: None,
-            current_destination_lane: None,
+            trips_to_create: CVec::new(),
         },
         |mut the_creator| {
             the_creator.on(move |&AddLaneForTrip(lane_id), tc, world| {
-                if tc.current_source_lane.is_some() {
-                    tc.current_destination_lane = Some(lane_id)
+                if let Some(source_lane_id) = tc.current_source_lane {
+                    tc.trips_to_create.push((source_lane_id, lane_id));
+                    let sim_id = world.id::<Simulation>();
+                    let tc_id = world.id::<TripCreator>();
+                    world.send(sim_id, WakeUpIn(Ticks(0), SleeperID { _raw_id: tc_id }));
+                    tc.current_source_lane = None;
                 } else {
                     tc.current_source_lane = Some(lane_id);
                 }
-                let sim_id = world.id::<Simulation>();
-                let tc_id = world.id::<TripCreator>();
-                world.send(sim_id, WakeUpIn(Ticks(0), SleeperID { _raw_id: tc_id }));
                 Fate::Live
             });
 
             the_creator.on(move |&MSG_Sleeper_wake(current_tick), tc, world| {
-                TripID::spawn(
-                    RoughLocationID {
-                        _raw_id: tc.current_source_lane.expect(
-                            "Should already have source lane",
-                        ),
-                    },
-                    RoughLocationID {
-                        _raw_id: tc.current_destination_lane.expect(
-                            "Should already have destination lane",
-                        ),
-                    },
-                    None,
-                    current_tick,
-                    world,
-                );
+                for (source, dest) in tc.trips_to_create.clone() {
+                    TripID::spawn(
+                        RoughLocationID { _raw_id: source },
+                        RoughLocationID { _raw_id: dest },
+                        None,
+                        current_tick,
+                        world,
+                    );
+                }
                 tc.current_source_lane = None;
-                tc.current_destination_lane = None;
+                tc.trips_to_create = CVec::new();
                 Fate::Live
             })
         },
@@ -205,7 +210,7 @@ pub trait TripListener {
 
 pub struct TripCreator {
     current_source_lane: Option<ID>,
-    current_destination_lane: Option<ID>,
+    trips_to_create: CVec<(ID, ID)>,
 }
 
 #[derive(Copy, Clone)]
