@@ -293,33 +293,35 @@ impl ComboListener {
     pub fn update(&mut self, event: &Event) {
         let old_current = self.current;
         let something_changed = match *event {
-            Event::WindowEvent {
-                event: WindowEvent::KeyboardInput {
-                    input: KeyboardInput {
-                        state,
-                        virtual_keycode: Some(glutin_code),
+            Event::WindowEvent { ref event, .. } => {
+                match *event {
+                    WindowEvent::KeyboardInput {
+                        input: KeyboardInput {
+                            state,
+                            virtual_keycode: Some(glutin_code),
+                            ..
+                        },
                         ..
-                    },
-                    ..
-                },
-                ..
-            } => {
-                let pressed = state == ElementState::Pressed;
-                if pressed {
-                    self.current.insert(glutin_code.into());
-                } else {
-                    self.current.remove(&(glutin_code.into()));
+                    } => {
+                        let pressed = state == ElementState::Pressed;
+                        if pressed {
+                            self.current.insert(glutin_code.into());
+                        } else {
+                            self.current.remove(&(glutin_code.into()));
+                        }
+                        true
+                    }
+                    WindowEvent::MouseInput { state, button, .. } => {
+                        let pressed = state == ElementState::Pressed;
+                        if pressed {
+                            self.current.insert(button.into());
+                        } else {
+                            self.current.remove(&button.into());
+                        }
+                        true
+                    }
+                    _ => false,
                 }
-                true
-            }
-            Event::WindowEvent { event: WindowEvent::MouseInput { state, button, .. }, .. } => {
-                let pressed = state == ElementState::Pressed;
-                if pressed {
-                    self.current.insert(button.into());
-                } else {
-                    self.current.remove(&button.into());
-                }
-                true
             }
             _ => false,
         };
