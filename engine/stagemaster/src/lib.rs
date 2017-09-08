@@ -197,207 +197,184 @@ pub fn setup(
                 let scale = ui.imgui.display_framebuffer_scale();
                 let events = ui.poll_events();
                 for event in events {
-                    match event {
-                        Event::WindowEvent { event: ref window_event, .. } => {
-                            match *window_event {
-                                WindowEvent::Closed => ::std::process::exit(0),
-                                WindowEvent::MouseWheel { delta, .. } => {
-                                    let v = match delta {
-                                        MouseScrollDelta::LineDelta(x, y) => {
-                                            V2::new(x * 50.0 as N, y * 50.0 as N)
-                                        }
-                                        MouseScrollDelta::PixelDelta(x, y) => {
-                                            V2::new(x as N, y as N)
-                                        }
-                                    };
-                                    ui.imgui.set_mouse_wheel(v.y / (scale.1 * 50.0));
-                                    if !ui.imgui_capture_mouse {
-                                        for interactable in &ui.focused_interactables {
-                                            world.send(*interactable, Event3d::Scroll(v))
-                                        }
+                    if let Event::WindowEvent { event: ref window_event, .. } = event {
+                        match *window_event {
+                            WindowEvent::Closed => ::std::process::exit(0),
+                            WindowEvent::MouseWheel { delta, .. } => {
+                                let v = match delta {
+                                    MouseScrollDelta::LineDelta(x, y) => {
+                                        V2::new(x * 50.0 as N, y * 50.0 as N)
                                     }
-                                }
-                                WindowEvent::MouseMoved { position: (x, y), .. } => {
-                                    ui.cursor_2d = P2::new(x as N, y as N);
-
-                                    ui.imgui.set_mouse_pos(
-                                        ui.cursor_2d.x / scale.0,
-                                        ui.cursor_2d.y / scale.1,
-                                    );
-
+                                    MouseScrollDelta::PixelDelta(x, y) => {
+                                        V2::new(x as N, y as N)
+                                    }
+                                };
+                                ui.imgui.set_mouse_wheel(v.y / (scale.1 * 50.0));
+                                if !ui.imgui_capture_mouse {
                                     for interactable in &ui.focused_interactables {
-                                        world.send(*interactable, Event3d::MouseMove(ui.cursor_2d));
+                                        world.send(*interactable, Event3d::Scroll(v))
                                     }
-
-                                    renderer_id.project_2d_to_3d(
-                                        0,
-                                        ui.cursor_2d,
-                                        ProjectionRequesterID { _raw_id: ui_id },
-                                        world,
-                                    );
                                 }
-                                WindowEvent::MouseInput { state: button_state, button, .. } => {
-                                    let button_idx = match button {
-                                        MouseButton::Left => 0,
-                                        MouseButton::Right => 1,
-                                        MouseButton::Middle => 2,
-                                        _ => 4,
-                                    };
-                                    let pressed = button_state == ElementState::Pressed;
-                                    ui.mouse_button_state[button_idx] = pressed;
+                            }
+                            WindowEvent::MouseMoved { position: (x, y), .. } => {
+                                ui.cursor_2d = P2::new(x as N, y as N);
 
-                                    ui.imgui.set_mouse_down(&ui.mouse_button_state);
+                                ui.imgui.set_mouse_pos(
+                                    ui.cursor_2d.x / scale.0,
+                                    ui.cursor_2d.y / scale.1,
+                                );
 
-                                    if !ui.imgui_capture_mouse {
-                                        ui.combo_listener.update(&event);
+                                for interactable in &ui.focused_interactables {
+                                    world.send(*interactable, Event3d::MouseMove(ui.cursor_2d));
+                                }
 
-                                        if pressed {
-                                            ui.drag_start_2d = Some(ui.cursor_2d);
-                                            ui.drag_start_3d = Some(ui.cursor_3d);
-                                            // TODO: does this break something?
-                                            //let cursor_3d = ui.cursor_3d;
-                                            //ui.receive(&Projected3d { position_3d: cursor_3d });
-                                            ui.active_interactable = ui.hovered_interactable;
-                                            if let Some(active_interactable) =
-                                                ui.active_interactable
-                                            {
-                                                world.send(
-                                                    active_interactable,
-                                                    Event3d::DragStarted {
-                                                        at: ui.cursor_3d,
-                                                        at2d: ui.cursor_2d,
-                                                    },
-                                                );
-                                            }
-                                        } else {
-                                            if let Some(active_interactable) =
-                                                ui.active_interactable
-                                            {
-                                                world.send(
-                                                    active_interactable,
-                                                    Event3d::DragFinished {
-                                                        from: ui.drag_start_3d.expect(
-                                                            "active interactable but no drag start",
-                                                        ),
-                                                        from2d: ui.drag_start_2d.expect(
-                                                            "active interactable but no drag start",
-                                                        ),
-                                                        to: ui.cursor_3d,
-                                                        to2d: ui.cursor_2d,
-                                                    },
-                                                );
-                                            }
-                                            ui.drag_start_2d = None;
-                                            ui.drag_start_3d = None;
-                                            ui.active_interactable = None;
-                                        }
+                                renderer_id.project_2d_to_3d(
+                                    0,
+                                    ui.cursor_2d,
+                                    ProjectionRequesterID { _raw_id: ui_id },
+                                    world,
+                                );
+                            }
+                            WindowEvent::MouseInput { state: button_state, button, .. } => {
+                                let button_idx = match button {
+                                    MouseButton::Left => 0,
+                                    MouseButton::Right => 1,
+                                    MouseButton::Middle => 2,
+                                    _ => 4,
+                                };
+                                let pressed = button_state == ElementState::Pressed;
+                                ui.mouse_button_state[button_idx] = pressed;
 
-                                        for interactable in &ui.focused_interactables {
+                                ui.imgui.set_mouse_down(&ui.mouse_button_state);
+
+                                if !ui.imgui_capture_mouse {
+                                    ui.combo_listener.update(&event);
+
+                                    if pressed {
+                                        ui.drag_start_2d = Some(ui.cursor_2d);
+                                        ui.drag_start_3d = Some(ui.cursor_3d);
+                                        // TODO: does this break something?
+                                        //let cursor_3d = ui.cursor_3d;
+                                        //ui.receive(&Projected3d { position_3d: cursor_3d });
+                                        ui.active_interactable = ui.hovered_interactable;
+                                        if let Some(active_interactable) =
+                                            ui.active_interactable
+                                        {
                                             world.send(
-                                                *interactable,
-                                                if pressed {
-                                                    Event3d::ButtonDown(button.into())
-                                                } else {
-                                                    Event3d::ButtonUp(button.into())
+                                                active_interactable,
+                                                Event3d::DragStarted {
+                                                    at: ui.cursor_3d,
+                                                    at2d: ui.cursor_2d,
                                                 },
                                             );
-
-                                            world.send(
-                                                *interactable,
-                                                Event3d::Combos(ui.combo_listener),
-                                            );
-                                        }
-                                    }
-                                }
-                                WindowEvent::KeyboardInput {
-                                    input:
-                                        KeyboardInput { state, virtual_keycode: Some(key_code),
-                                            .. },
-                                    ..
-                                } => {
-                                    let pressed = state == ElementState::Pressed;
-
-                                    if ui.imgui_capture_keyboard {
-                                        match key_code {
-                                            VirtualKeyCode::Tab =>
-                                                ui.imgui.set_key(0, pressed),
-                                            VirtualKeyCode::Left =>
-                                                ui.imgui.set_key(1, pressed),
-                                            VirtualKeyCode::Right =>
-                                                ui.imgui.set_key(2, pressed),
-                                            VirtualKeyCode::Up =>
-                                                ui.imgui.set_key(3, pressed),
-                                            VirtualKeyCode::Down =>
-                                                ui.imgui.set_key(4, pressed),
-                                            VirtualKeyCode::PageUp =>
-                                                ui.imgui.set_key(5, pressed),
-                                            VirtualKeyCode::PageDown =>
-                                                ui.imgui.set_key(6, pressed),
-                                            VirtualKeyCode::Home =>
-                                                ui.imgui.set_key(7, pressed),
-                                            VirtualKeyCode::End =>
-                                                ui.imgui.set_key(8, pressed),
-                                            VirtualKeyCode::Delete =>
-                                                ui.imgui.set_key(9, pressed),
-                                            VirtualKeyCode::Back =>
-                                                ui.imgui.set_key(10, pressed),
-                                            VirtualKeyCode::Return =>
-                                                ui.imgui.set_key(11, pressed),
-                                            VirtualKeyCode::Escape =>
-                                                ui.imgui.set_key(12, pressed),
-                                            VirtualKeyCode::A =>
-                                                ui.imgui.set_key(13, pressed),
-                                            VirtualKeyCode::C =>
-                                                ui.imgui.set_key(14, pressed),
-                                            VirtualKeyCode::V =>
-                                                ui.imgui.set_key(15, pressed),
-                                            VirtualKeyCode::X =>
-                                                ui.imgui.set_key(16, pressed),
-                                            VirtualKeyCode::Y =>
-                                                ui.imgui.set_key(17, pressed),
-                                            VirtualKeyCode::Z =>
-                                                ui.imgui.set_key(18, pressed),
-                                            VirtualKeyCode::LControl | VirtualKeyCode::RControl => {
-                                                ui.imgui.set_key_ctrl(pressed)
-                                            }
-                                            VirtualKeyCode::LShift | VirtualKeyCode::RShift => {
-                                                ui.imgui.set_key_shift(pressed)
-                                            }
-                                            VirtualKeyCode::LAlt | VirtualKeyCode::RAlt => {
-                                                ui.imgui.set_key_alt(pressed)
-                                            }
-                                            VirtualKeyCode::LWin | VirtualKeyCode::RWin => {
-                                                ui.imgui.set_key_super(pressed)
-                                            }
-                                            _ => {}
                                         }
                                     } else {
-                                        ui.combo_listener.update(&event);
-
-                                        for interactable in &ui.focused_interactables {
+                                        if let Some(active_interactable) =
+                                            ui.active_interactable
+                                        {
                                             world.send(
-                                                *interactable,
-                                                if pressed {
-                                                    Event3d::ButtonDown(key_code.into())
-                                                } else {
-                                                    Event3d::ButtonUp(key_code.into())
+                                                active_interactable,
+                                                Event3d::DragFinished {
+                                                    from: ui.drag_start_3d.expect(
+                                                        "active interactable but no drag start",
+                                                    ),
+                                                    from2d: ui.drag_start_2d.expect(
+                                                        "active interactable but no drag start",
+                                                    ),
+                                                    to: ui.cursor_3d,
+                                                    to2d: ui.cursor_2d,
                                                 },
                                             );
-
-                                            world.send(*interactable,
-                                                Event3d::Combos(ui.combo_listener));
                                         }
+                                        ui.drag_start_2d = None;
+                                        ui.drag_start_3d = None;
+                                        ui.active_interactable = None;
+                                    }
+
+                                    for interactable in &ui.focused_interactables {
+                                        world.send(
+                                            *interactable,
+                                            if pressed {
+                                                Event3d::ButtonDown(button.into())
+                                            } else {
+                                                Event3d::ButtonUp(button.into())
+                                            },
+                                        );
+
+                                        world.send(
+                                            *interactable,
+                                            Event3d::Combos(ui.combo_listener),
+                                        );
                                     }
                                 }
-                                WindowEvent::ReceivedCharacter(c) => {
-                                    ui.imgui.add_input_character(c)
+                            }
+                            WindowEvent::KeyboardInput {
+                                input:
+                                    KeyboardInput { state, virtual_keycode: Some(key_code), .. },
+                                ..
+                            } => {
+                                let pressed = state == ElementState::Pressed;
+
+                                if ui.imgui_capture_keyboard {
+                                    match key_code {
+                                        VirtualKeyCode::Tab => ui.imgui.set_key(0, pressed),
+                                        VirtualKeyCode::Left => ui.imgui.set_key(1, pressed),
+                                        VirtualKeyCode::Right => ui.imgui.set_key(2, pressed),
+                                        VirtualKeyCode::Up => ui.imgui.set_key(3, pressed),
+                                        VirtualKeyCode::Down => ui.imgui.set_key(4, pressed),
+                                        VirtualKeyCode::PageUp => ui.imgui.set_key(5, pressed),
+                                        VirtualKeyCode::PageDown => ui.imgui.set_key(6, pressed),
+                                        VirtualKeyCode::Home => ui.imgui.set_key(7, pressed),
+                                        VirtualKeyCode::End => ui.imgui.set_key(8, pressed),
+                                        VirtualKeyCode::Delete => ui.imgui.set_key(9, pressed),
+                                        VirtualKeyCode::Back => ui.imgui.set_key(10, pressed),
+                                        VirtualKeyCode::Return => ui.imgui.set_key(11, pressed),
+                                        VirtualKeyCode::Escape => ui.imgui.set_key(12, pressed),
+                                        VirtualKeyCode::A => ui.imgui.set_key(13, pressed),
+                                        VirtualKeyCode::C => ui.imgui.set_key(14, pressed),
+                                        VirtualKeyCode::V => ui.imgui.set_key(15, pressed),
+                                        VirtualKeyCode::X => ui.imgui.set_key(16, pressed),
+                                        VirtualKeyCode::Y => ui.imgui.set_key(17, pressed),
+                                        VirtualKeyCode::Z => ui.imgui.set_key(18, pressed),
+                                        VirtualKeyCode::LControl | VirtualKeyCode::RControl => {
+                                            ui.imgui.set_key_ctrl(pressed)
+                                        }
+                                        VirtualKeyCode::LShift | VirtualKeyCode::RShift => {
+                                            ui.imgui.set_key_shift(pressed)
+                                        }
+                                        VirtualKeyCode::LAlt | VirtualKeyCode::RAlt => {
+                                            ui.imgui.set_key_alt(pressed)
+                                        }
+                                        VirtualKeyCode::LWin | VirtualKeyCode::RWin => {
+                                            ui.imgui.set_key_super(pressed)
+                                        }
+                                        _ => {}
+                                    }
+                                } else {
+                                    ui.combo_listener.update(&event);
+
+                                    for interactable in &ui.focused_interactables {
+                                        world.send(
+                                            *interactable,
+                                            if pressed {
+                                                Event3d::ButtonDown(key_code.into())
+                                            } else {
+                                                Event3d::ButtonUp(key_code.into())
+                                            },
+                                        );
+
+                                        world.send(*interactable,
+                                            Event3d::Combos(ui.combo_listener));
+                                    }
                                 }
-                                _ => {}
-                            };
-                        }
-                        _ => {}
+                            }
+                            WindowEvent::ReceivedCharacter(c) => {
+                                ui.imgui.add_input_character(c)
+                            }
+                            _ => {}
+                        };
                     };
-                }
+                };
                 for interactable in ui.interactables.keys() {
                     world.send(*interactable, Event3d::Frame)
                 }
