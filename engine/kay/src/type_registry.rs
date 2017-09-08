@@ -8,7 +8,7 @@ pub struct ShortTypeId(NonZero<u16>);
 
 impl ShortTypeId {
     pub fn new(id: u16) -> Self {
-        ShortTypeId(unsafe { NonZero::new(id) })
+        ShortTypeId(unsafe { NonZero::new_unchecked(id) })
     }
 
     pub fn as_usize(&self) -> usize {

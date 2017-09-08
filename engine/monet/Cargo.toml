@@ -6,7 +6,7 @@ build = "src/build.rs"
 
 [dependencies]
 glium = "0.16.0"
-clippy = { version = "0.0.138", optional = true }
+clippy = { version = "0.0.157", optional = true }
 fnv = "1.0.3"
 lazy_static = "0.2.8"
 
