@@ -517,7 +517,14 @@ pub fn setup(
                     .size((600.0, 200.0), ImGuiSetCond_FirstUseEver)
                     .collapsible(false)
                     .build(|| for (key, &(ref text, ref color)) in texts {
-                        imgui_ui.text_colored(*color, im_str!("{}:\n{}", key, text));
+                        if text.split('\n').count() > 1 {
+                            imgui_ui.tree_node(im_str!("{}:", key)).build(|| {
+                                #[allow(useless_format)]
+                                imgui_ui.text_colored(*color, im_str!("{}", text));
+                            })
+                        } else {
+                            imgui_ui.text_colored(*color, im_str!("{}:\n{}", key, text));
+                        }
                     });
 
                 ui.interactables_2d_todo = ui.interactables_2d.clone();
