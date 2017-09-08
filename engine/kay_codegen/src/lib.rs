@@ -24,8 +24,8 @@ mod generators;
 mod parsers;
 use parsers::parse;
 
-pub fn scan_and_generate() {
-    for maybe_mod_path in glob("src/**/mod.rs").unwrap() {
+pub fn scan_and_generate(src_prefix: &str) {
+    for maybe_mod_path in glob(&format!("{}/**/mod.rs", src_prefix)).unwrap() {
         if let Ok(mod_path) = maybe_mod_path {
             let auto_path = mod_path.clone().to_str().unwrap().replace(
                 "mod.rs",
@@ -236,7 +236,7 @@ fn simple_actor() {
 
                 the_swarm.on(|&MSG_SomeActor_init_ish(id, ref some_param), swarm, world| {
                     let mut subactor = SomeActor::init_ish(id, some_param, world);
-                    unsafe {swarm.add_with_id(&mut subactor, id._raw_id) };
+                    unsafe {swarm.add_manually_with_id(&mut subactor, id._raw_id) };
                     ::std::mem::forget(subactor);
                     Fate::Live
                 });

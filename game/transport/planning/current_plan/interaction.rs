@@ -51,7 +51,7 @@ pub fn setup(system: &mut ActorSystem) {
             world.send(ui_id, AddInteractable(cp_id, AnyShape::Everywhere, 0));
             world.send(ui_id, AddInteractable2d(cp_id));
             world.send(ui_id, Focus(cp_id));
-            // TODO: ugly/wrong
+            // TODO: ugly singleton send
             RendererID::broadcast(world).add_eye_listener(
                 0,
                 EyeListenerID { _raw_id: cp_id },
