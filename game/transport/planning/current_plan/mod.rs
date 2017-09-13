@@ -196,11 +196,10 @@ impl CurrentPlan {
     }
 
     fn update_interactables(&mut self, world: &mut World) {
-        SelectableID::broadcast(world).clear(self.interaction.user_interface, world);
-        DraggableID::broadcast(world).clear(self.interaction.user_interface, world);
-        AddableID::broadcast(world).clear(self.interaction.user_interface, world);
-        // TODO: ugly/wrong
-        DeselecterID::broadcast(world).clear(self.interaction.user_interface, world);
+        SelectableID::local_broadcast(world).clear(self.interaction.user_interface, world);
+        DraggableID::local_broadcast(world).clear(self.interaction.user_interface, world);
+        AddableID::local_broadcast(world).clear(self.interaction.user_interface, world);
+        DeselecterID::local_first(world).clear(self.interaction.user_interface, world);
 
         if !self.current.selections.is_empty() {
             DeselecterID::spawn(self.interaction.user_interface, self.id, world);
@@ -298,8 +297,7 @@ impl CurrentPlan {
         let previous_state = self.undo_history.pop().unwrap_or_default();
         self.redo_history.push(self.current.clone());
         self.current = previous_state;
-        // TODO: ugly/wrong
-        StrokeCanvasID::broadcast(world).set_points(
+        StrokeCanvasID::local_first(world).set_points(
             match self.current.intent {
                 Intent::ContinueRoad(_, ref points, _) |
                 Intent::NewRoad(ref points) => points.clone(),
@@ -315,8 +313,7 @@ impl CurrentPlan {
         if let Some(next_state) = self.redo_history.pop() {
             self.undo_history.push(self.current.clone());
             self.current = next_state;
-            // TODO: ugly/wrong
-            StrokeCanvasID::broadcast(world).set_points(
+            StrokeCanvasID::local_first(world).set_points(
                 match self.current.intent {
                     Intent::ContinueRoad(_, ref points, _) |
                     Intent::NewRoad(ref points) => points.clone(),
@@ -400,8 +397,7 @@ impl CurrentPlan {
             Intent::ContinueRoad(..) |
             Intent::NewRoad(..) => {
                 self.commit();
-                // TODO: ugly/wrong
-                StrokeCanvasID::broadcast(world).set_points(CVec::new(), world);
+                StrokeCanvasID::local_first(world).set_points(CVec::new(), world);
             }
             _ => {}
         }

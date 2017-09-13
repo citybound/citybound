@@ -47,8 +47,7 @@ impl Offer {
         deal: &Deal,
         world: &mut World,
     ) -> Offer {
-        // TODO: ugly singleton send
-        MarketID::broadcast(world).register(deal.give.0, id, world);
+        MarketID::local_first(world).register(deal.give.0, id, world);
 
         Offer {
             id,
@@ -65,9 +64,7 @@ impl Offer {
     // to prevent offers being used while they're being withdrawn
     pub fn withdraw(&mut self, world: &mut World) {
         // TODO: notify users and wait for their confirmation as well
-
-        // TODO: ugly singleton send
-        MarketID::broadcast(world).withdraw(self.deal.give.0, self.id, world);
+        MarketID::local_first(world).withdraw(self.deal.give.0, self.id, world);
     }
 
     pub fn withdrawal_confirmed(&mut self, _: &mut World) -> Fate {

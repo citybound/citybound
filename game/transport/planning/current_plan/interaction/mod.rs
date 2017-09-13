@@ -105,15 +105,19 @@ impl Interactable3d for CurrentPlan {
                     //       *Uh.. next week maybe?*
                     use kay::swarm::ToRandom;
                     use descartes::P3;
-                    world.send_to_id_of::<Swarm<Lane>, _>(ToRandom {
-                        n_recipients: 5000,
-                        message: Event3d::DragFinished {
-                            from: P3::new(0.0, 0.0, 0.0),
-                            from2d: P2::new(0.0, 0.0),
-                            to: P3::new(0.0, 0.0, 0.0),
-                            to2d: P2::new(0.0, 0.0),
+                    let all_lanes = world.global_broadcast::<Swarm<Lane>>();
+                    world.send(
+                        all_lanes,
+                        ToRandom {
+                            n_recipients: 5000,
+                            message: Event3d::DragFinished {
+                                from: P3::new(0.0, 0.0, 0.0),
+                                from2d: P2::new(0.0, 0.0),
+                                to: P3::new(0.0, 0.0, 0.0),
+                                to2d: P2::new(0.0, 0.0),
+                            },
                         },
-                    });
+                    );
                 }
 
                 let maybe_grid_size = if bindings["Create Large Grid"].is_freshly_in(&combos) {

@@ -255,9 +255,8 @@ impl Model {
 
                 #(
                 pub fn #swarm_handler_names(#(#swarm_handler_args,)* world: &mut World) {
-                    world.send_to_id_of::<Swarm<Self>, _>(
-                        #swarm_msg_names_1(#(#swarm_msg_params),*)
-                    );
+                    let swarm = world.local_broadcast::<Swarm<Self>>();
+                    world.send(swarm, #swarm_msg_names_1(#(#swarm_msg_params),*));
                 }
                 )*
             }
@@ -286,7 +285,12 @@ impl Model {
                 None
             })
             .collect();
-        let actor_here_names_2 = actor_here_names_1.clone();
+        let (actor_here_names_2, actor_here_names_3, actor_here_names_4) =
+            (
+                actor_here_names_1.clone(),
+                actor_here_names_1.clone(),
+                actor_here_names_1.clone(),
+            );
         let actor_here_ids_1: Vec<_> = self.actors
             .iter()
             .filter_map(|(actor_name, actor_def)| if actor_def.defined_here {
@@ -295,8 +299,12 @@ impl Model {
                 None
             })
             .collect();
-        let (actor_here_ids_2, actor_here_ids_3) =
-            (actor_here_ids_1.clone(), actor_here_ids_1.clone());
+        let (actor_here_ids_2, actor_here_ids_3, actor_here_ids_4, actor_here_ids_5) = (
+            actor_here_ids_1.clone(),
+            actor_here_ids_1.clone(),
+            actor_here_ids_1.clone(),
+            actor_here_ids_1.clone(),
+        );
 
         let actor_ids: Vec<_> = self.actors.keys().map(actor_name_to_id).collect();
         let (handler_names, swarm_handler_names, init_handler_names) =
@@ -366,9 +374,21 @@ impl Model {
             }
 
             impl #actor_here_ids_2 {
-                pub fn broadcast(world: &mut World) -> Self {
+                pub fn local_first(world: &mut World) -> Self {
                     #actor_here_ids_3 {
-                        _raw_id: world.id::<Swarm<#actor_here_names_2>>().broadcast()
+                        _raw_id: world.local_first::<Swarm<#actor_here_names_2>>()
+                    }
+                }
+
+                pub fn local_broadcast(world: &mut World) -> Self {
+                    #actor_here_ids_4 {
+                        _raw_id: world.local_broadcast::<Swarm<#actor_here_names_3>>()
+                    }
+                }
+
+                pub fn global_broadcast(world: &mut World) -> Self {
+                    #actor_here_ids_5 {
+                        _raw_id: world.global_broadcast::<Swarm<#actor_here_names_4>>()
                     }
                 }
             }
@@ -384,9 +404,8 @@ impl Model {
 
                 #(
                 pub fn #swarm_handler_names(#(#swarm_handler_args,)* world: &mut World) {
-                    world.send_to_id_of::<Swarm<#actor_types_for_swarm_handlers>, _>(
-                        #swarm_msg_names_1(#(#swarm_msg_params),*)
-                    );
+                    let swarm = world.local_broadcast::<Swarm<#actor_types_for_swarm_handlers>>();
+                    world.send(swarm, #swarm_msg_names_1(#(#swarm_msg_params),*));
                 }
                 )*
 
@@ -395,9 +414,8 @@ impl Model {
                     let id = #actor_ids_for_init_handlers {
                         _raw_id: world.allocate_subactor_id::<#actor_types_for_init_handlers_1>()
                     };
-                    world.send_to_id_of::<Swarm<#actor_types_for_init_handlers_2>, _>(
-                        #init_msg_names_1(id, #(#init_msg_params),*)
-                    );
+                    let swarm = world.local_broadcast::<Swarm<#actor_types_for_init_handlers_2>>();
+                    world.send(swarm, #init_msg_names_1(id, #(#init_msg_params),*));
                     id
                 }
                 )*

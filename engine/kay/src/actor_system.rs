@@ -178,7 +178,7 @@ impl ActorSystem {
         if !to_here || global {
             self.networking.send(
                 self.message_registry.get::<M>(),
-                packet,
+                packet.clone(),
             );
         }
 
@@ -197,10 +197,6 @@ impl ActorSystem {
         }
     }
 
-    /// Get the ID of a previously added actor.
-    /// This is only used to identify actors from the outside.
-    /// Inside actor message handlers you always have access to a
-    /// [`World`](struct.World.html) that allows you to identify actors.
     pub fn id<A2: 'static>(&mut self) -> ID {
         ID::new(self.short_id::<A2>(), 0, self.networking.machine_id, 0)
     }
@@ -382,39 +378,16 @@ impl World {
         unsafe { &mut *self.0 }.send(receiver, message);
     }
 
-    /// Identify an actor based on type.
-    ///
-    /// ```
-    /// let logger_id = world.id::<Logger>();
-    /// ```
-    pub fn id<A2: 'static>(&mut self) -> ID {
+    pub fn local_first<A2: 'static>(&mut self) -> ID {
         unsafe { &mut *self.0 }.id::<A2>()
     }
 
-    /// Shorthand for identifying an actor and then sending a message to it.
-    ///
-    /// ```
-    /// world.send_to_id_of::<Logger, _>("New message!");
-    /// // is equivalent to
-    /// let logger_id = world.id::<Logger>();
-    /// world.send(logger_id, "New message!");
-    /// ```
-    pub fn send_to_id_of<A: 'static, M: Message>(&mut self, message: M) {
-        let id = self.id::<A>();
-        self.send(id, message);
+    pub fn local_broadcast<A2: 'static>(&mut self) -> ID {
+        unsafe { &mut *self.0 }.id::<A2>().local_broadcast()
     }
 
-    /// Shorthand to broadcast something to all subactors of a [`Swarm`](swarm/struct.Swarm.html).
-    ///
-    /// ```
-    /// world.broadcast_to_id_of::<UIElement, _>(UpdateUI);
-    /// // is equivalent to
-    /// let all_elements = world.id::<Swarm<UIElement>>().broadcast();
-    /// world.send(all_elements, UpdateUI);
-    /// ```
-    pub fn broadcast_to_id_of<A: 'static, M: Message>(&mut self, message: M) {
-        let id = self.id::<A>().broadcast();
-        self.send(id, message);
+    pub fn global_broadcast<A2: 'static>(&mut self) -> ID {
+        unsafe { &mut *self.0 }.id::<A2>().global_broadcast()
     }
 
     /// Synchronously allocate a subactor id for a subactor
@@ -425,7 +398,7 @@ impl World {
             &mut *(system.actors[system.actor_registry.get::<Swarm<SA>>().as_usize()]
                        .expect("Subactor type not found.") as *mut Swarm<SA>)
         };
-        unsafe { swarm.allocate_id(self.id::<Swarm<SA>>()) }
+        unsafe { swarm.allocate_id(self.local_broadcast::<Swarm<SA>>()) }
     }
 
     pub fn local_machine_id(&mut self) -> u8 {

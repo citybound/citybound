@@ -206,7 +206,7 @@ pub fn setup(system: &mut ActorSystem) {
                 Event3d::DragFinished { .. } => {
                     if !lane.connectivity.on_intersection {
                         // TODO: ugly/wrong
-                        TripCreatorID::broadcast(world).add_lane_for_trip(lane.id(), world);
+                        TripCreatorID::local_first(world).add_lane_for_trip(lane.id(), world);
                     }
                 }
                 _ => {}

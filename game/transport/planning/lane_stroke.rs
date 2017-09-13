@@ -186,10 +186,14 @@ impl LaneStroke {
         report_as: BuildableRef,
         world: &mut World,
     ) {
-        world.send_to_id_of::<Swarm<Lane>, _>(CreateWith(
-            Lane::new(self.path().clone(), false, CVec::new()),
-            AdvertiseToTransferAndReport(report_to, report_as),
-        ));
+        let local_lanes = world.local_broadcast::<Swarm<Lane>>();
+        world.send(
+            local_lanes,
+            CreateWith(
+                Lane::new(self.path().clone(), false, CVec::new()),
+                AdvertiseToTransferAndReport(report_to, report_as),
+            ),
+        );
     }
 
     pub fn build_intersection(
@@ -199,10 +203,14 @@ impl LaneStroke {
         timings: CVec<bool>,
         world: &mut World,
     ) {
-        world.send_to_id_of::<Swarm<Lane>, _>(CreateWith(
-            Lane::new(self.path().clone(), true, timings),
-            AdvertiseToTransferAndReport(report_to, report_as),
-        ));
+        let local_lanes = world.local_broadcast::<Swarm<Lane>>();
+        world.send(
+            local_lanes,
+            CreateWith(
+                Lane::new(self.path().clone(), true, timings),
+                AdvertiseToTransferAndReport(report_to, report_as),
+            ),
+        );
     }
 
     pub fn build_transfer(
@@ -211,10 +219,14 @@ impl LaneStroke {
         report_as: BuildableRef,
         world: &mut World,
     ) {
-        world.send_to_id_of::<Swarm<TransferLane>, _>(CreateWith(
-            TransferLane::new(self.path().clone()),
-            AdvertiseToTransferAndReport(report_to, report_as),
-        ));
+        let local_lanes = world.local_broadcast::<Swarm<Lane>>();
+        world.send(
+            local_lanes,
+            CreateWith(
+                TransferLane::new(self.path().clone()),
+                AdvertiseToTransferAndReport(report_to, report_as),
+            ),
+        );
     }
 }
 

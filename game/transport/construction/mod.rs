@@ -40,8 +40,8 @@ impl ConstructionInfo {
 pub struct AdvertiseToTransferAndReport(pub MaterializedRealityID, pub BuildableRef);
 
 pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
-    let all_lanes_id = system.id::<Swarm<Lane>>().broadcast();
-    let all_transfer_lanes_id = system.id::<Swarm<TransferLane>>().broadcast();
+    let all_lanes_id = system.world().global_broadcast::<Swarm<Lane>>();
+    let all_transfer_lanes_id = system.world().global_broadcast::<Swarm<TransferLane>>();
 
     system.extend(Swarm::<Lane>::subactors(move |mut each_lane| {
 

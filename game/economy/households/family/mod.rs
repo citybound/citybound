@@ -131,8 +131,7 @@ impl Family {
         let top_problems = self.top_problems(member, time);
 
         if top_problems.is_empty() {
-            // TODO: ugly/wrong
-            SimulationID::broadcast(world).wake_up_in(DECISION_PAUSE, self.id.into(), world);
+            SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, self.id.into(), world);
         } else {
             let mut decision_entries = CDict::<ResourceId, DecisionResourceEntry>::new();
 
@@ -156,8 +155,7 @@ impl Family {
                     AsyncCounter::with_target(1)
                 } else {
                     println!("Doing market query for {}", r_info(resource).0);
-                    // TODO: ugly singleton send
-                    MarketID::broadcast(world).search(
+                    MarketID::global_broadcast(world).search(
                         tick,
                         location,
                         resource,
@@ -274,8 +272,7 @@ impl Family {
                 self.id._raw_id
             );
             self.decision_state = DecisionState::None;
-            // TODO: ugly/wrong
-            SimulationID::broadcast(world).wake_up_in(DECISION_PAUSE, self.id.into(), world);
+            SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, self.id.into(), world);
         }
 
         fn most_useful_evaluated_deal(
@@ -413,8 +410,7 @@ impl Family {
         world: &mut World,
     ) {
         println!("Started task");
-        // TODO: ugly/wrong
-        TaskEndSchedulerID::broadcast(world).schedule(
+        TaskEndSchedulerID::local_first(world).schedule(
             start + self.member_tasks[member.0].duration,
             self.id.into(),
             member,
@@ -426,8 +422,7 @@ impl Family {
     pub fn stop_task(&mut self, member: MemberIdx, location: RoughLocationID, world: &mut World) {
         self.member_tasks[member.0].state = TaskState::IdleAt(location);
         println!("Task stopped");
-        // TODO: ugly/wrong
-        SimulationID::broadcast(world).wake_up_in(Ticks(0), self.id.into(), world);
+        SimulationID::local_first(world).wake_up_in(Ticks(0), self.id.into(), world);
     }
 }
 
@@ -559,8 +554,7 @@ use core::simulation::TICKS_PER_SIM_SECOND;
 
 impl Simulatable for Family {
     fn tick(&mut self, _dt: f32, _current_tick: Timestamp, world: &mut World) {
-        let families_as_households: HouseholdID = FamilyID::broadcast(world).into();
-        families_as_households.decay(Seconds(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world)
+        self.decay(Seconds(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world)
     }
 }
 

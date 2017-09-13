@@ -180,8 +180,16 @@ fn simple_actor() {
         }
 
         impl SomeActorID {
-            pub fn broadcast(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.id::<Swarm<SomeActor>>().broadcast() }
+            pub fn local_first(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.local_first::<Swarm<SomeActor>>() }
+            }
+
+            pub fn local_broadcast(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.local_broadcast::<Swarm<SomeActor>>() }
+            }
+
+            pub fn global_broadcast(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.global_broadcast::<Swarm<SomeActor>>() }
             }
         }
 
@@ -195,12 +203,14 @@ fn simple_actor() {
             }
 
             pub fn static_ish(some_param: usize, world: &mut World) {
-                world.send_to_id_of::<Swarm<SomeActor>, _>(MSG_SomeActor_static_ish(some_param));
+                let swarm = world.local_broadcast::<Swarm<SomeActor>>();
+                world.send(swarm, MSG_SomeActor_static_ish(some_param));
             }
 
             pub fn init_ish(some_param: usize, world: &mut World) -> Self {
                 let id = SomeActorID { _raw_id: world.allocate_subactor_id::<SomeActor>() };
-                world.send_to_id_of::<Swarm<SomeActor>, _>(MSG_SomeActor_init_ish(id, some_param));
+                let swarm = world.local_broadcast::<Swarm<SomeActor>>();
+                world.send(swarm, MSG_SomeActor_init_ish(id, some_param));
                 id
             }
         }
@@ -334,8 +344,16 @@ fn trait_and_impl() {
         }
 
         impl SomeActorID {
-            pub fn broadcast(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.id::<Swarm<SomeActor>>().broadcast() }
+            pub fn local_first(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.local_first::<Swarm<SomeActor>>() }
+            }
+
+            pub fn local_broadcast(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.local_broadcast::<Swarm<SomeActor>>() }
+            }
+
+            pub fn global_broadcast(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.global_broadcast::<Swarm<SomeActor>>() }
             }
         }
 

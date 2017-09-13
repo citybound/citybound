@@ -104,8 +104,7 @@ impl Interactable2d for BuildingInspector {
 impl Interactable3d for Building {
     fn on_event(&mut self, event: Event3d, world: &mut World) {
         if let Event3d::DragFinished { .. } = event {
-            // TODO: ugly/wrong
-            BuildingInspectorID::broadcast(world)
+            BuildingInspectorID::local_first(world)
                 .set_inspected_building(self.id, self.households.clone(), world);
         };
     }
@@ -161,8 +160,8 @@ pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) {
 }
 
 pub fn on_add(building_id: BuildingID, pos: P2, world: &mut World) {
-    // TODO: ugly/wrong
-    UserInterfaceID::broadcast(world).add(
+    // TODO: not sure if correct
+    UserInterfaceID::local_first(world).add(
         building_id.into(),
         AnyShape::Circle(Circle { center: pos, radius: 5.0 }),
         10,

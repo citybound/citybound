@@ -148,10 +148,14 @@ impl Interactable3d for BuildingSpawner {
 
             if self.bindings.0["Spawn Building"].is_freshly_in(&combos) {
                 if let BuildingSpawnerState::Idle = self.state {
-                    world.send_to_id_of::<Swarm<Lane>, _>(ToRandom {
-                        message: FindLot { requester: self.id },
-                        n_recipients: 5000,
-                    });
+                    let lane_swarm = world.global_broadcast::<Swarm<Lane>>();
+                    world.send(
+                        lane_swarm,
+                        ToRandom {
+                            message: FindLot { requester: self.id },
+                            n_recipients: 5000,
+                        },
+                    );
                     self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
                     self.state = BuildingSpawnerState::Collecting(CVec::new());
                 }
@@ -213,7 +217,7 @@ impl Sleeper for BuildingSpawner {
     fn wake(&mut self, _time: Timestamp, world: &mut World) {
         self.state = match self.state {
             BuildingSpawnerState::Collecting(ref mut lots) => {
-                let buildings: LotConflictorID = BuildingID::broadcast(world).into();
+                let buildings: LotConflictorID = BuildingID::global_broadcast(world).into();
                 let mut nonconflicting_lots = CVec::<Lot>::new();
                 for lot in lots.iter() {
                     let far_from_all = nonconflicting_lots.iter().all(|other_lot| {
@@ -241,7 +245,7 @@ impl Sleeper for BuildingSpawner {
                         None
                     })
                     .collect();
-                let lanes = LotConflictorID { _raw_id: world.id::<Swarm<Lane>>().broadcast() };
+                let lanes = LotConflictorID { _raw_id: world.global_broadcast::<Swarm<Lane>>() };
                 lanes.find_conflicts(new_lots.clone(), self.id, world);
                 self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
 

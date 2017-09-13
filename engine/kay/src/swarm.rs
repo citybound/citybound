@@ -291,7 +291,7 @@ impl<SA: SubActor + Clone> Swarm<SA> {
     }
 
     fn define_control_handlers<'a>(the_swarm: &mut ActorDefiner<'a, Self>) {
-        let swarm_id = the_swarm.world().id::<Self>();
+        let swarm_id = the_swarm.world().local_broadcast::<Self>();
         the_swarm.on(move |&Create(ref initial_state): &Create<SA>, swarm, _| {
             swarm.add(initial_state.clone(), swarm_id);
             Fate::Live

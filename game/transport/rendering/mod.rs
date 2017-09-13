@@ -612,8 +612,7 @@ impl LaneCollectorHelper {
 }
 
 pub fn on_build(lane: &Lane, world: &mut World) {
-    // TODO: ugly/wrong
-    LaneCollectorHelperID::broadcast(world).on_build(
+    LaneCollectorHelperID::local_first(world).on_build(
         RenderableToCollectorID { _raw_id: lane.id() },
         lane.connectivity.on_intersection,
         world,
@@ -621,24 +620,22 @@ pub fn on_build(lane: &Lane, world: &mut World) {
 }
 
 pub fn on_build_transfer(lane: &TransferLane, world: &mut World) {
-    // TODO: ugly/wrong
-    LaneCollectorHelperID::broadcast(world).on_build_transfer(
+    LaneCollectorHelperID::local_first(world).on_build_transfer(
         RenderableToCollectorID { _raw_id: lane.id() },
         world,
     );
 }
 
 pub fn on_unbuild(lane: &Lane, world: &mut World) {
-    // TODO: ugly/wrong
-    LaneCollectorHelperID::broadcast(world).on_unbuild(
+    LaneCollectorHelperID::local_first(world).on_unbuild(
         RenderableToCollectorID { _raw_id: lane.id() },
         lane.connectivity.on_intersection,
         world,
     );
 
     if DEBUG_VIEW_LANDMARKS {
-        // TODO: ugly singleton send
-        RendererID::broadcast(world).update_thing(
+        // TODO: move this to LaneCollectorHelper
+        RendererID::local_first(world).update_thing(
             0,
             4000 + lane.id().sub_actor_id as u16,
             Thing::new(vec![], vec![]),
@@ -649,7 +646,7 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
     }
 
     if DEBUG_VIEW_SIGNALS {
-        RendererID::broadcast(world).update_thing(
+        RendererID::local_first(world).update_thing(
             0,
             4000 + lane.id().sub_actor_id as u16,
             Thing::new(vec![], vec![]),
@@ -662,7 +659,7 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
 
 pub fn on_unbuild_transfer(lane: &TransferLane, world: &mut World) {
     // TODO: ugly/wrong
-    LaneCollectorHelperID::broadcast(world)
+    LaneCollectorHelperID::local_first(world)
         .on_unbuild_transfer(RenderableToCollectorID { _raw_id: lane.id() }, world);
 }
 

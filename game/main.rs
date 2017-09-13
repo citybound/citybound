@@ -69,8 +69,7 @@ fn main() {
     }
 
     let panic_callback = Box::new(|error: Box<Any>, world: &mut ::kay::World| {
-        // TODO: ugly/wrong
-        let ui_id = UserInterfaceID::broadcast(world);
+        let ui_id = UserInterfaceID::local_first(world);
         let message = match error.downcast::<String>() {
             Ok(string) => (*string),
             Err(any) => {
@@ -112,14 +111,13 @@ fn main() {
     system.networking_connect();
 
     let simulatables = vec![
-        system.id::<Swarm<Lane>>().broadcast(),
-        system.id::<Swarm<TransferLane>>().broadcast(),
+        system.world().local_broadcast::<Swarm<Lane>>(),
+        system.world().local_broadcast::<Swarm<TransferLane>>(),
     ].into_iter()
         .map(|id| SimulatableID { _raw_id: id })
         .chain(vec![
-            FamilyID::broadcast(&mut system.world()).into(),
-            // TODO: ugly/wrong
-            TaskEndSchedulerID::broadcast(&mut system.world())
+            FamilyID::local_broadcast(&mut system.world()).into(),
+            TaskEndSchedulerID::local_first(&mut system.world())
                 .into(),
         ])
         .collect();
@@ -134,15 +132,15 @@ fn main() {
         .unwrap();
 
     let renderables: CVec<_> = vec![
-        system.id::<Swarm<Lane>>().broadcast(),
-        system.id::<Swarm<TransferLane>>().broadcast(),
-        system.id::<Swarm<Building>>().broadcast(),
+        system.world().global_broadcast::<Swarm<Lane>>(),
+        system.world().global_broadcast::<Swarm<TransferLane>>(),
+        system.world().global_broadcast::<Swarm<Building>>(),
     ].into_iter()
         .map(|id| RenderableID { _raw_id: id })
         .chain(vec![
-            ThingCollectorID::broadcast(&mut system.world()).into(),
-            // TODO: ugly/wrong
-            CurrentPlanID::broadcast(&mut system.world()).into(),
+            ThingCollectorID::global_broadcast(&mut system.world())
+                .into(),
+            CurrentPlanID::local_first(&mut system.world()).into(),
         ])
         .collect();
     let (user_interface, renderer) = stagemaster::setup(&mut system, renderables, *ENV, window);

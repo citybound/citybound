@@ -60,8 +60,7 @@ impl Simulation {
 
         let time = TimeOfDay::from_tick(self.current_tick).hours_minutes();
 
-        // TODO: ugly/wrong
-        UserInterfaceID::broadcast(world).add_debug_text(
+        UserInterfaceID::local_first(world).add_debug_text(
             "Time".chars().collect(),
             format!("{:02}:{:02}", time.0, time.1).chars().collect(),
             [0.0, 0.0, 0.0, 1.0],
