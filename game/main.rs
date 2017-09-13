@@ -47,8 +47,7 @@ use monet::glium::{DisplayBuild, glutin};
 use core::simulation::{SimulationID, SimulatableID};
 use stagemaster::UserInterfaceID;
 use transport::lane::{Lane, TransferLane};
-use transport::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
-use transport::rendering::lane_thing_collector::ThingCollector;
+use transport::rendering::lane_thing_collector::ThingCollectorID;
 use transport::planning::current_plan::CurrentPlanID;
 use economy::households::family::FamilyID;
 use economy::households::tasks::TaskEndSchedulerID;
@@ -120,13 +119,11 @@ fn main() {
     let renderables: CVec<_> = vec![
         system.id::<Swarm<Lane>>().broadcast(),
         system.id::<Swarm<TransferLane>>().broadcast(),
-        system.id::<ThingCollector<LaneAsphalt>>(),
-        system.id::<ThingCollector<LaneMarker>>(),
-        system.id::<ThingCollector<TransferLaneMarkerGaps>>(),
         system.id::<Swarm<Building>>().broadcast(),
     ].into_iter()
         .map(|id| RenderableID { _raw_id: id })
         .chain(vec![
+            ThingCollectorID::broadcast(&mut system.world()).into(),
             // TODO: ugly/wrong
             CurrentPlanID::broadcast(&mut system.world()).into(),
         ])

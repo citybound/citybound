@@ -15,9 +15,16 @@ mod car;
 mod traffic_light;
 
 pub mod lane_thing_collector;
-use self::lane_thing_collector::ThingCollector;
+use self::lane_thing_collector::{ThingCollectorID, RenderableToCollectorID,
+                                 MSG_RenderableToCollector_render_to_collector};
 
 use monet::MSG_Renderable_setup_in_scene;
+
+const LANE_ASPHALT_THING_ID: u16 = 2000;
+const LANE_MARKER_THING_ID: u16 = 2100;
+const LANE_MARKER_GAPS_THING_ID: u16 = 2200;
+
+// TODO: impl separate render_to_collector msgs on lane for each collector, make the helper call the correct one
 
 pub fn setup(system: &mut ActorSystem) {
 
@@ -51,23 +58,25 @@ pub fn setup(system: &mut ActorSystem) {
     });
 
     system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
-        each_lane.on(|&RenderToCollector(collector_id), lane, world| {
-            let maybe_path = if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY <
-                lane.construction.length
-            {
-                lane.construction.path.subsection(
-                    0.0,
-                    (lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY)
-                        .max(0.0),
-                )
-            } else {
-                Some(lane.construction.path.clone())
-            };
-            if collector_id == world.id::<ThingCollector<LaneAsphalt>>() {
-                world.send(
-                    collector_id,
-                    Update(
-                        lane.id(),
+        each_lane.on(
+            |&MSG_RenderableToCollector_render_to_collector(collector_id, base_thing_id),
+             lane,
+             world| {
+                let maybe_path = if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY <
+                    lane.construction.length
+                {
+                    lane.construction.path.subsection(
+                        0.0,
+                        (lane.construction.progress -
+                            CONSTRUCTION_ANIMATION_DELAY)
+                            .max(0.0),
+                    )
+                } else {
+                    Some(lane.construction.path.clone())
+                };
+                if base_thing_id == LANE_ASPHALT_THING_ID {
+                    collector_id.update(
+                        RenderableToCollectorID { _raw_id: lane.id() },
                         maybe_path
                             .map(|path| {
                                 band_to_thing(
@@ -80,34 +89,39 @@ pub fn setup(system: &mut ActorSystem) {
                                 )
                             })
                             .unwrap_or_else(|| Thing::new(vec![], vec![])),
-                    ),
-                );
-                if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
-                    lane.construction.length
-                {
-                    world.send(collector_id, Freeze(lane.id()))
-                }
-            } else {
-                let left_marker = maybe_path
-                    .clone()
-                    .and_then(|path| path.shift_orthogonally(2.5))
-                    .map(|path| band_to_thing(&Band::new(path, 0.6), 0.1))
-                    .unwrap_or_else(|| Thing::new(vec![], vec![]));
+                        world,
+                    );
+                    if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
+                        lane.construction.length
+                    {
+                        collector_id.freeze(RenderableToCollectorID { _raw_id: lane.id() }, world);
+                    }
+                } else {
+                    let left_marker = maybe_path
+                        .clone()
+                        .and_then(|path| path.shift_orthogonally(2.5))
+                        .map(|path| band_to_thing(&Band::new(path, 0.6), 0.1))
+                        .unwrap_or_else(|| Thing::new(vec![], vec![]));
 
-                let right_marker = maybe_path
-                    .and_then(|path| path.shift_orthogonally(-2.5))
-                    .map(|path| band_to_thing(&Band::new(path, 0.6), 0.1))
-                    .unwrap_or_else(|| Thing::new(vec![], vec![]));
-                world.send(collector_id, Update(lane.id(), left_marker + right_marker));
-                if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
-                    lane.construction.length
-                {
-                    world.send(collector_id, Freeze(lane.id()))
+                    let right_marker = maybe_path
+                        .and_then(|path| path.shift_orthogonally(-2.5))
+                        .map(|path| band_to_thing(&Band::new(path, 0.6), 0.1))
+                        .unwrap_or_else(|| Thing::new(vec![], vec![]));
+                    collector_id.update(
+                        RenderableToCollectorID { _raw_id: lane.id() },
+                        left_marker + right_marker,
+                        world,
+                    );
+                    if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
+                        lane.construction.length
+                    {
+                        collector_id.freeze(RenderableToCollectorID { _raw_id: lane.id() }, world);
+                    }
                 }
-            }
 
-            Fate::Live
-        });
+                Fate::Live
+            },
+        );
 
         each_lane.on(|&MSG_Renderable_render_to_scene(renderer_id, scene_id),
          lane,
@@ -332,24 +346,26 @@ pub fn setup(system: &mut ActorSystem) {
     });
 
     system.extend(Swarm::<TransferLane>::subactors(|mut each_t_lane| {
-        each_t_lane.on(|&RenderToCollector(collector_id), lane, world| {
-            let maybe_path = if lane.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY <
-                lane.construction.length
-            {
-                lane.construction.path.subsection(
-                    0.0,
-                    (lane.construction.progress -
-                         2.0 * CONSTRUCTION_ANIMATION_DELAY)
-                        .max(0.0),
-                )
-            } else {
-                Some(lane.construction.path.clone())
-            };
+        each_t_lane.on(
+            |&MSG_RenderableToCollector_render_to_collector(collector_id, _),
+             lane,
+             world| {
+                let maybe_path = if lane.construction.progress -
+                    2.0 * CONSTRUCTION_ANIMATION_DELAY <
+                    lane.construction.length
+                {
+                    lane.construction.path.subsection(
+                        0.0,
+                        (lane.construction.progress -
+                             2.0 * CONSTRUCTION_ANIMATION_DELAY)
+                            .max(0.0),
+                    )
+                } else {
+                    Some(lane.construction.path.clone())
+                };
 
-            world.send(
-                collector_id,
-                Update(
-                    lane.id(),
+                collector_id.update(
+                    RenderableToCollectorID { _raw_id: lane.id() },
                     maybe_path
                         .map(|path| {
                             dash_path(&path, 2.0, 4.0)
@@ -358,16 +374,17 @@ pub fn setup(system: &mut ActorSystem) {
                                 .sum()
                         })
                         .unwrap_or_else(|| Thing::new(vec![], vec![])),
-                ),
-            );
-            if lane.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY >
-                lane.construction.length
-            {
-                world.send(collector_id, Freeze(lane.id()))
-            }
+                    world,
+                );
+                if lane.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY >
+                    lane.construction.length
+                {
+                    collector_id.freeze(RenderableToCollectorID { _raw_id: lane.id() }, world);
+                }
 
-            Fate::Live
-        });
+                Fate::Live
+            },
+        );
 
         each_t_lane.on(|&MSG_Renderable_render_to_scene(renderer_id, scene_id),
          lane,
@@ -491,19 +508,40 @@ pub fn setup(system: &mut ActorSystem) {
         })
     }));
 
-    self::lane_thing_collector::setup::<LaneAsphalt>(system, [0.7, 0.7, 0.7], 2000, false);
-    self::lane_thing_collector::setup::<LaneMarker>(system, [1.0, 1.0, 1.0], 2100, true);
+    self::lane_thing_collector::setup(system);
 
-    self::lane_thing_collector::setup::<TransferLaneMarkerGaps>(
-        system,
+    system.add(Swarm::<LaneCollectorHelper>::new(), |_| {});
+
+    auto_setup(system);
+
+    let asphalt_collector = ThingCollectorID::spawn(
         [0.7, 0.7, 0.7],
-        2200,
+        LANE_ASPHALT_THING_ID,
+        false,
+        &mut system.world(),
+    );
+
+    let marker_collector = ThingCollectorID::spawn(
+        [1.0, 1.0, 1.0],
+        LANE_MARKER_THING_ID,
         true,
+        &mut system.world(),
+    );
+
+    let gaps_collector = ThingCollectorID::spawn(
+        [0.7, 0.7, 0.7],
+        LANE_MARKER_GAPS_THING_ID,
+        true,
+        &mut system.world(),
+    );
+
+    LaneCollectorHelperID::spawn(
+        asphalt_collector,
+        marker_collector,
+        gaps_collector,
+        &mut system.world(),
     );
 }
-
-use self::lane_thing_collector::RenderToCollector;
-use self::lane_thing_collector::Control::{Update, Freeze};
 
 const CONSTRUCTION_ANIMATION_DELAY: f32 = 120.0;
 
@@ -514,27 +552,89 @@ const DEBUG_VIEW_SIGNALS: bool = false;
 const DEBUG_VIEW_OBSTACLES: bool = false;
 const DEBUG_VIEW_TRANSFER_OBSTACLES: bool = false;
 
-use self::lane_thing_collector::Control::Remove;
+#[derive(Compact, Clone)]
+pub struct LaneCollectorHelper {
+    id: LaneCollectorHelperID,
+    asphalt_collector: ThingCollectorID,
+    marker_collector: ThingCollectorID,
+    gaps_collector: ThingCollectorID,
+}
+
+impl LaneCollectorHelper {
+    pub fn spawn(
+        id: LaneCollectorHelperID,
+        asphalt_collector: ThingCollectorID,
+        marker_collector: ThingCollectorID,
+        gaps_collector: ThingCollectorID,
+        _: &mut World,
+    ) -> LaneCollectorHelper {
+        LaneCollectorHelper {
+            id,
+            asphalt_collector,
+            marker_collector,
+            gaps_collector,
+        }
+    }
+
+    pub fn on_build(
+        &mut self,
+        lane: RenderableToCollectorID,
+        on_intersection: bool,
+        world: &mut World,
+    ) {
+        self.asphalt_collector.initial_add(lane, world);
+
+        if !on_intersection {
+            self.marker_collector.initial_add(lane, world);
+        }
+    }
+
+    pub fn on_build_transfer(&mut self, lane: RenderableToCollectorID, world: &mut World) {
+        self.gaps_collector.initial_add(lane, world);
+    }
+
+    pub fn on_unbuild(
+        &mut self,
+        lane: RenderableToCollectorID,
+        on_intersection: bool,
+        world: &mut World,
+    ) {
+        self.asphalt_collector.remove(lane, world);
+
+        if !on_intersection {
+            self.marker_collector.remove(lane, world);
+        }
+    }
+
+    pub fn on_unbuild_transfer(&mut self, lane: RenderableToCollectorID, world: &mut World) {
+        self.gaps_collector.remove(lane, world);
+    }
+}
 
 pub fn on_build(lane: &Lane, world: &mut World) {
-    let asphalt_coll_id = world.id::<ThingCollector<LaneAsphalt>>();
-    let marker_coll_id = world.id::<ThingCollector<LaneMarker>>();
-    world.send(lane.id(), RenderToCollector(asphalt_coll_id));
-    if !lane.connectivity.on_intersection {
-        world.send(lane.id(), RenderToCollector(marker_coll_id));
-    }
+    // TODO: ugly/wrong
+    LaneCollectorHelperID::broadcast(world).on_build(
+        RenderableToCollectorID { _raw_id: lane.id() },
+        lane.connectivity.on_intersection,
+        world,
+    );
 }
 
 pub fn on_build_transfer(lane: &TransferLane, world: &mut World) {
-    let marker_coll_id = world.id::<ThingCollector<TransferLaneMarkerGaps>>();
-    world.send(lane.id(), RenderToCollector(marker_coll_id));
+    // TODO: ugly/wrong
+    LaneCollectorHelperID::broadcast(world).on_build_transfer(
+        RenderableToCollectorID { _raw_id: lane.id() },
+        world,
+    );
 }
 
 pub fn on_unbuild(lane: &Lane, world: &mut World) {
-    world.send_to_id_of::<ThingCollector<LaneAsphalt>, _>(Remove(lane.id()));
-    if !lane.connectivity.on_intersection {
-        world.send_to_id_of::<ThingCollector<LaneMarker>, _>(Remove(lane.id()));
-    }
+    // TODO: ugly/wrong
+    LaneCollectorHelperID::broadcast(world).on_unbuild(
+        RenderableToCollectorID { _raw_id: lane.id() },
+        lane.connectivity.on_intersection,
+        world,
+    );
 
     if DEBUG_VIEW_LANDMARKS {
         // TODO: ugly singleton send
@@ -561,12 +661,10 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
 }
 
 pub fn on_unbuild_transfer(lane: &TransferLane, world: &mut World) {
-    world.send_to_id_of::<ThingCollector<TransferLaneMarkerGaps>, _>(Remove(lane.id()));
+    // TODO: ugly/wrong
+    LaneCollectorHelperID::broadcast(world)
+        .on_unbuild_transfer(RenderableToCollectorID { _raw_id: lane.id() }, world);
 }
 
-#[derive(Clone)]
-pub struct LaneAsphalt;
-#[derive(Clone)]
-pub struct LaneMarker;
-#[derive(Clone)]
-pub struct TransferLaneMarkerGaps;
+mod kay_auto;
+pub use self::kay_auto::*;
