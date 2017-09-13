@@ -65,10 +65,10 @@ impl Family {
         id: FamilyID,
         n_members: usize,
         home: BuildingID,
+        simulation: SimulationID,
         world: &mut World,
     ) -> Family {
-        // TODO: ugly/wrong
-        SimulationID::broadcast(world).wake_up_in(Ticks(0), id.into(), world);
+        simulation.wake_up_in(Ticks(0), id.into(), world);
 
         Family {
             id,

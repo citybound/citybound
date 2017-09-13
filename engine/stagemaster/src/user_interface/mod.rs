@@ -105,7 +105,7 @@ impl UserInterface {
     pub fn spawn(
         id: UserInterfaceID,
         external_window: &External<GlutinFacade>,
-        renderables: &CVec<RenderableID>,
+        renderer_id: RendererID,
         env: Environment,
         world: &mut World,
     ) -> UserInterface {
@@ -175,11 +175,6 @@ impl UserInterface {
         imgui.set_imgui_key(ImGuiKey::X, 16);
         imgui.set_imgui_key(ImGuiKey::Y, 17);
         imgui.set_imgui_key(ImGuiKey::Z, 18);
-
-        let mut scene = SceneDescription::new(renderables.clone().into());
-        scene.eye.position *= 30.0;
-        let renderer_id =
-            RendererID::spawn(External::new((*window).clone()), vec![scene].into(), world);
 
         UserInterface {
             id,
@@ -578,14 +573,25 @@ pub fn setup(
     renderables: CVec<RenderableID>,
     env: Environment,
     window: GlutinFacade,
-) {
+) -> (UserInterfaceID, RendererID) {
     ::monet::setup(system);
     system.add(Swarm::<UserInterface>::new(), |_| {});
     auto_setup(system);
 
     super::camera_control::setup(system);
 
-    UserInterfaceID::spawn(External::new(window), renderables, env, &mut system.world());
+    let mut scene = SceneDescription::new(renderables.clone().into());
+    scene.eye.position *= 30.0;
+    let renderer_id = RendererID::spawn(
+        External::new(window.clone()),
+        vec![scene].into(),
+        &mut system.world(),
+    );
+
+    let ui_id =
+        UserInterfaceID::spawn(External::new(window), renderer_id, env, &mut system.world());
+
+    (ui_id, renderer_id)
 }
 
 mod kay_auto;

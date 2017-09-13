@@ -2,6 +2,8 @@ use kay::{ActorSystem, Fate, World};
 use kay::swarm::Swarm;
 use compact::{COption, CVec, CDict};
 use descartes::{V2, N, P2, FiniteCurve};
+use stagemaster::UserInterfaceID;
+use monet::RendererID;
 
 use super::super::construction::materialized_reality::MaterializedRealityID;
 use super::lane_stroke::LaneStroke;
@@ -104,6 +106,7 @@ impl Default for Settings {
 #[derive(Compact, Clone)]
 pub struct CurrentPlan {
     id: CurrentPlanID,
+    materialized_reality: MaterializedRealityID,
     built_strokes: COption<BuiltStrokes>,
     undo_history: CVec<PlanStep>,
     redo_history: CVec<PlanStep>,
@@ -117,17 +120,23 @@ pub struct CurrentPlan {
 }
 
 impl CurrentPlan {
-    pub fn spawn(id: CurrentPlanID, world: &mut World) -> CurrentPlan {
+    pub fn spawn(
+        id: CurrentPlanID,
+        user_interface: UserInterfaceID,
+        renderer_id: RendererID,
+        materialized_reality: MaterializedRealityID,
+        world: &mut World,
+    ) -> CurrentPlan {
         // TODO: is there a nicer way to get initial built strokes?
-        // TODO: ugly/wrong
-        MaterializedRealityID::broadcast(world).apply(id, PlanDelta::default(), world);
+        materialized_reality.apply(id, PlanDelta::default(), world);
 
-        StrokeCanvasID::spawn(world);
+        StrokeCanvasID::spawn(user_interface, id, world);
 
         CurrentPlan {
             id: id,
             settings: Settings::default(),
-            interaction: Interaction::init(world, id),
+            materialized_reality,
+            interaction: Interaction::init(world, user_interface, renderer_id, id),
             built_strokes: COption(None),
             undo_history: CVec::new(),
             redo_history: CVec::new(),
@@ -176,12 +185,9 @@ impl CurrentPlan {
                 self.still_built_strokes().as_ref(),
                 &self.settings,
             );
-            // TODO: ugly/wrong
-            MaterializedRealityID::broadcast(world).simulate(
+            self.materialized_reality.simulate(
                 self.id,
-                preview
-                    .plan_delta
-                    .clone(),
+                preview.plan_delta.clone(),
                 world,
             );
             self.preview = COption(Some(preview));
@@ -190,14 +196,14 @@ impl CurrentPlan {
     }
 
     fn update_interactables(&mut self, world: &mut World) {
-        SelectableID::broadcast(world).clear(world);
-        DraggableID::broadcast(world).clear(world);
-        AddableID::broadcast(world).clear(world);
+        SelectableID::broadcast(world).clear(self.interaction.user_interface, world);
+        DraggableID::broadcast(world).clear(self.interaction.user_interface, world);
+        AddableID::broadcast(world).clear(self.interaction.user_interface, world);
         // TODO: ugly/wrong
-        DeselecterID::broadcast(world).clear(world);
+        DeselecterID::broadcast(world).clear(self.interaction.user_interface, world);
 
         if !self.current.selections.is_empty() {
-            DeselecterID::spawn(world);
+            DeselecterID::spawn(self.interaction.user_interface, self.id, world);
         }
         if let Some(still_built_strokes) = self.still_built_strokes() {
             match self.current.intent {
@@ -209,6 +215,8 @@ impl CurrentPlan {
                         SelectableID::spawn(
                             SelectableStrokeRef::New(i),
                             stroke.path().clone(),
+                            self.interaction.user_interface,
+                            self.id,
                             world,
                         );
                     }
@@ -216,6 +224,8 @@ impl CurrentPlan {
                         SelectableID::spawn(
                             SelectableStrokeRef::Built(*old_stroke_ref),
                             stroke.path().clone(),
+                            self.interaction.user_interface,
+                            self.id,
                             world,
                         );
                     }
@@ -225,9 +235,20 @@ impl CurrentPlan {
                 let stroke =
                     selection_ref.get_stroke(&self.current.plan_delta, &still_built_strokes);
                 if let Some(subsection) = stroke.path().subsection(start, end) {
-                    DraggableID::spawn(selection_ref, subsection.clone(), world);
+                    DraggableID::spawn(
+                        selection_ref,
+                        subsection.clone(),
+                        self.interaction.user_interface,
+                        self.id,
+                        world,
+                    );
                     if let Some(next_lane_path) = subsection.shift_orthogonally(5.0) {
-                        AddableID::spawn(next_lane_path, world);
+                        AddableID::spawn(
+                            next_lane_path,
+                            self.interaction.user_interface,
+                            self.id,
+                            world,
+                        );
                     }
                 }
             }
@@ -385,17 +406,15 @@ impl CurrentPlan {
             _ => {}
         }
 
-        // TODO: ugly/wrong
-        MaterializedRealityID::broadcast(world).apply(
+        self.materialized_reality.apply(
             self.id,
-            self.current
-                .plan_delta
-                .clone(),
+            self.current.plan_delta.clone(),
             world,
         );
 
         *self = CurrentPlan {
             id: self.id,
+            materialized_reality: self.materialized_reality,
             settings: self.settings.clone(),
             interaction: self.interaction.clone(),
             built_strokes: COption(None),
@@ -410,14 +429,24 @@ impl CurrentPlan {
     }
 }
 
-pub fn setup(system: &mut ActorSystem) {
+pub fn setup(
+    system: &mut ActorSystem,
+    user_interface: UserInterfaceID,
+    renderer_id: RendererID,
+    materialized_reality: MaterializedRealityID,
+) {
     system.add(Swarm::<CurrentPlan>::new(), |_| {});
     auto_setup(system);
     helper_interactables::setup(system);
     interaction::auto_setup(system);
     rendering::auto_setup(system);
 
-    CurrentPlanID::spawn(&mut system.world());
+    CurrentPlanID::spawn(
+        user_interface,
+        renderer_id,
+        materialized_reality,
+        &mut system.world(),
+    );
 }
 
 mod kay_auto;

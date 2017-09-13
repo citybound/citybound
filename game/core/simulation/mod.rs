@@ -83,12 +83,12 @@ impl Simulation {
     }
 }
 
-pub fn setup(system: &mut ActorSystem, simulatables: Vec<SimulatableID>) {
+pub fn setup(system: &mut ActorSystem, simulatables: Vec<SimulatableID>) -> SimulationID {
     system.add(Swarm::<Simulation>::new(), |_| {});
 
     auto_setup(system);
 
-    SimulationID::spawn(simulatables.into(), &mut system.world());
+    SimulationID::spawn(simulatables.into(), &mut system.world())
 }
 
 mod kay_auto;

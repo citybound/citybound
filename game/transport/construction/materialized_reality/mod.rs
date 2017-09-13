@@ -265,12 +265,12 @@ pub enum BuildableRef {
     TransferStroke(usize),
 }
 
-pub fn setup(system: &mut ActorSystem) {
+pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
     system.add(Swarm::<MaterializedReality>::new(), |_| {});
 
     auto_setup(system);
 
-    MaterializedRealityID::spawn(&mut system.world());
+    MaterializedRealityID::spawn(&mut system.world())
 }
 
 mod kay_auto;

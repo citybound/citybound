@@ -13,17 +13,23 @@ use economy::households::HouseholdID;
 
 #[derive(Compact, Clone)]
 pub struct BuildingInspector {
-    pub id: BuildingInspectorID,
-    pub current_building: Option<BuildingID>,
-    pub current_households: CVec<HouseholdID>,
-    pub households_todo: CVec<HouseholdID>,
-    pub return_ui_to: Option<UserInterfaceID>,
+    id: BuildingInspectorID,
+    user_interface: UserInterfaceID,
+    current_building: Option<BuildingID>,
+    current_households: CVec<HouseholdID>,
+    households_todo: CVec<HouseholdID>,
+    return_ui_to: Option<UserInterfaceID>,
 }
 
 impl BuildingInspector {
-    pub fn spawn(id: BuildingInspectorID, _: &mut World) -> BuildingInspector {
+    pub fn spawn(
+        id: BuildingInspectorID,
+        user_interface: UserInterfaceID,
+        _: &mut World,
+    ) -> BuildingInspector {
         BuildingInspector {
             id,
+            user_interface,
             current_building: None,
             current_households: CVec::new(),
             households_todo: CVec::new(),
@@ -40,8 +46,7 @@ impl BuildingInspector {
         self.current_building = Some(building);
         self.current_households = households.clone();
         self.households_todo.clear();
-        // TODO: ugly/wrong
-        UserInterfaceID::broadcast(world).add_2d(self.id.into(), world);
+        self.user_interface.add_2d(self.id.into(), world);
     }
 
     pub fn ui_drawn(&mut self, imgui_ui: &External<::imgui::Ui<'static>>, world: &mut World) {
@@ -106,7 +111,7 @@ impl Interactable3d for Building {
     }
 }
 
-pub fn setup(system: &mut ActorSystem) {
+pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) {
     // TODO: pull out into newstyle BuildingRenderer
     system.extend::<Swarm<Building>, _>(|mut buildings_swarm| {
         buildings_swarm.on(|&MSG_Renderable_setup_in_scene(renderer_id, scene_id),
@@ -152,7 +157,7 @@ pub fn setup(system: &mut ActorSystem) {
     system.add(Swarm::<BuildingInspector>::new(), |_| {});
     auto_setup(system);
 
-    BuildingInspectorID::spawn(&mut system.world());
+    BuildingInspectorID::spawn(user_interface, &mut system.world());
 }
 
 pub fn on_add(building_id: BuildingID, pos: P2, world: &mut World) {

@@ -85,18 +85,24 @@ pub enum BuildingSpawnerState {
 #[derive(Compact, Clone)]
 pub struct BuildingSpawner {
     id: BuildingSpawnerID,
+    simulation: SimulationID,
     bindings: External<BuildingSpawnerBindings>,
     state: BuildingSpawnerState,
 }
 
 impl BuildingSpawner {
-    pub fn init(id: BuildingSpawnerID, world: &mut World) -> BuildingSpawner {
-        // TODO: ugly/wrong
-        UserInterfaceID::broadcast(world).add(id.into(), AnyShape::Everywhere, 0, world);
-        UserInterfaceID::broadcast(world).focus(id.into(), world);
+    pub fn init(
+        id: BuildingSpawnerID,
+        user_interface: UserInterfaceID,
+        simulation: SimulationID,
+        world: &mut World,
+    ) -> BuildingSpawner {
+        user_interface.add(id.into(), AnyShape::Everywhere, 0, world);
+        user_interface.focus(id.into(), world);
 
         BuildingSpawner {
             id,
+            simulation,
             bindings: External::new(::ENV.load_settings("Building Spawning")),
             state: BuildingSpawnerState::Idle,
         }
@@ -110,14 +116,14 @@ impl BuildingSpawner {
         }
     }
 
-    fn spawn_building(lot: &Lot, world: &mut World) {
+    fn spawn_building(lot: &Lot, simulation: SimulationID, world: &mut World) {
         let building_id = BuildingID::spawn(CVec::new(), lot.clone(), world);
 
         if building_id._raw_id.sub_actor_id % 6 == 0 {
             let shop_id = GroceryShopID::move_into(building_id, world);
             building_id.add_household(shop_id.into(), world);
         } else {
-            let family_id = FamilyID::move_into(3, building_id, world);
+            let family_id = FamilyID::move_into(3, building_id, simulation, world);
             building_id.add_household(family_id.into(), world);
         }
     }
@@ -146,8 +152,7 @@ impl Interactable3d for BuildingSpawner {
                         message: FindLot { requester: self.id },
                         n_recipients: 5000,
                     });
-                    // TODO: ugly/wrong
-                    SimulationID::broadcast(world).wake_up_in(Ticks(10), self.id.into(), world);
+                    self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
                     self.state = BuildingSpawnerState::Collecting(CVec::new());
                 }
             }
@@ -219,8 +224,7 @@ impl Sleeper for BuildingSpawner {
                     }
                 }
                 buildings.find_conflicts(nonconflicting_lots.clone(), self.id, world);
-                // TODO: ugly/wrong
-                SimulationID::broadcast(world).wake_up_in(Ticks(10), self.id.into(), world);
+                self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
 
                 let nonconclicting_lots_len = nonconflicting_lots.len();
                 BuildingSpawnerState::CheckingBuildings(
@@ -239,8 +243,7 @@ impl Sleeper for BuildingSpawner {
                     .collect();
                 let lanes = LotConflictorID { _raw_id: world.id::<Swarm<Lane>>().broadcast() };
                 lanes.find_conflicts(new_lots.clone(), self.id, world);
-                // TODO: ugly/wrong
-                SimulationID::broadcast(world).wake_up_in(Ticks(10), self.id.into(), world);
+                self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
 
                 let new_lots_len = new_lots.len();
                 BuildingSpawnerState::CheckingLanes(new_lots, vec![true; new_lots_len].into())
@@ -248,7 +251,7 @@ impl Sleeper for BuildingSpawner {
             BuildingSpawnerState::CheckingLanes(ref mut lots, ref mut feasible) => {
                 for (lot, feasible) in lots.iter().zip(feasible) {
                     if *feasible {
-                        Self::spawn_building(lot, world);
+                        Self::spawn_building(lot, self.simulation, world);
                     }
                 }
                 BuildingSpawnerState::Idle
@@ -270,17 +273,14 @@ use super::households::family::FamilyID;
 use super::households::grocery_shop::GroceryShopID;
 use core::simulation::{SimulationID, Ticks};
 
-pub fn setup(system: &mut ActorSystem) {
+pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID, simulation: SimulationID) {
     system.add(Swarm::<Building>::new(), |_| {});
     system.add(Swarm::<BuildingSpawner>::new(), |_| {});
+    rendering::setup(system, user_interface);
 
     kay_auto::auto_setup(system);
 
-    BuildingSpawnerID::init(&mut system.world());
-}
-
-pub fn setup_ui(system: &mut ActorSystem) {
-    rendering::setup(system);
+    BuildingSpawnerID::init(user_interface, simulation, &mut system.world());
 }
 
 mod kay_auto;

@@ -146,14 +146,16 @@ pub trait TripListener {
 #[derive(Compact, Clone)]
 pub struct TripCreator {
     id: TripCreatorID,
+    simulation: SimulationID,
     current_source_lane: Option<ID>,
     trips_to_create: CVec<(ID, ID)>,
 }
 
 impl TripCreator {
-    pub fn spawn(id: TripCreatorID, _: &mut World) -> TripCreator {
+    pub fn spawn(id: TripCreatorID, simulation: SimulationID, _: &mut World) -> TripCreator {
         TripCreator {
             id,
+            simulation,
             current_source_lane: None,
             trips_to_create: CVec::new(),
         }
@@ -162,8 +164,7 @@ impl TripCreator {
     pub fn add_lane_for_trip(&mut self, lane_id: ID, world: &mut World) {
         if let Some(source_lane_id) = self.current_source_lane {
             self.trips_to_create.push((source_lane_id, lane_id));
-            // TODO: ugly/wrong
-            SimulationID::broadcast(world).wake_up_in(Ticks(0), self.id.into(), world);
+            self.simulation.wake_up_in(Ticks(0), self.id.into(), world);
             self.current_source_lane = None;
         } else {
             self.current_source_lane = Some(lane_id);

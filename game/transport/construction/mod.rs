@@ -39,7 +39,7 @@ impl ConstructionInfo {
 #[derive(Copy, Clone)]
 pub struct AdvertiseToTransferAndReport(pub MaterializedRealityID, pub BuildableRef);
 
-pub fn setup(system: &mut ActorSystem) {
+pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
     let all_lanes_id = system.id::<Swarm<Lane>>().broadcast();
     let all_transfer_lanes_id = system.id::<Swarm<TransferLane>>().broadcast();
 
@@ -527,7 +527,7 @@ pub fn setup(system: &mut ActorSystem) {
         })
     }));
 
-    self::materialized_reality::setup(system);
+    self::materialized_reality::setup(system)
 }
 
 #[derive(Compact, Clone)]

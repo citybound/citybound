@@ -8,6 +8,7 @@ use descartes::{N, P2};
 
 #[derive(Compact, Clone)]
 pub struct Interaction {
+    pub user_interface: UserInterfaceID,
     settings: External<InteractionSettings>,
 }
 
@@ -40,15 +41,20 @@ use stagemaster::UserInterfaceID;
 use transport::lane::Lane;
 
 impl Interaction {
-    pub fn init(world: &mut World, id: CurrentPlanID) -> Interaction {
-        // TODO: ugly/wrong
-        let ui_id = UserInterfaceID::broadcast(world);
-        ui_id.add(id.into(), AnyShape::Everywhere, 0, world);
-        ui_id.add_2d(id.into(), world);
-        ui_id.focus(id.into(), world);
-        // TODO: ugly/wrong
-        RendererID::broadcast(world).add_eye_listener(0, id.into(), world);
-        Interaction { settings: External::new(::ENV.load_settings("Plan Editing")) }
+    pub fn init(
+        world: &mut World,
+        user_interface: UserInterfaceID,
+        renderer_id: RendererID,
+        id: CurrentPlanID,
+    ) -> Interaction {
+        user_interface.add(id.into(), AnyShape::Everywhere, 0, world);
+        user_interface.add_2d(id.into(), world);
+        user_interface.focus(id.into(), world);
+        renderer_id.add_eye_listener(0, id.into(), world);
+        Interaction {
+            settings: External::new(::ENV.load_settings("Plan Editing")),
+            user_interface,
+        }
     }
 }
 

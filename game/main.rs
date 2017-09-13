@@ -44,7 +44,7 @@ mod economy;
 use compact::CVec;
 use monet::{RendererID, RenderableID};
 use monet::glium::{DisplayBuild, glutin};
-use core::simulation::{SimulationID, SimulatableID};
+use core::simulation::SimulatableID;
 use stagemaster::UserInterfaceID;
 use transport::lane::{Lane, TransferLane};
 use transport::rendering::lane_thing_collector::ThingCollectorID;
@@ -89,11 +89,6 @@ fn main() {
         ui_id.on_panic(world);
     }));
 
-    transport::setup(&mut system);
-    transport::setup_ui(&mut system);
-    economy::setup(&mut system);
-    economy::setup_ui(&mut system);
-
     let simulatables = vec![
         system.id::<Swarm<Lane>>().broadcast(),
         system.id::<Swarm<TransferLane>>().broadcast(),
@@ -106,7 +101,7 @@ fn main() {
                 .into(),
         ])
         .collect();
-    core::simulation::setup(&mut system, simulatables);
+    let simulation = core::simulation::setup(&mut system, simulatables);
 
     let window = glutin::WindowBuilder::new()
         .with_title("Citybound".to_string())
@@ -128,18 +123,14 @@ fn main() {
             CurrentPlanID::broadcast(&mut system.world()).into(),
         ])
         .collect();
-    stagemaster::setup(&mut system, renderables, *ENV, window);
+    let (user_interface, renderer) = stagemaster::setup(&mut system, renderables, *ENV, window);
+
+    transport::setup(&mut system, user_interface, renderer);
+    economy::setup(&mut system, user_interface, simulation);
 
     let mut last_frame = std::time::Instant::now();
 
-    // TODO: ugly/wrong
-    let ui_id = UserInterfaceID::broadcast(&mut system.world());
-    // TODO: ugly/wrong
-    let sim_id = SimulationID::broadcast(&mut system.world());
-    // TODO: ugly singleton send
-    let renderer_id = RendererID::broadcast(&mut system.world());
-
-    ui_id.add_debug_text(
+    user_interface.add_debug_text(
         "Version".chars().collect(),
         ENV.version.chars().collect(),
         [0.0, 0.0, 0.0, 1.0],
@@ -160,7 +151,7 @@ fn main() {
         }
         let avg_elapsed_ms = elapsed_ms_collected.iter().sum::<f32>() /
             (elapsed_ms_collected.len() as f32);
-        ui_id.add_debug_text(
+        user_interface.add_debug_text(
             "Frame".chars().collect(),
             format!("{:.1} FPS", 1000.0 * 1.0 / avg_elapsed_ms)
                 .as_str()
@@ -173,7 +164,7 @@ fn main() {
         last_frame = std::time::Instant::now();
 
         let subactor_counts = system.get_subactor_counts();
-        ui_id.add_debug_text(
+        user_interface.add_debug_text(
             "Number of actors".chars().collect(),
             subactor_counts.as_str().chars().collect(),
             [0.0, 0.0, 0.0, 1.0],
@@ -181,19 +172,19 @@ fn main() {
             &mut system.world(),
         );
 
-        ui_id.process_events(&mut system.world());
+        user_interface.process_events(&mut system.world());
 
         system.process_all_messages();
 
-        sim_id.do_tick(&mut system.world());
+        simulation.do_tick(&mut system.world());
 
         system.process_all_messages();
 
-        renderer_id.render(&mut system.world());
+        renderer.render(&mut system.world());
 
         system.process_all_messages();
 
-        ui_id.start_frame(&mut system.world());
+        user_interface.start_frame(&mut system.world());
 
         system.process_all_messages();
     }
