@@ -2,6 +2,7 @@ use std::fs::{File, OpenOptions, create_dir_all};
 use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
 
+#[derive(Copy, Clone)]
 pub struct Environment {
     pub name: &'static str,
     pub version: &'static str,

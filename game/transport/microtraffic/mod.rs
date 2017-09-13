@@ -35,6 +35,10 @@ impl Microtraffic {
     }
 }
 
+// makes "time pass slower" for traffic, so we can still use realistic
+// unit values while traffic happening at a slower pace to be visible
+const MICROTRAFFIC_UNREALISTIC_SLOWDOWN: f32 = 10.0;
+
 #[derive(Compact, Clone, Default)]
 pub struct TransferringMicrotraffic {
     pub left_obstacles: CVec<Obstacle>,
@@ -72,12 +76,15 @@ impl Obstacle {
     }
 }
 
+use super::pathfinding::trip::TripID;
+use super::pathfinding::RoughLocationID;
+
 #[derive(Copy, Clone)]
 pub struct LaneCar {
-    pub trip: ID,
+    pub trip: TripID,
     pub as_obstacle: Obstacle,
     pub acceleration: f32,
-    pub destination: pathfinding::Destination,
+    pub destination: pathfinding::Location,
     pub next_hop_interaction: u8,
 }
 
@@ -127,10 +134,13 @@ impl DerefMut for TransferringLaneCar {
     }
 }
 
+use core::simulation::Timestamp;
+
 #[derive(Copy, Clone)]
 pub struct AddCar {
     pub car: LaneCar,
     pub from: Option<ID>,
+    pub tick: Timestamp,
 }
 
 #[derive(Compact, Clone)]
@@ -140,11 +150,10 @@ struct AddObstacles {
 }
 
 use self::pathfinding::RoutingInfo;
-use self::pathfinding::trip::TripResult;
 
 pub fn setup(system: &mut ActorSystem) {
     system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
-        each_lane.on(|&AddCar { car, .. }, lane, world| {
+        each_lane.on(|&AddCar { car, tick, .. }, lane, world| {
             // TODO: horrible hack to encode it like this
             let car_forcibly_spawned = *car.as_obstacle.position < 0.0;
 
@@ -209,7 +218,11 @@ pub fn setup(system: &mut ActorSystem) {
                     None => lane.microtraffic.cars.push(routed_car),
                 }
             } else {
-                world.send(car.trip, TripResult::Failure);
+                car.trip.fail_at(
+                    RoughLocationID { _raw_id: lane.id() },
+                    tick,
+                    world,
+                );
             }
 
             Fate::Live
@@ -228,29 +241,32 @@ pub fn setup(system: &mut ActorSystem) {
             Fate::Live
         });
 
-        each_lane.on(|&Tick { dt, current_tick }, lane, world| {
+        each_lane.on(|&MSG_Simulatable_tick(dt, current_tick), lane, world| {
+            let dt = dt / MICROTRAFFIC_UNREALISTIC_SLOWDOWN;
+
             lane.construction.progress += dt * 400.0;
 
-            let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING ==
+            let do_traffic = current_tick.ticks() % TRAFFIC_LOGIC_THROTTLING ==
                 lane.id().sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
             let old_green = lane.microtraffic.green;
             lane.microtraffic.yellow_to_red = if lane.microtraffic.timings.is_empty() {
                 true
             } else {
-                !lane.microtraffic.timings[((current_tick + 100) / 25) %
+                !lane.microtraffic.timings[((current_tick.ticks() + 100) / 25) %
                                                lane.microtraffic.timings.len()]
             };
             lane.microtraffic.yellow_to_green = if lane.microtraffic.timings.is_empty() {
                 true
             } else {
-                lane.microtraffic.timings[((current_tick + 100) / 25) %
+                lane.microtraffic.timings[((current_tick.ticks() + 100) / 25) %
                                               lane.microtraffic.timings.len()]
             };
             lane.microtraffic.green = if lane.microtraffic.timings.is_empty() {
                 true
             } else {
-                lane.microtraffic.timings[(current_tick / 25) % lane.microtraffic.timings.len()]
+                lane.microtraffic.timings[(current_tick.ticks() / 25) %
+                                              lane.microtraffic.timings.len()]
             };
 
             // TODO: this is just a hacky way to update new lanes about existing lane's green
@@ -273,7 +289,7 @@ pub fn setup(system: &mut ActorSystem) {
                 }
             }
 
-            if current_tick % PATHFINDING_THROTTLING ==
+            if current_tick.ticks() % PATHFINDING_THROTTLING ==
                 lane.id().sub_actor_id as usize % PATHFINDING_THROTTLING
             {
                 self::pathfinding::tick(lane, world);
@@ -408,13 +424,14 @@ pub fn setup(system: &mut ActorSystem) {
                 if let Some((idx_to_remove, next_lane, start, partner_start)) = maybe_switch_car {
                     let car = lane.microtraffic.cars.remove(idx_to_remove);
                     if lane.id() == car.destination.node {
-                        world.send(car.trip, TripResult::Success);
+                        car.trip.succeed(current_tick, world);
                     } else {
                         world.send(
                             next_lane,
                             AddCar {
                                 car: car.offset_by(partner_start - start),
                                 from: Some(lane.id()),
+                                tick: current_tick,
                             },
                         );
                     }
@@ -427,7 +444,7 @@ pub fn setup(system: &mut ActorSystem) {
             for interaction in lane.connectivity.interactions.iter() {
                 let cars = lane.microtraffic.cars.iter();
 
-                if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
+                if (current_tick.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING ==
                     interaction.partner_lane.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING
                 {
                     let maybe_obstacles = obstacles_for_interaction(
@@ -472,7 +489,7 @@ pub fn setup(system: &mut ActorSystem) {
     }));
 
     system.extend(Swarm::<TransferLane>::subactors(|mut each_t_lane| {
-        each_t_lane.on(|&AddCar { car, from: maybe_from }, lane, _| {
+        each_t_lane.on(|&AddCar { car, from: maybe_from, .. }, lane, _| {
             let from = maybe_from.expect("car has to come from somewhere on transfer lane");
 
             let from_left = from == lane.connectivity.left.expect("should have a left lane").0;
@@ -521,10 +538,12 @@ pub fn setup(system: &mut ActorSystem) {
             Fate::Live
         });
 
-        each_t_lane.on(|&Tick { dt, current_tick }, lane, world| {
+        each_t_lane.on(|&MSG_Simulatable_tick(dt, current_tick), lane, world| {
+            let dt = dt / MICROTRAFFIC_UNREALISTIC_SLOWDOWN;
+
             lane.construction.progress += dt * 400.0;
 
-            let do_traffic = current_tick % TRAFFIC_LOGIC_THROTTLING ==
+            let do_traffic = current_tick.ticks() % TRAFFIC_LOGIC_THROTTLING ==
                 lane.id().sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
             if do_traffic {
@@ -639,7 +658,7 @@ pub fn setup(system: &mut ActorSystem) {
                                  car.transfer_acceleration > 0.0)
                         {
                             if car.destination.node == right {
-                                world.send(car.trip, TripResult::Success);
+                                car.trip.succeed(current_tick, world);
                             } else {
                                 world.send(
                                     right,
@@ -652,6 +671,7 @@ pub fn setup(system: &mut ActorSystem) {
                                                 ),
                                         ),
                                         from: Some(lane.id()),
+                                        tick: current_tick,
                                     },
                                 );
                             }
@@ -661,7 +681,7 @@ pub fn setup(system: &mut ActorSystem) {
                                         car.transfer_acceleration <= 0.0)
                         {
                             if car.destination.node == left {
-                                world.send(car.trip, TripResult::Success);
+                                car.trip.succeed(current_tick, world);
                             } else {
                                 world.send(
                                     left,
@@ -674,6 +694,7 @@ pub fn setup(system: &mut ActorSystem) {
                                                 ),
                                         ),
                                         from: Some(lane.id()),
+                                        tick: current_tick,
                                     },
                                 );
                             }
@@ -693,7 +714,7 @@ pub fn setup(system: &mut ActorSystem) {
                     }
                 }
 
-                if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
+                if (current_tick.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING ==
                     left.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING
                 {
                     let obstacles = lane.microtraffic
@@ -716,7 +737,7 @@ pub fn setup(system: &mut ActorSystem) {
                     world.send(left, AddObstacles { obstacles: obstacles, from: lane.id() });
                 }
 
-                if (current_tick + 1) % TRAFFIC_LOGIC_THROTTLING ==
+                if (current_tick.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING ==
                     right.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING
                 {
                     let obstacles = lane.microtraffic
@@ -748,7 +769,7 @@ pub fn setup(system: &mut ActorSystem) {
     }))
 }
 
-use core::simulation::Tick;
+use core::simulation::MSG_Simulatable_tick;
 
 const TRAFFIC_LOGIC_THROTTLING: usize = 30;
 const PATHFINDING_THROTTLING: usize = 10;

@@ -1,10 +1,10 @@
 use descartes::{P2, V2, Path, Segment, Band, Curve, FiniteCurve, N, RoughlyComparable};
 use compact::CVec;
-use kay::{ID, World};
+use kay::World;
 use kay::swarm::{Swarm, CreateWith};
 use monet::Thing;
 use stagemaster::geometry::{CPath, band_to_thing};
-use super::super::construction::materialized_reality::BuildableRef;
+use super::super::construction::materialized_reality::{BuildableRef, MaterializedRealityID};
 use super::super::lane::{Lane, TransferLane};
 use super::super::construction::AdvertiseToTransferAndReport;
 
@@ -180,7 +180,12 @@ impl LaneStroke {
         )
     }
 
-    pub fn build(&self, report_to: ID, report_as: BuildableRef, world: &mut World) {
+    pub fn build(
+        &self,
+        report_to: MaterializedRealityID,
+        report_as: BuildableRef,
+        world: &mut World,
+    ) {
         world.send_to_id_of::<Swarm<Lane>, _>(CreateWith(
             Lane::new(self.path().clone(), false, CVec::new()),
             AdvertiseToTransferAndReport(report_to, report_as),
@@ -189,7 +194,7 @@ impl LaneStroke {
 
     pub fn build_intersection(
         &self,
-        report_to: ID,
+        report_to: MaterializedRealityID,
         report_as: BuildableRef,
         timings: CVec<bool>,
         world: &mut World,
@@ -200,7 +205,12 @@ impl LaneStroke {
         ));
     }
 
-    pub fn build_transfer(&self, report_to: ID, report_as: BuildableRef, world: &mut World) {
+    pub fn build_transfer(
+        &self,
+        report_to: MaterializedRealityID,
+        report_as: BuildableRef,
+        world: &mut World,
+    ) {
         world.send_to_id_of::<Swarm<TransferLane>, _>(CreateWith(
             TransferLane::new(self.path().clone()),
             AdvertiseToTransferAndReport(report_to, report_as),

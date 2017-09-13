@@ -95,9 +95,15 @@ impl<SA: SubActor + Clone> Swarm<SA> {
         id
     }
 
-    /// Used internally, but can also be used externally when manually adding a subactor,
+    /// used externally when manually adding a subactor,
     /// making use of a previously allocated ID (see `allocate_id`)
-    pub unsafe fn add_with_id(&mut self, initial_state: *mut SA, id: ID) {
+    pub unsafe fn add_manually_with_id(&mut self, initial_state: *mut SA, id: ID) {
+        self.add_with_id(initial_state, id);
+        *self.n_sub_actors += 1;
+    }
+
+    /// Used internally
+    unsafe fn add_with_id(&mut self, initial_state: *mut SA, id: ID) {
         let size = (*initial_state).total_size_bytes();
         let bin_index = self.sub_actors.size_to_index(size);
         let bin = &mut self.sub_actors.bin_for_size_mut(size);

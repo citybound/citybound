@@ -24,9 +24,10 @@ mod generators;
 mod parsers;
 use parsers::parse;
 
-pub fn scan_and_generate() {
-    for maybe_mod_path in glob("src/**/mod.rs").unwrap() {
+pub fn scan_and_generate(src_prefix: &str) {
+    for maybe_mod_path in glob(&format!("{}/**/mod.rs", src_prefix)).unwrap() {
         if let Ok(mod_path) = maybe_mod_path {
+            //println!("cargo:warning={:?}", mod_path);
             let auto_path = mod_path.clone().to_str().unwrap().replace(
                 "mod.rs",
                 "kay_auto.rs",
@@ -59,7 +60,9 @@ pub fn scan_and_generate() {
                         .arg(&auto_path)
                         .spawn();
                 }
-            }
+            } else {
+                panic!("couldn't load");
+            };
         }
     }
 }
@@ -171,7 +174,7 @@ fn simple_actor() {
             }
         }
 
-        #[derive(Copy, Clone, PartialEq, Eq)]
+        #[derive(Copy, Clone, PartialEq, Eq, Hash)]
         pub struct SomeActorID {
             pub _raw_id: ID
         }
@@ -236,7 +239,7 @@ fn simple_actor() {
 
                 the_swarm.on(|&MSG_SomeActor_init_ish(id, ref some_param), swarm, world| {
                     let mut subactor = SomeActor::init_ish(id, some_param, world);
-                    unsafe {swarm.add_with_id(&mut subactor, id._raw_id) };
+                    unsafe {swarm.add_manually_with_id(&mut subactor, id._raw_id) };
                     ::std::mem::forget(subactor);
                     Fate::Live
                 });
@@ -294,7 +297,7 @@ fn trait_and_impl() {
         use kay::swarm::{Swarm, SubActor};
         use super::*;
 
-        #[derive(Copy, Clone, PartialEq, Eq)]
+        #[derive(Copy, Clone, PartialEq, Eq, Hash)]
         pub struct SomeTraitID {
             pub _raw_id: ID
         }
@@ -325,7 +328,7 @@ fn trait_and_impl() {
             }
         }
 
-        #[derive(Copy, Clone, PartialEq, Eq)]
+        #[derive(Copy, Clone, PartialEq, Eq, Hash)]
         pub struct SomeActorID {
             pub _raw_id: ID
         }

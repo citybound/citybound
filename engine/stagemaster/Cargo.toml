@@ -2,6 +2,7 @@
 name = "stagemaster"
 version = "0.1.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
+build = "./src/build.rs"
 
 [dependencies]
 imgui = "0.0.11"
@@ -26,6 +27,9 @@ path = "../descartes"
 
 [dependencies.monet]
 path = "../monet"
+
+[build-dependencies]
+kay_codegen = {path = "../kay_codegen/"}
 
 [features]
 enable-clippy = [

@@ -207,7 +207,7 @@ impl Model {
                         let mut subactor = #types_for_init_handlers_2::#init_handler_names(
                             id, #(#init_handler_params,)* world
                         );
-                        unsafe {swarm.add_with_id(&mut subactor, id._raw_id)};
+                        unsafe {swarm.add_manually_with_id(&mut subactor, id._raw_id)};
                         ::std::mem::forget(subactor);
                         Fate::Live
                     });
@@ -241,7 +241,7 @@ impl Model {
 
         quote!(
             #(
-            #[derive(Copy, Clone, PartialEq, Eq)]
+            #[derive(Copy, Clone, PartialEq, Eq, Hash)]
             pub struct #trait_ids_1 {
                 pub _raw_id: ID
             }
@@ -360,7 +360,7 @@ impl Model {
                 }
             }
 
-            #[derive(Copy, Clone, PartialEq, Eq)]
+            #[derive(Copy, Clone, PartialEq, Eq, Hash)]
             pub struct #actor_here_ids_1 {
                 pub _raw_id: ID
             }

@@ -13,12 +13,14 @@ use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
 pub mod materialized_reality;
 use self::materialized_reality::BuildableRef;
 
+use random::Source;
+
 #[derive(Compact, Clone)]
 pub struct ConstructionInfo {
     pub length: f32,
     pub path: CPath,
     pub progress: f32,
-    unbuilding_for: Option<ID>,
+    unbuilding_for: Option<MaterializedRealityID>,
     disconnects_remaining: u8,
 }
 
@@ -35,13 +37,11 @@ impl ConstructionInfo {
 }
 
 #[derive(Copy, Clone)]
-pub struct AdvertiseToTransferAndReport(pub ID, pub BuildableRef);
+pub struct AdvertiseToTransferAndReport(pub MaterializedRealityID, pub BuildableRef);
 
-pub fn setup(system: &mut ActorSystem) {
+pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
     let all_lanes_id = system.id::<Swarm<Lane>>().broadcast();
     let all_transfer_lanes_id = system.id::<Swarm<TransferLane>>().broadcast();
-
-    use self::materialized_reality::ReportLaneBuilt;
 
     system.extend(Swarm::<Lane>::subactors(move |mut each_lane| {
 
@@ -66,9 +66,9 @@ pub fn setup(system: &mut ActorSystem) {
                     other_path: lane.construction.path.clone(),
                 },
             );
-            world.send(report_to, ReportLaneBuilt(lane.id(), report_as));
+            report_to.on_lane_built(lane.id(), report_as, world);
             super::rendering::on_build(lane, world);
-            super::pathfinding::on_build(lane, world);
+            // super::pathfinding::on_build(lane, world);
             Fate::Live
         });
 
@@ -341,7 +341,7 @@ pub fn setup(system: &mut ActorSystem) {
                 memoized_bands_outlines.remove(&lane.id())
             });
             if disconnects_remaining == 0 {
-                world.send(report_to, ReportLaneUnbuilt(Some(lane.id())));
+                report_to.on_lane_unbuilt(Some(lane.id()), world);
                 Fate::Die
             } else {
                 lane.construction.disconnects_remaining = disconnects_remaining;
@@ -353,16 +353,37 @@ pub fn setup(system: &mut ActorSystem) {
         each_lane.on(|_: &ConfirmDisconnect, lane, world| {
             lane.construction.disconnects_remaining -= 1;
             if lane.construction.disconnects_remaining == 0 {
-                world.send(
-                    lane.construction.unbuilding_for.expect(
+                lane.construction.unbuilding_for.expect(
                         "should be unbuilding",
-                    ),
-                    ReportLaneUnbuilt(Some(lane.id())),
-                );
+                    ).on_lane_unbuilt(Some(lane.id()), world);
                 Fate::Die
             } else {
                 Fate::Live
             }
+        });
+    }));
+
+    // TODO: this is a horrible hack
+    system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
+        each_lane.on_random(|&FindLot { requester }, lane, world| {
+            const BUILDING_DISTANCE: f32 = 15.0;
+
+            if !lane.connectivity.on_intersection {
+                let path = &lane.construction.path;
+                let distance = ::random::default().read_f64() as f32 * path.length();
+                let point = path.along(distance) +
+                    BUILDING_DISTANCE * path.direction_along(distance).orthogonal();
+
+                requester.found_lot(
+                    Lot {
+                        position: point,
+                        adjacent_lane: lane.id(),
+                    },
+                    world,
+                );
+            }
+
+            Fate::Live
         });
     }));
 
@@ -373,7 +394,7 @@ pub fn setup(system: &mut ActorSystem) {
               lane,
               world| {
             world.send(all_lanes_id, ConnectToTransfer { other_id: lane.id() });
-            world.send(report_to, ReportLaneBuilt(lane.id(), report_as));
+            report_to.on_lane_built(lane.id(), report_as, world);
             super::rendering::on_build_transfer(lane, world);
             Fate::Live
         });
@@ -480,7 +501,7 @@ pub fn setup(system: &mut ActorSystem) {
             }
             super::rendering::on_unbuild_transfer(lane, world);
             if lane.connectivity.left.is_none() && lane.connectivity.right.is_none() {
-                world.send(report_to, ReportLaneUnbuilt(Some(lane.id())));
+                report_to.on_lane_unbuilt(Some(lane.id()), world);
                 Fate::Die
             } else {
                 lane.construction.disconnects_remaining = lane.connectivity
@@ -496,12 +517,9 @@ pub fn setup(system: &mut ActorSystem) {
         each_t_lane.on(|_: &ConfirmDisconnect, lane, world| {
             lane.construction.disconnects_remaining -= 1;
             if lane.construction.disconnects_remaining == 0 {
-                world.send(
-                    lane.construction.unbuilding_for.expect(
+                lane.construction.unbuilding_for.expect(
                         "should be unbuilding",
-                    ),
-                    ReportLaneUnbuilt(Some(lane.id())),
-                );
+                    ).on_lane_unbuilt(Some(lane.id()), world);
                 Fate::Die
             } else {
                 Fate::Live
@@ -509,7 +527,7 @@ pub fn setup(system: &mut ActorSystem) {
         })
     }));
 
-    self::materialized_reality::setup(system);
+    self::materialized_reality::setup(system)
 }
 
 #[derive(Compact, Clone)]
@@ -566,6 +584,8 @@ pub struct ConfirmDisconnect;
 
 #[derive(Copy, Clone)]
 pub struct Unbuild {
-    pub report_to: ID,
+    pub report_to: MaterializedRealityID,
 }
-use self::materialized_reality::ReportLaneUnbuilt;
+use self::materialized_reality::{MaterializedRealityID};
+
+use economy::buildings::{FindLot, Lot};

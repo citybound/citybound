@@ -3,6 +3,7 @@ use compact::CVec;
 
 use Vertex;
 
+// TODO: rename this to something more friendly and common (e.g. Geometry)
 #[derive(Compact, Debug)]
 pub struct Thing {
     pub vertices: CVec<Vertex>,
