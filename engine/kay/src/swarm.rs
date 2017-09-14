@@ -378,7 +378,8 @@ impl<'a, SA: SubActor + Clone + 'static> SubActorDefiner<'a, SA> {
                     SA,
                     M,
                 > = message;
-                let id = swarm.add(init_state.clone(), recipient_id);
+                let swarm_id = world.local_broadcast::<Swarm<SA>>();
+                let id = swarm.add(init_state.clone(), swarm_id);
                 world.send(id, (*init_message).clone());
                 Fate::Live
             },

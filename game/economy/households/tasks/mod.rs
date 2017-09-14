@@ -82,6 +82,8 @@ pub fn setup(system: &mut ActorSystem) {
     system.add(Swarm::<TaskEndScheduler>::new(), |_| {});
 
     auto_setup(system);
+
+    TaskEndSchedulerID::spawn(&mut system.world());
 }
 
 mod kay_auto;

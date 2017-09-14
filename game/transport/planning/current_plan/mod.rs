@@ -14,8 +14,7 @@ use self::apply_intent::apply_intent;
 mod rendering;
 
 mod helper_interactables;
-use self::helper_interactables::{DeselecterID, AddableID, DraggableID, SelectableID,
-                                 StrokeCanvasID, StrokeState};
+use self::helper_interactables::StrokeState;
 
 mod interaction;
 use self::interaction::Interaction;
@@ -130,8 +129,6 @@ impl CurrentPlan {
         // TODO: is there a nicer way to get initial built strokes?
         materialized_reality.apply(id, PlanDelta::default(), world);
 
-        StrokeCanvasID::spawn(user_interface, id, world);
-
         CurrentPlan {
             id: id,
             settings: Settings::default(),
@@ -174,10 +171,6 @@ impl CurrentPlan {
         self.preview = COption(None);
     }
 
-    fn invalidate_interactables(&mut self) {
-        self.interactables_valid = false;
-    }
-
     fn update_preview(&mut self, world: &mut World) -> &PlanStep {
         if self.preview.is_none() {
             let preview = apply_intent(
@@ -193,66 +186,6 @@ impl CurrentPlan {
             self.preview = COption(Some(preview));
         }
         self.preview.as_ref().unwrap()
-    }
-
-    fn update_interactables(&mut self, world: &mut World) {
-        SelectableID::local_broadcast(world).clear(self.interaction.user_interface, world);
-        DraggableID::local_broadcast(world).clear(self.interaction.user_interface, world);
-        AddableID::local_broadcast(world).clear(self.interaction.user_interface, world);
-        DeselecterID::local_first(world).clear(self.interaction.user_interface, world);
-
-        if !self.current.selections.is_empty() {
-            DeselecterID::spawn(self.interaction.user_interface, self.id, world);
-        }
-        if let Some(still_built_strokes) = self.still_built_strokes() {
-            match self.current.intent {
-                Intent::ContinueRoad(..) |
-                Intent::NewRoad(..) |
-                Intent::ContinueRoadAround(..) => {}
-                _ => {
-                    for (i, stroke) in self.current.plan_delta.new_strokes.iter().enumerate() {
-                        SelectableID::spawn(
-                            SelectableStrokeRef::New(i),
-                            stroke.path().clone(),
-                            self.interaction.user_interface,
-                            self.id,
-                            world,
-                        );
-                    }
-                    for (old_stroke_ref, stroke) in still_built_strokes.mapping.pairs() {
-                        SelectableID::spawn(
-                            SelectableStrokeRef::Built(*old_stroke_ref),
-                            stroke.path().clone(),
-                            self.interaction.user_interface,
-                            self.id,
-                            world,
-                        );
-                    }
-                }
-            }
-            for (&selection_ref, &(start, end)) in self.current.selections.pairs() {
-                let stroke =
-                    selection_ref.get_stroke(&self.current.plan_delta, &still_built_strokes);
-                if let Some(subsection) = stroke.path().subsection(start, end) {
-                    DraggableID::spawn(
-                        selection_ref,
-                        subsection.clone(),
-                        self.interaction.user_interface,
-                        self.id,
-                        world,
-                    );
-                    if let Some(next_lane_path) = subsection.shift_orthogonally(5.0) {
-                        AddableID::spawn(
-                            next_lane_path,
-                            self.interaction.user_interface,
-                            self.id,
-                            world,
-                        );
-                    }
-                }
-            }
-            self.interactables_valid = true;
-        }
     }
 
     fn commit(&mut self) {
@@ -297,7 +230,7 @@ impl CurrentPlan {
         let previous_state = self.undo_history.pop().unwrap_or_default();
         self.redo_history.push(self.current.clone());
         self.current = previous_state;
-        StrokeCanvasID::local_first(world).set_points(
+        self.interaction.stroke_canvas.set_points(
             match self.current.intent {
                 Intent::ContinueRoad(_, ref points, _) |
                 Intent::NewRoad(ref points) => points.clone(),
@@ -313,7 +246,7 @@ impl CurrentPlan {
         if let Some(next_state) = self.redo_history.pop() {
             self.undo_history.push(self.current.clone());
             self.current = next_state;
-            StrokeCanvasID::local_first(world).set_points(
+            self.interaction.stroke_canvas.set_points(
                 match self.current.intent {
                     Intent::ContinueRoad(_, ref points, _) |
                     Intent::NewRoad(ref points) => points.clone(),
@@ -397,7 +330,10 @@ impl CurrentPlan {
             Intent::ContinueRoad(..) |
             Intent::NewRoad(..) => {
                 self.commit();
-                StrokeCanvasID::local_first(world).set_points(CVec::new(), world);
+                self.interaction.stroke_canvas.set_points(
+                    CVec::new(),
+                    world,
+                );
             }
             _ => {}
         }

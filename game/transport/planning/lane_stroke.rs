@@ -219,7 +219,7 @@ impl LaneStroke {
         report_as: BuildableRef,
         world: &mut World,
     ) {
-        let local_lanes = world.local_broadcast::<Swarm<Lane>>();
+        let local_lanes = world.local_broadcast::<Swarm<TransferLane>>();
         world.send(
             local_lanes,
             CreateWith(

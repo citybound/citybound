@@ -1,14 +1,23 @@
+use compact::CVec;
 use kay::{ActorSystem, Fate, External, World};
 use kay::swarm::Swarm;
-use super::{CurrentPlan, CurrentPlanID};
+use super::{CurrentPlan, CurrentPlanID, SelectableStrokeRef};
 use stagemaster::geometry::AnyShape;
 use stagemaster::combo::{Bindings, Combo2};
 use stagemaster::combo::Button::*;
-use descartes::{N, P2};
+use descartes::{N, P2, FiniteCurve};
+
+use super::helper_interactables::{DeselecterID, AddableID, DraggableID, SelectableID,
+                                  StrokeCanvasID, StrokeState};
 
 #[derive(Compact, Clone)]
 pub struct Interaction {
-    pub user_interface: UserInterfaceID,
+    user_interface: UserInterfaceID,
+    selectables: CVec<SelectableID>,
+    addables: CVec<AddableID>,
+    draggables: CVec<DraggableID>,
+    pub stroke_canvas: StrokeCanvasID,
+    deselecter: Option<DeselecterID>,
     settings: External<InteractionSettings>,
 }
 
@@ -53,6 +62,11 @@ impl Interaction {
         renderer_id.add_eye_listener(0, id.into(), world);
         Interaction {
             settings: External::new(::ENV.load_settings("Plan Editing")),
+            selectables: CVec::new(),
+            addables: CVec::new(),
+            draggables: CVec::new(),
+            stroke_canvas: StrokeCanvasID::spawn(user_interface, id, world),
+            deselecter: None,
             user_interface,
         }
     }
@@ -73,9 +87,90 @@ impl EyeListener for CurrentPlan {
     }
 }
 
+impl CurrentPlan {
+    pub fn invalidate_interactables(&mut self) {
+        self.interactables_valid = false;
+    }
+
+    pub fn update_interactables(&mut self, world: &mut World) {
+        for selectable in self.interaction.selectables.drain() {
+            selectable.clear(self.interaction.user_interface, world);
+        }
+        for draggable in self.interaction.selectables.drain() {
+            draggable.clear(self.interaction.user_interface, world);
+        }
+        for addable in self.interaction.selectables.drain() {
+            addable.clear(self.interaction.user_interface, world);
+        }
+        if let Some(deselecter) = self.interaction.deselecter.take() {
+            deselecter.clear(self.interaction.user_interface, world);
+        }
+
+        self.interaction.deselecter = if self.current.selections.is_empty() {
+            None
+        } else {
+            Some(DeselecterID::spawn(
+                self.interaction.user_interface,
+                self.id,
+                world,
+            ))
+        };
+
+        if let Some(still_built_strokes) = self.still_built_strokes() {
+            match self.current.intent {
+                Intent::ContinueRoad(..) |
+                Intent::NewRoad(..) |
+                Intent::ContinueRoadAround(..) => {}
+                _ => {
+                    for (i, stroke) in self.current.plan_delta.new_strokes.iter().enumerate() {
+                        self.interaction.selectables.push(SelectableID::spawn(
+                            SelectableStrokeRef::New(i),
+                            stroke.path().clone(),
+                            self.interaction.user_interface,
+                            self.id,
+                            world,
+                        ));
+                    }
+                    for (old_stroke_ref, stroke) in still_built_strokes.mapping.pairs() {
+                        self.interaction.selectables.push(SelectableID::spawn(
+                            SelectableStrokeRef::Built(*old_stroke_ref),
+                            stroke.path().clone(),
+                            self.interaction.user_interface,
+                            self.id,
+                            world,
+                        ));
+                    }
+                }
+            }
+            for (&selection_ref, &(start, end)) in self.current.selections.pairs() {
+                let stroke =
+                    selection_ref.get_stroke(&self.current.plan_delta, &still_built_strokes);
+                if let Some(subsection) = stroke.path().subsection(start, end) {
+                    self.interaction.draggables.push(DraggableID::spawn(
+                        selection_ref,
+                        subsection.clone(),
+                        self.interaction.user_interface,
+                        self.id,
+                        world,
+                    ));
+                    if let Some(next_lane_path) = subsection.shift_orthogonally(5.0) {
+                        self.interaction.addables.push(AddableID::spawn(
+                            next_lane_path,
+                            self.interaction.user_interface,
+                            self.id,
+                            world,
+                        ));
+                    }
+                }
+            }
+            self.interactables_valid = true;
+        }
+    }
+}
+
 use stagemaster::{Interactable3d, Interactable3dID, Interactable2d, Interactable2dID, Event3d,
                   MSG_Interactable3d_on_event, MSG_Interactable2d_draw_ui_2d};
-use super::{StrokeState, Intent, IntentProgress};
+use super::{Intent, IntentProgress};
 
 impl Interactable3d for CurrentPlan {
     fn on_event(&mut self, event: Event3d, world: &mut World) {

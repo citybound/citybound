@@ -42,7 +42,7 @@ mod transport;
 mod economy;
 
 use compact::CVec;
-use monet::{RendererID, RenderableID};
+use monet::RenderableID;
 use monet::glium::{DisplayBuild, glutin};
 use core::simulation::SimulatableID;
 use stagemaster::UserInterfaceID;
@@ -163,7 +163,7 @@ fn main() {
     let mut elapsed_ms_collected = Vec::<f32>::new();
 
     loop {
-        system.networking_receive();
+        //system.networking_receive();
 
         let elapsed_ms = last_frame.elapsed().as_secs() as f32 * 1000.0 +
             last_frame.elapsed().subsec_nanos() as f32 / 10.0E5;

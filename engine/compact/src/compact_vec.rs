@@ -205,6 +205,15 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         self.truncate(0);
     }
 
+    /// Drain (empty & iterate over) the vector
+    pub fn drain(&mut self) -> IntoIter<T, A> {
+        unsafe {
+            let decompacted = Compact::decompact(self);
+            ::std::ptr::write(self, CompactVec::new());
+            decompacted.into_iter()
+        }
+    }
+
     /// debug printing
     pub fn ptr_to_string(&self) -> String {
         self.ptr.to_string()
