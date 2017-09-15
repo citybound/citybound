@@ -64,6 +64,7 @@ impl Networking {
 
         unsafe {
             Compact::compact_behind(&mut packet, &mut packet_buf[0] as *mut u8 as *mut Packet<M>);
+            ::std::mem::forget(packet);
         }
 
         let connections: Vec<&mut Connection> = if machine_id == broadcast_machine_id() {
