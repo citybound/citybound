@@ -166,6 +166,7 @@ impl<SA: SubActor + Clone> Swarm<SA> {
     }
 
     fn resize_at_index(&mut self, old_i: SlotIndices) -> bool {
+        println!("Resizing!");
         let old_actor_ptr = self.at_index_mut(old_i) as *mut SA;
         unsafe { self.add_with_id(old_actor_ptr, (*old_actor_ptr).id()) };
         self.swap_remove(old_i)

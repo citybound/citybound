@@ -59,6 +59,7 @@ pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
                     reply_needed: true,
                 },
             );
+            println!("Broadcasting ConnectTransferToNormal from {:?}", lane.id());
             world.send(
                 all_transfer_lanes_id,
                 ConnectTransferToNormal {
@@ -286,6 +287,7 @@ pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
         });
 
         each_lane.on(|&AddTransferLaneInteraction(interaction), lane, _| {
+            println!("Receiving AddTransferLaneInteraction at {:?}", lane.id());
             let already_a_partner = lane.connectivity.interactions.iter().any(|existing| {
                 existing.partner_lane == interaction.partner_lane
             });
@@ -418,6 +420,7 @@ pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
                     if lane_start_on_other.is_roughly_within(lane.construction.path.start(), 3.0) &&
                         lane_end_on_other.is_roughly_within(lane.construction.path.end(), 3.0)
                     {
+                        println!("Sending AddTransferLaneInteraction from {:?} to {:?}", lane.id(), other_id);
                         world.send(
                             other_id,
                             AddTransferLaneInteraction(Interaction {

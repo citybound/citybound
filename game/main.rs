@@ -124,7 +124,10 @@ fn main() {
     let simulation = core::simulation::setup(&mut system, simulatables);
 
     let window = glutin::WindowBuilder::new()
-        .with_title("Citybound".to_string())
+        .with_title(format!(
+            "Citybound (machine {})",
+            system.networking_machine_id()
+        ))
         .with_dimensions(1024, 512)
         .with_multitouch()
         .with_vsync()

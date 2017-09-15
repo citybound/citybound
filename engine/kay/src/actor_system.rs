@@ -82,6 +82,10 @@ impl ActorSystem {
         self.networking.receive(&mut self.inboxes);
     }
 
+    pub fn networking_machine_id(&self) -> u8 {
+        self.networking.machine_id
+    }
+
     /// Add a new actor to the system given an initial actor state
     /// and a closure that takes an [ActorDefiner](struct.ActorDefiner.html)
     /// to define message handlers for this actor.
