@@ -1,6 +1,6 @@
 use descartes::{Path, Band, Segment, P2, N, FiniteCurve, WithUniqueOrthogonal};
 use compact::{CVec, Compact};
-use monet::{Thing, Vertex, RendererID, Instance};
+use monet::{Geometry, Vertex, RendererID, Instance};
 
 #[derive(Compact, Clone)]
 pub struct CPath {
@@ -83,7 +83,7 @@ fn to_vertex(point: P2, z: N) -> Vertex {
 
 const CURVE_LINEARIZATION_MAX_ANGLE: f32 = 0.03;
 
-pub fn band_to_thing<P: Path>(band: &Band<P>, z: N) -> Thing {
+pub fn band_to_geometry<P: Path>(band: &Band<P>, z: N) -> Geometry {
     let mut vertices = Vec::<Vertex>::new();
     let mut indices = Vec::<u16>::new();
     for segment in band.path.segments() {
@@ -149,7 +149,7 @@ pub fn band_to_thing<P: Path>(band: &Band<P>, z: N) -> Thing {
         }
     }
 
-    Thing::new(vertices, indices)
+    Geometry::new(vertices, indices)
 }
 
 pub fn dash_path<P: Path>(path: &P, dash_length: f32, gap_length: f32) -> Vec<P> {
@@ -181,10 +181,10 @@ use kay::World;
 
 pub fn add_debug_path(path: CPath, color: [f32; 3], z: f32, world: &mut World) {
     if let Some(renderer) = unsafe { DEBUG_RENDERER } {
-        renderer.update_thing(
+        renderer.update_individual(
             0,
             12000 + unsafe { LAST_DEBUG_THING },
-            band_to_thing(&Band::new(path, 0.2), z),
+            band_to_geometry(&Band::new(path, 0.2), z),
             Instance::with_color(color),
             true,
             world,
@@ -195,7 +195,7 @@ pub fn add_debug_path(path: CPath, color: [f32; 3], z: f32, world: &mut World) {
 
 pub fn add_debug_point(point: P2, color: [f32; 3], z: f32, world: &mut World) {
     if let Some(renderer) = unsafe { DEBUG_RENDERER } {
-        let thing = Thing::new(
+        let geometry = Geometry::new(
             vec![
                 Vertex { position: [point.x + -0.5, point.y + -0.5, z] },
                 Vertex { position: [point.x + 0.5, point.y + -0.5, z] },
@@ -204,10 +204,10 @@ pub fn add_debug_point(point: P2, color: [f32; 3], z: f32, world: &mut World) {
             ],
             vec![0, 1, 2, 2, 3, 0],
         );
-        renderer.update_thing(
+        renderer.update_individual(
             0,
             12000 + unsafe { LAST_DEBUG_THING },
-            thing,
+            geometry,
             Instance::with_color(color),
             true,
             world,

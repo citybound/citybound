@@ -7,7 +7,7 @@ use kay::swarm::Swarm;
 
 use glium::backend::glutin_backend::GlutinFacade;
 
-use {Batch, Instance, Scene, SceneDescription, Thing, RenderContext};
+use {Batch, Instance, Scene, SceneDescription, Geometry, RenderContext};
 
 mod control;
 pub mod movement;
@@ -71,28 +71,37 @@ impl Renderer {
     }
 
     /// Critical
-    pub fn add_batch(&mut self, scene_id: usize, batch_id: u16, thing: &Thing, _: &mut World) {
-        let batch = Batch::new(thing.clone(), &self.render_context.window);
+    pub fn add_batch(
+        &mut self,
+        scene_id: usize,
+        batch_id: u16,
+        prototype: &Geometry,
+        _: &mut World,
+    ) {
+        let batch = Batch::new(prototype.clone(), &self.render_context.window);
         self.scenes[scene_id].batches.insert(batch_id, batch);
     }
 
     /// Critical
-    pub fn update_thing(
+    pub fn update_individual(
         &mut self,
         scene_id: usize,
-        thing_id: u16,
-        thing: &Thing,
+        individual_id: u16,
+        geometry: &Geometry,
         instance: &Instance,
         is_decal: bool,
         _: &mut World,
     ) {
-        let thing = Batch::new_thing(
-            thing.clone(),
+        let individual = Batch::new_individual(
+            geometry.clone(),
             *instance,
             is_decal,
             &self.render_context.window,
         );
-        self.scenes[scene_id].batches.insert(thing_id, thing);
+        self.scenes[scene_id].batches.insert(
+            individual_id,
+            individual,
+        );
     }
 
     /// Critical
@@ -140,6 +149,7 @@ pub fn setup(system: &mut ActorSystem) {
     control::auto_setup(system);
     movement::auto_setup(system);
     project::auto_setup(system);
+    super::geometry::setup(system);
 }
 
 mod kay_auto;

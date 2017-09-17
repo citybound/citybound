@@ -42,12 +42,11 @@ mod transport;
 mod economy;
 
 use compact::CVec;
-use monet::RenderableID;
+use monet::{RenderableID, GroupID};
 use monet::glium::{DisplayBuild, glutin};
 use core::simulation::SimulatableID;
 use stagemaster::UserInterfaceID;
 use transport::lane::{Lane, TransferLane};
-use transport::rendering::lane_thing_collector::ThingCollectorID;
 use transport::planning::current_plan::CurrentPlanID;
 use economy::households::family::FamilyID;
 use economy::households::tasks::TaskEndSchedulerID;
@@ -141,8 +140,7 @@ fn main() {
     ].into_iter()
         .map(|id| RenderableID { _raw_id: id })
         .chain(vec![
-            ThingCollectorID::global_broadcast(&mut system.world())
-                .into(),
+            GroupID::global_broadcast(&mut system.world()).into(),
             CurrentPlanID::local_first(&mut system.world()).into(),
         ])
         .collect();
@@ -166,8 +164,6 @@ fn main() {
     let mut elapsed_ms_collected = Vec::<f32>::new();
 
     loop {
-        system.networking_receive();
-
         let elapsed_ms = last_frame.elapsed().as_secs() as f32 * 1000.0 +
             last_frame.elapsed().subsec_nanos() as f32 / 10.0E5;
         elapsed_ms_collected.push(elapsed_ms);
@@ -207,6 +203,9 @@ fn main() {
 
         renderer.render(&mut system.world());
 
+        system.process_all_messages();
+
+        system.networking_receive();
         system.process_all_messages();
 
         user_interface.start_frame(&mut system.world());

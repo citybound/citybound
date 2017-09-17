@@ -3,7 +3,7 @@ use compact::CVec;
 use kay::{ActorSystem, Fate, World, External};
 use kay::swarm::Swarm;
 use monet::{Instance, MSG_Renderable_setup_in_scene, MSG_Renderable_render_to_scene};
-use stagemaster::geometry::{CPath, band_to_thing, AnyShape};
+use stagemaster::geometry::{CPath, band_to_geometry, AnyShape};
 use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID, Interactable2d,
                   Interactable2dID, MSG_Interactable3d_on_event, MSG_Interactable2d_draw_ui_2d};
 use imgui::ImGuiSetCond_FirstUseEver;
@@ -128,7 +128,7 @@ pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) {
                     P2::new(5.0, 0.0)
                 ),
             ]);
-            let building_circle = band_to_thing(&Band::new(band_path, 2.0), 0.0);
+            let building_circle = band_to_geometry(&Band::new(band_path, 2.0), 0.0);
             renderer_id.add_batch(scene_id, 11111, building_circle, world);
 
             Fate::Live

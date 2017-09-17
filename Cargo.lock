@@ -539,6 +539,7 @@ dependencies = [
  "descartes 0.1.0",
  "fnv 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "glium 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "itertools 0.5.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay 0.1.0",
  "kay_codegen 0.1.0",
  "lazy_static 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",

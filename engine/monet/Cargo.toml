@@ -9,6 +9,7 @@ glium = "0.16.0"
 clippy = { version = "0.0.138", optional = true }
 fnv = "1.0.3"
 lazy_static = "0.2.8"
+itertools = "0.5.5"
 
 [dependencies.kay]
 path = "../kay"

@@ -2,8 +2,8 @@ use descartes::{P2, V2, Path, Segment, Band, Curve, FiniteCurve, N, RoughlyCompa
 use compact::CVec;
 use kay::World;
 use kay::swarm::{Swarm, CreateWith};
-use monet::Thing;
-use stagemaster::geometry::{CPath, band_to_thing};
+use monet::Geometry;
+use stagemaster::geometry::{CPath, band_to_geometry};
 use super::super::construction::materialized_reality::{BuildableRef, MaterializedRealityID};
 use super::super::lane::{Lane, TransferLane};
 use super::super::construction::AdvertiseToTransferAndReport;
@@ -89,8 +89,8 @@ impl LaneStroke {
         &self._memoized_path
     }
 
-    pub fn preview_thing(&self) -> Thing {
-        band_to_thing(
+    pub fn preview_geometry(&self) -> Geometry {
+        band_to_geometry(
             &Band::new(Band::new(self.path().clone(), 4.85).outline(), 0.6),
             0.0,
         )
