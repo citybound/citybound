@@ -195,21 +195,22 @@ fn main() {
 
         user_interface.process_events(&mut system.world());
 
+        system.networking_receive();
         system.process_all_messages();
 
         simulation.do_tick(&mut system.world());
 
+        system.networking_receive();
         system.process_all_messages();
 
         renderer.render(&mut system.world());
-
-        system.process_all_messages();
 
         system.networking_receive();
         system.process_all_messages();
 
         user_interface.start_frame(&mut system.world());
 
+        system.networking_receive();
         system.process_all_messages();
     }
 }

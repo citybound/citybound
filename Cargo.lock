@@ -439,6 +439,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "kay"
 version = "0.1.0"
 dependencies = [
+ "byteorder 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "chunked 0.1.0",
  "clippy 0.0.138 (registry+https://github.com/rust-lang/crates.io-index)",
  "compact 0.1.0",

@@ -151,7 +151,7 @@ pub struct Group {
     frozen_individuals: CDict<GroupIndividualID, Geometry>,
     n_frozen_groups: usize,
     n_total_groups: usize,
-    cached_frozen_individuals_dirty: bool,
+    cached_frozen_individuals_clean_in: CDict<RendererID, ()>,
 }
 
 impl Group {
@@ -170,7 +170,7 @@ impl Group {
             living_individuals: CDict::new(),
             frozen_individuals: CDict::new(),
             n_frozen_groups: 0,
-            cached_frozen_individuals_dirty: false,
+            cached_frozen_individuals_clean_in: CDict::new(),
             n_total_groups: 0,
         }
     }
@@ -188,21 +188,21 @@ impl Group {
     pub fn freeze(&mut self, id: GroupIndividualID, _: &mut World) {
         if let Some(geometry) = self.living_individuals.remove(id) {
             self.frozen_individuals.insert(id, geometry);
-            self.cached_frozen_individuals_dirty = true;
+            self.cached_frozen_individuals_clean_in = CDict::new();
         }
     }
 
     pub fn unfreeze(&mut self, id: GroupIndividualID, _: &mut World) {
         if let Some(geometry) = self.frozen_individuals.remove(id) {
             self.living_individuals.insert(id, geometry);
-            self.cached_frozen_individuals_dirty = true;
+            self.cached_frozen_individuals_clean_in = CDict::new();
         }
     }
 
     pub fn remove(&mut self, id: GroupIndividualID, _: &mut World) {
         self.living_individuals.remove(id);
         if self.frozen_individuals.remove(id).is_some() {
-            self.cached_frozen_individuals_dirty = true;
+            self.cached_frozen_individuals_clean_in = CDict::new();
         };
     }
 }
@@ -219,7 +219,10 @@ impl Renderable for Group {
             id.render_to_group(self.id, self.individual_id, world);
         }
 
-        if self.cached_frozen_individuals_dirty {
+        if self.cached_frozen_individuals_clean_in
+            .get(renderer_id)
+            .is_none()
+        {
             let cached_frozen_individuals_grouped = self.frozen_individuals
                 .values()
                 .cloned()
@@ -230,7 +233,10 @@ impl Renderable for Group {
                 } else {
                     Ok(a + b)
                 });
-            self.cached_frozen_individuals_dirty = false;
+            self.cached_frozen_individuals_clean_in.insert(
+                renderer_id,
+                (),
+            );
 
             self.n_frozen_groups = 0;
 

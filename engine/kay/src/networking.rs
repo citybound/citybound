@@ -6,6 +6,7 @@ use super::inbox::Inbox;
 use super::id::{ID, broadcast_machine_id};
 use super::type_registry::ShortTypeId;
 use super::messaging::{Message, Packet};
+use byteorder::{LittleEndian, WriteBytesExt, ByteOrder};
 use compact::Compact;
 
 pub struct Networking {
@@ -93,23 +94,13 @@ impl Networking {
             // write total size (message type + packet)
             connection
                 .stream
-                .write_all(unsafe {
-                    ::std::slice::from_raw_parts(
-                        &total_size as *const usize as *const u8,
-                        ::std::mem::size_of::<usize>(),
-                    )
-                })
+                .write_u64::<LittleEndian>(total_size as u64)
                 .unwrap();
 
             // write message type
             connection
                 .stream
-                .write_all(unsafe {
-                    ::std::slice::from_raw_parts(
-                        &message_type_id as *const ShortTypeId as *const u8,
-                        ::std::mem::size_of::<ShortTypeId>(),
-                    )
-                })
+                .write_u16::<LittleEndian>(message_type_id.into())
                 .unwrap();
 
             // write packet
@@ -127,53 +118,85 @@ pub struct Connection {
 
 impl Connection {
     pub fn new(stream: TcpStream, is_client: bool) -> Connection {
+        stream.set_nonblocking(true).unwrap();
         Connection {
             stream,
-            reading_state: ReadingState::AwaitingLength,
+            reading_state: ReadingState::AwaitingLength(0, [0; 8]),
             is_client,
         }
     }
 }
 
 pub enum ReadingState {
-    AwaitingLength,
-    AwaitingPacketOfLength(usize),
+    AwaitingLength(usize, [u8; 8]),
+    AwaitingPacket(usize, Vec<u8>),
 }
 
 impl Connection {
     pub fn try_receive(&mut self, inboxes: &mut [Option<Inbox>]) {
-        self.reading_state = match self.reading_state {
-            ReadingState::AwaitingLength => {
-                let mut length_buf = [0u8; 8];
-                match self.stream.read_exact(&mut length_buf) {
-                    Ok(()) => ReadingState::AwaitingPacketOfLength(unsafe { ::std::mem::transmute(length_buf) }),
-                    Err(ref e) if e.kind() == ErrorKind::WouldBlock => ReadingState::AwaitingLength,
-                    Err(e) => panic!("{}", e),
-                }
-            }
-            ReadingState::AwaitingPacketOfLength(length) => {
-                let mut buf = vec![0u8; length];
-                match self.stream.read_exact(&mut buf) {
-                    Ok(()) => {
-                        // let message_type_id = (&buf[0] as *const u8) as *const ShortTypeId;
-                        let recipient_type_id = (&buf[::std::mem::size_of::<ShortTypeId>()] as *const u8) as *const ID;
-
-                        unsafe {
-                            // println!("Receiving packet of size {}, msg {} for actor {}", length, (*message_type_id).as_usize(), (*recipient_type_id).type_id.as_usize());
-                            if let Some(ref mut inbox) = inboxes[(*recipient_type_id).type_id.as_usize()] {
-                                inbox.put_raw(&buf);
+        loop {
+            let (blocked, maybe_new_state) = match self.reading_state {
+                ReadingState::AwaitingLength(ref mut bytes_read, ref mut length_buffer) => {
+                    match self.stream.read(&mut length_buffer[*bytes_read..]) {
+                        Ok(additional_bytes_read) => {
+                            *bytes_read += additional_bytes_read;
+                            if *bytes_read == length_buffer.len() {
+                                let expeced_length = LittleEndian::read_u64(length_buffer) as usize;
+                                println!("Expecting package of length {}", expeced_length);
+                                (
+                                    false,
+                                    Some(ReadingState::AwaitingPacket(0, vec![0; expeced_length])),
+                                )
                             } else {
-                                panic!("No inbox for {:?} (coming from network)", (*recipient_type_id).type_id.as_usize())
+                                (false, None)
                             }
                         }
-
-                        ReadingState::AwaitingLength
+                        Err(ref e) if e.kind() == ErrorKind::WouldBlock => (true, None),
+                        Err(e) => panic!("{}", e),
                     }
-                    Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
-                        ReadingState::AwaitingPacketOfLength(length)
-                    }
-                    Err(e) => panic!("{}", e),
                 }
+                ReadingState::AwaitingPacket(ref mut bytes_read, ref mut packet_buffer) => {
+                    match self.stream.read(&mut packet_buffer[*bytes_read..]) {
+                        Ok(additional_bytes_read) => {
+                            *bytes_read += additional_bytes_read;
+                            if *bytes_read == packet_buffer.len() {
+                                // let message_type_id = (&buf[0] as *const u8) as *const ShortTypeId;
+                                let recipient_type_id =
+                                    (&packet_buffer[::std::mem::size_of::<ShortTypeId>()] as
+                                         *const u8) as
+                                        *const ID;
+
+                                unsafe {
+                                    // println!("Receiving packet of size {}, msg {} for actor {}", length, (*message_type_id).as_usize(), (*recipient_type_id).type_id.as_usize());
+                                    if let Some(ref mut inbox) =
+                                        inboxes[(*recipient_type_id).type_id.as_usize()]
+                                    {
+                                        inbox.put_raw(&packet_buffer);
+                                    } else {
+                                        panic!(
+                                            "No inbox for {:?} (coming from network)",
+                                            (*recipient_type_id).type_id.as_usize()
+                                        )
+                                    }
+                                }
+
+                                (false, Some(ReadingState::AwaitingLength(0, [0; 8])))
+                            } else {
+                                (false, None)
+                            }
+                        }
+                        Err(ref e) if e.kind() == ErrorKind::WouldBlock => (true, None),
+                        Err(e) => panic!("{}", e),
+                    }
+                }
+            };
+
+            if let Some(new_state) = maybe_new_state {
+                self.reading_state = new_state;
+            }
+
+            if blocked {
+                break;
             }
         }
     }

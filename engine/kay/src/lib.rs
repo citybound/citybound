@@ -27,6 +27,7 @@ extern crate compact;
 extern crate compact_macros;
 extern crate random;
 extern crate core;
+extern crate byteorder;
 
 mod inbox;
 mod slot_map;
