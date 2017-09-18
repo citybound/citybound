@@ -1,7 +1,8 @@
 use std::net::{SocketAddr, TcpStream, TcpListener};
-use std::io::{Read, Write, ErrorKind};
+use std::io::{Read, Write, ErrorKind, BufWriter, BufReader};
 use std::thread;
 use std::time::Duration;
+use chunked::{ChunkedQueue, MemChunker};
 use super::inbox::Inbox;
 use super::id::{ID, broadcast_machine_id};
 use super::type_registry::ShortTypeId;
@@ -48,15 +49,16 @@ impl Networking {
         println!("All mapped");
     }
 
-    pub fn receive(&mut self, inboxes: &mut [Option<Inbox>]) {
+    pub fn send_and_receive(&mut self, inboxes: &mut [Option<Inbox>]) {
         for maybe_connection in &mut self.network_connections {
             if let Some(ref mut connection) = *maybe_connection {
+                connection.try_send();
                 connection.try_receive(inboxes)
             }
         }
     }
 
-    pub fn send<M: Message>(&mut self, message_type_id: ShortTypeId, mut packet: Packet<M>) {
+    pub fn enqueue<M: Message>(&mut self, message_type_id: ShortTypeId, mut packet: Packet<M>) {
         let total_size = ::std::mem::size_of::<ShortTypeId>() + Compact::total_size_bytes(&packet);
         let machine_id = packet.recipient_id.machine;
 
@@ -93,18 +95,21 @@ impl Networking {
 
             // write total size (message type + packet)
             connection
-                .stream
+                .write_queue
                 .write_u64::<LittleEndian>(total_size as u64)
                 .unwrap();
 
             // write message type
             connection
-                .stream
+                .write_queue
                 .write_u16::<LittleEndian>(message_type_id.into())
                 .unwrap();
 
             // write packet
-            connection.stream.write_all(packet_buf.as_slice()).unwrap()
+            connection
+                .write_queue
+                .write_all(packet_buf.as_slice())
+                .unwrap();
         }
 
     }
@@ -112,6 +117,9 @@ impl Networking {
 
 pub struct Connection {
     stream: TcpStream,
+    read_stream: BufReader<TcpStream>,
+    write_queue: Vec<u8>,
+    write_queue_pos: usize,
     reading_state: ReadingState,
     is_client: bool,
 }
@@ -120,7 +128,10 @@ impl Connection {
     pub fn new(stream: TcpStream, is_client: bool) -> Connection {
         stream.set_nonblocking(true).unwrap();
         Connection {
+            read_stream: BufReader::new(stream.try_clone().unwrap()),
             stream,
+            write_queue: Vec::with_capacity(0),
+            write_queue_pos: 0,
             reading_state: ReadingState::AwaitingLength(0, [0; 8]),
             is_client,
         }
@@ -133,11 +144,34 @@ pub enum ReadingState {
 }
 
 impl Connection {
+    pub fn try_send(&mut self) {
+        loop {
+            match self.stream.write(
+                &mut self.write_queue[self.write_queue_pos..],
+            ) {
+                Ok(bytes_written) => {
+                    if bytes_written > 0 {
+                        self.write_queue_pos += bytes_written;
+                        let cutoff = self.write_queue.len() * 2 / 3;
+                        if cutoff > 1000 && self.write_queue_pos >= cutoff {
+                            self.write_queue.drain(..self.write_queue_pos);
+                            self.write_queue_pos = 0;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                Err(ref e) if e.kind() == ErrorKind::WouldBlock => break,
+                Err(e) => panic!("{}", e),
+            }
+        }
+    }
+
     pub fn try_receive(&mut self, inboxes: &mut [Option<Inbox>]) {
         loop {
             let (blocked, maybe_new_state) = match self.reading_state {
                 ReadingState::AwaitingLength(ref mut bytes_read, ref mut length_buffer) => {
-                    match self.stream.read(&mut length_buffer[*bytes_read..]) {
+                    match self.read_stream.read(&mut length_buffer[*bytes_read..]) {
                         Ok(additional_bytes_read) => {
                             *bytes_read += additional_bytes_read;
                             if *bytes_read == length_buffer.len() {
@@ -156,7 +190,7 @@ impl Connection {
                     }
                 }
                 ReadingState::AwaitingPacket(ref mut bytes_read, ref mut packet_buffer) => {
-                    match self.stream.read(&mut packet_buffer[*bytes_read..]) {
+                    match self.read_stream.read(&mut packet_buffer[*bytes_read..]) {
                         Ok(additional_bytes_read) => {
                             *bytes_read += additional_bytes_read;
                             if *bytes_read == packet_buffer.len() {

@@ -78,8 +78,8 @@ impl ActorSystem {
         self.networking.connect();
     }
 
-    pub fn networking_receive(&mut self) {
-        self.networking.receive(&mut self.inboxes);
+    pub fn networking_send_and_receive(&mut self) {
+        self.networking.send_and_receive(&mut self.inboxes);
     }
 
     pub fn networking_machine_id(&self) -> u8 {
@@ -180,7 +180,7 @@ impl ActorSystem {
         let global = recipient.is_global_broadcast();
 
         if !to_here || global {
-            self.networking.send(
+            self.networking.enqueue(
                 self.message_registry.get::<M>(),
                 packet.clone(),
             );
@@ -408,11 +408,6 @@ impl World {
     pub fn local_machine_id(&mut self) -> u8 {
         let system: &mut ActorSystem = unsafe { &mut *self.0 };
         system.networking.machine_id
-    }
-
-    fn networking_send<M: Message>(&mut self, message_type_id: ShortTypeId, packet: Packet<M>) {
-        let system: &mut ActorSystem = unsafe { &mut *self.0 };
-        system.networking.send(message_type_id, packet);
     }
 }
 
