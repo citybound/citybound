@@ -209,7 +209,8 @@ impl Family {
                 |entry| entry.results_counter.is_done(),
             )
         } else {
-            panic!("Received unexpected deal / should be choosing");
+            println!("Received unexpected deal / should be choosing");
+            false
         };
 
         if done {

@@ -142,7 +142,7 @@ impl Connection {
                             *bytes_read += additional_bytes_read;
                             if *bytes_read == length_buffer.len() {
                                 let expeced_length = LittleEndian::read_u64(length_buffer) as usize;
-                                println!("Expecting package of length {}", expeced_length);
+                                // println!("Expecting package of length {}", expeced_length);
                                 (
                                     false,
                                     Some(ReadingState::AwaitingPacket(0, vec![0; expeced_length])),
