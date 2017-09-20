@@ -131,52 +131,52 @@ use kay::{ActorSystem, Fate, World};
 use kay::swarm::Swarm;
 use itertools::Itertools;
 
-pub trait GroupIndividual {
-    fn render_to_group(&mut self, group: GroupID, individual_id: u16, world: &mut World);
+pub trait GrouperIndividual {
+    fn render_to_grouper(&mut self, grouper: GrouperID, individual_id: u16, world: &mut World);
 }
 
-pub struct GroupInner {
+pub struct GrouperInner {
     instance_color: [f32; 3],
     individual_id: u16,
     is_decal: bool,
-    living_individuals: HashMap<GroupIndividualID, Geometry>,
-    frozen_individuals: HashMap<GroupIndividualID, Geometry>,
+    living_individuals: HashMap<GrouperIndividualID, Geometry>,
+    frozen_individuals: HashMap<GrouperIndividualID, Geometry>,
     n_frozen_groups: usize,
     n_total_groups: usize,
     cached_frozen_individuals_clean_in: HashMap<RendererID, ()>,
 }
 
 #[derive(Compact, Clone)]
-pub struct Group {
-    id: GroupID,
-    inner: External<GroupInner>,
+pub struct Grouper {
+    id: GrouperID,
+    inner: External<GrouperInner>,
 }
 
-impl ::std::ops::Deref for Group {
-    type Target = GroupInner;
+impl ::std::ops::Deref for Grouper {
+    type Target = GrouperInner;
 
-    fn deref(&self) -> &GroupInner {
+    fn deref(&self) -> &GrouperInner {
         &self.inner
     }
 }
 
-impl ::std::ops::DerefMut for Group {
-    fn deref_mut(&mut self) -> &mut GroupInner {
+impl ::std::ops::DerefMut for Grouper {
+    fn deref_mut(&mut self) -> &mut GrouperInner {
         &mut self.inner
     }
 }
 
-impl Group {
+impl Grouper {
     pub fn spawn(
-        id: GroupID,
+        id: GrouperID,
         instance_color: &[f32; 3],
         individual_id: u16,
         is_decal: bool,
         _: &mut World,
-    ) -> Group {
-        Group {
+    ) -> Grouper {
+        Grouper {
             id,
-            inner: External::new(GroupInner {
+            inner: External::new(GrouperInner {
                 instance_color: *instance_color,
                 individual_id: individual_id,
                 is_decal: is_decal,
@@ -189,31 +189,31 @@ impl Group {
         }
     }
 
-    pub fn initial_add(&mut self, id: GroupIndividualID, world: &mut World) {
-        id.render_to_group(self.id, self.individual_id, world);
+    pub fn initial_add(&mut self, id: GrouperIndividualID, world: &mut World) {
+        id.render_to_grouper(self.id, self.individual_id, world);
     }
 
-    pub fn update(&mut self, id: GroupIndividualID, geometry: &Geometry, _: &mut World) {
+    pub fn update(&mut self, id: GrouperIndividualID, geometry: &Geometry, _: &mut World) {
         if self.frozen_individuals.get(&id).is_none() {
             self.living_individuals.insert(id, geometry.clone());
         }
     }
 
-    pub fn freeze(&mut self, id: GroupIndividualID, _: &mut World) {
+    pub fn freeze(&mut self, id: GrouperIndividualID, _: &mut World) {
         if let Some(geometry) = self.living_individuals.remove(&id) {
             self.frozen_individuals.insert(id, geometry);
             self.cached_frozen_individuals_clean_in = HashMap::new();
         }
     }
 
-    pub fn unfreeze(&mut self, id: GroupIndividualID, _: &mut World) {
+    pub fn unfreeze(&mut self, id: GrouperIndividualID, _: &mut World) {
         if let Some(geometry) = self.frozen_individuals.remove(&id) {
             self.living_individuals.insert(id, geometry);
             self.cached_frozen_individuals_clean_in = HashMap::new();
         }
     }
 
-    pub fn remove(&mut self, id: GroupIndividualID, _: &mut World) {
+    pub fn remove(&mut self, id: GrouperIndividualID, _: &mut World) {
         self.living_individuals.remove(&id);
         if self.frozen_individuals.remove(&id).is_some() {
             self.cached_frozen_individuals_clean_in = HashMap::new();
@@ -224,13 +224,13 @@ impl Group {
 use {Renderable, RendererID, RenderableID, MSG_Renderable_setup_in_scene,
      MSG_Renderable_render_to_scene};
 
-impl Renderable for Group {
+impl Renderable for Grouper {
     fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}
 
     fn render_to_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
         // TODO: this introduces 1 frame delay
         for id in self.living_individuals.keys() {
-            id.render_to_group(self.id, self.individual_id, world);
+            id.render_to_grouper(self.id, self.individual_id, world);
         }
 
         let clean_in_renderer = self.cached_frozen_individuals_clean_in
@@ -374,7 +374,7 @@ impl Batch {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<Group>::new(), |_| {});
+    system.add(Swarm::<Grouper>::new(), |_| {});
 
     auto_setup(system);
 }

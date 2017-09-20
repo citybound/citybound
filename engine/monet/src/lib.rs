@@ -20,8 +20,8 @@ mod scene;
 
 pub use glium::backend::glutin_backend::GlutinFacade;
 
-pub use geometry::{Geometry, Batch, Vertex, Instance, GroupID, GroupIndividual, GroupIndividualID,
-                   MSG_GroupIndividual_render_to_group};
+pub use geometry::{Geometry, Batch, Vertex, Instance, GrouperID, GrouperIndividual,
+                   GrouperIndividualID, MSG_GrouperIndividual_render_to_grouper};
 pub use renderer::{setup, Renderer, RendererID, Renderable, RenderableID, TargetProvider,
                    TargetProviderID, MSG_TargetProvider_submitted, Movement, EyeListener,
                    EyeListenerID, MSG_EyeListener_eye_moved, MSG_Renderable_setup_in_scene,

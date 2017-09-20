@@ -42,7 +42,7 @@ mod transport;
 mod economy;
 
 use compact::CVec;
-use monet::{RenderableID, GroupID};
+use monet::{RenderableID, GrouperID};
 use monet::glium::{DisplayBuild, glutin};
 use core::simulation::SimulatableID;
 use stagemaster::UserInterfaceID;
@@ -140,7 +140,7 @@ fn main() {
     ].into_iter()
         .map(|id| RenderableID { _raw_id: id })
         .chain(vec![
-            GroupID::global_broadcast(&mut system.world()).into(),
+            GrouperID::global_broadcast(&mut system.world()).into(),
             CurrentPlanID::local_first(&mut system.world()).into(),
         ])
         .collect();

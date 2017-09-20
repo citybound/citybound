@@ -14,7 +14,7 @@ mod car;
 #[path = "./resources/traffic_light.rs"]
 mod traffic_light;
 
-use monet::{GroupID, GroupIndividualID, MSG_GroupIndividual_render_to_group};
+use monet::{GrouperID, GrouperIndividualID, MSG_GrouperIndividual_render_to_grouper};
 
 use monet::MSG_Renderable_setup_in_scene;
 
@@ -55,7 +55,7 @@ pub fn setup(system: &mut ActorSystem) {
 
     system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
         each_lane.on(
-            |&MSG_GroupIndividual_render_to_group(group_id, individual_id),
+            |&MSG_GrouperIndividual_render_to_grouper(group_id, individual_id),
              lane,
              world| {
                 let maybe_path = if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY <
@@ -72,7 +72,7 @@ pub fn setup(system: &mut ActorSystem) {
                 };
                 if individual_id == LANE_ASPHALT_THING_ID {
                     group_id.update(
-                        GroupIndividualID { _raw_id: lane.id() },
+                        GrouperIndividualID { _raw_id: lane.id() },
                         maybe_path
                             .map(|path| {
                                 band_to_geometry(
@@ -90,7 +90,7 @@ pub fn setup(system: &mut ActorSystem) {
                     if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
                         lane.construction.length
                     {
-                        group_id.freeze(GroupIndividualID { _raw_id: lane.id() }, world);
+                        group_id.freeze(GrouperIndividualID { _raw_id: lane.id() }, world);
                     }
                 } else {
                     let left_marker = maybe_path
@@ -104,14 +104,14 @@ pub fn setup(system: &mut ActorSystem) {
                         .map(|path| band_to_geometry(&Band::new(path, 0.6), 0.1))
                         .unwrap_or_else(|| Geometry::new(vec![], vec![]));
                     group_id.update(
-                        GroupIndividualID { _raw_id: lane.id() },
+                        GrouperIndividualID { _raw_id: lane.id() },
                         left_marker + right_marker,
                         world,
                     );
                     if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
                         lane.construction.length
                     {
-                        group_id.freeze(GroupIndividualID { _raw_id: lane.id() }, world);
+                        group_id.freeze(GrouperIndividualID { _raw_id: lane.id() }, world);
                     }
                 }
 
@@ -343,7 +343,7 @@ pub fn setup(system: &mut ActorSystem) {
 
     system.extend(Swarm::<TransferLane>::subactors(|mut each_t_lane| {
         each_t_lane.on(
-            |&MSG_GroupIndividual_render_to_group(group_id, _),
+            |&MSG_GrouperIndividual_render_to_grouper(group_id, _),
              lane,
              world| {
                 let maybe_path = if lane.construction.progress -
@@ -361,7 +361,7 @@ pub fn setup(system: &mut ActorSystem) {
                 };
 
                 group_id.update(
-                    GroupIndividualID { _raw_id: lane.id() },
+                    GrouperIndividualID { _raw_id: lane.id() },
                     maybe_path
                         .map(|path| {
                             dash_path(&path, 2.0, 4.0)
@@ -375,7 +375,7 @@ pub fn setup(system: &mut ActorSystem) {
                 if lane.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY >
                     lane.construction.length
                 {
-                    group_id.freeze(GroupIndividualID { _raw_id: lane.id() }, world);
+                    group_id.freeze(GrouperIndividualID { _raw_id: lane.id() }, world);
                 }
 
                 Fate::Live
@@ -504,32 +504,32 @@ pub fn setup(system: &mut ActorSystem) {
         })
     }));
 
-    system.add(Swarm::<LaneGroupHelper>::new(), |_| {});
+    system.add(Swarm::<LaneGrouperHelper>::new(), |_| {});
 
     auto_setup(system);
 
-    let asphalt_group = GroupID::spawn(
+    let asphalt_group = GrouperID::spawn(
         [0.7, 0.7, 0.7],
         LANE_ASPHALT_THING_ID,
         false,
         &mut system.world(),
     );
 
-    let marker_group = GroupID::spawn(
+    let marker_group = GrouperID::spawn(
         [1.0, 1.0, 1.0],
         LANE_MARKER_THING_ID,
         true,
         &mut system.world(),
     );
 
-    let gaps_group = GroupID::spawn(
+    let gaps_group = GrouperID::spawn(
         [0.7, 0.7, 0.7],
         LANE_MARKER_GAPS_THING_ID,
         true,
         &mut system.world(),
     );
 
-    LaneGroupHelperID::spawn(
+    LaneGrouperHelperID::spawn(
         asphalt_group,
         marker_group,
         gaps_group,
@@ -547,88 +547,88 @@ const DEBUG_VIEW_OBSTACLES: bool = false;
 const DEBUG_VIEW_TRANSFER_OBSTACLES: bool = false;
 
 #[derive(Compact, Clone)]
-pub struct LaneGroupHelper {
-    id: LaneGroupHelperID,
-    asphalt_group: GroupID,
-    marker_group: GroupID,
-    gaps_group: GroupID,
+pub struct LaneGrouperHelper {
+    id: LaneGrouperHelperID,
+    asphalt_grouper: GrouperID,
+    marker_grouper: GrouperID,
+    gaps_grouper: GrouperID,
 }
 
-impl LaneGroupHelper {
+impl LaneGrouperHelper {
     pub fn spawn(
-        id: LaneGroupHelperID,
-        asphalt_group: GroupID,
-        marker_group: GroupID,
-        gaps_group: GroupID,
+        id: LaneGrouperHelperID,
+        asphalt_grouper: GrouperID,
+        marker_grouper: GrouperID,
+        gaps_grouper: GrouperID,
         _: &mut World,
-    ) -> LaneGroupHelper {
-        LaneGroupHelper {
+    ) -> LaneGrouperHelper {
+        LaneGrouperHelper {
             id,
-            asphalt_group,
-            marker_group,
-            gaps_group,
+            asphalt_grouper,
+            marker_grouper,
+            gaps_grouper,
         }
     }
 
     pub fn on_build(
         &mut self,
-        lane: GroupIndividualID,
+        lane: GrouperIndividualID,
         on_intersection: bool,
         world: &mut World,
     ) {
-        self.asphalt_group.initial_add(lane, world);
+        self.asphalt_grouper.initial_add(lane, world);
 
         if !on_intersection {
-            self.marker_group.initial_add(lane, world);
+            self.marker_grouper.initial_add(lane, world);
         }
     }
 
-    pub fn on_build_transfer(&mut self, lane: GroupIndividualID, world: &mut World) {
-        self.gaps_group.initial_add(lane, world);
+    pub fn on_build_transfer(&mut self, lane: GrouperIndividualID, world: &mut World) {
+        self.gaps_grouper.initial_add(lane, world);
     }
 
     pub fn on_unbuild(
         &mut self,
-        lane: GroupIndividualID,
+        lane: GrouperIndividualID,
         on_intersection: bool,
         world: &mut World,
     ) {
-        self.asphalt_group.remove(lane, world);
+        self.asphalt_grouper.remove(lane, world);
 
         if !on_intersection {
-            self.marker_group.remove(lane, world);
+            self.marker_grouper.remove(lane, world);
         }
     }
 
-    pub fn on_unbuild_transfer(&mut self, lane: GroupIndividualID, world: &mut World) {
-        self.gaps_group.remove(lane, world);
+    pub fn on_unbuild_transfer(&mut self, lane: GrouperIndividualID, world: &mut World) {
+        self.gaps_grouper.remove(lane, world);
     }
 }
 
 pub fn on_build(lane: &Lane, world: &mut World) {
-    LaneGroupHelperID::local_first(world).on_build(
-        GroupIndividualID { _raw_id: lane.id() },
+    LaneGrouperHelperID::local_first(world).on_build(
+        GrouperIndividualID { _raw_id: lane.id() },
         lane.connectivity.on_intersection,
         world,
     );
 }
 
 pub fn on_build_transfer(lane: &TransferLane, world: &mut World) {
-    LaneGroupHelperID::local_first(world).on_build_transfer(
-        GroupIndividualID { _raw_id: lane.id() },
+    LaneGrouperHelperID::local_first(world).on_build_transfer(
+        GrouperIndividualID { _raw_id: lane.id() },
         world,
     );
 }
 
 pub fn on_unbuild(lane: &Lane, world: &mut World) {
-    LaneGroupHelperID::local_first(world).on_unbuild(
-        GroupIndividualID { _raw_id: lane.id() },
+    LaneGrouperHelperID::local_first(world).on_unbuild(
+        GrouperIndividualID { _raw_id: lane.id() },
         lane.connectivity.on_intersection,
         world,
     );
 
     if DEBUG_VIEW_LANDMARKS {
-        // TODO: move this to LaneGroupHelper
+        // TODO: move this to LaneGrouperHelper
         RendererID::local_first(world).update_individual(
             0,
             4000 + lane.id().sub_actor_id as u16,
@@ -653,8 +653,8 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
 
 pub fn on_unbuild_transfer(lane: &TransferLane, world: &mut World) {
     // TODO: ugly/wrong
-    LaneGroupHelperID::local_first(world)
-        .on_unbuild_transfer(GroupIndividualID { _raw_id: lane.id() }, world);
+    LaneGrouperHelperID::local_first(world)
+        .on_unbuild_transfer(GrouperIndividualID { _raw_id: lane.id() }, world);
 }
 
 mod kay_auto;
