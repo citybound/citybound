@@ -59,18 +59,11 @@ impl Networking {
     }
 
     pub fn enqueue<M: Message>(&mut self, message_type_id: ShortTypeId, mut packet: Packet<M>) {
-        let total_size = ::std::mem::size_of::<ShortTypeId>() + Compact::total_size_bytes(&packet);
+        let packet_size = Compact::total_size_bytes(&packet);
+        let total_size = ::std::mem::size_of::<ShortTypeId>() + packet_size;
         let machine_id = packet.recipient_id.machine;
 
-        // store packet compactly in buffer
-        let mut packet_buf: Vec<u8> = vec![0; Compact::total_size_bytes(&packet)];
-
-        unsafe {
-            Compact::compact_behind(&mut packet, &mut packet_buf[0] as *mut u8 as *mut Packet<M>);
-            ::std::mem::forget(packet);
-        }
-
-        let connections: Vec<&mut Connection> = if machine_id == broadcast_machine_id() {
+        let mut connections: Vec<&mut Connection> = if machine_id == broadcast_machine_id() {
             self.network_connections
                 .iter_mut()
                 .filter_map(|maybe_connection| maybe_connection.as_mut())
@@ -85,31 +78,46 @@ impl Networking {
             ]
         };
 
-        for connection in connections {
-            // println!(
-            //     "Sending package of size {}, msg {} for actor {}",
-            //     total_size,
-            //     message_type_id.as_usize(),
-            //     packet.recipient_id.type_id.as_usize()
-            // );
+        let first_connection = connections.remove(0);
+        first_connection.write_queue.reserve(
+            ::std::mem::size_of::<u64>() +
+                total_size,
+        );
 
-            // write total size (message type + packet)
-            connection
-                .write_queue
-                .write_u64::<LittleEndian>(total_size as u64)
-                .unwrap();
+        let before_everything = first_connection.write_queue.len();
 
-            // write message type
-            connection
-                .write_queue
-                .write_u16::<LittleEndian>(message_type_id.into())
-                .unwrap();
+        // write total size (message type + packet)
+        first_connection
+            .write_queue
+            .write_u64::<LittleEndian>(total_size as u64)
+            .unwrap();
 
-            // write packet
-            connection
-                .write_queue
-                .write_all(packet_buf.as_slice())
-                .unwrap();
+        // write message type
+        first_connection
+            .write_queue
+            .write_u16::<LittleEndian>(message_type_id.into())
+            .unwrap();
+
+        let packet_pos = first_connection.write_queue.len();
+        first_connection.write_queue.resize(
+            packet_pos + packet_size,
+            0,
+        );
+
+        unsafe {
+            // store packet compactly in write queue
+            Compact::compact_behind(
+                &mut packet,
+                &mut first_connection.write_queue[packet_pos] as *mut u8 as *mut Packet<M>,
+            );
+            ::std::mem::forget(packet);
+        }
+
+        for rest_connection in connections {
+            rest_connection.write_queue.extend_from_slice(
+                &first_connection.write_queue
+                    [before_everything..],
+            );
         }
 
     }
@@ -127,8 +135,11 @@ pub struct Connection {
 impl Connection {
     pub fn new(stream: TcpStream, is_client: bool) -> Connection {
         stream.set_nonblocking(true).unwrap();
+        stream.set_read_timeout(None).unwrap();
+        stream.set_write_timeout(None).unwrap();
+        stream.set_nodelay(true).unwrap();
         Connection {
-            read_stream: BufReader::new(stream.try_clone().unwrap()),
+            read_stream: BufReader::with_capacity(1024 * 1024, stream.try_clone().unwrap()),
             stream,
             write_queue: Vec::with_capacity(0),
             write_queue_pos: 0,

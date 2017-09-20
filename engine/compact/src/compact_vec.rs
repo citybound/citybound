@@ -104,6 +104,20 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         }
     }
 
+    /// Extend from a copyable slice
+    pub fn extend_from_copy_slice(&mut self, other: &[T])
+    where
+        T: Copy,
+    {
+        while self.len + other.len() > self.cap {
+            self.double_buf();
+        }
+
+        let old_len = self.len;
+        self.len += other.len();
+        self[old_len..].copy_from_slice(other);
+    }
+
     /// Pop and return the last element, if the vector wasn't empty
     pub fn pop(&mut self) -> Option<T> {
         if self.len == 0 {

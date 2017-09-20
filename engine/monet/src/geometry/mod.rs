@@ -1,4 +1,4 @@
-
+pub use kay::External;
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
                     WithUniqueOrthogonal, Inverse, Rotate};
 
@@ -6,6 +6,7 @@ use glium::{self, index};
 use glium::backend::glutin_backend::GlutinFacade;
 
 use compact::CVec;
+use std::collections::HashMap;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
@@ -65,20 +66,13 @@ impl Clone for Geometry {
 impl ::std::ops::Add for Geometry {
     type Output = Geometry;
 
-    fn add(self, rhs: Geometry) -> Geometry {
+    fn add(mut self, rhs: Geometry) -> Geometry {
         let self_n_vertices = self.vertices.len();
-        Geometry::new(
-            self.vertices
-                .iter()
-                .chain(rhs.vertices.iter())
-                .cloned()
-                .collect(),
-            self.indices
-                .iter()
-                .cloned()
-                .chain(rhs.indices.iter().map(|i| *i + self_n_vertices as u16))
-                .collect(),
-        )
+        self.vertices.extend_from_copy_slice(&rhs.vertices);
+        self.indices.extend(rhs.indices.iter().map(|i| {
+            *i + self_n_vertices as u16
+        }));
+        self
     }
 }
 
@@ -141,17 +135,35 @@ pub trait GroupIndividual {
     fn render_to_group(&mut self, group: GroupID, individual_id: u16, world: &mut World);
 }
 
-#[derive(Compact, Clone)]
-pub struct Group {
-    id: GroupID,
+pub struct GroupInner {
     instance_color: [f32; 3],
     individual_id: u16,
     is_decal: bool,
-    living_individuals: CDict<GroupIndividualID, Geometry>,
-    frozen_individuals: CDict<GroupIndividualID, Geometry>,
+    living_individuals: HashMap<GroupIndividualID, Geometry>,
+    frozen_individuals: HashMap<GroupIndividualID, Geometry>,
     n_frozen_groups: usize,
     n_total_groups: usize,
-    cached_frozen_individuals_clean_in: CDict<RendererID, ()>,
+    cached_frozen_individuals_clean_in: HashMap<RendererID, ()>,
+}
+
+#[derive(Compact, Clone)]
+pub struct Group {
+    id: GroupID,
+    inner: External<GroupInner>,
+}
+
+impl ::std::ops::Deref for Group {
+    type Target = GroupInner;
+
+    fn deref(&self) -> &GroupInner {
+        &self.inner
+    }
+}
+
+impl ::std::ops::DerefMut for Group {
+    fn deref_mut(&mut self) -> &mut GroupInner {
+        &mut self.inner
+    }
 }
 
 impl Group {
@@ -164,14 +176,16 @@ impl Group {
     ) -> Group {
         Group {
             id,
-            instance_color: *instance_color,
-            individual_id: individual_id,
-            is_decal: is_decal,
-            living_individuals: CDict::new(),
-            frozen_individuals: CDict::new(),
-            n_frozen_groups: 0,
-            cached_frozen_individuals_clean_in: CDict::new(),
-            n_total_groups: 0,
+            inner: External::new(GroupInner {
+                instance_color: *instance_color,
+                individual_id: individual_id,
+                is_decal: is_decal,
+                living_individuals: HashMap::new(),
+                frozen_individuals: HashMap::new(),
+                n_frozen_groups: 0,
+                cached_frozen_individuals_clean_in: HashMap::new(),
+                n_total_groups: 0,
+            }),
         }
     }
 
@@ -180,29 +194,29 @@ impl Group {
     }
 
     pub fn update(&mut self, id: GroupIndividualID, geometry: &Geometry, _: &mut World) {
-        if self.frozen_individuals.get(id).is_none() {
+        if self.frozen_individuals.get(&id).is_none() {
             self.living_individuals.insert(id, geometry.clone());
         }
     }
 
     pub fn freeze(&mut self, id: GroupIndividualID, _: &mut World) {
-        if let Some(geometry) = self.living_individuals.remove(id) {
+        if let Some(geometry) = self.living_individuals.remove(&id) {
             self.frozen_individuals.insert(id, geometry);
-            self.cached_frozen_individuals_clean_in = CDict::new();
+            self.cached_frozen_individuals_clean_in = HashMap::new();
         }
     }
 
     pub fn unfreeze(&mut self, id: GroupIndividualID, _: &mut World) {
-        if let Some(geometry) = self.frozen_individuals.remove(id) {
+        if let Some(geometry) = self.frozen_individuals.remove(&id) {
             self.living_individuals.insert(id, geometry);
-            self.cached_frozen_individuals_clean_in = CDict::new();
+            self.cached_frozen_individuals_clean_in = HashMap::new();
         }
     }
 
     pub fn remove(&mut self, id: GroupIndividualID, _: &mut World) {
-        self.living_individuals.remove(id);
-        if self.frozen_individuals.remove(id).is_some() {
-            self.cached_frozen_individuals_clean_in = CDict::new();
+        self.living_individuals.remove(&id);
+        if self.frozen_individuals.remove(&id).is_some() {
+            self.cached_frozen_individuals_clean_in = HashMap::new();
         };
     }
 }
@@ -219,32 +233,73 @@ impl Renderable for Group {
             id.render_to_group(self.id, self.individual_id, world);
         }
 
-        if self.cached_frozen_individuals_clean_in
-            .get(renderer_id)
-            .is_none()
-        {
-            let cached_frozen_individuals_grouped = self.frozen_individuals
-                .values()
-                .cloned()
-                .coalesce(|a, b| if a.vertices.len() + b.vertices.len() >
-                    u16::max_value() as usize
-                {
-                    Err((a, b))
-                } else {
-                    Ok(a + b)
-                });
+        let clean_in_renderer = self.cached_frozen_individuals_clean_in
+            .get(&renderer_id)
+            .is_none();
+
+        if clean_in_renderer {
+            let new_n_frozen_groups = {
+                let cached_frozen_individuals_grouped = self.frozen_individuals
+                    .values()
+                    .cloned()
+                    .coalesce(|a, b| if a.vertices.len() + b.vertices.len() >
+                        u16::max_value() as usize
+                    {
+                        Err((a, b))
+                    } else {
+                        Ok(a + b)
+                    });
+
+
+                let mut new_n_frozen_groups = 0;
+
+                for frozen_group in cached_frozen_individuals_grouped {
+                    renderer_id.update_individual(
+                        scene_id,
+                        self.individual_id + self.n_frozen_groups as u16,
+                        frozen_group,
+                        Instance {
+                            instance_position: [0.0, 0.0, -0.1],
+                            instance_direction: [1.0, 0.0],
+                            instance_color: self.instance_color,
+                        },
+                        self.is_decal,
+                        world,
+                    );
+
+                    new_n_frozen_groups += 1;
+                }
+
+                new_n_frozen_groups
+            };
+
+            self.n_frozen_groups = new_n_frozen_groups;
+
             self.cached_frozen_individuals_clean_in.insert(
                 renderer_id,
                 (),
             );
+        }
 
-            self.n_frozen_groups = 0;
+        let mut new_n_total_groups = self.n_frozen_groups;
 
-            for frozen_group in cached_frozen_individuals_grouped {
+        {
+            let living_individual_groups = self.living_individuals.values().cloned().coalesce(
+                |a, b| if a.vertices.len() + b.vertices.len() >
+                    u16::max_value() as
+                        usize
+                {
+                    Err((a, b))
+                } else {
+                    Ok(a + b)
+                },
+            );
+
+            for living_individual_group in living_individual_groups {
                 renderer_id.update_individual(
                     scene_id,
-                    self.individual_id + self.n_frozen_groups as u16,
-                    frozen_group,
+                    self.individual_id + new_n_total_groups as u16,
+                    living_individual_group,
                     Instance {
                         instance_position: [0.0, 0.0, -0.1],
                         instance_direction: [1.0, 0.0],
@@ -254,50 +309,20 @@ impl Renderable for Group {
                     world,
                 );
 
-                self.n_frozen_groups += 1;
+                new_n_total_groups += 1;
             }
-        }
 
-        let living_individual_groups = self.living_individuals.values().cloned().coalesce(
-            |a, b| if a.vertices.len() + b.vertices.len() >
-                u16::max_value() as
-                    usize
-            {
-                Err((a, b))
-            } else {
-                Ok(a + b)
-            },
-        );
-
-        let mut new_n_total_groups = self.n_frozen_groups;
-
-        for living_individual_group in living_individual_groups {
-            renderer_id.update_individual(
-                scene_id,
-                self.individual_id + new_n_total_groups as u16,
-                living_individual_group,
-                Instance {
-                    instance_position: [0.0, 0.0, -0.1],
-                    instance_direction: [1.0, 0.0],
-                    instance_color: self.instance_color,
-                },
-                self.is_decal,
-                world,
-            );
-
-            new_n_total_groups += 1;
-        }
-
-        if new_n_total_groups > self.n_total_groups {
-            for individual_to_empty_id in new_n_total_groups..self.n_total_groups {
-                renderer_id.update_individual(
-                    scene_id,
-                    self.individual_id + individual_to_empty_id as u16,
-                    Geometry::new(vec![], vec![]),
-                    Instance::with_color([0.0, 0.0, 0.0]),
-                    self.is_decal,
-                    world,
-                );
+            if new_n_total_groups > self.n_total_groups {
+                for individual_to_empty_id in new_n_total_groups..self.n_total_groups {
+                    renderer_id.update_individual(
+                        scene_id,
+                        self.individual_id + individual_to_empty_id as u16,
+                        Geometry::new(vec![], vec![]),
+                        Instance::with_color([0.0, 0.0, 0.0]),
+                        self.is_decal,
+                        world,
+                    );
+                }
             }
         }
 

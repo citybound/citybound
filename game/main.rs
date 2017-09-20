@@ -4,8 +4,8 @@
 #![allow(dead_code)]
 // Enable this for memory tracking with Instruments/MacOS
 // and for much better stacktraces for memory issues
-#![feature(alloc_system)]
-extern crate alloc_system;
+//#![feature(alloc_system)]
+//extern crate alloc_system;
 
 extern crate ordered_float;
 extern crate itertools;
