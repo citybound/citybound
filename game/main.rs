@@ -193,6 +193,17 @@ fn main() {
             &mut system.world(),
         );
 
+        user_interface.add_debug_text(
+            "Networking turn".chars().collect(),
+            format!("{}", system.networking_n_turns())
+                .as_str()
+                .chars()
+                .collect(),
+            [0.0, 0.0, 0.0, 1.0],
+            false,
+            &mut system.world(),
+        );
+
         user_interface.process_events(&mut system.world());
 
         system.process_all_messages();
@@ -211,5 +222,7 @@ fn main() {
         user_interface.start_frame(&mut system.world());
 
         system.process_all_messages();
+
+        system.networking_finish_turn();
     }
 }

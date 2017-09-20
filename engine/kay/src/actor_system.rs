@@ -82,8 +82,16 @@ impl ActorSystem {
         self.networking.send_and_receive(&mut self.inboxes);
     }
 
+    pub fn networking_finish_turn(&mut self) {
+        self.networking.finish_turn()
+    }
+
     pub fn networking_machine_id(&self) -> u8 {
         self.networking.machine_id
+    }
+
+    pub fn networking_n_turns(&self) -> usize {
+        self.networking.n_turns
     }
 
     /// Add a new actor to the system given an initial actor state

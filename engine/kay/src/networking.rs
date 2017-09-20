@@ -12,6 +12,7 @@ use compact::Compact;
 
 pub struct Networking {
     pub machine_id: u8,
+    pub n_turns: usize,
     network: Vec<SocketAddr>,
     network_connections: Vec<Option<Connection>>,
 }
@@ -20,6 +21,7 @@ impl Networking {
     pub fn new(machine_id: u8, network: Vec<SocketAddr>) -> Networking {
         Networking {
             machine_id,
+            n_turns: 0,
             network_connections: (0..network.len()).into_iter().map(|_| None).collect(),
             network,
         }
@@ -47,6 +49,41 @@ impl Networking {
         }
 
         println!("All mapped");
+    }
+
+    pub fn finish_turn(&mut self) {
+        let mut should_sleep = None;
+
+        for maybe_connection in &mut self.network_connections {
+            if let &mut Some(Connection { n_turns, .. }) = maybe_connection {
+                if n_turns + 300 < self.n_turns {
+                    // ~5s difference
+                    should_sleep = Some((Duration::from_millis(100), n_turns));
+                }
+            }
+        }
+
+        if let Some((duration, other_n_turns)) = should_sleep {
+            println!(
+                "Sleeping to let other machine catch up ({} vs. {} turns)",
+                other_n_turns,
+                self.n_turns
+            );
+            ::std::thread::sleep(duration);
+        };
+
+        self.n_turns += 1;
+
+        for maybe_connection in &mut self.network_connections {
+            if let &mut Some(ref mut connection) = maybe_connection {
+                // write turn end, use 0 to distinguish from actual packet
+                connection.write_queue.write_u64::<LittleEndian>(0);
+                connection.write_queue.write_u64::<LittleEndian>(
+                    self.n_turns as u64,
+                );
+                connection.n_turns_since_own_turn = 0;
+            }
+        }
     }
 
     pub fn send_and_receive(&mut self, inboxes: &mut [Option<Inbox>]) {
@@ -124,6 +161,8 @@ impl Networking {
 }
 
 pub struct Connection {
+    n_turns: usize,
+    n_turns_since_own_turn: usize,
     stream: TcpStream,
     read_stream: BufReader<TcpStream>,
     write_queue: Vec<u8>,
@@ -141,6 +180,8 @@ impl Connection {
         Connection {
             read_stream: BufReader::with_capacity(1024 * 1024, stream.try_clone().unwrap()),
             stream,
+            n_turns: 0,
+            n_turns_since_own_turn: 0,
             write_queue: Vec::with_capacity(0),
             write_queue_pos: 0,
             reading_state: ReadingState::AwaitingLength(0, [0; 8]),
@@ -151,6 +192,7 @@ impl Connection {
 
 pub enum ReadingState {
     AwaitingLength(usize, [u8; 8]),
+    AwaitingTurnEnd(usize, [u8; 8]),
     AwaitingPacket(usize, Vec<u8>),
 }
 
@@ -187,11 +229,16 @@ impl Connection {
                             *bytes_read += additional_bytes_read;
                             if *bytes_read == length_buffer.len() {
                                 let expeced_length = LittleEndian::read_u64(length_buffer) as usize;
-                                // println!("Expecting package of length {}", expeced_length);
-                                (
-                                    false,
-                                    Some(ReadingState::AwaitingPacket(0, vec![0; expeced_length])),
-                                )
+                                if expeced_length > 0 {
+                                    // println!("Expecting package of length {}", expeced_length);
+                                    (
+                                        false,
+                                        Some(ReadingState::AwaitingPacket(0, vec![0; expeced_length])),
+                                    )
+                                } else {
+                                    // special marker of length == 0 means turn end comes next
+                                    (false, Some(ReadingState::AwaitingTurnEnd(0, [0; 8])))
+                                }
                             } else {
                                 (false, None)
                             }
@@ -226,6 +273,27 @@ impl Connection {
                                 }
 
                                 (false, Some(ReadingState::AwaitingLength(0, [0; 8])))
+                            } else {
+                                (false, None)
+                            }
+                        }
+                        Err(ref e) if e.kind() == ErrorKind::WouldBlock => (true, None),
+                        Err(e) => panic!("{}", e),
+                    }
+                }
+                ReadingState::AwaitingTurnEnd(ref mut bytes_read, ref mut n_turns_buffer) => {
+                    match self.read_stream.read(&mut n_turns_buffer[*bytes_read..]) {
+                        Ok(additional_bytes_read) => {
+                            *bytes_read += additional_bytes_read;
+                            if *bytes_read == n_turns_buffer.len() {
+                                self.n_turns = LittleEndian::read_u64(n_turns_buffer) as usize;
+                                self.n_turns_since_own_turn += 1;
+
+                                // pretend that we're blocked so we only ever process all messages of 3
+                                // incoming turns within one of our own turns, applying backpressure
+                                let block = self.n_turns_since_own_turn >= 3;
+
+                                (block, Some(ReadingState::AwaitingLength(0, [0; 8])))
                             } else {
                                 (false, None)
                             }
