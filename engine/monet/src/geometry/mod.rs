@@ -265,22 +265,22 @@ impl Renderable for Grouper {
                     Ok(a + b)
                 })
                 .collect();
+        }
 
-            if !self.frozen_up_to_date {
-                self.frozen_groups = self.frozen_individuals
-                    .values()
-                    .cloned()
-                    .coalesce(|a, b| if a.vertices.len() + b.vertices.len() >
-                        u16::max_value() as usize
-                    {
-                        Err((a, b))
-                    } else {
-                        Ok(a + b)
-                    })
-                    .collect();
+        if !self.frozen_up_to_date {
+            self.frozen_groups = self.frozen_individuals
+                .values()
+                .cloned()
+                .coalesce(|a, b| if a.vertices.len() + b.vertices.len() >
+                    u16::max_value() as usize
+                {
+                    Err((a, b))
+                } else {
+                    Ok(a + b)
+                })
+                .collect();
 
-                self.frozen_up_to_date = true;
-            }
+            self.frozen_up_to_date = true;
         }
 
         let mut new_renderer_state = self.renderer_state.get(&renderer_id).cloned().unwrap_or(
