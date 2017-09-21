@@ -52,6 +52,7 @@ const CHUNK_SIZE: usize = 4096 * 4096 * 4;
 
 impl<SA: SubActor + Clone> Swarm<SA> {
     /// Create an empty `Swarm`.
+    #[allow(new_without_default)]
     pub fn new() -> Self {
         let chunker = MemChunker::from_settings("", CHUNK_SIZE);
         Swarm {
@@ -373,7 +374,7 @@ impl<'a, SA: SubActor + Clone + 'static> SubActorDefiner<'a, SA> {
         F: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
     {
         self.0.on_packet(
-            move |&Packet { ref message, recipient_id }, swarm, world| {
+            move |&Packet { ref message, .. }, swarm, world| {
                 let &CreateWith(ref init_state, ref init_message): &CreateWith<
                     SA,
                     M,

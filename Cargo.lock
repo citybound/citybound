@@ -7,7 +7,6 @@ dependencies = [
  "compact 0.1.0",
  "compact_macros 0.1.0",
  "descartes 0.1.0",
- "glium 0.17.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "imgui 0.0.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "imgui-glium-renderer 0.0.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "imgui-sys 0.0.15 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -594,7 +593,6 @@ dependencies = [
  "itertools 0.5.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay 0.1.0",
  "kay_codegen 0.1.0",
- "lazy_static 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

@@ -1,7 +1,7 @@
 use kay::{ActorSystem, Fate, World};
 use kay::swarm::Swarm;
 use compact::{COption, CVec, CDict};
-use descartes::{V2, N, P2, FiniteCurve};
+use descartes::{V2, N, P2};
 use stagemaster::UserInterfaceID;
 use monet::RendererID;
 

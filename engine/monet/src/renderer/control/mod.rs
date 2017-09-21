@@ -20,7 +20,7 @@ impl Renderer {
     pub fn render(&mut self, world: &mut World) {
         let self_id = self.id;
         let current_frame = self.current_frame;
-        for (scene_id, mut scene) in self.scenes.iter_mut().enumerate() {
+        for (scene_id, scene) in self.scenes.iter_mut().enumerate() {
             for renderable in &scene.renderables {
                 renderable.render_to_scene(self_id, scene_id, current_frame, world);
             }

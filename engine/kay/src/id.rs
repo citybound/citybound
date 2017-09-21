@@ -38,8 +38,7 @@ impl ID {
     }
 
     /// Get a version of an actor ID that signals that a message
-    /// should be delivered to all sub-actors of that actor,
-    /// like in the case of a [`Swarm`](swarm/struct.Swarm.html).
+    /// should be delivered to all machine-local instances.
     pub fn local_broadcast(&self) -> ID {
         ID {
             sub_actor_id: broadcast_sub_actor_id(),
@@ -47,6 +46,8 @@ impl ID {
         }
     }
 
+    /// Get a version of an actor ID that signals that a message
+    /// should be delivered globally (to all instances on all machines).
     pub fn global_broadcast(&self) -> ID {
         ID {
             machine: broadcast_machine_id(),
@@ -54,10 +55,12 @@ impl ID {
         }
     }
 
+    /// Check whether this ID signals a local or global broadcast.
     pub fn is_broadcast(&self) -> bool {
         self.sub_actor_id == broadcast_sub_actor_id()
     }
 
+    /// Check whether this ID signals specifically a global broadcast.
     pub fn is_global_broadcast(&self) -> bool {
         self.machine == broadcast_machine_id()
     }

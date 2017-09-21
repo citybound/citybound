@@ -268,7 +268,7 @@ impl UserInterface {
                         let pressed = button_state == ElementState::Pressed;
                         self.mouse_button_state[button_idx] = pressed;
 
-                        let mouse_button_state = self.mouse_button_state.clone();
+                        let mouse_button_state = self.mouse_button_state;
                         self.imgui.set_mouse_down(&mouse_button_state);
 
                         if !self.imgui_capture_mouse {
@@ -592,7 +592,7 @@ pub fn setup(
     let events_loop = EventsLoop::new();
     let window = Display::new(window_builder, context, &events_loop).unwrap();
 
-    let mut scene = SceneDescription::new(renderables.clone().into());
+    let mut scene = SceneDescription::new(renderables);
     scene.eye.position *= 30.0;
     let renderer_id = RendererID::spawn(
         External::new(window.clone()),

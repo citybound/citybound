@@ -74,22 +74,30 @@ impl ActorSystem {
         }
     }
 
+    /// Connect to all peers in the network
     pub fn networking_connect(&mut self) {
         self.networking.connect();
     }
 
+    /// Send queued outbound messages and take incoming queued messages
+    /// and forward them to their local target recipient(s)
     pub fn networking_send_and_receive(&mut self) {
         self.networking.send_and_receive(&mut self.inboxes);
     }
 
+    /// Finish the current networking turn and wait for peers which lag behind
+    /// based on their turn number. This is the main backpressure mechanism.
     pub fn networking_finish_turn(&mut self) {
         self.networking.finish_turn()
     }
 
+    /// The machine index of this machine within the network of peers
     pub fn networking_machine_id(&self) -> u8 {
         self.networking.machine_id
     }
 
+    /// The current network turn this machine is in. Used to keep track
+    /// if this machine lags behind or runs fast compared to its peers
     pub fn networking_n_turns(&self) -> usize {
         self.networking.n_turns
     }
@@ -159,7 +167,6 @@ impl ActorSystem {
 
 
         let actor_ptr = self.actors[actor_id.as_usize()].expect("Actor not added yet") as *mut A;
-        let local_machine_id = self.networking.machine_id;
 
         self.dispatchers[actor_id.as_usize()][message_id.as_usize()] = Some(Dispatcher {
             function: Box::new(move |packet_ptr: *const (), world: &mut World| unsafe {
@@ -209,6 +216,7 @@ impl ActorSystem {
         }
     }
 
+    /// Get the base ID of a type
     pub fn id<A2: 'static>(&mut self) -> ID {
         ID::new(self.short_id::<A2>(), 0, self.networking.machine_id, 0)
     }
@@ -391,14 +399,17 @@ impl World {
         unsafe { &mut *self.0 }.send(receiver, message);
     }
 
+    /// Get the ID of the first machine-local instance of an actor.
     pub fn local_first<A2: 'static>(&mut self) -> ID {
         unsafe { &mut *self.0 }.id::<A2>()
     }
 
+    /// Get the ID for a broadcast to all machine-local instances of an actor.
     pub fn local_broadcast<A2: 'static>(&mut self) -> ID {
         unsafe { &mut *self.0 }.id::<A2>().local_broadcast()
     }
 
+    /// Get the ID for a global broadcast to all instances of an actor on all machines.
     pub fn global_broadcast<A2: 'static>(&mut self) -> ID {
         unsafe { &mut *self.0 }.id::<A2>().global_broadcast()
     }
@@ -414,6 +425,7 @@ impl World {
         unsafe { swarm.allocate_id(self.local_broadcast::<Swarm<SA>>()) }
     }
 
+    /// Get the id of the machine that we're currently in
     pub fn local_machine_id(&mut self) -> u8 {
         let system: &mut ActorSystem = unsafe { &mut *self.0 };
         system.networking.machine_id

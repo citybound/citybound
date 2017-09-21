@@ -137,7 +137,7 @@ impl Renderable for BuildingRenderer {
             ),
         ]);
         let building_circle = band_to_geometry(&Band::new(band_path, 2.0), 0.0);
-        renderer_id.add_batch(scene_id, 11111, building_circle, world);
+        renderer_id.add_batch(scene_id, 11_111, building_circle, world);
     }
 
     fn render_to_scene(
@@ -164,7 +164,7 @@ impl Renderable for Building {
     ) {
         renderer_id.add_instance(
             scene_id,
-            11111,
+            11_111,
             frame,
             Instance {
                 instance_position: [self.lot.position.x, self.lot.position.y, 0.0],

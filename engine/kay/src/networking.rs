@@ -1,8 +1,7 @@
 use std::net::{SocketAddr, TcpStream, TcpListener};
-use std::io::{Read, Write, ErrorKind, BufWriter, BufReader};
+use std::io::{Read, Write, ErrorKind, BufReader};
 use std::thread;
 use std::time::Duration;
-use chunked::{ChunkedQueue, MemChunker};
 use super::inbox::Inbox;
 use super::id::{ID, broadcast_machine_id};
 use super::type_registry::ShortTypeId;
@@ -10,14 +9,20 @@ use super::messaging::{Message, Packet};
 use byteorder::{LittleEndian, WriteBytesExt, ByteOrder};
 use compact::Compact;
 
+/// Represents all networking environment and networking state
+/// of an `ActorSystem`
 pub struct Networking {
+    /// The machine index of this machine within the network of peers
     pub machine_id: u8,
+    /// The current network turn this machine is in. Used to keep track
+    /// if this machine lags behind or runs fast compared to its peers
     pub n_turns: usize,
     network: Vec<SocketAddr>,
     network_connections: Vec<Option<Connection>>,
 }
 
 impl Networking {
+    /// Create network environment based on this machines id/index and all peer addresses (including this machine)
     pub fn new(machine_id: u8, network: Vec<SocketAddr>) -> Networking {
         Networking {
             machine_id,
@@ -27,14 +32,15 @@ impl Networking {
         }
     }
 
+    /// Connect to all peers in the network
     pub fn connect(&mut self) {
         let listener = TcpListener::bind(self.network[self.machine_id as usize]).unwrap();
 
         // first wait for all smaller machine_ids to connect
-        for (machine_id, address) in self.network.iter().enumerate() {
+        for (machine_id, _address) in self.network.iter().enumerate() {
             if machine_id < self.machine_id as usize {
                 self.network_connections[machine_id] =
-                    Some(Connection::new(listener.accept().unwrap().0, true))
+                    Some(Connection::new(listener.accept().unwrap().0))
             }
         }
 
@@ -44,18 +50,20 @@ impl Networking {
         for (machine_id, address) in self.network.iter().enumerate() {
             if machine_id > self.machine_id as usize {
                 self.network_connections[machine_id] =
-                    Some(Connection::new(TcpStream::connect(address).unwrap(), false))
+                    Some(Connection::new(TcpStream::connect(address).unwrap()))
             }
         }
 
         println!("All mapped");
     }
 
+    /// Finish the current networking turn and wait for peers which lag behind
+    /// based on their turn number. This is the main backpressure mechanism.
     pub fn finish_turn(&mut self) {
         let mut should_sleep = None;
 
         for maybe_connection in &mut self.network_connections {
-            if let &mut Some(Connection { n_turns, .. }) = maybe_connection {
+            if let Some(Connection { n_turns, .. }) = *maybe_connection {
                 if n_turns + 300 < self.n_turns {
                     // ~5s difference
                     should_sleep = Some((Duration::from_millis(100), n_turns));
@@ -75,17 +83,20 @@ impl Networking {
         self.n_turns += 1;
 
         for maybe_connection in &mut self.network_connections {
-            if let &mut Some(ref mut connection) = maybe_connection {
+            if let Some(ref mut connection) = *maybe_connection {
                 // write turn end, use 0 to distinguish from actual packet
-                connection.write_queue.write_u64::<LittleEndian>(0);
-                connection.write_queue.write_u64::<LittleEndian>(
-                    self.n_turns as u64,
-                );
+                connection.write_queue.write_u64::<LittleEndian>(0).unwrap();
+                connection
+                    .write_queue
+                    .write_u64::<LittleEndian>(self.n_turns as u64)
+                    .unwrap();
                 connection.n_turns_since_own_turn = 0;
             }
         }
     }
 
+    /// Send queued outbound messages and take incoming queued messages
+    /// and forward them to their local target recipient(s)
     pub fn send_and_receive(&mut self, inboxes: &mut [Option<Inbox>]) {
         for maybe_connection in &mut self.network_connections {
             if let Some(ref mut connection) = *maybe_connection {
@@ -95,6 +106,7 @@ impl Networking {
         }
     }
 
+    /// Enqueue a new (potentially) outbound packet
     pub fn enqueue<M: Message>(&mut self, message_type_id: ShortTypeId, mut packet: Packet<M>) {
         let packet_size = Compact::total_size_bytes(&packet);
         let total_size = ::std::mem::size_of::<ShortTypeId>() + packet_size;
@@ -168,11 +180,10 @@ pub struct Connection {
     write_queue: Vec<u8>,
     write_queue_pos: usize,
     reading_state: ReadingState,
-    is_client: bool,
 }
 
 impl Connection {
-    pub fn new(stream: TcpStream, is_client: bool) -> Connection {
+    pub fn new(stream: TcpStream) -> Connection {
         stream.set_nonblocking(true).unwrap();
         stream.set_read_timeout(None).unwrap();
         stream.set_write_timeout(None).unwrap();
@@ -185,7 +196,6 @@ impl Connection {
             write_queue: Vec::with_capacity(0),
             write_queue_pos: 0,
             reading_state: ReadingState::AwaitingLength(0, [0; 8]),
-            is_client,
         }
     }
 }
@@ -199,9 +209,7 @@ pub enum ReadingState {
 impl Connection {
     pub fn try_send(&mut self) {
         loop {
-            match self.stream.write(
-                &mut self.write_queue[self.write_queue_pos..],
-            ) {
+            match self.stream.write(&self.write_queue[self.write_queue_pos..]) {
                 Ok(bytes_written) => {
                     if bytes_written > 0 {
                         self.write_queue_pos += bytes_written;
@@ -263,7 +271,7 @@ impl Connection {
                                     if let Some(ref mut inbox) =
                                         inboxes[(*recipient_type_id).type_id.as_usize()]
                                     {
-                                        inbox.put_raw(&packet_buffer);
+                                        inbox.put_raw(packet_buffer);
                                     } else {
                                         panic!(
                                             "No inbox for {:?} (coming from network)",

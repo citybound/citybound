@@ -112,6 +112,7 @@ pub fn generate(model: &Model) -> String {
 
     quote!(
         //! This is all auto-generated. Do not touch.
+        #[allow(unused_imports)]
         use kay::{ActorSystem, ID};
         #[allow(unused_imports)]
         use kay::swarm::{Swarm, SubActor};
@@ -160,6 +161,7 @@ fn simple_actor() {
     );
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
+        #[allow(unused_imports)]
         use kay::{ActorSystem, ID};
         #[allow(unused_imports)]
         use kay::swarm::{Swarm, SubActor};
@@ -302,6 +304,7 @@ fn trait_and_impl() {
     );
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
+        #[allow(unused_imports)]
         use kay::{ActorSystem, ID};
         #[allow(unused_imports)]
         use kay::swarm::{Swarm, SubActor};

@@ -63,8 +63,8 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         let new_ptr = A::allocate::<T>(new_cap);
 
         // items should be decompacted, else internal relative pointers get messed up!
-        for i in 0..self.len() {
-            unsafe { ptr::write(new_ptr.offset(i as isize), Compact::decompact(&self[i])) };
+        for (i, item) in self.iter().enumerate() {
+            unsafe { ptr::write(new_ptr.offset(i as isize), Compact::decompact(item)) };
         }
 
         // items shouldn't be dropped here, they live on in the new backing store!

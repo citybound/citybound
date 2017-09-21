@@ -8,7 +8,7 @@ pub struct ShortTypeId(NonZero<u16>);
 
 impl ShortTypeId {
     pub fn new(id: u16) -> Option<Self> {
-        unsafe { NonZero::new(id).map(|nz_id| ShortTypeId(nz_id)) }
+        NonZero::new(id).map(ShortTypeId)
     }
 
     pub fn as_usize(&self) -> usize {

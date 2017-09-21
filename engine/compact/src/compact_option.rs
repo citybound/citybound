@@ -1,5 +1,8 @@
 use super::compact::Compact;
 
+/// A wrapper to make an `Option` of a nontrivial `Compact` possible.
+/// Unfortunately, we can't blanket-`impl` that, since that overlaps
+/// (for the compiler) with the `impl` for trivial `Copy` types...
 #[derive(Clone)]
 pub struct CompactOption<T: Compact + Clone>(pub Option<T>);
 

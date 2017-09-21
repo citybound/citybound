@@ -229,6 +229,7 @@ impl<K: Copy + Eq, V: Compact + Clone, A: Allocator> ::std::iter::Extend<(K, V)>
     }
 }
 
+#[test]
 fn elem(n: usize) -> usize {
     (n * n) as usize
 }

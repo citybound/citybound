@@ -126,7 +126,6 @@ impl<'a> ::std::iter::Sum<&'a Geometry> for Geometry {
     }
 }
 
-use compact::CDict;
 use kay::{ActorSystem, Fate, World};
 use kay::swarm::Swarm;
 use itertools::Itertools;
@@ -212,7 +211,7 @@ impl Grouper {
         if let Some(geometry) = self.living_individuals.remove(&id) {
             self.frozen_individuals.insert(id, geometry);
             self.frozen_up_to_date = false;
-            for (_renderer, state) in self.renderer_state.iter_mut() {
+            for state in self.renderer_state.values_mut() {
                 state.frozen_up_to_date = false;
             }
         }
@@ -222,7 +221,7 @@ impl Grouper {
         if let Some(geometry) = self.frozen_individuals.remove(&id) {
             self.living_individuals.insert(id, geometry);
             self.frozen_up_to_date = false;
-            for (_renderer, state) in self.renderer_state.iter_mut() {
+            for state in self.renderer_state.values_mut() {
                 state.frozen_up_to_date = false;
             }
         }
@@ -232,7 +231,7 @@ impl Grouper {
         self.living_individuals.remove(&id);
         if self.frozen_individuals.remove(&id).is_some() {
             self.frozen_up_to_date = false;
-            for (_renderer, state) in self.renderer_state.iter_mut() {
+            for state in self.renderer_state.values_mut() {
                 state.frozen_up_to_date = false;
             }
         };
