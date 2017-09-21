@@ -19,8 +19,8 @@ use monet::{GrouperID, GrouperIndividualID, MSG_GrouperIndividual_render_to_grou
 use monet::MSG_Renderable_setup_in_scene;
 
 const LANE_ASPHALT_THING_ID: u16 = 2000;
-const LANE_MARKER_THING_ID: u16 = 2100;
-const LANE_MARKER_GAPS_THING_ID: u16 = 2200;
+const LANE_MARKER_THING_ID: u16 = 2200;
+const LANE_MARKER_GAPS_THING_ID: u16 = 2400;
 
 pub fn setup(system: &mut ActorSystem) {
 

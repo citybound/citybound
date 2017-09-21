@@ -292,21 +292,25 @@ impl Renderable for Grouper {
         );
 
         for (i, living_group) in self.living_groups.iter().enumerate() {
-            renderer_id.update_individual(
-                scene_id,
-                self.base_individual_id + i as u16,
-                living_group.clone(),
-                Instance {
-                    instance_position: [0.0, 0.0, -0.1],
-                    instance_direction: [1.0, 0.0],
-                    instance_color: self.instance_color,
-                },
-                self.is_decal,
-                world,
-            );
+            if (i as u16) < FROZEN_OFFSET {
+                renderer_id.update_individual(
+                    scene_id,
+                    self.base_individual_id + i as u16,
+                    living_group.clone(),
+                    Instance {
+                        instance_position: [0.0, 0.0, -0.1],
+                        instance_direction: [1.0, 0.0],
+                        instance_color: self.instance_color,
+                    },
+                    self.is_decal,
+                    world,
+                );
+            }
         }
 
-        for i in self.living_groups.len()..new_renderer_state.n_living_groups {
+        for i in self.living_groups.len()..
+            ::std::cmp::min(new_renderer_state.n_living_groups, FROZEN_OFFSET as usize)
+        {
             renderer_id.update_individual(
                 scene_id,
                 self.base_individual_id + i as u16,
@@ -319,7 +323,7 @@ impl Renderable for Grouper {
 
         new_renderer_state.n_living_groups = self.living_groups.len();
 
-        const FROZEN_OFFSET: u16 = 50;
+        const FROZEN_OFFSET: u16 = 100;
 
         if !new_renderer_state.frozen_up_to_date {
             for (i, frozen_group) in self.frozen_groups.iter().enumerate() {
