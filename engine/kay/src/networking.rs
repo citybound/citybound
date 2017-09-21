@@ -22,7 +22,8 @@ pub struct Networking {
 }
 
 impl Networking {
-    /// Create network environment based on this machines id/index and all peer addresses (including this machine)
+    /// Create network environment based on this machines id/index
+    /// and all peer addresses (including this machine)
     pub fn new(machine_id: u8, network: Vec<SocketAddr>) -> Networking {
         Networking {
             machine_id,
@@ -236,12 +237,12 @@ impl Connection {
                         Ok(additional_bytes_read) => {
                             *bytes_read += additional_bytes_read;
                             if *bytes_read == length_buffer.len() {
-                                let expeced_length = LittleEndian::read_u64(length_buffer) as usize;
-                                if expeced_length > 0 {
-                                    // println!("Expecting package of length {}", expeced_length);
+                                let length = LittleEndian::read_u64(length_buffer) as usize;
+                                if length > 0 {
+                                    // println!("Expecting package of length {}", length);
                                     (
                                         false,
-                                        Some(ReadingState::AwaitingPacket(0, vec![0; expeced_length])),
+                                        Some(ReadingState::AwaitingPacket(0, vec![0; length])),
                                     )
                                 } else {
                                     // special marker of length == 0 means turn end comes next
@@ -260,14 +261,17 @@ impl Connection {
                         Ok(additional_bytes_read) => {
                             *bytes_read += additional_bytes_read;
                             if *bytes_read == packet_buffer.len() {
-                                // let message_type_id = (&buf[0] as *const u8) as *const ShortTypeId;
+                                // let message_type_id =
+                                //               (&buf[0] as *const u8) as *const ShortTypeId;
                                 let recipient_type_id =
                                     (&packet_buffer[::std::mem::size_of::<ShortTypeId>()] as
                                          *const u8) as
                                         *const ID;
 
                                 unsafe {
-                                    // println!("Receiving packet of size {}, msg {} for actor {}", length, (*message_type_id).as_usize(), (*recipient_type_id).type_id.as_usize());
+                                    // println!("Receiving packet of size {}, msg {} for actor {}",
+                                    //              length, (*message_type_id).as_usize(),
+                                    //              (*recipient_type_id).type_id.as_usize());
                                     if let Some(ref mut inbox) =
                                         inboxes[(*recipient_type_id).type_id.as_usize()]
                                     {
@@ -297,8 +301,9 @@ impl Connection {
                                 self.n_turns = LittleEndian::read_u64(n_turns_buffer) as usize;
                                 self.n_turns_since_own_turn += 1;
 
-                                // pretend that we're blocked so we only ever process all messages of 3
-                                // incoming turns within one of our own turns, applying backpressure
+                                // pretend that we're blocked so we only ever process all
+                                // messages of 3 incoming turns within one of our own turns,
+                                // applying backpressure
                                 let block = self.n_turns_since_own_turn >= 3;
 
                                 (block, Some(ReadingState::AwaitingLength(0, [0; 8])))

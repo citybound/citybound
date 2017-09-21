@@ -353,9 +353,10 @@ pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
         each_lane.on(|_: &ConfirmDisconnect, lane, world| {
             lane.construction.disconnects_remaining -= 1;
             if lane.construction.disconnects_remaining == 0 {
-                lane.construction.unbuilding_for.expect(
-                        "should be unbuilding",
-                    ).on_lane_unbuilt(Some(lane.id()), world);
+                lane.construction
+                    .unbuilding_for
+                    .expect("should be unbuilding")
+                    .on_lane_unbuilt(Some(lane.id()), world);
                 Fate::Die
             } else {
                 Fate::Live
@@ -517,9 +518,10 @@ pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
         each_t_lane.on(|_: &ConfirmDisconnect, lane, world| {
             lane.construction.disconnects_remaining -= 1;
             if lane.construction.disconnects_remaining == 0 {
-                lane.construction.unbuilding_for.expect(
-                        "should be unbuilding",
-                    ).on_lane_unbuilt(Some(lane.id()), world);
+                lane.construction
+                    .unbuilding_for
+                    .expect("should be unbuilding")
+                    .on_lane_unbuilt(Some(lane.id()), world);
                 Fate::Die
             } else {
                 Fate::Live
@@ -586,6 +588,6 @@ pub struct ConfirmDisconnect;
 pub struct Unbuild {
     pub report_to: MaterializedRealityID,
 }
-use self::materialized_reality::{MaterializedRealityID};
+use self::materialized_reality::MaterializedRealityID;
 
 use economy::buildings::{FindLot, Lot};

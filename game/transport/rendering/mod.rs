@@ -54,72 +54,72 @@ pub fn setup(system: &mut ActorSystem) {
     });
 
     system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
-        each_lane.on(
-            |&MSG_GrouperIndividual_render_to_grouper(group_id, individual_id),
-             lane,
-             world| {
-                let maybe_path = if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY <
+        each_lane.on(|&MSG_GrouperIndividual_render_to_grouper(group_id,
+                                                  individual_id),
+         lane,
+         world| {
+            let maybe_path = if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY <
+                lane.construction.length
+            {
+                lane.construction.path.subsection(
+                    0.0,
+                    (lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY)
+                        .max(0.0),
+                )
+            } else {
+                Some(lane.construction.path.clone())
+            };
+            if individual_id == LANE_ASPHALT_THING_ID {
+                group_id.update(
+                    GrouperIndividualID { _raw_id: lane.id() },
+                    maybe_path
+                        .map(|path| {
+                            band_to_geometry(
+                                &Band::new(path, 6.0),
+                                if lane.connectivity.on_intersection {
+                                    0.2
+                                } else {
+                                    0.0
+                                },
+                            )
+                        })
+                        .unwrap_or_else(|| Geometry::new(vec![], vec![])),
+                    world,
+                );
+                if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
                     lane.construction.length
                 {
-                    lane.construction.path.subsection(
-                        0.0,
-                        (lane.construction.progress -
-                            CONSTRUCTION_ANIMATION_DELAY)
-                            .max(0.0),
-                    )
-                } else {
-                    Some(lane.construction.path.clone())
-                };
-                if individual_id == LANE_ASPHALT_THING_ID {
-                    group_id.update(
-                        GrouperIndividualID { _raw_id: lane.id() },
-                        maybe_path
-                            .map(|path| {
-                                band_to_geometry(
-                                    &Band::new(path, 6.0),
-                                    if lane.connectivity.on_intersection {
-                                        0.2
-                                    } else {
-                                        0.0
-                                    },
-                                )
-                            })
-                            .unwrap_or_else(|| Geometry::new(vec![], vec![])),
-                        world,
-                    );
-                    if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
-                        lane.construction.length
-                    {
-                        group_id.freeze(GrouperIndividualID { _raw_id: lane.id() }, world);
-                    }
-                } else {
-                    let left_marker = maybe_path
-                        .clone()
-                        .and_then(|path| path.shift_orthogonally(2.5))
-                        .map(|path| band_to_geometry(&Band::new(path, 0.6), 0.1))
-                        .unwrap_or_else(|| Geometry::new(vec![], vec![]));
-
-                    let right_marker = maybe_path
-                        .and_then(|path| path.shift_orthogonally(-2.5))
-                        .map(|path| band_to_geometry(&Band::new(path, 0.6), 0.1))
-                        .unwrap_or_else(|| Geometry::new(vec![], vec![]));
-                    group_id.update(
-                        GrouperIndividualID { _raw_id: lane.id() },
-                        left_marker + right_marker,
-                        world,
-                    );
-                    if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
-                        lane.construction.length
-                    {
-                        group_id.freeze(GrouperIndividualID { _raw_id: lane.id() }, world);
-                    }
+                    group_id.freeze(GrouperIndividualID { _raw_id: lane.id() }, world);
                 }
+            } else {
+                let left_marker = maybe_path
+                    .clone()
+                    .and_then(|path| path.shift_orthogonally(2.5))
+                    .map(|path| band_to_geometry(&Band::new(path, 0.6), 0.1))
+                    .unwrap_or_else(|| Geometry::new(vec![], vec![]));
 
-                Fate::Live
-            },
-        );
+                let right_marker = maybe_path
+                    .and_then(|path| path.shift_orthogonally(-2.5))
+                    .map(|path| band_to_geometry(&Band::new(path, 0.6), 0.1))
+                    .unwrap_or_else(|| Geometry::new(vec![], vec![]));
+                group_id.update(
+                    GrouperIndividualID { _raw_id: lane.id() },
+                    left_marker + right_marker,
+                    world,
+                );
+                if lane.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
+                    lane.construction.length
+                {
+                    group_id.freeze(GrouperIndividualID { _raw_id: lane.id() }, world);
+                }
+            }
 
-        each_lane.on(|&MSG_Renderable_render_to_scene(renderer_id, scene_id, frame),
+            Fate::Live
+        });
+
+        each_lane.on(|&MSG_Renderable_render_to_scene(renderer_id,
+                                         scene_id,
+                                         frame),
          lane,
          world| {
             let mut cars_iter = lane.microtraffic.cars.iter();
@@ -342,47 +342,46 @@ pub fn setup(system: &mut ActorSystem) {
     });
 
     system.extend(Swarm::<TransferLane>::subactors(|mut each_t_lane| {
-        each_t_lane.on(
-            |&MSG_GrouperIndividual_render_to_grouper(group_id, _),
-             lane,
-             world| {
-                let maybe_path = if lane.construction.progress -
-                    2.0 * CONSTRUCTION_ANIMATION_DELAY <
-                    lane.construction.length
-                {
-                    lane.construction.path.subsection(
-                        0.0,
-                        (lane.construction.progress -
-                             2.0 * CONSTRUCTION_ANIMATION_DELAY)
-                            .max(0.0),
-                    )
-                } else {
-                    Some(lane.construction.path.clone())
-                };
+        each_t_lane.on(|&MSG_GrouperIndividual_render_to_grouper(group_id, _),
+         lane,
+         world| {
+            let maybe_path = if lane.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY <
+                lane.construction.length
+            {
+                lane.construction.path.subsection(
+                    0.0,
+                    (lane.construction.progress -
+                         2.0 * CONSTRUCTION_ANIMATION_DELAY)
+                        .max(0.0),
+                )
+            } else {
+                Some(lane.construction.path.clone())
+            };
 
-                group_id.update(
-                    GrouperIndividualID { _raw_id: lane.id() },
-                    maybe_path
-                        .map(|path| {
-                            dash_path(&path, 2.0, 4.0)
-                                .into_iter()
-                                .map(|dash| band_to_geometry(&Band::new(dash, 0.8), 0.2))
-                                .sum()
-                        })
-                        .unwrap_or_else(|| Geometry::new(vec![], vec![])),
-                    world,
-                );
-                if lane.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY >
-                    lane.construction.length
-                {
-                    group_id.freeze(GrouperIndividualID { _raw_id: lane.id() }, world);
-                }
+            group_id.update(
+                GrouperIndividualID { _raw_id: lane.id() },
+                maybe_path
+                    .map(|path| {
+                        dash_path(&path, 2.0, 4.0)
+                            .into_iter()
+                            .map(|dash| band_to_geometry(&Band::new(dash, 0.8), 0.2))
+                            .sum()
+                    })
+                    .unwrap_or_else(|| Geometry::new(vec![], vec![])),
+                world,
+            );
+            if lane.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY >
+                lane.construction.length
+            {
+                group_id.freeze(GrouperIndividualID { _raw_id: lane.id() }, world);
+            }
 
-                Fate::Live
-            },
-        );
+            Fate::Live
+        });
 
-        each_t_lane.on(|&MSG_Renderable_render_to_scene(renderer_id, scene_id, frame),
+        each_t_lane.on(|&MSG_Renderable_render_to_scene(renderer_id,
+                                         scene_id,
+                                         frame),
          lane,
          world| {
             let mut cars_iter = lane.microtraffic.cars.iter();
@@ -531,12 +530,7 @@ pub fn setup(system: &mut ActorSystem) {
         &mut system.world(),
     );
 
-    LaneGrouperHelperID::spawn(
-        asphalt_group,
-        marker_group,
-        gaps_group,
-        &mut system.world(),
-    );
+    LaneGrouperHelperID::spawn(asphalt_group, marker_group, gaps_group, &mut system.world());
 }
 
 const CONSTRUCTION_ANIMATION_DELAY: f32 = 120.0;
@@ -617,7 +611,9 @@ pub fn on_build(lane: &Lane, world: &mut World) {
 
 pub fn on_build_transfer(lane: &TransferLane, world: &mut World) {
     LaneGrouperHelperID::local_first(world).on_build_transfer(
-        GrouperIndividualID { _raw_id: lane.id() },
+        GrouperIndividualID {
+            _raw_id: lane.id(),
+        },
         world,
     );
 }
