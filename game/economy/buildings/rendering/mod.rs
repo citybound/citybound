@@ -2,7 +2,8 @@ use descartes::{P2, V2, Band, Segment, Path, Circle};
 use compact::CVec;
 use kay::{ActorSystem, Fate, World, External};
 use kay::swarm::Swarm;
-use monet::{Instance, MSG_Renderable_setup_in_scene, MSG_Renderable_render_to_scene};
+use monet::{Instance, RendererID, Renderable, RenderableID, MSG_Renderable_setup_in_scene,
+            MSG_Renderable_render_to_scene};
 use stagemaster::geometry::{CPath, band_to_geometry, AnyShape};
 use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID, Interactable2d,
                   Interactable2dID, MSG_Interactable3d_on_event, MSG_Interactable2d_draw_ui_2d};
@@ -110,56 +111,78 @@ impl Interactable3d for Building {
     }
 }
 
-pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) {
-    // TODO: pull out into newstyle BuildingRenderer
-    system.extend::<Swarm<Building>, _>(|mut buildings_swarm| {
-        buildings_swarm.on(|&MSG_Renderable_setup_in_scene(renderer_id, scene_id),
-         _,
-         world| {
-            let band_path = CPath::new(vec![
-                Segment::arc_with_direction(
-                    P2::new(5.0, 0.0),
-                    V2::new(0.0, 1.0),
-                    P2::new(-5.0, 0.0)
-                ),
-                Segment::arc_with_direction(
-                    P2::new(-5.0, 0.0),
-                    V2::new(0.0, -1.0),
-                    P2::new(5.0, 0.0)
-                ),
-            ]);
-            let building_circle = band_to_geometry(&Band::new(band_path, 2.0), 0.0);
-            renderer_id.add_batch(scene_id, 11111, building_circle, world);
+#[derive(Compact, Clone)]
+pub struct BuildingRenderer {
+    id: BuildingRendererID,
+}
 
-            Fate::Live
-        });
-    });
+impl BuildingRenderer {
+    pub fn spawn(id: BuildingRendererID, _: &mut World) -> BuildingRenderer {
+        BuildingRenderer { id }
+    }
+}
 
-    system.extend(Swarm::<Building>::subactors(|mut each_building| {
-        each_building.on(|&MSG_Renderable_render_to_scene(renderer_id,
-                                         scene_id,
-                                         frame),
-         building,
-         world| {
-            renderer_id.add_instance(
-                scene_id,
-                11111,
-                frame,
-                Instance {
-                    instance_position: [building.lot.position.x, building.lot.position.y, 0.0],
-                    instance_direction: [1.0, 0.0],
-                    instance_color: [0.8, 0.5, 0.0],
-                },
-                world,
-            );
-            Fate::Live
-        });
-    }));
+impl Renderable for BuildingRenderer {
+    fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
+        let band_path = CPath::new(vec![
+            Segment::arc_with_direction(
+                P2::new(5.0, 0.0),
+                V2::new(0.0, 1.0),
+                P2::new(-5.0, 0.0)
+            ),
+            Segment::arc_with_direction(
+                P2::new(-5.0, 0.0),
+                V2::new(0.0, -1.0),
+                P2::new(5.0, 0.0)
+            ),
+        ]);
+        let building_circle = band_to_geometry(&Band::new(band_path, 2.0), 0.0);
+        renderer_id.add_batch(scene_id, 11111, building_circle, world);
+    }
 
+    fn render_to_scene(
+        &mut self,
+        renderer_id: RendererID,
+        scene_id: usize,
+        frame: usize,
+        world: &mut World,
+    ) {
+        let renderable_buildings: RenderableID = BuildingID::local_broadcast(world).into();
+        renderable_buildings.render_to_scene(renderer_id, scene_id, frame, world);
+    }
+}
+
+impl Renderable for Building {
+    fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}
+
+    fn render_to_scene(
+        &mut self,
+        renderer_id: RendererID,
+        scene_id: usize,
+        frame: usize,
+        world: &mut World,
+    ) {
+        renderer_id.add_instance(
+            scene_id,
+            11111,
+            frame,
+            Instance {
+                instance_position: [self.lot.position.x, self.lot.position.y, 0.0],
+                instance_direction: [1.0, 0.0],
+                instance_color: [0.8, 0.5, 0.0],
+            },
+            world,
+        );
+    }
+}
+
+pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) -> BuildingRendererID {
     system.add(Swarm::<BuildingInspector>::new(), |_| {});
+    system.add(Swarm::<BuildingRenderer>::new(), |_| {});
     auto_setup(system);
 
     BuildingInspectorID::spawn(user_interface, &mut system.world());
+    BuildingRendererID::spawn(&mut system.world())
 }
 
 pub fn on_add(building_id: BuildingID, pos: P2, world: &mut World) {

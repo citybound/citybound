@@ -50,7 +50,7 @@ use transport::lane::{Lane, TransferLane};
 use transport::planning::current_plan::CurrentPlanID;
 use economy::households::family::FamilyID;
 use economy::households::tasks::TaskEndSchedulerID;
-use economy::buildings::Building;
+use economy::buildings::rendering::BuildingRendererID;
 use kay::swarm::Swarm;
 use kay::Networking;
 use std::any::Any;
@@ -136,12 +136,14 @@ fn main() {
     let renderables: CVec<_> = vec![
         system.world().global_broadcast::<Swarm<Lane>>(),
         system.world().global_broadcast::<Swarm<TransferLane>>(),
-        system.world().global_broadcast::<Swarm<Building>>(),
     ].into_iter()
         .map(|id| RenderableID { _raw_id: id })
         .chain(vec![
             GrouperID::global_broadcast(&mut system.world()).into(),
             CurrentPlanID::local_first(&mut system.world()).into(),
+            BuildingRendererID::global_broadcast(
+                &mut system.world()
+            ).into(),
         ])
         .collect();
     let (user_interface, renderer) = stagemaster::setup(&mut system, renderables, *ENV, window);
