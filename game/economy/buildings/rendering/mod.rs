@@ -136,12 +136,15 @@ pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) {
     });
 
     system.extend(Swarm::<Building>::subactors(|mut each_building| {
-        each_building.on(|&MSG_Renderable_render_to_scene(renderer_id, scene_id),
+        each_building.on(|&MSG_Renderable_render_to_scene(renderer_id,
+                                         scene_id,
+                                         frame),
          building,
          world| {
             renderer_id.add_instance(
                 scene_id,
                 11111,
+                frame,
                 Instance {
                     instance_position: [building.lot.position.x, building.lot.position.y, 0.0],
                     instance_direction: [1.0, 0.0],

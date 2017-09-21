@@ -25,6 +25,7 @@ pub struct Renderer {
 }
 
 pub struct RendererState {
+    pub current_frame: usize,
     pub scenes: Vec<Scene>,
     pub render_context: RenderContext,
 }
@@ -54,6 +55,7 @@ impl Renderer {
         Renderer {
             id: id,
             inner: External::new(RendererState {
+                current_frame: 0,
                 scenes: scenes
                     .iter()
                     .map(|description| description.to_scene())
@@ -109,15 +111,18 @@ impl Renderer {
         &mut self,
         scene_id: usize,
         batch_id: u16,
+        frame: usize,
         instance: Instance,
         _: &mut World,
     ) {
-        self.scenes[scene_id]
-            .batches
-            .get_mut(&batch_id)
-            .unwrap()
-            .instances
-            .push(instance);
+        let batch = self.scenes[scene_id].batches.get_mut(&batch_id).unwrap();
+
+        if batch.clear_every_frame && batch.frame < frame {
+            batch.instances.clear();
+            batch.frame = frame;
+        }
+
+        batch.instances.push(instance);
     }
 
     /// Critical
@@ -125,21 +130,30 @@ impl Renderer {
         &mut self,
         scene_id: usize,
         batch_id: u16,
+        frame: usize,
         instances: &CVec<Instance>,
         _: &mut World,
     ) {
-        self.scenes[scene_id]
-            .batches
-            .get_mut(&batch_id)
-            .unwrap()
-            .instances
-            .extend_from_slice(instances);
+        let batch = self.scenes[scene_id].batches.get_mut(&batch_id).unwrap();
+
+        if batch.clear_every_frame && batch.frame < frame {
+            batch.instances.clear();
+            batch.frame = frame;
+        }
+
+        batch.instances.extend_from_slice(instances);
     }
 }
 
 pub trait Renderable {
     fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World);
-    fn render_to_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World);
+    fn render_to_scene(
+        &mut self,
+        renderer_id: RendererID,
+        scene_id: usize,
+        frame: usize,
+        world: &mut World,
+    );
 }
 
 

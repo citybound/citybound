@@ -245,7 +245,13 @@ use {Renderable, RendererID, RenderableID, MSG_Renderable_setup_in_scene,
 impl Renderable for Grouper {
     fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}
 
-    fn render_to_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
+    fn render_to_scene(
+        &mut self,
+        renderer_id: RendererID,
+        scene_id: usize,
+        _frame: usize,
+        world: &mut World,
+    ) {
 
         // kinda ugly way to enforce only one update per "global" frame
         if renderer_id._raw_id.machine == self.id._raw_id.machine {
@@ -366,6 +372,7 @@ pub struct Batch {
     pub instances: Vec<Instance>,
     pub clear_every_frame: bool,
     pub is_decal: bool,
+    pub frame: usize,
 }
 
 impl Batch {
@@ -380,6 +387,7 @@ impl Batch {
             instances: Vec::new(),
             clear_every_frame: true,
             is_decal: false,
+            frame: 0,
         }
     }
 
@@ -399,6 +407,7 @@ impl Batch {
             instances: vec![instance],
             clear_every_frame: false,
             is_decal: is_decal,
+            frame: 0,
         }
     }
 }

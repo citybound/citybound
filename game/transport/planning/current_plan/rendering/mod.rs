@@ -13,7 +13,13 @@ use monet::{Renderable, RenderableID, MSG_Renderable_setup_in_scene,
 impl Renderable for CurrentPlan {
     fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}
 
-    fn render_to_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
+    fn render_to_scene(
+        &mut self,
+        renderer_id: RendererID,
+        scene_id: usize,
+        _frame: usize,
+        world: &mut World,
+    ) {
         if self.preview.is_none() {
             let preview = self.update_preview(world);
             render_strokes(&preview.plan_delta, renderer_id, scene_id, world);

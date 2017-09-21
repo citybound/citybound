@@ -119,7 +119,7 @@ pub fn setup(system: &mut ActorSystem) {
             },
         );
 
-        each_lane.on(|&MSG_Renderable_render_to_scene(renderer_id, scene_id),
+        each_lane.on(|&MSG_Renderable_render_to_scene(renderer_id, scene_id, frame),
          lane,
          world| {
             let mut cars_iter = lane.microtraffic.cars.iter();
@@ -168,7 +168,7 @@ pub fn setup(system: &mut ActorSystem) {
             }
 
             if !car_instances.is_empty() {
-                renderer_id.add_several_instances(scene_id, 8000, car_instances, world);
+                renderer_id.add_several_instances(scene_id, 8000, frame, car_instances, world);
             }
             // no traffic light for u-turn
             if lane.connectivity.on_intersection &&
@@ -206,7 +206,7 @@ pub fn setup(system: &mut ActorSystem) {
                     instance_direction: [direction.x, direction.y],
                     instance_color: [0.1, 0.1, 0.1],
                 };
-                renderer_id.add_instance(scene_id, 8001, instance, world);
+                renderer_id.add_instance(scene_id, 8001, frame, instance, world);
 
                 if lane.microtraffic.yellow_to_red && lane.microtraffic.green {
                     let instance = Instance {
@@ -214,14 +214,14 @@ pub fn setup(system: &mut ActorSystem) {
                         instance_direction: [direction.x, direction.y],
                         instance_color: [1.0, 0.8, 0.0],
                     };
-                    renderer_id.add_instance(scene_id, batch_id, instance, world)
+                    renderer_id.add_instance(scene_id, batch_id, frame, instance, world)
                 } else if lane.microtraffic.green {
                     let instance = Instance {
                         instance_position: [position.x, position.y, 6.1],
                         instance_direction: [direction.x, direction.y],
                         instance_color: [0.0, 1.0, 0.2],
                     };
-                    renderer_id.add_instance(scene_id, batch_id, instance, world)
+                    renderer_id.add_instance(scene_id, batch_id, frame, instance, world)
                 }
 
                 if !lane.microtraffic.green {
@@ -230,7 +230,7 @@ pub fn setup(system: &mut ActorSystem) {
                         instance_direction: [direction.x, direction.y],
                         instance_color: [1.0, 0.0, 0.0],
                     };
-                    renderer_id.add_instance(scene_id, batch_id, instance, world);
+                    renderer_id.add_instance(scene_id, batch_id, frame, instance, world);
 
                     if lane.microtraffic.yellow_to_green {
                         let instance = Instance {
@@ -238,7 +238,7 @@ pub fn setup(system: &mut ActorSystem) {
                             instance_direction: [direction.x, direction.y],
                             instance_color: [1.0, 0.8, 0.0],
                         };
-                        renderer_id.add_instance(scene_id, batch_id, instance, world)
+                        renderer_id.add_instance(scene_id, batch_id, frame, instance, world)
                     }
                 }
             }
@@ -279,7 +279,7 @@ pub fn setup(system: &mut ActorSystem) {
                     instance_direction: [1.0, 0.0],
                     instance_color: [1.0, 0.0, 0.0],
                 };
-                renderer_id.add_instance(scene_id, 1333, instance, world);
+                renderer_id.add_instance(scene_id, 1333, frame, instance, world);
             }
 
             let has_previous = lane.connectivity.interactions.iter().any(|inter| {
@@ -298,7 +298,7 @@ pub fn setup(system: &mut ActorSystem) {
                     instance_direction: [1.0, 0.0],
                     instance_color: [0.0, 1.0, 0.0],
                 };
-                renderer_id.add_instance(scene_id, 1333, instance, world);
+                renderer_id.add_instance(scene_id, 1333, frame, instance, world);
             }
 
             if DEBUG_VIEW_LANDMARKS && lane.pathfinding.routes_changed {
@@ -382,7 +382,7 @@ pub fn setup(system: &mut ActorSystem) {
             },
         );
 
-        each_t_lane.on(|&MSG_Renderable_render_to_scene(renderer_id, scene_id),
+        each_t_lane.on(|&MSG_Renderable_render_to_scene(renderer_id, scene_id, frame),
          lane,
          world| {
             let mut cars_iter = lane.microtraffic.cars.iter();
@@ -463,7 +463,7 @@ pub fn setup(system: &mut ActorSystem) {
             }
 
             if !car_instances.is_empty() {
-                renderer_id.add_several_instances(scene_id, 8000, car_instances, world);
+                renderer_id.add_several_instances(scene_id, 8000, frame, car_instances, world);
             }
 
             if lane.connectivity.left.is_none() {
@@ -475,6 +475,7 @@ pub fn setup(system: &mut ActorSystem) {
                 renderer_id.add_instance(
                     scene_id,
                     1333,
+                    frame,
                     Instance {
                         instance_position: [position.x, position.y, 0.0],
                         instance_direction: [1.0, 0.0],
@@ -492,6 +493,7 @@ pub fn setup(system: &mut ActorSystem) {
                 renderer_id.add_instance(
                     scene_id,
                     1333,
+                    frame,
                     Instance {
                         instance_position: [position.x, position.y, 0.0],
                         instance_direction: [1.0, 0.0],
