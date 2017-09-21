@@ -1,3 +1,4 @@
+#![allow(cast_lossless)]
 // http://stackoverflow.com/a/12224359
 pub const RANDOM_COLORS: [[f32; 3]; 1022] = [
     [

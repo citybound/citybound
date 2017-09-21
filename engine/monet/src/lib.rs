@@ -18,7 +18,7 @@ mod renderer;
 mod render_context;
 mod scene;
 
-pub use glium::backend::glutin_backend::GlutinFacade;
+pub use glium::backend::glutin::Display;
 
 pub use geometry::{Geometry, Batch, Vertex, Instance, GrouperID, GrouperIndividual,
                    GrouperIndividualID, MSG_GrouperIndividual_render_to_grouper};

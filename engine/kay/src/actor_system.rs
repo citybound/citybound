@@ -223,22 +223,23 @@ impl ActorSystem {
         let mut world = World(self as *const Self as *mut Self);
 
         for (recipient_type_idx, maybe_inbox) in self.inboxes.iter_mut().enumerate() {
-            let recipient_type = ShortTypeId::new(recipient_type_idx as u16);
-            if let Some(inbox) = maybe_inbox.as_mut() {
-                for DispatchablePacket { message_type, packet_ptr } in inbox.empty() {
-                    if let Some(handler) = self.dispatchers[recipient_type.as_usize()]
-                        [message_type.as_usize()]
-                        .as_mut()
-                    {
-                        if handler.critical || !self.panic_happened {
-                            (handler.function)(packet_ptr, &mut world);
+            if let Some(recipient_type) = ShortTypeId::new(recipient_type_idx as u16) {
+                if let Some(inbox) = maybe_inbox.as_mut() {
+                    for DispatchablePacket { message_type, packet_ptr } in inbox.empty() {
+                        if let Some(handler) = self.dispatchers[recipient_type.as_usize()]
+                            [message_type.as_usize()]
+                            .as_mut()
+                        {
+                            if handler.critical || !self.panic_happened {
+                                (handler.function)(packet_ptr, &mut world);
+                            }
+                        } else {
+                            panic!(
+                                "Dispatcher not found ({} << {})",
+                                self.actor_registry.get_name(recipient_type),
+                                self.message_registry.get_name(message_type)
+                            );
                         }
-                    } else {
-                        panic!(
-                            "Dispatcher not found ({} << {})",
-                            self.actor_registry.get_name(recipient_type),
-                            self.message_registry.get_name(message_type)
-                        );
                     }
                 }
             }

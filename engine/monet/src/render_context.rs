@@ -5,19 +5,19 @@ pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, In
                     WithUniqueOrthogonal, Inverse, Rotate};
 
 use glium::Surface;
-use glium::backend::glutin_backend::GlutinFacade;
+use glium::backend::glutin::Display;
 use kay::External;
 
 use {Batch, Scene};
 
 pub struct RenderContext {
-    pub window: External<GlutinFacade>,
+    pub window: External<Display>,
     batch_program: glium::Program,
 }
 
 impl RenderContext {
     #[allow(redundant_closure)]
-    pub fn new(window: External<GlutinFacade>) -> RenderContext {
+    pub fn new(window: External<Display>) -> RenderContext {
         RenderContext {
             batch_program: program!(&*window, 140 => {
                 vertex: include_str!("shader/solid_140.glslv"),

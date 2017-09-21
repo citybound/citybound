@@ -43,7 +43,7 @@ mod economy;
 
 use compact::CVec;
 use monet::{RenderableID, GrouperID};
-use monet::glium::{DisplayBuild, glutin};
+use monet::glium::glutin;
 use core::simulation::SimulatableID;
 use stagemaster::UserInterfaceID;
 use transport::lane::{Lane, TransferLane};
@@ -128,10 +128,7 @@ fn main() {
             system.networking_machine_id()
         ))
         .with_dimensions(1024, 512)
-        .with_multitouch()
-        .with_vsync()
-        .build_glium()
-        .unwrap();
+        .with_multitouch();
 
     let renderables: CVec<_> = vec![
         system.world().global_broadcast::<Swarm<Lane>>(),

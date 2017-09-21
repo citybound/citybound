@@ -10,6 +10,8 @@ extern crate descartes;
 #[macro_use]
 extern crate imgui;
 extern crate imgui_sys;
+extern crate imgui_glium_renderer;
+extern crate glium;
 
 #[macro_use]
 extern crate serde_derive;
