@@ -1,6 +1,6 @@
 extern crate open;
 
-use kay::{World, Networking};
+use kay::{ActorSystem, World, Networking};
 use monet::glium::glutin::WindowBuilder;
 use stagemaster::UserInterfaceID;
 use std::any::Any;
@@ -78,27 +78,26 @@ pub fn print_version(user_interface: UserInterfaceID, world: &mut World) {
     );
 }
 
-pub fn print_subactor_counts(
-    subactor_counts: &str,
-    user_interface: UserInterfaceID,
-    world: &mut World,
-) {
+pub fn print_subactor_counts(system: &mut ActorSystem, user_interface: UserInterfaceID) {
     user_interface.add_debug_text(
         "Number of actors".chars().collect(),
-        subactor_counts.chars().collect(),
+        system.get_subactor_counts().as_str().chars().collect(),
         [0.0, 0.0, 0.0, 1.0],
         false,
-        world,
+        &mut system.world(),
     );
 }
 
-pub fn print_network_turn(turn: usize, user_interface: UserInterfaceID, world: &mut World) {
+pub fn print_network_turn(system: &mut ActorSystem, user_interface: UserInterfaceID) {
     user_interface.add_debug_text(
         "Networking turn".chars().collect(),
-        format!("{}", turn).as_str().chars().collect(),
+        format!("{}", system.networking_n_turns())
+            .as_str()
+            .chars()
+            .collect(),
         [0.0, 0.0, 0.0, 1.0],
         false,
-        world,
+        &mut system.world(),
     );
 }
 

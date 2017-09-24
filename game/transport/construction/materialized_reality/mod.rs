@@ -1,20 +1,22 @@
 use compact::{CDict, CVec};
-use kay::{ID, ActorSystem, Fate, World};
+use kay::{ActorSystem, World};
 use kay::swarm::Swarm;
+use super::UnbuildableID;
+use super::super::lane::LaneID;
 use super::super::planning::plan::{Plan, PlanResult, PlanDelta, LaneStrokeRef, PlanResultDelta,
                                    IntersectionRef, TrimmedStrokeRef, TransferStrokeRef,
                                    BuiltStrokes};
 use super::super::planning::current_plan::CurrentPlanID;
-use super::{Unbuild, AdvertiseForOverlaps};
+use super::super::microtraffic::LaneLikeID;
 
 #[derive(Compact, Clone)]
 pub struct MaterializedReality {
     id: MaterializedRealityID,
     current_plan: Plan,
     current_result: PlanResult,
-    built_intersection_lanes: CDict<IntersectionRef, CVec<ID>>,
-    built_trimmed_lanes: CDict<TrimmedStrokeRef, ID>,
-    built_transfer_lanes: CDict<TransferStrokeRef, ID>,
+    built_intersection_lanes: CDict<IntersectionRef, CVec<LaneID>>,
+    built_trimmed_lanes: CDict<TrimmedStrokeRef, LaneLikeID>,
+    built_transfer_lanes: CDict<TransferStrokeRef, LaneLikeID>,
     state: MaterializedRealityState,
 }
 
@@ -22,7 +24,7 @@ pub struct MaterializedReality {
 #[allow(large_enum_variant)]
 pub enum MaterializedRealityState {
     Ready(()),
-    WaitingForUnbuild(CurrentPlanID, CVec<ID>, Plan, PlanResult, PlanResultDelta),
+    WaitingForUnbuild(CurrentPlanID, CVec<LaneLikeID>, Plan, PlanResult, PlanResultDelta),
 }
 use self::MaterializedRealityState::{Ready, WaitingForUnbuild};
 
@@ -58,7 +60,7 @@ impl MaterializedReality {
 
                     for old_ref in result_delta.intersections.to_destroy.keys() {
                         for id in self.built_intersection_lanes.remove_iter(*old_ref) {
-                            ids_to_unbuild.push(id);
+                            ids_to_unbuild.push(id.into());
                         }
                     }
 
@@ -77,7 +79,9 @@ impl MaterializedReality {
                     }
 
                     for &id in &ids_to_unbuild {
-                        world.send(id, Unbuild { report_to: self.id });
+                        // TODO: ugly: untyped ID shenanigans
+                        let id_as_unbuildable: UnbuildableID = UnbuildableID { _raw_id: id._raw_id };
+                        id_as_unbuildable.unbuild(self.id, world);
                     }
 
                     self.id.on_lane_unbuilt(None, world);
@@ -92,24 +96,26 @@ impl MaterializedReality {
         }
     }
 
-    pub fn on_lane_built(&mut self, id: ID, buildable_ref: BuildableRef, world: &mut World) {
+    pub fn on_lane_built(
+        &mut self,
+        id: LaneLikeID,
+        buildable_ref: BuildableRef,
+        world: &mut World,
+    ) {
         match self.state {
             Ready(()) => {
                     match buildable_ref {
                         BuildableRef::Intersection(index) => {
+                            // TODO: ugly: raw ID shenanigans
+                            let id_as_lane: LaneID = LaneID{ _raw_id: id._raw_id};
                             if let Some(other_intersection_lanes) =
                                 self.built_intersection_lanes.get(IntersectionRef(index))
                             {
-                                world.send(
-                                    id,
-                                    AdvertiseForOverlaps {
-                                        lanes: other_intersection_lanes.clone(),
-                                    },
-                                );
+                                id_as_lane.start_connecting_overlaps(other_intersection_lanes.clone(), world);
                             }
                             self.built_intersection_lanes.push_at(
                                 IntersectionRef(index),
-                                id,
+                                id_as_lane,
                             );
                         }
                         BuildableRef::TrimmedStroke(index) => {
@@ -135,7 +141,7 @@ impl MaterializedReality {
         }
     }
 
-    pub fn on_lane_unbuilt(&mut self, maybe_id: Option<ID>, world: &mut World) {
+    pub fn on_lane_unbuilt(&mut self, maybe_id: Option<LaneLikeID>, world: &mut World) {
         let maybe_new_self = match self.state {
             WaitingForUnbuild(requester,
                               ref mut ids_to_unbuild,

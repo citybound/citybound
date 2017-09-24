@@ -1,12 +1,10 @@
 use descartes::{P2, V2, Path, Segment, Band, Curve, FiniteCurve, N, RoughlyComparable};
 use compact::CVec;
 use kay::World;
-use kay::swarm::{Swarm, CreateWith};
 use monet::Geometry;
 use stagemaster::geometry::{CPath, band_to_geometry};
 use super::super::construction::materialized_reality::{BuildableRef, MaterializedRealityID};
-use super::super::lane::{Lane, TransferLane};
-use super::super::construction::AdvertiseToTransferAndReport;
+use super::super::lane::{LaneID, TransferLaneID};
 
 #[derive(Compact, Clone)]
 pub struct LaneStroke {
@@ -186,14 +184,8 @@ impl LaneStroke {
         report_as: BuildableRef,
         world: &mut World,
     ) {
-        let local_lanes = world.local_broadcast::<Swarm<Lane>>();
-        world.send(
-            local_lanes,
-            CreateWith(
-                Lane::new(self.path().clone(), false, CVec::new()),
-                AdvertiseToTransferAndReport(report_to, report_as),
-            ),
-        );
+        let lane = LaneID::spawn(self.path().clone(), false, CVec::new(), world);
+        lane.start_connecting_and_report(report_to, report_as, world);
     }
 
     pub fn build_intersection(
@@ -203,14 +195,8 @@ impl LaneStroke {
         timings: CVec<bool>,
         world: &mut World,
     ) {
-        let local_lanes = world.local_broadcast::<Swarm<Lane>>();
-        world.send(
-            local_lanes,
-            CreateWith(
-                Lane::new(self.path().clone(), true, timings),
-                AdvertiseToTransferAndReport(report_to, report_as),
-            ),
-        );
+        let lane = LaneID::spawn(self.path().clone(), true, timings, world);
+        lane.start_connecting_and_report(report_to, report_as, world);
     }
 
     pub fn build_transfer(
@@ -219,14 +205,8 @@ impl LaneStroke {
         report_as: BuildableRef,
         world: &mut World,
     ) {
-        let local_lanes = world.local_broadcast::<Swarm<TransferLane>>();
-        world.send(
-            local_lanes,
-            CreateWith(
-                TransferLane::new(self.path().clone()),
-                AdvertiseToTransferAndReport(report_to, report_as),
-            ),
-        );
+        let transfer_lane = TransferLaneID::spawn(self.path().clone(), world);
+        transfer_lane.start_connecting_and_report(report_to, report_as, world);
     }
 }
 

@@ -98,23 +98,23 @@ impl LocationRequester for Trip {
             }
 
             if let (Some(source), Some(destination)) = (self.source, self.destination) {
-                world.send(
-                    source.node,
-                    AddCar {
-                        car: LaneCar {
-                            trip: self.id,
-                            as_obstacle: Obstacle {
-                                position: OrderedFloat(-1.0),
-                                velocity: 0.0,
-                                max_velocity: 15.0,
-                            },
-                            acceleration: 0.0,
-                            destination: destination,
-                            next_hop_interaction: 0,
+                // TODO: ugly: untyped ID shenanigans
+                let source_as_lane: LaneLikeID = LaneLikeID { _raw_id: source.node._raw_id };
+                source_as_lane.add_car(
+                    LaneCar {
+                        trip: self.id,
+                        as_obstacle: Obstacle {
+                            position: OrderedFloat(-1.0),
+                            velocity: 0.0,
+                            max_velocity: 15.0,
                         },
-                        from: None,
-                        tick,
+                        acceleration: 0.0,
+                        destination: destination,
+                        next_hop_interaction: 0,
                     },
+                    None,
+                    tick,
+                    world,
                 );
             }
         } else {
@@ -129,7 +129,7 @@ impl LocationRequester for Trip {
 
 use core::simulation::{SimulationID, Sleeper, SleeperID, MSG_Sleeper_wake};
 use core::simulation::Ticks;
-use super::super::microtraffic::{AddCar, LaneCar, Obstacle};
+use super::super::microtraffic::{LaneLikeID, LaneCar, Obstacle};
 
 pub trait TripListener {
     fn trip_created(&mut self, trip: TripID, world: &mut World);

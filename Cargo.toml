@@ -17,7 +17,6 @@ members = [
     "./engine/compact_macros",
     "./engine/descartes",
     "./engine/kay",
-    "./engine/kay_macros",
     "./engine/kay_codegen",
     "./engine/monet",
     './engine/stagemaster'
@@ -44,9 +43,6 @@ path = "./engine/compact_macros/"
 
 [dependencies.kay]
 path = "./engine/kay/"
-
-[dependencies.kay_macros]
-path = "./engine/kay_macros/"
 
 [dependencies.descartes]
 path = "./engine/descartes/"

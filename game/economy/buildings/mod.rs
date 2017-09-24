@@ -1,5 +1,5 @@
-use kay::{ID, ActorSystem, Fate, World, External};
-use kay::swarm::{Swarm, ToRandom};
+use kay::{ID, ActorSystem, World, External};
+use kay::swarm::Swarm;
 use compact::CVec;
 use descartes::{P2, Norm, Curve};
 use stagemaster::combo::{Bindings, Combo2};
@@ -7,7 +7,7 @@ use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
                   MSG_Interactable3d_on_event};
 use stagemaster::combo::Button::*;
 use stagemaster::geometry::AnyShape;
-use transport::lane::Lane;
+use transport::lane::{Lane, LaneID};
 
 pub mod rendering;
 
@@ -148,14 +148,7 @@ impl Interactable3d for BuildingSpawner {
 
             if self.bindings.0["Spawn Building"].is_freshly_in(&combos) {
                 if let BuildingSpawnerState::Idle = self.state {
-                    let lane_swarm = world.global_broadcast::<Swarm<Lane>>();
-                    world.send(
-                        lane_swarm,
-                        ToRandom {
-                            message: FindLot { requester: self.id },
-                            n_recipients: 5000,
-                        },
-                    );
+                    LaneID::global_broadcast(world).find_lot(self.id, world);
                     self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
                     self.state = BuildingSpawnerState::Collecting(CVec::new());
                 }
@@ -187,9 +180,6 @@ impl LotConflictor for Building {
         )
     }
 }
-
-// TODO: remove this once Lane is a newstyle actor
-struct LaneID(ID);
 
 impl LotConflictor for Lane {
     fn find_conflicts(
@@ -263,11 +253,6 @@ impl Sleeper for BuildingSpawner {
             BuildingSpawnerState::Idle => BuildingSpawnerState::Idle,
         }
     }
-}
-
-#[derive(Copy, Clone)]
-pub struct FindLot {
-    pub requester: BuildingSpawnerID,
 }
 
 #[derive(Copy, Clone)]

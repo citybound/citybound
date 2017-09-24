@@ -228,8 +228,8 @@ pub struct EvaluatedSearchResult {
     pub evaluated_deals: CVec<EvaluatedDeal>,
 }
 
-use transport::pathfinding::{Location, LocationRequester, GetDistanceTo, DistanceRequester,
-                             DistanceRequesterID, MSG_DistanceRequester_on_distance};
+use transport::pathfinding::{Location, LocationRequester, DistanceRequester, DistanceRequesterID,
+                             MSG_DistanceRequester_on_distance};
 
 #[derive(Compact, Clone)]
 pub struct TripCostEstimator {
@@ -292,9 +292,10 @@ impl LocationRequester for TripCostEstimator {
         self.n_resolved += 1;
 
         if let (Some(source), Some(destination)) = (self.source, self.destination) {
-            world.send(
-                source.node,
-                GetDistanceTo { destination, requester: self.id.into() },
+            source.node.get_distance_to(
+                destination,
+                self.id.into(),
+                world,
             );
         } else if self.n_resolved == 2 {
             println!(

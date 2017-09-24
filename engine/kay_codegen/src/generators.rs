@@ -241,7 +241,7 @@ impl Model {
 
         quote!(
             #(
-            #[derive(Copy, Clone, PartialEq, Eq, Hash)]
+            #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
             pub struct #trait_ids_1 {
                 pub _raw_id: ID
             }
@@ -368,7 +368,7 @@ impl Model {
                 }
             }
 
-            #[derive(Copy, Clone, PartialEq, Eq, Hash)]
+            #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
             pub struct #actor_here_ids_1 {
                 pub _raw_id: ID
             }

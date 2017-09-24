@@ -1,19 +1,22 @@
 use compact::CVec;
-use kay::{ID, ActorSystem, Fate};
-use kay::swarm::{Swarm, SubActor};
+use kay::{ActorSystem, World, Fate};
+use kay::swarm::SubActor;
 use descartes::{N, P2, Dot, Band, Curve, FiniteCurve, Path, RoughlyComparable, Intersect,
                 WithUniqueOrthogonal};
 use itertools::Itertools;
 use stagemaster::geometry::CPath;
 use ordered_float::OrderedFloat;
 
-use super::lane::{Lane, TransferLane};
+use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
+use super::microtraffic::LaneLikeID;
 
 pub mod materialized_reality;
-use self::materialized_reality::BuildableRef;
+use self::materialized_reality::{MaterializedRealityID, BuildableRef};
 
 use random::Source;
+
+const CONNECTION_TOLERANCE: f32 = 0.1;
 
 #[derive(Compact, Clone)]
 pub struct ConstructionInfo {
@@ -36,558 +39,485 @@ impl ConstructionInfo {
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct AdvertiseToTransferAndReport(pub MaterializedRealityID, pub BuildableRef);
-
-pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
-    let all_lanes_id = system.world().global_broadcast::<Swarm<Lane>>();
-    let all_transfer_lanes_id = system.world().global_broadcast::<Swarm<TransferLane>>();
-
-    system.extend(Swarm::<Lane>::subactors(move |mut each_lane| {
-
-        each_lane.on_create_with(move |&AdvertiseToTransferAndReport(report_to,
-                                            report_as),
-              lane,
-              world| {
-            world.send(
-                all_lanes_id,
-                Connect {
-                    other_id: lane.id(),
-                    other_start: lane.construction.path.start(),
-                    other_end: lane.construction.path.end(),
-                    other_length: lane.construction.path.length(),
-                    reply_needed: true,
-                },
-            );
-            world.send(
-                all_transfer_lanes_id,
-                ConnectTransferToNormal {
-                    other_id: lane.id(),
-                    other_path: lane.construction.path.clone(),
-                },
-            );
-            report_to.on_lane_built(lane.id(), report_as, world);
-            super::rendering::on_build(lane, world);
-            // super::pathfinding::on_build(lane, world);
-            Fate::Live
-        });
-
-        each_lane.on(|&AdvertiseForOverlaps { ref lanes }, lane, world| {
-            for &lane_id in lanes.iter() {
-                world.send(
-                    lane_id,
-                    ConnectOverlaps {
-                        other_id: lane.id(),
-                        other_path: lane.construction.path.clone(),
-                        reply_needed: true,
-                    },
-                );
-            }
-            Fate::Live
-        });
-
-        each_lane.on(|&Connect {
-             other_id,
-             other_start,
-             other_end,
-             other_length,
-             reply_needed,
-         },
-         lane,
-         world| {
-            if other_id == lane.id() {
-                return Fate::Live;
-            };
-
-            let mut connected = false;
-
-            if other_start.is_roughly_within(lane.construction.path.end(), CONNECTION_TOLERANCE) {
-                connected = true;
-
-                let already_a_partner = lane.connectivity.interactions.iter().any(|interaction| {
-                    match *interaction {
-                        Interaction {
-                            partner_lane,
-                            kind: InteractionKind::Next { .. },
-                            ..
-                        } => partner_lane == other_id,
-                        _ => false,
-                    }
-                });
-                if !already_a_partner {
-                    lane.connectivity.interactions.push(Interaction {
-                        partner_lane: other_id,
-                        start: lane.construction.length,
-                        partner_start: 0.0,
-                        kind: InteractionKind::Next { green: false },
-                    });
-                }
-
-                super::pathfinding::on_connect(lane);
-            }
-
-            if other_end.is_roughly_within(lane.construction.path.start(), CONNECTION_TOLERANCE) {
-                connected = true;
-
-                let already_a_partner = lane.connectivity.interactions.iter().any(|interaction| {
-                    match *interaction {
-                        Interaction {
-                            partner_lane,
-                            kind: InteractionKind::Previous { .. },
-                            ..
-                        } => partner_lane == other_id,
-                        _ => false,
-                    }
-                });
-                if !already_a_partner {
-                    lane.connectivity.interactions.push(Interaction {
-                        partner_lane: other_id,
-                        start: 0.0,
-                        partner_start: other_length,
-                        kind: InteractionKind::Previous,
-                    });
-                }
-
-                super::pathfinding::on_connect(lane);
-            }
-
-            if reply_needed && connected {
-                world.send(
-                    other_id,
-                    Connect {
-                        other_id: lane.id(),
-                        other_start: lane.construction.path.start(),
-                        other_end: lane.construction.path.end(),
-                        other_length: lane.construction.path.length(),
-                        reply_needed: false,
-                    },
-                );
-            }
-
-            Fate::Live
-        });
-
-        each_lane.on(|&ConnectOverlaps {
-             other_id,
-             ref other_path,
-             reply_needed,
-         },
-         lane,
-         world| {
-            MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
-                let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
-                let &(ref lane_band, ref lane_outline) =
-                    memoized_bands_outlines.entry(lane.id()).or_insert_with(|| {
-                        let band = Band::new(lane.construction.path.clone(), 4.5);
-                        let outline = band.outline();
-                        (band, outline)
-                    }) as &(Band<CPath>, CPath);
-
-                let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
-                let &(ref other_band, ref other_outline) =
-                    memoized_bands_outlines.entry(other_id).or_insert_with(|| {
-                        let band = Band::new(other_path.clone(), 4.5);
-                        let outline = band.outline();
-                        (band, outline)
-                    }) as &(Band<CPath>, CPath);
-
-                let intersections = (lane_outline, other_outline).intersect();
-                if intersections.len() >= 2 {
-                    if let ::itertools::MinMaxResult::MinMax((entry_intersection,
-                                                              entry_distance),
-                                                             (exit_intersection, exit_distance)) =
-                        intersections
-                            .iter()
-                            .map(|intersection| {
-                                (
-                                    intersection,
-                                    lane_band.outline_distance_to_path_distance(
-                                        intersection.along_a,
-                                    ),
-                                )
-                            })
-                            .minmax_by_key(|&(_, distance)| OrderedFloat(distance))
-                    {
-                        let other_entry_distance = other_band.outline_distance_to_path_distance(
-                            entry_intersection.along_b,
-                        );
-                        let other_exit_distance =
-                            other_band.outline_distance_to_path_distance(exit_intersection.along_b);
-
-                        let overlap_kind = if other_path
-                            .direction_along(other_entry_distance)
-                            .is_roughly_within(
-                                lane.construction.path.direction_along(entry_distance),
-                                0.1,
-                            ) ||
-                            other_path
-                                .direction_along(other_exit_distance)
-                                .is_roughly_within(
-                                    lane.construction.path.direction_along(exit_distance),
-                                    0.1,
-                                )
-                        {
-                            // ::stagemaster::geometry::CPath::add_debug_path(
-                            //     lane.construction.path
-                            //         .subsection(entry_distance, exit_distance).unwrap(),
-                            //     [1.0, 0.5, 0.0],
-                            //     0.3
-                            // );
-                            OverlapKind::Parallel
-                        } else {
-                            // ::stagemaster::geometry::CPath::add_debug_path(
-                            //     lane.construction.path
-                            //         .subsection(entry_distance, exit_distance).unwrap(),
-                            //     [1.0, 0.0, 0.0],
-                            //     0.3
-                            // );
-                            OverlapKind::Conflicting
-                        };
-
-                        lane.connectivity.interactions.push(Interaction {
-                            partner_lane: other_id,
-                            start: entry_distance,
-                            partner_start: other_entry_distance.min(other_exit_distance),
-                            kind: InteractionKind::Overlap {
-                                end: exit_distance,
-                                partner_end: other_exit_distance.max(other_entry_distance),
-                                kind: overlap_kind,
-                            },
-                        });
-                    } else {
-                        panic!("both entry and exit should exist")
-                    }
-                }
-
-
-                if reply_needed {
-                    world.send(
-                        other_id,
-                        ConnectOverlaps {
-                            other_id: lane.id(),
-                            other_path: lane.construction.path.clone(),
-                            reply_needed: false,
-                        },
-                    );
-                }
-                Fate::Live
-            })
-        });
-
-        each_lane.on(|&ConnectToTransfer { other_id }, lane, world| {
-            world.send(
-                other_id,
-                ConnectTransferToNormal {
-                    other_id: lane.id(),
-                    other_path: lane.construction.path.clone(),
-                },
-            );
-            Fate::Live
-        });
-
-        each_lane.on(|&AddTransferLaneInteraction(interaction), lane, _| {
-            let already_a_partner = lane.connectivity.interactions.iter().any(|existing| {
-                existing.partner_lane == interaction.partner_lane
-            });
-            if !already_a_partner {
-                lane.connectivity.interactions.push(interaction);
-                super::pathfinding::on_connect(lane);
-            }
-            Fate::Live
-        });
-
-        each_lane.on(|&Disconnect { other_id }, lane, world| {
-            let interaction_indices_to_remove = lane.connectivity
-                .interactions
-                .iter()
-                .enumerate()
-                .filter_map(|(i, interaction)| if interaction.partner_lane == other_id {
-                    Some(i)
-                } else {
-                    None
-                })
-                .collect::<Vec<_>>();
-            // TODO: Cancel trip
-            lane.microtraffic.cars.retain(|car| {
-                !interaction_indices_to_remove.contains(&(car.next_hop_interaction as usize))
-            });
-            lane.microtraffic.obstacles.retain(
-                |&(_obstacle, from_id)| {
-                    from_id != other_id
-                },
-            );
-            for idx in interaction_indices_to_remove.into_iter().rev() {
-                lane.connectivity.interactions.remove(idx);
-            }
-            super::pathfinding::on_disconnect(lane, other_id);
-            world.send(other_id, ConfirmDisconnect);
-            Fate::Live
-        });
-
-        each_lane.on(|&Unbuild { report_to }, lane, world| {
-            let mut disconnects_remaining = 0;
-            for id in lane.connectivity
-                .interactions
-                .iter()
-                .map(|interaction| interaction.partner_lane)
-                .unique()
-            {
-                world.send(id, Disconnect { other_id: lane.id() });
-                disconnects_remaining += 1;
-            }
-            super::rendering::on_unbuild(lane, world);
-            MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
-                let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
-                memoized_bands_outlines.remove(&lane.id())
-            });
-            if disconnects_remaining == 0 {
-                report_to.on_lane_unbuilt(Some(lane.id()), world);
-                Fate::Die
-            } else {
-                lane.construction.disconnects_remaining = disconnects_remaining;
-                lane.construction.unbuilding_for = Some(report_to);
-                Fate::Live
-            }
-        });
-
-        each_lane.on(|_: &ConfirmDisconnect, lane, world| {
-            lane.construction.disconnects_remaining -= 1;
-            if lane.construction.disconnects_remaining == 0 {
-                lane.construction
-                    .unbuilding_for
-                    .expect("should be unbuilding")
-                    .on_lane_unbuilt(Some(lane.id()), world);
-                Fate::Die
-            } else {
-                Fate::Live
-            }
-        });
-    }));
-
-    // TODO: this is a horrible hack
-    system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
-        each_lane.on_random(|&FindLot { requester }, lane, world| {
-            const BUILDING_DISTANCE: f32 = 15.0;
-
-            if !lane.connectivity.on_intersection {
-                let path = &lane.construction.path;
-                let distance = ::random::default().read_f64() as f32 * path.length();
-                let point = path.along(distance) +
-                    BUILDING_DISTANCE * path.direction_along(distance).orthogonal();
-
-                requester.found_lot(
-                    Lot {
-                        position: point,
-                        adjacent_lane: lane.id(),
-                    },
-                    world,
-                );
-            }
-
-            Fate::Live
-        });
-    }));
-
-    system.extend(Swarm::<TransferLane>::subactors(move |mut each_t_lane| {
-
-        each_t_lane.on_create_with(move |&AdvertiseToTransferAndReport(report_to,
-                                            report_as),
-              lane,
-              world| {
-            world.send(all_lanes_id, ConnectToTransfer { other_id: lane.id() });
-            report_to.on_lane_built(lane.id(), report_as, world);
-            super::rendering::on_build_transfer(lane, world);
-            Fate::Live
-        });
-
-        each_t_lane.on(|&ConnectTransferToNormal { other_id, ref other_path },
-         lane,
-         world| {
-            let projections = (
-                other_path.project(lane.construction.path.start()),
-                other_path.project(lane.construction.path.end()),
-            );
-            if let (Some(lane_start_on_other_distance), Some(lane_end_on_other_distance)) =
-                projections
-            {
-                if lane_start_on_other_distance < lane_end_on_other_distance &&
-                    lane_end_on_other_distance - lane_start_on_other_distance > 6.0
-                {
-                    let lane_start_on_other = other_path.along(lane_start_on_other_distance);
-                    let lane_end_on_other = other_path.along(lane_end_on_other_distance);
-
-                    if lane_start_on_other.is_roughly_within(lane.construction.path.start(), 3.0) &&
-                        lane_end_on_other.is_roughly_within(lane.construction.path.end(), 3.0)
-                    {
-                        world.send(
-                            other_id,
-                            AddTransferLaneInteraction(Interaction {
-                                partner_lane: lane.id(),
-                                start: lane_start_on_other_distance,
-                                partner_start: 0.0,
-                                kind: InteractionKind::Overlap {
-                                    end: lane_start_on_other_distance + lane.construction.length,
-                                    partner_end: lane.construction.length,
-                                    kind: OverlapKind::Transfer,
-                                },
-                            }),
-                        );
-
-                        let mut distance_covered = 0.0;
-                        let distance_map = lane.construction
-                            .path
-                            .segments()
-                            .iter()
-                            .map(|segment| {
-                                distance_covered += segment.length();
-                                let segment_end_on_other_distance =
-                                    other_path.project(segment.end()).expect(
-                                        "should contain transfer lane segment end",
-                                    );
-                                (
-                                    distance_covered,
-                                    segment_end_on_other_distance - lane_start_on_other_distance,
-                                )
-                            })
-                            .collect();
-
-                        let other_is_right =
-                            (lane_start_on_other - lane.construction.path.start()).dot(
-                                &lane.construction.path.start_direction().orthogonal(),
-                            ) > 0.0;
-
-                        if other_is_right {
-                            lane.connectivity.right =
-                                Some((other_id, lane_start_on_other_distance));
-                            lane.connectivity.right_distance_map = distance_map;
-                        } else {
-                            lane.connectivity.left = Some((other_id, lane_start_on_other_distance));
-                            lane.connectivity.left_distance_map = distance_map;
-                        }
-                    }
-                }
-            }
-            Fate::Live
-        });
-
-        each_t_lane.on(|&Disconnect { other_id }, lane, world| {
-            lane.connectivity.left = lane.connectivity.left.and_then(
-                |(left_id, left_start)| if left_id ==
-                    other_id
-                {
-                    None
-                } else {
-                    Some((left_id, left_start))
-                },
-            );
-            lane.connectivity.right = lane.connectivity.right.and_then(
-                |(right_id, right_start)| if right_id ==
-                    other_id
-                {
-                    None
-                } else {
-                    Some((right_id, right_start))
-                },
-            );
-            world.send(other_id, ConfirmDisconnect);
-            Fate::Live
-        });
-
-        each_t_lane.on(|&Unbuild { report_to }, lane, world| {
-            if let Some((left_id, _)) = lane.connectivity.left {
-                world.send(left_id, Disconnect { other_id: lane.id() });
-            }
-            if let Some((right_id, _)) = lane.connectivity.right {
-                world.send(right_id, Disconnect { other_id: lane.id() });
-            }
-            super::rendering::on_unbuild_transfer(lane, world);
-            if lane.connectivity.left.is_none() && lane.connectivity.right.is_none() {
-                report_to.on_lane_unbuilt(Some(lane.id()), world);
-                Fate::Die
-            } else {
-                lane.construction.disconnects_remaining = lane.connectivity
-                    .left
-                    .into_iter()
-                    .chain(lane.connectivity.right)
-                    .count() as u8;
-                lane.construction.unbuilding_for = Some(report_to);
-                Fate::Live
-            }
-        });
-
-        each_t_lane.on(|_: &ConfirmDisconnect, lane, world| {
-            lane.construction.disconnects_remaining -= 1;
-            if lane.construction.disconnects_remaining == 0 {
-                lane.construction
-                    .unbuilding_for
-                    .expect("should be unbuilding")
-                    .on_lane_unbuilt(Some(lane.id()), world);
-                Fate::Die
-            } else {
-                Fate::Live
-            }
-        })
-    }));
-
-    self::materialized_reality::setup(system)
-}
-
-#[derive(Compact, Clone)]
-pub struct AdvertiseForOverlaps {
-    lanes: CVec<ID>,
-}
-
-const CONNECTION_TOLERANCE: f32 = 0.1;
-
-#[derive(Copy, Clone)]
-pub struct Connect {
-    other_id: ID,
-    other_start: P2,
-    other_end: P2,
-    other_length: N,
-    reply_needed: bool,
+pub trait Unbuildable {
+    fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World);
+    fn unbuild(&mut self, report_to: MaterializedRealityID, world: &mut World) -> Fate;
+    fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate;
 }
 
 use fnv::FnvHashMap;
 use std::cell::UnsafeCell;
 thread_local! (
     static MEMOIZED_BANDS_OUTLINES: UnsafeCell<
-        FnvHashMap<ID, (Band<CPath>, CPath)>
+        FnvHashMap<LaneLikeID, (Band<CPath>, CPath)>
         > = UnsafeCell::new(FnvHashMap::default());
 );
 
-#[derive(Compact, Clone)]
-pub struct ConnectOverlaps {
-    other_id: ID,
-    other_path: CPath,
-    reply_needed: bool,
+impl Lane {
+    pub fn start_connecting_and_report(
+        &mut self,
+        report_to: MaterializedRealityID,
+        report_as: BuildableRef,
+        world: &mut World,
+    ) {
+        LaneID::global_broadcast(world).connect(
+            self.id,
+            self.construction.path.start(),
+            self.construction.path.end(),
+            self.construction.path.length(),
+            true,
+            world,
+        );
+        TransferLaneID::global_broadcast(world)
+            .connect_transfer_to_normal(self.id, self.construction.path.clone(), world);
+        report_to.on_lane_built(self.id.into(), report_as, world);
+    }
+
+    pub fn start_connecting_overlaps(&mut self, lanes: &CVec<LaneID>, world: &mut World) {
+        for &lane_id in lanes.iter() {
+            lane_id.connect_overlaps(self.id, self.construction.path.clone(), true, world);
+        }
+    }
+
+    pub fn connect(
+        &mut self,
+        other_id: LaneID,
+        other_start: P2,
+        other_end: P2,
+        other_length: N,
+        reply_needed: bool,
+        world: &mut World,
+    ) {
+        if other_id == self.id.into() {
+            return;
+        };
+
+        let mut connected = false;
+
+        if other_start.is_roughly_within(self.construction.path.end(), CONNECTION_TOLERANCE) {
+            connected = true;
+
+            let already_a_partner = self.connectivity.interactions.iter().any(|interaction| {
+                match *interaction {
+                    Interaction {
+                        partner_lane,
+                        kind: InteractionKind::Next { .. },
+                        ..
+                    } => partner_lane == other_id.into(),
+                    _ => false,
+                }
+            });
+            if !already_a_partner {
+                self.connectivity.interactions.push(Interaction {
+                    partner_lane: other_id.into(),
+                    start: self.construction.length,
+                    partner_start: 0.0,
+                    kind: InteractionKind::Next { green: false },
+                });
+            }
+
+            super::pathfinding::on_connect(self);
+        }
+
+        if other_end.is_roughly_within(self.construction.path.start(), CONNECTION_TOLERANCE) {
+            connected = true;
+
+            let already_a_partner = self.connectivity.interactions.iter().any(|interaction| {
+                match *interaction {
+                    Interaction {
+                        partner_lane,
+                        kind: InteractionKind::Previous { .. },
+                        ..
+                    } => partner_lane == other_id.into(),
+                    _ => false,
+                }
+            });
+            if !already_a_partner {
+                self.connectivity.interactions.push(Interaction {
+                    partner_lane: other_id.into(),
+                    start: 0.0,
+                    partner_start: other_length,
+                    kind: InteractionKind::Previous,
+                });
+            }
+
+            super::pathfinding::on_connect(self);
+        }
+
+        if reply_needed && connected {
+            let path = &self.construction.path;
+            other_id.connect(
+                self.id,
+                path.start(),
+                path.end(),
+                path.length(),
+                false,
+                world,
+            );
+        }
+    }
+
+    pub fn connect_overlaps(
+        &mut self,
+        other_id: LaneID,
+        other_path: &CPath,
+        reply_needed: bool,
+        world: &mut World,
+    ) {
+        MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
+            let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
+            let &(ref lane_band, ref lane_outline) = memoized_bands_outlines
+                .entry(self.id.into())
+                .or_insert_with(|| {
+                    let band = Band::new(self.construction.path.clone(), 4.5);
+                    let outline = band.outline();
+                    (band, outline)
+                }) as &(Band<CPath>, CPath);
+
+            let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
+            let &(ref other_band, ref other_outline) = memoized_bands_outlines
+                .entry(other_id.into())
+                .or_insert_with(|| {
+                    let band = Band::new(other_path.clone(), 4.5);
+                    let outline = band.outline();
+                    (band, outline)
+                }) as &(Band<CPath>, CPath);
+
+            let intersections = (lane_outline, other_outline).intersect();
+            if intersections.len() >= 2 {
+                if let ::itertools::MinMaxResult::MinMax((entry_intersection, entry_distance),
+                                                         (exit_intersection, exit_distance)) =
+                    intersections
+                        .iter()
+                        .map(|intersection| {
+                            (
+                                intersection,
+                                lane_band.outline_distance_to_path_distance(intersection.along_a),
+                            )
+                        })
+                        .minmax_by_key(|&(_, distance)| OrderedFloat(distance))
+                {
+                    let other_entry_distance =
+                        other_band.outline_distance_to_path_distance(entry_intersection.along_b);
+                    let other_exit_distance =
+                        other_band.outline_distance_to_path_distance(exit_intersection.along_b);
+
+                    let overlap_kind = if other_path
+                        .direction_along(other_entry_distance)
+                        .is_roughly_within(
+                            self.construction.path.direction_along(entry_distance),
+                            0.1,
+                        ) ||
+                        other_path
+                            .direction_along(other_exit_distance)
+                            .is_roughly_within(
+                                self.construction.path.direction_along(exit_distance),
+                                0.1,
+                            )
+                    {
+                        // ::stagemaster::geometry::CPath::add_debug_path(
+                        //     self.construction.path
+                        //         .subsection(entry_distance, exit_distance).unwrap(),
+                        //     [1.0, 0.5, 0.0],
+                        //     0.3
+                        // );
+                        OverlapKind::Parallel
+                    } else {
+                        // ::stagemaster::geometry::CPath::add_debug_path(
+                        //     self.construction.path
+                        //         .subsection(entry_distance, exit_distance).unwrap(),
+                        //     [1.0, 0.0, 0.0],
+                        //     0.3
+                        // );
+                        OverlapKind::Conflicting
+                    };
+
+                    self.connectivity.interactions.push(Interaction {
+                        partner_lane: other_id.into(),
+                        start: entry_distance,
+                        partner_start: other_entry_distance.min(other_exit_distance),
+                        kind: InteractionKind::Overlap {
+                            end: exit_distance,
+                            partner_end: other_exit_distance.max(other_entry_distance),
+                            kind: overlap_kind,
+                        },
+                    });
+                } else {
+                    panic!("both entry and exit should exist")
+                }
+            }
+
+
+            if reply_needed {
+                other_id.connect_overlaps(
+                    self.id.into(),
+                    self.construction.path.clone(),
+                    false,
+                    world,
+                );
+            }
+        });
+    }
+
+    pub fn connect_to_transfer(&mut self, other_id: TransferLaneID, world: &mut World) {
+        other_id.connect_transfer_to_normal(self.id, self.construction.path.clone(), world);
+    }
+
+    pub fn add_transfer_lane_interaction(&mut self, interaction: Interaction, _: &mut World) {
+        let already_a_partner = self.connectivity.interactions.iter().any(|existing| {
+            existing.partner_lane == interaction.partner_lane
+        });
+        if !already_a_partner {
+            self.connectivity.interactions.push(interaction);
+            super::pathfinding::on_connect(self);
+        }
+    }
 }
 
-#[derive(Compact, Clone)]
-pub struct ConnectToTransfer {
-    other_id: ID,
+impl Unbuildable for Lane {
+    fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World) {
+        let interaction_indices_to_remove = self.connectivity
+            .interactions
+            .iter()
+            .enumerate()
+            // TODO: ugly: untyped ID shenanigans
+            .filter_map(|(i, interaction)| if interaction.partner_lane._raw_id == other_id._raw_id {
+                Some(i)
+            } else {
+                None
+            })
+            .collect::<Vec<_>>();
+        // TODO: Cancel trip
+        self.microtraffic.cars.retain(|car| {
+            !interaction_indices_to_remove.contains(&(car.next_hop_interaction as usize))
+        });
+        self.microtraffic.obstacles.retain(|&(_obstacle, from_id)| {
+            // TODO: ugly: untyped ID shenanigans
+            from_id._raw_id != other_id._raw_id
+        });
+        for idx in interaction_indices_to_remove.into_iter().rev() {
+            self.connectivity.interactions.remove(idx);
+        }
+        // TODO: untyped ID shenanigans
+        let other_as_lanelike = LaneLikeID { _raw_id: other_id._raw_id };
+        super::pathfinding::on_disconnect(self, other_as_lanelike);
+        other_id.on_confirm_disconnect(world);
+    }
+
+    fn unbuild(&mut self, report_to: MaterializedRealityID, world: &mut World) -> Fate {
+        let mut disconnects_remaining = 0;
+        for id in self.connectivity
+            .interactions
+            .iter()
+            .map(|interaction| interaction.partner_lane)
+            .unique()
+        {
+            // TODO: untyped ID shenanigans
+            let id_as_unbuildable = UnbuildableID { _raw_id: id._raw_id };
+            id_as_unbuildable.disconnect(self.id.into(), world);
+            disconnects_remaining += 1;
+        }
+        super::rendering::on_unbuild(self, world);
+        MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
+            let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
+            memoized_bands_outlines.remove(&self.id.into())
+        });
+        if disconnects_remaining == 0 {
+            report_to.on_lane_unbuilt(Some(self.id.into()), world);
+            Fate::Die
+        } else {
+            self.construction.disconnects_remaining = disconnects_remaining;
+            self.construction.unbuilding_for = Some(report_to);
+            Fate::Live
+        }
+    }
+
+    fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate {
+        self.construction.disconnects_remaining -= 1;
+        if self.construction.disconnects_remaining == 0 {
+            self.construction
+                .unbuilding_for
+                .expect("should be unbuilding")
+                .on_lane_unbuilt(Some(self.id.into()), world);
+            Fate::Die
+        } else {
+            Fate::Live
+        }
+    }
 }
 
-#[derive(Compact, Clone)]
-pub struct ConnectTransferToNormal {
-    other_id: ID,
-    other_path: CPath,
+use economy::buildings::{Lot, BuildingSpawnerID};
+
+impl Lane {
+    // TODO: this is a horrible hack
+    pub fn find_lot(&mut self, requester: BuildingSpawnerID, world: &mut World) {
+        const BUILDING_DISTANCE: f32 = 15.0;
+
+        if !self.connectivity.on_intersection {
+            let path = &self.construction.path;
+            let distance = ::random::default().read_f64() as f32 * path.length();
+            let point = path.along(distance) +
+                BUILDING_DISTANCE * path.direction_along(distance).orthogonal();
+
+            requester.found_lot(
+                Lot {
+                    position: point,
+                    adjacent_lane: self.id(),
+                },
+                world,
+            );
+        }
+    }
 }
 
-#[derive(Copy, Clone)]
-pub struct AddTransferLaneInteraction(Interaction);
+impl TransferLane {
+    pub fn start_connecting_and_report(
+        &mut self,
+        report_to: MaterializedRealityID,
+        report_as: BuildableRef,
+        world: &mut World,
+    ) {
+        LaneID::global_broadcast(world).connect_to_transfer(self.id, world);
+        report_to.on_lane_built(self.id.into(), report_as, world);
+        super::rendering::on_build_transfer(self, world);
+    }
 
-#[derive(Copy, Clone)]
-pub struct Disconnect {
-    other_id: ID,
+    pub fn connect_transfer_to_normal(
+        &mut self,
+        other_id: LaneID,
+        other_path: &CPath,
+        world: &mut World,
+    ) {
+        let projections = (
+            other_path.project(self.construction.path.start()),
+            other_path.project(self.construction.path.end()),
+        );
+        if let (Some(lane_start_on_other_distance), Some(lane_end_on_other_distance)) =
+            projections
+        {
+            if lane_start_on_other_distance < lane_end_on_other_distance &&
+                lane_end_on_other_distance - lane_start_on_other_distance > 6.0
+            {
+                let lane_start_on_other = other_path.along(lane_start_on_other_distance);
+                let lane_end_on_other = other_path.along(lane_end_on_other_distance);
+
+                if lane_start_on_other.is_roughly_within(self.construction.path.start(), 3.0) &&
+                    lane_end_on_other.is_roughly_within(self.construction.path.end(), 3.0)
+                {
+                    other_id.add_transfer_lane_interaction(
+                        Interaction {
+                            partner_lane: self.id.into(),
+                            start: lane_start_on_other_distance,
+                            partner_start: 0.0,
+                            kind: InteractionKind::Overlap {
+                                end: lane_start_on_other_distance + self.construction.length,
+                                partner_end: self.construction.length,
+                                kind: OverlapKind::Transfer,
+                            },
+                        },
+                        world,
+                    );
+
+                    let mut distance_covered = 0.0;
+                    let distance_map = self.construction
+                        .path
+                        .segments()
+                        .iter()
+                        .map(|segment| {
+                            distance_covered += segment.length();
+                            let segment_end_on_other_distance =
+                                other_path.project(segment.end()).expect(
+                                    "should contain transfer lane segment end",
+                                );
+                            (
+                                distance_covered,
+                                segment_end_on_other_distance - lane_start_on_other_distance,
+                            )
+                        })
+                        .collect();
+
+                    let other_is_right =
+                        (lane_start_on_other - self.construction.path.start()).dot(
+                            &self.construction.path.start_direction().orthogonal(),
+                        ) > 0.0;
+
+                    if other_is_right {
+                        self.connectivity.right = Some((other_id, lane_start_on_other_distance));
+                        self.connectivity.right_distance_map = distance_map;
+                    } else {
+                        self.connectivity.left = Some((other_id, lane_start_on_other_distance));
+                        self.connectivity.left_distance_map = distance_map;
+                    }
+                }
+            }
+        }
+    }
 }
-#[derive(Copy, Clone)]
-pub struct ConfirmDisconnect;
 
-#[derive(Copy, Clone)]
-pub struct Unbuild {
-    pub report_to: MaterializedRealityID,
+impl Unbuildable for TransferLane {
+    fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World) {
+        self.connectivity.left =
+            self.connectivity.left.and_then(
+                // TODO: ugly: untyped ID shenanigans
+                |(left_id, left_start)| if left_id._raw_id == other_id._raw_id {
+                    None
+                } else {
+                    Some((left_id, left_start))
+                },
+            );
+        self.connectivity.right = self.connectivity.right.and_then(
+            // TODO: ugly: untyped ID shenanigans
+            |(right_id, right_start)| if right_id._raw_id ==
+                other_id._raw_id
+            {
+                None
+            } else {
+                Some((right_id, right_start))
+            },
+        );
+        other_id.on_confirm_disconnect(world);
+    }
+
+    fn unbuild(&mut self, report_to: MaterializedRealityID, world: &mut World) -> Fate {
+        if let Some((left_id, _)) = self.connectivity.left {
+            Into::<UnbuildableID>::into(left_id).disconnect(self.id.into(), world);
+        }
+        if let Some((right_id, _)) = self.connectivity.right {
+            Into::<UnbuildableID>::into(right_id).disconnect(self.id.into(), world);
+        }
+        super::rendering::on_unbuild_transfer(self, world);
+        if self.connectivity.left.is_none() && self.connectivity.right.is_none() {
+            report_to.on_lane_unbuilt(Some(self.id.into()), world);
+            Fate::Die
+        } else {
+            self.construction.disconnects_remaining = self.connectivity
+                .left
+                .into_iter()
+                .chain(self.connectivity.right)
+                .count() as u8;
+            self.construction.unbuilding_for = Some(report_to);
+            Fate::Live
+        }
+    }
+
+    fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate {
+        self.construction.disconnects_remaining -= 1;
+        if self.construction.disconnects_remaining == 0 {
+            self.construction
+                .unbuilding_for
+                .expect("should be unbuilding")
+                .on_lane_unbuilt(Some(self.id.into()), world);
+            Fate::Die
+        } else {
+            Fate::Live
+        }
+    }
 }
-use self::materialized_reality::MaterializedRealityID;
 
-use economy::buildings::{FindLot, Lot};
+pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
+    auto_setup(system);
+    self::materialized_reality::setup(system)
+}
+
+mod kay_auto;
+pub use self::kay_auto::*;

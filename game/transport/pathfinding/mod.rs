@@ -1,17 +1,43 @@
 use compact::{CDict, CVec, CHashMap};
-use kay::{ID, ActorSystem, Fate, World};
-use kay::swarm::{Swarm, SubActor};
-use super::lane::{Lane, TransferLane};
+use kay::{ActorSystem, World};
+use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
 use core::simulation::Timestamp;
 
+// TODO: MAKE TRANSFER LANE NOT PARTICIPATE AT ALL IN PATHFINDING -> MUCH SIMPLER
+
 pub mod trip;
+
+pub trait Node {
+    fn update_routes(&mut self, world: &mut World);
+    fn query_routes(&mut self, requester: NodeID, is_transfer: bool, world: &mut World);
+    fn on_routes(
+        &mut self,
+        new_routes: &CDict<Location, (f32, u8)>,
+        from: NodeID,
+        world: &mut World,
+    );
+    fn forget_routes(&mut self, forget: &CVec<Location>, from: NodeID, world: &mut World);
+    fn join_landmark(
+        &mut self,
+        from: NodeID,
+        join_as: Location,
+        hops_from_landmark: u8,
+        world: &mut World,
+    );
+    fn get_distance_to(
+        &mut self,
+        location: Location,
+        requester: DistanceRequesterID,
+        world: &mut World,
+    );
+}
 
 #[derive(Compact, Clone, Default)]
 pub struct PathfindingInfo {
     pub location: Option<Location>,
     pub hops_from_landmark: u8,
-    pub learned_landmark_from: Option<ID>,
+    pub learned_landmark_from: Option<NodeID>,
     pub routes: CHashMap<Location, RoutingInfo>,
     pub routes_changed: bool,
     pub tell_to_forget_next_tick: CVec<Location>,
@@ -21,12 +47,12 @@ pub struct PathfindingInfo {
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Location {
-    pub landmark: ID,
-    pub node: ID,
+    pub landmark: NodeID,
+    pub node: NodeID,
 }
 
 impl Location {
-    fn landmark(landmark: ID) -> Self {
+    fn landmark(landmark: NodeID) -> Self {
         Location { landmark: landmark, node: landmark }
     }
     pub fn is_landmark(&self) -> bool {
@@ -37,12 +63,12 @@ impl Location {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub struct RoutingInfo {
     pub outgoing_idx: u8,
     pub distance: f32,
     distance_hops: u8,
-    learned_from: ID,
+    learned_from: NodeID,
     fresh: bool,
 }
 
@@ -66,12 +92,15 @@ pub fn on_connect(lane: &mut Lane) {
     lane.pathfinding.routing_timeout = ROUTING_TIMEOUT_AFTER_CHANGE;
 }
 
-pub fn on_disconnect(lane: &mut Lane, disconnected_id: ID) {
+use super::microtraffic::LaneLikeID;
+
+pub fn on_disconnect(lane: &mut Lane, disconnected_id: LaneLikeID) {
     let new_routes = lane.pathfinding
         .routes
         .pairs()
-        .filter_map(|(destination, route)| if route.learned_from ==
-            disconnected_id
+        // TODO: ugly: untyped ID shenanigans
+        .filter_map(|(destination, route)| if route.learned_from._raw_id ==
+            disconnected_id._raw_id
         {
             None
         } else {
@@ -83,76 +112,70 @@ pub fn on_disconnect(lane: &mut Lane, disconnected_id: ID) {
     lane.pathfinding.query_routes_next_tick = true;
 }
 
+const IDEAL_LANDMARK_RADIUS: u8 = 3;
 const MIN_LANDMARK_INCOMING: usize = 3;
 const ROUTING_TIMEOUT_AFTER_CHANGE: u16 = 15;
+const LANE_CHANGE_COST_LEFT: f32 = 5.0;
+const LANE_CHANGE_COST_RIGHT: f32 = 3.0;
 
-pub fn tick(lane: &mut Lane, world: &mut World) {
-    if let Some(location) = lane.pathfinding.location {
-        for successor in successors(lane) {
-            world.send(
-                successor,
-                JoinLandmark {
-                    from: lane.id(),
-                    join_as: Location {
+impl Node for Lane {
+    fn update_routes(&mut self, world: &mut World) {
+        if let Some(location) = self.pathfinding.location {
+            for successor in successors(self) {
+                successor.join_landmark(
+                    self.id.into(),
+                    Location {
                         landmark: location.landmark,
                         node: successor,
                     },
-                    hops_from_landmark: lane.pathfinding.hops_from_landmark + 1,
-                },
-            )
-        }
-    } else if !lane.connectivity.on_intersection &&
-               predecessors(lane).count() >= MIN_LANDMARK_INCOMING
-    {
-        lane.pathfinding = PathfindingInfo {
-            location: Some(Location::landmark(lane.id())),
-            hops_from_landmark: 0,
-            learned_landmark_from: Some(lane.id()),
-            routes: CHashMap::new(),
-            routes_changed: true,
-            query_routes_next_tick: false,
-            tell_to_forget_next_tick: CVec::new(),
-            routing_timeout: ROUTING_TIMEOUT_AFTER_CHANGE,
-        }
-    }
-
-    if lane.pathfinding.routing_timeout > 0 {
-        lane.pathfinding.routing_timeout -= 1;
-    } else {
-        if lane.pathfinding.query_routes_next_tick {
-            for successor in successors(lane) {
-                world.send(
-                    successor,
-                    QueryRoutes { requester: lane.id(), is_transfer: false },
+                    self.pathfinding.hops_from_landmark + 1,
+                    world,
                 );
             }
-            lane.pathfinding.query_routes_next_tick = false;
-        }
-
-        if !lane.pathfinding.tell_to_forget_next_tick.is_empty() {
-            for (_, predecessor, _) in predecessors(lane) {
-                world.send(
-                    predecessor,
-                    ForgetRoutes {
-                        forget: lane.pathfinding.tell_to_forget_next_tick.clone(),
-                        from: lane.id(),
-                    },
-                )
+        } else if !self.connectivity.on_intersection &&
+                   predecessors(self).count() >= MIN_LANDMARK_INCOMING
+        {
+            self.pathfinding = PathfindingInfo {
+                location: Some(Location::landmark(self.id.into())),
+                hops_from_landmark: 0,
+                learned_landmark_from: Some(self.id.into()),
+                routes: CHashMap::new(),
+                routes_changed: true,
+                query_routes_next_tick: false,
+                tell_to_forget_next_tick: CVec::new(),
+                routing_timeout: ROUTING_TIMEOUT_AFTER_CHANGE,
             }
-            lane.pathfinding.tell_to_forget_next_tick.clear();
         }
 
-        if lane.pathfinding.routes_changed {
-            for (_, predecessor, is_transfer) in predecessors(lane) {
-                let self_cost = if is_transfer {
-                    0.0
-                } else {
-                    lane.construction.length
-                };
-                world.send(
-                    predecessor,
-                    ShareRoutes {
-                        new_routes: lane.pathfinding
+        if self.pathfinding.routing_timeout > 0 {
+            self.pathfinding.routing_timeout -= 1;
+        } else {
+            if self.pathfinding.query_routes_next_tick {
+                for successor in successors(self) {
+                    successor.query_routes(self.id.into(), false, world);
+                }
+                self.pathfinding.query_routes_next_tick = false;
+            }
+
+            if !self.pathfinding.tell_to_forget_next_tick.is_empty() {
+                for (_, predecessor, _) in predecessors(self) {
+                    predecessor.forget_routes(
+                        self.pathfinding.tell_to_forget_next_tick.clone(),
+                        self.id.into(),
+                        world,
+                    );
+                }
+                self.pathfinding.tell_to_forget_next_tick.clear();
+            }
+
+            if self.pathfinding.routes_changed {
+                for (_, predecessor, is_transfer) in predecessors(self) {
+                    let self_cost = if is_transfer {
+                        0.0
+                    } else {
+                        self.construction.length
+                    };
+                    predecessor.on_routes(self.pathfinding
                             .routes
                             .pairs()
                             .filter_map(|(&destination,
@@ -166,29 +189,187 @@ pub fn tick(lane: &mut Lane, world: &mut World) {
                                 }
                             })
                             .chain(
-                                if lane.connectivity.on_intersection {
+                                if self.connectivity.on_intersection {
                                     None
                                 } else {
-                                    lane.pathfinding
+                                    self.pathfinding
                                         .location
                                         .map(|destination| (destination, (self_cost, 0)))
                                 },
                             )
-                            .collect(),
-                        from: lane.id(),
-                    },
-                );
+                            .collect(), self.id.into(), world);
+                }
+                for routing_info in self.pathfinding.routes.values_mut() {
+                    routing_info.fresh = false;
+                }
+                self.pathfinding.routes_changed = false;
             }
-            for routing_info in lane.pathfinding.routes.values_mut() {
-                routing_info.fresh = false;
-            }
-            lane.pathfinding.routes_changed = false;
         }
+    }
+
+    fn query_routes(&mut self, requester: NodeID, is_transfer: bool, world: &mut World) {
+        let self_cost = if is_transfer {
+            0.0
+        } else {
+            self.construction.length
+        };
+        requester.on_routes(
+            self.pathfinding
+                .routes
+                .pairs()
+                .map(|(&destination,
+                  &RoutingInfo { distance, distance_hops, .. })| {
+                    (destination, (distance + self_cost, distance_hops + 1))
+                })
+                .chain(if self.connectivity.on_intersection {
+                    None
+                } else {
+                    self.pathfinding.location.map(|destination| {
+                        (destination, (self_cost, 0))
+                    })
+                })
+                .collect(),
+            self.id.into(),
+            world,
+        );
+    }
+
+    fn on_routes(&mut self, new_routes: &CDict<Location, (f32, u8)>, from: NodeID, _: &mut World) {
+        if let Some(from_interaction_idx) =
+            self.connectivity.interactions.iter().position(
+                |interaction| {
+                    // TODO: ugly: untyped ID shenanigans
+                    interaction.partner_lane._raw_id == from._raw_id
+                },
+            )
+        {
+            for (&destination, &(new_distance, new_distance_hops)) in new_routes.pairs() {
+                if destination.is_landmark() || new_distance_hops <= IDEAL_LANDMARK_RADIUS ||
+                    self.pathfinding
+                        .location
+                        .map(|self_dest| self_dest.landmark == destination.landmark)
+                        .unwrap_or(false)
+                {
+                    let insert = self.pathfinding
+                        .routes
+                        .get(destination)
+                        .map(|&RoutingInfo { distance, .. }| new_distance < distance)
+                        .unwrap_or(true);
+                    if insert {
+                        self.pathfinding.routes.insert(
+                            destination,
+                            RoutingInfo {
+                                distance: new_distance,
+                                distance_hops: new_distance_hops,
+                                outgoing_idx: from_interaction_idx as u8,
+                                learned_from: from,
+                                fresh: true,
+                            },
+                        );
+                        self.pathfinding.routes_changed = true;
+                    }
+                }
+            }
+        } else {
+            println!(
+                "{:?} not yet connected to {:?}",
+                self.id._raw_id,
+                from._raw_id
+            );
+        }
+    }
+
+    fn forget_routes(&mut self, forget: &CVec<Location>, from: NodeID, _: &mut World) {
+        let mut forgotten = CVec::<Location>::new();
+        for destination_to_forget in forget.iter() {
+            let forget =
+                if let Some(routing_info) = self.pathfinding.routes.get(*destination_to_forget) {
+                    routing_info.learned_from == from
+                } else {
+                    false
+                };
+            if forget {
+                self.pathfinding.routes.remove(*destination_to_forget);
+                if destination_to_forget.is_landmark() {
+                    self.microtraffic.cars.retain(|car| {
+                        car.destination.landmark != destination_to_forget.landmark
+                    })
+                } else {
+                    self.microtraffic.cars.retain(|car| {
+                        &car.destination != destination_to_forget
+                    })
+                }
+                forgotten.push(*destination_to_forget);
+            }
+        }
+        self.pathfinding.tell_to_forget_next_tick = forgotten;
+    }
+
+    fn join_landmark(
+        &mut self,
+        from: NodeID,
+        join_as: Location,
+        hops_from_landmark: u8,
+        _: &mut World,
+    ) {
+        let join = self.pathfinding
+            .location
+            .map(|self_destination| {
+                join_as != self_destination &&
+                    (if self_destination.is_landmark() {
+                         hops_from_landmark < IDEAL_LANDMARK_RADIUS &&
+                             join_as.landmark._raw_id.sub_actor_id < self.id._raw_id.sub_actor_id
+                     } else {
+                         hops_from_landmark < self.pathfinding.hops_from_landmark ||
+                             self.pathfinding
+                                 .learned_landmark_from
+                                 .map(|learned_from| learned_from == from)
+                                 .unwrap_or(false)
+                     })
+            })
+            .unwrap_or(true);
+        if join {
+            let tell_to_forget_next_tick = self.pathfinding
+                .routes
+                .keys()
+                .cloned()
+                .chain(self.pathfinding.location.into_iter())
+                .collect();
+            self.pathfinding = PathfindingInfo {
+                location: Some(join_as),
+                learned_landmark_from: Some(from),
+                hops_from_landmark: hops_from_landmark,
+                routes: CHashMap::new(),
+                routes_changed: true,
+                query_routes_next_tick: true,
+                tell_to_forget_next_tick: tell_to_forget_next_tick,
+                routing_timeout: ROUTING_TIMEOUT_AFTER_CHANGE,
+            };
+        }
+    }
+
+    fn get_distance_to(
+        &mut self,
+        destination: Location,
+        requester: DistanceRequesterID,
+        world: &mut World,
+    ) {
+        let maybe_distance = self.pathfinding
+            .routes
+            .get(destination)
+            .or_else(|| {
+                self.pathfinding.routes.get(
+                    destination.landmark_destination(),
+                )
+            })
+            .map(|routing_info| routing_info.distance);
+        requester.on_distance(maybe_distance, world);
     }
 }
 
+
 #[allow(needless_lifetimes)]
-fn successors<'a>(lane: &'a Lane) -> impl Iterator<Item = ID> + 'a {
+fn successors<'a>(lane: &'a Lane) -> impl Iterator<Item = NodeID> + 'a {
     lane.connectivity.interactions.iter().filter_map(
         |interaction| {
             match *interaction {
@@ -201,7 +382,7 @@ fn successors<'a>(lane: &'a Lane) -> impl Iterator<Item = ID> + 'a {
                     partner_lane,
                     kind: InteractionKind::Next { .. },
                     ..
-                } => Some(partner_lane),
+                } => Some(NodeID { _raw_id: partner_lane._raw_id }), // TODO: ugly: untyped ID shenanigans
                 _ => None,
             }
         },
@@ -209,7 +390,7 @@ fn successors<'a>(lane: &'a Lane) -> impl Iterator<Item = ID> + 'a {
 }
 
 #[allow(needless_lifetimes)]
-fn predecessors<'a>(lane: &'a Lane) -> impl Iterator<Item = (u8, ID, bool)> + 'a {
+fn predecessors<'a>(lane: &'a Lane) -> impl Iterator<Item = (u8, NodeID, bool)> + 'a {
     lane.connectivity
         .interactions
         .iter()
@@ -219,276 +400,100 @@ fn predecessors<'a>(lane: &'a Lane) -> impl Iterator<Item = (u8, ID, bool)> + 'a
                 partner_lane,
                 kind: InteractionKind::Overlap { kind: OverlapKind::Transfer, .. },
                 ..
-            } => Some((i as u8, partner_lane, true)),
+            } => Some((i as u8, NodeID{_raw_id: partner_lane._raw_id}, true)), // TODO: ugly: untyped ID shenanigans
             Interaction {
                 partner_lane,
                 kind: InteractionKind::Previous { .. },
                 ..
-            } => Some((i as u8, partner_lane, false)),
+            } => Some((i as u8, NodeID{_raw_id: partner_lane._raw_id}, false)), // TODO: ugly: untyped ID shenanigans
             _ => None,
         })
 }
 
-#[derive(Copy, Clone)]
-pub struct JoinLandmark {
-    from: ID,
-    join_as: Location,
-    hops_from_landmark: u8,
+impl RoughLocation for Lane {
+    fn resolve_as_location(
+        &mut self,
+        requester: LocationRequesterID,
+        rough_location: RoughLocationID,
+        tick: Timestamp,
+        world: &mut World,
+    ) {
+        requester.location_resolved(rough_location, self.pathfinding.location, tick, world);
+    }
 }
 
-const IDEAL_LANDMARK_RADIUS: u8 = 3;
+impl Node for TransferLane {
+    fn update_routes(&mut self, _: &mut World) {}
 
-pub fn setup(system: &mut ActorSystem) {
-    system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
-        each_lane.on(|&JoinLandmark { join_as, hops_from_landmark, from },
-         lane,
-         _| {
-            let join = lane.pathfinding
-                .location
-                .map(|self_destination| {
-                    join_as != self_destination &&
-                        (if self_destination.is_landmark() {
-                             hops_from_landmark < IDEAL_LANDMARK_RADIUS &&
-                                 join_as.landmark.sub_actor_id < lane.id().sub_actor_id
-                         } else {
-                             hops_from_landmark < lane.pathfinding.hops_from_landmark ||
-                                 lane.pathfinding
-                                     .learned_landmark_from
-                                     .map(|learned_from| learned_from == from)
-                                     .unwrap_or(false)
-                         })
-                })
-                .unwrap_or(true);
-            if join {
-                let tell_to_forget_next_tick = lane.pathfinding
-                    .routes
-                    .keys()
-                    .cloned()
-                    .chain(lane.pathfinding.location.into_iter())
-                    .collect();
-                lane.pathfinding = PathfindingInfo {
-                    location: Some(join_as),
-                    learned_landmark_from: Some(from),
-                    hops_from_landmark: hops_from_landmark,
-                    routes: CHashMap::new(),
-                    routes_changed: true,
-                    query_routes_next_tick: true,
-                    tell_to_forget_next_tick: tell_to_forget_next_tick,
-                    routing_timeout: ROUTING_TIMEOUT_AFTER_CHANGE,
-                };
-            }
-            Fate::Live
-        });
+    fn query_routes(&mut self, requester: NodeID, _is_transfer: bool, world: &mut World) {
+        // TODO: ugly: untyped ID shenanigans
+        let requester_lane = LaneID { _raw_id: requester._raw_id };
+        let other_lane: NodeID = self.other_side(requester_lane).into();
+        other_lane.query_routes(self.id.into(), true, world);
+    }
 
-        each_lane.on(|&QueryRoutes { requester, is_transfer }, lane, world| {
-            let self_cost = if is_transfer {
-                0.0
-            } else {
-                lane.construction.length
-            };
-            world.send(
-                requester,
-                ShareRoutes {
-                    new_routes: lane.pathfinding
-                        .routes
-                        .pairs()
-                        .map(|(&destination,
-                          &RoutingInfo { distance, distance_hops, .. })| {
-                            (destination, (distance + self_cost, distance_hops + 1))
-                        })
-                        .chain(if lane.connectivity.on_intersection {
-                            None
-                        } else {
-                            lane.pathfinding.location.map(|destination| {
-                                (destination, (self_cost, 0))
-                            })
-                        })
-                        .collect(),
-                    from: lane.id(),
-                },
-            );
-            Fate::Live
-        });
-
-        each_lane.on(|&ShareRoutes { ref new_routes, from }, lane, _| {
-            if let Some(from_interaction_idx) =
-                lane.connectivity.interactions.iter().position(
-                    |interaction| {
-                        interaction.partner_lane == from
-                    },
-                )
-            {
-                for (&destination, &(new_distance, new_distance_hops)) in new_routes.pairs() {
-                    if destination.is_landmark() || new_distance_hops <= IDEAL_LANDMARK_RADIUS ||
-                        lane.pathfinding
-                            .location
-                            .map(|self_dest| self_dest.landmark == destination.landmark)
-                            .unwrap_or(false)
+    fn on_routes(
+        &mut self,
+        new_routes: &CDict<Location, (f32, u8)>,
+        from: NodeID,
+        world: &mut World,
+    ) {
+        let from_lane = LaneID { _raw_id: from._raw_id };
+        let other_lane: NodeID = self.other_side(from_lane).into();
+        other_lane.on_routes(
+            new_routes
+                .pairs()
+                .map(|(&destination, &(distance, hops))| {
+                    // TODO: ugly: untyped ID shenanigans
+                    let change_cost = if from._raw_id ==
+                        self.connectivity.left.expect("should have left").0._raw_id
                     {
-                        let insert = lane.pathfinding
-                            .routes
-                            .get(destination)
-                            .map(|&RoutingInfo { distance, .. }| new_distance < distance)
-                            .unwrap_or(true);
-                        if insert {
-                            lane.pathfinding.routes.insert(
-                                destination,
-                                RoutingInfo {
-                                    distance: new_distance,
-                                    distance_hops: new_distance_hops,
-                                    outgoing_idx: from_interaction_idx as u8,
-                                    learned_from: from,
-                                    fresh: true,
-                                },
-                            );
-                            lane.pathfinding.routes_changed = true;
-                        }
-                    }
-                }
-            } else {
-                println!("{:?} not yet connected to {:?}", lane.id(), from);
-            }
-            Fate::Live
-        });
-
-        each_lane.on(|&ForgetRoutes { ref forget, from }, lane, _| {
-            let mut forgotten = CVec::<Location>::new();
-            for destination_to_forget in forget.iter() {
-                let forget = if let Some(routing_info) =
-                    lane.pathfinding.routes.get(*destination_to_forget)
-                {
-                    routing_info.learned_from == from
-                } else {
-                    false
-                };
-                if forget {
-                    lane.pathfinding.routes.remove(*destination_to_forget);
-                    if destination_to_forget.is_landmark() {
-                        lane.microtraffic.cars.retain(|car| {
-                            car.destination.landmark != destination_to_forget.landmark
-                        })
+                        LANE_CHANGE_COST_RIGHT
                     } else {
-                        lane.microtraffic.cars.retain(|car| {
-                            &car.destination != destination_to_forget
-                        })
-                    }
-                    forgotten.push(*destination_to_forget);
-                }
-            }
-            lane.pathfinding.tell_to_forget_next_tick = forgotten;
-            Fate::Live
-        });
-
-        each_lane.on(|&MSG_RoughLocation_resolve_as_location(requester,
-                                                rough_location,
-                                                tick),
-         lane,
-         world| {
-            requester.location_resolved(rough_location, lane.pathfinding.location, tick, world);
-            Fate::Live
-        });
-
-        each_lane.on(|&GetDistanceTo { destination, requester }, lane, world| {
-            let maybe_distance = lane.pathfinding
-                .routes
-                .get(destination)
-                .or_else(|| {
-                    lane.pathfinding.routes.get(
-                        destination.landmark_destination(),
-                    )
+                        LANE_CHANGE_COST_LEFT
+                    };
+                    (destination, (distance + change_cost, hops))
                 })
-                .map(|routing_info| routing_info.distance);
-            requester.on_distance(maybe_distance, world);
-            Fate::Live
-        });
-    }));
+                .collect(),
+            self.id.into(),
+            world,
+        );
+    }
 
-    system.extend(Swarm::<TransferLane>::subactors(|mut each_t_lane| {
-        each_t_lane.on(|&JoinLandmark { join_as, hops_from_landmark, from },
-         lane,
-         world| {
-            world.send(
-                lane.other_side(from),
-                JoinLandmark {
-                    join_as: Location {
-                        landmark: join_as.landmark,
-                        node: lane.other_side(from),
-                    },
-                    hops_from_landmark: hops_from_landmark,
-                    from: lane.id(),
-                },
-            );
-            Fate::Live
-        });
+    fn forget_routes(&mut self, forget: &CVec<Location>, from: NodeID, world: &mut World) {
+        let from_lane = LaneID { _raw_id: from._raw_id };
+        let other_lane: NodeID = self.other_side(from_lane).into();
+        other_lane.forget_routes(forget.clone(), self.id.into(), world);
+    }
 
-        each_t_lane.on(|&QueryRoutes { requester, .. }, lane, world| {
-            world.send(
-                lane.other_side(requester),
-                QueryRoutes { requester: lane.id(), is_transfer: true },
-            );
-            Fate::Live
-        });
+    fn join_landmark(
+        &mut self,
+        from: NodeID,
+        join_as: Location,
+        hops_from_landmark: u8,
+        world: &mut World,
+    ) {
+        let from_lane = LaneID { _raw_id: from._raw_id };
+        let other_lane: NodeID = self.other_side(from_lane).into();
+        other_lane.join_landmark(
+            self.id.into(),
+            Location {
+                landmark: join_as.landmark,
+                node: other_lane,
+            },
+            hops_from_landmark,
+            world,
+        );
+    }
 
-        each_t_lane.on(|&ShareRoutes { ref new_routes, from }, lane, world| {
-            world.send(
-                lane.other_side(from),
-                ShareRoutes {
-                    new_routes: new_routes
-                        .pairs()
-                        .map(|(&destination, &(distance, hops))| {
-                            (destination, (
-                                distance +
-                                    if from ==
-                                        lane.connectivity
-                                            .left
-                                            .expect("should have left")
-                                            .0
-                                    {
-                                        LANE_CHANGE_COST_RIGHT
-                                    } else {
-                                        LANE_CHANGE_COST_LEFT
-                                    },
-                                hops,
-                            ))
-                        })
-                        .collect(),
-                    from: lane.id(),
-                },
-            );
-            Fate::Live
-        });
-
-        each_t_lane.on(|&ForgetRoutes { ref forget, from }, lane, world| {
-            world.send(
-                lane.other_side(from),
-                ForgetRoutes { forget: forget.clone(), from: lane.id() },
-            );
-            Fate::Live
-        })
-    }));
-
-    trip::setup(system);
-}
-
-#[derive(Copy, Clone)]
-pub struct QueryRoutes {
-    requester: ID,
-    is_transfer: bool,
-}
-
-#[derive(Compact, Clone)]
-pub struct ShareRoutes {
-    new_routes: CDict<Location, (f32, u8)>,
-    from: ID,
-}
-
-const LANE_CHANGE_COST_LEFT: f32 = 5.0;
-const LANE_CHANGE_COST_RIGHT: f32 = 3.0;
-
-#[derive(Compact, Clone)]
-pub struct ForgetRoutes {
-    forget: CVec<Location>,
-    from: ID,
+    fn get_distance_to(
+        &mut self,
+        _location: Location,
+        _requester: DistanceRequesterID,
+        _: &mut World,
+    ) {
+        unimplemented!()
+    }
 }
 
 pub trait RoughLocation {
@@ -515,10 +520,9 @@ pub trait DistanceRequester {
     fn on_distance(&mut self, maybe_distance: Option<f32>, world: &mut World);
 }
 
-#[derive(Copy, Clone)]
-pub struct GetDistanceTo {
-    pub destination: Location,
-    pub requester: DistanceRequesterID,
+pub fn setup(system: &mut ActorSystem) {
+    trip::setup(system);
+    auto_setup(system);
 }
 
 mod kay_auto;

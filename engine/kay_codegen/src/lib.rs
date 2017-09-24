@@ -113,7 +113,7 @@ pub fn generate(model: &Model) -> String {
     quote!(
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
-        use kay::{ActorSystem, ID};
+        use kay::{ActorSystem, ID, Fate};
         #[allow(unused_imports)]
         use kay::swarm::{Swarm, SubActor};
         use super::*;
@@ -162,7 +162,7 @@ fn simple_actor() {
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
-        use kay::{ActorSystem, ID};
+        use kay::{ActorSystem, ID, Fate};
         #[allow(unused_imports)]
         use kay::swarm::{Swarm, SubActor};
         use super::*;
@@ -176,7 +176,7 @@ fn simple_actor() {
             }
         }
 
-        #[derive(Copy, Clone, PartialEq, Eq, Hash)]
+        #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
         pub struct SomeActorID {
             pub _raw_id: ID
         }
@@ -305,12 +305,12 @@ fn trait_and_impl() {
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
-        use kay::{ActorSystem, ID};
+        use kay::{ActorSystem, ID, Fate};
         #[allow(unused_imports)]
         use kay::swarm::{Swarm, SubActor};
         use super::*;
 
-        #[derive(Copy, Clone, PartialEq, Eq, Hash)]
+        #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
         pub struct SomeTraitID {
             pub _raw_id: ID
         }
@@ -341,7 +341,7 @@ fn trait_and_impl() {
             }
         }
 
-        #[derive(Copy, Clone, PartialEq, Eq, Hash)]
+        #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
         pub struct SomeActorID {
             pub _raw_id: ID
         }

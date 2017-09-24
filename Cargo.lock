@@ -139,7 +139,6 @@ dependencies = [
  "itertools 0.5.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay 0.1.0",
  "kay_codegen 0.1.0",
- "kay_macros 0.1.0",
  "monet 0.1.0",
  "open 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ordered-float 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -489,14 +488,6 @@ dependencies = [
  "pretty_assertions 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 0.10.6 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "kay_macros"
-version = "0.1.0"
-dependencies = [
- "quote 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "syn 0.11.11 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
