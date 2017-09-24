@@ -520,8 +520,10 @@ pub trait DistanceRequester {
     fn on_distance(&mut self, maybe_distance: Option<f32>, world: &mut World);
 }
 
-pub fn setup(system: &mut ActorSystem) {
-    trip::setup(system);
+use core::simulation::SimulationID;
+
+pub fn setup(system: &mut ActorSystem, simulation: SimulationID) {
+    trip::setup(system, simulation);
     auto_setup(system);
 }
 

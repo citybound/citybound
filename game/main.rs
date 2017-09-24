@@ -9,7 +9,7 @@
 
 extern crate ordered_float;
 extern crate itertools;
-extern crate random;
+extern crate rand;
 extern crate fnv;
 extern crate roaring;
 
@@ -83,7 +83,7 @@ fn main() {
         core::init::build_window(machine_id),
     );
 
-    transport::setup(&mut system, user_interface, renderer);
+    transport::setup(&mut system, user_interface, renderer, simulation);
     economy::setup(&mut system, user_interface, simulation);
 
     core::init::print_version(user_interface, world);

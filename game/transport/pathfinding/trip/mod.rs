@@ -1,12 +1,15 @@
-use kay::{ID, World, ActorSystem, Fate};
+use kay::{World, ActorSystem, Fate};
 use kay::swarm::{Swarm, SubActor};
 use compact::CVec;
 use ordered_float::OrderedFloat;
 use core::simulation::Timestamp;
 
+use transport::lane::LaneID;
 use super::Location;
 use super::{RoughLocationID, LocationRequester, LocationRequesterID,
             MSG_LocationRequester_location_resolved};
+
+use itertools::Itertools;
 
 #[derive(Compact, Clone)]
 pub struct Trip {
@@ -147,73 +150,67 @@ pub trait TripListener {
 pub struct TripCreator {
     id: TripCreatorID,
     simulation: SimulationID,
-    current_source_lane: Option<ID>,
-    trips_to_create: CVec<(ID, ID)>,
+    lanes: CVec<LaneID>,
 }
 
 impl TripCreator {
     pub fn spawn(id: TripCreatorID, simulation: SimulationID, _: &mut World) -> TripCreator {
-        TripCreator {
-            id,
-            simulation,
-            current_source_lane: None,
-            trips_to_create: CVec::new(),
-        }
+        TripCreator { id, simulation, lanes: CVec::new() }
     }
 
-    pub fn add_lane_for_trip(&mut self, lane_id: ID, world: &mut World) {
-        if let Some(source_lane_id) = self.current_source_lane {
-            self.trips_to_create.push((source_lane_id, lane_id));
-            self.simulation.wake_up_in(Ticks(0), self.id.into(), world);
-            self.current_source_lane = None;
-        } else {
-            self.current_source_lane = Some(lane_id);
+    pub fn add_lane_for_trip(&mut self, lane_id: LaneID, world: &mut World) {
+        self.lanes.push(lane_id);
+
+        if self.lanes.len() > 1 {
+            self.simulation.wake_up_in(Ticks(50), self.id.into(), world);
         }
     }
 }
+
+use rand::Rng;
 
 impl Sleeper for TripCreator {
     fn wake(&mut self, current_tick: Timestamp, world: &mut World) {
-        for (source, dest) in self.trips_to_create.clone() {
-            TripID::spawn(
-                RoughLocationID { _raw_id: source },
-                RoughLocationID { _raw_id: dest },
-                None,
-                current_tick,
-                world,
-            );
+        ::rand::thread_rng().shuffle(&mut self.lanes);
+
+        for mut pair in &self.lanes.iter().chunks(2) {
+            if let (Some(source), Some(dest)) = (pair.next(), pair.next()) {
+                TripID::spawn((*source).into(), (*dest).into(), None, current_tick, world);
+            }
         }
-        self.current_source_lane = None;
-        self.trips_to_create = CVec::new();
+
+        self.lanes = CVec::new();
     }
 }
 
-pub fn setup(system: &mut ActorSystem) {
+use stagemaster::{Interactable3d, Interactable3dID, MSG_Interactable3d_on_event};
+
+impl Interactable3d for Lane {
+    fn on_event(&mut self, event: Event3d, world: &mut World) {
+        match event {
+            Event3d::HoverStarted { .. } => {
+                self.hovered = true;
+            }
+            Event3d::HoverStopped { .. } => {
+                self.hovered = false;
+            }
+            Event3d::DragFinished { .. } => {
+                if !self.connectivity.on_intersection {
+                    // TODO: ugly/wrong
+                    TripCreatorID::local_first(world).add_lane_for_trip(self.id, world);
+                }
+            }
+            _ => {}
+        };
+    }
+}
+
+pub fn setup(system: &mut ActorSystem, simulation: SimulationID) {
     system.add(Swarm::<Trip>::new(), |_| {});
     system.add(Swarm::<TripCreator>::new(), |_| {});
-
     auto_setup(system);
 
-    system.extend(Swarm::<Lane>::subactors(|mut each_lane| {
-        each_lane.on_random(move |event, lane, world| {
-            match *event {
-                Event3d::HoverStarted { .. } => {
-                    lane.hovered = true;
-                }
-                Event3d::HoverStopped { .. } => {
-                    lane.hovered = false;
-                }
-                Event3d::DragFinished { .. } => {
-                    if !lane.connectivity.on_intersection {
-                        // TODO: ugly/wrong
-                        TripCreatorID::local_first(world).add_lane_for_trip(lane.id(), world);
-                    }
-                }
-                _ => {}
-            };
-            Fate::Live
-        })
-    }));
+    TripCreatorID::spawn(simulation, &mut system.world());
 }
 
 use super::super::lane::Lane;

@@ -5,7 +5,6 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
 clippy = { version = "0.0.157", optional = true }
-random = "0.12.2"
 byteorder = "1"
 
 [dependencies.compact]

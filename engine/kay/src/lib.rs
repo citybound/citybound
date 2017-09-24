@@ -25,7 +25,6 @@ extern crate chunked;
 extern crate compact;
 #[macro_use]
 extern crate compact_macros;
-extern crate random;
 extern crate core;
 extern crate byteorder;
 

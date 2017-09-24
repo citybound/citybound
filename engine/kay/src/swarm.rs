@@ -319,19 +319,6 @@ pub struct Create<SA: SubActor>(pub SA);
 #[derive(Compact, Clone)]
 pub struct CreateWith<SA: SubActor, M: Message>(pub SA, pub M);
 
-/// A wrapper for messages to send a message to a random
-/// subset of the sub-actors of a `Swarm`.
-///
-/// Note: this requires that a message handler was defined for the sub-actors
-/// using [`on_random`](struct.SubActorDefiner.html#method.on_random).
-#[derive(Compact, Clone)]
-pub struct ToRandom<M: Message> {
-    /// Actual message that should be handled
-    pub message: M,
-    /// Number of randomly selected sub-actors that will receive the message
-    pub n_recipients: usize,
-}
-
 /// Helper that is used to define behaviour (message handlers) of sub-actors in a `Swarm`.
 /// Analogous to [`ActorDefiner`](../struct.ActorDefiner.html)
 /// but with some `Swarm`-related extras.
@@ -382,37 +369,6 @@ impl<'a, SA: SubActor + Clone + 'static> SubActorDefiner<'a, SA> {
                 let swarm_id = world.local_broadcast::<Swarm<SA>>();
                 let id = swarm.add(init_state.clone(), swarm_id);
                 world.send(id, (*init_message).clone());
-                Fate::Live
-            },
-            false,
-        );
-
-        // also be able to receive this message normally
-        self.on(handler);
-    }
-
-    /// Allows a message (the one handled by the given closure) to be received
-    /// by a random subset of the sub-actors of a `Swarm`.
-    ///
-    /// This can then be triggered by sending a [`ToRandom`](struct.ToRandom.html)
-    /// message to the swarm.
-    pub fn on_random<M: Message + Clone, F>(&mut self, handler: F)
-    where
-        F: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
-    {
-        self.0.on_packet(
-            move |packet: &Packet<ToRandom<M>>, swarm, world| {
-                if swarm.slot_map.len() > 0 {
-                    for _i in 0..packet.message.n_recipients {
-                        let random_id = ID::new(
-                            packet.recipient_id.type_id,
-                            swarm.slot_map.random_used() as u32,
-                            world.local_machine_id(),
-                            0,
-                        );
-                        world.send(random_id, packet.message.message.clone());
-                    }
-                }
                 Fate::Live
             },
             false,

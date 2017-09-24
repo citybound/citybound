@@ -1,7 +1,7 @@
 use compact::CVec;
-use kay::{ActorSystem, Fate, External, World};
-use kay::swarm::Swarm;
+use kay::{ActorSystem, External, World};
 use super::{CurrentPlan, CurrentPlanID, SelectableStrokeRef};
+use transport::lane::LaneID;
 use stagemaster::geometry::AnyShape;
 use stagemaster::combo::{Bindings, Combo2};
 use stagemaster::combo::Button::*;
@@ -47,7 +47,6 @@ impl Default for InteractionSettings {
 
 use monet::{RendererID, EyeListener, Eye, Movement, EyeListenerID, MSG_EyeListener_eye_moved};
 use stagemaster::UserInterfaceID;
-use transport::lane::Lane;
 
 impl Interaction {
     pub fn init(
@@ -198,21 +197,20 @@ impl Interactable3d for CurrentPlan {
                     //       *I uh.. I guess I should actually write a good one*
                     //       When will you finally?!
                     //       *Uh.. next week maybe?*
-                    use kay::swarm::ToRandom;
                     use descartes::P3;
-                    let all_lanes = world.global_broadcast::<Swarm<Lane>>();
-                    world.send(
-                        all_lanes,
-                        ToRandom {
-                            n_recipients: 5000,
-                            message: Event3d::DragFinished {
+                    let lanes_as_interactables: Interactable3dID = LaneID::global_broadcast(world)
+                        .into();
+                    for _i in 0..100 {
+                        lanes_as_interactables.on_event(
+                            Event3d::DragFinished {
                                 from: P3::new(0.0, 0.0, 0.0),
                                 from2d: P2::new(0.0, 0.0),
                                 to: P3::new(0.0, 0.0, 0.0),
                                 to2d: P2::new(0.0, 0.0),
                             },
-                        },
-                    );
+                            world,
+                        );
+                    }
                 }
 
                 let maybe_grid_size = if bindings["Create Large Grid"].is_freshly_in(&combos) {

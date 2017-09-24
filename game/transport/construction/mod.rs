@@ -14,8 +14,6 @@ use super::microtraffic::LaneLikeID;
 pub mod materialized_reality;
 use self::materialized_reality::{MaterializedRealityID, BuildableRef};
 
-use random::Source;
-
 const CONNECTION_TOLERANCE: f32 = 0.1;
 
 #[derive(Compact, Clone)]
@@ -347,6 +345,7 @@ impl Unbuildable for Lane {
 }
 
 use economy::buildings::{Lot, BuildingSpawnerID};
+use rand::Rng;
 
 impl Lane {
     // TODO: this is a horrible hack
@@ -355,7 +354,7 @@ impl Lane {
 
         if !self.connectivity.on_intersection {
             let path = &self.construction.path;
-            let distance = ::random::default().read_f64() as f32 * path.length();
+            let distance = ::rand::thread_rng().next_f32() * path.length();
             let point = path.along(distance) +
                 BUILDING_DISTANCE * path.direction_along(distance).orthogonal();
 
