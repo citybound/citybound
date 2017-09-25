@@ -1,5 +1,4 @@
-use kay::{ActorSystem, World, Fate, External};
-use kay::swarm::Swarm;
+use kay::{ActorSystem, World, External};
 use compact::{CVec, CDict};
 use imgui::Ui;
 use ordered_float::OrderedFloat;
@@ -562,7 +561,7 @@ impl Simulatable for Family {
 pub fn setup(system: &mut ActorSystem) {
     judgement_table::setup();
 
-    system.add(Swarm::<Family>::new(), |_| {});
+    system.register::<Family>();
 
     auto_setup(system);
 }

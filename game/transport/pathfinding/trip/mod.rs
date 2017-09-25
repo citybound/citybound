@@ -1,5 +1,4 @@
 use kay::{World, ActorSystem, Fate};
-use kay::swarm::{Swarm, SubActor};
 use compact::CVec;
 use ordered_float::OrderedFloat;
 use core::simulation::Timestamp;
@@ -52,7 +51,7 @@ impl Trip {
         tick: Timestamp,
         world: &mut World,
     ) -> Fate {
-        println!("Trip {:?} failed!", self.id());
+        println!("Trip {:?} failed!", self.id);
 
         if let Some(listener) = self.listener {
             listener.trip_result(self.id, location, true, tick, world);
@@ -62,7 +61,7 @@ impl Trip {
     }
 
     pub fn succeed(&mut self, tick: Timestamp, world: &mut World) -> Fate {
-        println!("Trip {:?} succeeded!", self.id());
+        println!("Trip {:?} succeeded!", self.id);
 
         if let Some(listener) = self.listener {
             listener.trip_result(self.id, self.rough_destination, false, tick, world);
@@ -206,8 +205,8 @@ impl Interactable3d for Lane {
 }
 
 pub fn setup(system: &mut ActorSystem, simulation: SimulationID) {
-    system.add(Swarm::<Trip>::new(), |_| {});
-    system.add(Swarm::<TripCreator>::new(), |_| {});
+    system.register::<Trip>();
+    system.register::<TripCreator>();
     auto_setup(system);
 
     TripCreatorID::spawn(simulation, &mut system.world());

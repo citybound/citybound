@@ -1,5 +1,4 @@
-use kay::{ActorSystem, Fate, World};
-use kay::swarm::Swarm;
+use kay::{ActorSystem, World};
 use compact::{COption, CVec, CDict};
 use descartes::{V2, N, P2};
 use stagemaster::UserInterfaceID;
@@ -367,7 +366,7 @@ pub fn setup(
     renderer_id: RendererID,
     materialized_reality: MaterializedRealityID,
 ) {
-    system.add(Swarm::<CurrentPlan>::new(), |_| {});
+    system.register::<CurrentPlan>();
     auto_setup(system);
     helper_interactables::setup(system);
     interaction::auto_setup(system);

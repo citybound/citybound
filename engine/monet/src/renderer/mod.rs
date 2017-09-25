@@ -2,8 +2,7 @@
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
                     WithUniqueOrthogonal, Inverse, Rotate};
 use compact::CVec;
-use kay::{Fate, World, ActorSystem, External};
-use kay::swarm::Swarm;
+use kay::{World, ActorSystem, External};
 
 use glium::backend::glutin::Display;
 
@@ -158,7 +157,7 @@ pub trait Renderable {
 
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<Renderer>::new(), |_| {});
+    system.register::<Renderer>();
     auto_setup(system);
     control::auto_setup(system);
     movement::auto_setup(system);

@@ -1,5 +1,4 @@
-use kay::{ID, ActorSystem, World, External};
-use kay::swarm::Swarm;
+use kay::{ActorSystem, World, External};
 use compact::CVec;
 use descartes::{P2, Norm, Curve};
 use stagemaster::combo::{Bindings, Combo2};
@@ -52,15 +51,15 @@ impl RoughLocation for Building {
         tick: Timestamp,
         world: &mut World,
     ) {
-        let adjacent_lane = RoughLocationID { _raw_id: self.lot.adjacent_lane };
-        adjacent_lane.resolve_as_location(requester, rough_location, tick, world)
+        Into::<RoughLocationID>::into(self.lot.adjacent_lane)
+            .resolve_as_location(requester, rough_location, tick, world)
     }
 }
 
 #[derive(Compact, Clone)]
 pub struct Lot {
     pub position: P2,
-    pub adjacent_lane: ID,
+    pub adjacent_lane: LaneID,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -235,7 +234,7 @@ impl Sleeper for BuildingSpawner {
                         None
                     })
                     .collect();
-                let lanes = LotConflictorID { _raw_id: world.global_broadcast::<Swarm<Lane>>() };
+                let lanes = LotConflictorID { _raw_id: world.global_broadcast::<Lane>() };
                 lanes.find_conflicts(new_lots.clone(), self.id, world);
                 self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
 
@@ -263,8 +262,8 @@ use super::households::grocery_shop::GroceryShopID;
 use core::simulation::{SimulationID, Ticks};
 
 pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID, simulation: SimulationID) {
-    system.add(Swarm::<Building>::new(), |_| {});
-    system.add(Swarm::<BuildingSpawner>::new(), |_| {});
+    system.register::<Building>();
+    system.register::<BuildingSpawner>();
     rendering::setup(system, user_interface);
 
     kay_auto::auto_setup(system);

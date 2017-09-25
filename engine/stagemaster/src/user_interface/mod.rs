@@ -1,5 +1,4 @@
-use kay::{ActorSystem, Fate, External, World};
-use kay::swarm::Swarm;
+use kay::{ActorSystem, External, World};
 use compact::CVec;
 use descartes::{N, P2, V2, P3, Into2d, Shape};
 use monet::{RendererID, RenderableID, SceneDescription, Display};
@@ -583,7 +582,7 @@ pub fn setup(
     window_builder: WindowBuilder,
 ) -> (UserInterfaceID, RendererID) {
     ::monet::setup(system);
-    system.add(Swarm::<UserInterface>::new(), |_| {});
+    system.register::<UserInterface>();
     auto_setup(system);
 
     super::camera_control::setup(system);

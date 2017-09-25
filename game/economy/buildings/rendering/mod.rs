@@ -1,7 +1,6 @@
 use descartes::{P2, V2, Band, Segment, Path, Circle};
 use compact::CVec;
-use kay::{ActorSystem, Fate, World, External};
-use kay::swarm::Swarm;
+use kay::{ActorSystem, World, External};
 use monet::{Instance, RendererID, Renderable, RenderableID, MSG_Renderable_setup_in_scene,
             MSG_Renderable_render_to_scene};
 use stagemaster::geometry::{CPath, band_to_geometry, AnyShape};
@@ -177,8 +176,8 @@ impl Renderable for Building {
 }
 
 pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) -> BuildingRendererID {
-    system.add(Swarm::<BuildingInspector>::new(), |_| {});
-    system.add(Swarm::<BuildingRenderer>::new(), |_| {});
+    system.register::<BuildingInspector>();
+    system.register::<BuildingRenderer>();
     auto_setup(system);
 
     BuildingInspectorID::spawn(user_interface, &mut system.world());

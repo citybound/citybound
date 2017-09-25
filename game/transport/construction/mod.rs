@@ -1,6 +1,5 @@
 use compact::CVec;
 use kay::{ActorSystem, World, Fate};
-use kay::swarm::SubActor;
 use descartes::{N, P2, Dot, Band, Curve, FiniteCurve, Path, RoughlyComparable, Intersect,
                 WithUniqueOrthogonal};
 use itertools::Itertools;
@@ -358,13 +357,7 @@ impl Lane {
             let point = path.along(distance) +
                 BUILDING_DISTANCE * path.direction_along(distance).orthogonal();
 
-            requester.found_lot(
-                Lot {
-                    position: point,
-                    adjacent_lane: self.id(),
-                },
-                world,
-            );
+            requester.found_lot(Lot { position: point, adjacent_lane: self.id }, world);
         }
     }
 }

@@ -1,5 +1,4 @@
-use kay::{ActorSystem, Fate, World, External};
-use kay::swarm::Swarm;
+use kay::{ActorSystem, World, External};
 use monet::{RendererID, Movement};
 use descartes::{P2, P3, V3};
 use combo::Button::*;
@@ -236,7 +235,7 @@ impl Interactable2d for CameraControl {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<CameraControl>::new(), |_| {});
+    system.register::<CameraControl>();
     auto_setup(system);
 }
 

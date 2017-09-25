@@ -4,7 +4,7 @@ use super::chunked::{MemChunker, ValueInChunk, SizedChunkedArena, MultiSized};
 use super::compact::Compact;
 use super::slot_map::{SlotIndices, SlotMap};
 use super::messaging::{Message, Packet, Fate};
-use super::actor_system::{World, ActorDefiner};
+use super::actor_system::World;
 use super::id::{ID, broadcast_sub_actor_id};
 use std::marker::PhantomData;
 use std::mem::size_of;
@@ -85,15 +85,6 @@ impl<SA: SubActor + Clone> Swarm<SA> {
             base_id.machine,
             version as u8,
         )
-    }
-
-    fn add(&mut self, mut initial_state: SA, base_id: ID) -> ID {
-        let id = unsafe { self.allocate_id(base_id) };
-        unsafe { self.add_with_id(&mut initial_state, id) };
-        *self.n_sub_actors += 1;
-        // this acts like a move!
-        ::std::mem::forget(initial_state);
-        id
     }
 
     /// used externally when manually adding a subactor,
@@ -178,11 +169,11 @@ impl<SA: SubActor + Clone> Swarm<SA> {
         handler: &H,
         world: &mut World,
     ) where
-        H: Fn(&Packet<M>, &mut SA, &mut World) -> Fate + 'static,
+        H: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
     {
         let (fate, is_still_compact) = {
             let actor = self.at_mut(packet.recipient_id.sub_actor_id as usize);
-            let fate = handler(packet, actor, world);
+            let fate = handler(&packet.message, actor, world);
             (fate, actor.is_still_compact())
         };
 
@@ -202,7 +193,7 @@ impl<SA: SubActor + Clone> Swarm<SA> {
         handler: &H,
         world: &mut World,
     ) where
-        H: Fn(&Packet<M>, &mut SA, &mut World) -> Fate + 'static,
+        H: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
     {
         // this function has to deal with the fact that during the iteration,
         // receivers of the broadcast can be resized
@@ -227,7 +218,7 @@ impl<SA: SubActor + Clone> Swarm<SA> {
                 let index = SlotIndices::new(c, slot);
                 let (fate, is_still_compact, id) = {
                     let actor = self.at_index_mut(index);
-                    let fate = handler(packet, actor, world);
+                    let fate = handler(&packet.message, actor, world);
                     (fate, actor.is_still_compact(), actor.id())
                 };
 
@@ -271,32 +262,19 @@ impl<SA: SubActor + Clone> Swarm<SA> {
         }
     }
 
-    /// Define message handlers for subactors of a `Swarm` when
-    /// it is added to a system or extended. See
-    /// [`SubActorDefiner`](struct.SubActorDefiner.html) to see what can be defined.
-    ///
-    /// ```
-    /// system.add(Swarm::<UIElement>::new(), Swarm::<UI>::subactors(|mut each_element| {
-    ///    each_element.on(|&Update, element, world| {
-    ///        //...
-    ///    });
-    /// }));
-    pub fn subactors<S>(subactor_definition: S) -> impl Fn(ActorDefiner<Self>)
-    where
-        S: Fn(SubActorDefiner<SA>) + 'static,
+    pub fn dispatch_packet<M: Message, F>(
+        &mut self,
+        packet: &Packet<M>,
+        handler: &F,
+        world: &mut World,
+    ) where
+        F: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
     {
-        move |mut the_swarm| {
-            Self::define_control_handlers(&mut the_swarm);
-            subactor_definition(SubActorDefiner(the_swarm));
+        if packet.recipient_id.sub_actor_id == broadcast_sub_actor_id() {
+            self.receive_broadcast(packet, handler, world);
+        } else {
+            self.receive_instance(packet, handler, world);
         }
-    }
-
-    fn define_control_handlers<'a>(the_swarm: &mut ActorDefiner<'a, Self>) {
-        let swarm_id = the_swarm.world().local_broadcast::<Self>();
-        the_swarm.on(move |&Create(ref initial_state): &Create<SA>, swarm, _| {
-            swarm.add(initial_state.clone(), swarm_id);
-            Fate::Live
-        });
     }
 }
 
@@ -304,119 +282,5 @@ use super::actor_system::SubActorsCountable;
 impl<SA: SubActor> SubActorsCountable for Swarm<SA> {
     fn subactor_count(&self) -> usize {
         *self.n_sub_actors
-    }
-}
-
-/// A message for adding a new sub-actor to a `Swarm` given its initial state.
-#[derive(Compact, Clone)]
-pub struct Create<SA: SubActor>(pub SA);
-
-/// A message for adding a new sub-actor to a `Swarm` given its initial state
-/// and an initial message that the sub-actor will handle immediately after creation.
-///
-/// Note: this requires that a message handler was defined for the sub-actors
-/// using [`on_create_with`](struct.SubActorDefiner.html#method.on_create_with).
-#[derive(Compact, Clone)]
-pub struct CreateWith<SA: SubActor, M: Message>(pub SA, pub M);
-
-/// Helper that is used to define behaviour (message handlers) of sub-actors in a `Swarm`.
-/// Analogous to [`ActorDefiner`](../struct.ActorDefiner.html)
-/// but with some `Swarm`-related extras.
-///
-/// It is passed to the closure argument of
-/// [`Swarm::subactors`](struct.Swarm.html#method.subactors).
-pub struct SubActorDefiner<'a, SA: 'static>(ActorDefiner<'a, Swarm<SA>>);
-
-impl<'a, SA: SubActor + Clone + 'static> SubActorDefiner<'a, SA> {
-    /// Analogous to [`ActorDefiner::on`](../struct.ActorDefiner.html#method.on),
-    /// the closure argument is passed:
-    ///
-    /// * the received message (can conveniently be destructured already as an argument)
-    /// * the current **sub-actor state** that can be mutated
-    /// * a [`World`](struct.World.html) to identify and send
-    ///   messages to other actors
-    pub fn on<M: Message, F>(&mut self, handler: F)
-    where
-        F: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
-    {
-        self.on_maybe_critical(handler, false);
-    }
-
-    /// Same as [`on`](#method.on) but continues to receive after the ActorSystem panicked.
-    /// (Analogous to [`ActorDefiner::on_critical`](../struct.ActorDefiner.html#method.on_critical))
-    pub fn on_critical<M: Message, F>(&mut self, handler: F)
-    where
-        F: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
-    {
-        self.on_maybe_critical(handler, true);
-    }
-
-    /// Allows sub-actors to be created with a particular message
-    /// (the one handled by the given closure) as an initial message.
-    ///
-    /// This can then be triggered by sending a [`CreateWith`](struct.CreateWith.html)
-    /// message to the swarm.
-    pub fn on_create_with<M: Message + Clone, F>(&mut self, handler: F)
-    where
-        F: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
-    {
-        self.0.on_packet(
-            move |&Packet { ref message, .. }, swarm, world| {
-                let &CreateWith(ref init_state, ref init_message): &CreateWith<
-                    SA,
-                    M,
-                > = message;
-                let swarm_id = world.local_broadcast::<Swarm<SA>>();
-                let id = swarm.add(init_state.clone(), swarm_id);
-                world.send(id, (*init_message).clone());
-                Fate::Live
-            },
-            false,
-        );
-
-        // also be able to receive this message normally
-        self.on(handler);
-    }
-
-    /// Access a [`World`](struct.World.html) of the system that a sub-actor
-    /// is being defined in, can be used to identify actors (and keep the ID)
-    /// or send messages at *define-time*.
-    ///
-    /// (Analogous to [`ActorDefiner::world`](../struct.ActorDefiner.html#method.world))
-    pub fn world(&mut self) -> World {
-        self.0.world()
-    }
-
-    /// Advanced: Can be used to register a handler not only for a message,
-    /// but for a whole packet (precise recipient id + message).
-    ///
-    /// (Analogous to [`ActorDefiner::on_packet`](../struct.ActorDefiner.html#method.on_packet))
-    pub fn on_packet<M: Message, F>(&mut self, handler: F, critical: bool)
-    where
-        F: Fn(&Packet<M>, &mut SA, &mut World) -> Fate + 'static,
-    {
-        self.0.on_packet(
-            move |packet: &Packet<M>, swarm, world| {
-                if packet.recipient_id.sub_actor_id == broadcast_sub_actor_id() {
-                    swarm.receive_broadcast(packet, &handler, world);
-                } else {
-                    swarm.receive_instance(packet, &handler, world);
-                }
-                Fate::Live
-            },
-            critical,
-        );
-
-
-    }
-
-    fn on_maybe_critical<M: Message, F>(&mut self, handler: F, critical: bool)
-    where
-        F: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
-    {
-        self.on_packet(
-            move |packet: &Packet<M>, state, world| handler(&packet.message, state, world),
-            critical,
-        );
     }
 }

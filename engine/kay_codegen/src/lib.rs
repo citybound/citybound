@@ -92,16 +92,15 @@ pub struct TraitDef {
 pub struct Handler {
     name: Ident,
     arguments: Vec<FnArg>,
-    scope: HandlerScope,
+    scope: HandlerType,
     critical: bool,
     returns_fate: bool,
     from_trait: Option<TraitName>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub enum HandlerScope {
-    SubActor,
-    Swarm,
+pub enum HandlerType {
+    Handler,
     Init,
 }
 
@@ -113,9 +112,7 @@ pub fn generate(model: &Model) -> String {
     quote!(
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
-        use kay::{ActorSystem, ID, Fate};
-        #[allow(unused_imports)]
-        use kay::swarm::{Swarm, SubActor};
+        use kay::{ActorSystem, ID, Fate, SubActor};
         use super::*;
 
         #traits_msgs
@@ -147,10 +144,6 @@ fn simple_actor() {
                 Fate::Die
             }
 
-            pub fn static_ish(some_param: &usize, world: &mut World) {
-                let bla = some_param;
-            }
-
             pub fn init_ish(id: SomeActorID, some_param: &usize, world: &mut World) -> SomeActor {
                 SomeActor {
                     id: Some(id),
@@ -162,9 +155,7 @@ fn simple_actor() {
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
-        use kay::{ActorSystem, ID, Fate};
-        #[allow(unused_imports)]
-        use kay::swarm::{Swarm, SubActor};
+        use kay::{ActorSystem, ID, Fate, SubActor};
         use super::*;
 
         impl SubActor for SomeActor {
@@ -183,15 +174,15 @@ fn simple_actor() {
 
         impl SomeActorID {
             pub fn local_first(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.local_first::<Swarm<SomeActor>>() }
+                SomeActorID { _raw_id: world.local_first::<SomeActor>() }
             }
 
             pub fn local_broadcast(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.local_broadcast::<Swarm<SomeActor>>() }
+                SomeActorID { _raw_id: world.local_broadcast::<SomeActor>() }
             }
 
             pub fn global_broadcast(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.global_broadcast::<Swarm<SomeActor>>() }
+                SomeActorID { _raw_id: world.global_broadcast::<SomeActor>() }
             }
         }
 
@@ -204,14 +195,9 @@ fn simple_actor() {
                 world.send(self._raw_id, MSG_SomeActor_no_params_fate());
             }
 
-            pub fn static_ish(some_param: usize, world: &mut World) {
-                let swarm = world.local_broadcast::<Swarm<SomeActor>>();
-                world.send(swarm, MSG_SomeActor_static_ish(some_param));
-            }
-
             pub fn init_ish(some_param: usize, world: &mut World) -> Self {
                 let id = SomeActorID { _raw_id: world.allocate_subactor_id::<SomeActor>() };
-                let swarm = world.local_broadcast::<Swarm<SomeActor>>();
+                let swarm = world.local_broadcast::<SomeActor>();
                 world.send(swarm, MSG_SomeActor_init_ish(id, some_param));
                 id
             }
@@ -225,37 +211,23 @@ fn simple_actor() {
         pub struct MSG_SomeActor_no_params_fate();
         #[allow(non_camel_case_types)]
         #[derive(Compact, Clone)]
-        pub struct MSG_SomeActor_static_ish(pub usize);
-        #[allow(non_camel_case_types)]
-        #[derive(Compact, Clone)]
         pub struct MSG_SomeActor_init_ish(pub SomeActorID, pub usize);
 
         #[allow(unused_variables)]
         #[allow(unused_mut)]
         pub fn auto_setup(system: &mut ActorSystem) {
-            system.extend::<Swarm<SomeActor>, _>(Swarm::<SomeActor>::subactors(|mut each_subactor| {
-                each_subactor.on(|&MSG_SomeActor_some_method(ref some_param), subactor, world| {
-                    subactor.some_method(some_param, world);
-                    Fate::Live
-                });
-                each_subactor.on(|&MSG_SomeActor_no_params_fate(), subactor, world| {
-                    subactor.no_params_fate(world)
-                });
-            }));
+            system.add_handler::<SomeActor, _, _>(|&MSG_SomeActor_some_method(ref some_param), subactor, world| {
+                subactor.some_method(some_param, world);
+                Fate::Live
+            }, false);
 
-            system.extend::<Swarm<SomeActor>, _>(|mut the_swarm| {
-                the_swarm.on(|&MSG_SomeActor_static_ish(ref some_param), _, world| {
-                    SomeActor::static_ish(some_param, world);
-                    Fate::Live
-                });
+            system.add_handler::<SomeActor, _, _>(|&MSG_SomeActor_no_params_fate(), subactor, world| {
+                subactor.no_params_fate(world)
+            }, false);
 
-                the_swarm.on(|&MSG_SomeActor_init_ish(id, ref some_param), swarm, world| {
-                    let mut subactor = SomeActor::init_ish(id, some_param, world);
-                    unsafe {swarm.add_manually_with_id(&mut subactor, id._raw_id) };
-                    ::std::mem::forget(subactor);
-                    Fate::Live
-                });
-            });
+            system.add_spawner::<SomeActor, _, _>(|&MSG_SomeActor_init_ish(id, ref some_param), world| {
+                SomeActor::init_ish(id, some_param, world)
+            }, false);
         }
     );
 
@@ -305,9 +277,7 @@ fn trait_and_impl() {
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
-        use kay::{ActorSystem, ID, Fate};
-        #[allow(unused_imports)]
-        use kay::swarm::{Swarm, SubActor};
+        use kay::{ActorSystem, ID, Fate, SubActor};
         use super::*;
 
         #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
@@ -348,15 +318,15 @@ fn trait_and_impl() {
 
         impl SomeActorID {
             pub fn local_first(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.local_first::<Swarm<SomeActor>>() }
+                SomeActorID { _raw_id: world.local_first::<SomeActor>() }
             }
 
             pub fn local_broadcast(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.local_broadcast::<Swarm<SomeActor>>() }
+                SomeActorID { _raw_id: world.local_broadcast::<SomeActor>() }
             }
 
             pub fn global_broadcast(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.global_broadcast::<Swarm<SomeActor>>() }
+                SomeActorID { _raw_id: world.global_broadcast::<SomeActor>() }
             }
         }
 
@@ -377,21 +347,19 @@ fn trait_and_impl() {
         #[allow(unused_variables)]
         #[allow(unused_mut)]
         pub fn auto_setup(system: &mut ActorSystem) {
-            system.extend::<Swarm<SomeActor>, _>(Swarm::<SomeActor>::subactors(|mut each_subactor| {
-                each_subactor.on(|&MSG_SomeTrait_some_method(ref some_param), subactor, world| {
-                    subactor.some_method(some_param, world);
-                    Fate::Live
-                });
-                each_subactor.on(|&MSG_SomeTrait_no_params_fate(), subactor, world| {
-                    subactor.no_params_fate(world)
-                });
-                each_subactor.on(|&MSG_ForeignTrait_simple(ref some_param), subactor, world| {
-                    subactor.simple(some_param, world);
-                    Fate::Live
-                });
-            }));
+            system.add_handler::<SomeActor, _, _>(|&MSG_SomeTrait_some_method(ref some_param), subactor, world| {
+                subactor.some_method(some_param, world);
+                Fate::Live
+            }, false);
 
-            system.extend::<Swarm<SomeActor>, _>(|mut the_swarm| {});
+            system.add_handler::<SomeActor, _, _>(|&MSG_SomeTrait_no_params_fate(), subactor, world| {
+                subactor.no_params_fate(world)
+            }, false);
+
+            system.add_handler::<SomeActor, _, _>(|&MSG_ForeignTrait_simple(ref some_param), subactor, world| {
+                subactor.simple(some_param, world);
+                Fate::Live
+            }, false);
         }
     );
 

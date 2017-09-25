@@ -1,4 +1,4 @@
-use kay::{Fate, World};
+use kay::World;
 use compact::CDict;
 use descartes::{N, Band, Path, FiniteCurve};
 use monet::{Geometry, Instance, RendererID};

@@ -1,5 +1,4 @@
 use kay::{ActorSystem, Fate, World};
-use kay::swarm::Swarm;
 use compact::CVec;
 use descartes::{P2, N, Norm, Band, Into2d, Curve, FiniteCurve, Path, RoughlyComparable};
 use stagemaster::geometry::{AnyShape, CPath};
@@ -418,11 +417,11 @@ impl Interactable3d for StrokeCanvas {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<Deselecter>::new(), |_| {});
-    system.add(Swarm::<Addable>::new(), |_| {});
-    system.add(Swarm::<Draggable>::new(), |_| {});
-    system.add(Swarm::<Selectable>::new(), |_| {});
-    system.add(Swarm::<StrokeCanvas>::new(), |_| {});
+    system.register::<Deselecter>();
+    system.register::<Addable>();
+    system.register::<Draggable>();
+    system.register::<Selectable>();
+    system.register::<StrokeCanvas>();
     auto_setup(system);
 }
 

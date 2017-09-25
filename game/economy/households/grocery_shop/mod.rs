@@ -1,5 +1,4 @@
-use kay::{ActorSystem, World, Fate, External};
-use kay::swarm::Swarm;
+use kay::{ActorSystem, World, External};
 use imgui::Ui;
 use core::simulation::{TimeOfDay, Seconds};
 use economy::resources::{ResourceAmount, ResourceMap, Entry, r_id, r_properties, r_info,
@@ -109,7 +108,7 @@ impl Household for GroceryShop {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<GroceryShop>::new(), |_| {});
+    system.register::<GroceryShop>();
     auto_setup(system);
 }
 

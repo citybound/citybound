@@ -1,6 +1,5 @@
 use compact::CVec;
 use kay::{ActorSystem, World};
-use kay::swarm::Swarm;
 use descartes::{N, FiniteCurve};
 use stagemaster::geometry::CPath;
 
@@ -123,8 +122,8 @@ impl TransferLane {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<Lane>::new(), |_| {});
-    system.add(Swarm::<TransferLane>::new(), |_| {});
+    system.register::<Lane>();
+    system.register::<TransferLane>();
 
     auto_setup(system);
 }

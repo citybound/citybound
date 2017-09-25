@@ -1,5 +1,4 @@
-use kay::{ActorSystem, Fate, World};
-use kay::swarm::Swarm;
+use kay::{ActorSystem, World};
 use compact::CVec;
 use core::simulation::{Timestamp, Seconds, Simulatable, SimulatableID, MSG_Simulatable_tick};
 use transport::pathfinding::RoughLocationID;
@@ -79,7 +78,7 @@ impl Simulatable for TaskEndScheduler {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<TaskEndScheduler>::new(), |_| {});
+    system.register::<TaskEndScheduler>();
 
     auto_setup(system);
 

@@ -1,5 +1,4 @@
 use kay::{ActorSystem, Fate, World};
-use kay::swarm::Swarm;
 use compact::{CVec, CDict};
 use super::resources::{ResourceMap, ResourceId, ResourceAmount};
 use super::households::{HouseholdID, MemberIdx};
@@ -354,9 +353,9 @@ impl DistanceRequester for TripCostEstimator {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<Offer>::new(), |_| {});
-    system.add(Swarm::<Market>::new(), |_| {});
-    system.add(Swarm::<TripCostEstimator>::new(), |_| {});
+    system.register::<Offer>();
+    system.register::<Market>();
+    system.register::<TripCostEstimator>();
 
     kay_auto::auto_setup(system);
     MarketID::spawn(&mut system.world());

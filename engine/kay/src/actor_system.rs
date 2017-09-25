@@ -27,7 +27,7 @@ pub struct ActorSystem {
     panic_callback: Box<Fn(Box<Any>, &mut World)>,
     inboxes: [Option<Inbox>; MAX_RECIPIENT_TYPES],
     actor_registry: TypeRegistry,
-    actors: [Option<*mut u8>; MAX_RECIPIENT_TYPES],
+    swarms: [Option<*mut u8>; MAX_RECIPIENT_TYPES],
     message_registry: TypeRegistry,
     dispatchers: [[Option<Dispatcher>; MAX_MESSAGE_TYPES]; MAX_RECIPIENT_TYPES],
     actors_as_countables: Vec<(String, *const SubActorsCountable)>,
@@ -63,7 +63,7 @@ impl ActorSystem {
             inboxes: unsafe { make_array!(MAX_RECIPIENT_TYPES, |_| None) },
             actor_registry: TypeRegistry::new(),
             message_registry: TypeRegistry::new(),
-            actors: [None; MAX_RECIPIENT_TYPES],
+            swarms: [None; MAX_RECIPIENT_TYPES],
             dispatchers: unsafe {
                 make_array!(MAX_RECIPIENT_TYPES, |_| {
                     make_array!(MAX_MESSAGE_TYPES, |_| None)
@@ -102,77 +102,76 @@ impl ActorSystem {
         self.networking.n_turns
     }
 
-    /// Add a new actor to the system given an initial actor state
-    /// and a closure that takes an [ActorDefiner](struct.ActorDefiner.html)
-    /// to define message handlers for this actor.
-    ///
-    /// ```
-    /// system.add(Logger::new(), |mut the_logger| {
-    ///     the_logger.on(|&Message { text }, logger, world| {
-    ///         //...
-    ///     });
-    /// });
-    /// ```
-    pub fn add<A: 'static, D: Fn(ActorDefiner<A>)>(&mut self, actor: A, define: D) {
+    /// Register a new type of actor with the system
+    pub fn register<A: SubActor>(&mut self) {
         // allow use of actor id before it is added
-        let actor_id = self.actor_registry.get_or_register::<A>();
+        let actor_id = self.actor_registry.get_or_register::<Swarm<A>>();
         assert!(self.inboxes[actor_id.as_usize()].is_none());
         self.inboxes[actor_id.as_usize()] = Some(Inbox::new());
         // ...but still make sure it is only added once
-        assert!(self.actors[actor_id.as_usize()].is_none());
+        assert!(self.swarms[actor_id.as_usize()].is_none());
         // Store pointer to the actor
-        let actor_pointer = Box::into_raw(Box::new(actor));
-        self.actors[actor_id.as_usize()] = Some(actor_pointer as *mut u8);
+        let actor_pointer = Box::into_raw(Box::new(Swarm::<A>::new()));
+        self.swarms[actor_id.as_usize()] = Some(actor_pointer as *mut u8);
         self.actors_as_countables.push((
             self.actor_registry
-                .get_name(self.actor_registry.get::<A>())
+                .get_name(self.actor_registry.get::<Swarm<A>>())
                 .clone(),
             actor_pointer,
         ));
-        define(ActorDefiner::with(self));
     }
 
-    /// Extend a previously added actor using a closure that
-    /// takes an [ActorDefiner](struct.ActorDefiner.html)
-    /// to define *additional* message handlers for this actor.
-    ///
-    /// This is useful if you want to implement different *aspects*
-    /// of an actor in different files.
-    ///
-    /// ```
-    /// system.extend::<Logger, _>(|mut the_logger| {
-    ///     the_logger.on(|_: &ClearAll, logger, world| {
-    ///         //...
-    ///     });
-    /// });
-    /// ```
-    pub fn extend<A: 'static, D: Fn(ActorDefiner<A>)>(&mut self, define: D) {
-        define(ActorDefiner::with(self));
-    }
-
-    fn add_dispatcher<
-        M: Message,
-        A: 'static,
-        F: Fn(&Packet<M>, &mut A, &mut World) -> Fate + 'static,
-    >(
+    pub fn add_handler<A: SubActor, M: Message, F: Fn(&M, &mut A, &mut World) -> Fate + 'static>(
         &mut self,
         handler: F,
         critical: bool,
     ) {
-        let actor_id = self.actor_registry.get::<A>();
+        let actor_id = self.actor_registry.get::<Swarm<A>>();
         let message_id = self.message_registry.get_or_register::<M>();
         // println!("adding to {} inbox for {}",
         //          unsafe { ::std::intrinsics::type_name::<A>() },
         //          unsafe { ::std::intrinsics::type_name::<M>() });
 
 
-        let actor_ptr = self.actors[actor_id.as_usize()].expect("Actor not added yet") as *mut A;
+        let swarm_ptr = self.swarms[actor_id.as_usize()].expect("Actor not added yet") as
+            *mut Swarm<A>;
 
         self.dispatchers[actor_id.as_usize()][message_id.as_usize()] = Some(Dispatcher {
             function: Box::new(move |packet_ptr: *const (), world: &mut World| unsafe {
                 let packet = &*(packet_ptr as *const Packet<M>);
 
-                handler(packet, &mut *actor_ptr, world);
+                (*swarm_ptr).dispatch_packet(packet, &handler, world);
+
+                // TODO: not sure if this is the best place to drop the message
+                ::std::ptr::drop_in_place(packet_ptr as *mut Packet<M>);
+            }),
+            critical: critical,
+        });
+    }
+
+    pub fn add_spawner<A: SubActor, M: Message, F: Fn(&M, &mut World) -> A + 'static>(
+        &mut self,
+        constructor: F,
+        critical: bool,
+    ) {
+        let actor_id = self.actor_registry.get::<Swarm<A>>();
+        let message_id = self.message_registry.get_or_register::<M>();
+        // println!("adding to {} inbox for {}",
+        //          unsafe { ::std::intrinsics::type_name::<A>() },
+        //          unsafe { ::std::intrinsics::type_name::<M>() });
+
+
+        let swarm_ptr = self.swarms[actor_id.as_usize()].expect("Actor not added yet") as
+            *mut Swarm<A>;
+
+        self.dispatchers[actor_id.as_usize()][message_id.as_usize()] = Some(Dispatcher {
+            function: Box::new(move |packet_ptr: *const (), world: &mut World| unsafe {
+                let packet = &*(packet_ptr as *const Packet<M>);
+
+                let mut subactor = constructor(&packet.message, world);
+                (*swarm_ptr).add_manually_with_id(&mut subactor, subactor.id());
+
+                ::std::mem::forget(subactor);
 
                 // TODO: not sure if this is the best place to drop the message
                 ::std::ptr::drop_in_place(packet_ptr as *mut Packet<M>);
@@ -217,12 +216,12 @@ impl ActorSystem {
     }
 
     /// Get the base ID of a type
-    pub fn id<A2: 'static>(&mut self) -> ID {
+    pub fn id<A2: SubActor>(&mut self) -> ID {
         ID::new(self.short_id::<A2>(), 0, self.networking.machine_id, 0)
     }
 
-    fn short_id<A: 'static>(&mut self) -> ShortTypeId {
-        self.actor_registry.get_or_register::<A>()
+    fn short_id<A: SubActor>(&mut self) -> ShortTypeId {
+        self.actor_registry.get_or_register::<Swarm<A>>()
     }
 
     fn single_message_cycle(&mut self) {
@@ -298,93 +297,6 @@ impl ActorSystem {
     }
 }
 
-/// Helper that is used to define actor behaviour (message handlers).
-///
-/// It is passed to the closure arguments of
-/// [`ActorSystem::add`](struct.ActorSystem.html#method.add) and
-/// [`ActorSystem::extend`](struct.ActorSystem.html#method.extend)
-pub struct ActorDefiner<'a, A> {
-    system: &'a mut ActorSystem,
-    marker: ::std::marker::PhantomData<A>,
-}
-
-impl<'a, A: 'static> ActorDefiner<'a, A> {
-    fn with(system: &'a mut ActorSystem) -> Self {
-        ActorDefiner {
-            system: system,
-            marker: ::std::marker::PhantomData,
-        }
-    }
-
-    /// Attach a new message handler to an actor, defined by a closure
-    /// which will receive 3 arguments:
-    ///
-    /// * the received message (can conveniently be destructured already as an argument)
-    /// * the current actor state that can be mutated
-    /// * a [`World`](struct.World.html) to identify and send
-    ///   messages to other actors
-    ///
-    /// ```
-    /// the_counter.on(|&IncrementCount { increment }, counter, world| {
-    ///     counter.count += increment;
-    ///     world.send_to_id_of::<Logger, _>(format!("New count: {}", counter.count));
-    /// });
-    /// ```
-    pub fn on<M: Message, F>(&mut self, handler: F)
-    where
-        F: Fn(&M, &mut A, &mut World) -> Fate + 'static,
-    {
-        self.on_maybe_critical(handler, false);
-    }
-
-    /// Same as [`on`](#method.on) but continues to receive after the ActorSystem panicked.
-    pub fn on_critical<M: Message, F>(&mut self, handler: F)
-    where
-        F: Fn(&M, &mut A, &mut World) -> Fate + 'static,
-    {
-        self.on_maybe_critical(handler, true);
-    }
-
-    /// Access a [`World`](struct.World.html) of the system that an actor
-    /// is being defined in, can be used to identify actors (and keep the ID)
-    /// or send messages at *define-time*.
-    ///
-    /// ```
-    /// let logger_id = the_counter.world().id::<Logger>();
-    ///
-    /// the_counter.on(move |&IncrementCount { increment }, counter, world| {
-    ///     counter.count += increment;
-    ///     world.send(logger_id, format!("New count: {}", counter.count));
-    /// });
-    ///
-    /// the_counter.world().send(logger_id, "Just defined Counter!");
-    /// ```
-    pub fn world(&mut self) -> World {
-        World(self.system as *mut ActorSystem)
-    }
-
-    /// Advanced: Can be used to register a handler not only for a message,
-    /// but for a whole packet (precise recipient id + message), in case
-    /// a particular sub-actor needs to be identified in the handler,
-    /// like [`Swarm`](swarm/struct.Swarm.html) does.
-    pub fn on_packet<M: Message, F>(&mut self, handler: F, critical: bool)
-    where
-        F: Fn(&Packet<M>, &mut A, &mut World) -> Fate + 'static,
-    {
-        self.system.add_dispatcher(handler, critical);
-    }
-
-    fn on_maybe_critical<M: Message, F>(&mut self, handler: F, critical: bool)
-    where
-        F: Fn(&M, &mut A, &mut World) -> Fate + 'static,
-    {
-        self.system.add_dispatcher(
-            move |packet: &Packet<M>, state, world| handler(&packet.message, state, world),
-            critical,
-        );
-    }
-}
-
 /// Gives limited access to an [`ActorSystem`](struct.ActorSystem.html) (typically
 /// from inside, in a message handler) to identify other actors and send messages to them.
 pub struct World(*mut ActorSystem);
@@ -400,17 +312,17 @@ impl World {
     }
 
     /// Get the ID of the first machine-local instance of an actor.
-    pub fn local_first<A2: 'static>(&mut self) -> ID {
+    pub fn local_first<A2: SubActor>(&mut self) -> ID {
         unsafe { &mut *self.0 }.id::<A2>()
     }
 
     /// Get the ID for a broadcast to all machine-local instances of an actor.
-    pub fn local_broadcast<A2: 'static>(&mut self) -> ID {
+    pub fn local_broadcast<A2: SubActor>(&mut self) -> ID {
         unsafe { &mut *self.0 }.id::<A2>().local_broadcast()
     }
 
     /// Get the ID for a global broadcast to all instances of an actor on all machines.
-    pub fn global_broadcast<A2: 'static>(&mut self) -> ID {
+    pub fn global_broadcast<A2: SubActor>(&mut self) -> ID {
         unsafe { &mut *self.0 }.id::<A2>().global_broadcast()
     }
 
@@ -419,10 +331,10 @@ impl World {
     pub fn allocate_subactor_id<SA: 'static + SubActor>(&mut self) -> ID {
         let system: &mut ActorSystem = unsafe { &mut *self.0 };
         let swarm = unsafe {
-            &mut *(system.actors[system.actor_registry.get::<Swarm<SA>>().as_usize()]
+            &mut *(system.swarms[system.actor_registry.get::<Swarm<SA>>().as_usize()]
                        .expect("Subactor type not found.") as *mut Swarm<SA>)
         };
-        unsafe { swarm.allocate_id(self.local_broadcast::<Swarm<SA>>()) }
+        unsafe { swarm.allocate_id(self.local_broadcast::<SA>()) }
     }
 
     /// Get the id of the machine that we're currently in

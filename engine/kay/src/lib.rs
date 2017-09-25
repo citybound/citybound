@@ -30,8 +30,7 @@ extern crate byteorder;
 
 mod inbox;
 mod slot_map;
-pub mod swarm;
-#[macro_use]
+mod swarm;
 mod messaging;
 mod type_registry;
 mod id;
@@ -41,6 +40,7 @@ mod external;
 
 pub use self::messaging::{Message, Packet, Fate};
 pub use self::id::ID;
-pub use self::actor_system::{ActorSystem, ActorDefiner, World};
+pub use self::actor_system::{ActorSystem, World};
+pub use self::swarm::SubActor;
 pub use self::networking::Networking;
 pub use self::external::External;

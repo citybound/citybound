@@ -126,8 +126,7 @@ impl<'a> ::std::iter::Sum<&'a Geometry> for Geometry {
     }
 }
 
-use kay::{ActorSystem, Fate, World};
-use kay::swarm::Swarm;
+use kay::{ActorSystem, World};
 use itertools::Itertools;
 
 pub trait GrouperIndividual {
@@ -412,7 +411,7 @@ impl Batch {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<Grouper>::new(), |_| {});
+    system.register::<Grouper>();
 
     auto_setup(system);
 }

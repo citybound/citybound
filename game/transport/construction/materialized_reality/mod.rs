@@ -1,6 +1,5 @@
 use compact::{CDict, CVec};
 use kay::{ActorSystem, World};
-use kay::swarm::Swarm;
 use super::UnbuildableID;
 use super::super::lane::LaneID;
 use super::super::planning::plan::{Plan, PlanResult, PlanDelta, LaneStrokeRef, PlanResultDelta,
@@ -272,7 +271,7 @@ pub enum BuildableRef {
 }
 
 pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
-    system.add(Swarm::<MaterializedReality>::new(), |_| {});
+    system.register::<MaterializedReality>();
 
     auto_setup(system);
 

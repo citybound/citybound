@@ -1,7 +1,6 @@
 use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Norm, Path, Dot, RoughlyComparable};
 use compact::CVec;
 use kay::{ActorSystem, World};
-use kay::swarm::Swarm;
 use monet::{Instance, Vertex, Geometry, RendererID};
 use stagemaster::geometry::{band_to_geometry, dash_path};
 use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
@@ -481,7 +480,7 @@ impl GrouperIndividual for TransferLane {
 
 pub fn setup(system: &mut ActorSystem) {
 
-    system.add(Swarm::<LaneRenderer>::new(), |_| {});
+    system.register::<LaneRenderer>();
 
     auto_setup(system);
 
