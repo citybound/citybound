@@ -154,7 +154,7 @@ impl Family {
                     AsyncCounter::with_target(1)
                 } else {
                     println!("Doing market query for {}", r_info(resource).0);
-                    MarketID::global_broadcast(world).search(
+                    MarketID::global_first(world).search(
                         tick,
                         location,
                         resource,

@@ -46,7 +46,7 @@ impl Offer {
         deal: &Deal,
         world: &mut World,
     ) -> Offer {
-        MarketID::local_first(world).register(deal.give.0, id, world);
+        MarketID::global_first(world).register(deal.give.0, id, world);
 
         Offer {
             id,
@@ -63,7 +63,7 @@ impl Offer {
     // to prevent offers being used while they're being withdrawn
     pub fn withdraw(&mut self, world: &mut World) {
         // TODO: notify users and wait for their confirmation as well
-        MarketID::local_first(world).withdraw(self.deal.give.0, self.id, world);
+        MarketID::global_first(world).withdraw(self.deal.give.0, self.id, world);
     }
 
     pub fn withdrawal_confirmed(&mut self, _: &mut World) -> Fate {
@@ -358,7 +358,10 @@ pub fn setup(system: &mut ActorSystem) {
     system.register::<TripCostEstimator>();
 
     kay_auto::auto_setup(system);
-    MarketID::spawn(&mut system.world());
+
+    if system.networking_machine_id() == 0 {
+        MarketID::spawn(&mut system.world());
+    }
 }
 
 mod kay_auto;
