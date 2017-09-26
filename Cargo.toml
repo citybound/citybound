@@ -25,7 +25,7 @@ members = [
 [dependencies]
 ordered-float = "0.2.3"
 itertools = "0.5.5"
-clippy = { version = "0.0.157", optional = true }
+clippy = { version = "0.0.164", optional = true }
 rand = "0.3"
 fnv = "1.0.3"
 roaring = "0.4.0"

@@ -40,19 +40,19 @@ You can make suggestions of every kind:
 
 ## Compiling Citybound from source 
 
-Currently Citybound is built with Rust `nightly-2017-09-07'
+Currently Citybound is built with Rust `nightly-2017-09-25'
 
 Recommended setup:
 * Install [rustup](https://rustup.rs/) and [git](https://git-scm.com/)
 * `git clone https://github.com/citybound/citybound.git`
 * `cd citybound`
 * Windows:
-  * `rustup override add nightly-2017-09-07-x86_64-pc-windows-msvc`
+  * `rustup override add nightly-2017-09-25-x86_64-pc-windows-msvc`
   * Install the [Visual C++ 2015 Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools), unless you have Visual Studio 2015
 * MacOS:
-  * `rustup override add nightly-2017-09-07-x86_64-apple-darwin`
+  * `rustup override add nightly-2017-09-25-x86_64-apple-darwin`
 * Linux:
-  * `rustup override add nightly-2017-09-07-x86_64-unknown-linux-gnu`
+  * `rustup override add nightly-2017-09-25-x86_64-unknown-linux-gnu`
 * `cargo run --release` (Debug mode is generally too slow to interact with)
 
 ## Getting the recommended dev environment
