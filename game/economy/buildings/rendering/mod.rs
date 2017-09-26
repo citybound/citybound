@@ -121,6 +121,8 @@ impl BuildingRenderer {
     }
 }
 
+use economy::households::grocery_shop::GroceryShopID;
+
 impl Renderable for BuildingRenderer {
     fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
         let band_path = CPath::new(vec![
@@ -161,6 +163,9 @@ impl Renderable for Building {
         frame: usize,
         world: &mut World,
     ) {
+        // TODO: this is super hacky
+        let is_shop = self.households[0]._raw_id.local_broadcast() ==
+            GroceryShopID::local_broadcast(world)._raw_id;
         renderer_id.add_instance(
             scene_id,
             11_111,
@@ -168,7 +173,11 @@ impl Renderable for Building {
             Instance {
                 instance_position: [self.lot.position.x, self.lot.position.y, 0.0],
                 instance_direction: [1.0, 0.0],
-                instance_color: [0.8, 0.5, 0.0],
+                instance_color: if is_shop {
+                    [0.2, 0.2, 0.8]
+                } else {
+                    [0.3, 0.8, 0.0]
+                },
             },
             world,
         );

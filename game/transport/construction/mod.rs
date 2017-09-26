@@ -354,10 +354,18 @@ impl Lane {
         if !self.connectivity.on_intersection {
             let path = &self.construction.path;
             let distance = ::rand::thread_rng().next_f32() * path.length();
-            let point = path.along(distance) +
+            let position = path.along(distance) +
                 BUILDING_DISTANCE * path.direction_along(distance).orthogonal();
+            let orientation = path.direction_along(distance);
 
-            requester.found_lot(Lot { position: point, adjacent_lane: self.id }, world);
+            requester.found_lot(
+                Lot {
+                    position,
+                    orientation,
+                    adjacent_lane: self.id,
+                },
+                world,
+            );
         }
     }
 }

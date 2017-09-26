@@ -1,6 +1,6 @@
 use kay::{ActorSystem, World, External};
 use compact::CVec;
-use descartes::{P2, Norm, Curve};
+use descartes::{P2, V2, Norm, Curve};
 use stagemaster::combo::{Bindings, Combo2};
 use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
                   MSG_Interactable3d_on_event};
@@ -59,6 +59,7 @@ impl RoughLocation for Building {
 #[derive(Compact, Clone)]
 pub struct Lot {
     pub position: P2,
+    pub orientation: V2,
     pub adjacent_lane: LaneID,
 }
 
