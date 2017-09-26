@@ -70,7 +70,7 @@ fn main() {
     let renderables: CVec<_> = vec![
         LaneRendererID::global_broadcast(world).into(),
         GrouperID::global_broadcast(world).into(),
-        CurrentPlanID::local_first(world).into(),
+        CurrentPlanID::global_broadcast(world).into(),
         BuildingRendererID::global_broadcast(&mut system.world()).into(),
     ].into();
 

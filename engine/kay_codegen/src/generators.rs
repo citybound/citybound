@@ -226,12 +226,12 @@ impl Model {
                 None
             })
             .collect();
-        let (actor_here_names_2, actor_here_names_3, actor_here_names_4) =
-            (
-                actor_here_names_1.clone(),
-                actor_here_names_1.clone(),
-                actor_here_names_1.clone(),
-            );
+        let (actor_here_names_2, actor_here_names_3, actor_here_names_4, actor_here_names_5) = (
+            actor_here_names_1.clone(),
+            actor_here_names_1.clone(),
+            actor_here_names_1.clone(),
+            actor_here_names_1.clone(),
+        );
         let actor_here_ids_1: Vec<_> = self.actors
             .iter()
             .filter_map(|(actor_name, actor_def)| if actor_def.defined_here {
@@ -240,7 +240,12 @@ impl Model {
                 None
             })
             .collect();
-        let (actor_here_ids_2, actor_here_ids_3, actor_here_ids_4, actor_here_ids_5) = (
+        let (actor_here_ids_2,
+             actor_here_ids_3,
+             actor_here_ids_4,
+             actor_here_ids_5,
+             actor_here_ids_6) = (
+            actor_here_ids_1.clone(),
             actor_here_ids_1.clone(),
             actor_here_ids_1.clone(),
             actor_here_ids_1.clone(),
@@ -315,15 +320,21 @@ impl Model {
                     }
                 }
 
-                pub fn local_broadcast(world: &mut World) -> Self {
+                pub fn global_first(world: &mut World) -> Self {
                     #actor_here_ids_4 {
-                        _raw_id: world.local_broadcast::<#actor_here_names_3>()
+                        _raw_id: world.global_first::<#actor_here_names_3>()
+                    }
+                }
+
+                pub fn local_broadcast(world: &mut World) -> Self {
+                    #actor_here_ids_5 {
+                        _raw_id: world.local_broadcast::<#actor_here_names_4>()
                     }
                 }
 
                 pub fn global_broadcast(world: &mut World) -> Self {
-                    #actor_here_ids_5 {
-                        _raw_id: world.global_broadcast::<#actor_here_names_4>()
+                    #actor_here_ids_6 {
+                        _raw_id: world.global_broadcast::<#actor_here_names_5>()
                     }
                 }
             }

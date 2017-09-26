@@ -31,8 +31,14 @@ impl Renderable for CurrentPlan {
         if let Some(ref result_delta) = *self.preview_result_delta {
             // TODO: add something like prepare-render to monet to make sure
             // we have new state in time
-            if !self.preview_result_delta_rendered {
-                self.preview_result_delta_rendered = true;
+            if self.preview_result_delta_rendered_in
+                .get(renderer_id)
+                .is_none()
+            {
+                self.preview_result_delta_rendered_in.insert(
+                    renderer_id,
+                    (),
+                );
 
                 render_trimmed_strokes(result_delta, renderer_id, scene_id, world);
                 render_intersections(result_delta, renderer_id, scene_id, world);
@@ -63,7 +69,7 @@ fn render_strokes(delta: &PlanDelta, renderer_id: RendererID, scene_id: usize, w
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5496,
+        5496 + u16::from(world.local_machine_id()) * 10_000,
         destroyed_strokes_geometry,
         Instance::with_color([1.0, 0.0, 0.0]),
         true,
@@ -79,7 +85,7 @@ fn render_strokes(delta: &PlanDelta, renderer_id: RendererID, scene_id: usize, w
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5498,
+        5498 + u16::from(world.local_machine_id()) * 10_000,
         stroke_base_geometry,
         Instance::with_color([1.0, 1.0, 1.0]),
         true,
@@ -93,7 +99,7 @@ fn render_strokes(delta: &PlanDelta, renderer_id: RendererID, scene_id: usize, w
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5499,
+        5499 + u16::from(world.local_machine_id()) * 10_000,
         stroke_geometry,
         Instance::with_color([0.6, 0.6, 0.6]),
         true,
@@ -116,7 +122,7 @@ fn render_trimmed_strokes(
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5500,
+        5500 + u16::from(world.local_machine_id()) * 10_000,
         trimmed_stroke_geometry,
         Instance::with_color([0.3, 0.3, 0.5]),
         true,
@@ -139,7 +145,7 @@ fn render_intersections(
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5501,
+        5501 + u16::from(world.local_machine_id()) * 10_000,
         intersections_geometry,
         Instance::with_color([0.0, 0.0, 1.0]),
         true,
@@ -156,7 +162,7 @@ fn render_intersections(
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5502,
+        5502 + u16::from(world.local_machine_id()) * 10_000,
         connecting_strokes_geometry,
         Instance::with_color([0.5, 0.5, 1.0]),
         true,
@@ -180,7 +186,7 @@ fn render_transfer_lanes(
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5503,
+        5503 + u16::from(world.local_machine_id()) * 10_000,
         transfer_strokes_geometry,
         Instance::with_color([1.0, 0.5, 0.0]),
         true,
@@ -211,7 +217,7 @@ fn render_selections(
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5497,
+        5497 + u16::from(world.local_machine_id()) * 10_000,
         addable_geometry,
         Instance::with_color([0.8, 0.8, 1.0]),
         true,
@@ -228,7 +234,7 @@ fn render_selections(
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5504,
+        5504 + u16::from(world.local_machine_id()) * 10_000,
         selection_geometry,
         Instance::with_color([0.0, 0.0, 1.0]),
         true,

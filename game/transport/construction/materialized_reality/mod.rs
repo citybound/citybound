@@ -275,7 +275,11 @@ pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
 
     auto_setup(system);
 
-    MaterializedRealityID::spawn(&mut system.world())
+    if system.networking_machine_id() > 0 {
+        MaterializedRealityID::global_first(&mut system.world())
+    } else {
+        MaterializedRealityID::spawn(&mut system.world())
+    }
 }
 
 mod kay_auto;

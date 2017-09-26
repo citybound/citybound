@@ -316,6 +316,13 @@ impl World {
         unsafe { &mut *self.0 }.id::<A2>()
     }
 
+    /// Get the ID of the first instance of an actor on machine 0
+    pub fn global_first<A2: SubActor>(&mut self) -> ID {
+        let mut id = unsafe { &mut *self.0 }.id::<A2>();
+        id.machine = 0;
+        id
+    }
+
     /// Get the ID for a broadcast to all machine-local instances of an actor.
     pub fn local_broadcast<A2: SubActor>(&mut self) -> ID {
         unsafe { &mut *self.0 }.id::<A2>().local_broadcast()

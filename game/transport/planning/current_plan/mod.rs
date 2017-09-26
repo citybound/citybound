@@ -111,7 +111,7 @@ pub struct CurrentPlan {
     current: PlanStep,
     preview: COption<PlanStep>,
     preview_result_delta: COption<PlanResultDelta>,
-    preview_result_delta_rendered: bool,
+    preview_result_delta_rendered_in: CDict<RendererID, ()>,
     interactables_valid: bool,
     settings: Settings,
     interaction: Interaction,
@@ -139,7 +139,7 @@ impl CurrentPlan {
             current: PlanStep::default(),
             preview: COption(None),
             preview_result_delta: COption(None),
-            preview_result_delta_rendered: false,
+            preview_result_delta_rendered_in: CDict::new(),
             interactables_valid: false,
         }
     }
@@ -315,7 +315,7 @@ impl CurrentPlan {
 
     pub fn on_simulation_result(&mut self, result_delta: &PlanResultDelta, _: &mut World) {
         self.preview_result_delta = COption(Some(result_delta.clone()));
-        self.preview_result_delta_rendered = false;
+        self.preview_result_delta_rendered_in = CDict::new();
     }
 
     pub fn built_strokes_changed(&mut self, built_strokes: &BuiltStrokes, _: &mut World) {
@@ -354,7 +354,7 @@ impl CurrentPlan {
             current: PlanStep::default(),
             preview: COption(None),
             preview_result_delta: COption(None),
-            preview_result_delta_rendered: false,
+            preview_result_delta_rendered_in: CDict::new(),
             interactables_valid: false,
         };
     }

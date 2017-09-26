@@ -177,6 +177,10 @@ fn simple_actor() {
                 SomeActorID { _raw_id: world.local_first::<SomeActor>() }
             }
 
+            pub fn global_first(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.global_first::<SomeActor>() }
+            }
+
             pub fn local_broadcast(world: &mut World) -> Self {
                 SomeActorID { _raw_id: world.local_broadcast::<SomeActor>() }
             }
@@ -319,6 +323,10 @@ fn trait_and_impl() {
         impl SomeActorID {
             pub fn local_first(world: &mut World) -> Self {
                 SomeActorID { _raw_id: world.local_first::<SomeActor>() }
+            }
+
+            pub fn global_first(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.global_first::<SomeActor>() }
             }
 
             pub fn local_broadcast(world: &mut World) -> Self {
