@@ -629,7 +629,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
             );
             self.size = 0;
             for entry in old_entries {
-                if entry.used() {
+                if entry.alive() {
                     let tuple = entry.into_tuple();
                     self.insert(tuple.0, tuple.1);
                 }

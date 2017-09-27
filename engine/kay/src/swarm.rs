@@ -48,7 +48,7 @@ pub struct Swarm<SubActor> {
     _marker: PhantomData<[SubActor]>,
 }
 
-const CHUNK_SIZE: usize = 4096 * 4096 * 4;
+const CHUNK_SIZE: usize = 4096 * 4096 * 16;
 
 impl<SA: SubActor + Clone> Swarm<SA> {
     /// Create an empty `Swarm`.
