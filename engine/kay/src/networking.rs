@@ -118,6 +118,10 @@ impl Networking {
 
     /// Enqueue a new (potentially) outbound packet
     pub fn enqueue<M: Message>(&mut self, message_type_id: ShortTypeId, mut packet: Packet<M>) {
+        if self.network.len() == 1 {
+            return;
+        }
+
         let packet_size = Compact::total_size_bytes(&packet);
         let total_size = ::std::mem::size_of::<ShortTypeId>() + packet_size;
         let machine_id = packet.recipient_id.machine;
