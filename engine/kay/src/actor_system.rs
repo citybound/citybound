@@ -88,7 +88,7 @@ impl ActorSystem {
     /// Finish the current networking turn and wait for peers which lag behind
     /// based on their turn number. This is the main backpressure mechanism.
     pub fn networking_finish_turn(&mut self) {
-        self.networking.finish_turn()
+        self.networking.finish_turn(&mut self.inboxes)
     }
 
     /// The machine index of this machine within the network of peers

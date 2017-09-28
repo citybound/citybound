@@ -60,7 +60,7 @@ impl Networking {
 
     /// Finish the current networking turn and wait for peers which lag behind
     /// based on their turn number. This is the main backpressure mechanism.
-    pub fn finish_turn(&mut self) {
+    pub fn finish_turn(&mut self, inboxes: &mut [Option<Inbox>]) {
         let mut should_sleep = None;
 
         for maybe_connection in &mut self.network_connections {
@@ -83,6 +83,10 @@ impl Networking {
             //     other_n_turns,
             //     self.n_turns
             // );
+            // Try to process extra messages if we are ahead
+            self.send_and_receive(inboxes);
+            self.send_and_receive(inboxes);
+            self.send_and_receive(inboxes);
             ::std::thread::sleep(duration);
         };
 
