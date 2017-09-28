@@ -377,6 +377,7 @@ pub struct Batch {
     pub indices: glium::IndexBuffer<u16>,
     pub instances: Vec<Instance>,
     pub clear_every_frame: bool,
+    pub full_frame_instance_end: Option<usize>,
     pub is_decal: bool,
     pub frame: usize,
 }
@@ -391,6 +392,7 @@ impl Batch {
                 &prototype.indices,
             ).unwrap(),
             instances: Vec::new(),
+            full_frame_instance_end: None,
             clear_every_frame: true,
             is_decal: false,
             frame: 0,
@@ -412,6 +414,7 @@ impl Batch {
             ).unwrap(),
             instances: vec![instance],
             clear_every_frame: false,
+            full_frame_instance_end: None,
             is_decal: is_decal,
             frame: 0,
         }

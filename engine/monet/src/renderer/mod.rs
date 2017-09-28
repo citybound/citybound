@@ -118,7 +118,11 @@ impl Renderer {
         let batch = self.scenes[scene_id].batches.get_mut(&batch_id).unwrap();
 
         if batch.clear_every_frame && batch.frame < frame {
-            batch.instances.clear();
+            if let Some(end) = batch.full_frame_instance_end {
+                // finished a second frame, remove first from double-buffer
+                batch.instances = batch.instances.split_off(end);
+            }
+            batch.full_frame_instance_end = Some(batch.instances.len());
             batch.frame = frame;
         }
 
@@ -137,7 +141,11 @@ impl Renderer {
         let batch = self.scenes[scene_id].batches.get_mut(&batch_id).unwrap();
 
         if batch.clear_every_frame && batch.frame < frame {
-            batch.instances.clear();
+            if let Some(end) = batch.full_frame_instance_end {
+                // finished a second frame, remove first from double-buffer
+                batch.instances = batch.instances.split_off(end);
+            }
+            batch.full_frame_instance_end = Some(batch.instances.len());
             batch.frame = frame;
         }
 

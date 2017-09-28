@@ -81,13 +81,21 @@ impl RenderContext {
                  ref indices,
                  ref instances,
                  is_decal,
+                 full_frame_instance_end,
                  ..
              }) in batches_todo
         {
-            if instances.len() > 1 {
-                render_debug_text.push_str(&format!("batch{}: {} instances\n", i, instances.len()));
+            let instances_to_draw =
+                &instances[..full_frame_instance_end.unwrap_or(instances.len())];
+            if instances_to_draw.len() > 1 {
+                render_debug_text.push_str(&format!(
+                    "batch{}: {} instances\n",
+                    i,
+                    instances_to_draw.len()
+                ));
             }
-            let instance_buffer = glium::VertexBuffer::new(&*self.window, instances).unwrap();
+            let instance_buffer = glium::VertexBuffer::new(&*self.window, instances_to_draw)
+                .unwrap();
             target
                 .draw(
                     (vertices, instance_buffer.per_instance().unwrap()),
