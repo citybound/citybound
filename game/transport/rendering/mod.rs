@@ -4,7 +4,6 @@ use kay::{ActorSystem, World};
 use monet::{Instance, Vertex, Geometry, RendererID};
 use stagemaster::geometry::{band_to_geometry, dash_path};
 use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
-use super::lane::connectivity::InteractionKind;
 use itertools::Itertools;
 
 #[path = "./resources/car.rs"]
@@ -174,43 +173,43 @@ impl Renderable for Lane {
             );
         }
 
-        let has_next = self.connectivity.interactions.iter().any(|inter| {
-            match inter.kind {
-                InteractionKind::Next { .. } => true,
-                _ => false,
-            }
-        });
-        if !has_next {
-            let instance = Instance {
-                instance_position: [
-                    self.construction.path.end().x,
-                    self.construction.path.end().y,
-                    0.5,
-                ],
-                instance_direction: [1.0, 0.0],
-                instance_color: [1.0, 0.0, 0.0],
-            };
-            renderer_id.add_instance(scene_id, 1333, frame, instance, world);
-        }
+        // let has_next = self.connectivity.interactions.iter().any(|inter| {
+        //     match inter.kind {
+        //         InteractionKind::Next { .. } => true,
+        //         _ => false,
+        //     }
+        // });
+        // if !has_next {
+        //     let instance = Instance {
+        //         instance_position: [
+        //             self.construction.path.end().x,
+        //             self.construction.path.end().y,
+        //             0.5,
+        //         ],
+        //         instance_direction: [1.0, 0.0],
+        //         instance_color: [1.0, 0.0, 0.0],
+        //     };
+        //     renderer_id.add_instance(scene_id, 1333, frame, instance, world);
+        // }
 
-        let has_previous = self.connectivity.interactions.iter().any(|inter| {
-            match inter.kind {
-                InteractionKind::Previous { .. } => true,
-                _ => false,
-            }
-        });
-        if !has_previous {
-            let instance = Instance {
-                instance_position: [
-                    self.construction.path.start().x,
-                    self.construction.path.start().y,
-                    0.5,
-                ],
-                instance_direction: [1.0, 0.0],
-                instance_color: [0.0, 1.0, 0.0],
-            };
-            renderer_id.add_instance(scene_id, 1333, frame, instance, world);
-        }
+        // let has_previous = self.connectivity.interactions.iter().any(|inter| {
+        //     match inter.kind {
+        //         InteractionKind::Previous { .. } => true,
+        //         _ => false,
+        //     }
+        // });
+        // if !has_previous {
+        //     let instance = Instance {
+        //         instance_position: [
+        //             self.construction.path.start().x,
+        //             self.construction.path.start().y,
+        //             0.5,
+        //         ],
+        //         instance_direction: [1.0, 0.0],
+        //         instance_color: [0.0, 1.0, 0.0],
+        //     };
+        //     renderer_id.add_instance(scene_id, 1333, frame, instance, world);
+        // }
 
         if DEBUG_VIEW_LANDMARKS && self.pathfinding.routes_changed {
             let (random_color, is_landmark) = if let Some(location) = self.pathfinding.location {

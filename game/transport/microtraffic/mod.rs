@@ -36,7 +36,7 @@ impl Microtraffic {
 
 // makes "time pass slower" for traffic, so we can still use realistic
 // unit values while traffic happening at a slower pace to be visible
-const MICROTRAFFIC_UNREALISTIC_SLOWDOWN: f32 = 10.0;
+const MICROTRAFFIC_UNREALISTIC_SLOWDOWN: f32 = 20.0;
 
 #[derive(Compact, Clone, Default)]
 pub struct TransferringMicrotraffic {
@@ -281,19 +281,19 @@ impl Simulatable for Lane {
         self.microtraffic.yellow_to_red = if self.microtraffic.timings.is_empty() {
             true
         } else {
-            !self.microtraffic.timings[((current_tick.ticks() + 100) / 25) %
+            !self.microtraffic.timings[((current_tick.ticks() + 100) / 10) %
                                            self.microtraffic.timings.len()]
         };
         self.microtraffic.yellow_to_green = if self.microtraffic.timings.is_empty() {
             true
         } else {
-            self.microtraffic.timings[((current_tick.ticks() + 100) / 25) %
+            self.microtraffic.timings[((current_tick.ticks() + 100) / 10) %
                                           self.microtraffic.timings.len()]
         };
         self.microtraffic.green = if self.microtraffic.timings.is_empty() {
             true
         } else {
-            self.microtraffic.timings[(current_tick.ticks() / 25) % self.microtraffic.timings.len()]
+            self.microtraffic.timings[(current_tick.ticks() / 10) % self.microtraffic.timings.len()]
         };
 
         // TODO: this is just a hacky way to update new lanes about existing lane's green

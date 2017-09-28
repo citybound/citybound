@@ -580,6 +580,7 @@ pub fn setup(
     renderables: CVec<RenderableID>,
     env: Environment,
     window_builder: WindowBuilder,
+    clear_color: (f32, f32, f32, f32),
 ) -> (UserInterfaceID, RendererID) {
     ::monet::setup(system);
     system.register::<UserInterface>();
@@ -596,6 +597,7 @@ pub fn setup(
     let renderer_id = RendererID::spawn(
         External::new(window.clone()),
         vec![scene].into(),
+        clear_color,
         &mut system.world(),
     );
 

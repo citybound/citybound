@@ -81,6 +81,7 @@ fn main() {
         renderables,
         *ENV,
         core::init::build_window(machine_id),
+        (0.6, 0.75, 0.4, 1.0)
     );
 
     transport::setup(&mut system, user_interface, renderer, simulation);

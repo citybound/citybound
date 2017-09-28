@@ -13,17 +13,19 @@ use {Batch, Scene};
 pub struct RenderContext {
     pub window: External<Display>,
     batch_program: glium::Program,
+    clear_color: (f32, f32, f32, f32),
 }
 
 impl RenderContext {
     #[allow(redundant_closure)]
-    pub fn new(window: External<Display>) -> RenderContext {
+    pub fn new(window: External<Display>, clear_color: (f32, f32, f32, f32)) -> RenderContext {
         RenderContext {
             batch_program: program!(&*window, 140 => {
                 vertex: include_str!("shader/solid_140.glslv"),
                 fragment: include_str!("shader/solid_140.glslf")
             }).unwrap(),
             window: window.steal(),
+            clear_color: clear_color,
         }
     }
 
@@ -66,7 +68,7 @@ impl RenderContext {
         };
 
         // draw a frame
-        target.clear_color_and_depth((1.0, 1.0, 1.0, 1.0), 1.0);
+        target.clear_color_and_depth(self.clear_color, 1.0);
 
         let mut render_debug_text = String::from("Renderer:\n");
 

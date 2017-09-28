@@ -48,6 +48,7 @@ impl Renderer {
         id: RendererID,
         window: &External<Display>,
         scenes: &CVec<SceneDescription>,
+        clear_color: (f32, f32, f32, f32),
         world: &mut World,
     ) -> Renderer {
         id.setup(world);
@@ -59,7 +60,7 @@ impl Renderer {
                     .iter()
                     .map(|description| description.to_scene())
                     .collect(),
-                render_context: RenderContext::new(window.clone()),
+                render_context: RenderContext::new(window.clone(), clear_color),
             }),
         }
     }

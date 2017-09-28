@@ -355,7 +355,8 @@ impl Lane {
             let path = &self.construction.path;
             let distance = ::rand::thread_rng().next_f32() * path.length();
             let position = path.along(distance) +
-                BUILDING_DISTANCE * path.direction_along(distance).orthogonal();
+                (1.0 + ::rand::thread_rng().next_f32() * 1.0) * BUILDING_DISTANCE *
+                    path.direction_along(distance).orthogonal();
             let orientation = path.direction_along(distance);
 
             requester.found_lot(

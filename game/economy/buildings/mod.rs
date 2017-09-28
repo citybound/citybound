@@ -24,9 +24,8 @@ impl Building {
         id: BuildingID,
         households: &CVec<HouseholdID>,
         lot: &Lot,
-        world: &mut World,
+        _: &mut World,
     ) -> Building {
-        rendering::on_add(id, lot.position, world);
         Building {
             id,
             households: households.clone(),
@@ -34,8 +33,12 @@ impl Building {
         }
     }
 
-    pub fn add_household(&mut self, household: HouseholdID, _: &mut World) {
+    pub fn add_household(&mut self, household: HouseholdID, world: &mut World) {
         self.households.push(household);
+        // TODO: such a weird place to do this, but ok for now
+        if self.households.len() == 1 {
+            rendering::on_add(self, world);
+        }
     }
 }
 
@@ -188,7 +191,7 @@ impl LotConflictor for Lane {
         requester: BuildingSpawnerID,
         world: &mut World,
     ) {
-        const MIN_LANE_BUILDING_DISTANCE: f32 = 10.0;
+        const MIN_LANE_BUILDING_DISTANCE: f32 = 15.0;
 
         requester.update_feasibility(
             lots.iter()

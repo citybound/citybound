@@ -206,6 +206,14 @@ impl Grouper {
         }
     }
 
+    pub fn add_frozen(&mut self, id: GrouperIndividualID, geometry: &Geometry, world: &mut World) {
+        self.frozen_individuals.insert(id, geometry.clone());
+        self.frozen_up_to_date = false;
+        for state in self.renderer_state.values_mut() {
+            state.frozen_up_to_date = false;
+        }
+    }
+
     pub fn freeze(&mut self, id: GrouperIndividualID, _: &mut World) {
         if let Some(geometry) = self.living_individuals.remove(&id) {
             self.frozen_individuals.insert(id, geometry);
