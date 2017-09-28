@@ -494,7 +494,7 @@ impl Household for Family {
                 .build(|| {
                     ui.tree_node(im_str!("Shared")).build(|| {
                         ui.text(im_str!("State"));
-                        ui.same_line(150.0);
+                        ui.same_line(250.0);
                         ui.text(im_str!(
                             "{}",
                             match self.decision_state {
@@ -507,7 +507,7 @@ impl Household for Family {
                         for resource in all_resource_ids() {
                             if r_properties(resource).ownership_shared {
                                 ui.text(im_str!("{}", r_info(resource).0));
-                                ui.same_line(150.0);
+                                ui.same_line(250.0);
                                 let amount = self.resources.get(resource).cloned().unwrap_or(0.0);
                                 ui.text(im_str!("{}", amount));
                             }
@@ -521,7 +521,7 @@ impl Household for Family {
                     {
                         ui.tree_node(im_str!("Member #{}", i)).build(|| {
                             ui.text(im_str!("Task"));
-                            ui.same_line(150.0);
+                            ui.same_line(250.0);
                             ui.text(im_str!(
                                 "{}",
                                 match member_task.state {
@@ -535,7 +535,7 @@ impl Household for Family {
                             for resource in all_resource_ids() {
                                 if !r_properties(resource).ownership_shared {
                                     ui.text(im_str!("{}", r_info(resource).0));
-                                    ui.same_line(150.0);
+                                    ui.same_line(250.0);
                                     let amount =
                                         member_resources.get(resource).cloned().unwrap_or(0.0);
                                     ui.text(im_str!("{}", amount));

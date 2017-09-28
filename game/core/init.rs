@@ -69,7 +69,7 @@ pub fn networking_from_env_args() -> Networking {
 pub fn build_window(machine_id: u8) -> WindowBuilder {
     WindowBuilder::new()
         .with_title(format!("Citybound (machine {})", machine_id))
-        .with_dimensions(1024, 512)
+        .with_dimensions(1920, 1080)
         .with_multitouch()
 }
 

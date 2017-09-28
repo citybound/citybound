@@ -95,7 +95,7 @@ impl Household for GroceryShop {
                     {
                         if r_properties(resource).ownership_shared {
                             ui.text(im_str!("{}", r_info(resource).0));
-                            ui.same_line(150.0);
+                            ui.same_line(250.0);
                             let amount = self.resources.get(resource).cloned().unwrap_or(0.0);
                             ui.text(im_str!("{}", amount));
                         }
