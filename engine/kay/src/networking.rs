@@ -65,19 +65,24 @@ impl Networking {
 
         for maybe_connection in &mut self.network_connections {
             if let Some(Connection { n_turns, .. }) = *maybe_connection {
-                if n_turns + 300 < self.n_turns {
-                    // ~5s difference
-                    should_sleep = Some((Duration::from_millis(100), n_turns));
+                if n_turns + 120 < self.n_turns {
+                    // ~2s difference
+                    should_sleep = Some((
+                        Duration::from_millis(
+                            ((self.n_turns - 120 - n_turns) / 10) as u64,
+                        ),
+                        n_turns,
+                    ));
                 }
             }
         }
 
         if let Some((duration, other_n_turns)) = should_sleep {
-            println!(
-                "Sleeping to let other machine catch up ({} vs. {} turns)",
-                other_n_turns,
-                self.n_turns
-            );
+            // println!(
+            //     "Sleeping to let other machine catch up ({} vs. {} turns)",
+            //     other_n_turns,
+            //     self.n_turns
+            // );
             ::std::thread::sleep(duration);
         };
 
@@ -170,6 +175,25 @@ impl Networking {
             );
         }
 
+    }
+
+    pub fn debug_all_n_turns(&self) -> String {
+        self.network_connections
+            .iter()
+            .enumerate()
+            .map(|(i, connection)| {
+                format!(
+                    "{}: {}",
+                    i,
+                    if i == usize::from(self.machine_id) {
+                        self.n_turns
+                    } else {
+                        connection.as_ref().unwrap().n_turns
+                    }
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",\n")
     }
 }
 
@@ -302,9 +326,9 @@ impl Connection {
                                 self.n_turns_since_own_turn += 1;
 
                                 // pretend that we're blocked so we only ever process all
-                                // messages of 3 incoming turns within one of our own turns,
+                                // messages of 5 incoming turns within one of our own turns,
                                 // applying backpressure
-                                let block = self.n_turns_since_own_turn >= 3;
+                                let block = self.n_turns_since_own_turn >= 5;
 
                                 (block, Some(ReadingState::AwaitingLength(0, [0; 8])))
                             } else {

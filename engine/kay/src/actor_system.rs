@@ -102,6 +102,10 @@ impl ActorSystem {
         self.networking.n_turns
     }
 
+    pub fn networking_debug_all_n_turns(&self) -> String {
+        self.networking.debug_all_n_turns()
+    }
+
     /// Register a new type of actor with the system
     pub fn register<A: SubActor>(&mut self) {
         // allow use of actor id before it is added

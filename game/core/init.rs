@@ -96,7 +96,8 @@ pub fn print_subactor_counts(system: &mut ActorSystem, user_interface: UserInter
 pub fn print_network_turn(system: &mut ActorSystem, user_interface: UserInterfaceID) {
     user_interface.add_debug_text(
         "Networking turn".chars().collect(),
-        format!("{}", system.networking_n_turns())
+        system
+            .networking_debug_all_n_turns()
             .as_str()
             .chars()
             .collect(),
