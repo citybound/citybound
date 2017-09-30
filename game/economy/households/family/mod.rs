@@ -51,7 +51,7 @@ pub struct Family {
 
 const N_TOP_PROBLEMS: usize = 5;
 const DECISION_PAUSE: Ticks = Ticks(200);
-const UPDATE_EVERY_N_SECS: usize = 100;
+const UPDATE_EVERY_N_SECS: usize = 4;
 
 use economy::resources::r_properties;
 
@@ -553,8 +553,10 @@ impl Household for Family {
 use core::simulation::TICKS_PER_SIM_SECOND;
 
 impl Simulatable for Family {
-    fn tick(&mut self, _dt: f32, _current_tick: Timestamp, world: &mut World) {
-        self.decay(Seconds(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world)
+    fn tick(&mut self, _dt: f32, current_tick: Timestamp, world: &mut World) {
+        if current_tick.ticks() % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0 {
+            self.decay(Seconds(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world);
+        }
     }
 }
 
