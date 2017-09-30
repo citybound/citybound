@@ -20,10 +20,21 @@ impl Renderable for CurrentPlan {
         _frame: usize,
         world: &mut World,
     ) {
-        if self.preview.is_none() {
-            let preview = self.update_preview(world);
-            render_strokes(&preview.plan_delta, renderer_id, scene_id, world);
-
+        if self.preview_rendered_in.get(renderer_id).is_none() {
+            let origin_machine = self.id._raw_id.machine;
+            let preview = if self.preview.is_none() {
+                self.preview_rendered_in = CDict::new();
+                self.update_preview(world)
+            } else {
+                self.preview.as_ref().unwrap()
+            };
+            render_strokes(
+                origin_machine,
+                &preview.plan_delta,
+                renderer_id,
+                scene_id,
+                world,
+            );
         }
         if !self.interactables_valid {
             self.update_interactables(world);
@@ -58,7 +69,13 @@ impl Renderable for CurrentPlan {
     }
 }
 
-fn render_strokes(delta: &PlanDelta, renderer_id: RendererID, scene_id: usize, world: &mut World) {
+fn render_strokes(
+    origin_machine: u8,
+    delta: &PlanDelta,
+    renderer_id: RendererID,
+    scene_id: usize,
+    world: &mut World,
+) {
     let destroyed_strokes_geometry: Geometry = delta
         .strokes_to_destroy
         .pairs()
@@ -87,7 +104,11 @@ fn render_strokes(delta: &PlanDelta, renderer_id: RendererID, scene_id: usize, w
         scene_id,
         5498 + u16::from(world.local_machine_id()) * 10_000,
         stroke_base_geometry,
-        Instance::with_color([1.0, 1.0, 1.0]),
+        Instance::with_color(if origin_machine == 0 {
+            [0.2, 0.2, 1.0]
+        } else {
+            [1.0, 0.5, 0.2]
+        }),
         true,
         world,
     );
@@ -124,7 +145,7 @@ fn render_trimmed_strokes(
         scene_id,
         5500 + u16::from(world.local_machine_id()) * 10_000,
         trimmed_stroke_geometry,
-        Instance::with_color([0.3, 0.3, 0.5]),
+        Instance::with_color([0.3, 0.3, 0.3]),
         true,
         world,
     );
@@ -136,21 +157,21 @@ fn render_intersections(
     scene_id: usize,
     world: &mut World,
 ) {
-    let intersections_geometry: Geometry = result_delta
-        .intersections
-        .to_create
-        .values()
-        .filter(|i| !i.shape.segments().is_empty())
-        .map(|i| band_to_geometry(&Band::new(i.shape.clone(), 0.4), 0.5))
-        .sum();
-    renderer_id.update_individual(
-        scene_id,
-        5501 + u16::from(world.local_machine_id()) * 10_000,
-        intersections_geometry,
-        Instance::with_color([0.0, 0.0, 1.0]),
-        true,
-        world,
-    );
+    // let intersections_geometry: Geometry = result_delta
+    //     .intersections
+    //     .to_create
+    //     .values()
+    //     .filter(|i| !i.shape.segments().is_empty())
+    //     .map(|i| band_to_geometry(&Band::new(i.shape.clone(), 0.4), 0.5))
+    //     .sum();
+    // renderer_id.update_individual(
+    //     scene_id,
+    //     5501 + u16::from(world.local_machine_id()) * 10_000,
+    //     intersections_geometry,
+    //     Instance::with_color([0.0, 0.0, 1.0]),
+    //     true,
+    //     world,
+    // );
     let connecting_strokes_geometry: Geometry = result_delta
         .intersections
         .to_create
@@ -164,7 +185,7 @@ fn render_intersections(
         scene_id,
         5502 + u16::from(world.local_machine_id()) * 10_000,
         connecting_strokes_geometry,
-        Instance::with_color([0.5, 0.5, 1.0]),
+        Instance::with_color([0.5, 0.5, 0.5]),
         true,
         world,
     );
@@ -188,7 +209,7 @@ fn render_transfer_lanes(
         scene_id,
         5503 + u16::from(world.local_machine_id()) * 10_000,
         transfer_strokes_geometry,
-        Instance::with_color([1.0, 0.5, 0.0]),
+        Instance::with_color([1.0, 1.0, 1.0]),
         true,
         world,
     );
