@@ -158,13 +158,15 @@ impl Model {
         quote!(
             #(
                 #(
-                    system.add_handler::<#handler_actor_types, _, _>(|&#msg_names(#(#msg_args),*), instance, world| {
+                    system.add_handler::<#handler_actor_types, _, _>(
+                        |&#msg_names(#(#msg_args),*), instance, world| {
                         instance.#handler_names(#(#handler_params,)* world)#maybe_fate_returns
                     }, #handler_criticals);
                 )*
 
                 #(
-                    system.add_spawner::<#init_actor_types, _, _>(|&#init_msg_names(id, #(#init_msg_args),*), world| {
+                    system.add_spawner::<#init_actor_types, _, _>(
+                        |&#init_msg_names(id, #(#init_msg_args),*), world| {
                         #types_for_init_handlers_2::#init_handler_names(
                             id, #(#init_handler_params,)* world
                         )

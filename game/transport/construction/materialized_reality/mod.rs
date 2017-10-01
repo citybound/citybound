@@ -79,7 +79,9 @@ impl MaterializedReality {
 
                     for &id in &ids_to_unbuild {
                         // TODO: ugly: untyped ID shenanigans
-                        let id_as_unbuildable: UnbuildableID = UnbuildableID { _raw_id: id._raw_id };
+                        let id_as_unbuildable: UnbuildableID = UnbuildableID {
+                            _raw_id: id._raw_id
+                        };
                         id_as_unbuildable.unbuild(self.id, world);
                     }
 
@@ -110,7 +112,10 @@ impl MaterializedReality {
                             if let Some(other_intersection_lanes) =
                                 self.built_intersection_lanes.get(IntersectionRef(index))
                             {
-                                id_as_lane.start_connecting_overlaps(other_intersection_lanes.clone(), world);
+                                id_as_lane.start_connecting_overlaps(
+                                    other_intersection_lanes.clone(),
+                                    world
+                                );
                             }
                             self.built_intersection_lanes.push_at(
                                 IntersectionRef(index),

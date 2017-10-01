@@ -378,11 +378,12 @@ fn successors<'a>(lane: &'a Lane) -> impl Iterator<Item = NodeID> + 'a {
                     kind: InteractionKind::Overlap { kind: OverlapKind::Transfer, .. },
                     ..
                 } |
+                // TODO: ugly: untyped ID shenanigans
                 Interaction {
                     partner_lane,
                     kind: InteractionKind::Next { .. },
                     ..
-                } => Some(NodeID { _raw_id: partner_lane._raw_id }), // TODO: ugly: untyped ID shenanigans
+                } => Some(NodeID { _raw_id: partner_lane._raw_id }),
                 _ => None,
             }
         },
@@ -396,16 +397,18 @@ fn predecessors<'a>(lane: &'a Lane) -> impl Iterator<Item = (u8, NodeID, bool)> 
         .iter()
         .enumerate()
         .filter_map(|(i, interaction)| match *interaction {
+            // TODO: ugly: untyped ID shenanigans
             Interaction {
                 partner_lane,
                 kind: InteractionKind::Overlap { kind: OverlapKind::Transfer, .. },
                 ..
-            } => Some((i as u8, NodeID{_raw_id: partner_lane._raw_id}, true)), // TODO: ugly: untyped ID shenanigans
+            } => Some((i as u8, NodeID { _raw_id: partner_lane._raw_id }, true)),
+            // TODO: ugly: untyped ID shenanigans
             Interaction {
                 partner_lane,
                 kind: InteractionKind::Previous { .. },
                 ..
-            } => Some((i as u8, NodeID{_raw_id: partner_lane._raw_id}, false)), // TODO: ugly: untyped ID shenanigans
+            } => Some((i as u8, NodeID { _raw_id: partner_lane._raw_id }, false)),
             _ => None,
         })
 }

@@ -26,7 +26,8 @@ impl<T> StorageAware for T {}
 /// Furthermore, an `Actor` has to implement [`Compact`](../../compact), so a `Swarm`
 /// can compactly store each `Actor`'s potentially dynamically-sized state.
 ///
-/// This trait can is auto-derived when using the [`kay_codegen`](../../kay_codegen/index.html) build script.
+/// This trait can is auto-derived when using the
+/// [`kay_codegen`](../../kay_codegen/index.html) build script.
 pub trait Actor: Compact + StorageAware + 'static {
     /// Get the full ID (Actor type id + instance id) of `self`
     fn id(&self) -> ID;

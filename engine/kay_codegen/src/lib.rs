@@ -220,16 +220,19 @@ fn simple_actor() {
         #[allow(unused_variables)]
         #[allow(unused_mut)]
         pub fn auto_setup(system: &mut ActorSystem) {
-            system.add_handler::<SomeActor, _, _>(|&MSG_SomeActor_some_method(ref some_param), instance, world| {
+            system.add_handler::<SomeActor, _, _>(
+                |&MSG_SomeActor_some_method(ref some_param), instance, world| {
                 instance.some_method(some_param, world);
                 Fate::Live
             }, false);
 
-            system.add_handler::<SomeActor, _, _>(|&MSG_SomeActor_no_params_fate(), instance, world| {
+            system.add_handler::<SomeActor, _, _>(
+                |&MSG_SomeActor_no_params_fate(), instance, world| {
                 instance.no_params_fate(world)
             }, false);
 
-            system.add_spawner::<SomeActor, _, _>(|&MSG_SomeActor_init_ish(id, ref some_param), world| {
+            system.add_spawner::<SomeActor, _, _>(
+                |&MSG_SomeActor_init_ish(id, ref some_param), world| {
                 SomeActor::init_ish(id, some_param, world)
             }, false);
         }
@@ -355,16 +358,19 @@ fn trait_and_impl() {
         #[allow(unused_variables)]
         #[allow(unused_mut)]
         pub fn auto_setup(system: &mut ActorSystem) {
-            system.add_handler::<SomeActor, _, _>(|&MSG_SomeTrait_some_method(ref some_param), instance, world| {
+            system.add_handler::<SomeActor, _, _>(
+                |&MSG_SomeTrait_some_method(ref some_param), instance, world| {
                 instance.some_method(some_param, world);
                 Fate::Live
             }, false);
 
-            system.add_handler::<SomeActor, _, _>(|&MSG_SomeTrait_no_params_fate(), instance, world| {
+            system.add_handler::<SomeActor, _, _>(
+                |&MSG_SomeTrait_no_params_fate(), instance, world| {
                 instance.no_params_fate(world)
             }, false);
 
-            system.add_handler::<SomeActor, _, _>(|&MSG_ForeignTrait_simple(ref some_param), instance, world| {
+            system.add_handler::<SomeActor, _, _>(
+                |&MSG_ForeignTrait_simple(ref some_param), instance, world| {
                 instance.simple(some_param, world);
                 Fate::Live
             }, false);
