@@ -275,7 +275,7 @@ impl Simulatable for Lane {
         self.construction.progress += dt * 400.0;
 
         let do_traffic = current_tick.ticks() % TRAFFIC_LOGIC_THROTTLING ==
-            self.id._raw_id.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING;
+            self.id._raw_id.instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
         let old_green = self.microtraffic.green;
         self.microtraffic.yellow_to_red = if self.microtraffic.timings.is_empty() {
@@ -316,7 +316,7 @@ impl Simulatable for Lane {
         }
 
         if current_tick.ticks() % PATHFINDING_THROTTLING ==
-            self.id._raw_id.sub_actor_id as usize % PATHFINDING_THROTTLING
+            self.id._raw_id.instance_id as usize % PATHFINDING_THROTTLING
         {
             self.update_routes(world);
         }
@@ -465,7 +465,7 @@ impl Simulatable for Lane {
             let cars = self.microtraffic.cars.iter();
 
             if (current_tick.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING ==
-                interaction.partner_lane._raw_id.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING
+                interaction.partner_lane._raw_id.instance_id as usize % TRAFFIC_LOGIC_THROTTLING
             {
                 let maybe_obstacles = obstacles_for_interaction(
                     interaction,
@@ -553,7 +553,7 @@ impl Simulatable for TransferLane {
         self.construction.progress += dt * 400.0;
 
         let do_traffic = current_tick.ticks() % TRAFFIC_LOGIC_THROTTLING ==
-            self.id._raw_id.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING;
+            self.id._raw_id.instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
         if do_traffic {
             // TODO: optimize using BinaryHeap?
@@ -722,7 +722,7 @@ impl Simulatable for TransferLane {
             }
 
             if (current_tick.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING ==
-                left._raw_id.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING
+                left._raw_id.instance_id as usize % TRAFFIC_LOGIC_THROTTLING
             {
                 let obstacles = self.microtraffic
                     .cars
@@ -746,7 +746,7 @@ impl Simulatable for TransferLane {
             }
 
             if (current_tick.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING ==
-                right._raw_id.sub_actor_id as usize % TRAFFIC_LOGIC_THROTTLING
+                right._raw_id.instance_id as usize % TRAFFIC_LOGIC_THROTTLING
             {
                 let obstacles = self.microtraffic
                     .cars

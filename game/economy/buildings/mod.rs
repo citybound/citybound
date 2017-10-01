@@ -122,7 +122,7 @@ impl BuildingSpawner {
     fn spawn_building(lot: &Lot, simulation: SimulationID, world: &mut World) {
         let building_id = BuildingID::spawn(CVec::new(), lot.clone(), world);
 
-        if building_id._raw_id.sub_actor_id % 6 == 0 {
+        if building_id._raw_id.instance_id % 6 == 0 {
             let shop_id = GroceryShopID::move_into(building_id, world);
             building_id.add_household(shop_id.into(), world);
         } else {

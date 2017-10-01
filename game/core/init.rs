@@ -83,10 +83,10 @@ pub fn print_version(user_interface: UserInterfaceID, world: &mut World) {
     );
 }
 
-pub fn print_subactor_counts(system: &mut ActorSystem, user_interface: UserInterfaceID) {
+pub fn print_instance_counts(system: &mut ActorSystem, user_interface: UserInterfaceID) {
     user_interface.add_debug_text(
         "Number of actors".chars().collect(),
-        system.get_subactor_counts().as_str().chars().collect(),
+        system.get_instance_counts().as_str().chars().collect(),
         [0.0, 0.0, 0.0, 1.0],
         false,
         &mut system.world(),

@@ -90,13 +90,13 @@ impl Renderer {
         scene_id: usize,
         individual_id: u16,
         geometry: &Geometry,
-        instance: &Instance,
+        instance_info: &Instance,
         is_decal: bool,
         _: &mut World,
     ) {
         let individual = Batch::new_individual(
             geometry.clone(),
-            *instance,
+            *instance_info,
             is_decal,
             &self.render_context.window,
         );
@@ -112,7 +112,7 @@ impl Renderer {
         scene_id: usize,
         batch_id: u16,
         frame: usize,
-        instance: Instance,
+        instance_info: Instance,
         _: &mut World,
     ) {
         let batch = self.scenes[scene_id].batches.get_mut(&batch_id).unwrap();
@@ -126,7 +126,7 @@ impl Renderer {
             batch.frame = frame;
         }
 
-        batch.instances.push(instance);
+        batch.instances.push(instance_info);
     }
 
     /// Critical

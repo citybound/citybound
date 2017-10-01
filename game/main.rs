@@ -97,7 +97,7 @@ fn main() {
         frame_counter.start_frame();
         frame_counter.print_fps(user_interface, world);
 
-        core::init::print_subactor_counts(&mut system, user_interface);
+        core::init::print_instance_counts(&mut system, user_interface);
         core::init::print_network_turn(&mut system, user_interface);
 
         user_interface.process_events(world);

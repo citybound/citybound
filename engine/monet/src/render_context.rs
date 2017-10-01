@@ -86,7 +86,7 @@ impl RenderContext {
              }) in batches_todo
         {
             let instances_to_draw =
-                &instances[..full_frame_instance_end.unwrap_or(instances.len())];
+                &instances[..full_frame_instance_end.unwrap_or_else(|| instances.len())];
             if instances_to_draw.len() > 1 {
                 render_debug_text.push_str(&format!(
                     "batch{}: {} instances\n",

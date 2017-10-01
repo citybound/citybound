@@ -2,13 +2,13 @@ use super::id::ID;
 use super::compact::Compact;
 
 /// Return type of message handling functions, signifying if
-/// an `Actor`/`SubActor` should live on after receiving a certain message type.
+/// an `Actor`/`Actor` should live on after receiving a certain message type.
 ///
-/// Note: so far only has an effect on `SubActor`s in `Swarm`s
+/// Note: so far only has an effect on `Actor`s in `Swarm`s
 pub enum Fate {
-    /// Means: the `Actor`/`SubActor` should live on
+    /// Means: the `Actor`/`Actor` should live on
     Live,
-    /// Means: the `Actor`/`SubActor` should be stopped, its state can be deallocated
+    /// Means: the `Actor`/`Actor` should be stopped, its state can be deallocated
     Die,
 }
 
@@ -22,7 +22,7 @@ impl<T: Compact + 'static> Message for T {}
 /// Combination of a message and its destination recipient id
 #[derive(Compact, Clone)]
 pub struct Packet<M: Message> {
-    /// ID of the `Actor`/`SubActor` that should receive this message
+    /// ID of the `Actor`/`Actor` that should receive this message
     pub recipient_id: ID,
     /// The message itself
     pub message: M,

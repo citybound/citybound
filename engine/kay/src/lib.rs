@@ -40,7 +40,6 @@ mod external;
 
 pub use self::messaging::{Message, Packet, Fate};
 pub use self::id::ID;
-pub use self::actor_system::{ActorSystem, World};
-pub use self::swarm::SubActor;
+pub use self::actor_system::{Actor, ActorSystem, World};
 pub use self::networking::Networking;
 pub use self::external::External;

@@ -1,128 +1,100 @@
 //! Tools for dealing with large amounts of identical actors
-
+use compact::Compact;
 use super::chunked::{MemChunker, ValueInChunk, SizedChunkedArena, MultiSized};
-use super::compact::Compact;
 use super::slot_map::{SlotIndices, SlotMap};
 use super::messaging::{Message, Packet, Fate};
-use super::actor_system::World;
-use super::id::{ID, broadcast_sub_actor_id};
+use super::actor_system::{World, Actor};
+use super::id::{ID, broadcast_instance_id};
 use std::marker::PhantomData;
-use std::mem::size_of;
 
-/// Trait that allows dynamically sized `SubActors` to provide
-/// a "typical size" hint to optimize their storage in a `Swarm`
-pub trait StorageAware: Sized {
-    /// The default implementation just returns the static size of the implementing type
-    fn typical_size() -> usize {
-        let size = size_of::<Self>();
-        if size == 0 { 1 } else { size }
-    }
-}
-impl<T> StorageAware for T {}
-
-/// Trait that sub-actors of a [`Swarm`](struct.Swarm.html) have to implement
-/// so their internally stored sub-actor ID can be gotten and set.
+/// A container-like actor, housing many instances of identical behaviour.
 ///
-/// Furthermore, a `SubActor` has to implement [`Compact`](../../compact), so a `Swarm`
-/// can compactly store each `SubActor`'s potentially dynamically-sized state.
+/// Offers efficient storage of and broadcasting to its instances.
 ///
-/// This trait can be auto-derived on structs that contain a field `_id: Option<ID>` using
-/// [`kay_macros`](../../kay_macros/index.html)
-pub trait SubActor: Compact + StorageAware + 'static {
-    /// Get the full ID (Swarm type id + sub-actor id) of `self`
-    fn id(&self) -> ID;
-    /// Set the full ID (Swarm type id + sub-actor id) of `self` (called internally by `Swarm`)
-    unsafe fn set_id(&mut self, id: ID);
-}
-
-/// A container-like actor, housing many sub-actors of identical behaviour.
-///
-/// Offers efficient storage of and broadcasting to its sub-actors.
-///
-/// New sub-actors can be added to a swarm using [`Create`](struct.Create.html)
+/// New instances can be added to a swarm using [`Create`](struct.Create.html)
 /// or [`CreateWith`](struct.CreateWith.html).
-pub struct Swarm<SubActor> {
-    sub_actors: MultiSized<SizedChunkedArena>,
+pub struct Swarm<Actor> {
+    instances: MultiSized<SizedChunkedArena>,
     slot_map: SlotMap,
-    n_sub_actors: ValueInChunk<usize>,
-    _marker: PhantomData<[SubActor]>,
+    n_instances: ValueInChunk<usize>,
+    _marker: PhantomData<[Actor]>,
 }
 
 const CHUNK_SIZE: usize = 4096 * 4096 * 16;
 
-impl<SA: SubActor + Clone> Swarm<SA> {
+impl<A: Actor + Clone> Swarm<A> {
     /// Create an empty `Swarm`.
     #[allow(new_without_default)]
     pub fn new() -> Self {
         let chunker = MemChunker::from_settings("", CHUNK_SIZE);
         Swarm {
-            sub_actors: MultiSized::new(chunker.child("_sub_actors"), SA::typical_size()),
-            n_sub_actors: ValueInChunk::new(chunker.child("_n_sub_actors"), 0),
+            instances: MultiSized::new(chunker.child("_instances"), A::typical_size()),
+            n_instances: ValueInChunk::new(chunker.child("_n_instances"), 0),
             slot_map: SlotMap::new(chunker.child("_slot_map")),
             _marker: PhantomData,
         }
     }
 
-    fn allocate_sub_actor_id(&mut self) -> (usize, usize) {
+    fn allocate_instance_id(&mut self) -> (usize, usize) {
         self.slot_map.allocate_id()
     }
 
-    fn at_index_mut(&mut self, index: SlotIndices) -> &mut SA {
-        unsafe { &mut *(self.sub_actors.bins[index.bin()].at_mut(index.slot()) as *mut SA) }
+    fn at_index_mut(&mut self, index: SlotIndices) -> &mut A {
+        unsafe { &mut *(self.instances.bins[index.bin()].at_mut(index.slot()) as *mut A) }
     }
 
-    fn at_mut(&mut self, id: usize) -> &mut SA {
+    fn at_mut(&mut self, id: usize) -> &mut A {
         let index = *self.slot_map.indices_of(id);
         self.at_index_mut(index)
     }
 
-    /// Allocate a subactor ID for later use when manually adding a subactor (see `add_with_id`)
+    /// Allocate a instance ID for later use when manually adding a instance (see `add_with_id`)
     pub unsafe fn allocate_id(&mut self, base_id: ID) -> ID {
-        let (sub_actor_id, version) = self.allocate_sub_actor_id();
+        let (instance_id, version) = self.allocate_instance_id();
         ID::new(
             base_id.type_id,
-            sub_actor_id as u32,
+            instance_id as u32,
             base_id.machine,
             version as u8,
         )
     }
 
-    /// used externally when manually adding a subactor,
+    /// used externally when manually adding a instance,
     /// making use of a previously allocated ID (see `allocate_id`)
-    pub unsafe fn add_manually_with_id(&mut self, initial_state: *mut SA, id: ID) {
+    pub unsafe fn add_manually_with_id(&mut self, initial_state: *mut A, id: ID) {
         self.add_with_id(initial_state, id);
-        *self.n_sub_actors += 1;
+        *self.n_instances += 1;
     }
 
     /// Used internally
-    unsafe fn add_with_id(&mut self, initial_state: *mut SA, id: ID) {
+    unsafe fn add_with_id(&mut self, initial_state: *mut A, id: ID) {
         let size = (*initial_state).total_size_bytes();
-        let bin_index = self.sub_actors.size_to_index(size);
-        let bin = &mut self.sub_actors.bin_for_size_mut(size);
+        let bin_index = self.instances.size_to_index(size);
+        let bin = &mut self.instances.bin_for_size_mut(size);
         let (ptr, index) = bin.push();
 
         self.slot_map.associate(
-            id.sub_actor_id as usize,
+            id.instance_id as usize,
             SlotIndices::new(bin_index, index),
         );
         assert_eq!(
-            self.slot_map.indices_of(id.sub_actor_id as usize).bin(),
+            self.slot_map.indices_of(id.instance_id as usize).bin(),
             bin_index
         );
 
-        Compact::compact_behind(initial_state, ptr as *mut SA);
-        let actor_in_slot = &mut *(ptr as *mut SA);
+        Compact::compact_behind(initial_state, ptr as *mut A);
+        let actor_in_slot = &mut *(ptr as *mut A);
         actor_in_slot.set_id(id);
     }
 
     fn swap_remove(&mut self, indices: SlotIndices) -> bool {
         unsafe {
-            let bin = &mut self.sub_actors.bins[indices.bin()];
+            let bin = &mut self.instances.bins[indices.bin()];
             match bin.swap_remove(indices.slot()) {
                 Some(ptr) => {
-                    let swapped_actor = &*(ptr as *mut SA);
+                    let swapped_actor = &*(ptr as *mut A);
                     self.slot_map.associate(
-                        swapped_actor.id().sub_actor_id as usize,
+                        swapped_actor.id().instance_id as usize,
                         indices,
                     );
                     true
@@ -134,22 +106,22 @@ impl<SA: SubActor + Clone> Swarm<SA> {
     }
 
     fn remove(&mut self, id: ID) {
-        let i = *self.slot_map.indices_of(id.sub_actor_id as usize);
+        let i = *self.slot_map.indices_of(id.instance_id as usize);
         self.remove_at_index(i, id);
     }
 
     fn remove_at_index(&mut self, i: SlotIndices, id: ID) {
         // TODO: not sure if this is the best place to drop actor state
-        let old_actor_ptr = self.at_index_mut(i) as *mut SA;
+        let old_actor_ptr = self.at_index_mut(i) as *mut A;
         unsafe {
             ::std::ptr::drop_in_place(old_actor_ptr);
         }
         self.swap_remove(i);
         self.slot_map.free(
-            id.sub_actor_id as usize,
+            id.instance_id as usize,
             id.version as usize,
         );
-        *self.n_sub_actors -= 1;
+        *self.n_instances -= 1;
     }
 
     fn resize(&mut self, id: usize) -> bool {
@@ -158,7 +130,7 @@ impl<SA: SubActor + Clone> Swarm<SA> {
     }
 
     fn resize_at_index(&mut self, old_i: SlotIndices) -> bool {
-        let old_actor_ptr = self.at_index_mut(old_i) as *mut SA;
+        let old_actor_ptr = self.at_index_mut(old_i) as *mut A;
         unsafe { self.add_with_id(old_actor_ptr, (*old_actor_ptr).id()) };
         self.swap_remove(old_i)
     }
@@ -169,10 +141,10 @@ impl<SA: SubActor + Clone> Swarm<SA> {
         handler: &H,
         world: &mut World,
     ) where
-        H: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
+        H: Fn(&M, &mut A, &mut World) -> Fate + 'static,
     {
         let (fate, is_still_compact) = {
-            let actor = self.at_mut(packet.recipient_id.sub_actor_id as usize);
+            let actor = self.at_mut(packet.recipient_id.instance_id as usize);
             let fate = handler(&packet.message, actor, world);
             (fate, actor.is_still_compact())
         };
@@ -180,7 +152,7 @@ impl<SA: SubActor + Clone> Swarm<SA> {
         match fate {
             Fate::Live => {
                 if !is_still_compact {
-                    self.resize(packet.recipient_id.sub_actor_id as usize);
+                    self.resize(packet.recipient_id.instance_id as usize);
                 }
             }
             Fate::Die => self.remove(packet.recipient_id),
@@ -193,7 +165,7 @@ impl<SA: SubActor + Clone> Swarm<SA> {
         handler: &H,
         world: &mut World,
     ) where
-        H: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
+        H: Fn(&M, &mut A, &mut World) -> Fate + 'static,
     {
         // this function has to deal with the fact that during the iteration,
         // receivers of the broadcast can be resized
@@ -205,10 +177,10 @@ impl<SA: SubActor + Clone> Swarm<SA> {
         // the only assumption is that no sub actors are immediately completely deleted
 
         let recipients_todo_per_bin: Vec<usize> = {
-            self.sub_actors.bins.iter().map(|bin| bin.len()).collect()
+            self.instances.bins.iter().map(|bin| bin.len()).collect()
         };
 
-        let n_bins = self.sub_actors.bins.len();
+        let n_bins = self.instances.bins.len();
 
         for (c, recipients_todo) in recipients_todo_per_bin.iter().enumerate().take(n_bins) {
             let mut slot = 0;
@@ -230,7 +202,7 @@ impl<SA: SubActor + Clone> Swarm<SA> {
                             self.resize_at_index(index);
                             // this should also work in the case where the "resized" actor
                             // itself is added to the same bin again
-                            let swapped_in_another_receiver = self.sub_actors.bins[c].len() <
+                            let swapped_in_another_receiver = self.instances.bins[c].len() <
                                 index_after_last_recipient;
                             if swapped_in_another_receiver {
                                 index_after_last_recipient -= 1;
@@ -244,7 +216,7 @@ impl<SA: SubActor + Clone> Swarm<SA> {
                         self.remove_at_index(index, id);
                         // this should also work in the case where the "resized" actor
                         // itself is added to the same bin again
-                        let swapped_in_another_receiver = self.sub_actors.bins[c].len() <
+                        let swapped_in_another_receiver = self.instances.bins[c].len() <
                             index_after_last_recipient;
                         if swapped_in_another_receiver {
                             index_after_last_recipient -= 1;
@@ -268,9 +240,9 @@ impl<SA: SubActor + Clone> Swarm<SA> {
         handler: &F,
         world: &mut World,
     ) where
-        F: Fn(&M, &mut SA, &mut World) -> Fate + 'static,
+        F: Fn(&M, &mut A, &mut World) -> Fate + 'static,
     {
-        if packet.recipient_id.sub_actor_id == broadcast_sub_actor_id() {
+        if packet.recipient_id.instance_id == broadcast_instance_id() {
             self.receive_broadcast(packet, handler, world);
         } else {
             self.receive_instance(packet, handler, world);
@@ -278,9 +250,9 @@ impl<SA: SubActor + Clone> Swarm<SA> {
     }
 }
 
-use super::actor_system::SubActorsCountable;
-impl<SA: SubActor> SubActorsCountable for Swarm<SA> {
-    fn subactor_count(&self) -> usize {
-        *self.n_sub_actors
+use super::actor_system::InstancesCountable;
+impl<A: Actor> InstancesCountable for Swarm<A> {
+    fn instance_count(&self) -> usize {
+        *self.n_instances
     }
 }

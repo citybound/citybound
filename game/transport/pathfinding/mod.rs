@@ -318,7 +318,7 @@ impl Node for Lane {
                 join_as != self_destination &&
                     (if self_destination.is_landmark() {
                          hops_from_landmark < IDEAL_LANDMARK_RADIUS &&
-                             join_as.landmark._raw_id.sub_actor_id < self.id._raw_id.sub_actor_id
+                             join_as.landmark._raw_id.instance_id < self.id._raw_id.instance_id
                      } else {
                          hops_from_landmark < self.pathfinding.hops_from_landmark ||
                              self.pathfinding

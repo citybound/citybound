@@ -263,9 +263,9 @@ pub fn on_add(building: &Building, world: &mut World) {
             is_shop,
             &mut XorShiftRng::from_seed(
                 [
-                    building.id._raw_id.sub_actor_id * 1000,
+                    building.id._raw_id.instance_id * 1000,
                     u32::from(building.id._raw_id.machine),
-                    building.id._raw_id.sub_actor_id,
+                    building.id._raw_id.instance_id,
                     42,
                 ],
             ),

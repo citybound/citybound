@@ -77,7 +77,7 @@ impl Networking {
             }
         }
 
-        if let Some((duration, other_n_turns)) = should_sleep {
+        if let Some((duration, _other_n_turns)) = should_sleep {
             // println!(
             //     "Sleeping to let other machine catch up ({} vs. {} turns)",
             //     other_n_turns,
@@ -185,6 +185,8 @@ impl Networking {
 
     }
 
+    /// Return a debug message containing the current local view of
+    /// network turn progress of all peers in the network
     pub fn debug_all_n_turns(&self) -> String {
         self.network_connections
             .iter()

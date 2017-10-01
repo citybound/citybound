@@ -46,11 +46,11 @@ impl Renderable for Lane {
                         ::core::colors::RANDOM_COLORS[car.destination
                                                           .landmark
                                                           ._raw_id
-                                                          .sub_actor_id as
+                                                          .instance_id as
                                                           usize %
                                                           ::core::colors::RANDOM_COLORS.len()]
                     } else {
-                        ::core::colors::RANDOM_COLORS[car.trip._raw_id.sub_actor_id as usize %
+                        ::core::colors::RANDOM_COLORS[car.trip._raw_id.instance_id as usize %
                                                           ::core::colors::RANDOM_COLORS.len()]
                     },
                 })
@@ -165,7 +165,7 @@ impl Renderable for Lane {
             });
             renderer_id.update_individual(
                 scene_id,
-                4000 + self.id._raw_id.sub_actor_id as u16,
+                4000 + self.id._raw_id.instance_id as u16,
                 geometry,
                 instance,
                 true,
@@ -214,7 +214,7 @@ impl Renderable for Lane {
         if DEBUG_VIEW_LANDMARKS && self.pathfinding.routes_changed {
             let (random_color, is_landmark) = if let Some(location) = self.pathfinding.location {
                 let random_color: [f32; 3] = ::core::colors::RANDOM_COLORS
-                    [location.landmark._raw_id.sub_actor_id as usize %
+                    [location.landmark._raw_id.instance_id as usize %
                     ::core::colors::RANDOM_COLORS.len()];
                 let weaker_random_color = [
                     (random_color[0] + 1.0) / 2.0,
@@ -235,7 +235,7 @@ impl Renderable for Lane {
             );
             renderer_id.update_individual(
                 scene_id,
-                4000 + self.id._raw_id.sub_actor_id as u16,
+                4000 + self.id._raw_id.instance_id as u16,
                 instance,
                 Instance::with_color(random_color),
                 true,
@@ -337,11 +337,11 @@ impl Renderable for TransferLane {
                         ::core::colors::RANDOM_COLORS[car.destination
                                                           .landmark
                                                           ._raw_id
-                                                          .sub_actor_id as
+                                                          .instance_id as
                                                           usize %
                                                           ::core::colors::RANDOM_COLORS.len()]
                     } else {
-                        ::core::colors::RANDOM_COLORS[car.trip._raw_id.sub_actor_id as usize %
+                        ::core::colors::RANDOM_COLORS[car.trip._raw_id.instance_id as usize %
                                                           ::core::colors::RANDOM_COLORS.len()]
                     },
                 })
@@ -640,7 +640,7 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
         // TODO: move this to LaneRenderer
         RendererID::local_first(world).update_individual(
             0,
-            4000 + lane.id._raw_id.sub_actor_id as u16,
+            4000 + lane.id._raw_id.instance_id as u16,
             Geometry::new(vec![], vec![]),
             Instance::with_color([0.0, 0.0, 0.0]),
             true,
@@ -651,7 +651,7 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
     if DEBUG_VIEW_SIGNALS {
         RendererID::local_first(world).update_individual(
             0,
-            4000 + lane.id._raw_id.sub_actor_id as u16,
+            4000 + lane.id._raw_id.instance_id as u16,
             Geometry::new(vec![], vec![]),
             Instance::with_color([0.0, 0.0, 0.0]),
             true,

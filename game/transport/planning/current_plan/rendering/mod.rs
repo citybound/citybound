@@ -1,6 +1,6 @@
 use kay::World;
 use compact::CDict;
-use descartes::{N, Band, Path, FiniteCurve};
+use descartes::{N, Band, FiniteCurve};
 use monet::{Geometry, Instance, RendererID};
 use stagemaster::geometry::band_to_geometry;
 use super::{CurrentPlan, CurrentPlanID, SelectableStrokeRef};

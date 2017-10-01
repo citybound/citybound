@@ -53,11 +53,11 @@ impl Model {
     where
         F: Fn(&ActorName, &Handler) -> O,
     {
-        let mut for_subactor = Vec::<Vec<O>>::new();
+        let mut for_instance = Vec::<Vec<O>>::new();
         let mut for_init = Vec::<Vec<O>>::new();
 
         for (actor_name, actor_def) in self.actors.iter() {
-            for_subactor.push(actor_def.map_handlers(
+            for_instance.push(actor_def.map_handlers(
                 actor_name,
                 origin,
                 HandlerType::Handler,
@@ -71,7 +71,7 @@ impl Model {
             ));
         }
 
-        (for_subactor, for_init)
+        (for_instance, for_init)
     }
 
     pub fn map_handlers_args<O, F>(
@@ -91,11 +91,11 @@ impl Model {
     where
         F: Fn(&TraitName, &Handler) -> O,
     {
-        let mut for_subactor = Vec::<Vec<O>>::new();
+        let mut for_instance = Vec::<Vec<O>>::new();
         let mut for_init = Vec::<Vec<O>>::new();
 
         for (trait_name, trait_def) in self.traits.iter() {
-            for_subactor.push(trait_def.map_handlers(
+            for_instance.push(trait_def.map_handlers(
                 trait_name,
                 HandlerType::Handler,
                 &map_f,
@@ -107,7 +107,7 @@ impl Model {
             ));
         }
 
-        (for_subactor, for_init)
+        (for_instance, for_init)
     }
 
     pub fn map_trait_handlers_args<O, F>(&self, map_f: F) -> (Vec<Vec<Vec<O>>>, Vec<Vec<Vec<O>>>)
@@ -158,8 +158,8 @@ impl Model {
         quote!(
             #(
                 #(
-                    system.add_handler::<#handler_actor_types, _, _>(|&#msg_names(#(#msg_args),*), subactor, world| {
-                        subactor.#handler_names(#(#handler_params,)* world)#maybe_fate_returns
+                    system.add_handler::<#handler_actor_types, _, _>(|&#msg_names(#(#msg_args),*), instance, world| {
+                        instance.#handler_names(#(#handler_params,)* world)#maybe_fate_returns
                     }, #handler_criticals);
                 )*
 
@@ -299,7 +299,7 @@ impl Model {
 
         quote!(
             #(
-            impl SubActor for #actor_here_names_1 {
+            impl Actor for #actor_here_names_1 {
                 fn id(&self) -> ID {
                     self.id._raw_id
                 }
@@ -351,7 +351,7 @@ impl Model {
                 #(
                 pub fn #init_handler_names(#(#init_handler_args,)* world: &mut World) -> Self {
                     let id = #actor_ids_for_init_handlers {
-                        _raw_id: world.allocate_subactor_id::<#actor_types_for_init_handlers_1>()
+                        _raw_id: world.allocate_instance_id::<#actor_types_for_init_handlers_1>()
                     };
                     let swarm = world.local_broadcast::<#actor_types_for_init_handlers_2>();
                     world.send(swarm, #init_msg_names_1(id, #(#init_msg_params),*));
