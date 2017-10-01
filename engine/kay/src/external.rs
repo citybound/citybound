@@ -1,7 +1,7 @@
 use compact::Compact;
 use std::cell::Cell;
 
-/// TODO: make this much more simple and just like a Box once we can move out of messages!
+// TODO: make this much more simple and just like a Box once we can move out of messages!
 
 /// An owning reference to local state outside the actor system that can safely be embedded in
 /// actor states and passed in messages, as long as they stay on one machine.
