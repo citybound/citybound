@@ -63,8 +63,8 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         let new_ptr = A::allocate::<T>(new_cap);
 
         // items should be decompacted, else internal relative pointers get messed up!
-        for i in 0..self.len() {
-            unsafe { ptr::write(new_ptr.offset(i as isize), Compact::decompact(&self[i])) };
+        for (i, item) in self.iter().enumerate() {
+            unsafe { ptr::write(new_ptr.offset(i as isize), Compact::decompact(item)) };
         }
 
         // items shouldn't be dropped here, they live on in the new backing store!
@@ -102,6 +102,20 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
             ptr::write(end, value);
             self.len += 1;
         }
+    }
+
+    /// Extend from a copyable slice
+    pub fn extend_from_copy_slice(&mut self, other: &[T])
+    where
+        T: Copy,
+    {
+        while self.len + other.len() > self.cap {
+            self.double_buf();
+        }
+
+        let old_len = self.len;
+        self.len += other.len();
+        self[old_len..].copy_from_slice(other);
     }
 
     /// Pop and return the last element, if the vector wasn't empty
@@ -203,6 +217,15 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
     /// Clear the vector
     pub fn clear(&mut self) {
         self.truncate(0);
+    }
+
+    /// Drain (empty & iterate over) the vector
+    pub fn drain(&mut self) -> IntoIter<T, A> {
+        unsafe {
+            let decompacted = Compact::decompact(self);
+            ::std::ptr::write(self, CompactVec::new());
+            decompacted.into_iter()
+        }
     }
 
     /// debug printing

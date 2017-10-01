@@ -5,25 +5,27 @@ pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, In
                     WithUniqueOrthogonal, Inverse, Rotate};
 
 use glium::Surface;
-use glium::backend::glutin_backend::GlutinFacade;
+use glium::backend::glutin::Display;
 use kay::External;
 
 use {Batch, Scene};
 
 pub struct RenderContext {
-    pub window: External<GlutinFacade>,
+    pub window: External<Display>,
     batch_program: glium::Program,
+    clear_color: (f32, f32, f32, f32),
 }
 
 impl RenderContext {
     #[allow(redundant_closure)]
-    pub fn new(window: External<GlutinFacade>) -> RenderContext {
+    pub fn new(window: External<Display>, clear_color: (f32, f32, f32, f32)) -> RenderContext {
         RenderContext {
             batch_program: program!(&*window, 140 => {
                 vertex: include_str!("shader/solid_140.glslv"),
                 fragment: include_str!("shader/solid_140.glslf")
             }).unwrap(),
             window: window.steal(),
+            clear_color: clear_color,
         }
     }
 
@@ -66,7 +68,7 @@ impl RenderContext {
         };
 
         // draw a frame
-        target.clear_color_and_depth((1.0, 1.0, 1.0, 1.0), 1.0);
+        target.clear_color_and_depth(self.clear_color, 1.0);
 
         let mut render_debug_text = String::from("Renderer:\n");
 
@@ -79,13 +81,21 @@ impl RenderContext {
                  ref indices,
                  ref instances,
                  is_decal,
+                 full_frame_instance_end,
                  ..
              }) in batches_todo
         {
-            if instances.len() > 1 {
-                render_debug_text.push_str(&format!("batch{}: {} instances\n", i, instances.len()));
+            let instances_to_draw =
+                &instances[..full_frame_instance_end.unwrap_or_else(|| instances.len())];
+            if instances_to_draw.len() > 1 {
+                render_debug_text.push_str(&format!(
+                    "batch{}: {} instances\n",
+                    i,
+                    instances_to_draw.len()
+                ));
             }
-            let instance_buffer = glium::VertexBuffer::new(&*self.window, instances).unwrap();
+            let instance_buffer = glium::VertexBuffer::new(&*self.window, instances_to_draw)
+                .unwrap();
             target
                 .draw(
                     (vertices, instance_buffer.per_instance().unwrap()),

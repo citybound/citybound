@@ -1,12 +1,10 @@
 use descartes::{P2, V2, Path, Segment, Band, Curve, FiniteCurve, N, RoughlyComparable};
 use compact::CVec;
-use kay::{ID, World};
-use kay::swarm::{Swarm, CreateWith};
-use monet::Thing;
-use stagemaster::geometry::{CPath, band_to_thing};
-use super::super::construction::materialized_reality::BuildableRef;
-use super::super::lane::{Lane, TransferLane};
-use super::super::construction::AdvertiseToTransferAndReport;
+use kay::World;
+use monet::Geometry;
+use stagemaster::geometry::{CPath, band_to_geometry};
+use super::super::construction::materialized_reality::{BuildableRef, MaterializedRealityID};
+use super::super::lane::{LaneID, TransferLaneID};
 
 #[derive(Compact, Clone)]
 pub struct LaneStroke {
@@ -89,8 +87,8 @@ impl LaneStroke {
         &self._memoized_path
     }
 
-    pub fn preview_thing(&self) -> Thing {
-        band_to_thing(
+    pub fn preview_geometry(&self) -> Geometry {
+        band_to_geometry(
             &Band::new(Band::new(self.path().clone(), 4.85).outline(), 0.6),
             0.0,
         )
@@ -180,31 +178,35 @@ impl LaneStroke {
         )
     }
 
-    pub fn build(&self, report_to: ID, report_as: BuildableRef, world: &mut World) {
-        world.send_to_id_of::<Swarm<Lane>, _>(CreateWith(
-            Lane::new(self.path().clone(), false, CVec::new()),
-            AdvertiseToTransferAndReport(report_to, report_as),
-        ));
+    pub fn build(
+        &self,
+        report_to: MaterializedRealityID,
+        report_as: BuildableRef,
+        world: &mut World,
+    ) {
+        let lane = LaneID::spawn(self.path().clone(), false, CVec::new(), world);
+        lane.start_connecting_and_report(report_to, report_as, world);
     }
 
     pub fn build_intersection(
         &self,
-        report_to: ID,
+        report_to: MaterializedRealityID,
         report_as: BuildableRef,
         timings: CVec<bool>,
         world: &mut World,
     ) {
-        world.send_to_id_of::<Swarm<Lane>, _>(CreateWith(
-            Lane::new(self.path().clone(), true, timings),
-            AdvertiseToTransferAndReport(report_to, report_as),
-        ));
+        let lane = LaneID::spawn(self.path().clone(), true, timings, world);
+        lane.start_connecting_and_report(report_to, report_as, world);
     }
 
-    pub fn build_transfer(&self, report_to: ID, report_as: BuildableRef, world: &mut World) {
-        world.send_to_id_of::<Swarm<TransferLane>, _>(CreateWith(
-            TransferLane::new(self.path().clone()),
-            AdvertiseToTransferAndReport(report_to, report_as),
-        ));
+    pub fn build_transfer(
+        &self,
+        report_to: MaterializedRealityID,
+        report_as: BuildableRef,
+        world: &mut World,
+    ) {
+        let transfer_lane = TransferLaneID::spawn(self.path().clone(), world);
+        transfer_lane.start_connecting_and_report(report_to, report_as, world);
     }
 }
 

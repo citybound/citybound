@@ -1,15 +1,15 @@
-use kay::{ActorSystem, World, Fate, External, ID};
-use kay::swarm::Swarm;
+use kay::{ActorSystem, World, External};
 use compact::{CVec, CDict};
 use imgui::Ui;
-use stagemaster::Ui2dDrawn;
 use ordered_float::OrderedFloat;
-use core::simulation::{TimeOfDay, Timestamp, Seconds, Ticks, Simulation, WakeUpIn};
+use core::simulation::{TimeOfDay, Timestamp, Seconds, Ticks, SimulationID, Simulatable,
+                       SimulatableID, MSG_Simulatable_tick};
 use economy::resources::{ResourceId, ResourceAmount, ResourceMap, Entry};
 use economy::market::{Deal, MarketID, OfferID, EvaluatedDeal, EvaluationRequester,
                       EvaluationRequesterID, MSG_EvaluationRequester_expect_n_results,
                       MSG_EvaluationRequester_on_result, EvaluatedSearchResult};
 use economy::buildings::BuildingID;
+use economy::buildings::rendering::BuildingInspectorID;
 use transport::pathfinding::trip::{TripListenerID, MSG_TripListener_trip_created,
                                    MSG_TripListener_trip_result};
 use transport::pathfinding::RoughLocationID;
@@ -22,7 +22,7 @@ use core::async_counter::AsyncCounter;
 use super::{Household, HouseholdID, MemberIdx, MSG_Household_decay, MSG_Household_inspect,
             MSG_Household_provide_deal, MSG_Household_receive_deal, MSG_Household_task_succeeded,
             MSG_Household_task_failed};
-use super::tasks::{Task, TaskEndScheduler, ScheduleTaskEnd};
+use super::tasks::{Task, TaskEndSchedulerID};
 
 #[derive(Compact, Clone)]
 struct DecisionResourceEntry {
@@ -51,7 +51,7 @@ pub struct Family {
 
 const N_TOP_PROBLEMS: usize = 5;
 const DECISION_PAUSE: Ticks = Ticks(200);
-const UPDATE_EVERY_N_SECS: usize = 100;
+const UPDATE_EVERY_N_SECS: usize = 4;
 
 use economy::resources::r_properties;
 
@@ -64,9 +64,10 @@ impl Family {
         id: FamilyID,
         n_members: usize,
         home: BuildingID,
+        simulation: SimulationID,
         world: &mut World,
     ) -> Family {
-        world.send_to_id_of::<Simulation, _>(WakeUpIn(Ticks(0), id.into()));
+        simulation.wake_up_in(Ticks(0), id.into(), world);
 
         Family {
             id,
@@ -129,7 +130,7 @@ impl Family {
         let top_problems = self.top_problems(member, time);
 
         if top_problems.is_empty() {
-            world.send_to_id_of::<Simulation, _>(WakeUpIn(DECISION_PAUSE, self.id.into()))
+            SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, self.id.into(), world);
         } else {
             let mut decision_entries = CDict::<ResourceId, DecisionResourceEntry>::new();
 
@@ -153,8 +154,7 @@ impl Family {
                     AsyncCounter::with_target(1)
                 } else {
                     println!("Doing market query for {}", r_info(resource).0);
-                    // TODO: ugly singleton send
-                    MarketID::broadcast(world).search(
+                    MarketID::global_first(world).search(
                         tick,
                         location,
                         resource,
@@ -208,7 +208,8 @@ impl Family {
                 |entry| entry.results_counter.is_done(),
             )
         } else {
-            panic!("Received unexpected deal / should be choosing");
+            println!("Received unexpected deal / should be choosing");
+            false
         };
 
         if done {
@@ -271,7 +272,7 @@ impl Family {
                 self.id._raw_id
             );
             self.decision_state = DecisionState::None;
-            world.send_to_id_of::<Simulation, _>(WakeUpIn(DECISION_PAUSE, self.id.into()));
+            SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, self.id.into(), world);
         }
 
         fn most_useful_evaluated_deal(
@@ -409,18 +410,19 @@ impl Family {
         world: &mut World,
     ) {
         println!("Started task");
-        world.send_to_id_of::<TaskEndScheduler, _>(ScheduleTaskEnd(
+        TaskEndSchedulerID::local_first(world).schedule(
             start + self.member_tasks[member.0].duration,
             self.id.into(),
             member,
-        ));
+            world,
+        );
         self.member_tasks[member.0].state = TaskState::StartedAt(start, location);
     }
 
     pub fn stop_task(&mut self, member: MemberIdx, location: RoughLocationID, world: &mut World) {
         self.member_tasks[member.0].state = TaskState::IdleAt(location);
         println!("Task stopped");
-        world.send_to_id_of::<Simulation, _>(WakeUpIn(Seconds(0).into(), self.id.into()));
+        SimulationID::local_first(world).wake_up_in(Ticks(0), self.id.into(), world);
     }
 }
 
@@ -479,7 +481,12 @@ impl Household for Family {
     }
 
     #[allow(useless_format)]
-    fn inspect(&mut self, imgui_ui: &External<Ui<'static>>, return_to: ID, world: &mut World) {
+    fn inspect(
+        &mut self,
+        imgui_ui: &External<Ui<'static>>,
+        return_to: BuildingInspectorID,
+        world: &mut World,
+    ) {
         let ui = imgui_ui.steal();
 
         ui.window(im_str!("Building")).build(|| {
@@ -487,7 +494,7 @@ impl Household for Family {
                 .build(|| {
                     ui.tree_node(im_str!("Shared")).build(|| {
                         ui.text(im_str!("State"));
-                        ui.same_line(150.0);
+                        ui.same_line(250.0);
                         ui.text(im_str!(
                             "{}",
                             match self.decision_state {
@@ -500,7 +507,7 @@ impl Household for Family {
                         for resource in all_resource_ids() {
                             if r_properties(resource).ownership_shared {
                                 ui.text(im_str!("{}", r_info(resource).0));
-                                ui.same_line(150.0);
+                                ui.same_line(250.0);
                                 let amount = self.resources.get(resource).cloned().unwrap_or(0.0);
                                 ui.text(im_str!("{}", amount));
                             }
@@ -514,7 +521,7 @@ impl Household for Family {
                     {
                         ui.tree_node(im_str!("Member #{}", i)).build(|| {
                             ui.text(im_str!("Task"));
-                            ui.same_line(150.0);
+                            ui.same_line(250.0);
                             ui.text(im_str!(
                                 "{}",
                                 match member_task.state {
@@ -528,7 +535,7 @@ impl Household for Family {
                             for resource in all_resource_ids() {
                                 if !r_properties(resource).ownership_shared {
                                     ui.text(im_str!("{}", r_info(resource).0));
-                                    ui.same_line(150.0);
+                                    ui.same_line(250.0);
                                     let amount =
                                         member_resources.get(resource).cloned().unwrap_or(0.0);
                                     ui.text(im_str!("{}", amount));
@@ -539,33 +546,24 @@ impl Household for Family {
                 })
         });
 
-        world.send(return_to, Ui2dDrawn { imgui_ui: ui });
+        return_to.ui_drawn(ui, world);
     }
 }
 
-use core::simulation::{Tick, TICKS_PER_SIM_SECOND};
+use core::simulation::TICKS_PER_SIM_SECOND;
+
+impl Simulatable for Family {
+    fn tick(&mut self, _dt: f32, current_tick: Timestamp, world: &mut World) {
+        if current_tick.ticks() % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0 {
+            self.decay(Seconds(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world);
+        }
+    }
+}
 
 pub fn setup(system: &mut ActorSystem) {
     judgement_table::setup();
 
-    system.add(Swarm::<Family>::new(), |_| {});
-
-    system.extend::<Swarm<Family>, _>(|mut family_swarm| {
-        family_swarm.on(|&Tick { current_tick, .. }, _, world| {
-            if current_tick.ticks() % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0 {
-                let families_as_households: HouseholdID = FamilyID::broadcast(world).into();
-                families_as_households.decay(
-                    Seconds(
-                        UPDATE_EVERY_N_SECS *
-                            TICKS_PER_SIM_SECOND,
-                    ),
-                    world,
-                )
-            }
-
-            Fate::Live
-        });
-    });
+    system.register::<Family>();
 
     auto_setup(system);
 }

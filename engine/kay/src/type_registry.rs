@@ -7,8 +7,8 @@ use core::nonzero::NonZero;
 pub struct ShortTypeId(NonZero<u16>);
 
 impl ShortTypeId {
-    pub fn new(id: u16) -> Self {
-        ShortTypeId(unsafe { NonZero::new(id) })
+    pub fn new(id: u16) -> Option<Self> {
+        NonZero::new(id).map(ShortTypeId)
     }
 
     pub fn as_usize(&self) -> usize {
@@ -31,7 +31,7 @@ pub struct TypeRegistry {
 impl TypeRegistry {
     pub fn new() -> TypeRegistry {
         TypeRegistry {
-            next_short_id: ShortTypeId::new(1), // Non nullable optimization
+            next_short_id: ShortTypeId::new(1).unwrap(), // Non nullable optimization
             long_to_short_ids: HashMap::new(),
             short_ids_to_names: HashMap::new(),
         }
@@ -46,7 +46,7 @@ impl TypeRegistry {
             short_id,
             unsafe { type_name::<T>() }.into(),
         );
-        self.next_short_id = ShortTypeId::new(u16::from(self.next_short_id) + 1);
+        self.next_short_id = ShortTypeId::new(u16::from(self.next_short_id) + 1).unwrap();
         short_id
     }
 

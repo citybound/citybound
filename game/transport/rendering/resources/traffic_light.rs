@@ -15,8 +15,8 @@
 
 use monet::Vertex;
 
-pub fn create() -> ::monet::Thing {
-    ::monet::Thing::new(
+pub fn create() -> ::monet::Geometry {
+    ::monet::Geometry::new(
         vec![
             Vertex { position: [-0.6, -0.6, 0.0] }, // 0
             Vertex { position: [-0.6, -0.6, 2.0] }, // 1
@@ -68,8 +68,8 @@ pub fn create() -> ::monet::Thing {
     )
 }
 
-pub fn create_light() -> ::monet::Thing {
-    ::monet::Thing::new(
+pub fn create_light() -> ::monet::Geometry {
+    ::monet::Geometry::new(
         vec![
             Vertex { position: [-0.7, -0.4, 0.0] }, // 0
             Vertex { position: [-0.7, -0.4, 0.6] }, // 1
@@ -80,8 +80,8 @@ pub fn create_light() -> ::monet::Thing {
     )
 }
 
-pub fn create_light_left() -> ::monet::Thing {
-    ::monet::Thing::new(
+pub fn create_light_left() -> ::monet::Geometry {
+    ::monet::Geometry::new(
         vec![
             Vertex { position: [-0.7, 0.4, 0.3] }, // 0
             Vertex { position: [-0.7, -0.4, 0.0] }, // 1
@@ -91,8 +91,8 @@ pub fn create_light_left() -> ::monet::Thing {
     )
 }
 
-pub fn create_light_right() -> ::monet::Thing {
-    ::monet::Thing::new(
+pub fn create_light_right() -> ::monet::Geometry {
+    ::monet::Geometry::new(
         vec![
             Vertex { position: [-0.7, 0.4, 0.0] }, // 0
             Vertex { position: [-0.7, 0.4, 0.6] }, // 1

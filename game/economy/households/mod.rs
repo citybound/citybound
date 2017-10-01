@@ -11,9 +11,10 @@ pub mod grocery_shop;
 pub struct MemberIdx(usize);
 
 use imgui::Ui;
-use kay::{External, ID};
+use kay::External;
 
 use super::market::Deal;
+use super::buildings::rendering::BuildingInspectorID;
 
 pub trait Household {
     fn receive_deal(&mut self, deal: &Deal, member: MemberIdx, world: &mut World);
@@ -21,7 +22,12 @@ pub trait Household {
     fn decay(&mut self, dt: Seconds, world: &mut World);
     fn task_succeeded(&mut self, member: MemberIdx, world: &mut World);
     fn task_failed(&mut self, member: MemberIdx, location: RoughLocationID, world: &mut World);
-    fn inspect(&mut self, imgui_ui: &External<Ui<'static>>, return_to: ID, world: &mut World);
+    fn inspect(
+        &mut self,
+        imgui_ui: &External<Ui<'static>>,
+        return_to: BuildingInspectorID,
+        world: &mut World,
+    );
 }
 
 pub fn setup(system: &mut ActorSystem) {

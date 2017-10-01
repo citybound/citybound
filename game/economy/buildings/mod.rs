@@ -1,15 +1,14 @@
-use kay::{ID, ActorSystem, Fate, World, External};
-use kay::swarm::{Swarm, ToRandom};
+use kay::{ActorSystem, World, External};
 use compact::CVec;
-use descartes::{P2, Norm, Curve};
+use descartes::{P2, V2, Norm, Curve};
 use stagemaster::combo::{Bindings, Combo2};
-use stagemaster::{UserInterface, AddInteractable, Focus};
+use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
+                  MSG_Interactable3d_on_event};
 use stagemaster::combo::Button::*;
-use stagemaster::Event3d;
 use stagemaster::geometry::AnyShape;
-use transport::lane::Lane;
+use transport::lane::{Lane, LaneID};
 
-mod rendering;
+pub mod rendering;
 
 use super::households::HouseholdID;
 
@@ -25,9 +24,8 @@ impl Building {
         id: BuildingID,
         households: &CVec<HouseholdID>,
         lot: &Lot,
-        world: &mut World,
+        _: &mut World,
     ) -> Building {
-        rendering::on_add(id, lot.position, world);
         Building {
             id,
             households: households.clone(),
@@ -35,8 +33,12 @@ impl Building {
         }
     }
 
-    pub fn add_household(&mut self, household: HouseholdID, _: &mut World) {
+    pub fn add_household(&mut self, household: HouseholdID, world: &mut World) {
         self.households.push(household);
+        // TODO: such a weird place to do this, but ok for now
+        if self.households.len() == 1 {
+            rendering::on_add(self, world);
+        }
     }
 }
 
@@ -52,15 +54,16 @@ impl RoughLocation for Building {
         tick: Timestamp,
         world: &mut World,
     ) {
-        let adjacent_lane = RoughLocationID { _raw_id: self.lot.adjacent_lane };
-        adjacent_lane.resolve_as_location(requester, rough_location, tick, world)
+        Into::<RoughLocationID>::into(self.lot.adjacent_lane)
+            .resolve_as_location(requester, rough_location, tick, world)
     }
 }
 
 #[derive(Compact, Clone)]
 pub struct Lot {
     pub position: P2,
-    pub adjacent_lane: ID,
+    pub orientation: V2,
+    pub adjacent_lane: LaneID,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -85,19 +88,24 @@ pub enum BuildingSpawnerState {
 #[derive(Compact, Clone)]
 pub struct BuildingSpawner {
     id: BuildingSpawnerID,
+    simulation: SimulationID,
     bindings: External<BuildingSpawnerBindings>,
     state: BuildingSpawnerState,
 }
 
 impl BuildingSpawner {
-    pub fn init(id: BuildingSpawnerID, world: &mut World) -> BuildingSpawner {
-        world.send_to_id_of::<UserInterface, _>(
-            AddInteractable(id._raw_id, AnyShape::Everywhere, 0),
-        );
-        world.send_to_id_of::<UserInterface, _>(Focus(id._raw_id));
+    pub fn init(
+        id: BuildingSpawnerID,
+        user_interface: UserInterfaceID,
+        simulation: SimulationID,
+        world: &mut World,
+    ) -> BuildingSpawner {
+        user_interface.add(id.into(), AnyShape::Everywhere, 0, world);
+        user_interface.focus(id.into(), world);
 
         BuildingSpawner {
             id,
+            simulation,
             bindings: External::new(::ENV.load_settings("Building Spawning")),
             state: BuildingSpawnerState::Idle,
         }
@@ -111,14 +119,14 @@ impl BuildingSpawner {
         }
     }
 
-    fn spawn_building(lot: &Lot, world: &mut World) {
+    fn spawn_building(lot: &Lot, simulation: SimulationID, world: &mut World) {
         let building_id = BuildingID::spawn(CVec::new(), lot.clone(), world);
 
-        if building_id._raw_id.sub_actor_id % 6 == 0 {
+        if building_id._raw_id.instance_id % 6 == 0 {
             let shop_id = GroceryShopID::move_into(building_id, world);
             building_id.add_household(shop_id.into(), world);
         } else {
-            let family_id = FamilyID::move_into(3, building_id, world);
+            let family_id = FamilyID::move_into(3, building_id, simulation, world);
             building_id.add_household(family_id.into(), world);
         }
     }
@@ -133,6 +141,22 @@ impl BuildingSpawner {
             }
             _ => println!("Unexpected feasibility"),
         }
+    }
+}
+
+impl Interactable3d for BuildingSpawner {
+    fn on_event(&mut self, event: Event3d, world: &mut World) {
+        if let Event3d::Combos(combos) = event {
+            self.bindings.0.do_rebinding(&combos.current);
+
+            if self.bindings.0["Spawn Building"].is_freshly_in(&combos) {
+                if let BuildingSpawnerState::Idle = self.state {
+                    LaneID::global_broadcast(world).find_lot(self.id, world);
+                    self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
+                    self.state = BuildingSpawnerState::Collecting(CVec::new());
+                }
+            }
+        };
     }
 }
 
@@ -160,9 +184,6 @@ impl LotConflictor for Building {
     }
 }
 
-// TODO: remove this once Lane is a newstyle actor
-struct LaneID(ID);
-
 impl LotConflictor for Lane {
     fn find_conflicts(
         &mut self,
@@ -170,7 +191,7 @@ impl LotConflictor for Lane {
         requester: BuildingSpawnerID,
         world: &mut World,
     ) {
-        const MIN_LANE_BUILDING_DISTANCE: f32 = 10.0;
+        const MIN_LANE_BUILDING_DISTANCE: f32 = 15.0;
 
         requester.update_feasibility(
             lots.iter()
@@ -189,7 +210,7 @@ impl Sleeper for BuildingSpawner {
     fn wake(&mut self, _time: Timestamp, world: &mut World) {
         self.state = match self.state {
             BuildingSpawnerState::Collecting(ref mut lots) => {
-                let buildings: LotConflictorID = BuildingID::broadcast(world).into();
+                let buildings: LotConflictorID = BuildingID::global_broadcast(world).into();
                 let mut nonconflicting_lots = CVec::<Lot>::new();
                 for lot in lots.iter() {
                     let far_from_all = nonconflicting_lots.iter().all(|other_lot| {
@@ -200,7 +221,8 @@ impl Sleeper for BuildingSpawner {
                     }
                 }
                 buildings.find_conflicts(nonconflicting_lots.clone(), self.id, world);
-                world.send_to_id_of::<Simulation, _>(WakeUpIn(Ticks(10), self.id.into()));
+                self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
+
                 let nonconclicting_lots_len = nonconflicting_lots.len();
                 BuildingSpawnerState::CheckingBuildings(
                     nonconflicting_lots,
@@ -216,16 +238,17 @@ impl Sleeper for BuildingSpawner {
                         None
                     })
                     .collect();
-                let lanes = LotConflictorID { _raw_id: world.id::<Swarm<Lane>>().broadcast() };
+                let lanes = LotConflictorID { _raw_id: world.global_broadcast::<Lane>() };
                 lanes.find_conflicts(new_lots.clone(), self.id, world);
-                world.send_to_id_of::<Simulation, _>(WakeUpIn(Ticks(10), self.id.into()));
+                self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
+
                 let new_lots_len = new_lots.len();
                 BuildingSpawnerState::CheckingLanes(new_lots, vec![true; new_lots_len].into())
             }
             BuildingSpawnerState::CheckingLanes(ref mut lots, ref mut feasible) => {
                 for (lot, feasible) in lots.iter().zip(feasible) {
                     if *feasible {
-                        Self::spawn_building(lot, world);
+                        Self::spawn_building(lot, self.simulation, world);
                     }
                 }
                 BuildingSpawnerState::Idle
@@ -236,53 +259,20 @@ impl Sleeper for BuildingSpawner {
 }
 
 #[derive(Copy, Clone)]
-pub struct FindLot {
-    pub requester: BuildingSpawnerID,
-}
-
-#[derive(Copy, Clone)]
 pub struct InitializeUI;
 
 use super::households::family::FamilyID;
 use super::households::grocery_shop::GroceryShopID;
-use core::simulation::{Simulation, WakeUpIn, Ticks};
+use core::simulation::{SimulationID, Ticks};
 
-pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<Building>::new(), |_| {});
-    system.add(
-        Swarm::<BuildingSpawner>::new(),
-        Swarm::<BuildingSpawner>::subactors(|mut each_spawner| {
-
-            each_spawner.on(move |event, spawner, world| {
-                if let Event3d::Combos(combos) = *event {
-                    spawner.bindings.0.do_rebinding(&combos.current);
-
-                    if spawner.bindings.0["Spawn Building"].is_freshly_in(&combos) {
-                        if let BuildingSpawnerState::Idle = spawner.state {
-                            world.send_to_id_of::<Swarm<Lane>, _>(ToRandom {
-                                message: FindLot { requester: spawner.id },
-                                n_recipients: 5000,
-                            });
-                            world.send_to_id_of::<Simulation, _>(
-                                WakeUpIn(Ticks(10), spawner.id.into()),
-                            );
-                            spawner.state = BuildingSpawnerState::Collecting(CVec::new());
-                        }
-                    }
-                };
-
-                Fate::Live
-            });
-        }),
-    );
+pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID, simulation: SimulationID) {
+    system.register::<Building>();
+    system.register::<BuildingSpawner>();
+    rendering::setup(system, user_interface);
 
     kay_auto::auto_setup(system);
 
-    BuildingSpawnerID::init(&mut system.world());
-}
-
-pub fn setup_ui(system: &mut ActorSystem) {
-    rendering::setup(system);
+    BuildingSpawnerID::init(user_interface, simulation, &mut system.world());
 }
 
 mod kay_auto;

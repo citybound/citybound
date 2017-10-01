@@ -2,15 +2,18 @@
 name = "stagemaster"
 version = "0.1.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
+build = "./src/build.rs"
 
 [dependencies]
-imgui = "0.0.11"
-imgui-sys = "0.0.11"
-clippy = { version = "0.0.138", optional = true }
+imgui = "0.0.15"
+imgui-sys = "0.0.15"
+imgui-glium-renderer = "0.0.15"
+clippy = { version = "0.0.157", optional = true }
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
 app_dirs = "1.1.1"
+
 
 [dependencies.kay]
 path = "../kay"
@@ -26,6 +29,9 @@ path = "../descartes"
 
 [dependencies.monet]
 path = "../monet"
+
+[build-dependencies]
+kay_codegen = {path = "../kay_codegen/"}
 
 [features]
 enable-clippy = [

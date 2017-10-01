@@ -4,8 +4,8 @@ version = "0.1.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
-clippy = { version = "0.0.138", optional = true }
-random = "0.12.2"
+clippy = { version = "0.0.157", optional = true }
+byteorder = "1"
 
 [dependencies.compact]
 path = "../compact/"

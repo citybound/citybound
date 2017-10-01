@@ -20,24 +20,26 @@
 #![feature(conservative_impl_trait)]
 #![feature(box_syntax)]
 #![feature(nonzero)]
+#![feature(tcpstream_connect_timeout)]
 extern crate chunked;
 extern crate compact;
 #[macro_use]
 extern crate compact_macros;
-extern crate random;
 extern crate core;
+extern crate byteorder;
 
 mod inbox;
 mod slot_map;
-pub mod swarm;
-#[macro_use]
+mod swarm;
 mod messaging;
 mod type_registry;
 mod id;
 mod actor_system;
+mod networking;
 mod external;
 
 pub use self::messaging::{Message, Packet, Fate};
 pub use self::id::ID;
-pub use self::actor_system::{ActorSystem, ActorDefiner, World};
+pub use self::actor_system::{Actor, ActorSystem, World};
+pub use self::networking::Networking;
 pub use self::external::External;

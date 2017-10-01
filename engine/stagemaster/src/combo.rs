@@ -1,4 +1,4 @@
-pub use monet::glium::glutin::{VirtualKeyCode, MouseButton};
+pub use monet::glium::glutin::{WindowEvent, KeyboardInput, VirtualKeyCode, MouseButton};
 
 #[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Debug, Copy, Clone)]
 #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -293,23 +293,35 @@ impl ComboListener {
     pub fn update(&mut self, event: &Event) {
         let old_current = self.current;
         let something_changed = match *event {
-            Event::KeyboardInput(state, _, Some(glutin_code)) => {
-                let pressed = state == ElementState::Pressed;
-                if pressed {
-                    self.current.insert(glutin_code.into());
-                } else {
-                    self.current.remove(&(glutin_code.into()));
+            Event::WindowEvent { ref event, .. } => {
+                match *event {
+                    WindowEvent::KeyboardInput {
+                        input: KeyboardInput {
+                            state,
+                            virtual_keycode: Some(glutin_code),
+                            ..
+                        },
+                        ..
+                    } => {
+                        let pressed = state == ElementState::Pressed;
+                        if pressed {
+                            self.current.insert(glutin_code.into());
+                        } else {
+                            self.current.remove(&(glutin_code.into()));
+                        }
+                        true
+                    }
+                    WindowEvent::MouseInput { state, button, .. } => {
+                        let pressed = state == ElementState::Pressed;
+                        if pressed {
+                            self.current.insert(button.into());
+                        } else {
+                            self.current.remove(&button.into());
+                        }
+                        true
+                    }
+                    _ => false,
                 }
-                true
-            }
-            Event::MouseInput(state, glutin_button) => {
-                let pressed = state == ElementState::Pressed;
-                if pressed {
-                    self.current.insert(glutin_button.into());
-                } else {
-                    self.current.remove(&glutin_button.into());
-                }
-                true
             }
             _ => false,
         };

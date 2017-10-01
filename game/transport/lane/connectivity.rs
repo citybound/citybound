@@ -1,6 +1,6 @@
-use kay::ID;
 use compact::CVec;
 use descartes::N;
+use super::LaneID;
 
 #[derive(Compact, Clone)]
 pub struct ConnectivityInfo {
@@ -17,17 +17,19 @@ impl ConnectivityInfo {
     }
 }
 
+use super::super::microtraffic::LaneLikeID;
+
 #[derive(Compact, Clone, Default)]
 pub struct TransferConnectivityInfo {
-    pub left: Option<(ID, f32)>,
-    pub right: Option<(ID, f32)>,
+    pub left: Option<(LaneID, f32)>,
+    pub right: Option<(LaneID, f32)>,
     pub left_distance_map: CVec<(N, N)>,
     pub right_distance_map: CVec<(N, N)>,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub struct Interaction {
-    pub partner_lane: ID,
+    pub partner_lane: LaneLikeID,
     pub start: f32,
     pub partner_start: f32,
     pub kind: InteractionKind,

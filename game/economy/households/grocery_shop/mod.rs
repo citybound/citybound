@@ -1,12 +1,11 @@
-use kay::{ActorSystem, World, Fate, External, ID};
-use kay::swarm::Swarm;
+use kay::{ActorSystem, World, External};
 use imgui::Ui;
-use stagemaster::Ui2dDrawn;
 use core::simulation::{TimeOfDay, Seconds};
 use economy::resources::{ResourceAmount, ResourceMap, Entry, r_id, r_properties, r_info,
                          all_resource_ids};
 use economy::market::{Deal, OfferID};
 use economy::buildings::BuildingID;
+use economy::buildings::rendering::BuildingInspectorID;
 use transport::pathfinding::RoughLocationID;
 
 use super::{Household, HouseholdID, MemberIdx, MSG_Household_decay, MSG_Household_inspect,
@@ -80,7 +79,12 @@ impl Household for GroceryShop {
     }
 
     #[allow(useless_format)]
-    fn inspect(&mut self, imgui_ui: &External<Ui<'static>>, return_to: ID, world: &mut World) {
+    fn inspect(
+        &mut self,
+        imgui_ui: &External<Ui<'static>>,
+        return_to: BuildingInspectorID,
+        world: &mut World,
+    ) {
         let ui = imgui_ui.steal();
 
         ui.window(im_str!("Building")).build(|| {
@@ -91,7 +95,7 @@ impl Household for GroceryShop {
                     {
                         if r_properties(resource).ownership_shared {
                             ui.text(im_str!("{}", r_info(resource).0));
-                            ui.same_line(150.0);
+                            ui.same_line(250.0);
                             let amount = self.resources.get(resource).cloned().unwrap_or(0.0);
                             ui.text(im_str!("{}", amount));
                         }
@@ -99,12 +103,12 @@ impl Household for GroceryShop {
                 });
         });
 
-        world.send(return_to, Ui2dDrawn { imgui_ui: ui });
+        return_to.ui_drawn(ui, world);
     }
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<GroceryShop>::new(), |_| {});
+    system.register::<GroceryShop>();
     auto_setup(system);
 }
 

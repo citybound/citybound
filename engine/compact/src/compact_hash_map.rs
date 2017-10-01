@@ -1,6 +1,4 @@
-
 extern crate primal;
-
 
 use super::allocators::{Allocator, DefaultHeap};
 use super::compact::Compact;
@@ -10,7 +8,6 @@ use std::iter::Iterator;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 use std::hash::Hash;
-use std::collections::HashMap;
 
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
@@ -30,6 +27,7 @@ pub trait TrivialCompact {}
 
 /// A dynamically-sized array that can be stored in compact sequential storage and
 /// automatically spills over into free heap storage using `Allocator`.
+#[derive(Default)]
 struct CompactArray<T, A: Allocator = DefaultHeap> {
     /// Points to either compact or free storage
     ptr: PointerToMaybeCompact<T>,
@@ -88,7 +86,7 @@ impl<K: Eq, V: Clone> Entry<K, V> {
     }
 
     fn remove(&mut self) -> Option<V> {
-        let old_val = self.value_option().map(|v| v.clone());
+        let old_val = self.value_option().cloned();
         self.inner = None;
         self.tombstoned = true;
         old_val
@@ -106,7 +104,7 @@ impl<K: Eq, V: Clone> Entry<K, V> {
         self.inner.is_none() && (!self.tombstoned)
     }
 
-    fn key<'a>(&'a self) -> &'a K {
+    fn key(&self) -> &K {
         &self.inner.as_ref().unwrap().0
     }
 
@@ -130,7 +128,7 @@ impl<K: Eq, V: Clone> Entry<K, V> {
         self.inner.as_ref().map_or(false, |kv| kv.0 == key)
     }
 
-    fn as_tuple(self) -> (K, V) {
+    fn into_tuple(self) -> (K, V) {
         debug_assert!(self.alive());
         let kv = self.inner.unwrap();
         (kv.0, kv.1)
@@ -207,14 +205,14 @@ impl<K: Copy, V: Copy> Compact for Entry<K, V> {
     unsafe fn compact(source: *mut Self, dest: *mut Self, _new_dynamic_part: *mut u8) {
         (*dest).hash = (*source).hash;
         (*dest).tombstoned = (*source).tombstoned;
-        (*dest).inner = (*source).inner.clone();
+        (*dest).inner = (*source).inner;
     }
 
     unsafe fn decompact(source: *const Self) -> Entry<K, V> {
         Entry {
             hash: (*source).hash,
             tombstoned: (*source).tombstoned,
-            inner: (*source).inner.clone(),
+            inner: (*source).inner,
         }
     }
 }
@@ -511,11 +509,10 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     }
     /// constructor
     pub fn with_capacity(l: usize) -> Self {
-        let map = OpenAddressingMap {
+        OpenAddressingMap {
             entries: CompactArray::with_capacity(Self::find_prime_larger_than(l)),
             size: 0,
-        };
-        map
+        }
     }
 
     /// Amount of entries in the dictionary
@@ -545,8 +542,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     /// Insert new value at key `query` and return the previous value at that key, if any existed
     pub fn insert(&mut self, query: K, value: V) -> Option<V> {
-        let res = self.insert_inner_growing(query, value);
-        res
+        self.insert_inner_growing(query, value)
     }
 
     /// Remove value at key `query` and return it, if it existed
@@ -611,9 +607,8 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     }
 
     fn remove_inner(&mut self, query: K) -> Option<V> {
-        let res = self.remove_inner_inner(query);
         // remove inner does not alter the size because of tombstones
-        res
+        self.remove_inner_inner(query)
     }
 
     fn remove_inner_inner(&mut self, query: K) -> Option<V> {
@@ -634,8 +629,8 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
             );
             self.size = 0;
             for entry in old_entries {
-                if entry.used() {
-                    let tuple = entry.as_tuple();
+                if entry.alive() {
+                    let tuple = entry.into_tuple();
                     self.insert(tuple.0, tuple.1);
                 }
             }
@@ -651,7 +646,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
         None
     }
 
-    fn find_used_mut<'a>(&'a mut self, query: K) -> Option<&'a mut Entry<K, V>> {
+    fn find_used_mut(&mut self, query: K) -> Option<&mut Entry<K, V>> {
         let h = Self::hash(query);
         for entry in self.quadratic_iterator_mut(h) {
             if entry.is_this(query) {
@@ -675,7 +670,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     fn display(&self) -> String {
         let mut res = String::new();
-        writeln!(&mut res, "size: {:?}", self.size);
+        writeln!(&mut res, "size: {:?}", self.size).unwrap();
         let mut size_left: isize = self.size as isize;
         for entry in self.entries.iter() {
             if entry.used() {
@@ -683,7 +678,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
             }
             writeln!(&mut res, "  {:?} {:?}", entry.used(), entry.hash).unwrap();
         }
-        writeln!(&mut res, "size_left : {:?}", size_left);
+        writeln!(&mut res, "size_left : {:?}", size_left).unwrap();
         res
     }
 }
@@ -797,7 +792,7 @@ impl<T: Hash> Hash for CompactVec<T> {
     }
 }
 
-
+#[test]
 fn elem(n: usize) -> usize {
     (n * n) as usize
 }
@@ -883,12 +878,12 @@ fn basic() {
         assert!(*test == exp, " failed exp {:?}  was {:?}", exp, test);
     }
     assert!(map.len() == n as usize);
-    assert!(*map.get_mru(n - 1).unwrap() == elem(n - 1));
-    assert!(*map.get_mfu(n - 100).unwrap() == elem(n - 100));
+    assert!(*map.get(n - 1).unwrap() == elem(n - 1));
+    assert!(*map.get(n - 100).unwrap() == elem(n - 100));
     assert!(map.contains_key(n - 300) == true);
     assert!(map.contains_key(n + 1) == false);
     assert!(map.remove(500) == Some(elem(500)));
-    assert!(map.get_mru(500).is_none());
+    assert!(map.get(500).is_none());
 }
 
 #[test]

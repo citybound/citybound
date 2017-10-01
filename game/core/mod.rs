@@ -1,3 +1,4 @@
+pub mod init;
 pub mod colors;
 pub mod simulation;
 pub mod disjoint_sets;

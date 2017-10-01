@@ -27,6 +27,7 @@ use parsers::parse;
 pub fn scan_and_generate(src_prefix: &str) {
     for maybe_mod_path in glob(&format!("{}/**/mod.rs", src_prefix)).unwrap() {
         if let Ok(mod_path) = maybe_mod_path {
+            //println!("cargo:warning={:?}", mod_path);
             let auto_path = mod_path.clone().to_str().unwrap().replace(
                 "mod.rs",
                 "kay_auto.rs",
@@ -59,7 +60,9 @@ pub fn scan_and_generate(src_prefix: &str) {
                         .arg(&auto_path)
                         .spawn();
                 }
-            }
+            } else {
+                panic!("couldn't load");
+            };
         }
     }
 }
@@ -89,16 +92,15 @@ pub struct TraitDef {
 pub struct Handler {
     name: Ident,
     arguments: Vec<FnArg>,
-    scope: HandlerScope,
+    scope: HandlerType,
     critical: bool,
     returns_fate: bool,
     from_trait: Option<TraitName>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub enum HandlerScope {
-    SubActor,
-    Swarm,
+pub enum HandlerType {
+    Handler,
     Init,
 }
 
@@ -109,9 +111,8 @@ pub fn generate(model: &Model) -> String {
 
     quote!(
         //! This is all auto-generated. Do not touch.
-        use kay::{ActorSystem, ID};
         #[allow(unused_imports)]
-        use kay::swarm::{Swarm, SubActor};
+        use kay::{ActorSystem, ID, Fate, Actor};
         use super::*;
 
         #traits_msgs
@@ -143,10 +144,6 @@ fn simple_actor() {
                 Fate::Die
             }
 
-            pub fn static_ish(some_param: &usize, world: &mut World) {
-                let bla = some_param;
-            }
-
             pub fn init_ish(id: SomeActorID, some_param: &usize, world: &mut World) -> SomeActor {
                 SomeActor {
                     id: Some(id),
@@ -157,12 +154,11 @@ fn simple_actor() {
     );
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
-        use kay::{ActorSystem, ID};
         #[allow(unused_imports)]
-        use kay::swarm::{Swarm, SubActor};
+        use kay::{ActorSystem, ID, Fate, Actor};
         use super::*;
 
-        impl SubActor for SomeActor {
+        impl Actor for SomeActor {
             fn id(&self) -> ID {
                 self.id._raw_id
             }
@@ -171,14 +167,26 @@ fn simple_actor() {
             }
         }
 
-        #[derive(Copy, Clone, PartialEq, Eq)]
+        #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
         pub struct SomeActorID {
             pub _raw_id: ID
         }
 
         impl SomeActorID {
-            pub fn broadcast(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.id::<Swarm<SomeActor>>().broadcast() }
+            pub fn local_first(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.local_first::<SomeActor>() }
+            }
+
+            pub fn global_first(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.global_first::<SomeActor>() }
+            }
+
+            pub fn local_broadcast(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.local_broadcast::<SomeActor>() }
+            }
+
+            pub fn global_broadcast(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.global_broadcast::<SomeActor>() }
             }
         }
 
@@ -191,13 +199,10 @@ fn simple_actor() {
                 world.send(self._raw_id, MSG_SomeActor_no_params_fate());
             }
 
-            pub fn static_ish(some_param: usize, world: &mut World) {
-                world.send_to_id_of::<Swarm<SomeActor>, _>(MSG_SomeActor_static_ish(some_param));
-            }
-
             pub fn init_ish(some_param: usize, world: &mut World) -> Self {
-                let id = SomeActorID { _raw_id: world.allocate_subactor_id::<SomeActor>() };
-                world.send_to_id_of::<Swarm<SomeActor>, _>(MSG_SomeActor_init_ish(id, some_param));
+                let id = SomeActorID { _raw_id: world.allocate_instance_id::<SomeActor>() };
+                let swarm = world.local_broadcast::<SomeActor>();
+                world.send(swarm, MSG_SomeActor_init_ish(id, some_param));
                 id
             }
         }
@@ -210,37 +215,26 @@ fn simple_actor() {
         pub struct MSG_SomeActor_no_params_fate();
         #[allow(non_camel_case_types)]
         #[derive(Compact, Clone)]
-        pub struct MSG_SomeActor_static_ish(pub usize);
-        #[allow(non_camel_case_types)]
-        #[derive(Compact, Clone)]
         pub struct MSG_SomeActor_init_ish(pub SomeActorID, pub usize);
 
         #[allow(unused_variables)]
         #[allow(unused_mut)]
         pub fn auto_setup(system: &mut ActorSystem) {
-            system.extend::<Swarm<SomeActor>, _>(Swarm::<SomeActor>::subactors(|mut each_subactor| {
-                each_subactor.on(|&MSG_SomeActor_some_method(ref some_param), subactor, world| {
-                    subactor.some_method(some_param, world);
-                    Fate::Live
-                });
-                each_subactor.on(|&MSG_SomeActor_no_params_fate(), subactor, world| {
-                    subactor.no_params_fate(world)
-                });
-            }));
+            system.add_handler::<SomeActor, _, _>(
+                |&MSG_SomeActor_some_method(ref some_param), instance, world| {
+                instance.some_method(some_param, world);
+                Fate::Live
+            }, false);
 
-            system.extend::<Swarm<SomeActor>, _>(|mut the_swarm| {
-                the_swarm.on(|&MSG_SomeActor_static_ish(ref some_param), _, world| {
-                    SomeActor::static_ish(some_param, world);
-                    Fate::Live
-                });
+            system.add_handler::<SomeActor, _, _>(
+                |&MSG_SomeActor_no_params_fate(), instance, world| {
+                instance.no_params_fate(world)
+            }, false);
 
-                the_swarm.on(|&MSG_SomeActor_init_ish(id, ref some_param), swarm, world| {
-                    let mut subactor = SomeActor::init_ish(id, some_param, world);
-                    unsafe {swarm.add_manually_with_id(&mut subactor, id._raw_id) };
-                    ::std::mem::forget(subactor);
-                    Fate::Live
-                });
-            });
+            system.add_spawner::<SomeActor, _, _>(
+                |&MSG_SomeActor_init_ish(id, ref some_param), world| {
+                SomeActor::init_ish(id, some_param, world)
+            }, false);
         }
     );
 
@@ -289,12 +283,11 @@ fn trait_and_impl() {
     );
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
-        use kay::{ActorSystem, ID};
         #[allow(unused_imports)]
-        use kay::swarm::{Swarm, SubActor};
+        use kay::{ActorSystem, ID, Fate, Actor};
         use super::*;
 
-        #[derive(Copy, Clone, PartialEq, Eq)]
+        #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
         pub struct SomeTraitID {
             pub _raw_id: ID
         }
@@ -316,7 +309,7 @@ fn trait_and_impl() {
         #[derive(Copy, Clone)]
         pub struct MSG_SomeTrait_no_params_fate();
 
-        impl SubActor for SomeActor {
+        impl Actor for SomeActor {
             fn id(&self) -> ID {
                 self.id._raw_id
             }
@@ -325,14 +318,26 @@ fn trait_and_impl() {
             }
         }
 
-        #[derive(Copy, Clone, PartialEq, Eq)]
+        #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
         pub struct SomeActorID {
             pub _raw_id: ID
         }
 
         impl SomeActorID {
-            pub fn broadcast(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.id::<Swarm<SomeActor>>().broadcast() }
+            pub fn local_first(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.local_first::<SomeActor>() }
+            }
+
+            pub fn global_first(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.global_first::<SomeActor>() }
+            }
+
+            pub fn local_broadcast(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.local_broadcast::<SomeActor>() }
+            }
+
+            pub fn global_broadcast(world: &mut World) -> Self {
+                SomeActorID { _raw_id: world.global_broadcast::<SomeActor>() }
             }
         }
 
@@ -353,21 +358,22 @@ fn trait_and_impl() {
         #[allow(unused_variables)]
         #[allow(unused_mut)]
         pub fn auto_setup(system: &mut ActorSystem) {
-            system.extend::<Swarm<SomeActor>, _>(Swarm::<SomeActor>::subactors(|mut each_subactor| {
-                each_subactor.on(|&MSG_SomeTrait_some_method(ref some_param), subactor, world| {
-                    subactor.some_method(some_param, world);
-                    Fate::Live
-                });
-                each_subactor.on(|&MSG_SomeTrait_no_params_fate(), subactor, world| {
-                    subactor.no_params_fate(world)
-                });
-                each_subactor.on(|&MSG_ForeignTrait_simple(ref some_param), subactor, world| {
-                    subactor.simple(some_param, world);
-                    Fate::Live
-                });
-            }));
+            system.add_handler::<SomeActor, _, _>(
+                |&MSG_SomeTrait_some_method(ref some_param), instance, world| {
+                instance.some_method(some_param, world);
+                Fate::Live
+            }, false);
 
-            system.extend::<Swarm<SomeActor>, _>(|mut the_swarm| {});
+            system.add_handler::<SomeActor, _, _>(
+                |&MSG_SomeTrait_no_params_fate(), instance, world| {
+                instance.no_params_fate(world)
+            }, false);
+
+            system.add_handler::<SomeActor, _, _>(
+                |&MSG_ForeignTrait_simple(ref some_param), instance, world| {
+                instance.simple(some_param, world);
+                Fate::Live
+            }, false);
         }
     );
 

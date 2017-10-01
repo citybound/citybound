@@ -35,6 +35,14 @@ impl Inbox {
         }
     }
 
+    pub fn put_raw(&mut self, buf: &[u8]) {
+        unsafe {
+            let queue_ptr = self.queue.enqueue(buf.len());
+
+            ::std::ptr::copy_nonoverlapping(&buf[0], queue_ptr, buf.len())
+        }
+    }
+
     pub fn empty(&mut self) -> InboxIterator {
         InboxIterator {
             n_messages_to_read: self.queue.len(),

@@ -1,5 +1,5 @@
 use syn::*;
-use {Model, TraitName, Handler, HandlerScope};
+use {Model, TraitName, Handler, HandlerType};
 
 pub fn parse(file: &str) -> Result<Model, String> {
     let mut model = Model::default();
@@ -140,10 +140,7 @@ fn handler_from(
     })
 }
 
-pub fn check_handler(
-    sig: &MethodSig,
-    parent_path: ::syn::Path,
-) -> Option<(&[FnArg], HandlerScope)> {
+pub fn check_handler(sig: &MethodSig, parent_path: ::syn::Path) -> Option<(&[FnArg], HandlerType)> {
     if let Some(&FnArg::Captured(_, Ty::Rptr(_, ref ty_box))) = sig.decl.inputs.last() {
         if let &MutTy {
             mutability: Mutability::Mutable,
@@ -154,7 +151,7 @@ pub fn check_handler(
                 match sig.decl.inputs.get(0) {
                     Some(&FnArg::SelfRef(_, _)) => {
                         let args = &sig.decl.inputs[1..(sig.decl.inputs.len() - 1)];
-                        Some((args, HandlerScope::SubActor))
+                        Some((args, HandlerType::Handler))
                     }
                     Some(&FnArg::SelfValue(_)) => None,
                     _ => {
@@ -164,12 +161,9 @@ pub fn check_handler(
                                 if *ret_ty_path == ::syn::Path::from(self_segment) ||
                                        *ret_ty_path == parent_path => {
                                 let args = &sig.decl.inputs[1..(sig.decl.inputs.len() - 1)];
-                                Some((args, HandlerScope::Init))
+                                Some((args, HandlerType::Init))
                             }
-                            _ => {
-                                let args = &sig.decl.inputs[0..(sig.decl.inputs.len() - 1)];
-                                Some((args, HandlerScope::Swarm))
-                            }
+                            _ => None,
                         }
                     }
                 }

@@ -12,7 +12,7 @@ impl Default for JudgementTable {
 
 impl JudgementTable {
     pub fn importance(&self, resource: ResourceId, time: TimeOfDay) -> f32 {
-        self.0[resource.as_index()][time.hours_minutes().0 / 2] as f32
+        f32::from(self.0[resource.as_index()][time.hours_minutes().0 / 2])
     }
 }
 

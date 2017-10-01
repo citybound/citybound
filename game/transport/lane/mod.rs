@@ -1,6 +1,5 @@
 use compact::CVec;
-use kay::{ID, ActorSystem};
-use kay::swarm::Swarm;
+use kay::{ActorSystem, World};
 use descartes::{N, FiniteCurve};
 use stagemaster::geometry::CPath;
 
@@ -10,9 +9,10 @@ use self::connectivity::{ConnectivityInfo, TransferConnectivityInfo};
 use super::microtraffic::{Microtraffic, TransferringMicrotraffic};
 use super::pathfinding::PathfindingInfo;
 
-#[derive(Compact, SubActor, Clone)]
+
+#[derive(Compact, Clone)]
 pub struct Lane {
-    _id: Option<ID>,
+    pub id: LaneID,
     pub construction: ConstructionInfo,
     pub connectivity: ConnectivityInfo,
     pub microtraffic: Microtraffic,
@@ -22,38 +22,48 @@ pub struct Lane {
 }
 
 impl Lane {
-    pub fn new(path: CPath, on_intersection: bool, timings: CVec<bool>) -> Self {
-        Lane {
-            _id: None,
+    pub fn spawn(
+        id: LaneID,
+        path: &CPath,
+        on_intersection: bool,
+        timings: &CVec<bool>,
+        world: &mut World,
+    ) -> Self {
+        let lane = Lane {
+            id,
             last_spawn_position: path.length() / 2.0,
-            construction: ConstructionInfo::from_path(path),
+            construction: ConstructionInfo::from_path(path.clone()),
             connectivity: ConnectivityInfo::new(on_intersection),
-            microtraffic: Microtraffic::new(timings),
+            microtraffic: Microtraffic::new(timings.clone()),
             pathfinding: PathfindingInfo::default(),
             hovered: false,
-        }
+        };
+
+        super::rendering::on_build(&lane, world);
+
+        lane
     }
 }
 
-#[derive(Compact, SubActor, Clone)]
+#[derive(Compact, Clone)]
 pub struct TransferLane {
-    _id: Option<ID>,
+    pub id: TransferLaneID,
     pub construction: ConstructionInfo,
     pub connectivity: TransferConnectivityInfo,
     pub microtraffic: TransferringMicrotraffic,
 }
 
 impl TransferLane {
-    pub fn new(path: CPath) -> TransferLane {
+    pub fn spawn(id: TransferLaneID, path: &CPath, _: &mut World) -> TransferLane {
         TransferLane {
-            _id: None,
-            construction: ConstructionInfo::from_path(path),
+            id,
+            construction: ConstructionInfo::from_path(path.clone()),
             connectivity: TransferConnectivityInfo::default(),
             microtraffic: TransferringMicrotraffic::default(),
         }
     }
 
-    pub fn other_side(&self, side: ID) -> ID {
+    pub fn other_side(&self, side: LaneID) -> LaneID {
         if side == self.connectivity.left.expect("should have a left lane").0 {
             self.connectivity.right.expect("should have a right lane").0
         } else {
@@ -112,6 +122,11 @@ impl TransferLane {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.add(Swarm::<Lane>::new(), |_| {});
-    system.add(Swarm::<TransferLane>::new(), |_| {});
+    system.register::<Lane>();
+    system.register::<TransferLane>();
+
+    auto_setup(system);
 }
+
+mod kay_auto;
+pub use self::kay_auto::*;

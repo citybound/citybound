@@ -8,7 +8,9 @@
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/citybound",
             "cwd": "${workspaceRoot}",
-            "sourceLanguages": ["rust"],
+            "sourceLanguages": [
+                "rust"
+            ],
             "env": {
                 "RUST_BACKTRACE": 1
             }
@@ -20,10 +22,100 @@
             "request": "launch",
             "program": "${workspaceRoot}/target/release/citybound",
             "cwd": "${workspaceRoot}",
-            "sourceLanguages": ["rust"],
+            "sourceLanguages": [
+                "rust"
+            ],
             "env": {
                 "RUST_BACKTRACE": 1
             }
+        },
+        {
+            "preLaunchTask": "build",
+            "name": "Networked Debug 0",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/debug/citybound",
+            "cwd": "${workspaceRoot}",
+            "sourceLanguages": [
+                "rust"
+            ],
+            "args": [
+                "0",
+                "127.0.0.1:3500,127.0.0.1:3501"
+            ],
+            "env": {
+                "RUST_BACKTRACE": 1
+            }
+        },
+        {
+            "preLaunchTask": "build",
+            "name": "Networked Debug 1",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/debug/citybound",
+            "cwd": "${workspaceRoot}",
+            "sourceLanguages": [
+                "rust"
+            ],
+            "args": [
+                "1",
+                "127.0.0.1:3500,127.0.0.1:3501"
+            ],
+            "env": {
+                "RUST_BACKTRACE": 1
+            }
+        },
+        {
+            "preLaunchTask": "release_build",
+            "name": "Networked Debug Release 0",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/release/citybound",
+            "cwd": "${workspaceRoot}",
+            "sourceLanguages": [
+                "rust"
+            ],
+            "args": [
+                "0",
+                "127.0.0.1:3500,127.0.0.1:3501"
+            ],
+            "env": {
+                "RUST_BACKTRACE": 1
+            }
+        },
+        {
+            "preLaunchTask": "release_build",
+            "name": "Networked Debug Release 1",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/release/citybound",
+            "cwd": "${workspaceRoot}",
+            "sourceLanguages": [
+                "rust"
+            ],
+            "args": [
+                "1",
+                "127.0.0.1:3500,127.0.0.1:3501"
+            ],
+            "env": {
+                "RUST_BACKTRACE": 1
+            }
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Networked Two Debug",
+            "configurations": [
+                "Networked Debug 0",
+                "Networked Debug 1"
+            ]
+        },
+        {
+            "name": "Networked Two Debug Release",
+            "configurations": [
+                "Networked Debug Release 0",
+                "Networked Debug Release 1"
+            ]
         }
     ]
 }

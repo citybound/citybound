@@ -4,22 +4,19 @@
 #![allow(dead_code)]
 // Enable this for memory tracking with Instruments/MacOS
 // and for much better stacktraces for memory issues
-// ![feature(alloc_system)]
-// extern crate alloc_system;
+//#![feature(alloc_system)]
+//extern crate alloc_system;
 
 extern crate ordered_float;
 extern crate itertools;
-extern crate random;
+extern crate rand;
 extern crate fnv;
 extern crate roaring;
-extern crate open;
 
 extern crate compact;
 #[macro_use]
 extern crate compact_macros;
 extern crate kay;
-#[macro_use]
-extern crate kay_macros;
 extern crate monet;
 extern crate descartes;
 extern crate stagemaster;
@@ -41,158 +38,87 @@ mod core;
 mod transport;
 mod economy;
 
-use monet::{RendererID, RenderableID};
-use monet::glium::{DisplayBuild, glutin};
-use core::simulation::{Simulation, DoTick};
-use stagemaster::{ProcessEvents, StartFrame, UserInterface, AddDebugText, OnPanic};
-use transport::lane::{Lane, TransferLane};
-use transport::rendering::{LaneAsphalt, LaneMarker, TransferLaneMarkerGaps};
-use transport::rendering::lane_thing_collector::ThingCollector;
-use transport::planning::current_plan::CurrentPlan;
-use economy::households::family::Family;
-use economy::households::tasks::TaskEndScheduler;
-use economy::buildings::Building;
-use kay::swarm::Swarm;
-use std::any::Any;
+use compact::CVec;
+use monet::GrouperID;
+use transport::lane::{LaneID, TransferLaneID};
+use transport::rendering::LaneRendererID;
+use transport::planning::current_plan::CurrentPlanID;
+use economy::households::family::FamilyID;
+use economy::households::tasks::TaskEndSchedulerID;
+use economy::buildings::rendering::BuildingRendererID;
 
 fn main() {
-    let mut dir = ::std::env::temp_dir();
-    dir.push("cb_seen_wiki.txt");
-    if !::std::path::Path::new(&dir).exists() {
-        let url = "https://github.com/citybound/citybound/wiki/Road-&-Traffic-Prototype-1.2";
-        if let Err(_err) = open::that(url) {
-            println!("Please open {:?} in your browser!", url);
-        };
-        ::std::fs::File::create(dir).expect("should be able to create tmp file");
-    }
+    core::init::first_time_open_wiki_release_page();
 
-    let mut system = kay::ActorSystem::new(Box::new(|error: Box<Any>, world| {
-        let ui_id = world.id::<UserInterface>();
-        let message = match error.downcast::<String>() {
-            Ok(string) => (*string),
-            Err(any) => {
-                match any.downcast::<&'static str>() {
-                    Ok(static_str) => (*static_str).to_string(),
-                    Err(_) => "Weird error type".to_string(),
-                }
-            }
-        };
-        println!("Simulation Panic!\n{:?}", message);
-        world.send(
-            ui_id,
-            AddDebugText {
-                key: "SIMULATION PANIC".chars().collect(),
-                text: message.as_str().chars().collect(),
-                color: [1.0, 0.0, 0.0, 1.0],
-                persistent: true,
-            },
-        );
-        world.send(ui_id, OnPanic);
-    }));
+    let mut system = kay::ActorSystem::new(
+        core::init::create_init_callback(),
+        core::init::networking_from_env_args(),
+    );
 
-    transport::setup(&mut system);
-    transport::setup_ui(&mut system);
-    economy::setup(&mut system);
-    economy::setup_ui(&mut system);
+    let world = &mut system.world();
+
+    system.networking_connect();
 
     let simulatables = vec![
-        system.id::<Swarm<Lane>>().broadcast(),
-        system.id::<Swarm<TransferLane>>().broadcast(),
-        system.id::<Swarm<Family>>().broadcast(),
-        system.id::<TaskEndScheduler>(),
-    ];
-    core::simulation::setup(&mut system, simulatables);
+        LaneID::local_broadcast(world).into(),
+        TransferLaneID::local_broadcast(world).into(),
+        FamilyID::local_broadcast(world).into(),
+        TaskEndSchedulerID::local_first(world).into(),
+    ].into();
+    let simulation = core::simulation::setup(&mut system, simulatables);
 
-    let window = glutin::WindowBuilder::new()
-        .with_title("Citybound".to_string())
-        .with_dimensions(1024, 512)
-        .with_multitouch()
-        .with_vsync()
-        .build_glium()
-        .unwrap();
+    let renderables: CVec<_> = vec![
+        LaneRendererID::global_broadcast(world).into(),
+        GrouperID::global_broadcast(world).into(),
+        CurrentPlanID::global_broadcast(world).into(),
+        BuildingRendererID::global_broadcast(&mut system.world()).into(),
+    ].into();
 
-    let renderables: Vec<_> = vec![
-        system.id::<Swarm<Lane>>().broadcast(),
-        system.id::<Swarm<TransferLane>>().broadcast(),
-        system.id::<ThingCollector<LaneAsphalt>>(),
-        system.id::<ThingCollector<LaneMarker>>(),
-        system.id::<ThingCollector<TransferLaneMarkerGaps>>(),
-        system.id::<CurrentPlan>(),
-        system.id::<Swarm<Building>>().broadcast(),
-    ].into_iter()
-        .map(|id| RenderableID { _raw_id: id })
-        .collect();
-    stagemaster::setup(&mut system, renderables, ENV, &window);
+    let machine_id = system.networking_machine_id();
 
-    let mut last_frame = std::time::Instant::now();
-
-    let ui_id = system.id::<UserInterface>();
-    let sim_id = system.id::<Simulation>();
-    // TODO: ugly singleton send
-    let renderer_id = RendererID::broadcast(&mut system.world());
-
-    system.send(
-        ui_id,
-        AddDebugText {
-            key: "Version".chars().collect(),
-            text: ENV.version.chars().collect(),
-            color: [0.0, 0.0, 0.0, 1.0],
-            persistent: true,
-        },
+    let (user_interface, renderer) = stagemaster::setup(
+        &mut system,
+        renderables,
+        *ENV,
+        core::init::build_window(machine_id),
+        (0.6, 0.75, 0.4, 1.0)
     );
+
+    transport::setup(&mut system, user_interface, renderer, simulation);
+    economy::setup(&mut system, user_interface, simulation);
+
+    core::init::print_version(user_interface, world);
 
     system.process_all_messages();
 
-    let mut elapsed_ms_collected = Vec::<f32>::new();
+    let mut frame_counter = core::init::FrameCounter::new();
 
     loop {
-        let elapsed_ms = last_frame.elapsed().as_secs() as f32 * 1000.0 +
-            last_frame.elapsed().subsec_nanos() as f32 / 10.0E5;
-        elapsed_ms_collected.push(elapsed_ms);
-        if elapsed_ms_collected.len() > 10 {
-            elapsed_ms_collected.remove(0);
-        }
-        let avg_elapsed_ms = elapsed_ms_collected.iter().sum::<f32>() /
-            (elapsed_ms_collected.len() as f32);
-        system.send(
-            ui_id,
-            AddDebugText {
-                key: "Frame".chars().collect(),
-                text: format!("{:.1} FPS", 1000.0 * 1.0 / avg_elapsed_ms)
-                    .as_str()
-                    .chars()
-                    .collect(),
-                color: [0.0, 0.0, 0.0, 0.5],
-                persistent: false,
-            },
-        );
-        last_frame = std::time::Instant::now();
+        frame_counter.start_frame();
+        frame_counter.print_fps(user_interface, world);
 
-        let subactor_counts = system.get_subactor_counts();
-        system.send(
-            ui_id,
-            AddDebugText {
-                key: "Number of actors".chars().collect(),
-                text: subactor_counts.as_str().chars().collect(),
-                color: [0.0, 0.0, 0.0, 1.0],
-                persistent: false,
-            },
-        );
+        core::init::print_instance_counts(&mut system, user_interface);
+        core::init::print_network_turn(&mut system, user_interface);
 
-        system.send(ui_id, ProcessEvents);
+        user_interface.process_events(world);
 
         system.process_all_messages();
 
-        system.send(sim_id, DoTick);
+        simulation.do_tick(world);
 
         system.process_all_messages();
 
-        renderer_id.render(&mut system.world());
+        renderer.render(world);
 
         system.process_all_messages();
 
-        system.send(ui_id, StartFrame);
+        system.networking_send_and_receive();
+        system.process_all_messages();
+
+        user_interface.start_frame(world);
 
         system.process_all_messages();
+
+        system.networking_finish_turn();
     }
 }

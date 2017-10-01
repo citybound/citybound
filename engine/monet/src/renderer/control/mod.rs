@@ -1,7 +1,7 @@
 
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
                     WithUniqueOrthogonal, Inverse, Rotate};
-use kay::{Fate, World, External};
+use kay::{World, External};
 use glium::Frame;
 
 use super::{Renderer, RendererID};
@@ -19,17 +19,13 @@ impl Renderer {
     /// Critical
     pub fn render(&mut self, world: &mut World) {
         let self_id = self.id;
-        for (scene_id, mut scene) in self.scenes.iter_mut().enumerate() {
-            for batch_to_clear in (&mut scene).batches.values_mut().filter(|batch| {
-                batch.clear_every_frame
-            })
-            {
-                batch_to_clear.instances.clear();
-            }
+        let current_frame = self.current_frame;
+        for (scene_id, scene) in self.scenes.iter_mut().enumerate() {
             for renderable in &scene.renderables {
-                renderable.render_to_scene(self_id, scene_id, world);
+                renderable.render_to_scene(self_id, scene_id, current_frame, world);
             }
         }
+        self.current_frame += 1;
     }
 
     /// Critical
