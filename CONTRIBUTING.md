@@ -1,12 +1,42 @@
-## Just reporting a bug?
+# Overview
+
+* [Reporting bugs](#reporting-bugs)
+* [Contributing to the Design Doc](#contributing-to-the-design-doc)
+* [Contributing to the code](#contributing-code)
+
+# Reporting Bugs
 
 Make sure you read: [how to report bugs](https://github.com/citybound/citybound/wiki/How-to-report-bugs)
 
-# Plan to contribute code?
+# Contributing to the Design Doc
 
-## Make sure to <a href="https://www.clahub.com/agreements/citybound/citybound">sign the Contributor License Agreement</a>.
+The [Design Doc](game/README.md) outlines the philosophy and decisions that I follow when implementing Citybound.
 
-## [Have a look at the documentation](http://citybound.github.io/citybound)
+You can make suggestions of every kind:
+
+* typos/formatting/clarification
+* feature requests
+* complete system design proposals
+
+**[All existing design proposals](https://github.com/citybound/citybound/pulls?utf8=✓&q=is%3Apr%20label%3A%22DESIGN%20PROPOSAL%22%20)**
+
+* If you have some rough ideas, it is probably best to discuss them in the [official community](https://reddit.com/r/Citybound) first, where people can give you first feedback and point you to existing relevant Design Proposals
+* If you have an original and detailed proposal, start editing relevant documents of the Design Doc, or add new ones
+  * [Small tutorial on how to do that in the GitHub Web interface](https://help.github.com/articles/editing-files-in-another-user-s-repository/)
+  * Please give your Pull Request the DESIGN PROPOSAL label
+  * Invite people from the [official community](https://reddit.com/r/Citybound) or authors of other Design Proposals to comment on and suggest improvements/clarifications to your pull request
+  * I will take a look at your pull request and give it a detailed review if it meets minimal quality standards
+  * We will iterate on it together, a process in which you have the opportunity to explain your motivation and potentially convice me to do things in the way you suggested
+  * **Make sure to <a href="https://www.clahub.com/agreements/citybound/citybound">sign the Contributor License Agreement</a>.**
+  * In the end, we either
+     * fully agree with your proposal and merge it into the official design doc, or:
+     * we identify a compromise of a subset of the proposed changes and merge that, or:
+     * if our disagreement is too large, the pull request gets closed, but with a thorough explanation from my side
+
+# Contributing Code
+
+* **Make sure to <a href="https://www.clahub.com/agreements/citybound/citybound">sign the Contributor License Agreement</a>.**
+* **[Have a look at the documentation](http://citybound.github.io/citybound)**
 
 ## Compiling Citybound from source 
 
