@@ -1,6 +1,6 @@
 use kay::{ActorSystem, World, External};
 use imgui::Ui;
-use core::simulation::{TimeOfDay, Seconds};
+use core::simulation::{TimeOfDay, Duration};
 use economy::resources::{ResourceAmount, ResourceMap, Entry, r_id, r_properties, r_info,
                          all_resource_ids};
 use economy::market::{Deal, OfferID};
@@ -35,7 +35,7 @@ impl GroceryShop {
                 Deal::new(
                     (r_id("groceries"), 30.0),
                     vec![(r_id("money"), 40.0)],
-                    Seconds(5 * 60),
+                    Duration(5 * 60),
                 ),
                 world,
             ),
@@ -44,7 +44,7 @@ impl GroceryShop {
                 site.into(),
                 TimeOfDay::new(7, 0),
                 TimeOfDay::new(20, 0),
-                Deal::new((r_id("money"), 50.0), None, Seconds(5 * 60 * 60)),
+                Deal::new((r_id("money"), 50.0), None, Duration(5 * 60 * 60)),
                 world,
             ),
         }
@@ -73,9 +73,9 @@ impl Household for GroceryShop {
         unimplemented!()
     }
 
-    fn decay(&mut self, dt: Seconds, _: &mut World) {
+    fn decay(&mut self, dt: Duration, _: &mut World) {
         let groceries = self.resources.mut_entry_or(r_id("groceries"), 0.0);
-        *groceries += 0.001 * dt.seconds() as f32;
+        *groceries += 0.001 * dt.as_seconds();
     }
 
     #[allow(useless_format)]

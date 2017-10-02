@@ -1,5 +1,5 @@
 use kay::{ActorSystem, World};
-use core::simulation::Seconds;
+use core::simulation::Duration;
 
 use transport::pathfinding::RoughLocationID;
 
@@ -19,7 +19,7 @@ use super::buildings::rendering::BuildingInspectorID;
 pub trait Household {
     fn receive_deal(&mut self, deal: &Deal, member: MemberIdx, world: &mut World);
     fn provide_deal(&mut self, deal: &Deal, world: &mut World);
-    fn decay(&mut self, dt: Seconds, world: &mut World);
+    fn decay(&mut self, dt: Duration, world: &mut World);
     fn task_succeeded(&mut self, member: MemberIdx, world: &mut World);
     fn task_failed(&mut self, member: MemberIdx, location: RoughLocationID, world: &mut World);
     fn inspect(

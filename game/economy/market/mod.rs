@@ -2,11 +2,11 @@ use kay::{ActorSystem, Fate, World};
 use compact::{CVec, CDict};
 use super::resources::{ResourceMap, ResourceId, ResourceAmount};
 use super::households::{HouseholdID, MemberIdx};
-use core::simulation::{TimeOfDay, Seconds, Timestamp};
+use core::simulation::{TimeOfDay, Duration, Instant};
 
 #[derive(Compact, Clone)]
 pub struct Deal {
-    pub duration: Seconds,
+    pub duration: Duration,
     pub take: ResourceMap<ResourceAmount>,
     pub give: (ResourceId, ResourceAmount),
 }
@@ -15,7 +15,7 @@ impl Deal {
     pub fn new<T: IntoIterator<Item = (ResourceId, ResourceAmount)>>(
         give: (ResourceId, ResourceAmount),
         take: T,
-        duration: Seconds,
+        duration: Duration,
     ) -> Self {
         Deal {
             duration,
@@ -72,12 +72,12 @@ impl Offer {
 
     pub fn evaluate(
         &mut self,
-        tick: Timestamp,
+        instant: Instant,
         location: RoughLocationID,
         requester: EvaluationRequesterID,
         world: &mut World,
     ) {
-        if TimeOfDay::from_tick(tick) < self.to {
+        if TimeOfDay::from_instant(instant) < self.to {
             let search_result = EvaluatedSearchResult {
                 resource: self.deal.give.0,
                 evaluated_deals: vec![
@@ -94,7 +94,7 @@ impl Offer {
                 location,
                 self.location,
                 search_result,
-                tick,
+                instant,
                 world,
             );
         } else {
@@ -148,13 +148,13 @@ impl RoughLocation for Offer {
         &mut self,
         requester: LocationRequesterID,
         rough_location: RoughLocationID,
-        tick: Timestamp,
+        instant: Instant,
         world: &mut World,
     ) {
         self.location.resolve_as_location(
             requester,
             rough_location,
-            tick,
+            instant,
             world,
         );
     }
@@ -180,7 +180,7 @@ impl Market {
 
     pub fn search(
         &mut self,
-        tick: Timestamp,
+        instant: Instant,
         location: RoughLocationID,
         resource: ResourceId,
         requester: EvaluationRequesterID,
@@ -188,7 +188,7 @@ impl Market {
     ) {
         let n_to_expect = if let Some(offers) = self.offers_by_resource.get(resource) {
             for offer in offers.iter() {
-                offer.evaluate(tick, location, requester, world);
+                offer.evaluate(instant, location, requester, world);
             }
 
             offers.len()
@@ -249,11 +249,11 @@ impl TripCostEstimator {
         rough_source: RoughLocationID,
         rough_destination: RoughLocationID,
         base_result: &EvaluatedSearchResult,
-        tick: Timestamp,
+        instant: Instant,
         world: &mut World,
     ) -> TripCostEstimator {
-        rough_source.resolve_as_location(id.into(), rough_source, tick, world);
-        rough_destination.resolve_as_location(id.into(), rough_destination, tick, world);
+        rough_source.resolve_as_location(id.into(), rough_source, instant, world);
+        rough_destination.resolve_as_location(id.into(), rough_destination, instant, world);
 
         TripCostEstimator {
             id,
@@ -277,7 +277,7 @@ impl LocationRequester for TripCostEstimator {
         &mut self,
         rough_location: RoughLocationID,
         location: Option<Location>,
-        _tick: Timestamp,
+        _tick: Instant,
         world: &mut World,
     ) {
         if self.rough_source == rough_location {
@@ -324,7 +324,7 @@ impl DistanceRequester for TripCostEstimator {
                     .iter()
                     .map(|evaluated_deal| {
                         let estimated_travel_time =
-                            Seconds((distance / ASSUMED_AVG_SPEED) as usize);
+                            Duration((distance / ASSUMED_AVG_SPEED) as usize);
                         let mut new_deal = evaluated_deal.clone();
                         new_deal.deal.duration += estimated_travel_time;
                         new_deal.from -= estimated_travel_time;

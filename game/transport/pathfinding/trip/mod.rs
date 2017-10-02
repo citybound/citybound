@@ -1,7 +1,7 @@
 use kay::{World, ActorSystem, Fate};
 use compact::CVec;
 use ordered_float::OrderedFloat;
-use core::simulation::Timestamp;
+use core::simulation::Instant;
 
 use transport::lane::LaneID;
 use super::Location;
@@ -26,10 +26,10 @@ impl Trip {
         rough_source: RoughLocationID,
         rough_destination: RoughLocationID,
         listener: Option<TripListenerID>,
-        tick: Timestamp,
+        instant: Instant,
         world: &mut World,
     ) -> Self {
-        rough_source.resolve_as_location(id.into(), rough_source, tick, world);
+        rough_source.resolve_as_location(id.into(), rough_source, instant, world);
 
         if let Some(listener) = listener {
             listener.trip_created(id, world);
@@ -48,23 +48,23 @@ impl Trip {
     pub fn fail_at(
         &mut self,
         location: RoughLocationID,
-        tick: Timestamp,
+        instant: Instant,
         world: &mut World,
     ) -> Fate {
         println!("Trip {:?} failed!", self.id);
 
         if let Some(listener) = self.listener {
-            listener.trip_result(self.id, location, true, tick, world);
+            listener.trip_result(self.id, location, true, instant, world);
         }
 
         Fate::Die
     }
 
-    pub fn succeed(&mut self, tick: Timestamp, world: &mut World) -> Fate {
+    pub fn succeed(&mut self, instant: Instant, world: &mut World) -> Fate {
         println!("Trip {:?} succeeded!", self.id);
 
         if let Some(listener) = self.listener {
-            listener.trip_result(self.id, self.rough_destination, false, tick, world);
+            listener.trip_result(self.id, self.rough_destination, false, instant, world);
         }
 
         Fate::Die
@@ -76,7 +76,7 @@ impl LocationRequester for Trip {
         &mut self,
         rough_location: RoughLocationID,
         location: Option<Location>,
-        tick: Timestamp,
+        instant: Instant,
         world: &mut World,
     ) {
         if let Some(precise) = location {
@@ -89,7 +89,7 @@ impl LocationRequester for Trip {
                     self.rough_destination.resolve_as_location(
                         self.id.into(),
                         self.rough_destination,
-                        tick,
+                        instant,
                         world,
                     );
                 }
@@ -115,7 +115,7 @@ impl LocationRequester for Trip {
                         next_hop_interaction: 0,
                     },
                     None,
-                    tick,
+                    instant,
                     world,
                 );
             }
@@ -124,7 +124,7 @@ impl LocationRequester for Trip {
                 "{:?} is not a source/destination yet",
                 rough_location._raw_id
             );
-            self.id.fail_at(self.rough_source, tick, world);
+            self.id.fail_at(self.rough_source, instant, world);
         }
     }
 }
@@ -140,7 +140,7 @@ pub trait TripListener {
         trip: TripID,
         location: RoughLocationID,
         failed: bool,
-        tick: Timestamp,
+        instant: Instant,
         world: &mut World,
     );
 }
@@ -169,12 +169,18 @@ impl TripCreator {
 use rand::Rng;
 
 impl Sleeper for TripCreator {
-    fn wake(&mut self, current_tick: Timestamp, world: &mut World) {
+    fn wake(&mut self, current_instant: Instant, world: &mut World) {
         ::rand::thread_rng().shuffle(&mut self.lanes);
 
         for mut pair in &self.lanes.iter().chunks(2) {
             if let (Some(source), Some(dest)) = (pair.next(), pair.next()) {
-                TripID::spawn((*source).into(), (*dest).into(), None, current_tick, world);
+                TripID::spawn(
+                    (*source).into(),
+                    (*dest).into(),
+                    None,
+                    current_instant,
+                    world,
+                );
             }
         }
 

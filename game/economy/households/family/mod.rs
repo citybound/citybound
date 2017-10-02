@@ -2,7 +2,7 @@ use kay::{ActorSystem, World, External};
 use compact::{CVec, CDict};
 use imgui::Ui;
 use ordered_float::OrderedFloat;
-use core::simulation::{TimeOfDay, Timestamp, Seconds, Ticks, SimulationID, Simulatable,
+use core::simulation::{TimeOfDay, Instant, Duration, Ticks, SimulationID, Simulatable,
                        SimulatableID, MSG_Simulatable_tick};
 use economy::resources::{ResourceId, ResourceAmount, ResourceMap, Entry};
 use economy::market::{Deal, MarketID, OfferID, EvaluatedDeal, EvaluationRequester,
@@ -33,7 +33,7 @@ struct DecisionResourceEntry {
 #[derive(Compact, Clone)]
 enum DecisionState {
     None,
-    Choosing(MemberIdx, Timestamp, CDict<ResourceId, DecisionResourceEntry>),
+    Choosing(MemberIdx, Instant, CDict<ResourceId, DecisionResourceEntry>),
     WaitingForTrip(MemberIdx),
 }
 
@@ -85,7 +85,7 @@ impl Family {
 use core::simulation::{Sleeper, SleeperID, MSG_Sleeper_wake};
 
 impl Sleeper for Family {
-    fn wake(&mut self, current_tick: Timestamp, world: &mut World) {
+    fn wake(&mut self, current_instant: Instant, world: &mut World) {
         if let DecisionState::None = self.decision_state {
             let maybe_idle_idx_loc = self.member_tasks
                 .iter()
@@ -96,7 +96,7 @@ impl Sleeper for Family {
                 })
                 .next();
             if let Some((idle_member_idx, location)) = maybe_idle_idx_loc {
-                self.find_new_task_for(MemberIdx(idle_member_idx), current_tick, location, world);
+                self.find_new_task_for(MemberIdx(idle_member_idx), current_instant, location, world);
             }
         };
     }
@@ -120,13 +120,13 @@ impl Family {
     pub fn find_new_task_for(
         &mut self,
         member: MemberIdx,
-        tick: Timestamp,
+        instant: Instant,
         location: RoughLocationID,
         world: &mut World,
     ) {
         println!("Top N Problems for Family {:?}", self.id._raw_id);
 
-        let time = TimeOfDay::from_tick(tick);
+        let time = TimeOfDay::from_instant(instant);
         let top_problems = self.top_problems(member, time);
 
         if top_problems.is_empty() {
@@ -149,13 +149,13 @@ impl Family {
 
                 let initial_counter = if let Some(&offer) = maybe_offer {
                     println!("Using favorite offer {:?}", offer._raw_id);
-                    offer.evaluate(tick, location, self.id.into(), world);
+                    offer.evaluate(instant, location, self.id.into(), world);
 
                     AsyncCounter::with_target(1)
                 } else {
                     println!("Doing market query for {}", r_info(resource).0);
                     MarketID::global_first(world).search(
-                        tick,
+                        instant,
                         location,
                         resource,
                         self.id.into(),
@@ -174,7 +174,7 @@ impl Family {
                 );
             }
 
-            self.decision_state = DecisionState::Choosing(member, tick, decision_entries);
+            self.decision_state = DecisionState::Choosing(member, instant, decision_entries);
         }
     }
 }
@@ -238,8 +238,8 @@ impl Family {
     pub fn choose_deal(&mut self, world: &mut World) {
         println!("Choosing deal!");
         let maybe_best_info =
-            if let DecisionState::Choosing(member, tick, ref entries) = self.decision_state {
-                let time = TimeOfDay::from_tick(tick);
+            if let DecisionState::Choosing(member, instant, ref entries) = self.decision_state {
+                let time = TimeOfDay::from_instant(instant);
                 let maybe_best = most_useful_evaluated_deal(entries, time);
 
                 if let Some(best) = maybe_best {
@@ -255,17 +255,17 @@ impl Family {
                         panic!("Member who gets new task should be idle");
                     };
 
-                    Some((member, tick, best.offer))
+                    Some((member, instant, best.offer))
                 } else {
                     None
                 }
             } else {
                 panic!("Tried to choose deal while not deciding");
             };
-        if let Some((member, tick, best_offer)) = maybe_best_info {
+        if let Some((member, instant, best_offer)) = maybe_best_info {
             self.decision_state = DecisionState::WaitingForTrip(member);
             best_offer.get_receivable_deal(self.id.into(), member, world);
-            self.start_trip(member, tick, world);
+            self.start_trip(member, instant, world);
         } else {
             println!(
                 "{:?} didn't find any suitable offers at all",
@@ -302,7 +302,7 @@ impl Family {
                                 .sum();
 
                             let usefulness = give_alleviation /
-                                (take_graveness * evaluated.deal.duration.seconds() as f32);
+                                (take_graveness * evaluated.deal.duration.as_seconds());
 
                             (usefulness, evaluated)
                         })
@@ -314,14 +314,14 @@ impl Family {
         }
     }
 
-    pub fn start_trip(&mut self, member: MemberIdx, tick: Timestamp, world: &mut World) {
+    pub fn start_trip(&mut self, member: MemberIdx, instant: Instant, world: &mut World) {
         if let Task {
             goal: Some((_, offer)),
             state: TaskState::GettingReadyAt(source),
             ..
         } = self.member_tasks[member.0]
         {
-            TripID::spawn(source, offer.into(), Some(self.id.into()), tick, world);
+            TripID::spawn(source, offer.into(), Some(self.id.into()), instant, world);
         } else {
             panic!("Member should be getting ready before starting trip");
         }
@@ -346,7 +346,7 @@ impl TripListener for Family {
         trip: TripID,
         location: RoughLocationID,
         failed: bool,
-        tick: Timestamp,
+        instant: Instant,
         world: &mut World,
     ) {
         let (matching_task_member, matching_resource, matching_offer) =
@@ -396,7 +396,7 @@ impl TripListener for Family {
         if failed {
             self.stop_task(matching_task_member, location, world);
         } else {
-            self.start_task(matching_task_member, tick, location, world);
+            self.start_task(matching_task_member, instant, location, world);
         }
     }
 }
@@ -405,7 +405,7 @@ impl Family {
     pub fn start_task(
         &mut self,
         member: MemberIdx,
-        start: Timestamp,
+        start: Instant,
         location: RoughLocationID,
         world: &mut World,
     ) {
@@ -448,11 +448,11 @@ impl Household for Family {
         unimplemented!()
     }
 
-    fn decay(&mut self, dt: Seconds, _: &mut World) {
+    fn decay(&mut self, dt: Duration, _: &mut World) {
         for member_resources in self.member_resources.iter_mut() {
             {
                 let awakeness = member_resources.mut_entry_or(r_id("awakeness"), 0.0);
-                *awakeness -= 0.001 * dt.seconds() as f32;
+                *awakeness -= 1.0 * dt.as_hours();
             }
             {
 
@@ -462,7 +462,7 @@ impl Household for Family {
                     *groceries -= 3.0;
                     *satiety += 3.0;
                 }
-                *satiety -= 0.001 * dt.seconds() as f32;
+                *satiety -= 1.0 * dt.as_hours();
             }
         }
     }
@@ -553,9 +553,9 @@ impl Household for Family {
 use core::simulation::TICKS_PER_SIM_SECOND;
 
 impl Simulatable for Family {
-    fn tick(&mut self, _dt: f32, current_tick: Timestamp, world: &mut World) {
-        if current_tick.ticks() % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0 {
-            self.decay(Seconds(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world);
+    fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
+        if (current_instant.ticks() + self.id._raw_id.instance_id as usize) % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0 {
+            self.decay(Duration(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world);
         }
     }
 }

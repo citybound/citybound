@@ -2,7 +2,7 @@ use compact::{CDict, CVec, CHashMap};
 use kay::{ActorSystem, World};
 use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
-use core::simulation::Timestamp;
+use core::simulation::Instant;
 
 // TODO: MAKE TRANSFER LANE NOT PARTICIPATE AT ALL IN PATHFINDING -> MUCH SIMPLER
 
@@ -418,10 +418,10 @@ impl RoughLocation for Lane {
         &mut self,
         requester: LocationRequesterID,
         rough_location: RoughLocationID,
-        tick: Timestamp,
+        instant: Instant,
         world: &mut World,
     ) {
-        requester.location_resolved(rough_location, self.pathfinding.location, tick, world);
+        requester.location_resolved(rough_location, self.pathfinding.location, instant, world);
     }
 }
 
@@ -504,7 +504,7 @@ pub trait RoughLocation {
         &mut self,
         requester: LocationRequesterID,
         rough_location: RoughLocationID,
-        tick: Timestamp,
+        instant: Instant,
         world: &mut World,
     );
 }
@@ -514,7 +514,7 @@ pub trait LocationRequester {
         &mut self,
         rough_location: RoughLocationID,
         location: Option<Location>,
-        tick: Timestamp,
+        instant: Instant,
         world: &mut World,
     );
 }

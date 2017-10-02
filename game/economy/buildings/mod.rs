@@ -44,18 +44,18 @@ impl Building {
 
 use transport::pathfinding::{RoughLocation, LocationRequesterID, RoughLocationID,
                              MSG_RoughLocation_resolve_as_location};
-use core::simulation::Timestamp;
+use core::simulation::Instant;
 
 impl RoughLocation for Building {
     fn resolve_as_location(
         &mut self,
         requester: LocationRequesterID,
         rough_location: RoughLocationID,
-        tick: Timestamp,
+        instant: Instant,
         world: &mut World,
     ) {
         Into::<RoughLocationID>::into(self.lot.adjacent_lane)
-            .resolve_as_location(requester, rough_location, tick, world)
+            .resolve_as_location(requester, rough_location, instant, world)
     }
 }
 
@@ -207,7 +207,7 @@ impl LotConflictor for Lane {
 use core::simulation::{Sleeper, SleeperID, MSG_Sleeper_wake};
 
 impl Sleeper for BuildingSpawner {
-    fn wake(&mut self, _time: Timestamp, world: &mut World) {
+    fn wake(&mut self, _time: Instant, world: &mut World) {
         self.state = match self.state {
             BuildingSpawnerState::Collecting(ref mut lots) => {
                 let buildings: LotConflictorID = BuildingID::global_broadcast(world).into();
