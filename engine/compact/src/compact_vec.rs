@@ -125,7 +125,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         } else {
             unsafe {
                 self.len -= 1;
-                Some(ptr::read(self.get_unchecked(self.len())))
+                Some(Compact::decompact(self.get_unchecked(self.len())))
             }
         }
     }
@@ -165,7 +165,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
                 let ptr = self.as_mut_ptr().offset(index as isize);
                 // copy it out, unsafely having a copy of the value on
                 // the stack and in the vector at the same time.
-                ret = ptr::read(ptr);
+                ret = Compact::decompact(ptr);
 
                 // Shift everything down to fill in that spot.
                 // elements should be decompacted, else internal relative pointers get messed up!
