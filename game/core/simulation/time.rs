@@ -92,6 +92,9 @@ pub struct TimeOfDay {
     minutes_since_midnight: u16,
 }
 
+const BEGINNING_TIME_OF_DAY: usize = 7;
+const MINUTES_PER_DAY: usize = 60 * 24;
+
 impl TimeOfDay {
     pub fn new(h: usize, m: usize) -> Self {
         TimeOfDay { minutes_since_midnight: m as u16 + (h * 60) as u16 }
@@ -99,8 +102,10 @@ impl TimeOfDay {
 
     pub fn from_instant(current_instant: Instant) -> Self {
         TimeOfDay {
-            minutes_since_midnight: 7 * 60 +
-                (current_instant.ticks() / TICKS_PER_SIM_MINUTE) as u16,
+            minutes_since_midnight: ((BEGINNING_TIME_OF_DAY * 60 +
+                                          (current_instant.ticks() / TICKS_PER_SIM_MINUTE)) %
+                                         MINUTES_PER_DAY) as
+                u16,
         }
     }
 
