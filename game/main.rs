@@ -24,7 +24,6 @@ extern crate stagemaster;
 extern crate imgui;
 #[macro_use]
 extern crate serde_derive;
-extern crate serde;
 
 use stagemaster::environment::Environment;
 

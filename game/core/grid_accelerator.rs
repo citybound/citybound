@@ -3,10 +3,10 @@ use fnv::{FnvHashMap, FnvHashSet};
 use roaring::RoaringBitmap;
 
 pub struct GridAccelerator {
-    cells: FnvHashMap<(isize, isize), RoaringBitmap<u32>>,
+    cells: FnvHashMap<(isize, isize), RoaringBitmap>,
     cells_of: FnvHashMap<usize, Vec<(isize, isize)>>,
     cell_size: N,
-    colocated_pairs: Vec<(usize, RoaringBitmap<u32>)>,
+    colocated_pairs: Vec<(usize, RoaringBitmap)>,
 }
 
 impl GridAccelerator {
@@ -65,7 +65,7 @@ impl GridAccelerator {
 
     #[inline(never)]
     // TODO: wrap the return in something nicer
-    pub fn colocated_pairs(&self) -> &Vec<(usize, RoaringBitmap<u32>)> {
+    pub fn colocated_pairs(&self) -> &Vec<(usize, RoaringBitmap)> {
         &self.colocated_pairs
     }
 }
