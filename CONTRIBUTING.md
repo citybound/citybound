@@ -68,7 +68,7 @@ Recommended setup:
     * Add the following user settings in VSCode
       * `"rust.cargoHomePath": "C:\\firstname\\.cargo"`,
       * `"rust.racerPath": "C:\\firstname\\.cargo\\bin\\racer.exe"`,
-      * `"rust.rustLangSrcPath": "C:\\firstname\\.rustup\\toolchains\\nightly-2017-09-07-x86_64-pc-windows-msvc\\lib\\rustlib\\src\\rust\\src"`
+      * `"rust.rustLangSrcPath": "C:\\firstname\\.rustup\\toolchains\\nightly-2017-09-28-x86_64-pc-windows-msvc\\lib\\rustlib\\src\\rust\\src"`
   * Otherwise it "should just work"
 * For debugging (Linux/MacOS): Install the [LLDB Debugger Extension](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb)
 * Now everything should just work! (fingers crossed)
