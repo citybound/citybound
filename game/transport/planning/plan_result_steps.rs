@@ -573,7 +573,7 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
 
         use fnv::FnvHashMap;
 
-        let mut compatabilities = FnvHashMap::<usize, RoaringBitmap<u32>>::default();
+        let mut compatabilities = FnvHashMap::<usize, RoaringBitmap>::default();
 
         for (a, stroke_a) in intersection.strokes.iter().enumerate() {
             for (b, stroke_b) in intersection.strokes.iter().enumerate().skip(a + 1) {
@@ -582,11 +582,11 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
                 {
                     compatabilities
                         .entry(a)
-                        .or_insert_with(RoaringBitmap::<u32>::new)
+                        .or_insert_with(RoaringBitmap::new)
                         .insert(b as u32);
                     compatabilities
                         .entry(b)
-                        .or_insert_with(RoaringBitmap::<u32>::new)
+                        .or_insert_with(RoaringBitmap::new)
                         .insert(a as u32);
                 }
             }
@@ -594,13 +594,13 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
 
         #[allow(len_zero)]
         fn bron_kerbosch_helper(
-            r: RoaringBitmap<u32>,
-            mut p: RoaringBitmap<u32>,
-            mut x: RoaringBitmap<u32>,
-            neighbors_map: &FnvHashMap<usize, RoaringBitmap<u32>>,
-            out_max_cliques: &mut Vec<RoaringBitmap<u32>>,
+            r: RoaringBitmap,
+            mut p: RoaringBitmap,
+            mut x: RoaringBitmap,
+            neighbors_map: &FnvHashMap<usize, RoaringBitmap>,
+            out_max_cliques: &mut Vec<RoaringBitmap>,
         ) {
-            let empty_set = RoaringBitmap::<u32>::new();
+            let empty_set = RoaringBitmap::new();
             let neighbors = |v: u32| neighbors_map.get(&(v as usize)).unwrap_or(&empty_set);
             // TODO: roaring::RoaringBitmap::is_empty is buggy!!
             // https://github.com/Nemo157/roaring-rs/issues/18
@@ -608,7 +608,9 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
             if p.len() == 0 && x.len() == 0 {
                 out_max_cliques.push(r);
             } else {
-                let pivot = p.union(&x).max_by_key(|&v| (neighbors)(v).len()).expect(
+                let mut u = p.clone();
+                u.union_with(&x);
+                let pivot = u.iter().max_by_key(|&v| (neighbors)(v).len()).expect(
                     "should have a pivot",
                 );
                 for v in p.clone() - (neighbors)(pivot) {
@@ -628,14 +630,14 @@ pub fn determine_signal_timings(intersections: &mut CVec<Intersection>) {
         }
 
         fn bron_kerbosch(
-            p: RoaringBitmap<u32>,
-            neighbors: &FnvHashMap<usize, RoaringBitmap<u32>>,
-        ) -> Vec<RoaringBitmap<u32>> {
+            p: RoaringBitmap,
+            neighbors: &FnvHashMap<usize, RoaringBitmap>,
+        ) -> Vec<RoaringBitmap> {
             let mut max_cliques = Vec::new();
             bron_kerbosch_helper(
-                RoaringBitmap::<u32>::new(),
+                RoaringBitmap::new(),
                 p,
-                RoaringBitmap::<u32>::new(),
+                RoaringBitmap::new(),
                 neighbors,
                 &mut max_cliques,
             );

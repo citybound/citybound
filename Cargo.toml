@@ -23,17 +23,17 @@ members = [
 ]
 
 [dependencies]
-ordered-float = "0.2.3"
-itertools = "0.5.5"
-clippy = { version = "0.0.157", optional = true }
+ordered-float = "0.5.0"
+itertools = "0.6.3"
+clippy = { version = "0.0.165", optional = true }
 rand = "0.3"
-fnv = "1.0.3"
-roaring = "0.4.0"
-open = "1.1.1"
+fnv = "1.0.5"
+roaring = "0.5.2"
+open = "1.2.1"
 serde = "1.0"
 serde_derive = "1.0"
 imgui = "0.0.15"
-pulldown-cmark = "0.0.14"
+pulldown-cmark = "0.0.15"
 
 [dependencies.compact]
 path = "./engine/compact/"

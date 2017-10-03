@@ -58,7 +58,7 @@ impl<T> DisjointSets<T> {
     pub fn union_all_with_accelerator<
         Acc,
         FAdd: Fn(&T, usize, &mut Acc),
-        FPairs: Fn(&Acc) -> &Vec<(usize, RoaringBitmap<u32>)>,
+        FPairs: Fn(&Acc) -> &Vec<(usize, RoaringBitmap)>,
         F: Fn(&T, &T) -> bool,
     >(
         &mut self,

@@ -3,8 +3,7 @@
 //! In `Kay`, actors concurrently send and receive asynchronous messages, but are
 //! otherwise completely isloated from each other. Actors can only mutate their own state.
 //!
-//! Have a look at [`ActorSystem`](struct.ActorSystem.html),
-//! [`ActorDefiner`](struct.ActorDefiner.html), [`World`](struct.World.html)
+//! Have a look at [`ActorSystem`](struct.ActorSystem.html), [`World`](struct.World.html)
 //! and [`Swarm`](swarm/struct.Swarm.html) to understand the main abstractions.
 //!
 //! Current Shortcomings:
