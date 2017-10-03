@@ -33,7 +33,7 @@ impl<T: Clone + Compact> Compact for CompactOption<T> {
 
     unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
         if let CompactOption(Some(ref mut s)) = *source {
-            ::std::ptr::write(dest, CompactOption(Some(::std::mem::uninitialized())));
+            ::std::ptr::copy_nonoverlapping(source, dest, 1);
             if let CompactOption(Some(ref mut d)) = *dest {
                 Compact::compact(s, d, new_dynamic_part);
             } else {
