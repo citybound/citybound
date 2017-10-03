@@ -67,13 +67,15 @@ impl ResourceRegistry {
     }
 
     fn id(&self, resource: &str) -> ResourceId {
-        *self.name_to_id.get(resource).expect(
-            format!(
+        if let Some(&resource_id) = self.name_to_id.get(resource) {
+            resource_id
+        } else {
+            panic!(
                 "Resource {} doesn't exist. Loaded resources: {:?}",
                 resource,
                 self.name_to_id
-            ).as_str(),
-        )
+            )
+        }
     }
 }
 

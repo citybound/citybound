@@ -297,10 +297,10 @@ impl LocationRequester for TripCostEstimator {
                 world,
             );
         } else if self.n_resolved == 2 {
-            println!(
-                "Either source or dest not resolvable for {}",
-                r_info(self.base_result.resource).0
-            );
+            // println!(
+            //     "Either source or dest not resolvable for {}",
+            //     r_info(self.base_result.resource).0
+            // );
             self.requester.on_result(
                 EvaluatedSearchResult {
                     resource: self.base_result.resource,
@@ -336,12 +336,12 @@ impl DistanceRequester for TripCostEstimator {
                 ..self.base_result
             }
         } else {
-            println!(
-                "No distance for {}, from {:?} to {:?}",
-                r_info(self.base_result.resource).0,
-                self.source,
-                self.destination
-            );
+            // println!(
+            //     "No distance for {}, from {:?} to {:?}",
+            //     r_info(self.base_result.resource).0,
+            //     self.source,
+            //     self.destination
+            // );
             EvaluatedSearchResult {
                 resource: self.base_result.resource,
                 evaluated_deals: CVec::new(),

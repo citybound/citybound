@@ -1,5 +1,5 @@
 use kay::{ActorSystem, World, External};
-use compact::{CVec, CDict};
+use compact::{CVec, CDict, COption};
 use imgui::Ui;
 use ordered_float::OrderedFloat;
 use core::simulation::{TimeOfDay, Instant, Duration, Ticks, SimulationID, Simulatable,
@@ -27,7 +27,8 @@ use super::tasks::{Task, TaskEndSchedulerID};
 #[derive(Compact, Clone)]
 struct DecisionResourceEntry {
     results_counter: AsyncCounter,
-    deals: CVec<EvaluatedDeal>,
+    best_deal: COption<EvaluatedDeal>,
+    best_deal_usefulness: f32,
 }
 
 #[derive(Compact, Clone)]
@@ -96,7 +97,12 @@ impl Sleeper for Family {
                 })
                 .next();
             if let Some((idle_member_idx, location)) = maybe_idle_idx_loc {
-                self.find_new_task_for(MemberIdx(idle_member_idx), current_instant, location, world);
+                self.find_new_task_for(
+                    MemberIdx(idle_member_idx),
+                    current_instant,
+                    location,
+                    world,
+                );
             }
         };
     }
@@ -169,7 +175,8 @@ impl Family {
                     resource,
                     DecisionResourceEntry {
                         results_counter: initial_counter,
-                        deals: CVec::new(),
+                        best_deal: COption(None),
+                        best_deal_usefulness: 0.0,
                     },
                 );
             }
@@ -187,15 +194,22 @@ enum ResultAspect {
 
 impl Family {
     fn update_results(&mut self, resource: ResourceId, update: ResultAspect, world: &mut World) {
-        let done = if let DecisionState::Choosing(_, _, ref mut entries) = self.decision_state {
+        let done = if let DecisionState::Choosing(_, instant, ref mut entries) = self.decision_state {
             {
                 let entry = entries.get_mut(resource).expect(
                     "Should have an entry for queried resource",
                 );
 
                 match update {
-                    ResultAspect::AddDeals(deals) => {
-                        entry.deals.extend(deals);
+                    ResultAspect::AddDeals(ref evaluated_deals) => {
+                        for evaluated_deal in evaluated_deals {
+                            let new_deal_usefulness = deal_usefulness(evaluated_deal, TimeOfDay::from_instant(instant));
+                            if new_deal_usefulness > entry.best_deal_usefulness {
+                                entry.best_deal = COption(Some(evaluated_deal.clone()));
+                                entry.best_deal_usefulness = new_deal_usefulness;
+                            }
+                        }
+
                         entry.results_counter.increment();
                     }
                     ResultAspect::SetTarget(n) => {
@@ -218,6 +232,21 @@ impl Family {
     }
 }
 
+fn deal_usefulness(evaluated: &EvaluatedDeal, time: TimeOfDay) -> f32 {
+    let give_alleviation =
+        resource_graveness_helper(evaluated.deal.give.0, -evaluated.deal.give.1, time);
+    let take_graveness: f32 = evaluated
+        .deal
+        .take
+        .iter()
+        .map(|&Entry(resource, amount)| {
+            resource_graveness_helper(resource, -amount, time)
+        })
+        .sum();
+
+    give_alleviation / (take_graveness * evaluated.deal.duration.as_seconds())
+}
+
 
 impl EvaluationRequester for Family {
     fn expect_n_results(&mut self, resource: ResourceId, n: usize, world: &mut World) {
@@ -225,7 +254,7 @@ impl EvaluationRequester for Family {
     }
 
     fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World) {
-        let &EvaluatedSearchResult { resource, ref evaluated_deals } = result;
+        let &EvaluatedSearchResult { resource, ref evaluated_deals, .. } = result;
         self.update_results(
             resource,
             ResultAspect::AddDeals(evaluated_deals.clone()),
@@ -239,8 +268,7 @@ impl Family {
         println!("Choosing deal!");
         let maybe_best_info =
             if let DecisionState::Choosing(member, instant, ref entries) = self.decision_state {
-                let time = TimeOfDay::from_instant(instant);
-                let maybe_best = most_useful_evaluated_deal(entries, time);
+                let maybe_best = most_useful_evaluated_deal(entries);
 
                 if let Some(best) = maybe_best {
                     let task = &mut self.member_tasks[member.0];
@@ -275,42 +303,8 @@ impl Family {
             SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, self.id.into(), world);
         }
 
-        fn most_useful_evaluated_deal(
-            entries: &CDict<ResourceId, DecisionResourceEntry>,
-            time: TimeOfDay,
-        ) -> Option<EvaluatedDeal> {
-            entries
-                .values()
-                .flat_map(|entry| {
-                    entry
-                        .deals
-                        .iter()
-                        .filter(|evaluated| evaluated.from < time && evaluated.to > time)
-                        .map(|evaluated| {
-                            let give_alleviation = resource_graveness_helper(
-                                evaluated.deal.give.0,
-                                -evaluated.deal.give.1,
-                                time,
-                            );
-                            let take_graveness: f32 = evaluated
-                                .deal
-                                .take
-                                .iter()
-                                .map(|&Entry(resource, amount)| {
-                                    resource_graveness_helper(resource, -amount, time)
-                                })
-                                .sum();
-
-                            let usefulness = give_alleviation /
-                                (take_graveness * evaluated.deal.duration.as_seconds());
-
-                            (usefulness, evaluated)
-                        })
-                })
-                .collect::<Vec<_>>()
-                .into_iter()
-                .max_by_key(|&(u, _e)| OrderedFloat(u))
-                .map(|(_, evaluated_deal)| evaluated_deal.clone())
+        fn most_useful_evaluated_deal(entries: &CDict<ResourceId, DecisionResourceEntry>)->Option<EvaluatedDeal> {
+            entries.values().max_by_key(|decision_entry| OrderedFloat(decision_entry.best_deal_usefulness)).and_then(|best_entry| best_entry.best_deal.as_ref().cloned())
         }
     }
 
@@ -554,7 +548,9 @@ use core::simulation::TICKS_PER_SIM_SECOND;
 
 impl Simulatable for Family {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
-        if (current_instant.ticks() + self.id._raw_id.instance_id as usize) % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0 {
+        if (current_instant.ticks() + self.id._raw_id.instance_id as usize) %
+            (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0
+        {
             self.decay(Duration(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world);
         }
     }
