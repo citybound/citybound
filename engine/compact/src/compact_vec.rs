@@ -52,6 +52,17 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         vec
     }
 
+    /// Create a new vector from raw parts
+    /// Assumes that `ptr` has been allocated by the same Allocator that is `A`
+    pub unsafe fn from_raw_parts(ptr: *mut T, len: usize, cap: usize) -> CompactVec<T, A> {
+        CompactVec {
+            ptr: PointerToMaybeCompact::new_free(ptr),
+            len: len,
+            cap: cap,
+            _alloc: PhantomData,
+        }
+    }
+
     /// current capacity
     pub fn capacity(&self) -> usize {
         self.cap
@@ -234,22 +245,13 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
     }
 }
 
-impl<T, A: Allocator> From<Vec<T>> for CompactVec<T, A> {
+impl<T: Compact + Clone, A: Allocator> From<Vec<T>> for CompactVec<T, A> {
     /// Create a `CompactVec` from a normal `Vec`,
     /// directly using the backing storage as free heap storage
     fn from(mut vec: Vec<T>) -> Self {
-        let p = vec.as_mut_ptr();
-        let len = vec.len();
-        let cap = vec.capacity();
-
+        let cvec = unsafe { Self::from_raw_parts(vec.as_mut_ptr(), vec.len(), vec.capacity()) };
         ::std::mem::forget(vec);
-
-        CompactVec {
-            ptr: PointerToMaybeCompact::new_free(p),
-            len: len,
-            cap: cap,
-            _alloc: PhantomData,
-        }
+        cvec
     }
 }
 
@@ -435,7 +437,7 @@ impl<T: Copy, A: Allocator> Compact for CompactVec<T, A> {
     }
 }
 
-impl<T: Clone, A: Allocator> Clone for CompactVec<T, A> {
+impl<T: Compact + Clone, A: Allocator> Clone for CompactVec<T, A> {
     default fn clone(&self) -> CompactVec<T, A> {
         self.iter().cloned().collect::<Vec<_>>().into()
     }

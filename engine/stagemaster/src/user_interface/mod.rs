@@ -1,5 +1,5 @@
 use kay::{ActorSystem, External, World};
-use compact::CVec;
+use compact::{CVec, CString};
 use descartes::{N, P2, V2, P3, Into2d, Shape};
 use monet::{RendererID, RenderableID, SceneDescription, Display};
 use monet::glium::glutin::{ContextBuilder, Event, WindowBuilder, WindowEvent, MouseScrollDelta,
@@ -557,8 +557,8 @@ impl UserInterface {
     /// critical
     pub fn add_debug_text(
         &mut self,
-        key: &CVec<char>,
-        text: &CVec<char>,
+        key: &CString,
+        text: &CString,
         color: &[f32; 4],
         persistent: bool,
         _: &mut World,
@@ -568,10 +568,7 @@ impl UserInterface {
         } else {
             &mut self.debug_text
         };
-        target.insert(key.iter().cloned().collect(), (
-            text.iter().cloned().collect(),
-            *color,
-        ));
+        target.insert(key.to_string(), (text.to_string(), *color));
     }
 }
 
