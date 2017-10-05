@@ -1,8 +1,7 @@
 use kay::{ActorSystem, World, External};
 use imgui::Ui;
-use core::simulation::{TimeOfDay, Duration};
-use economy::resources::{ResourceAmount, ResourceMap, Entry, r_id, r_properties, r_info,
-                         all_resource_ids};
+use core::simulation::{TimeOfDayRange, Duration};
+use economy::resources::{ResourceAmount, ResourceMap, r_id, r_properties, r_info, all_resource_ids};
 use economy::market::{Deal, OfferID};
 use economy::buildings::BuildingID;
 use economy::buildings::rendering::BuildingInspectorID;
@@ -31,8 +30,7 @@ impl GroceryShop {
                 id.into(),
                 MemberIdx(0),
                 site.into(),
-                TimeOfDay::new(7, 0),
-                TimeOfDay::new(20, 0),
+                TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(r_id("groceries"), 30.0), (r_id("money"), -40.0)],
                     Duration(5 * 60),
@@ -43,8 +41,7 @@ impl GroceryShop {
                 id.into(),
                 MemberIdx(0),
                 site.into(),
-                TimeOfDay::new(7, 0),
-                TimeOfDay::new(20, 0),
+                TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(Some((r_id("money"), 50.0)), Duration(5 * 60 * 60)),
                 world,
             ),

@@ -1,8 +1,8 @@
 use kay::{ActorSystem, Fate, World};
 use compact::{CVec, CDict};
-use super::resources::{Inventory, Entry, ResourceId, ResourceAmount, r_properties};
+use super::resources::{Inventory, Entry, ResourceId, ResourceAmount};
 use super::households::{HouseholdID, MemberIdx};
-use core::simulation::{TimeOfDay, Duration, Instant};
+use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, Instant};
 
 #[derive(Compact, Clone)]
 pub struct Deal {
@@ -40,8 +40,7 @@ pub struct Offer {
     offerer: HouseholdID,
     offering_member: MemberIdx,
     location: RoughLocationID,
-    from: TimeOfDay,
-    to: TimeOfDay,
+    opening_hours: TimeOfDayRange,
     deal: Deal,
     users: CVec<(HouseholdID, Option<MemberIdx>)>,
 }
@@ -52,8 +51,7 @@ impl Offer {
         offerer: HouseholdID,
         offering_member: MemberIdx,
         location: RoughLocationID,
-        from: TimeOfDay,
-        to: TimeOfDay,
+        opening_hours: TimeOfDayRange,
         deal: &Deal,
         world: &mut World,
     ) -> Offer {
@@ -64,8 +62,7 @@ impl Offer {
             offerer,
             offering_member,
             location,
-            from,
-            to,
+            opening_hours,
             deal: deal.clone(),
             users: CVec::new(),
         }
@@ -76,8 +73,7 @@ impl Offer {
         offerer: HouseholdID,
         offering_member: MemberIdx,
         location: RoughLocationID,
-        from: TimeOfDay,
-        to: TimeOfDay,
+        opening_hours: TimeOfDayRange,
         deal: &Deal,
         _: &mut World,
     ) -> Offer {
@@ -86,8 +82,7 @@ impl Offer {
             offerer,
             offering_member,
             location,
-            from,
-            to,
+            opening_hours,
             deal: deal.clone(),
             users: CVec::new(),
         }
@@ -111,15 +106,17 @@ impl Offer {
         requester: EvaluationRequesterID,
         world: &mut World,
     ) {
-        if TimeOfDay::from_instant(instant) < self.to {
+        if self.opening_hours.end_after_on_same_day(
+            TimeOfDay::from(instant),
+        )
+        {
             let search_result = EvaluatedSearchResult {
                 resource: self.deal.main_given(),
                 evaluated_deals: vec![
                     EvaluatedDeal {
                         offer: self.id,
                         deal: self.deal.clone(),
-                        from: self.from,
-                        to: self.to,
+                        opening_hours: self.opening_hours,
                     },
                 ].into(),
             };
@@ -269,8 +266,7 @@ impl Market {
 pub struct EvaluatedDeal {
     pub offer: OfferID,
     pub deal: Deal,
-    pub from: TimeOfDay,
-    pub to: TimeOfDay,
+    pub opening_hours: TimeOfDayRange,
 }
 
 #[derive(Compact, Clone)]
@@ -379,9 +375,9 @@ impl DistanceRequester for TripCostEstimator {
                             Duration((distance / ASSUMED_AVG_SPEED) as usize);
                         let mut new_deal = evaluated_deal.clone();
                         new_deal.deal.duration += estimated_travel_time;
-                        new_deal.from -= estimated_travel_time;
-                        new_deal.to -= estimated_travel_time;
-                        // TODO: adjust possible-until and resources
+                        new_deal.opening_hours =
+                            new_deal.opening_hours.earlier_by(estimated_travel_time);
+                        // TODO: adjust resources to incorporate travel costs
                         new_deal
                     })
                     .collect(),

@@ -5,7 +5,7 @@ use stagemaster::UserInterfaceID;
 mod time;
 
 pub use self::time::{Instant, Ticks, Duration, TICKS_PER_SIM_MINUTE, TICKS_PER_SIM_SECOND,
-                     TimeOfDay};
+                     TimeOfDay, TimeOfDayRange};
 
 pub trait Simulatable {
     fn tick(&mut self, dt: f32, current_instant: Instant, world: &mut World);
@@ -57,7 +57,7 @@ impl Simulation {
         }
         self.current_instant += Ticks(1);
 
-        let time = TimeOfDay::from_instant(self.current_instant).hours_minutes();
+        let time = TimeOfDay::from(self.current_instant).hours_minutes();
 
         UserInterfaceID::local_first(world).add_debug_text(
             "Time".to_owned().into(),

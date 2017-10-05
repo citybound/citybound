@@ -2,8 +2,8 @@ use kay::{ActorSystem, World, External};
 use compact::{CVec, CDict, COption, CString};
 use imgui::Ui;
 use ordered_float::OrderedFloat;
-use core::simulation::{TimeOfDay, Instant, Duration, Ticks, SimulationID, Simulatable,
-                       SimulatableID, MSG_Simulatable_tick};
+use core::simulation::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, SimulationID,
+                       Simulatable, SimulatableID, MSG_Simulatable_tick};
 use economy::resources::{ResourceId, ResourceAmount, ResourceMap, Entry};
 use economy::market::{Deal, MarketID, OfferID, EvaluatedDeal, EvaluationRequester,
                       EvaluationRequesterID, MSG_EvaluationRequester_expect_n_results,
@@ -76,12 +76,8 @@ impl Family {
             id.into(),
             MemberIdx(0),
             home.into(),
-            TimeOfDay::new(20, 0),
-            TimeOfDay::new(9, 0),
-            Deal::new(
-                Some((r_id("awakeness"), 18.0)),
-                Duration::from_hours(6),
-            ),
+            TimeOfDayRange::new(20, 0, 9, 0),
+            Deal::new(Some((r_id("awakeness"), 18.0)), Duration::from_hours(6)),
             world,
         );
 
@@ -156,7 +152,7 @@ impl Family {
             format!("Top N Problems for Family {:?}\n", self.id._raw_id).as_str(),
         );
 
-        let time = TimeOfDay::from_instant(instant);
+        let time = TimeOfDay::from(instant);
         let top_problems = self.top_problems(member, time);
 
         if top_problems.is_empty() {
@@ -167,7 +163,7 @@ impl Family {
             for (resource, graveness) in top_problems {
                 self.log.push_str(
                     format!(
-                        "Member #{}: {} = {}\n",
+                        "Member #{}: {} = {}",
                         member.0,
                         r_info(resource).0,
                         graveness
@@ -182,7 +178,7 @@ impl Family {
                 let initial_counter = if let Some(&offer) = maybe_offer {
                     self.log.push_str(
                         format!(
-                            "Using favorite offer {:?} for {}\n",
+                            " -> Using favorite offer {:?} for {}\n",
                             offer._raw_id,
                             r_info(resource).0
                         ).as_str(),
@@ -192,7 +188,7 @@ impl Family {
                     AsyncCounter::with_target(1)
                 } else {
                     self.log.push_str(
-                        format!("Doing market query for {}\n", r_info(resource).0).as_str(),
+                        format!(" -> Doing market query for {}\n", r_info(resource).0).as_str(),
                     );
                     MarketID::global_first(world).search(
                         instant,
@@ -228,42 +224,48 @@ enum ResultAspect {
 
 impl Family {
     fn update_results(&mut self, resource: ResourceId, update: ResultAspect, world: &mut World) {
-        let done = if let DecisionState::Choosing(_, instant, ref mut entries) =
-            self.decision_state
-        {
-            {
-                let entry = entries.get_mut(resource).expect(
-                    "Should have an entry for queried resource",
-                );
+        let done =
+            if let DecisionState::Choosing(_, instant, ref mut entries) = self.decision_state {
+                {
+                    let entry = entries.get_mut(resource).expect(
+                        "Should have an entry for queried resource",
+                    );
 
-                match update {
-                    ResultAspect::AddDeals(ref evaluated_deals) => {
-                        for evaluated_deal in evaluated_deals {
-                            let new_deal_usefulness =
-                                deal_usefulness(evaluated_deal, TimeOfDay::from_instant(instant));
-                            if new_deal_usefulness > entry.best_deal_usefulness {
-                                entry.best_deal = COption(Some(evaluated_deal.clone()));
-                                entry.best_deal_usefulness = new_deal_usefulness;
+                    match update {
+                        ResultAspect::AddDeals(ref evaluated_deals) => {
+                            for evaluated_deal in evaluated_deals {
+                                self.log.push_str(
+                                    format!("Got eval'd deal for {}, {:?} -> {:?}\n",
+                                        r_info(evaluated_deal.deal.main_given()).0,
+                                        evaluated_deal.opening_hours.start.hours_minutes(),
+                                        evaluated_deal.opening_hours.end.hours_minutes(),).as_str());
+                                if evaluated_deal.opening_hours.contains(instant) {
+                                    let new_deal_usefulness =
+                                        deal_usefulness(evaluated_deal, TimeOfDay::from(instant));
+                                    if new_deal_usefulness > entry.best_deal_usefulness {
+                                        entry.best_deal = COption(Some(evaluated_deal.clone()));
+                                        entry.best_deal_usefulness = new_deal_usefulness;
+                                    }
+                                }
                             }
-                        }
 
-                        entry.results_counter.increment();
-                    }
-                    ResultAspect::SetTarget(n) => {
-                        entry.results_counter.set_target(n);
+                            entry.results_counter.increment();
+                        }
+                        ResultAspect::SetTarget(n) => {
+                            entry.results_counter.set_target(n);
+                        }
                     }
                 }
-            }
 
-            entries.values().all(
-                |entry| entry.results_counter.is_done(),
-            )
-        } else {
-            self.log.push_str(
-                "Received unexpected deal / should be choosing\n",
-            );
-            false
-        };
+                entries.values().all(
+                    |entry| entry.results_counter.is_done(),
+                )
+            } else {
+                self.log.push_str(
+                    "Received unexpected deal / should be choosing\n",
+                );
+                false
+            };
 
         if done {
             self.choose_deal(world);
@@ -303,35 +305,37 @@ impl EvaluationRequester for Family {
 impl Family {
     pub fn choose_deal(&mut self, world: &mut World) {
         self.log.push_str("Choosing deal!\n");
-        let maybe_best_info = if let DecisionState::Choosing(member, instant, ref entries) =
-            self.decision_state
-        {
-            let maybe_best = most_useful_evaluated_deal(entries);
+        let maybe_best_info =
+            if let DecisionState::Choosing(member, instant, ref entries) = self.decision_state {
+                let maybe_best = most_useful_evaluated_deal(entries);
 
-            if let Some(best) = maybe_best {
-                let task = &mut self.member_tasks[member.0];
+                if let Some(best) = maybe_best {
+                    let task = &mut self.member_tasks[member.0];
 
-                *task = if let TaskState::IdleAt(location) = task.state {
-                    Task {
-                        goal: Some((best.deal.main_given(), best.offer)),
-                        duration: best.deal.duration,
-                        state: TaskState::GettingReadyAt(location),
-                    }
+                    *task = if let TaskState::IdleAt(location) = task.state {
+                        Task {
+                            goal: Some((best.deal.main_given(), best.offer)),
+                            duration: best.deal.duration,
+                            state: TaskState::GettingReadyAt(location),
+                        }
+                    } else {
+                        panic!("Member who gets new task should be idle");
+                    };
+
+                    self.log.push_str(
+                        format!(
+                            "Found best offer for {}\n",
+                            r_info(best.deal.main_given()).0
+                        ).as_str(),
+                    );
+
+                    Some((member, instant, best.offer))
                 } else {
-                    panic!("Member who gets new task should be idle");
-                };
-
-                self.log.push_str(
-                    format!("Found best offer for {}\n", r_info(best.deal.main_given()).0).as_str(),
-                );
-
-                Some((member, instant, best.offer))
+                    None
+                }
             } else {
-                None
-            }
-        } else {
-            panic!("Tried to choose deal while not deciding");
-        };
+                panic!("Tried to choose deal while not deciding");
+            };
         if let Some((member, instant, best_offer)) = maybe_best_info {
             self.decision_state = DecisionState::WaitingForTrip(member);
             best_offer.request_receive_deal(self.id.into(), member, world);
@@ -441,8 +445,15 @@ impl TripListener for Family {
         }
 
         if failed {
-            self.log.push_str(format!("Trip of member #{} from {:?} to {:?} failed!\n", matching_task_member.0, rough_source, rough_destination).as_str());
-            
+            self.log.push_str(
+                format!(
+                    "Trip of member #{} from {:?} to {:?} failed!\n",
+                    matching_task_member.0,
+                    rough_source,
+                    rough_destination
+                ).as_str(),
+            );
+
             if let Some((_, offer)) = self.member_tasks[matching_task_member.0].goal {
                 offer.request_receive_undo_deal(self.id.into(), matching_task_member, world);
             }
@@ -482,11 +493,17 @@ use economy::resources::{all_resource_ids, r_info, r_id};
 
 impl Household for Family {
     fn receive_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
-        deal.delta.give_to_shared_private(&mut self.resources, &mut self.member_resources[member.0]);
+        deal.delta.give_to_shared_private(
+            &mut self.resources,
+            &mut self.member_resources[member.0],
+        );
     }
 
     fn provide_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
-        deal.delta.take_from_shared_private(&mut self.resources, &mut self.member_resources[member.0]);
+        deal.delta.take_from_shared_private(
+            &mut self.resources,
+            &mut self.member_resources[member.0],
+        );
     }
 
     fn decay(&mut self, dt: Duration, _: &mut World) {

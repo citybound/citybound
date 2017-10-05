@@ -101,7 +101,7 @@ impl<D: Into<Ticks>> ::std::ops::SubAssign<D> for Instant {
 
 #[derive(Copy, Clone, PartialEq, PartialOrd)]
 pub struct TimeOfDay {
-    minutes_since_midnight: u16,
+    minutes_of_day: u16,
 }
 
 const BEGINNING_TIME_OF_DAY: usize = 7;
@@ -109,23 +109,40 @@ const MINUTES_PER_DAY: usize = 60 * 24;
 
 impl TimeOfDay {
     pub fn new(h: usize, m: usize) -> Self {
-        TimeOfDay { minutes_since_midnight: m as u16 + (h * 60) as u16 }
-    }
-
-    pub fn from_instant(current_instant: Instant) -> Self {
-        TimeOfDay {
-            minutes_since_midnight: ((BEGINNING_TIME_OF_DAY * 60 +
-                                          (current_instant.ticks() / TICKS_PER_SIM_MINUTE)) %
-                                         MINUTES_PER_DAY) as
-                u16,
-        }
+        TimeOfDay { minutes_of_day: m as u16 + (h * 60) as u16 }
     }
 
     pub fn hours_minutes(&self) -> (usize, usize) {
         (
-            (self.minutes_since_midnight / 60) as usize,
-            (self.minutes_since_midnight % 60) as usize,
+            (self.minutes_of_day / 60) as usize,
+            (self.minutes_of_day % 60) as usize,
         )
+    }
+
+    pub fn earlier_by(&self, delta: Duration) -> Self {
+        TimeOfDay {
+            minutes_of_day: ((((self.minutes_of_day as isize - delta.as_minutes() as isize) %
+                                   MINUTES_PER_DAY as isize) +
+                                  MINUTES_PER_DAY as isize) as
+                                 usize % MINUTES_PER_DAY) as u16,
+        }
+    }
+
+    pub fn later_by(&self, delta: Duration) -> Self {
+        TimeOfDay {
+            minutes_of_day: ((self.minutes_of_day as usize + delta.as_minutes() as usize) %
+                                 MINUTES_PER_DAY) as u16,
+        }
+    }
+}
+
+impl From<Instant> for TimeOfDay {
+    fn from(instant: Instant) -> TimeOfDay {
+        TimeOfDay {
+            minutes_of_day: ((BEGINNING_TIME_OF_DAY * 60 +
+                                  (instant.ticks() / TICKS_PER_SIM_MINUTE)) %
+                                 MINUTES_PER_DAY) as u16,
+        }
     }
 }
 
@@ -133,15 +150,13 @@ impl<D: Into<Duration>> ::std::ops::Add<D> for TimeOfDay {
     type Output = Self;
 
     fn add(self, rhs: D) -> Self {
-        TimeOfDay {
-            minutes_since_midnight: self.minutes_since_midnight + (rhs.into().0 / 60) as u16,
-        }
+        TimeOfDay { minutes_of_day: self.minutes_of_day + (rhs.into().0 / 60) as u16 }
     }
 }
 
 impl<D: Into<Duration>> ::std::ops::AddAssign<D> for TimeOfDay {
     fn add_assign(&mut self, rhs: D) {
-        self.minutes_since_midnight += (rhs.into().0 / 60) as u16
+        self.minutes_of_day += (rhs.into().0 / 60) as u16
     }
 }
 
@@ -149,14 +164,57 @@ impl<D: Into<Duration>> ::std::ops::Sub<D> for TimeOfDay {
     type Output = Self;
 
     fn sub(self, rhs: D) -> Self {
-        TimeOfDay {
-            minutes_since_midnight: self.minutes_since_midnight - (rhs.into().0 / 60) as u16,
-        }
+        TimeOfDay { minutes_of_day: self.minutes_of_day - (rhs.into().0 / 60) as u16 }
     }
 }
 
 impl<D: Into<Duration>> ::std::ops::SubAssign<D> for TimeOfDay {
     fn sub_assign(&mut self, rhs: D) {
-        self.minutes_since_midnight -= (rhs.into().0 / 60) as u16
+        self.minutes_of_day -= (rhs.into().0 / 60) as u16
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct TimeOfDayRange {
+    pub start: TimeOfDay,
+    pub end: TimeOfDay,
+}
+
+impl TimeOfDayRange {
+    pub fn new(start_h: usize, start_m: usize, end_h: usize, end_m: usize) -> TimeOfDayRange {
+        TimeOfDayRange {
+            start: TimeOfDay::new(start_h, start_m),
+            end: TimeOfDay::new(end_h, end_m),
+        }
+    }
+
+    pub fn contains<T: Into<TimeOfDay>>(&self, time: T) -> bool {
+        let time = time.into();
+        if self.start.minutes_of_day <= self.end.minutes_of_day {
+            self.start.minutes_of_day <= time.minutes_of_day &&
+                time.minutes_of_day <= self.end.minutes_of_day
+        } else {
+            self.start.minutes_of_day <= time.minutes_of_day &&
+                (time.minutes_of_day <= self.end.minutes_of_day ||
+                     time.minutes_of_day <= TimeOfDay::new(23, 59).minutes_of_day)
+        }
+    }
+
+    pub fn earlier_by(&self, delta: Duration) -> Self {
+        TimeOfDayRange {
+            start: self.start.earlier_by(delta),
+            end: self.end.earlier_by(delta),
+        }
+    }
+
+    pub fn later_by(&self, delta: Duration) -> Self {
+        TimeOfDayRange {
+            start: self.start.later_by(delta),
+            end: self.end.later_by(delta),
+        }
+    }
+
+    pub fn end_after_on_same_day(&self, time: TimeOfDay) -> bool {
+        time < self.end
     }
 }
