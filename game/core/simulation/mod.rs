@@ -60,8 +60,8 @@ impl Simulation {
         let time = TimeOfDay::from_instant(self.current_instant).hours_minutes();
 
         UserInterfaceID::local_first(world).add_debug_text(
-            "Time".chars().collect(),
-            format!("{:02}:{:02}", time.0, time.1).chars().collect(),
+            "Time".to_owned().into(),
+            format!("{:02}:{:02}", time.0, time.1).into(),
             [0.0, 0.0, 0.0, 1.0],
             false,
             world,
