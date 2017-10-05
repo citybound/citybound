@@ -3,9 +3,21 @@ use super::compact_vec::CompactVec;
 
 /// A compact storage for a `String`. So far doesn't support direct mutable operations,
 /// Only conversion from and to `String`/`&str`
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct CompactString {
     chars: CompactVec<u8>,
+}
+
+impl CompactString {
+    /// Create an empty `CString`
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Appends a given string slice onto the end of this `CString`.
+    pub fn push_str(&mut self, string: &str) {
+        self.chars.extend_from_copy_slice(string.as_bytes());
+    }
 }
 
 impl ::std::ops::Deref for CompactString {
