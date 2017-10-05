@@ -54,7 +54,15 @@ impl Trip {
         println!("Trip {:?} failed!", self.id);
 
         if let Some(listener) = self.listener {
-            listener.trip_result(self.id, location, true, instant, world);
+            listener.trip_result(
+                self.id,
+                self.rough_source,
+                location,
+                self.rough_destination,
+                true,
+                instant,
+                world,
+            );
         }
 
         Fate::Die
@@ -64,7 +72,15 @@ impl Trip {
         println!("Trip {:?} succeeded!", self.id);
 
         if let Some(listener) = self.listener {
-            listener.trip_result(self.id, self.rough_destination, false, instant, world);
+            listener.trip_result(
+                self.id,
+                self.rough_source,
+                self.rough_destination,
+                self.rough_destination,
+                false,
+                instant,
+                world,
+            );
         }
 
         Fate::Die
@@ -138,7 +154,9 @@ pub trait TripListener {
     fn trip_result(
         &mut self,
         trip: TripID,
+        rough_source: RoughLocationID,
         location: RoughLocationID,
+        rough_destination: RoughLocationID,
         failed: bool,
         instant: Instant,
         world: &mut World,

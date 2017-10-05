@@ -1,5 +1,5 @@
 use kay::{ActorSystem, World, External};
-use compact::{CVec, CDict, COption};
+use compact::{CVec, CDict, COption, CString};
 use imgui::Ui;
 use ordered_float::OrderedFloat;
 use core::simulation::{TimeOfDay, Instant, Duration, Ticks, SimulationID, Simulatable,
@@ -42,12 +42,14 @@ enum DecisionState {
 pub struct Family {
     id: FamilyID,
     home: BuildingID,
+    sleep_offer: OfferID,
     resources: ResourceMap<ResourceAmount>,
     member_resources: CVec<ResourceMap<ResourceAmount>>,
     member_tasks: CVec<Task>,
     decision_state: DecisionState,
     used_offers: ResourceMap<OfferID>,
     member_used_offers: CVec<ResourceMap<OfferID>>,
+    log: CString,
 }
 
 const N_TOP_PROBLEMS: usize = 5;
@@ -70,15 +72,36 @@ impl Family {
     ) -> Family {
         simulation.wake_up_in(Ticks(0), id.into(), world);
 
+        let sleep_offer = OfferID::private(
+            id.into(),
+            MemberIdx(0),
+            home.into(),
+            TimeOfDay::new(20, 0),
+            TimeOfDay::new(9, 0),
+            Deal {
+                duration: Duration::from_hours(6),
+                give: (r_id("awakeness"), 18.0),
+                take: ResourceMap::new(),
+            },
+            world,
+        );
+
+        let mut member_used_offers = vec![ResourceMap::new(); n_members];
+        for used_offers in &mut member_used_offers {
+            used_offers.insert(r_id("awakeness"), sleep_offer);
+        }
+
         Family {
             id,
             home,
+            sleep_offer,
             resources: ResourceMap::new(),
             member_resources: vec![ResourceMap::new(); n_members].into(),
             member_tasks: vec![Task::idle_at(home.into()); n_members].into(),
             decision_state: DecisionState::None,
             used_offers: ResourceMap::new(),
-            member_used_offers: vec![ResourceMap::new(); n_members].into(),
+            member_used_offers: member_used_offers.into(),
+            log: CString::new(),
         }
     }
 }
@@ -130,7 +153,9 @@ impl Family {
         location: RoughLocationID,
         world: &mut World,
     ) {
-        println!("Top N Problems for Family {:?}", self.id._raw_id);
+        self.log.push_str(
+            format!("Top N Problems for Family {:?}\n", self.id._raw_id).as_str(),
+        );
 
         let time = TimeOfDay::from_instant(instant);
         let top_problems = self.top_problems(member, time);
@@ -141,11 +166,13 @@ impl Family {
             let mut decision_entries = CDict::<ResourceId, DecisionResourceEntry>::new();
 
             for (resource, graveness) in top_problems {
-                println!(
-                    "Member #{}: {} = {}",
-                    member.0,
-                    r_info(resource).0,
-                    graveness
+                self.log.push_str(
+                    format!(
+                        "Member #{}: {} = {}\n",
+                        member.0,
+                        r_info(resource).0,
+                        graveness
+                    ).as_str(),
                 );
                 let maybe_offer = if r_properties(resource).supplier_shared {
                     self.used_offers.get(resource)
@@ -154,12 +181,20 @@ impl Family {
                 };
 
                 let initial_counter = if let Some(&offer) = maybe_offer {
-                    println!("Using favorite offer {:?}", offer._raw_id);
+                    self.log.push_str(
+                        format!(
+                            "Using favorite offer {:?} for {}\n",
+                            offer._raw_id,
+                            r_info(resource).0
+                        ).as_str(),
+                    );
                     offer.evaluate(instant, location, self.id.into(), world);
 
                     AsyncCounter::with_target(1)
                 } else {
-                    println!("Doing market query for {}", r_info(resource).0);
+                    self.log.push_str(
+                        format!("Doing market query for {}\n", r_info(resource).0).as_str(),
+                    );
                     MarketID::global_first(world).search(
                         instant,
                         location,
@@ -194,7 +229,9 @@ enum ResultAspect {
 
 impl Family {
     fn update_results(&mut self, resource: ResourceId, update: ResultAspect, world: &mut World) {
-        let done = if let DecisionState::Choosing(_, instant, ref mut entries) = self.decision_state {
+        let done = if let DecisionState::Choosing(_, instant, ref mut entries) =
+            self.decision_state
+        {
             {
                 let entry = entries.get_mut(resource).expect(
                     "Should have an entry for queried resource",
@@ -203,7 +240,8 @@ impl Family {
                 match update {
                     ResultAspect::AddDeals(ref evaluated_deals) => {
                         for evaluated_deal in evaluated_deals {
-                            let new_deal_usefulness = deal_usefulness(evaluated_deal, TimeOfDay::from_instant(instant));
+                            let new_deal_usefulness =
+                                deal_usefulness(evaluated_deal, TimeOfDay::from_instant(instant));
                             if new_deal_usefulness > entry.best_deal_usefulness {
                                 entry.best_deal = COption(Some(evaluated_deal.clone()));
                                 entry.best_deal_usefulness = new_deal_usefulness;
@@ -222,7 +260,9 @@ impl Family {
                 |entry| entry.results_counter.is_done(),
             )
         } else {
-            println!("Received unexpected deal / should be choosing");
+            self.log.push_str(
+                "Received unexpected deal / should be choosing\n",
+            );
             false
         };
 
@@ -265,46 +305,60 @@ impl EvaluationRequester for Family {
 
 impl Family {
     pub fn choose_deal(&mut self, world: &mut World) {
-        println!("Choosing deal!");
-        let maybe_best_info =
-            if let DecisionState::Choosing(member, instant, ref entries) = self.decision_state {
-                let maybe_best = most_useful_evaluated_deal(entries);
+        self.log.push_str("Choosing deal!\n");
+        let maybe_best_info = if let DecisionState::Choosing(member, instant, ref entries) =
+            self.decision_state
+        {
+            let maybe_best = most_useful_evaluated_deal(entries);
 
-                if let Some(best) = maybe_best {
-                    let task = &mut self.member_tasks[member.0];
+            if let Some(best) = maybe_best {
+                let task = &mut self.member_tasks[member.0];
 
-                    *task = if let TaskState::IdleAt(location) = task.state {
-                        Task {
-                            goal: Some((best.deal.give.0, best.offer)),
-                            duration: best.deal.duration,
-                            state: TaskState::GettingReadyAt(location),
-                        }
-                    } else {
-                        panic!("Member who gets new task should be idle");
-                    };
-
-                    Some((member, instant, best.offer))
+                *task = if let TaskState::IdleAt(location) = task.state {
+                    Task {
+                        goal: Some((best.deal.give.0, best.offer)),
+                        duration: best.deal.duration,
+                        state: TaskState::GettingReadyAt(location),
+                    }
                 } else {
-                    None
-                }
+                    panic!("Member who gets new task should be idle");
+                };
+
+                self.log.push_str(
+                    format!("Found best offer for {}\n", r_info(best.deal.give.0).0).as_str(),
+                );
+
+                Some((member, instant, best.offer))
             } else {
-                panic!("Tried to choose deal while not deciding");
-            };
+                None
+            }
+        } else {
+            panic!("Tried to choose deal while not deciding");
+        };
         if let Some((member, instant, best_offer)) = maybe_best_info {
             self.decision_state = DecisionState::WaitingForTrip(member);
-            best_offer.get_receivable_deal(self.id.into(), member, world);
+            best_offer.request_receive_deal(self.id.into(), member, world);
             self.start_trip(member, instant, world);
         } else {
-            println!(
-                "{:?} didn't find any suitable offers at all",
-                self.id._raw_id
+            self.log.push_str(
+                format!(
+                    "{:?} didn't find any suitable offers at all\n",
+                    self.id._raw_id
+                ).as_str(),
             );
             self.decision_state = DecisionState::None;
             SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, self.id.into(), world);
         }
 
-        fn most_useful_evaluated_deal(entries: &CDict<ResourceId, DecisionResourceEntry>)->Option<EvaluatedDeal> {
-            entries.values().max_by_key(|decision_entry| OrderedFloat(decision_entry.best_deal_usefulness)).and_then(|best_entry| best_entry.best_deal.as_ref().cloned())
+        fn most_useful_evaluated_deal(
+            entries: &CDict<ResourceId, DecisionResourceEntry>,
+        ) -> Option<EvaluatedDeal> {
+            entries
+                .values()
+                .max_by_key(|decision_entry| {
+                    OrderedFloat(decision_entry.best_deal_usefulness)
+                })
+                .and_then(|best_entry| best_entry.best_deal.as_ref().cloned())
         }
     }
 
@@ -338,7 +392,9 @@ impl TripListener for Family {
     fn trip_result(
         &mut self,
         trip: TripID,
+        rough_source: RoughLocationID,
         location: RoughLocationID,
+        rough_destination: RoughLocationID,
         failed: bool,
         instant: Instant,
         world: &mut World,
@@ -388,6 +444,11 @@ impl TripListener for Family {
         }
 
         if failed {
+            self.log.push_str(format!("Trip of member #{} from {:?} to {:?} failed!\n", matching_task_member.0, rough_source, rough_destination).as_str());
+            
+            if let Some((_, offer)) = self.member_tasks[matching_task_member.0].goal {
+                offer.request_receive_undo_deal(self.id.into(), matching_task_member, world);
+            }
             self.stop_task(matching_task_member, location, world);
         } else {
             self.start_task(matching_task_member, instant, location, world);
@@ -403,7 +464,7 @@ impl Family {
         location: RoughLocationID,
         world: &mut World,
     ) {
-        println!("Started task");
+        self.log.push_str("Started task\n");
         TaskEndSchedulerID::local_first(world).schedule(
             start + self.member_tasks[member.0].duration,
             self.id.into(),
@@ -415,7 +476,7 @@ impl Family {
 
     pub fn stop_task(&mut self, member: MemberIdx, location: RoughLocationID, world: &mut World) {
         self.member_tasks[member.0].state = TaskState::IdleAt(location);
-        println!("Task stopped");
+        self.log.push_str("Task stopped\n");
         SimulationID::local_first(world).wake_up_in(Ticks(0), self.id.into(), world);
     }
 }
@@ -438,8 +499,19 @@ impl Household for Family {
         }
     }
 
-    fn provide_deal(&mut self, _deal: &Deal, _: &mut World) {
-        unimplemented!()
+    fn provide_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
+        let resource_deltas = deal.take
+            .iter()
+            .map(|&Entry(resource, amount)| (resource, amount))
+            .chain(Some((deal.give.0, -deal.give.1)));
+        for (resource, delta) in resource_deltas {
+            let resources = if r_properties(resource).ownership_shared {
+                &mut self.resources
+            } else {
+                &mut self.member_resources[member.0]
+            };
+            *resources.mut_entry_or(resource, 0.0) += delta;
+        }
     }
 
     fn decay(&mut self, dt: Duration, _: &mut World) {
@@ -462,7 +534,7 @@ impl Household for Family {
     }
 
     fn task_succeeded(&mut self, member: MemberIdx, world: &mut World) {
-        println!("Task succeeded");
+        self.log.push_str("Task succeeded\n");
         if let TaskState::StartedAt(_, location) = self.member_tasks[member.0].state {
             self.stop_task(member, location, world);
         } else {
@@ -537,6 +609,11 @@ impl Household for Family {
                             }
                         });
                     }
+                    ui.tree_node(im_str!("Log")).build(|| for line in self.log
+                        .lines()
+                    {
+                        ui.text(im_str!("{}", line));
+                    });
                 })
         });
 

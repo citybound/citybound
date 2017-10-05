@@ -28,7 +28,8 @@ impl Deal {
 #[derive(Compact, Clone)]
 pub struct Offer {
     id: OfferID,
-    by: HouseholdID,
+    offerer: HouseholdID,
+    offering_member: MemberIdx,
     location: RoughLocationID,
     from: TimeOfDay,
     to: TimeOfDay,
@@ -39,7 +40,8 @@ pub struct Offer {
 impl Offer {
     pub fn register(
         id: OfferID,
-        by: HouseholdID,
+        offerer: HouseholdID,
+        offering_member: MemberIdx,
         location: RoughLocationID,
         from: TimeOfDay,
         to: TimeOfDay,
@@ -50,7 +52,30 @@ impl Offer {
 
         Offer {
             id,
-            by,
+            offerer,
+            offering_member,
+            location,
+            from,
+            to,
+            deal: deal.clone(),
+            users: CVec::new(),
+        }
+    }
+
+    pub fn private(
+        id: OfferID,
+        offerer: HouseholdID,
+        offering_member: MemberIdx,
+        location: RoughLocationID,
+        from: TimeOfDay,
+        to: TimeOfDay,
+        deal: &Deal,
+        _: &mut World,
+    ) -> Offer {
+        Offer {
+            id,
+            offerer,
+            offering_member,
             location,
             from,
             to,
@@ -108,14 +133,32 @@ impl Offer {
         }
     }
 
-    pub fn get_receivable_deal(
+    pub fn request_receive_deal(
         &mut self,
         household: HouseholdID,
         member: MemberIdx,
         world: &mut World,
     ) {
-        self.by.provide_deal(self.deal.clone(), world);
+        self.offerer.provide_deal(
+            self.deal.clone(),
+            self.offering_member,
+            world,
+        );
         household.receive_deal(self.deal.clone(), member, world);
+    }
+
+    pub fn request_receive_undo_deal(
+        &mut self,
+        household: HouseholdID,
+        member: MemberIdx,
+        world: &mut World,
+    ) {
+        self.offerer.receive_deal(
+            self.deal.clone(),
+            self.offering_member,
+            world,
+        );
+        household.provide_deal(self.deal.clone(), member, world);
     }
 
     pub fn started_using(

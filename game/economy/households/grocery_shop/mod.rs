@@ -29,6 +29,7 @@ impl GroceryShop {
             resources: ResourceMap::new(),
             grocery_offer: OfferID::register(
                 id.into(),
+                MemberIdx(0),
                 site.into(),
                 TimeOfDay::new(7, 0),
                 TimeOfDay::new(20, 0),
@@ -41,6 +42,7 @@ impl GroceryShop {
             ),
             job_offer: OfferID::register(
                 id.into(),
+                MemberIdx(0),
                 site.into(),
                 TimeOfDay::new(7, 0),
                 TimeOfDay::new(20, 0),
@@ -52,11 +54,16 @@ impl GroceryShop {
 }
 
 impl Household for GroceryShop {
-    fn receive_deal(&mut self, _deal: &Deal, _member: MemberIdx, _: &mut World) {
-        unimplemented!()
+    fn receive_deal(&mut self, deal: &Deal, _member: MemberIdx, _: &mut World) {
+        let (resource, amount) = deal.give;
+        *self.resources.mut_entry_or(resource, 0.0) += amount;
+
+        for &Entry(resource, amount) in &*deal.take {
+            *self.resources.mut_entry_or(resource, 0.0) -= amount;
+        }
     }
 
-    fn provide_deal(&mut self, deal: &Deal, _: &mut World) {
+    fn provide_deal(&mut self, deal: &Deal, _member: MemberIdx, _: &mut World) {
         let (resource, amount) = deal.give;
         *self.resources.mut_entry_or(resource, 0.0) -= amount;
 
