@@ -14,6 +14,18 @@ impl From<Duration> for Ticks {
 pub struct Duration(pub usize);
 
 impl Duration {
+    pub fn from_seconds(seconds: usize) -> Self {
+        Duration(seconds)
+    }
+
+    pub fn from_minutes(minutes: usize) -> Self {
+        Self::from_seconds(60 * minutes)
+    }
+
+    pub fn from_hours(hours: usize) -> Self {
+        Self::from_minutes(60 * hours)
+    }
+
     pub fn as_seconds(&self) -> f32 {
         self.0 as f32
     }
