@@ -1,27 +1,36 @@
 use kay::{ActorSystem, Fate, World};
 use compact::{CVec, CDict};
-use super::resources::{ResourceMap, ResourceId, ResourceAmount};
+use super::resources::{Inventory, Entry, ResourceId, ResourceAmount, r_properties};
 use super::households::{HouseholdID, MemberIdx};
 use core::simulation::{TimeOfDay, Duration, Instant};
 
 #[derive(Compact, Clone)]
 pub struct Deal {
     pub duration: Duration,
-    pub take: ResourceMap<ResourceAmount>,
-    pub give: (ResourceId, ResourceAmount),
+    pub delta: Inventory,
 }
 
 impl Deal {
     pub fn new<T: IntoIterator<Item = (ResourceId, ResourceAmount)>>(
-        give: (ResourceId, ResourceAmount),
-        take: T,
+        delta: T,
         duration: Duration,
     ) -> Self {
         Deal {
             duration,
-            give,
-            take: take.into_iter().collect(),
+            delta: delta.into_iter().collect(),
         }
+    }
+
+    pub fn main_given(&self) -> ResourceId {
+        self.delta
+            .iter()
+            .filter_map(|&Entry(resource, amount)| if amount > 0.0 {
+                Some(resource)
+            } else {
+                None
+            })
+            .next()
+            .unwrap()
     }
 }
 
@@ -48,7 +57,7 @@ impl Offer {
         deal: &Deal,
         world: &mut World,
     ) -> Offer {
-        MarketID::global_first(world).register(deal.give.0, id, world);
+        MarketID::global_first(world).register(deal.main_given(), id, world);
 
         Offer {
             id,
@@ -88,7 +97,7 @@ impl Offer {
     // to prevent offers being used while they're being withdrawn
     pub fn withdraw(&mut self, world: &mut World) {
         // TODO: notify users and wait for their confirmation as well
-        MarketID::global_first(world).withdraw(self.deal.give.0, self.id, world);
+        MarketID::global_first(world).withdraw(self.deal.main_given(), self.id, world);
     }
 
     pub fn withdrawal_confirmed(&mut self, _: &mut World) -> Fate {
@@ -104,7 +113,7 @@ impl Offer {
     ) {
         if TimeOfDay::from_instant(instant) < self.to {
             let search_result = EvaluatedSearchResult {
-                resource: self.deal.give.0,
+                resource: self.deal.main_given(),
                 evaluated_deals: vec![
                     EvaluatedDeal {
                         offer: self.id,
@@ -125,7 +134,7 @@ impl Offer {
         } else {
             requester.on_result(
                 EvaluatedSearchResult {
-                    resource: self.deal.give.0,
+                    resource: self.deal.main_given(),
                     evaluated_deals: CVec::new(),
                 },
                 world,

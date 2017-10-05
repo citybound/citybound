@@ -78,11 +78,10 @@ impl Family {
             home.into(),
             TimeOfDay::new(20, 0),
             TimeOfDay::new(9, 0),
-            Deal {
-                duration: Duration::from_hours(6),
-                give: (r_id("awakeness"), 18.0),
-                take: ResourceMap::new(),
-            },
+            Deal::new(
+                Some((r_id("awakeness"), 18.0)),
+                Duration::from_hours(6),
+            ),
             world,
         );
 
@@ -273,18 +272,16 @@ impl Family {
 }
 
 fn deal_usefulness(evaluated: &EvaluatedDeal, time: TimeOfDay) -> f32 {
-    let give_alleviation =
-        resource_graveness_helper(evaluated.deal.give.0, -evaluated.deal.give.1, time);
-    let take_graveness: f32 = evaluated
+    let improvement: f32 = evaluated
         .deal
-        .take
+        .delta
         .iter()
         .map(|&Entry(resource, amount)| {
-            resource_graveness_helper(resource, -amount, time)
+            resource_graveness_helper(resource, amount, time)
         })
         .sum();
 
-    give_alleviation / (take_graveness * evaluated.deal.duration.as_seconds())
+    improvement / evaluated.deal.duration.as_seconds()
 }
 
 
@@ -316,7 +313,7 @@ impl Family {
 
                 *task = if let TaskState::IdleAt(location) = task.state {
                     Task {
-                        goal: Some((best.deal.give.0, best.offer)),
+                        goal: Some((best.deal.main_given(), best.offer)),
                         duration: best.deal.duration,
                         state: TaskState::GettingReadyAt(location),
                     }
@@ -325,7 +322,7 @@ impl Family {
                 };
 
                 self.log.push_str(
-                    format!("Found best offer for {}\n", r_info(best.deal.give.0).0).as_str(),
+                    format!("Found best offer for {}\n", r_info(best.deal.main_given()).0).as_str(),
                 );
 
                 Some((member, instant, best.offer))
@@ -485,33 +482,11 @@ use economy::resources::{all_resource_ids, r_info, r_id};
 
 impl Household for Family {
     fn receive_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
-        let resource_deltas = deal.take
-            .iter()
-            .map(|&Entry(resource, amount)| (resource, -amount))
-            .chain(Some(deal.give));
-        for (resource, delta) in resource_deltas {
-            let resources = if r_properties(resource).ownership_shared {
-                &mut self.resources
-            } else {
-                &mut self.member_resources[member.0]
-            };
-            *resources.mut_entry_or(resource, 0.0) += delta;
-        }
+        deal.delta.give_to_shared_private(&mut self.resources, &mut self.member_resources[member.0]);
     }
 
     fn provide_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
-        let resource_deltas = deal.take
-            .iter()
-            .map(|&Entry(resource, amount)| (resource, amount))
-            .chain(Some((deal.give.0, -deal.give.1)));
-        for (resource, delta) in resource_deltas {
-            let resources = if r_properties(resource).ownership_shared {
-                &mut self.resources
-            } else {
-                &mut self.member_resources[member.0]
-            };
-            *resources.mut_entry_or(resource, 0.0) += delta;
-        }
+        deal.delta.take_from_shared_private(&mut self.resources, &mut self.member_resources[member.0]);
     }
 
     fn decay(&mut self, dt: Duration, _: &mut World) {

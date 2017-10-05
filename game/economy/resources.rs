@@ -198,3 +198,39 @@ impl<AssociatedValue: Compact> ::std::iter::FromIterator<(ResourceId, Associated
         ResourceMap { entries: iter.into_iter().map(|(r, v)| Entry(r, v)).collect() }
     }
 }
+
+pub type Inventory = ResourceMap<ResourceAmount>;
+
+impl Inventory {
+    pub fn give_to(&self, target: &mut Inventory) {
+        for &Entry(resource, delta) in self.iter() {
+            *(target.mut_entry_or(resource, 0.0)) += delta;
+        }
+    }
+
+    pub fn take_from(&self, target: &mut Inventory) {
+        for &Entry(resource, delta) in self.iter() {
+            *(target.mut_entry_or(resource, 0.0)) -= delta;
+        }
+    }
+
+    pub fn give_to_shared_private(&self, shared: &mut Inventory, private: &mut Inventory) {
+        for &Entry(resource, delta) in self.iter() {
+            if r_properties(resource).ownership_shared {
+                *(shared.mut_entry_or(resource, 0.0)) += delta;
+            } else {
+                *(private.mut_entry_or(resource, 0.0)) += delta;
+            }
+        }
+    }
+
+    pub fn take_from_shared_private(&self, shared: &mut Inventory, private: &mut Inventory) {
+        for &Entry(resource, delta) in self.iter() {
+            if r_properties(resource).ownership_shared {
+                *(shared.mut_entry_or(resource, 0.0)) -= delta;
+            } else {
+                *(private.mut_entry_or(resource, 0.0)) -= delta;
+            }
+        }
+    }
+}

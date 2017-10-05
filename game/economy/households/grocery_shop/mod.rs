@@ -34,8 +34,7 @@ impl GroceryShop {
                 TimeOfDay::new(7, 0),
                 TimeOfDay::new(20, 0),
                 Deal::new(
-                    (r_id("groceries"), 30.0),
-                    vec![(r_id("money"), 40.0)],
+                    vec![(r_id("groceries"), 30.0), (r_id("money"), -40.0)],
                     Duration(5 * 60),
                 ),
                 world,
@@ -46,7 +45,7 @@ impl GroceryShop {
                 site.into(),
                 TimeOfDay::new(7, 0),
                 TimeOfDay::new(20, 0),
-                Deal::new((r_id("money"), 50.0), None, Duration(5 * 60 * 60)),
+                Deal::new(Some((r_id("money"), 50.0)), Duration(5 * 60 * 60)),
                 world,
             ),
         }
@@ -55,21 +54,11 @@ impl GroceryShop {
 
 impl Household for GroceryShop {
     fn receive_deal(&mut self, deal: &Deal, _member: MemberIdx, _: &mut World) {
-        let (resource, amount) = deal.give;
-        *self.resources.mut_entry_or(resource, 0.0) += amount;
-
-        for &Entry(resource, amount) in &*deal.take {
-            *self.resources.mut_entry_or(resource, 0.0) -= amount;
-        }
+        deal.delta.give_to(&mut self.resources);
     }
 
     fn provide_deal(&mut self, deal: &Deal, _member: MemberIdx, _: &mut World) {
-        let (resource, amount) = deal.give;
-        *self.resources.mut_entry_or(resource, 0.0) -= amount;
-
-        for &Entry(resource, amount) in &*deal.take {
-            *self.resources.mut_entry_or(resource, 0.0) += amount;
-        }
+        deal.delta.take_from(&mut self.resources);
     }
 
     fn task_succeeded(&mut self, _member: MemberIdx, _: &mut World) {
