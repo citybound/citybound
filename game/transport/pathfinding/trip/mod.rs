@@ -20,6 +20,20 @@ pub struct Trip {
     listener: Option<TripListenerID>,
 }
 
+#[derive(Copy, Clone)]
+pub struct TripResult {
+    pub location_now: RoughLocationID,
+    pub instant: Instant,
+    pub fate: TripFate,
+}
+
+#[derive(Copy, Clone)]
+pub enum TripFate {
+    Success,
+    SourceOrDestinationNotResolvable,
+    NoRoute,
+}
+
 impl Trip {
     pub fn spawn(
         id: TripID,
@@ -45,40 +59,15 @@ impl Trip {
         }
     }
 
-    pub fn fail_at(
-        &mut self,
-        location: RoughLocationID,
-        instant: Instant,
-        world: &mut World,
-    ) -> Fate {
+    pub fn finish(&mut self, result: TripResult, world: &mut World) -> Fate {
         println!("Trip {:?} failed!", self.id);
 
         if let Some(listener) = self.listener {
             listener.trip_result(
                 self.id,
-                self.rough_source,
-                location,
-                self.rough_destination,
-                true,
-                instant,
-                world,
-            );
-        }
-
-        Fate::Die
-    }
-
-    pub fn succeed(&mut self, instant: Instant, world: &mut World) -> Fate {
-        println!("Trip {:?} succeeded!", self.id);
-
-        if let Some(listener) = self.listener {
-            listener.trip_result(
-                self.id,
+                result,
                 self.rough_source,
                 self.rough_destination,
-                self.rough_destination,
-                false,
-                instant,
                 world,
             );
         }
@@ -140,7 +129,14 @@ impl LocationRequester for Trip {
                 "{:?} is not a source/destination yet",
                 rough_location._raw_id
             );
-            self.id.fail_at(self.rough_source, instant, world);
+            self.id.finish(
+                TripResult {
+                    location_now: self.rough_source,
+                    instant,
+                    fate: TripFate::SourceOrDestinationNotResolvable,
+                },
+                world,
+            );
         }
     }
 }
@@ -154,11 +150,9 @@ pub trait TripListener {
     fn trip_result(
         &mut self,
         trip: TripID,
+        result: TripResult,
         rough_source: RoughLocationID,
-        location: RoughLocationID,
         rough_destination: RoughLocationID,
-        failed: bool,
-        instant: Instant,
         world: &mut World,
     );
 }

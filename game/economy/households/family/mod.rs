@@ -10,8 +10,8 @@ use economy::market::{Deal, MarketID, OfferID, EvaluatedDeal, EvaluationRequeste
                       MSG_EvaluationRequester_on_result, EvaluatedSearchResult};
 use economy::buildings::BuildingID;
 use economy::buildings::rendering::BuildingInspectorID;
-use transport::pathfinding::trip::{TripListenerID, MSG_TripListener_trip_created,
-                                   MSG_TripListener_trip_result};
+use transport::pathfinding::trip::{TripResult, TripFate, TripListenerID,
+                                   MSG_TripListener_trip_created, MSG_TripListener_trip_result};
 use transport::pathfinding::RoughLocationID;
 
 mod judgement_table;
@@ -238,7 +238,8 @@ impl Family {
                                     format!("Got eval'd deal for {}, {:?} -> {:?}\n",
                                         r_info(evaluated_deal.deal.main_given()).0,
                                         evaluated_deal.opening_hours.start.hours_minutes(),
-                                        evaluated_deal.opening_hours.end.hours_minutes(),).as_str());
+                                        evaluated_deal.opening_hours.end.hours_minutes(),).as_str(),
+                                );
                                 if evaluated_deal.opening_hours.contains(instant) {
                                     let new_deal_usefulness =
                                         deal_usefulness(evaluated_deal, TimeOfDay::from(instant));
@@ -393,11 +394,9 @@ impl TripListener for Family {
     fn trip_result(
         &mut self,
         trip: TripID,
+        result: TripResult,
         rough_source: RoughLocationID,
-        location: RoughLocationID,
         rough_destination: RoughLocationID,
-        failed: bool,
-        instant: Instant,
         world: &mut World,
     ) {
         let (matching_task_member, matching_resource, matching_offer) =
@@ -435,31 +434,43 @@ impl TripListener for Family {
                 None
             };
 
-            if failed {
-                used_offers.remove(matching_resource);
-                matching_offer.stopped_using(self.id.into(), maybe_member, world);
-            } else {
-                used_offers.insert(matching_resource, matching_offer);
-                matching_offer.started_using(self.id.into(), maybe_member, world);
+            match result.fate {
+                TripFate::Success => {
+                    used_offers.insert(matching_resource, matching_offer);
+                    matching_offer.started_using(self.id.into(), maybe_member, world);
+                }
+                _ => {
+                    used_offers.remove(matching_resource);
+                    matching_offer.stopped_using(self.id.into(), maybe_member, world);
+                }
             }
         }
 
-        if failed {
-            self.log.push_str(
-                format!(
-                    "Trip of member #{} from {:?} to {:?} failed!\n",
-                    matching_task_member.0,
-                    rough_source,
-                    rough_destination
-                ).as_str(),
-            );
-
-            if let Some((_, offer)) = self.member_tasks[matching_task_member.0].goal {
-                offer.request_receive_undo_deal(self.id.into(), matching_task_member, world);
+        match result.fate {
+            TripFate::Success => {
+                self.start_task(
+                    matching_task_member,
+                    result.instant,
+                    result.location_now,
+                    world,
+                );
             }
-            self.stop_task(matching_task_member, location, world);
-        } else {
-            self.start_task(matching_task_member, instant, location, world);
+            _ => {
+                self.log.push_str(
+                    format!(
+                        "Trip of member #{} from {:?} to {:?} failed!\n",
+                        matching_task_member.0,
+                        rough_source,
+                        rough_destination
+                    ).as_str(),
+                );
+
+                if let Some((_, offer)) = self.member_tasks[matching_task_member.0].goal {
+                    offer.request_receive_undo_deal(self.id.into(), matching_task_member, world);
+                }
+                self.stop_task(matching_task_member, result.location_now, world);
+
+            }
         }
     }
 }

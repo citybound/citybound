@@ -75,8 +75,8 @@ impl Obstacle {
     }
 }
 
-use super::pathfinding::trip::TripID;
-use super::pathfinding::{RoughLocationID, Node};
+use super::pathfinding::trip::{TripID, TripResult, TripFate};
+use super::pathfinding::Node;
 
 #[derive(Copy, Clone)]
 pub struct LaneCar {
@@ -225,9 +225,12 @@ impl LaneLike for Lane {
                 None => self.microtraffic.cars.push(routed_car),
             }
         } else {
-            car.trip.fail_at(
-                RoughLocationID { _raw_id: self.id._raw_id },
-                instant,
+            car.trip.finish(
+                TripResult {
+                    location_now: self.id.into(),
+                    instant,
+                    fate: TripFate::NoRoute,
+                },
                 world,
             );
         }
@@ -447,7 +450,14 @@ impl Simulatable for Lane {
                 let car = self.microtraffic.cars.remove(idx_to_remove);
                 // TODO: ugly: untyped ID shenanigans
                 if self.id._raw_id == car.destination.node._raw_id {
-                    car.trip.succeed(current_instant, world);
+                    car.trip.finish(
+                        TripResult {
+                            location_now: self.id.into(),
+                            instant: current_instant,
+                            fate: TripFate::Success,
+                        },
+                        world,
+                    );
                 } else {
                     next_lane.add_car(
                         car.offset_by(partner_start - start),
@@ -668,7 +678,14 @@ impl Simulatable for TransferLane {
                              car.transfer_acceleration > 0.0)
                     {
                         if car.destination.node == right.into() {
-                            car.trip.succeed(current_instant, world);
+                            car.trip.finish(
+                                TripResult {
+                                    location_now: right.into(),
+                                    instant: current_instant,
+                                    fate: TripFate::Success,
+                                },
+                                world,
+                            );
                         } else {
                             let right_as_lane: LaneLikeID = right.into();
                             right_as_lane.add_car(
@@ -690,7 +707,14 @@ impl Simulatable for TransferLane {
                                     car.transfer_acceleration <= 0.0)
                     {
                         if car.destination.node == left.into() {
-                            car.trip.succeed(current_instant, world);
+                            car.trip.finish(
+                                TripResult {
+                                    location_now: left.into(),
+                                    instant: current_instant,
+                                    fate: TripFate::Success,
+                                },
+                                world,
+                            );
                         } else {
                             let left_as_lane: LaneLikeID = left.into();
                             left_as_lane.add_car(
