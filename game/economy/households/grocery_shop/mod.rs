@@ -32,7 +32,7 @@ impl GroceryShop {
                 site.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
-                    vec![(r_id("groceries"), 30.0), (r_id("money"), -40.0)],
+                    vec![(r_id("groceries"), 30.0), (r_id("money"), -25.0)],
                     Duration(5 * 60),
                 ),
                 world,

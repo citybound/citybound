@@ -242,11 +242,21 @@ impl Family {
                                 );
                                 if evaluated_deal.opening_hours.contains(instant) {
                                     let new_deal_usefulness =
-                                        deal_usefulness(evaluated_deal, TimeOfDay::from(instant));
+                                        Self::deal_usefulness(&mut self.log, evaluated_deal, TimeOfDay::from(instant));
                                     if new_deal_usefulness > entry.best_deal_usefulness {
                                         entry.best_deal = COption(Some(evaluated_deal.clone()));
                                         entry.best_deal_usefulness = new_deal_usefulness;
+                                    } else {
+                                        self.log.push_str(
+                                            format!(
+                                                "Deal rejected, not more useful: {} vs {}\n",
+                                                new_deal_usefulness,
+                                                entry.best_deal_usefulness
+                                            ).as_str(),
+                                        );
                                     }
+                                } else {
+                                    self.log.push_str("Deal rejected: not open\n");
                                 }
                             }
 
@@ -272,19 +282,21 @@ impl Family {
             self.choose_deal(world);
         }
     }
-}
 
-fn deal_usefulness(evaluated: &EvaluatedDeal, time: TimeOfDay) -> f32 {
-    let improvement: f32 = evaluated
-        .deal
-        .delta
-        .iter()
-        .map(|&Entry(resource, amount)| {
-            resource_graveness_helper(resource, amount, time)
-        })
-        .sum();
+    fn deal_usefulness(log: &mut CString, evaluated: &EvaluatedDeal, time: TimeOfDay) -> f32 {
+        let improvement: f32 = evaluated
+            .deal
+            .delta
+            .iter()
+            .map(|&Entry(resource, amount)| {
+                let resource_improvement = resource_graveness_helper(resource, -amount, time);
+                log.push_str(format!("{} improves by {}\n", r_info(resource).0, resource_improvement).as_str());
+                resource_improvement
+            })
+            .sum();
 
-    improvement / evaluated.deal.duration.as_seconds()
+        improvement / evaluated.deal.duration.as_seconds()
+    }
 }
 
 
