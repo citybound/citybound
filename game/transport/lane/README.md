@@ -1,12 +1,13 @@
 # Road Lanes
 
-## Design Philosophy
+## Philosophy
 
 * The complex fabric of real road geometry goes beyond "streets" and "intersections", which at best can be understood as loose groups of related lanes `(emergence)` `(actual problem)`
 
 ## Design Decision
 
 * The atomic unit of road geometry in Citybound is the individual lane.
+* Roads and intersections are just collections of lanes `(emergence)` `(flexibility)`
 
 ## Implementation Philosophy
 

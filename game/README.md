@@ -4,11 +4,17 @@ This document gives a bird's-eye overview of what Citybound should become and wh
 
 **This is a living and open document, find out [how to contribute your suggestions](../CONTRIBUTING.md).**
 
-*Words in `(typewriter)` refer to reocurring central themes of Citybound.*
+## Notation Conventions
 
-*Links in ~~strike-thorugh~~ link to a document that hasn't been written yet.*
+* Words in `(typewriter)` refer to reocurring central themes of Citybound.
 
-## Design Philosophy
+* Links in ~~strike-thorugh~~ link to a document that hasn't been written yet.
+
+* Links followed by emoji question marks❓ refer to open questions with corresponding discussions/proposals
+
+# Citybound
+
+## Philosophy
 
 * A game about the beautiful, emergent complexity of real cities `(emergent complexity)`
 * A joyful balance between authoritative control and organic development `(city = organism)`
@@ -17,7 +23,7 @@ This document gives a bird's-eye overview of what Citybound should become and wh
 * Clear means to see patterns of behavior and consequences of one’s actions - in the small and in the large `(clarity)`
 * Planning & collaboration is the way humans work to achieve great things `(planning)` `(collaboration)`
 
-## Design Prior Art & Inspiration
+## Prior Art & Inspiration
 
 * [SimCity Series](https://en.wikipedia.org/wiki/SimCity)
 * [SimAnt](https://en.wikipedia.org/wiki/SimAnt)
@@ -25,7 +31,7 @@ This document gives a bird's-eye overview of what Citybound should become and wh
 * [Rollercoaster Tycoon Series](https://en.wikipedia.org/wiki/RollerCoaster_Tycoon)
 * [Factorio](https://en.wikipedia.org/wiki/Factorio)
 
-## Design Decisions
+## Decisions
 
 * Play in large continuous regions with several million inhabitants `(vastness)` `(multi-scale)`
 * Overlayed time-scales: Daily and yearly activities happen at a similar pace `(multi-scale)`
@@ -44,11 +50,16 @@ This document gives a bird's-eye overview of what Citybound should become and wh
 
 ## Parts
 
-* ~~[Engine](../engine/README.md)~~ & ~~[Simulation Core](core/README.md)~~ (30% alpha)
-* [Transport](transport/README.md) (20% alpha)
-* ~~[Economy](economy/README.md)~~ (5% alpha)
-* ~~[Construction](construction/README.md)~~ (20% alpha)
-* ~~[Environment](environment/README.md)~~ (0% alpha)
+* ~~[Engine](../engine/README.md)~~
+* Simulated World
+  * [Simulation Core](core/README.md) (30% alpha)
+  * [Transport](transport/README.md) (20% alpha)
+  * [Economy](economy/README.md) (5% alpha)
+  * ~~[Construction](construction/README.md)~~ (20% alpha)
+  * ~~[Environment](environment/README.md)~~ (0% alpha)
+* Player Interaction
+  * [Planning](planning/README.md) (20% alpha)
+  * [Governance](governance/README.md) (0% alpha)
 
 ## Gameplay & Skills
 
