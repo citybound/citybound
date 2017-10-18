@@ -103,7 +103,9 @@ fn main() {
 
         system.process_all_messages();
 
-        simulation.do_tick(world);
+        for _i in 0..20 {
+            simulation.do_tick(world);
+        }
 
         system.process_all_messages();
 
