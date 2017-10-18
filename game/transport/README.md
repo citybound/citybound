@@ -39,11 +39,11 @@
    * [Road Planning](planning/README.md) (40% alpha)
 * Construction
    * [Road Construction](construction/README.md) (50% alpha)
+* [Trips & Pathfinding](pathfinding/README.md)
 * Traffic
    * Pedestrian Traffic (0% alpha)
    * Road Traffic (50% alpha)
       * [Road Lanes](lane/README.md) & [Car Microtraffic](microtraffic/README.md)
-      * [Car Trips & Pathfinding](pathfinding/README.md)
       * ~~[Rendering](rendering/README.md)~~
    * Rail Traffic (0% alpha)
    * Water Traffic (0% beta)
