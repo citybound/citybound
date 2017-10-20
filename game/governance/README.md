@@ -1,8 +1,8 @@
 # Governance
 
-## Philosophy
-
 ## Prior Art & Inspiration
+
+## Philosophy
 
 ## Decisions
 

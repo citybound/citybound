@@ -1,16 +1,16 @@
 # Planning
 
+## Prior Art & Inspiration
+
+* Code version control systems and file difference visualizers
+* Blueprints/ghost parts in Factorio
+
 ## Philosophy
 
 * In reality it is not only physically impossible to instantaneously build infrastructure, but there are good reasons why planning is employed before even deciding what to build `(planning)`
   * Plans are easy to revise and iterate on, changing existing structure is extremely costly
   * You can start planning something even when you do not have the permission or resources to implement the plan yet. In fact, you might need to have a plan to show in order to acquire the necessary permission and resources
   * Planning should be as flexible and forgiving as possible
-
-## Prior Art & Inspiration
-
-* Code version control systems and file difference visualizers
-* Blueprints/ghost parts in Factorio
 
 ## Decisions
 

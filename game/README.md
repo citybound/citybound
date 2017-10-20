@@ -14,6 +14,14 @@ This document gives a bird's-eye overview of what Citybound should become and wh
 
 # Citybound
 
+## Prior Art & Inspiration
+
+* [SimCity Series](https://en.wikipedia.org/wiki/SimCity)
+* [SimAnt](https://en.wikipedia.org/wiki/SimAnt)
+* [A-Train (Take the A-Train III)](https://en.wikipedia.org/wiki/A-Train#A-Train_III)
+* [Rollercoaster Tycoon Series](https://en.wikipedia.org/wiki/RollerCoaster_Tycoon)
+* [Factorio](https://en.wikipedia.org/wiki/Factorio)
+
 ## Philosophy
 
 * A game about the beautiful, emergent complexity of real cities `(emergent complexity)`
@@ -22,14 +30,6 @@ This document gives a bird's-eye overview of what Citybound should become and wh
 * Interaction through powerful but simple tools with haptic qualities `(painting a world)`
 * Clear means to see patterns of behavior and consequences of one’s actions - in the small and in the large `(clarity)`
 * Planning & collaboration is the way humans work to achieve great things `(planning)` `(collaboration)`
-
-## Prior Art & Inspiration
-
-* [SimCity Series](https://en.wikipedia.org/wiki/SimCity)
-* [SimAnt](https://en.wikipedia.org/wiki/SimAnt)
-* [A-Train (Take the A-Train III)](https://en.wikipedia.org/wiki/A-Train#A-Train_III)
-* [Rollercoaster Tycoon Series](https://en.wikipedia.org/wiki/RollerCoaster_Tycoon)
-* [Factorio](https://en.wikipedia.org/wiki/Factorio)
 
 ## Decisions
 
@@ -54,7 +54,7 @@ This document gives a bird's-eye overview of what Citybound should become and wh
 * Simulated World
   * [Simulation Core](core/README.md) (30% alpha)
   * [Transport](transport/README.md) (20% alpha)
-  * [Economy](economy/README.md) (5% alpha)
+  * [Economy & Household Behaviour](economy/README.md) (5% alpha)
   * ~~[Construction](construction/README.md)~~ (20% alpha)
   * ~~[Environment](environment/README.md)~~ (0% alpha)
 * Player Interaction

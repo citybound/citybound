@@ -1,8 +1,8 @@
 # Environment
 
-## Philosophy
-
 ## Prior Art & Inspiration
+
+## Philosophy
 
 ## Decisions
 
