@@ -47,7 +47,7 @@ use economy::households::tasks::TaskEndSchedulerID;
 use economy::buildings::rendering::BuildingRendererID;
 
 fn main() {
-    let dummy_thread = ::std::thread::Builder::new().stack_size(32 * 1024 * 1024).spawn(move || {
+    core::init::ensure_crossplatform_proper_thread(|| {
         core::init::first_time_open_wiki_release_page();
 
         let mut system = Box::new(kay::ActorSystem::new(
@@ -71,7 +71,8 @@ fn main() {
             LaneRendererID::global_broadcast(world).into(),
             GrouperID::global_broadcast(world).into(),
             CurrentPlanID::global_broadcast(world).into(),
-            BuildingRendererID::global_broadcast(&mut system.world()).into(),
+            BuildingRendererID::global_broadcast(&mut system.world())
+                .into(),
         ].into();
 
         let machine_id = system.networking_machine_id();
@@ -121,7 +122,5 @@ fn main() {
 
             system.networking_finish_turn();
         }
-    }).unwrap();
-
-    dummy_thread.join().unwrap();
+    });
 }

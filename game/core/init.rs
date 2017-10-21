@@ -7,6 +7,22 @@ use std::any::Any;
 use std::net::SocketAddr;
 use std::time::Instant;
 
+pub fn ensure_crossplatform_proper_thread<F: Fn() -> () + Send + 'static>(callback: F) {
+    // Makes sure that:
+    // a) on Windows we use a dummy thread with manually set stack size
+    // b) on Mac/Linux we use the main thread, because we have to create the UI there
+
+    if cfg!(windows) {
+        let dummy_thread = ::std::thread::Builder::new()
+            .stack_size(32 * 1024 * 1024)
+            .spawn(callback)
+            .unwrap();
+        dummy_thread.join().unwrap();
+    } else {
+        callback();
+    }
+}
+
 pub fn first_time_open_wiki_release_page() {
     let mut dir = ::std::env::temp_dir();
     dir.push("cb_seen_wiki.txt");
