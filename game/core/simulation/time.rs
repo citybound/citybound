@@ -215,6 +215,10 @@ impl TimeOfDayRange {
     }
 
     pub fn end_after_on_same_day(&self, time: TimeOfDay) -> bool {
-        time < self.end
+        if self.end > self.start {
+            time < self.end
+        } else {
+            time > self.start || time < self.end
+        }
     }
 }

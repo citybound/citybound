@@ -1,5 +1,6 @@
 use compact::{CDict, CVec, CHashMap};
 use kay::{ActorSystem, World};
+use descartes::{P2, FiniteCurve};
 use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
 use core::simulation::Instant;
@@ -423,6 +424,19 @@ impl RoughLocation for Lane {
     ) {
         requester.location_resolved(rough_location, self.pathfinding.location, instant, world);
     }
+
+    fn resolve_as_position(
+        &mut self,
+        requester: PositionRequesterID,
+        rough_location: RoughLocationID,
+        world: &mut World,
+    ) {
+        requester.position_resolved(
+            rough_location,
+            self.construction.path.along(self.construction.length / 2.0),
+            world,
+        );
+    }
 }
 
 impl Node for TransferLane {
@@ -507,6 +521,13 @@ pub trait RoughLocation {
         instant: Instant,
         world: &mut World,
     );
+
+    fn resolve_as_position(
+        &mut self,
+        requester: PositionRequesterID,
+        rough_location: RoughLocationID,
+        world: &mut World,
+    );
 }
 
 pub trait LocationRequester {
@@ -515,6 +536,15 @@ pub trait LocationRequester {
         rough_location: RoughLocationID,
         location: Option<Location>,
         instant: Instant,
+        world: &mut World,
+    );
+}
+
+pub trait PositionRequester {
+    fn position_resolved(
+        &mut self,
+        rough_location: RoughLocationID,
+        position: P2,
         world: &mut World,
     );
 }

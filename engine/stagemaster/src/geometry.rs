@@ -179,11 +179,16 @@ pub static mut DEBUG_RENDERER: Option<RendererID> = None;
 
 use kay::World;
 
+pub fn add_debug_line(from: P2, to: P2, color: [f32; 3], z: f32, world: &mut World) {
+    let path = CPath::new(vec![Segment::line(from, to)]);
+    add_debug_path(path, color, z, world);
+}
+
 pub fn add_debug_path(path: CPath, color: [f32; 3], z: f32, world: &mut World) {
     if let Some(renderer) = unsafe { DEBUG_RENDERER } {
         renderer.update_individual(
             0,
-            12_000 + unsafe { LAST_DEBUG_THING },
+            50_000 + unsafe { LAST_DEBUG_THING },
             band_to_geometry(&Band::new(path, 0.2), z),
             Instance::with_color(color),
             true,
@@ -206,7 +211,7 @@ pub fn add_debug_point(point: P2, color: [f32; 3], z: f32, world: &mut World) {
         );
         renderer.update_individual(
             0,
-            12_000 + unsafe { LAST_DEBUG_THING },
+            50_000 + unsafe { LAST_DEBUG_THING },
             geometry,
             Instance::with_color(color),
             true,

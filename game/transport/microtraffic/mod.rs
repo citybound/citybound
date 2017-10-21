@@ -164,6 +164,21 @@ impl LaneLike for Lane {
         // TODO: horrible hack to encode it like this
         let car_forcibly_spawned = *car.as_obstacle.position < 0.0;
 
+        if let Some(self_as_location) = self.pathfinding.location {
+            if car.destination == self_as_location {
+                car.trip.finish(
+                    TripResult {
+                        location_now: self.id.into(),
+                        instant,
+                        fate: TripFate::Success,
+                    },
+                    world,
+                );
+
+                return;
+            }
+        }
+
         let maybe_next_hop_interaction =
             self.pathfinding
                 .routes
@@ -174,18 +189,18 @@ impl LaneLike for Lane {
                             .landmark_destination(),
                     )
                 })
-                .or_else(|| {
-                    println!("NO ROUTE!");
-                    if car_forcibly_spawned || self.pathfinding.routes.is_empty() {
-                        None
-                    } else {
-                        // pseudorandom, lol
-                        self.pathfinding.routes.values().nth(
-                            (car.velocity * 10000.0) as usize %
-                                self.pathfinding.routes.len(),
-                        )
-                    }
-                })
+                // .or_else(|| {
+                //     println!("NO ROUTE!");
+                //     if car_forcibly_spawned || self.pathfinding.routes.is_empty() {
+                //         None
+                //     } else {
+                //         // pseudorandom, lol
+                //         self.pathfinding.routes.values().nth(
+                //             (car.velocity * 10000.0) as usize %
+                //                 self.pathfinding.routes.len(),
+                //         )
+                //     }
+                // })
                 .map(|&RoutingInfo { outgoing_idx, .. }| outgoing_idx as usize);
 
         let spawn_possible = if car_forcibly_spawned {

@@ -60,7 +60,14 @@ impl Trip {
     }
 
     pub fn finish(&mut self, result: TripResult, world: &mut World) -> Fate {
-        println!("Trip {:?} failed!", self.id);
+        match result.fate {
+            TripFate::NoRoute |
+            TripFate::SourceOrDestinationNotResolvable => {
+                println!("Trip {:?} failed!", self.id);
+                FailedTripDebuggerID::spawn(self.rough_source, self.rough_destination, world);
+            }
+            _ => {}
+        }
 
         if let Some(listener) = self.listener {
             listener.trip_result(
@@ -222,9 +229,81 @@ impl Interactable3d for Lane {
     }
 }
 
+use super::{PositionRequester, PositionRequesterID, MSG_PositionRequester_position_resolved};
+use stagemaster::geometry::{add_debug_line, add_debug_point};
+use descartes::{P2, V2};
+
+#[derive(Compact, Clone)]
+pub struct FailedTripDebugger {
+    id: FailedTripDebuggerID,
+    rough_source: RoughLocationID,
+    source_position: Option<P2>,
+    rough_destination: RoughLocationID,
+    destination_position: Option<P2>,
+}
+
+impl FailedTripDebugger {
+    pub fn spawn(
+        id: FailedTripDebuggerID,
+        rough_source: RoughLocationID,
+        rough_destination: RoughLocationID,
+        world: &mut World,
+    ) -> Self {
+        rough_source.resolve_as_position(id.into(), rough_source, world);
+        rough_destination.resolve_as_position(id.into(), rough_destination, world);
+        FailedTripDebugger {
+            id,
+            rough_source,
+            source_position: None,
+            rough_destination,
+            destination_position: None,
+        }
+    }
+
+    pub fn done(&mut self, _: &mut World) -> ::kay::Fate {
+        ::kay::Fate::Die
+    }
+}
+
+impl PositionRequester for FailedTripDebugger {
+    fn position_resolved(
+        &mut self,
+        rough_location: RoughLocationID,
+        position: P2,
+        world: &mut World,
+    ) {
+        if rough_location == self.rough_source {
+            self.source_position = Some(position);
+        } else {
+            self.destination_position = Some(position);
+        }
+
+        if let (Some(source_position), Some(destination_position)) =
+            (self.source_position, self.destination_position)
+        {
+            println!(
+                "Drawing failed trip path {:?} - {:?}",
+                source_position,
+                destination_position
+            );
+            add_debug_point(source_position, [0.0, 0.0, 1.0], 0.0, world);
+            add_debug_point(destination_position, [1.0, 0.0, 0.0], 0.0, world);
+            add_debug_line(
+                source_position - V2::new(0.3, 0.3),
+                destination_position + V2::new(0.3, 0.3),
+                [1.0, 0.0, 0.0],
+                0.0,
+                world,
+            );
+            self.id.done(world);
+        }
+    }
+}
+
 pub fn setup(system: &mut ActorSystem, simulation: SimulationID) {
     system.register::<Trip>();
     system.register::<TripCreator>();
+    system.register::<FailedTripDebugger>();
     auto_setup(system);
 
     TripCreatorID::spawn(simulation, &mut system.world());

@@ -81,10 +81,8 @@ impl Family {
             world,
         );
 
-        let mut member_used_offers = vec![ResourceMap::new(); n_members];
-        for used_offers in &mut member_used_offers {
-            used_offers.insert(r_id("awakeness"), sleep_offer);
-        }
+        let mut used_offers = ResourceMap::new();
+        used_offers.insert(r_id("awakeness"), sleep_offer);
 
         Family {
             id,
@@ -94,8 +92,8 @@ impl Family {
             member_resources: vec![ResourceMap::new(); n_members].into(),
             member_tasks: vec![Task::idle_at(home.into()); n_members].into(),
             decision_state: DecisionState::None,
-            used_offers: ResourceMap::new(),
-            member_used_offers: member_used_offers.into(),
+            used_offers,
+            member_used_offers: vec![ResourceMap::new(); n_members].into(),
             log: CString::new(),
         }
     }
@@ -241,8 +239,11 @@ impl Family {
                                         evaluated_deal.opening_hours.end.hours_minutes(),).as_str(),
                                 );
                                 if evaluated_deal.opening_hours.contains(instant) {
-                                    let new_deal_usefulness =
-                                        Self::deal_usefulness(&mut self.log, evaluated_deal, TimeOfDay::from(instant));
+                                    let new_deal_usefulness = Self::deal_usefulness(
+                                        &mut self.log,
+                                        evaluated_deal,
+                                        TimeOfDay::from(instant),
+                                    );
                                     if new_deal_usefulness > entry.best_deal_usefulness {
                                         entry.best_deal = COption(Some(evaluated_deal.clone()));
                                         entry.best_deal_usefulness = new_deal_usefulness;
@@ -290,7 +291,13 @@ impl Family {
             .iter()
             .map(|&Entry(resource, amount)| {
                 let resource_improvement = resource_graveness_helper(resource, -amount, time);
-                log.push_str(format!("{} improves by {}\n", r_info(resource).0, resource_improvement).as_str());
+                log.push_str(
+                    format!(
+                        "{} improves by {}\n",
+                        r_info(resource).0,
+                        resource_improvement
+                    ).as_str(),
+                );
                 resource_improvement
             })
             .sum();

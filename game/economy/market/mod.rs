@@ -189,8 +189,9 @@ impl Offer {
 }
 
 use transport::pathfinding::{RoughLocation, RoughLocationID,
-                             MSG_RoughLocation_resolve_as_location, LocationRequesterID,
-                             MSG_LocationRequester_location_resolved};
+                             MSG_RoughLocation_resolve_as_location,
+                             MSG_RoughLocation_resolve_as_position, LocationRequesterID,
+                             PositionRequesterID, MSG_LocationRequester_location_resolved};
 
 impl RoughLocation for Offer {
     fn resolve_as_location(
@@ -204,6 +205,19 @@ impl RoughLocation for Offer {
             requester,
             rough_location,
             instant,
+            world,
+        );
+    }
+
+    fn resolve_as_position(
+        &mut self,
+        requester: PositionRequesterID,
+        rough_location: RoughLocationID,
+        world: &mut World,
+    ) {
+        self.location.resolve_as_position(
+            requester,
+            rough_location,
             world,
         );
     }
@@ -244,8 +258,6 @@ impl Market {
         } else {
             0
         };
-
-        println!("{} offers for {}", n_to_expect, r_info(resource).0);
 
         requester.expect_n_results(resource, n_to_expect, world);
     }

@@ -598,6 +598,10 @@ pub fn setup(
         &mut system.world(),
     );
 
+    unsafe {
+        super::geometry::DEBUG_RENDERER = Some(renderer_id);
+    }
+
     let ui_id = UserInterfaceID::spawn(
         External::new(window),
         External::new(events_loop),

@@ -19,13 +19,22 @@ pub struct Building {
     lot: Lot,
 }
 
+use stagemaster::geometry::add_debug_line;
+
 impl Building {
     pub fn spawn(
         id: BuildingID,
         households: &CVec<HouseholdID>,
         lot: &Lot,
-        _: &mut World,
+        world: &mut World,
     ) -> Building {
+        add_debug_line(
+            lot.position,
+            lot.adjacent_lane_position,
+            [0.5, 0.5, 0.5],
+            0.0,
+            world,
+        );
         Building {
             id,
             households: households.clone(),
@@ -42,8 +51,9 @@ impl Building {
     }
 }
 
-use transport::pathfinding::{RoughLocation, LocationRequesterID, RoughLocationID,
-                             MSG_RoughLocation_resolve_as_location};
+use transport::pathfinding::{RoughLocation, LocationRequesterID, PositionRequesterID,
+                             RoughLocationID, MSG_RoughLocation_resolve_as_location,
+                             MSG_RoughLocation_resolve_as_position};
 use core::simulation::Instant;
 
 impl RoughLocation for Building {
@@ -57,6 +67,15 @@ impl RoughLocation for Building {
         Into::<RoughLocationID>::into(self.lot.adjacent_lane)
             .resolve_as_location(requester, rough_location, instant, world)
     }
+
+    fn resolve_as_position(
+        &mut self,
+        requester: PositionRequesterID,
+        rough_location: RoughLocationID,
+        world: &mut World,
+    ) {
+        requester.position_resolved(rough_location, self.lot.position, world)
+    }
 }
 
 #[derive(Compact, Clone)]
@@ -64,6 +83,7 @@ pub struct Lot {
     pub position: P2,
     pub orientation: V2,
     pub adjacent_lane: LaneID,
+    pub adjacent_lane_position: P2,
 }
 
 #[derive(Serialize, Deserialize)]

@@ -364,6 +364,7 @@ impl Lane {
                     position,
                     orientation,
                     adjacent_lane: self.id,
+                    adjacent_lane_position: path.along(distance),
                 },
                 world,
             );
