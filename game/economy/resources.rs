@@ -195,7 +195,11 @@ impl<AssociatedValue: Compact> ::std::ops::Deref for ResourceMap<AssociatedValue
 impl<AssociatedValue: Compact> ::std::iter::FromIterator<(ResourceId, AssociatedValue)>
     for ResourceMap<AssociatedValue> {
     fn from_iter<T: IntoIterator<Item = (ResourceId, AssociatedValue)>>(iter: T) -> Self {
-        ResourceMap { entries: iter.into_iter().map(|(r, v)| Entry(r, v)).collect() }
+        let mut map = Self::new();
+        for (resource, value) in iter {
+            map.insert(resource, value);
+        }
+        map
     }
 }
 

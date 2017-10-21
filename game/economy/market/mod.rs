@@ -234,8 +234,6 @@ pub struct Market {
     offers_by_resource: CDict<ResourceId, CVec<OfferID>>,
 }
 
-use economy::resources::r_info;
-
 impl Market {
     pub fn spawn(id: MarketID, _: &mut World) -> Market {
         Market { id, offers_by_resource: CDict::new() }

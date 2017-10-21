@@ -34,7 +34,7 @@ struct DecisionResourceEntry {
 #[derive(Compact, Clone)]
 enum DecisionState {
     None,
-    Choosing(MemberIdx, Instant, CDict<ResourceId, DecisionResourceEntry>),
+    Choosing(MemberIdx, Instant, CVec<(ResourceId, f32)>, CDict<ResourceId, DecisionResourceEntry>),
     WaitingForTrip(MemberIdx),
 }
 
@@ -158,7 +158,7 @@ impl Family {
         } else {
             let mut decision_entries = CDict::<ResourceId, DecisionResourceEntry>::new();
 
-            for (resource, graveness) in top_problems {
+            for &(resource, graveness) in &top_problems {
                 self.log.push_str(
                     format!(
                         "Member #{}: {} = {}",
@@ -209,7 +209,8 @@ impl Family {
                 );
             }
 
-            self.decision_state = DecisionState::Choosing(member, instant, decision_entries);
+            self.decision_state =
+                DecisionState::Choosing(member, instant, top_problems.into(), decision_entries);
         }
     }
 }
@@ -223,7 +224,9 @@ enum ResultAspect {
 impl Family {
     fn update_results(&mut self, resource: ResourceId, update: ResultAspect, world: &mut World) {
         let done =
-            if let DecisionState::Choosing(_, instant, ref mut entries) = self.decision_state {
+            if let DecisionState::Choosing(_, instant, ref top_problems, ref mut entries) =
+                self.decision_state
+            {
                 {
                     let entry = entries.get_mut(resource).expect(
                         "Should have an entry for queried resource",
@@ -241,8 +244,8 @@ impl Family {
                                 if evaluated_deal.opening_hours.contains(instant) {
                                     let new_deal_usefulness = Self::deal_usefulness(
                                         &mut self.log,
+                                        top_problems,
                                         evaluated_deal,
-                                        TimeOfDay::from(instant),
                                     );
                                     if new_deal_usefulness > entry.best_deal_usefulness {
                                         entry.best_deal = COption(Some(evaluated_deal.clone()));
@@ -284,25 +287,49 @@ impl Family {
         }
     }
 
-    fn deal_usefulness(log: &mut CString, evaluated: &EvaluatedDeal, time: TimeOfDay) -> f32 {
-        let improvement: f32 = evaluated
-            .deal
-            .delta
+    fn deal_usefulness(
+        log: &mut CString,
+        top_problems: &[(ResourceId, f32)],
+        evaluated: &EvaluatedDeal,
+    ) -> f32 {
+        let resource_graveness_improvement: f32 = top_problems
             .iter()
-            .map(|&Entry(resource, amount)| {
-                let resource_improvement = resource_graveness_helper(resource, -amount, time);
+            .map(|&(resource, graveness)| {
+                let delta = evaluated.deal.delta.get(resource).cloned().unwrap_or(0.0);
+                let improvement_strength = delta * graveness;
                 log.push_str(
                     format!(
-                        "{} improves by {}\n",
+                        "{} ({}) improves by {} (graveness {}, delta: {:?})\n",
                         r_info(resource).0,
-                        resource_improvement
+                        resource.as_index(),
+                        improvement_strength,
+                        graveness,
+                        evaluated.deal.delta.get(resource)
                     ).as_str(),
                 );
-                resource_improvement
+                improvement_strength
             })
             .sum();
 
-        improvement / evaluated.deal.duration.as_seconds()
+
+        // let improvement: f32 = evaluated
+        //     .deal
+        //     .delta
+        //     .iter()
+        //     .map(|&Entry(resource, amount)| {
+        //         let resource_improvement = resource_graveness_helper(resource, -amount, time);
+        //         log.push_str(
+        //             format!(
+        //                 "{} improves by {}\n",
+        //                 r_info(resource).0,
+        //                 resource_improvement
+        //             ).as_str(),
+        //         );
+        //         resource_improvement
+        //     })
+        //     .sum();
+
+        resource_graveness_improvement / evaluated.deal.duration.as_seconds()
     }
 }
 
@@ -326,7 +353,7 @@ impl Family {
     pub fn choose_deal(&mut self, world: &mut World) {
         self.log.push_str("Choosing deal!\n");
         let maybe_best_info =
-            if let DecisionState::Choosing(member, instant, ref entries) = self.decision_state {
+            if let DecisionState::Choosing(member, instant, _, ref entries) = self.decision_state {
                 let maybe_best = most_useful_evaluated_deal(entries);
 
                 if let Some(best) = maybe_best {
@@ -587,7 +614,7 @@ impl Household for Family {
                             "{}",
                             match self.decision_state {
                                 DecisionState::None => "None",
-                                DecisionState::Choosing(_, _, _) => "Waiting for choice",
+                                DecisionState::Choosing(_, _, _, _) => "Waiting for choice",
                                 DecisionState::WaitingForTrip(_) => "Waiting for trip",
                             }
                         ));
