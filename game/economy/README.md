@@ -40,7 +40,7 @@
 ## Parts
 
 * Households (20% alpha)
-    * ~~[Families]()~~
+    * [Families](./households/family)
     * ~~[Businesses]()~~
     * ~~[Neighboring Cities]()~~
 * Markets
