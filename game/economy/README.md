@@ -3,6 +3,7 @@
 ## Prior Art & Inspiration
 
 * [Prof. Philip Mirowski: Should Economists be Experts in Markets or Experts in "Human Nature"?](https://www.youtube.com/watch?v=xfbVPDNl7V4)
+* Roller Coaster Tycoon as the gold standard for individual, grouped, localised thoughts as a key tool to inform game decisions
 
 ## Philosophy
 
@@ -13,6 +14,13 @@
 * The real estate market is a huge factor in shaping a city
 * Not only the exchange of physical good influences the decisionmaking of households, but intagible phsychological, physiological, social metrics play an equally if not more important role
 * The vast majority of consumed resources and services depend on complex chains of earlier resources, these resource chains/trees are at the core of shaping industries, the required logistics and thus also a city
+* The character of a city is largely determined by the sum of its industries
+* The player is not supposed to manage supply/demand/resource chains, but to enable them to be as effective as possible, thorugh the means of infrastructure planning and zoning/governance
+* There is no central happiness metric, but only individual diverse motivations that vary both over time as well as from person to person - one can only get a rough overview of "how well someone is doing" by looking at all of them
+* Even though the amount of information presented in the game might go way beyond realisticly knowable things, this contrast in availabiltiy of information compared to the real world has an educational and almost call-to-action aspect to it
+* Following actual individuals mostly provides "story/worldbuildings", decisions are made based on aggregates?
+* Individuals act as a lens to see the game world from, other than the players birds-eye-view
+* Overall "macro" appearance of the city hints at general issues which might inspire you to investigate in detail
 
 ## Decisions
 * Actually model the real estate market with ownership and businesses, including city government ownership
@@ -38,3 +46,25 @@
 * Markets
     * ~~[Market for Goods]()~~
     * ~~[Real Estate Market]()~~
+    
+## Skills
+
+* "Building a city"
+  * "Observation & Inspection"
+    * "Inspecting Resource Chains"
+      * Godmode-style knowledge
+        * "Inspect all consumers of the products of a business"
+        * "Inspect all the source producers of input resources of a business"
+        * "Inspect the full journey/lifecycle of an end product, including becoming waste/..."
+        * "Business surplus/deficits per resource category"
+      * Realistic knowledge
+        * "Infer industry composition based on evident architectural styles"
+        * "Directly show all businesses of a precise resource category"
+        * "Infer bottlenecks/problems by showing all related "nodes" in the economic network of one particular business, including paths"
+        * "Infer causes of homelessness"
+        * "Learn from protests"
+        * "Learn from topical advisors" ?
+        * "Learn about a neighborhood by looking at it"
+  * "Planning"
+  * "Execution & Finances"
+
