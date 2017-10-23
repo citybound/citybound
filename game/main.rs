@@ -64,7 +64,7 @@ fn main() {
             TransferLaneID::local_broadcast(world).into(),
             FamilyID::local_broadcast(world).into(),
             TaskEndSchedulerID::local_first(world).into(),
-        ].into();
+        ];
         let simulation = core::simulation::setup(&mut system, simulatables);
 
         let renderables: CVec<_> = vec![

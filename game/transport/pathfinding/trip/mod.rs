@@ -9,6 +9,7 @@ use super::{RoughLocationID, LocationRequester, LocationRequesterID,
             MSG_LocationRequester_location_resolved};
 
 use itertools::Itertools;
+use super::super::lane::Lane;
 
 #[derive(Compact, Clone)]
 pub struct Trip {
@@ -299,9 +300,6 @@ pub fn setup(system: &mut ActorSystem, simulation: SimulationID) {
 
     TripCreatorID::spawn(simulation, &mut system.world());
 }
-
-use super::super::lane::Lane;
-use stagemaster::Event3d;
 
 mod kay_auto;
 pub use self::kay_auto::*;

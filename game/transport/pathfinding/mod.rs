@@ -563,11 +563,11 @@ impl Lane {
         }
     }
 
-    pub fn highlight_as_connected(&mut self, for_lane: LaneID, world: &mut World) {
+    pub fn highlight_as_connected(&mut self, for_lane: LaneID, _: &mut World) {
         self.pathfinding.debug_highlight_for.insert(for_lane, ());
     }
 
-    pub fn stop_highlight_as_connected(&mut self, for_lane: LaneID, world: &mut World) {
+    pub fn stop_highlight_as_connected(&mut self, for_lane: LaneID, _: &mut World) {
         self.pathfinding.debug_highlight_for.remove(for_lane);
     }
 }

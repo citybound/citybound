@@ -85,7 +85,7 @@ impl Lane {
         reply_needed: bool,
         world: &mut World,
     ) {
-        if other_id == self.id.into() {
+        if other_id == self.id {
             return;
         };
 
@@ -246,12 +246,7 @@ impl Lane {
 
 
             if reply_needed {
-                other_id.connect_overlaps(
-                    self.id.into(),
-                    self.construction.path.clone(),
-                    false,
-                    world,
-                );
+                other_id.connect_overlaps(self.id, self.construction.path.clone(), false, world);
             }
         });
     }

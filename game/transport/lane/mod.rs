@@ -21,6 +21,7 @@ pub struct Lane {
 }
 
 impl Lane {
+    #[allow(eq_op)]
     pub fn spawn(
         id: LaneID,
         path: &CPath,
