@@ -161,9 +161,6 @@ impl LaneLike for Lane {
         instant: Instant,
         world: &mut World,
     ) {
-        // TODO: horrible hack to encode it like this
-        let car_forcibly_spawned = *car.as_obstacle.position < 0.0;
-
         if let Some(self_as_location) = self.pathfinding.location {
             if car.destination == self_as_location {
                 car.trip.finish(
@@ -190,8 +187,7 @@ impl LaneLike for Lane {
                     )
                 })
                 // .or_else(|| {
-                //     println!("NO ROUTE!");
-                //     if car_forcibly_spawned || self.pathfinding.routes.is_empty() {
+                //     if self.pathfinding.routes.is_empty() {
                 //         None
                 //     } else {
                 //         // pseudorandom, lol
@@ -202,30 +198,9 @@ impl LaneLike for Lane {
                 //     }
                 // })
                 .map(|&RoutingInfo { outgoing_idx, .. }| outgoing_idx as usize);
-
-        let spawn_possible = if car_forcibly_spawned {
-            if self.last_spawn_position > 2.0 {
-                Some(true)
-            } else {
-                None
-            }
-        } else {
-            Some(true)
-        };
-
-        if let (Some(next_hop_interaction), Some(_)) =
-            (maybe_next_hop_interaction, spawn_possible)
-        {
+        if let Some(next_hop_interaction) = maybe_next_hop_interaction {
             let routed_car = LaneCar {
                 next_hop_interaction: next_hop_interaction as u8,
-                as_obstacle: if car_forcibly_spawned {
-                    self.last_spawn_position -= 6.0;
-                    car.as_obstacle
-                        .offset_by(-*car.as_obstacle.position)
-                        .offset_by(self.last_spawn_position + 6.0)
-                } else {
-                    car.as_obstacle
-                },
                 ..car
             };
 

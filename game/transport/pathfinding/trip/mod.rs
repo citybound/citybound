@@ -63,7 +63,14 @@ impl Trip {
         match result.fate {
             TripFate::NoRoute |
             TripFate::SourceOrDestinationNotResolvable => {
-                println!("Trip {:?} failed!", self.id);
+                println!(
+                    "Trip {:?} failed! {:?} ({:?}) -> {:?} ({:?})",
+                    self.id,
+                    self.rough_source,
+                    self.source,
+                    self.rough_destination,
+                    self.destination
+                );
                 FailedTripDebuggerID::spawn(self.rough_source, self.rough_destination, world);
             }
             _ => {}
@@ -118,7 +125,7 @@ impl LocationRequester for Trip {
                     LaneCar {
                         trip: self.id,
                         as_obstacle: Obstacle {
-                            position: OrderedFloat(-1.0),
+                            position: OrderedFloat(0.0),
                             velocity: 0.0,
                             max_velocity: 15.0,
                         },
@@ -268,11 +275,6 @@ impl PositionRequester for FailedTripDebugger {
         if let (Some(source_position), Some(destination_position)) =
             (self.source_position, self.destination_position)
         {
-            println!(
-                "Drawing failed trip path {:?} - {:?}",
-                source_position,
-                destination_position
-            );
             add_debug_point(source_position, [0.0, 0.0, 1.0], 0.0, world);
             add_debug_point(destination_position, [1.0, 0.0, 0.0], 0.0, world);
             add_debug_line(

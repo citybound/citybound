@@ -569,10 +569,6 @@ impl Lane {
 
     pub fn stop_highlight_as_connected(&mut self, for_lane: LaneID, world: &mut World) {
         self.pathfinding.debug_highlight_for.remove(for_lane);
-        println!(
-            "Removed highlight for, remaining: {}",
-            self.pathfinding.debug_highlight_for.len(),
-        );
     }
 }
 

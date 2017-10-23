@@ -1,6 +1,6 @@
 use compact::CVec;
 use kay::{ActorSystem, World};
-use descartes::{N, FiniteCurve, Band};
+use descartes::{N, Band};
 use stagemaster::geometry::{CPath, AnyShape};
 
 use super::construction::ConstructionInfo;
@@ -18,8 +18,6 @@ pub struct Lane {
     pub connectivity: ConnectivityInfo,
     pub microtraffic: Microtraffic,
     pub pathfinding: PathfindingInfo,
-    // TODO: get rid of this!!!
-    pub last_spawn_position: N,
 }
 
 impl Lane {
@@ -32,7 +30,6 @@ impl Lane {
     ) -> Self {
         let lane = Lane {
             id,
-            last_spawn_position: path.length() / 2.0,
             construction: ConstructionInfo::from_path(path.clone()),
             connectivity: ConnectivityInfo::new(on_intersection),
             microtraffic: Microtraffic::new(timings.clone()),
@@ -131,14 +128,8 @@ impl TransferLane {
 impl Interactable3d for Lane {
     fn on_event(&mut self, event: Event3d, world: &mut World) {
         match event {
-            Event3d::HoverStarted { .. } => {
-                println!("Started hovering {:?}", self.id);
-                self.start_debug_connectivity(world)
-            }
-            Event3d::HoverStopped { .. } => {
-                println!("Stopped hovering {:?}", self.id);
-                self.stop_debug_connectivity(world)
-            }
+            Event3d::HoverStarted { .. } => self.start_debug_connectivity(world),
+            Event3d::HoverStopped { .. } => self.stop_debug_connectivity(world),
             Event3d::DragFinished { .. } => self.manually_spawn_car_add_lane(world),
             _ => {}
         };
