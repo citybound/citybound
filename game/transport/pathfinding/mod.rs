@@ -540,7 +540,7 @@ pub trait DistanceRequester {
     fn on_distance(&mut self, maybe_distance: Option<f32>, world: &mut World);
 }
 
-pub const DEBUG_VIEW_CONNECTIVITY: bool = true;
+pub const DEBUG_VIEW_CONNECTIVITY: bool = false;
 
 impl Lane {
     pub fn start_debug_connectivity(&self, world: &mut World) {

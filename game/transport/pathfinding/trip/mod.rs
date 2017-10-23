@@ -214,6 +214,8 @@ impl Sleeper for TripCreator {
     }
 }
 
+pub const DEBUG_MANUALLY_SPAWN_CARS: bool = false;
+
 impl Lane {
     pub fn manually_spawn_car_add_lane(&self, world: &mut World) {
         if !self.connectivity.on_intersection {

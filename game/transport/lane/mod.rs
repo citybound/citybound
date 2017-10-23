@@ -37,12 +37,17 @@ impl Lane {
         };
 
         super::rendering::on_build(&lane, world);
-        UserInterfaceID::local_first(world).add(
-            id.into(),
-            AnyShape::Band(Band::new(path.clone(), 3.0)),
-            5,
-            world,
-        );
+
+        if super::pathfinding::DEBUG_VIEW_CONNECTIVITY ||
+            super::pathfinding::trip::DEBUG_MANUALLY_SPAWN_CARS
+        {
+            UserInterfaceID::local_first(world).add(
+                id.into(),
+                AnyShape::Band(Band::new(path.clone(), 3.0)),
+                5,
+                world,
+            );
+        }
 
         lane
     }
