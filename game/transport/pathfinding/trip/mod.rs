@@ -207,25 +207,12 @@ impl Sleeper for TripCreator {
     }
 }
 
-use stagemaster::{Interactable3d, Interactable3dID, MSG_Interactable3d_on_event};
-
-impl Interactable3d for Lane {
-    fn on_event(&mut self, event: Event3d, world: &mut World) {
-        match event {
-            Event3d::HoverStarted { .. } => {
-                self.hovered = true;
-            }
-            Event3d::HoverStopped { .. } => {
-                self.hovered = false;
-            }
-            Event3d::DragFinished { .. } => {
-                if !self.connectivity.on_intersection {
-                    // TODO: ugly/wrong
-                    TripCreatorID::local_first(world).add_lane_for_trip(self.id, world);
-                }
-            }
-            _ => {}
-        };
+impl Lane {
+    pub fn manually_spawn_car_add_lane(&self, world: &mut World) {
+        if !self.connectivity.on_intersection {
+            // TODO: ugly/wrong
+            TripCreatorID::local_first(world).add_lane_for_trip(self.id, world);
+        }
     }
 }
 

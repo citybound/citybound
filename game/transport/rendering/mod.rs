@@ -242,6 +242,47 @@ impl Renderable for Lane {
                 world,
             );
         }
+
+        use super::pathfinding::DEBUG_VIEW_CONNECTIVITY;
+
+        if DEBUG_VIEW_CONNECTIVITY {
+            if !self.pathfinding.debug_highlight_for.is_empty() {
+                let (random_color, is_landmark) =
+                    if let Some(location) = self.pathfinding.location {
+                        let random_color: [f32; 3] = ::core::colors::RANDOM_COLORS
+                            [location.landmark._raw_id.instance_id as usize %
+                            ::core::colors::RANDOM_COLORS.len()];
+                        (random_color, location.is_landmark())
+                    } else {
+                        ([1.0, 1.0, 1.0], false)
+                    };
+
+                let geometry = band_to_geometry(
+                    &Band::new(
+                        self.construction.path.clone(),
+                        if is_landmark { 2.5 } else { 1.0 },
+                    ),
+                    0.4,
+                );
+                renderer_id.update_individual(
+                    scene_id,
+                    40_000 + self.id._raw_id.instance_id as u16,
+                    geometry,
+                    Instance::with_color(random_color),
+                    true,
+                    world,
+                );
+            } else {
+                renderer_id.update_individual(
+                    scene_id,
+                    40_000 + self.id._raw_id.instance_id as u16,
+                    Geometry::new(vec![], vec![]),
+                    Instance::with_color([0.0, 0.0, 0.0]),
+                    true,
+                    world,
+                );
+            }
+        }
     }
 }
 

@@ -63,7 +63,10 @@ struct QuadraticProbingMutIterator<'a, K: 'a, V: 'a, A: 'a + Allocator = Default
 /// that can be stored in compact sequential storage and
 /// automatically spills over into free heap storage using `Allocator`.
 pub struct OpenAddressingMap<K, V, A: Allocator = DefaultHeap> {
-    size: usize,
+    // TODO: this seems to represent something else than actual number of items
+    //       figure out what and how it can be merged with len again
+    internal_size: usize,
+    len: usize,
     entries: CompactArray<Entry<K, V>, A>,
 }
 
@@ -511,18 +514,19 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     pub fn with_capacity(l: usize) -> Self {
         OpenAddressingMap {
             entries: CompactArray::with_capacity(Self::find_prime_larger_than(l)),
-            size: 0,
+            internal_size: 0,
+            len: 0,
         }
     }
 
     /// Amount of entries in the dictionary
     pub fn len(&self) -> usize {
-        self.size
+        self.len
     }
 
     /// Is the dictionary empty?
     pub fn is_empty(&self) -> bool {
-        self.size == 0
+        self.len == 0
     }
 
     /// Look up the value for key `query`, if it exists
@@ -588,7 +592,8 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     fn insert_inner(&mut self, query: K, value: V) -> Option<V> {
         let res = self.insert_inner_inner(query, value);
         if res.is_none() {
-            self.size += 1;
+            self.internal_size += 1;
+            self.len += 1;
         }
         res
     }
@@ -608,7 +613,11 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     fn remove_inner(&mut self, query: K) -> Option<V> {
         // remove inner does not alter the size because of tombstones
-        self.remove_inner_inner(query)
+        let old = self.remove_inner_inner(query);
+        if old.is_some() {
+            self.len -= 1;
+        }
+        old
     }
 
     fn remove_inner_inner(&mut self, query: K) -> Option<V> {
@@ -622,12 +631,12 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     }
 
     fn ensure_capacity(&mut self) {
-        if self.size > self.entries.capacity() / 2 {
+        if self.internal_size > self.entries.capacity() / 2 {
             let old_entries = self.entries.clone();
             self.entries = CompactArray::with_capacity(
                 Self::find_prime_larger_than(old_entries.capacity() * 2),
             );
-            self.size = 0;
+            self.internal_size = 0;
             for entry in old_entries {
                 if entry.alive() {
                     let tuple = entry.into_tuple();
@@ -670,8 +679,8 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     fn display(&self) -> String {
         let mut res = String::new();
-        writeln!(&mut res, "size: {:?}", self.size).unwrap();
-        let mut size_left: isize = self.size as isize;
+        writeln!(&mut res, "size: {:?}", self.internal_size).unwrap();
+        let mut size_left: isize = self.internal_size as isize;
         for entry in self.entries.iter() {
             if entry.used() {
                 size_left -= 1;
@@ -693,7 +702,8 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> Compact for OpenAddressingMa
     }
 
     default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
-        (*dest).size = (*source).size;
+        (*dest).internal_size = (*source).internal_size;
+        (*dest).len = (*source).len;
         Compact::compact(
             &mut (*source).entries,
             &mut (*dest).entries,
@@ -705,7 +715,8 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> Compact for OpenAddressingMa
     unsafe fn decompact(source: *const Self) -> OpenAddressingMap<K, V, A> {
         OpenAddressingMap {
             entries: Compact::decompact(&(*source).entries),
-            size: (*source).size,
+            internal_size: (*source).internal_size,
+            len: (*source).len,
         }
     }
 }
@@ -714,7 +725,8 @@ impl<K: Copy, V: Clone, A: Allocator> Clone for OpenAddressingMap<K, V, A> {
     fn clone(&self) -> Self {
         OpenAddressingMap {
             entries: self.entries.clone(),
-            size: self.size,
+            internal_size: self.internal_size,
+            len: self.len,
         }
     }
 }
@@ -746,7 +758,8 @@ impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator>
     /// Push a value onto the `CompactVec` at the key `query`
     pub fn push_at(&mut self, query: K, item: I) {
         if self.push_at_inner(query, item) {
-            self.size += 1;
+            self.internal_size += 1;
+            self.len += 1;
         }
     }
 
