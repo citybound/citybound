@@ -16,7 +16,7 @@
   * **The beauty of emergent complexity,** on the familiar example of a city `(emergent complexity)`
   * **The challenge of understanding interdependent systems that form a whole** `(interdependent systems)`
   * **The experience of having an idea, developing it, and making it real** `(planning)`
-  * The joyful balance between authoritative control and organic development `(city = organism)`
+  * **The interplay between conscious action and organic reaction** `(city = organism)`
 * Interaction through powerful but simple tools with haptic qualities `(painting a world)`
 * Clear means to see patterns of behavior and consequences of one’s actions - in the small and in the large `(clarity)`
 * Planning & collaboration is the way humans work to achieve great things `(planning)` `(collaboration)`
