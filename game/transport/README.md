@@ -7,11 +7,10 @@
 * Traffic shapes the city and the city shapes traffic `(interdependent systems)`
 * Traffic shapes lives and lives shape traffic `(interdependent systems)`
 * People and goods use a multitude/combinations of transport systems `(diverse individuals)`
-* Simulation goal: trips are successful often enough and efficient enough to power all economic transaction realistically
-* Aesthetic goal: movement patterns of pedestrians & vehicles evoke "exactly the right feeling" `(diverse individuals)` `(city = anthill)` `(vastness)` `(flows)`
+* Pedestrians & vehicles move "like different kinds of swarms/liquids" `(diverse individuals)` `(city = anthill)` `(vastness)` `(flows)`
     * individuals are the most visible when they are on the move
-    * crowds should look antsy, sprawling, colorful 
-    * cars can flow nicely but also get really pushy, different types/sizes of cars should have obviously different silhouettes and movement patterns
+    * crowds look antsy, sprawling, colorful 
+    * cars can flow nicely but also get really pushy, different types/sizes of cars have obviously different silhouettes and movement patterns
     * trains and boats are heavy and careful, they have impressive momentum
     * planes are graceful and precise but need a lot of space
 
@@ -26,6 +25,7 @@
 
 ## Implementation Philosophy
 
+* Simulation goal: trips are successful often enough and efficient enough to power all economic transaction realistically
 * All kinds of traffic are "vessels/bodies moving along the edges of a transport network graph"
 
 ## Implementation Decisions
