@@ -1,18 +1,6 @@
-# Citybound Design Doc
-
-This document gives a bird's-eye overview of what Citybound should become and why, how it will be implemented and all the different things that inspire it. It links to more in-depth documents about all the different aspects of Citybound.
+# Citybound
 
 **This is a living and open document, find out [how to contribute your suggestions](../CONTRIBUTING.md).**
-
-## Notation Conventions
-
-* Words in `(typewriter)` refer to reocurring central themes of Citybound.
-
-* Links in ~~strike-thorugh~~ link to a document that hasn't been written yet.
-
-* Links followed by emoji question marks❓ refer to open questions with corresponding discussions/proposals
-
-# Citybound
 
 ## Prior Art & Inspiration
 
