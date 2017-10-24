@@ -4,11 +4,14 @@
 
 ## Prior Art & Inspiration
 
-* [SimCity Series](https://en.wikipedia.org/wiki/SimCity)
-* [SimAnt](https://en.wikipedia.org/wiki/SimAnt)
-* [A-Train (Take the A-Train III)](https://en.wikipedia.org/wiki/A-Train#A-Train_III)
-* [Rollercoaster Tycoon Series](https://en.wikipedia.org/wiki/RollerCoaster_Tycoon)
-* [Factorio](https://en.wikipedia.org/wiki/Factorio)
+* Games
+  * [SimCity Series](https://en.wikipedia.org/wiki/SimCity)
+  * [SimAnt](https://en.wikipedia.org/wiki/SimAnt)
+  * [A-Train (Take the A-Train III)](https://en.wikipedia.org/wiki/A-Train#A-Train_III)
+  * [Rollercoaster Tycoon Series](https://en.wikipedia.org/wiki/RollerCoaster_Tycoon)
+  * [Factorio](https://en.wikipedia.org/wiki/Factorio)
+* Books/Ideas
+  * [A Pattern Language](https://en.wikipedia.org/wiki/A_Pattern_Language) (Christopher Alexander)
 
 ## Philosophy
 
