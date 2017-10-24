@@ -24,9 +24,9 @@ This document gives a bird's-eye overview of what Citybound should become and wh
 
 ## Philosophy
 
-* A game about the beautiful, emergent complexity of real cities `(emergent complexity)`
+* **A game about the beauty of emergent complexity**, on the familiar example of a city `(emergent complexity)`
+* **The challenge of understanding interdependent systems that form a whole** `(interdependent systems) `
 * A joyful balance between authoritative control and organic development `(city = organism)`
-* The challenge of understanding interdependent systems that form a whole `(interdependent systems) `
 * Interaction through powerful but simple tools with haptic qualities `(painting a world)`
 * Clear means to see patterns of behavior and consequences of one’s actions - in the small and in the large `(clarity)`
 * Planning & collaboration is the way humans work to achieve great things `(planning)` `(collaboration)`
