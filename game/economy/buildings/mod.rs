@@ -278,8 +278,26 @@ impl Sleeper for BuildingSpawner {
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct InitializeUI;
+#[derive(Compact, Clone, Default)]
+pub struct BuildingPlanResultDelta {
+    buildings_to_destroy: CVec<BuildingID>,
+}
+
+#[derive(Compact, Clone, Default)]
+pub struct MaterializedBuildings {
+    buildings: CVec<(P2, BuildingID, LaneID)>,
+}
+
+use transport::planning::road_plan::RoadPlanResultDelta;
+
+impl MaterializedBuildings {
+    pub fn delta_with_road_result_delta(
+        &self,
+        road_result_delta: &RoadPlanResultDelta,
+    ) -> BuildingPlanResultDelta {
+        unimplemented!()
+    }
+}
 
 use super::households::family::FamilyID;
 use super::households::grocery_shop::GroceryShopID;

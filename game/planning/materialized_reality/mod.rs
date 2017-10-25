@@ -7,16 +7,18 @@ use kay::{ActorSystem, World};
 use super::plan::{Plan, PlanDelta, PlanResult, PlanResultDelta};
 use super::current_plan::CurrentPlanID;
 use transport::planning::materialized_roads::{MaterializedRoads, RoadUpdateState};
+use economy::buildings::MaterializedBuildings;
 
 // TODO: a lot of this shouldn't be `pub` - all the different aspects should rather
 //       just define helper functions, instead of extending the `MaterializedReality` actor
 #[derive(Compact, Clone)]
 pub struct MaterializedReality {
-    pub id: MaterializedRealityID,
+    id: MaterializedRealityID,
     current_plan: Plan,
     current_result: PlanResult,
     pub state: MaterializedRealityState,
     pub roads: MaterializedRoads,
+    pub buildings: MaterializedBuildings,
 }
 
 #[allow(large_enum_variant)]
@@ -36,13 +38,14 @@ impl MaterializedReality {
             current_result: PlanResult::default(),
             state: MaterializedRealityState::Ready(()),
             roads: MaterializedRoads::default(),
+            buildings: MaterializedBuildings::default(),
         }
     }
 
     pub fn simulate(&mut self, requester: CurrentPlanID, delta: &PlanDelta, world: &mut World) {
         let new_plan = self.current_plan.with_delta(delta);
         let result = new_plan.get_result();
-        let result_delta = result.delta(&self.current_result);
+        let result_delta = result.delta(&self.current_result, &self.buildings);
         requester.on_simulation_result(result_delta, world);
     }
 
@@ -51,18 +54,18 @@ impl MaterializedReality {
             Updating(..) => panic!("Already applying a plan"),
             Ready(()) => {
                 let new_plan = self.current_plan.with_delta(delta);
-                    let new_result = new_plan.get_result();
-                    let result_delta = new_result.delta(&self.current_result);
+                let new_result = new_plan.get_result();
+                let result_delta = new_result.delta(&self.current_result, &self.buildings);
 
-                    let road_update_state = MaterializedRoads::start_applying_roads(self.id, &mut self.roads, &result_delta.roads, world);
+                let road_update_state = MaterializedRoads::start_applying_roads(self.id, &mut self.roads, &result_delta.roads, world);
 
-                    Updating(
-                        requester,
-                        new_plan,
-                        new_result,
-                        result_delta,
-                        road_update_state
-                    )
+                Updating(
+                    requester,
+                    new_plan,
+                    new_result,
+                    result_delta,
+                    road_update_state
+                )
             }
         };
 
@@ -92,6 +95,7 @@ impl MaterializedReality {
                         current_plan: new_plan.clone(),
                         current_result: new_result.clone(),
                         roads: new_roads,
+                        buildings: self.buildings.clone(),
                         state: Ready(()),
                     })
                 } else {
