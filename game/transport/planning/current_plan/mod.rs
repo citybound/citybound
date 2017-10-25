@@ -1,29 +1,15 @@
-use kay::{ActorSystem, World};
-use compact::{COption, CVec, CDict};
-use descartes::{V2, N, P2};
-use stagemaster::UserInterfaceID;
-use monet::RendererID;
-
-use super::super::construction::materialized_reality::MaterializedRealityID;
+use kay::ActorSystem;
+use compact::{CDict, CVec};
+use descartes::{N, P2, V2};
+use planning::current_plan::CurrentPlan;
 use super::lane_stroke::LaneStroke;
-use super::plan::{PlanDelta, PlanResultDelta, BuiltStrokes, LaneStrokeRef};
+use super::road_plan::{LaneStrokeRef, RoadPlanDelta};
+use super::materialized_roads::BuiltStrokes;
 
-mod apply_intent;
-use self::apply_intent::apply_intent;
-mod rendering;
-
-mod helper_interactables;
-use self::helper_interactables::StrokeState;
-
-mod interaction;
-use self::interaction::Interaction;
-
-#[derive(Compact, Clone, Default)]
-pub struct PlanStep {
-    plan_delta: PlanDelta,
-    selections: CDict<SelectableStrokeRef, (N, N)>,
-    intent: Intent,
-}
+pub mod apply_intent;
+pub mod interaction;
+pub mod rendering;
+pub mod helper_interactables;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum SelectableStrokeRef {
@@ -34,7 +20,7 @@ pub enum SelectableStrokeRef {
 impl SelectableStrokeRef {
     pub fn get_stroke<'a>(
         &self,
-        plan_delta: &'a PlanDelta,
+        plan_delta: &'a RoadPlanDelta,
         still_built_strokes: &'a BuiltStrokes,
     ) -> &'a LaneStroke {
         match *self {
@@ -48,6 +34,8 @@ impl SelectableStrokeRef {
     }
 }
 
+pub type RoadSelections = CDict<SelectableStrokeRef, (N, N)>;
+
 #[derive(Copy, Clone)]
 pub enum ContinuationMode {
     Append,
@@ -55,8 +43,7 @@ pub enum ContinuationMode {
 }
 
 #[derive(Compact, Clone)]
-pub enum Intent {
-    None,
+pub enum RoadIntent {
     NewRoad(CVec<P2>),
     ContinueRoad(CVec<(SelectableStrokeRef, ContinuationMode)>, CVec<P2>, P2),
     ContinueRoadAround(SelectableStrokeRef, ContinuationMode, P2),
@@ -68,31 +55,27 @@ pub enum Intent {
     CreateNextLane,
 }
 
-impl Default for Intent {
-    fn default() -> Self {
-        Intent::None
+impl RoadIntent {
+    pub fn commit_before_materialize(&self) -> bool {
+        match *self {
+            RoadIntent::ContinueRoad(..) |
+            RoadIntent::NewRoad(..) => true,
+            _ => false,
+        }
     }
 }
 
-#[derive(Copy, Clone)]
-pub enum IntentProgress {
-    Preview,
-    SubStep,
-    Finished,
-    Immediate,
-}
-
 #[derive(Compact, Clone)]
-pub struct Settings {
+pub struct RoadPlanSettings {
     n_lanes_per_side: usize,
     create_both_sides: bool,
     select_parallel: bool,
     select_opposite: bool,
 }
 
-impl Default for Settings {
+impl Default for RoadPlanSettings {
     fn default() -> Self {
-        Settings {
+        RoadPlanSettings {
             create_both_sides: true,
             n_lanes_per_side: 2,
             select_parallel: true,
@@ -101,287 +84,34 @@ impl Default for Settings {
     }
 }
 
-#[derive(Compact, Clone)]
-pub struct CurrentPlan {
-    id: CurrentPlanID,
-    materialized_reality: MaterializedRealityID,
-    built_strokes: COption<BuiltStrokes>,
-    undo_history: CVec<PlanStep>,
-    redo_history: CVec<PlanStep>,
-    current: PlanStep,
-    preview: COption<PlanStep>,
-    preview_rendered_in: CDict<RendererID, ()>,
-    preview_result_delta: COption<PlanResultDelta>,
-    preview_result_delta_rendered_in: CDict<RendererID, ()>,
-    interactables_valid: bool,
-    settings: Settings,
-    interaction: Interaction,
+#[derive(Compact, Clone, Default)]
+pub struct MaterializedRoadView {
+    pub built_strokes: BuiltStrokes,
 }
 
 impl CurrentPlan {
-    pub fn spawn(
-        id: CurrentPlanID,
-        user_interface: UserInterfaceID,
-        renderer_id: RendererID,
-        materialized_reality: MaterializedRealityID,
-        world: &mut World,
-    ) -> CurrentPlan {
-        // TODO: is there a nicer way to get initial built strokes?
-        materialized_reality.apply(id, PlanDelta::default(), world);
-
-        CurrentPlan {
-            id: id,
-            settings: Settings::default(),
-            materialized_reality,
-            interaction: Interaction::init(world, user_interface, renderer_id, id),
-            built_strokes: COption(None),
-            undo_history: CVec::new(),
-            redo_history: CVec::new(),
-            current: PlanStep::default(),
-            preview: COption(None),
-            preview_rendered_in: CDict::new(),
-            preview_result_delta: COption(None),
-            preview_result_delta_rendered_in: CDict::new(),
-            interactables_valid: false,
-        }
-    }
-}
-
-impl CurrentPlan {
-    fn still_built_strokes(&self) -> Option<BuiltStrokes> {
-        self.built_strokes.as_ref().map(|built_strokes| {
-            BuiltStrokes {
-                mapping: built_strokes
-                    .mapping
-                    .pairs()
-                    .filter_map(|(built_ref, stroke)| if self.current
-                        .plan_delta
-                        .strokes_to_destroy
-                        .contains_key(*built_ref)
-                    {
-                        None
-                    } else {
-                        Some((*built_ref, stroke.clone()))
-                    })
-                    .collect(),
-            }
-        })
-    }
-
-    fn invalidate_preview(&mut self) {
-        self.preview = COption(None);
-    }
-
-    fn update_preview(&mut self, world: &mut World) -> &PlanStep {
-        if self.preview.is_none() {
-            let preview = apply_intent(
-                &self.current,
-                self.still_built_strokes().as_ref(),
-                &self.settings,
-            );
-            self.materialized_reality.simulate(
-                self.id,
-                preview.plan_delta.clone(),
-                world,
-            );
-            self.preview = COption(Some(preview));
-        }
-        self.preview.as_ref().unwrap()
-    }
-
-    fn commit(&mut self) {
-        self.undo_history.push(self.current.clone());
-        self.redo_history.clear();
-        self.current = apply_intent(
-            &self.current,
-            self.still_built_strokes().as_ref(),
-            &self.settings,
-        );
-        self.invalidate_preview();
-        self.invalidate_interactables();
-    }
-
-    // just the Intent changed, not the PlanDelta or selections
-    fn commit_substep(&mut self) {
-        self.undo_history.push(self.current.clone());
-        self.redo_history.clear();
-        self.invalidate_preview();
-        self.invalidate_interactables();
-    }
-
-    // TODO: not really nice that this works differently
-    // (needed for proper history)
-    fn commit_immediate(&mut self) {
-        let mut history_current = self.current.clone();
-        history_current.intent = Intent::None;
-        self.undo_history.push(history_current);
-        self.redo_history.clear();
-        self.current = apply_intent(
-            &self.current,
-            self.still_built_strokes().as_ref(),
-            &self.settings,
-        );
-        self.invalidate_preview();
-        self.invalidate_interactables();
-    }
-}
-
-impl CurrentPlan {
-    pub fn undo(&mut self, world: &mut World) {
-        let previous_state = self.undo_history.pop().unwrap_or_default();
-        self.redo_history.push(self.current.clone());
-        self.current = previous_state;
-        self.interaction.stroke_canvas.set_points(
-            match self.current.intent {
-                Intent::ContinueRoad(_, ref points, _) |
-                Intent::NewRoad(ref points) => points.clone(),
-                _ => CVec::new(),
-            },
-            world,
-        );
-        self.invalidate_preview();
-        self.invalidate_interactables();
-    }
-
-    pub fn redo(&mut self, world: &mut World) {
-        if let Some(next_state) = self.redo_history.pop() {
-            self.undo_history.push(self.current.clone());
-            self.current = next_state;
-            self.interaction.stroke_canvas.set_points(
-                match self.current.intent {
-                    Intent::ContinueRoad(_, ref points, _) |
-                    Intent::NewRoad(ref points) => points.clone(),
-                    _ => CVec::new(),
-                },
-                world,
-            );
-            self.invalidate_preview();
-            self.invalidate_interactables();
-        }
-    }
-
-    pub fn change_intent(&mut self, intent: &Intent, progress: IntentProgress, _: &mut World) {
-        self.current.intent = intent.clone();
-        match progress {
-            IntentProgress::Preview => self.invalidate_preview(),
-            IntentProgress::SubStep => self.commit_substep(),
-            IntentProgress::Finished => self.commit(),
-            IntentProgress::Immediate => self.commit_immediate(),
-        }
-    }
-
-    pub fn on_stroke(&mut self, points: &CVec<P2>, state: StrokeState, _: &mut World) {
-        let maybe_new_intent = match self.current.intent {
-            Intent::ContinueRoad(ref continue_from, _, start_reference_point) => {
-                Some(Intent::ContinueRoad(
-                    continue_from.clone(),
-                    points.clone(),
-                    start_reference_point,
-                ))
-            }
-            _ => {
-                if points.len() >= 2 {
-                    self.invalidate_interactables();
-                    Some(Intent::NewRoad(points.clone()))
-                } else {
+    pub fn built_strokes_after_delta(&self) -> BuiltStrokes {
+        BuiltStrokes {
+            mapping: self.materialized_view
+                .built_strokes
+                .mapping
+                .pairs()
+                .filter_map(|(built_ref, stroke)| if self.current
+                    .plan_delta
+                    .roads
+                    .strokes_to_destroy
+                    .contains_key(*built_ref)
+                {
                     None
-                }
-            }
-        };
-        if let Some(new_intent) = maybe_new_intent {
-            self.current.intent = new_intent;
-            match state {
-                StrokeState::Preview => {
-                    self.invalidate_preview();
-                }
-                StrokeState::Intermediate => {
-                    self.commit_substep();
-                }
-                StrokeState::Finished => {
-                    self.commit();
-                }
-            }
-
+                } else {
+                    Some((*built_ref, stroke.clone()))
+                })
+                .collect(),
         }
-    }
-
-    pub fn set_n_lanes(&mut self, n_lanes: usize, _: &mut World) {
-        self.settings.n_lanes_per_side = n_lanes;
-        self.invalidate_preview();
-    }
-
-    pub fn toggle_both_sides(&mut self, _: &mut World) {
-        self.settings.create_both_sides = !self.settings.create_both_sides;
-        self.invalidate_preview();
-    }
-
-    pub fn on_simulation_result(&mut self, result_delta: &PlanResultDelta, _: &mut World) {
-        self.preview_result_delta = COption(Some(result_delta.clone()));
-        self.preview_result_delta_rendered_in = CDict::new();
-    }
-
-    pub fn built_strokes_changed(&mut self, built_strokes: &BuiltStrokes, _: &mut World) {
-        self.built_strokes = COption(Some(built_strokes.clone()));
     }
 }
 
-impl CurrentPlan {
-    pub fn materialize(&mut self, world: &mut World) {
-        match self.current.intent {
-            Intent::ContinueRoad(..) |
-            Intent::NewRoad(..) => {
-                self.commit();
-                self.interaction.stroke_canvas.set_points(
-                    CVec::new(),
-                    world,
-                );
-            }
-            _ => {}
-        }
-
-        self.materialized_reality.apply(
-            self.id,
-            self.current.plan_delta.clone(),
-            world,
-        );
-
-        *self = CurrentPlan {
-            id: self.id,
-            materialized_reality: self.materialized_reality,
-            settings: self.settings.clone(),
-            interaction: self.interaction.clone(),
-            built_strokes: COption(None),
-            undo_history: CVec::new(),
-            redo_history: CVec::new(),
-            current: PlanStep::default(),
-            preview: COption(None),
-            preview_rendered_in: CDict::new(),
-            preview_result_delta: COption(None),
-            preview_result_delta_rendered_in: CDict::new(),
-            interactables_valid: false,
-        };
-    }
-}
-
-pub fn setup(
-    system: &mut ActorSystem,
-    user_interface: UserInterfaceID,
-    renderer_id: RendererID,
-    materialized_reality: MaterializedRealityID,
-) {
-    system.register::<CurrentPlan>();
-    auto_setup(system);
-    helper_interactables::setup(system);
+pub fn setup(system: &mut ActorSystem) {
     interaction::auto_setup(system);
-    rendering::auto_setup(system);
-
-    CurrentPlanID::spawn(
-        user_interface,
-        renderer_id,
-        materialized_reality,
-        &mut system.world(),
-    );
+    helper_interactables::setup(system);
 }
-
-mod kay_auto;
-pub use self::kay_auto::*;

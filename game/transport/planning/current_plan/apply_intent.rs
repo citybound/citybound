@@ -2,8 +2,10 @@ use compact::{CVec, CDict};
 use descartes::{N, V2, P2, Segment, Norm, FiniteCurve, Curve, RelativeToBasis,
                 WithUniqueOrthogonal, RoughlyComparable, Dot};
 
-use super::{PlanStep, Settings, LaneStrokeRef, SelectableStrokeRef, ContinuationMode};
-use super::super::plan::{PlanDelta, BuiltStrokes};
+use super::{RoadIntent, RoadPlanSettings, RoadSelections, MaterializedRoadView, LaneStrokeRef,
+            SelectableStrokeRef, ContinuationMode};
+use super::super::road_plan::RoadPlanDelta;
+use super::super::materialized_roads::BuiltStrokes;
 use super::super::lane_stroke::{LaneStroke, LaneStrokeNode};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
@@ -11,78 +13,107 @@ use ordered_float::OrderedFloat;
 const LANE_DISTANCE: N = 5.0;
 const CENTER_LANE_DISTANCE: N = 6.0;
 
-use super::Intent;
 
-pub fn apply_intent(
-    current: &PlanStep,
-    maybe_still_built_strokes: Option<&BuiltStrokes>,
-    settings: &Settings,
-) -> PlanStep {
+pub fn apply_road_intent(
+    intent: &RoadIntent,
+    road_delta: &RoadPlanDelta,
+    selections: &RoadSelections,
+    materialized_view: &MaterializedRoadView,
+    settings: &RoadPlanSettings,
+) -> (RoadPlanDelta, RoadSelections, Option<RoadIntent>) {
 
-    let still_built_strokes = || maybe_still_built_strokes.expect("still built strokes needed");
+    let still_built_strokes = &materialized_view.built_strokes;
 
-    match current.intent {
-        Intent::None => current.clone(),
-
-        Intent::NewRoad(ref points) => {
-            apply_new_road(points, current, still_built_strokes(), settings)
+    match *intent {
+        RoadIntent::NewRoad(ref points) => {
+            apply_new_road(points, road_delta, still_built_strokes, settings)
         }
 
-        Intent::ContinueRoad(ref continue_from, ref additional_points, start_reference_point) => {
+        RoadIntent::ContinueRoad(ref continue_from,
+                                 ref additional_points,
+                                 start_reference_point) => {
             apply_continue_road(
                 continue_from,
                 additional_points,
                 start_reference_point,
-                current,
-                still_built_strokes(),
+                road_delta,
+                still_built_strokes,
             )
         }
 
-        Intent::ContinueRoadAround(selection_ref, continuation_mode, start_reference_point) => {
-            apply_continue_road_around(
+        RoadIntent::ContinueRoadAround(selection_ref, continuation_mode, start_reference_point) => {
+            let new_intent = apply_continue_road_around(
                 selection_ref,
                 continuation_mode,
                 start_reference_point,
-                current,
-                still_built_strokes(),
+                road_delta,
+                still_built_strokes,
                 settings,
+            );
+
+            (
+                road_delta.clone(),
+                RoadSelections::default(),
+                Some(new_intent),
             )
         }
 
-        Intent::Select(selection_ref, start, end) => {
-            apply_select(
+        RoadIntent::Select(selection_ref, start, end) => {
+            let new_selections = apply_select(
                 selection_ref,
                 start,
                 end,
-                current,
-                still_built_strokes(),
+                road_delta,
+                selections,
+                still_built_strokes,
                 settings,
-            )
+            );
+
+            (road_delta.clone(), new_selections, None)
         }
 
-        Intent::MaximizeSelection => apply_maximize_selection(current, still_built_strokes()),
+        RoadIntent::MaximizeSelection => {
+            let new_selections =
+                apply_maximize_selection(road_delta, selections, still_built_strokes);
 
-        Intent::MoveSelection(delta) => apply_move_selection(delta, current, still_built_strokes()),
+            (road_delta.clone(), new_selections, None)
+        }
 
-        Intent::DeleteSelection => apply_delete_selection(current, still_built_strokes()),
+        RoadIntent::MoveSelection(delta) => {
+            let (new_road_delta, new_selections) =
+                apply_move_selection(delta, road_delta, selections, still_built_strokes);
 
-        Intent::Deselect => apply_deselect(current),
+            (new_road_delta, new_selections, None)
+        }
 
-        Intent::CreateNextLane => apply_create_next_lane(current, still_built_strokes()),
+        RoadIntent::DeleteSelection => {
+            let new_road_delta =
+                apply_delete_selection(road_delta, selections, still_built_strokes);
+
+            (new_road_delta, RoadSelections::default(), None)
+        }
+
+        RoadIntent::Deselect => (road_delta.clone(), RoadSelections::default(), None),
+
+        RoadIntent::CreateNextLane => {
+            let new_road_delta =
+                apply_create_next_lane(road_delta, selections, still_built_strokes);
+            (new_road_delta, RoadSelections::default(), None)
+        }
     }
 }
 
 fn apply_new_road(
     points: &CVec<P2>,
-    current: &PlanStep,
+    road_delta: &RoadPlanDelta,
     still_built_strokes: &BuiltStrokes,
-    settings: &Settings,
-) -> PlanStep {
+    settings: &RoadPlanSettings,
+) -> (RoadPlanDelta, RoadSelections, Option<RoadIntent>) {
     // drawing a new road is equivalent to continuing a road
     // that consists of only its start points
     let mut one_point_strokes = CVec::<LaneStroke>::new();
     let mut continue_from = Vec::new();
-    let base_idx = current.plan_delta.new_strokes.len();
+    let base_idx = road_delta.new_strokes.len();
     let direction = (points[1] - points[0]).normalize();
     let n_per_side = settings.n_lanes_per_side;
     let offset = |lane_idx: usize| {
@@ -113,12 +144,12 @@ fn apply_new_road(
         }
     }
 
-    let mut new_new_strokes = current.plan_delta.new_strokes.clone();
+    let mut new_new_strokes = road_delta.new_strokes.clone();
     new_new_strokes.extend(one_point_strokes);
 
-    let plan_delta_with_new_strokes = PlanDelta {
+    let plan_delta_with_new_strokes = RoadPlanDelta {
         new_strokes: new_new_strokes,
-        ..current.plan_delta.clone()
+        ..road_delta.clone()
     };
 
     continue_new_road(
@@ -134,10 +165,10 @@ fn apply_continue_road(
     continue_from: &[(SelectableStrokeRef, ContinuationMode)],
     additional_points: &[P2],
     start_reference_point: P2,
-    current: &PlanStep,
+    road_delta: &RoadPlanDelta,
     still_built_strokes: &BuiltStrokes,
-) -> PlanStep {
-    let mut new_plan_delta = current.plan_delta.clone();
+) -> (RoadPlanDelta, RoadSelections, Option<RoadIntent>) {
+    let mut new_plan_delta = road_delta.clone();
 
     let only_new_continue_from = continue_from
         .iter()
@@ -175,9 +206,9 @@ fn continue_new_road(
     continue_from: &[(LaneStrokeRef, ContinuationMode)],
     additional_points: &[P2],
     start_reference_point: P2,
-    mut new_plan_delta: PlanDelta,
+    mut new_plan_delta: RoadPlanDelta,
     still_built_strokes: &BuiltStrokes,
-) -> PlanStep {
+) -> (RoadPlanDelta, RoadSelections, Option<RoadIntent>) {
     let mut previous_reference_point = start_reference_point;
 
 
@@ -367,11 +398,7 @@ fn continue_new_road(
         }
     }
 
-    PlanStep {
-        plan_delta: new_plan_delta,
-        selections: CDict::new(),
-        intent: Intent::None,
-    }
+    (new_plan_delta, RoadSelections::default(), None)
 }
 
 const CONTINUE_PARALLEL_MAX_OFFSET: N = 0.5;
@@ -380,11 +407,11 @@ fn apply_continue_road_around(
     selection_ref: SelectableStrokeRef,
     continuation_mode: ContinuationMode,
     start_reference_point: P2,
-    current: &PlanStep,
+    road_delta: &RoadPlanDelta,
     still_built_strokes: &BuiltStrokes,
-    settings: &Settings,
-) -> PlanStep {
-    let stroke = selection_ref.get_stroke(&current.plan_delta, still_built_strokes);
+    settings: &RoadPlanSettings,
+) -> RoadIntent {
+    let stroke = selection_ref.get_stroke(road_delta, still_built_strokes);
     let (continued_point, direction_on_selected) = match continuation_mode {
         ContinuationMode::Append => (stroke.path().end(), stroke.path().end_direction()),
         ContinuationMode::Prepend => (stroke.path().start(), stroke.path().start_direction()),
@@ -393,7 +420,7 @@ fn apply_continue_road_around(
     let mut continue_from = vec![(selection_ref, continuation_mode)];
 
     if settings.select_parallel {
-        for (other_ref, other_stroke) in all_strokes(&current.plan_delta, still_built_strokes) {
+        for (other_ref, other_stroke) in all_strokes(road_delta, still_built_strokes) {
             if other_ref != selection_ref {
                 if let Some(on_other) = other_stroke.path().project_with_tolerance(
                     continued_point,
@@ -418,24 +445,22 @@ fn apply_continue_road_around(
         }
     }
 
-    PlanStep {
-        intent: Intent::ContinueRoad(continue_from.into(), CVec::new(), start_reference_point),
-        ..current.clone()
-    }
+    RoadIntent::ContinueRoad(continue_from.into(), CVec::new(), start_reference_point)
 }
 
 fn apply_select(
     selection_ref: SelectableStrokeRef,
     start: N,
     end: N,
-    current: &PlanStep,
+    road_delta: &RoadPlanDelta,
+    selections: &RoadSelections,
     still_built_strokes: &BuiltStrokes,
-    settings: &Settings,
-) -> PlanStep {
-    let mut new_selections = current.selections.clone();
+    settings: &RoadPlanSettings,
+) -> RoadSelections {
+    let mut new_selections = selections.clone();
     new_selections.insert(selection_ref, (start, end));
     if settings.select_parallel {
-        let stroke = selection_ref.get_stroke(&current.plan_delta, still_built_strokes);
+        let stroke = selection_ref.get_stroke(road_delta, still_built_strokes);
 
         let start_position = stroke.path().along(start);
         let start_direction = stroke.path().direction_along(start);
@@ -444,7 +469,7 @@ fn apply_select(
 
         let mut additional_selections = Vec::new();
 
-        for (other_ref, other_stroke) in all_strokes(&current.plan_delta, still_built_strokes) {
+        for (other_ref, other_stroke) in all_strokes(road_delta, still_built_strokes) {
             if other_ref != selection_ref {
                 if let (Some(start_on_other_distance), Some(end_on_other_distance)) =
                     (
@@ -489,18 +514,14 @@ fn apply_select(
         }
     }
 
-    PlanStep {
-        selections: new_selections,
-        intent: Intent::None,
-        ..current.clone()
-    }
+    new_selections
 }
 
 fn all_strokes<'a>(
-    plan_delta: &'a PlanDelta,
+    road_delta: &'a RoadPlanDelta,
     still_built_strokes: &'a BuiltStrokes,
 ) -> impl Iterator<Item = (SelectableStrokeRef, &'a LaneStroke)> + 'a {
-    plan_delta
+    road_delta
         .new_strokes
         .iter()
         .enumerate()
@@ -513,19 +534,18 @@ fn all_strokes<'a>(
         }))
 }
 
-fn apply_maximize_selection(current: &PlanStep, still_built_strokes: &BuiltStrokes) -> PlanStep {
-    let new_selections = current
-        .selections
+fn apply_maximize_selection(
+    road_delta: &RoadPlanDelta,
+    selections: &RoadSelections,
+    still_built_strokes: &BuiltStrokes,
+) -> RoadSelections {
+    selections
         .pairs()
         .map(|(selection_ref, _)| {
-            let stroke = selection_ref.get_stroke(&current.plan_delta, still_built_strokes);
+            let stroke = selection_ref.get_stroke(road_delta, still_built_strokes);
             (*selection_ref, (0.0, stroke.path().length()))
         })
-        .collect();
-    PlanStep {
-        selections: new_selections,
-        ..current.clone()
-    }
+        .collect()
 }
 
 // TODO: this can still become cleaner!
@@ -533,17 +553,17 @@ fn apply_maximize_selection(current: &PlanStep, still_built_strokes: &BuiltStrok
 #[allow(block_in_if_condition_stmt)]
 fn apply_move_selection(
     delta: V2,
-    current: &PlanStep,
+    road_delta: &RoadPlanDelta,
+    selections: &RoadSelections,
     still_built_strokes: &BuiltStrokes,
-) -> PlanStep {
+) -> (RoadPlanDelta, RoadSelections) {
 
-    let mut new_plan_delta = current.plan_delta.clone();
+    let mut new_plan_delta = road_delta.clone();
 
-    let mut with_subsections_moved = current
-        .selections
+    let mut with_subsections_moved = selections
         .pairs()
         .map(|(&selection_ref, &(start, end))| {
-            let stroke = selection_ref.get_stroke(&current.plan_delta, still_built_strokes);
+            let stroke = selection_ref.get_stroke(road_delta, still_built_strokes);
             (
                 selection_ref,
                 stroke.with_subsection_moved(start, end, delta),
@@ -710,20 +730,20 @@ fn apply_move_selection(
         }
     }
 
-    PlanStep {
-        plan_delta: new_plan_delta,
-        selections: new_selections,
-        intent: Intent::None,
-    }
+    (new_plan_delta, new_selections)
 }
 
-fn apply_delete_selection(current: &PlanStep, still_built_strokes: &BuiltStrokes) -> PlanStep {
-    let mut new_plan_delta = current.plan_delta.clone();
+fn apply_delete_selection(
+    road_delta: &RoadPlanDelta,
+    selections: &RoadSelections,
+    still_built_strokes: &BuiltStrokes,
+) -> RoadPlanDelta {
+    let mut new_plan_delta = road_delta.clone();
     let mut new_stroke_indices_to_remove = Vec::new();
     let mut new_strokes = Vec::new();
 
-    for (&selection_ref, &(start, end)) in current.selections.pairs() {
-        let stroke = selection_ref.get_stroke(&current.plan_delta, still_built_strokes);
+    for (&selection_ref, &(start, end)) in selections.pairs() {
+        let stroke = selection_ref.get_stroke(road_delta, still_built_strokes);
         match selection_ref {
             SelectableStrokeRef::New(idx) => {
                 new_stroke_indices_to_remove.push(idx);
@@ -753,26 +773,18 @@ fn apply_delete_selection(current: &PlanStep, still_built_strokes: &BuiltStrokes
         new_plan_delta.new_strokes.push(new_stroke);
     }
 
-    PlanStep {
-        plan_delta: new_plan_delta,
-        selections: CDict::new(),
-        intent: Intent::None,
-    }
+    new_plan_delta
 }
 
-fn apply_deselect(current: &PlanStep) -> PlanStep {
-    PlanStep {
-        selections: CDict::new(),
-        ..current.clone()
-    }
-}
-
-fn apply_create_next_lane(current: &PlanStep, still_built_strokes: &BuiltStrokes) -> PlanStep {
-    let selected_subsections = current
-        .selections
+fn apply_create_next_lane(
+    road_delta: &RoadPlanDelta,
+    selections: &RoadSelections,
+    still_built_strokes: &BuiltStrokes,
+) -> RoadPlanDelta {
+    let selected_subsections = selections
         .pairs()
         .filter_map(|(&selection_ref, &(start, end))| {
-            let stroke = selection_ref.get_stroke(&current.plan_delta, still_built_strokes);
+            let stroke = selection_ref.get_stroke(road_delta, still_built_strokes);
             stroke.subsection(start, end)
         })
         .collect::<Vec<_>>();
@@ -796,15 +808,11 @@ fn apply_create_next_lane(current: &PlanStep, still_built_strokes: &BuiltStrokes
                 stroke.is_roughly_within(subsection, 0.1)
             })
         });
-    let mut new_new_strokes = current.plan_delta.new_strokes.clone();
+    let mut new_new_strokes = road_delta.new_strokes.clone();
     new_new_strokes.extend(next_lane_strokes);
 
-    PlanStep {
-        plan_delta: PlanDelta {
-            new_strokes: new_new_strokes,
-            ..current.plan_delta.clone()
-        },
-        selections: CDict::new(),
-        intent: Intent::None,
+    RoadPlanDelta {
+        new_strokes: new_new_strokes,
+        ..road_delta.clone()
     }
 }

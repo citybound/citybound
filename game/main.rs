@@ -35,13 +35,14 @@ pub const ENV: &'static Environment = &Environment {
 
 mod core;
 mod transport;
+mod planning;
 mod economy;
 
 use compact::CVec;
 use monet::GrouperID;
 use transport::lane::{LaneID, TransferLaneID};
 use transport::rendering::LaneRendererID;
-use transport::planning::current_plan::CurrentPlanID;
+use planning::current_plan::CurrentPlanID;
 use economy::households::family::FamilyID;
 use economy::households::tasks::TaskEndSchedulerID;
 use economy::buildings::rendering::BuildingRendererID;
@@ -85,7 +86,8 @@ fn main() {
             (0.6, 0.75, 0.4, 1.0)
         );
 
-        transport::setup(&mut system, user_interface, renderer, simulation);
+        planning::setup(&mut system, user_interface, renderer);
+        transport::setup(&mut system, simulation);
         economy::setup(&mut system, user_interface, simulation);
 
         core::init::print_version(user_interface, world);

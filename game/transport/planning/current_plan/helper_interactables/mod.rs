@@ -2,10 +2,12 @@ use kay::{ActorSystem, Fate, World};
 use compact::CVec;
 use descartes::{P2, N, Norm, Band, Into2d, Curve, FiniteCurve, Path, RoughlyComparable};
 use stagemaster::geometry::{AnyShape, CPath};
-use super::CurrentPlanID;
+use planning::current_plan::{CurrentPlanID, Intent, IntentProgress};
 
 use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
                   MSG_Interactable3d_on_event};
+
+use super::RoadIntent;
 
 #[derive(Compact, Clone)]
 pub struct Deselecter {
@@ -34,7 +36,7 @@ impl Interactable3d for Deselecter {
     fn on_event(&mut self, event: Event3d, world: &mut World) {
         if let Event3d::DragFinished { .. } = event {
             self.current_plan.change_intent(
-                Intent::Deselect,
+                Intent::RoadIntent(RoadIntent::Deselect),
                 IntentProgress::Immediate,
                 world,
             );
@@ -79,7 +81,7 @@ impl Interactable3d for Addable {
             Event3d::HoverStarted { .. } |
             Event3d::HoverOngoing { .. } => {
                 self.current_plan.change_intent(
-                    Intent::CreateNextLane,
+                    Intent::RoadIntent(RoadIntent::CreateNextLane),
                     IntentProgress::Preview,
                     world,
                 );
@@ -93,7 +95,7 @@ impl Interactable3d for Addable {
             }
             Event3d::DragStarted { .. } => {
                 self.current_plan.change_intent(
-                    Intent::CreateNextLane,
+                    Intent::RoadIntent(RoadIntent::CreateNextLane),
                     IntentProgress::Immediate,
                     world,
                 );
@@ -150,7 +152,9 @@ impl Interactable3d for Draggable {
         match event {
             Event3d::DragOngoing { from, to, .. } => {
                 self.current_plan.change_intent(
-                    Intent::MoveSelection(to.into_2d() - from.into_2d()),
+                    Intent::RoadIntent(
+                        RoadIntent::MoveSelection(to.into_2d() - from.into_2d()),
+                    ),
                     IntentProgress::Preview,
                     world,
                 );
@@ -159,13 +163,13 @@ impl Interactable3d for Draggable {
                 let delta = to.into_2d() - from.into_2d();
                 if delta.norm() < MAXIMIZE_DISTANCE {
                     self.current_plan.change_intent(
-                        Intent::MaximizeSelection,
+                        Intent::RoadIntent(RoadIntent::MaximizeSelection),
                         IntentProgress::Immediate,
                         world,
                     );
                 } else {
                     self.current_plan.change_intent(
-                        Intent::MoveSelection(delta),
+                        Intent::RoadIntent(RoadIntent::MoveSelection(delta)),
                         IntentProgress::Immediate,
                         world,
                     )
@@ -236,7 +240,9 @@ impl Interactable3d for Selectable {
                     let mut end = selection_end.max(selection_start);
                     snap_start_end(&mut start, &mut end, &self.path);
                     self.current_plan.change_intent(
-                        Intent::Select(self.stroke_ref, start, end),
+                        Intent::RoadIntent(
+                            RoadIntent::Select(self.stroke_ref, start, end),
+                        ),
                         IntentProgress::Preview,
                         world,
                     );
@@ -265,21 +271,21 @@ impl Interactable3d for Selectable {
                     let mut end = selection_end.max(selection_start);
                     if end < CONTINUE_DISTANCE {
                         self.current_plan.change_intent(
-                            Intent::ContinueRoadAround(
+                            Intent::RoadIntent(RoadIntent::ContinueRoadAround(
                                 self.stroke_ref,
                                 ContinuationMode::Prepend,
                                 to.into_2d(),
-                            ),
+                            )),
                             IntentProgress::Finished,
                             world,
                         );
                     } else if start > self.path.length() - CONTINUE_DISTANCE {
                         self.current_plan.change_intent(
-                            Intent::ContinueRoadAround(
+                            Intent::RoadIntent(RoadIntent::ContinueRoadAround(
                                 self.stroke_ref,
                                 ContinuationMode::Append,
                                 to.into_2d(),
-                            ),
+                            )),
                             IntentProgress::Finished,
                             world,
                         );
@@ -288,7 +294,9 @@ impl Interactable3d for Selectable {
                         start = start.min(end - MIN_SELECTION_SIZE).max(0.0);
                         end = end.max(start + MIN_SELECTION_SIZE).min(self.path.length());
                         self.current_plan.change_intent(
-                            Intent::Select(self.stroke_ref, start, end),
+                            Intent::RoadIntent(
+                                RoadIntent::Select(self.stroke_ref, start, end),
+                            ),
                             IntentProgress::Immediate,
                             world,
                         );
@@ -424,8 +432,6 @@ pub fn setup(system: &mut ActorSystem) {
     system.register::<StrokeCanvas>();
     auto_setup(system);
 }
-
-use super::{Intent, IntentProgress};
 
 mod kay_auto;
 pub use self::kay_auto::*;

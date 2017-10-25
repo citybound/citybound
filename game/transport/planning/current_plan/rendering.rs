@@ -3,75 +3,14 @@ use compact::CDict;
 use descartes::{N, Band, FiniteCurve};
 use monet::{Geometry, Instance, RendererID};
 use stagemaster::geometry::band_to_geometry;
-use super::{CurrentPlan, CurrentPlanID, SelectableStrokeRef};
-use super::super::plan::{PlanDelta, BuiltStrokes, PlanResultDelta};
+use super::super::road_plan::{RoadPlanDelta, RoadPlanResultDelta};
+use super::super::current_plan::MaterializedRoadView;
 use super::super::lane_stroke::LaneStroke;
+use super::SelectableStrokeRef;
 
-use monet::{Renderable, RenderableID, MSG_Renderable_setup_in_scene,
-            MSG_Renderable_render_to_scene};
-
-impl Renderable for CurrentPlan {
-    fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}
-
-    fn render_to_scene(
-        &mut self,
-        renderer_id: RendererID,
-        scene_id: usize,
-        _frame: usize,
-        world: &mut World,
-    ) {
-        if self.preview_rendered_in.get(renderer_id).is_none() {
-            let origin_machine = self.id._raw_id.machine;
-            let preview = if self.preview.is_none() {
-                self.preview_rendered_in = CDict::new();
-                self.update_preview(world)
-            } else {
-                self.preview.as_ref().unwrap()
-            };
-            render_strokes(
-                origin_machine,
-                &preview.plan_delta,
-                renderer_id,
-                scene_id,
-                world,
-            );
-        }
-        if !self.interactables_valid {
-            self.update_interactables(world);
-        }
-        if let Some(ref result_delta) = *self.preview_result_delta {
-            // TODO: add something like prepare-render to monet to make sure
-            // we have new state in time
-            if self.preview_result_delta_rendered_in
-                .get(renderer_id)
-                .is_none()
-            {
-                self.preview_result_delta_rendered_in.insert(
-                    renderer_id,
-                    (),
-                );
-
-                render_trimmed_strokes(result_delta, renderer_id, scene_id, world);
-                render_intersections(result_delta, renderer_id, scene_id, world);
-                render_transfer_lanes(result_delta, renderer_id, scene_id, world);
-            }
-        }
-        if let Some(ref built_strokes) = *self.built_strokes {
-            render_selections(
-                &self.preview.as_ref().unwrap().selections,
-                &self.preview.as_ref().unwrap().plan_delta,
-                built_strokes,
-                renderer_id,
-                scene_id,
-                world,
-            );
-        }
-    }
-}
-
-fn render_strokes(
+pub fn render_strokes(
     origin_machine: u8,
-    delta: &PlanDelta,
+    delta: &RoadPlanDelta,
     renderer_id: RendererID,
     scene_id: usize,
     world: &mut World,
@@ -128,8 +67,8 @@ fn render_strokes(
     );
 }
 
-fn render_trimmed_strokes(
-    result_delta: &PlanResultDelta,
+pub fn render_trimmed_strokes(
+    result_delta: &RoadPlanResultDelta,
     renderer_id: RendererID,
     scene_id: usize,
     world: &mut World,
@@ -151,8 +90,8 @@ fn render_trimmed_strokes(
     );
 }
 
-fn render_intersections(
-    result_delta: &PlanResultDelta,
+pub fn render_intersections(
+    result_delta: &RoadPlanResultDelta,
     renderer_id: RendererID,
     scene_id: usize,
     world: &mut World,
@@ -191,8 +130,8 @@ fn render_intersections(
     );
 }
 
-fn render_transfer_lanes(
-    result_delta: &PlanResultDelta,
+pub fn render_transfer_lanes(
+    result_delta: &RoadPlanResultDelta,
     renderer_id: RendererID,
     scene_id: usize,
     world: &mut World,
@@ -215,14 +154,15 @@ fn render_transfer_lanes(
     );
 }
 
-fn render_selections(
+pub fn render_selections(
     selections: &CDict<SelectableStrokeRef, (N, N)>,
-    plan_delta: &PlanDelta,
-    built_strokes: &BuiltStrokes,
+    plan_delta: &RoadPlanDelta,
+    materialized_view: &MaterializedRoadView,
     renderer_id: RendererID,
     scene_id: usize,
     world: &mut World,
 ) {
+    let built_strokes = &materialized_view.built_strokes;
     let addable_geometry = selections
         .pairs()
         .filter_map(|(&selection_ref, &(start, end))| {
@@ -262,6 +202,3 @@ fn render_selections(
         world,
     );
 }
-
-mod kay_auto;
-pub use self::kay_auto::*;

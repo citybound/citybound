@@ -5,7 +5,7 @@ use stagemaster::geometry::CPath;
 use core::disjoint_sets::DisjointSets;
 use ordered_float::OrderedFloat;
 use itertools::Itertools;
-use super::plan::{LaneStrokeRef, Intersection};
+use super::road_plan::{LaneStrokeRef, Intersection};
 use super::lane_stroke::{LaneStroke, LaneStrokeNode};
 
 const STROKE_INTERSECTION_WIDTH: N = 4.0;
