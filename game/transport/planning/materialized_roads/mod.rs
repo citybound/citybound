@@ -5,7 +5,7 @@ use planning::materialized_reality::MaterializedRealityState::{Ready, Updating};
 use super::road_plan::{RoadPlan, RoadPlanResultDelta, LaneStrokeRef, IntersectionRef,
                        TrimmedStrokeRef, TransferStrokeRef};
 use super::lane_stroke::LaneStroke;
-use super::current_plan::MaterializedRoadView;
+use super::plan_manager::MaterializedRoadView;
 use super::super::lane::LaneID;
 use super::super::microtraffic::LaneLikeID;
 use super::super::construction::UnbuildableID;

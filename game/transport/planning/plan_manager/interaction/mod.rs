@@ -1,6 +1,6 @@
 use compact::CVec;
 use kay::World;
-use planning::current_plan::{CurrentPlanID, CurrentPlan, Intent, IntentProgress};
+use planning::plan_manager::{PlanManagerID, PlanManager, Intent, IntentProgress};
 use super::{RoadIntent, RoadSelections, SelectableStrokeRef};
 use super::super::road_plan::RoadPlanDelta;
 use super::super::materialized_roads::BuiltStrokes;
@@ -38,20 +38,20 @@ impl RoadInteraction {
         world: &mut World,
         renderer_id: RendererID,
         user_interface: UserInterfaceID,
-        current_plan: CurrentPlanID,
+        plan_manager: PlanManagerID,
     ) -> RoadInteraction {
-        renderer_id.add_eye_listener(0, current_plan.into(), world);
+        renderer_id.add_eye_listener(0, plan_manager.into(), world);
         RoadInteraction {
             selectables: CVec::new(),
             addables: CVec::new(),
             draggables: CVec::new(),
-            stroke_canvas: StrokeCanvasID::spawn(user_interface, current_plan, world),
+            stroke_canvas: StrokeCanvasID::spawn(user_interface, plan_manager, world),
             deselecter: None,
         }
     }
 }
 
-impl EyeListener for CurrentPlan {
+impl EyeListener for PlanManager {
     fn eye_moved(&mut self, eye: Eye, _movement: Movement, _: &mut World) {
         if eye.position.z < 100.0 {
             self.settings.select_parallel = false;
@@ -66,7 +66,7 @@ impl EyeListener for CurrentPlan {
     }
 }
 
-impl CurrentPlan {
+impl PlanManager {
     pub fn on_stroke(&mut self, points: &CVec<P2>, state: StrokeState, _: &mut World) {
         let maybe_new_intent = match self.current.intent {
             Intent::RoadIntent(RoadIntent::ContinueRoad(ref continue_from,
@@ -125,7 +125,7 @@ impl RoadInteraction {
         selections: &RoadSelections,
         built_strokes_after_delta: &BuiltStrokes,
         user_interface: UserInterfaceID,
-        current_plan: CurrentPlanID,
+        plan_manager: PlanManagerID,
     ) {
         for selectable in self.selectables.drain() {
             selectable.clear(user_interface, world);
@@ -143,7 +143,7 @@ impl RoadInteraction {
         self.deselecter = if selections.is_empty() {
             None
         } else {
-            Some(DeselecterID::spawn(user_interface, current_plan, world))
+            Some(DeselecterID::spawn(user_interface, plan_manager, world))
         };
 
         match intent {
@@ -156,7 +156,7 @@ impl RoadInteraction {
                         SelectableStrokeRef::New(i),
                         stroke.path().clone(),
                         user_interface,
-                        current_plan,
+                        plan_manager,
                         world,
                     ));
                 }
@@ -165,7 +165,7 @@ impl RoadInteraction {
                         SelectableStrokeRef::Built(*old_stroke_ref),
                         stroke.path().clone(),
                         user_interface,
-                        current_plan,
+                        plan_manager,
                         world,
                     ));
                 }
@@ -178,14 +178,14 @@ impl RoadInteraction {
                     selection_ref,
                     subsection.clone(),
                     user_interface,
-                    current_plan,
+                    plan_manager,
                     world,
                 ));
                 if let Some(next_lane_path) = subsection.shift_orthogonally(5.0) {
                     self.addables.push(AddableID::spawn(
                         next_lane_path,
                         user_interface,
-                        current_plan,
+                        plan_manager,
                         world,
                     ));
                 }
@@ -206,7 +206,7 @@ impl RoadInteraction {
     pub fn handle_event(
         &mut self,
         world: &mut World,
-        current_plan: CurrentPlanID,
+        plan_manager: PlanManagerID,
         event: Event3d,
         bindings: &Bindings,
     ) {
@@ -223,7 +223,7 @@ impl RoadInteraction {
                 if let Some(grid_size) = maybe_grid_size {
                     const GRID_SPACING: N = 1000.0;
                     for x in 0..grid_size {
-                        current_plan.on_stroke(
+                        plan_manager.on_stroke(
                             vec![
                                 P2::new((x as f32 + 0.5) * GRID_SPACING, 0.0),
                                 P2::new(
@@ -237,7 +237,7 @@ impl RoadInteraction {
 
                     }
                     for y in 0..grid_size {
-                        current_plan.on_stroke(
+                        plan_manager.on_stroke(
                             vec![
                                 P2::new(0.0, (y as f32 + 0.5) * GRID_SPACING),
                                 P2::new(
@@ -252,7 +252,7 @@ impl RoadInteraction {
                 }
 
                 if bindings["Delete Selection"].is_freshly_in(&combos) {
-                    current_plan.change_intent(
+                    plan_manager.change_intent(
                         Intent::RoadIntent(RoadIntent::DeleteSelection),
                         IntentProgress::Immediate,
                         world,
@@ -261,9 +261,9 @@ impl RoadInteraction {
             }
             Event3d::ButtonDown(::stagemaster::combo::Button::NumberKey(num)) => {
                 if num == 0 {
-                    current_plan.toggle_both_sides(world);
+                    plan_manager.toggle_both_sides(world);
                 } else {
-                    current_plan.set_n_lanes(num as usize, world);
+                    plan_manager.set_n_lanes(num as usize, world);
                 }
             }
             _ => {}

@@ -42,7 +42,7 @@ use compact::CVec;
 use monet::GrouperID;
 use transport::lane::{LaneID, TransferLaneID};
 use transport::rendering::LaneRendererID;
-use planning::current_plan::CurrentPlanID;
+use planning::plan_manager::PlanManagerID;
 use economy::households::family::FamilyID;
 use economy::households::tasks::TaskEndSchedulerID;
 use economy::buildings::rendering::BuildingRendererID;
@@ -71,7 +71,7 @@ fn main() {
         let renderables: CVec<_> = vec![
             LaneRendererID::global_broadcast(world).into(),
             GrouperID::global_broadcast(world).into(),
-            CurrentPlanID::global_broadcast(world).into(),
+            PlanManagerID::global_broadcast(world).into(),
             BuildingRendererID::global_broadcast(&mut system.world())
                 .into(),
         ].into();

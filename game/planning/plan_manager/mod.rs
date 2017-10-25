@@ -6,9 +6,9 @@ use monet::RendererID;
 use super::materialized_reality::MaterializedRealityID;
 use super::plan::{PlanDelta, PlanResultDelta};
 
-use transport::planning::current_plan::{RoadIntent, RoadSelections, RoadPlanSettings,
+use transport::planning::plan_manager::{RoadIntent, RoadSelections, RoadPlanSettings,
                                         MaterializedRoadView};
-use transport::planning::current_plan::apply_intent::apply_road_intent;
+use transport::planning::plan_manager::apply_intent::apply_road_intent;
 
 mod rendering;
 
@@ -43,8 +43,8 @@ pub enum IntentProgress {
 }
 
 #[derive(Compact, Clone)]
-pub struct CurrentPlan {
-    id: CurrentPlanID,
+pub struct PlanManager {
+    id: PlanManagerID,
     materialized_reality: MaterializedRealityID,
     pub materialized_view: MaterializedRoadView,
     undo_history: CVec<PlanStep>,
@@ -59,18 +59,18 @@ pub struct CurrentPlan {
     interaction: Interaction,
 }
 
-impl CurrentPlan {
+impl PlanManager {
     pub fn spawn(
-        id: CurrentPlanID,
+        id: PlanManagerID,
         user_interface: UserInterfaceID,
         renderer_id: RendererID,
         materialized_reality: MaterializedRealityID,
         world: &mut World,
-    ) -> CurrentPlan {
+    ) -> PlanManager {
         // TODO: is there a nicer way to get initial built strokes?
         materialized_reality.apply(id, PlanDelta::default(), world);
 
-        CurrentPlan {
+        PlanManager {
             id: id,
             settings: RoadPlanSettings::default(),
             materialized_reality,
@@ -88,7 +88,7 @@ impl CurrentPlan {
     }
 }
 
-impl CurrentPlan {
+impl PlanManager {
     pub fn invalidate_preview(&mut self) {
         self.preview = COption(None);
     }
@@ -159,7 +159,7 @@ impl CurrentPlan {
     }
 }
 
-impl CurrentPlan {
+impl PlanManager {
     pub fn undo(&mut self, world: &mut World) {
         let previous_state = self.undo_history.pop().unwrap_or_default();
         self.redo_history.push(self.current.clone());
@@ -203,7 +203,7 @@ impl CurrentPlan {
     }
 }
 
-impl CurrentPlan {
+impl PlanManager {
     pub fn materialize(&mut self, world: &mut World) {
         let commit_before_materialize = match self.current.intent {
             Intent::RoadIntent(ref road_intent) => road_intent.commit_before_materialize(),
@@ -221,7 +221,7 @@ impl CurrentPlan {
             world,
         );
 
-        *self = CurrentPlan {
+        *self = PlanManager {
             id: self.id,
             materialized_reality: self.materialized_reality,
             settings: self.settings.clone(),
@@ -245,12 +245,12 @@ pub fn setup(
     renderer_id: RendererID,
     materialized_reality: MaterializedRealityID,
 ) {
-    system.register::<CurrentPlan>();
+    system.register::<PlanManager>();
     auto_setup(system);
     interaction::auto_setup(system);
     rendering::auto_setup(system);
 
-    CurrentPlanID::spawn(
+    PlanManagerID::spawn(
         user_interface,
         renderer_id,
         materialized_reality,

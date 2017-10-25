@@ -5,7 +5,7 @@ use kay::{ActorSystem, World};
 // - switch to a system that can constantly be in flux, with a backlog of ConstructionTaskBatches
 
 use super::plan::{Plan, PlanDelta, PlanResult, PlanResultDelta};
-use super::current_plan::CurrentPlanID;
+use super::plan_manager::PlanManagerID;
 use transport::planning::materialized_roads::{MaterializedRoads, RoadUpdateState};
 use economy::buildings::MaterializedBuildings;
 
@@ -25,7 +25,7 @@ pub struct MaterializedReality {
 #[derive(Compact, Clone)]
 pub enum MaterializedRealityState {
     Ready(()),
-    Updating(CurrentPlanID, Plan, PlanResult, PlanResultDelta, RoadUpdateState),
+    Updating(PlanManagerID, Plan, PlanResult, PlanResultDelta, RoadUpdateState),
 }
 
 use self::MaterializedRealityState::{Ready, Updating};
@@ -42,14 +42,14 @@ impl MaterializedReality {
         }
     }
 
-    pub fn simulate(&mut self, requester: CurrentPlanID, delta: &PlanDelta, world: &mut World) {
+    pub fn simulate(&mut self, requester: PlanManagerID, delta: &PlanDelta, world: &mut World) {
         let new_plan = self.current_plan.with_delta(delta);
         let result = new_plan.get_result();
         let result_delta = result.delta(&self.current_result, &self.buildings);
         requester.on_simulation_result(result_delta, world);
     }
 
-    pub fn apply(&mut self, requester: CurrentPlanID, delta: &PlanDelta, world: &mut World) {
+    pub fn apply(&mut self, requester: PlanManagerID, delta: &PlanDelta, world: &mut World) {
         self.state = match self.state {
             Updating(..) => panic!("Already applying a plan"),
             Ready(()) => {

@@ -1,7 +1,7 @@
 use kay::ActorSystem;
 use compact::{CDict, CVec};
 use descartes::{N, P2, V2};
-use planning::current_plan::CurrentPlan;
+use planning::plan_manager::PlanManager;
 use super::lane_stroke::LaneStroke;
 use super::road_plan::{LaneStrokeRef, RoadPlanDelta};
 use super::materialized_roads::BuiltStrokes;
@@ -89,7 +89,7 @@ pub struct MaterializedRoadView {
     pub built_strokes: BuiltStrokes,
 }
 
-impl CurrentPlan {
+impl PlanManager {
     pub fn built_strokes_after_delta(&self) -> BuiltStrokes {
         BuiltStrokes {
             mapping: self.materialized_view

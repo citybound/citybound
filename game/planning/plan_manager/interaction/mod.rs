@@ -1,10 +1,10 @@
 use kay::{ActorSystem, External, World};
-use super::{CurrentPlan, CurrentPlanID, Intent};
+use super::{PlanManager, PlanManagerID, Intent};
 use descartes::P2;
 use stagemaster::combo::{Bindings, Combo2};
 use stagemaster::geometry::AnyShape;
 use transport::lane::LaneID;
-use transport::planning::current_plan::interaction::{RoadInteraction,
+use transport::planning::plan_manager::interaction::{RoadInteraction,
                                                      default_road_planning_bindings};
 
 #[derive(Compact, Clone)]
@@ -50,7 +50,7 @@ impl Interaction {
         world: &mut World,
         user_interface: UserInterfaceID,
         renderer_id: RendererID,
-        id: CurrentPlanID,
+        id: PlanManagerID,
     ) -> Interaction {
         user_interface.add(id.into(), AnyShape::Everywhere, 0, world);
         user_interface.add_2d(id.into(), world);
@@ -63,7 +63,7 @@ impl Interaction {
     }
 }
 
-impl CurrentPlan {
+impl PlanManager {
     pub fn invalidate_interactables(&mut self) {
         self.interactables_valid = false;
     }
@@ -101,7 +101,7 @@ impl CurrentPlan {
 use stagemaster::{Interactable3d, Interactable3dID, Interactable2d, Interactable2dID, Event3d,
                   MSG_Interactable3d_on_event, MSG_Interactable2d_draw_ui_2d};
 
-impl Interactable3d for CurrentPlan {
+impl Interactable3d for PlanManager {
     fn on_event(&mut self, event: Event3d, world: &mut World) {
         if let Event3d::Combos(combos) = event {
             self.interaction.settings.bindings.do_rebinding(
@@ -152,7 +152,7 @@ impl Interactable3d for CurrentPlan {
     }
 }
 
-impl Interactable2d for CurrentPlan {
+impl Interactable2d for PlanManager {
     fn draw_ui_2d(
         &mut self,
         imgui_ui: &External<::imgui::Ui<'static>>,

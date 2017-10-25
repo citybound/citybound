@@ -1,14 +1,14 @@
 use kay::World;
 use compact::CDict;
 use monet::RendererID;
-use super::{CurrentPlan, CurrentPlanID};
+use super::{PlanManager, PlanManagerID};
 
 use monet::{Renderable, RenderableID, MSG_Renderable_setup_in_scene,
             MSG_Renderable_render_to_scene};
 
-use transport::planning::current_plan::rendering as road_rendering;
+use transport::planning::plan_manager::rendering as road_rendering;
 
-impl Renderable for CurrentPlan {
+impl Renderable for PlanManager {
     fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}
 
     fn render_to_scene(

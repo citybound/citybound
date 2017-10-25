@@ -4,7 +4,7 @@ use descartes::{N, Band, FiniteCurve};
 use monet::{Geometry, Instance, RendererID};
 use stagemaster::geometry::band_to_geometry;
 use super::super::road_plan::{RoadPlanDelta, RoadPlanResultDelta};
-use super::super::current_plan::MaterializedRoadView;
+use super::super::plan_manager::MaterializedRoadView;
 use super::super::lane_stroke::LaneStroke;
 use super::SelectableStrokeRef;
 
