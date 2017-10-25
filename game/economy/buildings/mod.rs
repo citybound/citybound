@@ -7,6 +7,8 @@ use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
 use stagemaster::combo::Button::*;
 use stagemaster::geometry::AnyShape;
 use transport::lane::{Lane, LaneID};
+use planning::materialized_reality::{MaterializedReality, MaterializedRealityID};
+
 
 pub mod rendering;
 
@@ -24,6 +26,7 @@ use stagemaster::geometry::add_debug_line;
 impl Building {
     pub fn spawn(
         id: BuildingID,
+        materialized_reality: MaterializedRealityID,
         households: &CVec<HouseholdID>,
         lot: &Lot,
         world: &mut World,
@@ -35,6 +38,7 @@ impl Building {
             0.0,
             world,
         );
+        materialized_reality.on_building_built(lot.position, id, lot.adjacent_lane, world);
         Building {
             id,
             households: households.clone(),
@@ -109,6 +113,7 @@ pub enum BuildingSpawnerState {
 pub struct BuildingSpawner {
     id: BuildingSpawnerID,
     simulation: SimulationID,
+    materialized_reality: MaterializedRealityID,
     bindings: External<BuildingSpawnerBindings>,
     state: BuildingSpawnerState,
 }
@@ -118,6 +123,7 @@ impl BuildingSpawner {
         id: BuildingSpawnerID,
         user_interface: UserInterfaceID,
         simulation: SimulationID,
+        materialized_reality: MaterializedRealityID,
         world: &mut World,
     ) -> BuildingSpawner {
         user_interface.add(id.into(), AnyShape::Everywhere, 0, world);
@@ -126,6 +132,7 @@ impl BuildingSpawner {
         BuildingSpawner {
             id,
             simulation,
+            materialized_reality,
             bindings: External::new(::ENV.load_settings("Building Spawning")),
             state: BuildingSpawnerState::Idle,
         }
@@ -139,8 +146,13 @@ impl BuildingSpawner {
         }
     }
 
-    fn spawn_building(lot: &Lot, simulation: SimulationID, world: &mut World) {
-        let building_id = BuildingID::spawn(CVec::new(), lot.clone(), world);
+    fn spawn_building(
+        materialized_reality: MaterializedRealityID,
+        lot: &Lot,
+        simulation: SimulationID,
+        world: &mut World,
+    ) {
+        let building_id = BuildingID::spawn(materialized_reality, CVec::new(), lot.clone(), world);
 
         if building_id._raw_id.instance_id % 6 == 0 {
             let shop_id = GroceryShopID::move_into(building_id, world);
@@ -204,6 +216,8 @@ impl LotConflictor for Building {
     }
 }
 
+const MIN_LANE_BUILDING_DISTANCE: f32 = 15.0;
+
 impl LotConflictor for Lane {
     fn find_conflicts(
         &mut self,
@@ -211,8 +225,6 @@ impl LotConflictor for Lane {
         requester: BuildingSpawnerID,
         world: &mut World,
     ) {
-        const MIN_LANE_BUILDING_DISTANCE: f32 = 15.0;
-
         requester.update_feasibility(
             lots.iter()
                 .map(|lot| {
@@ -268,7 +280,12 @@ impl Sleeper for BuildingSpawner {
             BuildingSpawnerState::CheckingLanes(ref mut lots, ref mut feasible) => {
                 for (lot, feasible) in lots.iter().zip(feasible) {
                     if *feasible {
-                        Self::spawn_building(lot, self.simulation, world);
+                        Self::spawn_building(
+                            self.materialized_reality,
+                            lot,
+                            self.simulation,
+                            world,
+                        );
                     }
                 }
                 BuildingSpawnerState::Idle
@@ -289,13 +306,40 @@ pub struct MaterializedBuildings {
 }
 
 use transport::planning::road_plan::RoadPlanResultDelta;
+use std::collections::HashSet;
 
 impl MaterializedBuildings {
     pub fn delta_with_road_result_delta(
         &self,
         road_result_delta: &RoadPlanResultDelta,
     ) -> BuildingPlanResultDelta {
-        unimplemented!()
+        let all_strokes_to_create =
+            road_result_delta
+                .intersections
+                .to_create
+                .values()
+                .flat_map(|intersection| intersection.strokes.iter())
+                .chain(road_result_delta.trimmed_strokes.to_create.values());
+
+        let mut buildings_to_destroy = HashSet::<BuildingID>::new();
+
+        for stroke_to_create in all_strokes_to_create {
+            for building in &self.buildings {
+                if stroke_to_create.path().distance_to(building.0) < MIN_LANE_BUILDING_DISTANCE {
+                    buildings_to_destroy.insert(building.1);
+                }
+            }
+        }
+
+        println!("Buildings to destroy: {:?}", buildings_to_destroy);
+
+        BuildingPlanResultDelta { buildings_to_destroy: buildings_to_destroy.into_iter().collect() }
+    }
+}
+
+impl MaterializedReality {
+    pub fn on_building_built(&mut self, position: P2, id: BuildingID, lane: LaneID, _: &mut World) {
+        self.buildings.buildings.push((position, id, lane));
     }
 }
 
@@ -303,14 +347,24 @@ use super::households::family::FamilyID;
 use super::households::grocery_shop::GroceryShopID;
 use core::simulation::{SimulationID, Ticks};
 
-pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID, simulation: SimulationID) {
+pub fn setup(
+    system: &mut ActorSystem,
+    user_interface: UserInterfaceID,
+    simulation: SimulationID,
+    materialized_reality: MaterializedRealityID,
+) {
     system.register::<Building>();
     system.register::<BuildingSpawner>();
     rendering::setup(system, user_interface);
 
     kay_auto::auto_setup(system);
 
-    BuildingSpawnerID::init(user_interface, simulation, &mut system.world());
+    BuildingSpawnerID::init(
+        user_interface,
+        simulation,
+        materialized_reality,
+        &mut system.world(),
+    );
 }
 
 mod kay_auto;

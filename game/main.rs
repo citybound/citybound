@@ -86,9 +86,14 @@ fn main() {
             (0.6, 0.75, 0.4, 1.0)
         );
 
-        planning::setup(&mut system, user_interface, renderer);
+        let materialized_reality = planning::setup(&mut system, user_interface, renderer);
         transport::setup(&mut system, simulation);
-        economy::setup(&mut system, user_interface, simulation);
+        economy::setup(
+            &mut system,
+            user_interface,
+            simulation,
+            materialized_reality,
+        );
 
         core::init::print_version(user_interface, world);
 
