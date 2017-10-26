@@ -333,12 +333,14 @@ pub struct MaterializedBuildings {
 }
 
 use transport::planning::road_plan::RoadPlanResultDelta;
+use transport::planning::materialized_roads::MaterializedRoads;
 use std::collections::HashSet;
 
 impl MaterializedBuildings {
     pub fn delta_with_road_result_delta(
         &self,
         road_result_delta: &RoadPlanResultDelta,
+        materialized_roads: &MaterializedRoads,
     ) -> BuildingPlanResultDelta {
         let all_strokes_to_create =
             road_result_delta
@@ -351,10 +353,29 @@ impl MaterializedBuildings {
         let mut buildings_to_destroy = HashSet::<BuildingID>::new();
 
         for stroke_to_create in all_strokes_to_create {
-            for building in &self.buildings {
-                if stroke_to_create.path().distance_to(building.0) < MIN_LANE_BUILDING_DISTANCE {
-                    buildings_to_destroy.insert(building.1);
+            for &(building_pos, building_id, _) in &self.buildings {
+                if stroke_to_create.path().distance_to(building_pos) < MIN_LANE_BUILDING_DISTANCE {
+                    buildings_to_destroy.insert(building_id);
                 }
+            }
+        }
+
+        let lane_ids_to_be_destroyed = road_result_delta
+            .trimmed_strokes
+            .to_destroy
+            .keys()
+            .map(|lane_ref| {
+                materialized_roads
+                    .built_trimmed_lanes
+                    .get(*lane_ref)
+                    .cloned()
+                    .expect("Expected road to be destroyed to be built")
+            })
+            .collect::<Vec<_>>();
+
+        for &(_, building_id, building_lane) in &self.buildings {
+            if lane_ids_to_be_destroyed.contains(&building_lane.into()) {
+                buildings_to_destroy.insert(building_id);
             }
         }
 

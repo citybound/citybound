@@ -45,7 +45,7 @@ impl MaterializedReality {
     pub fn simulate(&mut self, requester: PlanManagerID, delta: &PlanDelta, world: &mut World) {
         let new_plan = self.current_plan.with_delta(delta);
         let result = new_plan.get_result();
-        let result_delta = result.delta(&self.current_result, &self.buildings);
+        let result_delta = result.delta(&self.current_result, &self.buildings, &self.roads);
         requester.on_simulation_result(result_delta, world);
     }
 
@@ -55,7 +55,7 @@ impl MaterializedReality {
             Ready(()) => {
                 let new_plan = self.current_plan.with_delta(delta);
                 let new_result = new_plan.get_result();
-                let result_delta = new_result.delta(&self.current_result, &self.buildings);
+                let result_delta = new_result.delta(&self.current_result, &self.buildings, &self.roads);
 
                 let road_update_state = MaterializedRoads::start_applying_roads(self.id, &mut self.roads, &result_delta.roads, world);
                 self.buildings.apply(world, &result_delta.buildings);

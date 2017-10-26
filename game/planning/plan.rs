@@ -3,6 +3,7 @@ use compact::CDict;
 use itertools::Itertools;
 
 use transport::planning::road_plan::{RoadPlan, RoadPlanDelta, RoadPlanResult, RoadPlanResultDelta};
+use transport::planning::materialized_roads::MaterializedRoads;
 use economy::buildings::{BuildingPlanResultDelta, MaterializedBuildings};
 
 #[derive(Clone, Compact, Default)]
@@ -37,10 +38,18 @@ pub struct PlanResultDelta {
 }
 
 impl PlanResult {
-    pub fn delta(&self, old: &Self, buildings_view: &MaterializedBuildings) -> PlanResultDelta {
+    pub fn delta(
+        &self,
+        old: &Self,
+        materialized_buildings: &MaterializedBuildings,
+        materialized_roads: &MaterializedRoads,
+    ) -> PlanResultDelta {
         let road_result_delta = self.roads.delta(&old.roads);
         PlanResultDelta {
-            buildings: buildings_view.delta_with_road_result_delta(&road_result_delta),
+            buildings: materialized_buildings.delta_with_road_result_delta(
+                &road_result_delta,
+                materialized_roads,
+            ),
             roads: road_result_delta,
         }
     }

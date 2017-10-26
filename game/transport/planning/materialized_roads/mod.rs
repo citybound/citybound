@@ -18,7 +18,7 @@ pub struct BuiltStrokes {
 #[derive(Compact, Clone, Default)]
 pub struct MaterializedRoads {
     built_intersection_lanes: CDict<IntersectionRef, CVec<LaneID>>,
-    built_trimmed_lanes: CDict<TrimmedStrokeRef, LaneLikeID>,
+    pub built_trimmed_lanes: CDict<TrimmedStrokeRef, LaneLikeID>,
     built_transfer_lanes: CDict<TransferStrokeRef, LaneLikeID>,
     built_strokes: BuiltStrokes,
 }
