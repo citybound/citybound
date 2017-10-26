@@ -43,6 +43,7 @@ pub struct Offer {
     opening_hours: TimeOfDayRange,
     deal: Deal,
     users: CVec<(HouseholdID, Option<MemberIdx>)>,
+    active_users: CVec<(HouseholdID, MemberIdx)>,
     being_withdrawn: bool,
 }
 
@@ -66,6 +67,7 @@ impl Offer {
             opening_hours,
             deal: deal.clone(),
             users: CVec::new(),
+            active_users: CVec::new(),
             being_withdrawn: false,
         }
     }
@@ -88,6 +90,7 @@ impl Offer {
             opening_hours,
             deal: deal.clone(),
             users: CVec::new(),
+            active_users: CVec::new(),
             being_withdrawn: false,
         }
     }
@@ -120,6 +123,11 @@ impl Offer {
             for user in &self.users {
                 user.0.stop_using(self.id, world);
             }
+
+            for &(active_user_household, active_member) in &self.active_users {
+                active_user_household.reset_member_task(active_member, world);
+            }
+
             Fate::Live // ...for now
         }
     }
@@ -219,6 +227,28 @@ impl Offer {
         } else {
             Fate::Live
         }
+    }
+
+    pub fn started_actively_using(
+        &mut self,
+        household: HouseholdID,
+        member: MemberIdx,
+        _: &mut World,
+    ) {
+        if !self.active_users.contains(&(household, member)) {
+            self.active_users.push((household, member));
+        }
+    }
+
+    pub fn stopped_actively_using(
+        &mut self,
+        household: HouseholdID,
+        member: MemberIdx,
+        _: &mut World,
+    ) {
+        self.active_users.retain(|&(o_household, o_member)| {
+            o_household != household || o_member != member
+        });
     }
 }
 

@@ -22,6 +22,7 @@ pub trait Household {
     fn decay(&mut self, dt: Duration, world: &mut World);
     fn task_succeeded(&mut self, member: MemberIdx, world: &mut World);
     fn task_failed(&mut self, member: MemberIdx, location: RoughLocationID, world: &mut World);
+    fn reset_member_task(&mut self, member: MemberIdx, world: &mut World);
     fn stop_using(&mut self, offer: OfferID, world: &mut World);
     fn destroy(&mut self, world: &mut World);
     fn inspect(

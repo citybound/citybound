@@ -60,6 +60,12 @@ impl TaskEndScheduler {
         };
         self.task_ends.insert(insert_idx, (end, household, member));
     }
+
+    pub fn deschedule(&mut self, household: HouseholdID, member: MemberIdx, _: &mut World) {
+        self.task_ends.retain(|&(_, task_household, task_member)| {
+            task_household != household || task_member != member
+        });
+    }
 }
 
 impl Simulatable for TaskEndScheduler {
