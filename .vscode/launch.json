@@ -100,6 +100,22 @@
             "env": {
                 "RUST_BACKTRACE": 1
             }
+        },
+        {
+            "name": "(Windows) Debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/release/citybound.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceRoot}",
+            "environment": [
+                {
+                    "name": "RUST_BACKTRACE",
+                    "value": "1"
+                }
+            ],
+            "externalConsole": true
         }
     ],
     "compounds": [
