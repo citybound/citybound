@@ -1,14 +1,14 @@
 use descartes::Circle;
-use compact::CVec;
+use compact::{CVec, CDict};
 use kay::{ActorSystem, World, External};
 use monet::{RendererID, Renderable, RenderableID, MSG_Renderable_setup_in_scene,
-            MSG_Renderable_render_to_scene, GrouperID, GrouperIndividualID};
+            MSG_Renderable_render_to_scene, GrouperID, GrouperIndividualID, Geometry, Instance};
 use stagemaster::geometry::AnyShape;
 use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID, Interactable2d,
                   Interactable2dID, MSG_Interactable3d_on_event, MSG_Interactable2d_draw_ui_2d};
 use imgui::ImGuiSetCond_FirstUseEver;
 
-use super::{Building, BuildingID};
+use super::{Building, BuildingID, BuildingPlanResultDelta};
 use economy::households::HouseholdID;
 
 mod architecture;
@@ -118,6 +118,7 @@ pub struct BuildingRenderer {
     wall_grouper: GrouperID,
     flat_roof_grouper: GrouperID,
     brick_roof_grouper: GrouperID,
+    current_n_buildings_to_be_destroyed: CDict<RendererID, usize>,
 }
 
 impl BuildingRenderer {
@@ -127,6 +128,7 @@ impl BuildingRenderer {
             wall_grouper: GrouperID::spawn([0.95, 0.95, 0.95], 5000, false, world),
             flat_roof_grouper: GrouperID::spawn([0.5, 0.5, 0.5], 5100, false, world),
             brick_roof_grouper: GrouperID::spawn([0.8, 0.5, 0.2], 5200, false, world),
+            current_n_buildings_to_be_destroyed: CDict::new(),
         }
     }
 
@@ -151,6 +153,39 @@ impl BuildingRenderer {
             GrouperIndividualID { _raw_id: id._raw_id },
             geometry.brick_roof.clone(),
             world,
+        );
+    }
+
+    pub fn update_buildings_to_be_destroyed(
+        &mut self,
+        renderer_id: RendererID,
+        scene_id: usize,
+        building_plan_result_delta: &BuildingPlanResultDelta,
+        world: &mut World,
+    ) {
+        let new_buildings_to_be_destroyed = &building_plan_result_delta.buildings_to_destroy;
+        let existing_n_to_be_destroyed = self.current_n_buildings_to_be_destroyed
+            .get(renderer_id)
+            .cloned()
+            .unwrap_or(0);
+        for i in new_buildings_to_be_destroyed.len()..existing_n_to_be_destroyed {
+            renderer_id.update_individual(
+                scene_id,
+                37_000 + i as u16,
+                Geometry::new(vec![], vec![]),
+                Instance::with_color([1.0, 0.0, 0.0]),
+                true,
+                world,
+            );
+        }
+
+        for (i, building) in new_buildings_to_be_destroyed.iter().enumerate() {
+            building.render_as_destroyed(renderer_id, scene_id, i, world);
+        }
+
+        self.current_n_buildings_to_be_destroyed.insert(
+            renderer_id,
+            new_buildings_to_be_destroyed.len(),
         );
     }
 }
@@ -253,25 +288,59 @@ pub fn on_add(building: &Building, world: &mut World) {
         world,
     );
 
-    // TODO: this is super hacky
-    let is_shop = building.households[0]._raw_id.local_broadcast() ==
-        GroceryShopID::local_broadcast(world)._raw_id;
     BuildingRendererID::local_first(world).add_geometry(
         building.id,
         architecture::build_building(
             &building.lot,
-            is_shop,
-            &mut XorShiftRng::from_seed(
-                [
-                    building.id._raw_id.instance_id * 1000,
-                    u32::from(building.id._raw_id.machine),
-                    building.id._raw_id.instance_id,
-                    42,
-                ],
-            ),
+            is_building_shop(building, world),
+            &mut building_id_to_seeded_rng(building.id),
         ),
         world,
     )
+}
+
+fn building_id_to_seeded_rng(id: BuildingID) -> XorShiftRng {
+    XorShiftRng::from_seed(
+        [
+            id._raw_id.instance_id * 1000,
+            u32::from(id._raw_id.machine),
+            id._raw_id.instance_id,
+            42,
+        ],
+    )
+}
+
+fn is_building_shop(building: &Building, world: &mut World) -> bool {
+    // TODO: this is super hacky
+    building.households[0]._raw_id.local_broadcast() ==
+        GroceryShopID::local_broadcast(world)._raw_id
+}
+
+impl Building {
+    pub fn render_as_destroyed(
+        &mut self,
+        renderer_id: RendererID,
+        scene_id: usize,
+        building_index: usize,
+        world: &mut World,
+    ) {
+        let geometries = architecture::build_building(
+            &self.lot,
+            is_building_shop(self, world),
+            &mut building_id_to_seeded_rng(self.id),
+        );
+
+        let combined_geometry = geometries.brick_roof + geometries.flat_roof + geometries.wall;
+
+        renderer_id.update_individual(
+            scene_id,
+            37_000 + building_index as u16,
+            combined_geometry,
+            Instance::with_color([1.0, 0.0, 0.0]),
+            true,
+            world,
+        );
+    }
 }
 
 mod kay_auto;

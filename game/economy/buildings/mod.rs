@@ -331,8 +331,6 @@ impl MaterializedBuildings {
             }
         }
 
-        println!("Buildings to destroy: {:?}", buildings_to_destroy);
-
         BuildingPlanResultDelta { buildings_to_destroy: buildings_to_destroy.into_iter().collect() }
     }
 }

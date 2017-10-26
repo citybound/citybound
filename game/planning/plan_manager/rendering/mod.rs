@@ -7,6 +7,7 @@ use monet::{Renderable, RenderableID, MSG_Renderable_setup_in_scene,
             MSG_Renderable_render_to_scene};
 
 use transport::planning::plan_manager::rendering as road_rendering;
+use economy::buildings::rendering as building_rendering;
 
 impl Renderable for PlanManager {
     fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}
@@ -68,7 +69,18 @@ impl Renderable for PlanManager {
                     world,
                 );
             }
+
+            // TODO: render this more seldomly
+            // TODO: not that nice to have to use local_first here
+            building_rendering::BuildingRendererID::local_first(world)
+                .update_buildings_to_be_destroyed(
+                    renderer_id,
+                    scene_id,
+                    result_delta.buildings.clone(),
+                    world,
+                );
         }
+
         road_rendering::render_selections(
             &self.preview.as_ref().unwrap().selections,
             &self.preview.as_ref().unwrap().plan_delta.roads,
