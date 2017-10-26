@@ -156,6 +156,27 @@ impl BuildingRenderer {
         );
     }
 
+    pub fn remove_geometry(&mut self, building_id: BuildingID, world: &mut World) {
+        self.wall_grouper.remove(
+            GrouperIndividualID {
+                _raw_id: building_id._raw_id,
+            },
+            world,
+        );
+        self.flat_roof_grouper.remove(
+            GrouperIndividualID {
+                _raw_id: building_id._raw_id,
+            },
+            world,
+        );
+        self.brick_roof_grouper.remove(
+            GrouperIndividualID {
+                _raw_id: building_id._raw_id,
+            },
+            world,
+        );
+    }
+
     pub fn update_buildings_to_be_destroyed(
         &mut self,
         renderer_id: RendererID,
@@ -297,6 +318,10 @@ pub fn on_add(building: &Building, world: &mut World) {
         ),
         world,
     )
+}
+
+pub fn on_destroy(building_id: BuildingID, world: &mut World) {
+    BuildingRendererID::local_first(world).remove_geometry(building_id, world);
 }
 
 fn building_id_to_seeded_rng(id: BuildingID) -> XorShiftRng {

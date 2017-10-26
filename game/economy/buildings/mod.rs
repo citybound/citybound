@@ -19,6 +19,7 @@ pub struct Building {
     id: BuildingID,
     households: CVec<HouseholdID>,
     lot: Lot,
+    being_destroyed: bool,
 }
 
 use stagemaster::geometry::add_debug_line;
@@ -43,6 +44,7 @@ impl Building {
             id,
             households: households.clone(),
             lot: lot.clone(),
+            being_destroyed: false,
         }
     }
 
@@ -52,6 +54,31 @@ impl Building {
         if self.households.len() == 1 {
             rendering::on_add(self, world);
         }
+    }
+
+    pub fn remove_household(&mut self, household: HouseholdID, world: &mut World) {
+        let position = self.households
+            .iter()
+            .position(|household_here| *household_here == household)
+            .expect("Tried to remove a household not in the building");
+        self.households.remove(position);
+
+        if self.being_destroyed && self.households.is_empty() {
+            self.id.finally_destroy(world);
+        }
+    }
+
+    pub fn destroy(&mut self, world: &mut World) {
+        for household in &self.households {
+            household.destroy(world);
+        }
+
+        self.being_destroyed = true;
+    }
+
+    pub fn finally_destroy(&mut self, world: &mut World) -> ::kay::Fate {
+        rendering::on_destroy(self.id, world);
+        ::kay::Fate::Die
     }
 }
 
@@ -332,6 +359,19 @@ impl MaterializedBuildings {
         }
 
         BuildingPlanResultDelta { buildings_to_destroy: buildings_to_destroy.into_iter().collect() }
+    }
+
+    pub fn apply(&mut self, world: &mut World, result_delta: &BuildingPlanResultDelta) {
+        for building_id in &result_delta.buildings_to_destroy {
+            let position = self.buildings
+                .iter()
+                .position(|&(_, built_building_id, _)| {
+                    built_building_id == *building_id
+                })
+                .expect("Tried to destroy a non-built building");
+            self.buildings[position].1.destroy(world);
+            self.buildings.remove(position);
+        }
     }
 }
 

@@ -43,6 +43,7 @@ pub struct Offer {
     opening_hours: TimeOfDayRange,
     deal: Deal,
     users: CVec<(HouseholdID, Option<MemberIdx>)>,
+    being_withdrawn: bool,
 }
 
 impl Offer {
@@ -65,10 +66,12 @@ impl Offer {
             opening_hours,
             deal: deal.clone(),
             users: CVec::new(),
+            being_withdrawn: false,
         }
     }
 
-    pub fn private(
+    // create an internal offer, only known manually to members of one household
+    pub fn internal(
         id: OfferID,
         offerer: HouseholdID,
         offering_member: MemberIdx,
@@ -85,18 +88,40 @@ impl Offer {
             opening_hours,
             deal: deal.clone(),
             users: CVec::new(),
+            being_withdrawn: false,
         }
     }
 
     // The offer stays alive until the withdrawal is confirmed
     // to prevent offers being used while they're being withdrawn
     pub fn withdraw(&mut self, world: &mut World) {
-        // TODO: notify users and wait for their confirmation as well
         MarketID::global_first(world).withdraw(self.deal.main_given(), self.id, world);
+        self.being_withdrawn = true;
     }
 
-    pub fn withdrawal_confirmed(&mut self, _: &mut World) -> Fate {
+    // Internal users are manually responsible for forgetting about this offer
+    pub fn withdraw_internal(&mut self, _: &mut World) -> Fate {
         Fate::Die
+    }
+
+    // TODO: there is still a tiny potential race condition here:
+    //       1) household finds offer in market -> household
+    //       2) offer withdrawn from market
+    //       3) withdrawal confirmed
+    //       ... starting to notify existing users
+    //       4) household starts using offer
+    //       => dangling single user keeping the offer half-dead
+    pub fn withdrawal_confirmed(&mut self, world: &mut World) -> Fate {
+        if self.users.is_empty() {
+
+            Fate::Die
+        } else {
+
+            for user in &self.users {
+                user.0.stop_using(self.id, world);
+            }
+            Fate::Live // ...for now
+        }
     }
 
     pub fn evaluate(
@@ -173,7 +198,9 @@ impl Offer {
         member: Option<MemberIdx>,
         _: &mut World,
     ) {
-        self.users.push((household, member));
+        if !self.users.contains(&(household, member)) {
+            self.users.push((household, member));
+        }
     }
 
     pub fn stopped_using(
@@ -181,10 +208,17 @@ impl Offer {
         household: HouseholdID,
         member: Option<MemberIdx>,
         _: &mut World,
-    ) {
+    ) -> Fate {
         self.users.retain(|&(o_household, o_member)| {
             o_household != household || o_member != member
         });
+
+        if self.users.is_empty() && self.being_withdrawn {
+
+            Fate::Die
+        } else {
+            Fate::Live
+        }
     }
 }
 

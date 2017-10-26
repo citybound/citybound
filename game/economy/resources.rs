@@ -161,14 +161,18 @@ impl<AssociatedValue: Compact> ResourceMap<AssociatedValue> {
         }
     }
 
-    pub fn insert(&mut self, key: ResourceId, value: AssociatedValue) {
+    pub fn insert(&mut self, key: ResourceId, value: AssociatedValue) -> Option<AssociatedValue> {
         match self.entries.binary_search_by_key(
             &key,
             |&Entry(ref k, ref _v)| *k,
         ) {
-            Ok(index) => self.entries[index] = Entry(key, value),
+            Ok(index) => {
+                let old = ::std::mem::replace(&mut self.entries[index].1, value);
+                Some(old)
+            }
             Err(index) => {
                 self.entries.insert(index, Entry(key, value));
+                None
             }
         }
     }

@@ -9,7 +9,7 @@ use transport::pathfinding::RoughLocationID;
 
 use super::{Household, HouseholdID, MemberIdx, MSG_Household_decay, MSG_Household_inspect,
             MSG_Household_provide_deal, MSG_Household_receive_deal, MSG_Household_task_succeeded,
-            MSG_Household_task_failed};
+            MSG_Household_task_failed, MSG_Household_destroy, MSG_Household_stop_using};
 
 #[derive(Compact, Clone)]
 pub struct GroceryShop {
@@ -66,9 +66,19 @@ impl Household for GroceryShop {
         unimplemented!()
     }
 
+    fn stop_using(&mut self, _offer: OfferID, _: &mut World) {
+        unimplemented!()
+    }
+
     fn decay(&mut self, dt: Duration, _: &mut World) {
         let groceries = self.resources.mut_entry_or(r_id("groceries"), 0.0);
         *groceries += 0.001 * dt.as_seconds();
+    }
+
+    fn destroy(&mut self, world: &mut World) {
+        self.site.remove_household(self.id.into(), world);
+        self.grocery_offer.withdraw(world);
+        self.job_offer.withdraw(world);
     }
 
     #[allow(useless_format)]

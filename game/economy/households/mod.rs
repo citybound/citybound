@@ -7,13 +7,13 @@ pub mod tasks;
 pub mod family;
 pub mod grocery_shop;
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct MemberIdx(usize);
 
 use imgui::Ui;
 use kay::External;
 
-use super::market::Deal;
+use super::market::{Deal, OfferID};
 use super::buildings::rendering::BuildingInspectorID;
 
 pub trait Household {
@@ -22,6 +22,8 @@ pub trait Household {
     fn decay(&mut self, dt: Duration, world: &mut World);
     fn task_succeeded(&mut self, member: MemberIdx, world: &mut World);
     fn task_failed(&mut self, member: MemberIdx, location: RoughLocationID, world: &mut World);
+    fn stop_using(&mut self, offer: OfferID, world: &mut World);
+    fn destroy(&mut self, world: &mut World);
     fn inspect(
         &mut self,
         imgui_ui: &External<Ui<'static>>,

@@ -21,7 +21,7 @@ use core::async_counter::AsyncCounter;
 
 use super::{Household, HouseholdID, MemberIdx, MSG_Household_decay, MSG_Household_inspect,
             MSG_Household_provide_deal, MSG_Household_receive_deal, MSG_Household_task_succeeded,
-            MSG_Household_task_failed};
+            MSG_Household_task_failed, MSG_Household_destroy, MSG_Household_stop_using};
 use super::tasks::{Task, TaskEndSchedulerID};
 
 #[derive(Compact, Clone)]
@@ -72,7 +72,7 @@ impl Family {
     ) -> Family {
         simulation.wake_up_in(Ticks(0), id.into(), world);
 
-        let sleep_offer = OfferID::private(
+        let sleep_offer = OfferID::internal(
             id.into(),
             MemberIdx(0),
             home.into(),
@@ -475,14 +475,18 @@ impl TripListener for Family {
             };
 
             let maybe_member = if shared {
-                Some(matching_task_member)
-            } else {
                 None
+            } else {
+                Some(matching_task_member)
             };
 
             match result.fate {
                 TripFate::Success => {
-                    used_offers.insert(matching_resource, matching_offer);
+                    if let Some(previous_offer) = used_offers.insert(matching_resource, matching_offer) {
+                        if previous_offer != matching_offer {
+                            previous_offer.stopped_using(self.id.into(), maybe_member, world);
+                        }
+                    }
                     matching_offer.started_using(self.id.into(), maybe_member, world);
                 }
                 _ => {
@@ -593,6 +597,43 @@ impl Household for Family {
 
     fn task_failed(&mut self, member: MemberIdx, location: RoughLocationID, world: &mut World) {
         self.stop_task(member, location, world);
+    }
+
+    fn stop_using(&mut self, offer: OfferID, world: &mut World) {
+        if let Some(Entry(associated_resource, _)) =
+            self.used_offers
+                .iter()
+                .find(|&&Entry(_, resource_offer)| resource_offer == offer)
+                .cloned()
+        {
+            self.used_offers.remove(associated_resource);
+            offer.stopped_using(self.id.into(), None, world);
+        }
+
+        for (i, member_used_offers) in self.member_used_offers.iter_mut().enumerate() {
+            if let Some(Entry(associated_resource, _)) =
+                member_used_offers
+                    .iter()
+                    .find(|&&Entry(_, resource_offer)| resource_offer == offer)
+                    .cloned()
+            {
+                member_used_offers.remove(associated_resource);
+                offer.stopped_using(self.id.into(), Some(MemberIdx(i)), world);
+            }
+        }
+    }
+
+    fn destroy(&mut self, world: &mut World) {
+        for &Entry(_, offer) in self.used_offers.iter() {
+            offer.stopped_using(self.id.into(), None, world);
+        }
+        for (i, member_used_offers) in self.member_used_offers.iter().enumerate() {
+            for &Entry(_, offer) in member_used_offers.iter() {
+                offer.stopped_using(self.id.into(), Some(MemberIdx(i)), world);
+            }
+        }
+        self.sleep_offer.withdraw_internal(world);
+        self.home.remove_household(self.id.into(), world);
     }
 
     #[allow(useless_format)]
