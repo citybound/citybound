@@ -22,7 +22,7 @@ pub struct Building {
     being_destroyed: bool,
 }
 
-use stagemaster::geometry::add_debug_line;
+//use stagemaster::geometry::add_debug_line;
 
 impl Building {
     pub fn spawn(
@@ -32,13 +32,13 @@ impl Building {
         lot: &Lot,
         world: &mut World,
     ) -> Building {
-        add_debug_line(
-            lot.position,
-            lot.adjacent_lane_position,
-            [0.5, 0.5, 0.5],
-            0.0,
-            world,
-        );
+        // add_debug_line(
+        //     lot.position,
+        //     lot.adjacent_lane_position,
+        //     [0.5, 0.5, 0.5],
+        //     0.0,
+        //     world,
+        // );
         materialized_reality.on_building_built(lot.position, id, lot.adjacent_lane, world);
         Building {
             id,
