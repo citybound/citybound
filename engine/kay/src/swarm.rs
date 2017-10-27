@@ -43,9 +43,10 @@ impl<A: Actor + Clone> Swarm<A> {
         unsafe { &mut *(self.instances.bins[index.bin()].at_mut(index.slot()) as *mut A) }
     }
 
-    fn at_mut(&mut self, id: usize) -> &mut A {
-        let index = *self.slot_map.indices_of(id);
-        self.at_index_mut(index)
+    fn at_mut(&mut self, id: usize, version: u8) -> Option<&mut A> {
+        self.slot_map.indices_of(id, version).map(move |index| {
+            self.at_index_mut(index)
+        })
     }
 
     /// Allocate a instance ID for later use when manually adding a instance (see `add_with_id`)
@@ -78,7 +79,9 @@ impl<A: Actor + Clone> Swarm<A> {
             SlotIndices::new(bin_index, index),
         );
         assert_eq!(
-            self.slot_map.indices_of(id.instance_id as usize).bin(),
+            self.slot_map
+                .indices_of_no_version_check(id.instance_id as usize)
+                .bin(),
             bin_index
         );
 
@@ -106,7 +109,9 @@ impl<A: Actor + Clone> Swarm<A> {
     }
 
     fn remove(&mut self, id: ID) {
-        let i = *self.slot_map.indices_of(id.instance_id as usize);
+        let i = self.slot_map.indices_of_no_version_check(
+            id.instance_id as usize,
+        );
         self.remove_at_index(i, id);
     }
 
@@ -125,7 +130,7 @@ impl<A: Actor + Clone> Swarm<A> {
     }
 
     fn resize(&mut self, id: usize) -> bool {
-        let index = *self.slot_map.indices_of(id);
+        let index = self.slot_map.indices_of_no_version_check(id);
         self.resize_at_index(index)
     }
 
@@ -144,9 +149,21 @@ impl<A: Actor + Clone> Swarm<A> {
         H: Fn(&M, &mut A, &mut World) -> Fate + 'static,
     {
         let (fate, is_still_compact) = {
-            let actor = self.at_mut(packet.recipient_id.instance_id as usize);
-            let fate = handler(&packet.message, actor, world);
-            (fate, actor.is_still_compact())
+            if let Some(actor) = self.at_mut(
+                packet.recipient_id.instance_id as usize,
+                packet.recipient_id.version,
+            )
+            {
+                let fate = handler(&packet.message, actor, world);
+                (fate, actor.is_still_compact())
+            } else {
+                println!(
+                    "Tried to send {} packet to {} actor of wrong version!",
+                    unsafe {::std::intrinsics::type_name::<M>()},
+                    unsafe {::std::intrinsics::type_name::<A>()}
+                );
+                return;
+            }
         };
 
         match fate {

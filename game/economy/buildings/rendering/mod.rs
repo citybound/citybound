@@ -321,6 +321,7 @@ pub fn on_add(building: &Building, world: &mut World) {
 }
 
 pub fn on_destroy(building_id: BuildingID, world: &mut World) {
+    UserInterfaceID::local_first(world).remove(building_id.into(), world);
     BuildingRendererID::local_first(world).remove_geometry(building_id, world);
 }
 
