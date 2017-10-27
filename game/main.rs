@@ -103,10 +103,6 @@ fn main() {
 
         loop {
             frame_counter.start_frame();
-            frame_counter.print_fps(user_interface, world);
-
-            core::init::print_instance_counts(&mut system, user_interface);
-            core::init::print_network_turn(&mut system, user_interface);
 
             user_interface.process_events(world);
 
@@ -123,6 +119,12 @@ fn main() {
             system.process_all_messages();
 
             system.networking_send_and_receive();
+
+            frame_counter.print_fps(user_interface, world);
+
+            //core::init::print_instance_counts(&mut system, user_interface);
+            core::init::print_network_turn(&mut system, user_interface);
+
             system.process_all_messages();
 
             user_interface.start_frame(world);

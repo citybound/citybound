@@ -2,6 +2,8 @@ use kay::{ActorSystem, World, External};
 use compact::{CVec, CDict, COption, CString};
 use imgui::Ui;
 use ordered_float::OrderedFloat;
+use rand::{XorShiftRng, Rng, SeedableRng};
+
 use core::simulation::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, SimulationID,
                        Simulatable, SimulatableID, MSG_Simulatable_tick};
 use economy::resources::{ResourceId, ResourceAmount, ResourceMap, Entry};
@@ -16,6 +18,8 @@ use transport::pathfinding::RoughLocationID;
 
 mod judgement_table;
 use self::judgement_table::judgement_table;
+pub mod names;
+use self::names::{family_name, member_name};
 
 use core::async_counter::AsyncCounter;
 
@@ -77,8 +81,8 @@ impl Family {
             id.into(),
             MemberIdx(0),
             home.into(),
-            TimeOfDayRange::new(20, 0, 9, 0),
-            Deal::new(Some((r_id("awakeness"), 18.0)), Duration::from_hours(6)),
+            TimeOfDayRange::new(16, 0, 11, 0),
+            Deal::new(Some((r_id("awakeness"), 3.0)), Duration::from_hours(1)),
             world,
         );
 
@@ -105,15 +109,24 @@ use core::simulation::{Sleeper, SleeperID, MSG_Sleeper_wake};
 impl Sleeper for Family {
     fn wake(&mut self, current_instant: Instant, world: &mut World) {
         if let DecisionState::None = self.decision_state {
-            let maybe_idle_idx_loc = self.member_tasks
+            let idle_members_idx_loc = self.member_tasks
                 .iter()
                 .enumerate()
                 .filter_map(|(idx, m)| match m.state {
                     TaskState::IdleAt(loc) => Some((idx, loc)),
                     _ => None,
                 })
-                .next();
-            if let Some((idle_member_idx, location)) = maybe_idle_idx_loc {
+                .collect::<Vec<_>>();
+            let mut rng = XorShiftRng::from_seed(
+                [
+                    current_instant.ticks() as u32,
+                    self.id._raw_id.instance_id as u32,
+                    33,
+                    44,
+                ],
+            );
+            let maybe_idle_idx_loc = rng.choose(&idle_members_idx_loc);
+            if let Some(&(idle_member_idx, location)) = maybe_idle_idx_loc {
                 self.find_new_task_for(
                     MemberIdx(idle_member_idx),
                     current_instant,
@@ -429,9 +442,10 @@ use transport::pathfinding::trip::{TripListener, TripID};
 use super::tasks::TaskState;
 
 impl TripListener for Family {
-    fn trip_created(&mut self, trip: TripID, _: &mut World) {
+    fn trip_created(&mut self, trip: TripID, world: &mut World) {
         self.decision_state = if let DecisionState::WaitingForTrip(member) = self.decision_state {
             self.member_tasks[member.0].state = TaskState::InTrip(trip);
+            SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, self.id.into(), world);
             DecisionState::None
         } else {
             panic!("Should be in waiting for trip state")
@@ -570,27 +584,36 @@ impl Household for Family {
     }
 
     fn provide_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
-        deal.delta.take_from_shared_private(
-            &mut self.resources,
-            &mut self.member_resources[member.0],
-        );
+        let provide_awakeness = deal.delta.len() == 1 &&
+            deal.delta.get(r_id("awakeness")).is_some();
+        if !provide_awakeness {
+            deal.delta.take_from_shared_private(
+                &mut self.resources,
+                &mut self.member_resources[member.0],
+            );
+        }
     }
 
     fn decay(&mut self, dt: Duration, _: &mut World) {
-        for member_resources in self.member_resources.iter_mut() {
+        for (i, member_resources) in self.member_resources.iter_mut().enumerate() {
             {
+                let individuality = XorShiftRng::from_seed(
+                    [self.id._raw_id.instance_id, 22, i as u32, 111],
+                ).gen_range(0.8, 1.2);
                 let awakeness = member_resources.mut_entry_or(r_id("awakeness"), 0.0);
-                *awakeness -= 1.0 * dt.as_hours();
+                *awakeness -= 1.0 * individuality * dt.as_hours();
             }
             {
-
+                let individuality = XorShiftRng::from_seed(
+                    [self.id._raw_id.instance_id, 2222, i as u32, 33],
+                ).gen_range(0.8, 1.2);
                 let satiety = member_resources.mut_entry_or(r_id("satiety"), 0.0);
                 if *satiety < 0.0 {
                     let groceries = self.resources.mut_entry_or(r_id("groceries"), 0.0);
                     *groceries -= 3.0;
                     *satiety += 3.0;
                 }
-                *satiety -= 1.0 * dt.as_hours();
+                *satiety -= 1.0 * individuality * dt.as_hours();
             }
         }
     }
@@ -609,7 +632,9 @@ impl Household for Family {
     }
 
     fn reset_member_task(&mut self, member: MemberIdx, world: &mut World) {
-        self.log.push_str(format!("Reset member {}\n", member.0).as_str());
+        self.log.push_str(
+            format!("Reset member {}\n", member.0).as_str(),
+        );
         TaskEndSchedulerID::local_first(world).deschedule(self.id.into(), member, world);
         // teleport back home
         let home = self.home;
@@ -663,58 +688,51 @@ impl Household for Family {
         let ui = imgui_ui.steal();
 
         ui.window(im_str!("Building")).build(|| {
-            ui.tree_node(im_str!("Family ID: {:?}", self.id._raw_id))
-                .build(|| {
-                    ui.tree_node(im_str!("Shared")).build(|| {
-                        ui.text(im_str!("State"));
-                        ui.same_line(250.0);
-                        ui.text(im_str!(
-                            "{}",
-                            match self.decision_state {
-                                DecisionState::None => "None",
-                                DecisionState::Choosing(_, _, _, _) => "Waiting for choice",
-                                DecisionState::WaitingForTrip(_) => "Waiting for trip",
-                            }
-                        ));
-
-                        for resource in all_resource_ids() {
-                            if r_properties(resource).ownership_shared {
-                                ui.text(im_str!("{}", r_info(resource).0));
-                                ui.same_line(250.0);
-                                let amount = self.resources.get(resource).cloned().unwrap_or(0.0);
-                                ui.text(im_str!("{}", amount));
-                            }
+            ui.tree_node(im_str!(
+                "The {} Family{}",
+                family_name(self.id),
+                match self.decision_state {
+                    DecisionState::None => "",
+                    DecisionState::Choosing(_, _, _, _) => ": Waiting for choice",
+                    DecisionState::WaitingForTrip(_) => ": Waiting for trip",
+                }
+            )).build(|| {
+                    for resource in all_resource_ids() {
+                        if r_properties(resource).ownership_shared {
+                            ui.text(im_str!("{}", r_info(resource).0));
+                            ui.same_line(250.0);
+                            let amount = self.resources.get(resource).cloned().unwrap_or(0.0);
+                            ui.text(im_str!("{:.2}", amount));
                         }
-                    });
+                    }
                     for (i, (member_resources, member_task)) in
                         self.member_resources
                             .iter()
                             .zip(&self.member_tasks)
                             .enumerate()
                     {
-                        ui.tree_node(im_str!("Member #{}", i)).build(|| {
-                            ui.text(im_str!("Task"));
-                            ui.same_line(250.0);
-                            ui.text(im_str!(
-                                "{}",
-                                match member_task.state {
-                                    TaskState::IdleAt(_) => "Idle",
-                                    TaskState::GettingReadyAt(_) => "Getting ready",
-                                    TaskState::InTrip(_) => "In trip",
-                                    TaskState::StartedAt(_, _) => "Started",
-                                }
-                            ));
-
-                            for resource in all_resource_ids() {
-                                if !r_properties(resource).ownership_shared {
-                                    ui.text(im_str!("{}", r_info(resource).0));
-                                    ui.same_line(250.0);
-                                    let amount =
-                                        member_resources.get(resource).cloned().unwrap_or(0.0);
-                                    ui.text(im_str!("{}", amount));
-                                }
+                        ui.text(im_str!(
+                            "{}: {} {}",
+                            member_name(self.id, MemberIdx(i)),
+                            match member_task.state {
+                                TaskState::IdleAt(_) => "Idle after getting",
+                                TaskState::GettingReadyAt(_) => "Preparing to get",
+                                TaskState::InTrip(_) => "In trip to get",
+                                TaskState::StartedAt(_, _) => "Getting",
+                            },
+                            member_task
+                                .goal
+                                .map(|goal| r_info(goal.0).0)
+                                .unwrap_or_else(|| "nothing".to_owned())
+                        ));
+                        for resource in all_resource_ids() {
+                            if !r_properties(resource).ownership_shared {
+                                ui.text(im_str!("{}", r_info(resource).0));
+                                ui.same_line(250.0);
+                                let amount = member_resources.get(resource).cloned().unwrap_or(0.0);
+                                ui.text(im_str!("{:.2}", amount));
                             }
-                        });
+                        }
                     }
                     ui.tree_node(im_str!("Log")).build(|| for line in self.log
                         .lines()

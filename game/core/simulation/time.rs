@@ -190,13 +190,10 @@ impl TimeOfDayRange {
 
     pub fn contains<T: Into<TimeOfDay>>(&self, time: T) -> bool {
         let time = time.into();
-        if self.start.minutes_of_day <= self.end.minutes_of_day {
-            self.start.minutes_of_day <= time.minutes_of_day &&
-                time.minutes_of_day <= self.end.minutes_of_day
+        if self.start <= self.end {
+            self.start <= time && time <= self.end
         } else {
-            self.start.minutes_of_day <= time.minutes_of_day &&
-                (time.minutes_of_day <= self.end.minutes_of_day ||
-                     time.minutes_of_day <= TimeOfDay::new(23, 59).minutes_of_day)
+            self.start <= time || time <= self.end
         }
     }
 

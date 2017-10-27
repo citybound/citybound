@@ -33,8 +33,8 @@ impl GroceryShop {
                 site.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
-                    vec![(r_id("groceries"), 30.0), (r_id("money"), -25.0)],
-                    Duration(5 * 60),
+                    vec![(r_id("groceries"), 30.0), (r_id("money"), -60.0)],
+                    Duration::from_minutes(30),
                 ),
                 world,
             ),
@@ -42,8 +42,8 @@ impl GroceryShop {
                 id.into(),
                 MemberIdx(0),
                 site.into(),
-                TimeOfDayRange::new(7, 0, 20, 0),
-                Deal::new(Some((r_id("money"), 50.0)), Duration(5 * 60 * 60)),
+                TimeOfDayRange::new(7, 0, 15, 0),
+                Deal::new(Some((r_id("money"), 50.0)), Duration::from_hours(5)),
                 world,
             ),
         }
@@ -97,17 +97,13 @@ impl Household for GroceryShop {
 
         ui.window(im_str!("Building")).build(|| {
             ui.tree_node(im_str!("Grocery Shop ID: {:?}", self.id._raw_id))
-                .build(|| {
-                    ui.tree_node(im_str!("Resources")).build(|| for resource in
-                        all_resource_ids()
-                    {
-                        if r_properties(resource).ownership_shared {
-                            ui.text(im_str!("{}", r_info(resource).0));
-                            ui.same_line(250.0);
-                            let amount = self.resources.get(resource).cloned().unwrap_or(0.0);
-                            ui.text(im_str!("{}", amount));
-                        }
-                    });
+                .build(|| for resource in all_resource_ids() {
+                    if r_properties(resource).ownership_shared {
+                        ui.text(im_str!("{}", r_info(resource).0));
+                        ui.same_line(250.0);
+                        let amount = self.resources.get(resource).cloned().unwrap_or(0.0);
+                        ui.text(im_str!("{:.2}", amount));
+                    }
                 });
         });
 

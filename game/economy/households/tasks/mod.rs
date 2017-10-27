@@ -52,7 +52,7 @@ impl TaskEndScheduler {
         _: &mut World,
     ) {
         let maybe_idx = self.task_ends.binary_search_by_key(
-            &(end.iticks()),
+            &(-end.iticks()),
             |&(e, _, _)| -(e.iticks()),
         );
         let insert_idx = match maybe_idx {
