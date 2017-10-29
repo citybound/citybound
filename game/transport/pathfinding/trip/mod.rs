@@ -35,6 +35,8 @@ pub enum TripFate {
     NoRoute,
 }
 
+const DEBUG_FAILED_TRIPS_VISUALLY: bool = false;
+
 impl Trip {
     pub fn spawn(
         id: TripID,
@@ -72,7 +74,9 @@ impl Trip {
                     self.rough_destination,
                     self.destination
                 );
-                FailedTripDebuggerID::spawn(self.rough_source, self.rough_destination, world);
+                if DEBUG_FAILED_TRIPS_VISUALLY {
+                    FailedTripDebuggerID::spawn(self.rough_source, self.rough_destination, world);
+                }
             }
             _ => {}
         }

@@ -122,7 +122,7 @@ fn main() {
 
             frame_counter.print_fps(user_interface, world);
 
-            //core::init::print_instance_counts(&mut system, user_interface);
+            core::init::print_instance_counts(&mut system, user_interface);
             core::init::print_network_turn(&mut system, user_interface);
 
             system.process_all_messages();

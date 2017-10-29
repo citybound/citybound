@@ -43,6 +43,19 @@ enum DecisionState {
     WaitingForTrip(MemberIdx),
 }
 
+const DO_FAMILY_LOGGING: bool = false;
+
+#[derive(Compact, Clone, Default)]
+pub struct FamilyLog(CString);
+
+impl FamilyLog {
+    pub fn log(&mut self, string: &str) {
+        if DO_FAMILY_LOGGING {
+            self.0.push_str(string);
+        }
+    }
+}
+
 #[derive(Compact, Clone)]
 pub struct Family {
     id: FamilyID,
@@ -54,7 +67,7 @@ pub struct Family {
     decision_state: DecisionState,
     used_offers: ResourceMap<OfferID>,
     member_used_offers: CVec<ResourceMap<OfferID>>,
-    log: CString,
+    log: FamilyLog,
 }
 
 const N_TOP_PROBLEMS: usize = 5;
@@ -99,7 +112,7 @@ impl Family {
             decision_state: DecisionState::None,
             used_offers,
             member_used_offers: vec![ResourceMap::new(); n_members].into(),
-            log: CString::new(),
+            log: FamilyLog::default(),
         }
     }
 }
@@ -160,7 +173,7 @@ impl Family {
         location: RoughLocationID,
         world: &mut World,
     ) {
-        self.log.push_str(
+        self.log.log(
             format!("Top N Problems for Family {:?}\n", self.id._raw_id).as_str(),
         );
 
@@ -173,7 +186,7 @@ impl Family {
             let mut decision_entries = CDict::<ResourceId, DecisionResourceEntry>::new();
 
             for &(resource, graveness) in &top_problems {
-                self.log.push_str(
+                self.log.log(
                     format!(
                         "Member #{}: {} = {}",
                         member.0,
@@ -188,7 +201,7 @@ impl Family {
                 };
 
                 let initial_counter = if let Some(&offer) = maybe_offer {
-                    self.log.push_str(
+                    self.log.log(
                         format!(
                             " -> Using favorite offer {:?} for {}\n",
                             offer._raw_id,
@@ -199,7 +212,7 @@ impl Family {
 
                     AsyncCounter::with_target(1)
                 } else {
-                    self.log.push_str(
+                    self.log.log(
                         format!(" -> Doing market query for {}\n", r_info(resource).0).as_str(),
                     );
                     MarketID::global_first(world).search(
@@ -249,7 +262,7 @@ impl Family {
                     match update {
                         ResultAspect::AddDeals(ref evaluated_deals) => {
                             for evaluated_deal in evaluated_deals {
-                                self.log.push_str(
+                                self.log.log(
                                     format!("Got eval'd deal for {}, {:?} -> {:?}\n",
                                         r_info(evaluated_deal.deal.main_given()).0,
                                         evaluated_deal.opening_hours.start.hours_minutes(),
@@ -265,7 +278,7 @@ impl Family {
                                         entry.best_deal = COption(Some(evaluated_deal.clone()));
                                         entry.best_deal_usefulness = new_deal_usefulness;
                                     } else {
-                                        self.log.push_str(
+                                        self.log.log(
                                             format!(
                                                 "Deal rejected, not more useful: {} vs {}\n",
                                                 new_deal_usefulness,
@@ -274,7 +287,7 @@ impl Family {
                                         );
                                     }
                                 } else {
-                                    self.log.push_str("Deal rejected: not open\n");
+                                    self.log.log("Deal rejected: not open\n");
                                 }
                             }
 
@@ -290,7 +303,7 @@ impl Family {
                     |entry| entry.results_counter.is_done(),
                 )
             } else {
-                self.log.push_str(
+                self.log.log(
                     "Received unexpected deal / should be choosing\n",
                 );
                 false
@@ -302,7 +315,7 @@ impl Family {
     }
 
     fn deal_usefulness(
-        log: &mut CString,
+        log: &mut FamilyLog,
         top_problems: &[(ResourceId, f32)],
         evaluated: &EvaluatedDeal,
     ) -> f32 {
@@ -311,7 +324,7 @@ impl Family {
             .map(|&(resource, graveness)| {
                 let delta = evaluated.deal.delta.get(resource).cloned().unwrap_or(0.0);
                 let improvement_strength = delta * graveness;
-                log.push_str(
+                log.log(
                     format!(
                         "{} ({}) improves by {} (graveness {}, delta: {:?})\n",
                         r_info(resource).0,
@@ -365,7 +378,7 @@ impl EvaluationRequester for Family {
 
 impl Family {
     pub fn choose_deal(&mut self, world: &mut World) {
-        self.log.push_str("Choosing deal!\n");
+        self.log.log("Choosing deal!\n");
         let maybe_best_info =
             if let DecisionState::Choosing(member, instant, _, ref entries) = self.decision_state {
                 let maybe_best = most_useful_evaluated_deal(entries);
@@ -383,7 +396,7 @@ impl Family {
                         panic!("Member who gets new task should be idle");
                     };
 
-                    self.log.push_str(
+                    self.log.log(
                         format!(
                             "Found best offer for {}\n",
                             r_info(best.deal.main_given()).0
@@ -402,7 +415,7 @@ impl Family {
             best_offer.request_receive_deal(self.id.into(), member, world);
             self.start_trip(member, instant, world);
         } else {
-            self.log.push_str(
+            self.log.log(
                 format!(
                     "{:?} didn't find any suitable offers at all\n",
                     self.id._raw_id
@@ -523,7 +536,7 @@ impl TripListener for Family {
                 );
             }
             _ => {
-                self.log.push_str(
+                self.log.log(
                     format!(
                         "Trip of member #{} from {:?} to {:?} failed!\n",
                         matching_task_member.0,
@@ -550,7 +563,7 @@ impl Family {
         location: RoughLocationID,
         world: &mut World,
     ) {
-        self.log.push_str("Started task\n");
+        self.log.log("Started task\n");
         TaskEndSchedulerID::local_first(world).schedule(
             start + self.member_tasks[member.0].duration,
             self.id.into(),
@@ -565,7 +578,7 @@ impl Family {
 
     pub fn stop_task(&mut self, member: MemberIdx, location: RoughLocationID, world: &mut World) {
         self.member_tasks[member.0].state = TaskState::IdleAt(location);
-        self.log.push_str("Task stopped\n");
+        self.log.log("Task stopped\n");
         if let Some((_, offer)) = self.member_tasks[member.0].goal {
             offer.stopped_actively_using(self.id.into(), member, world);
         }
@@ -619,7 +632,7 @@ impl Household for Family {
     }
 
     fn task_succeeded(&mut self, member: MemberIdx, world: &mut World) {
-        self.log.push_str("Task succeeded\n");
+        self.log.log("Task succeeded\n");
         if let TaskState::StartedAt(_, location) = self.member_tasks[member.0].state {
             self.stop_task(member, location, world);
         } else {
@@ -632,7 +645,7 @@ impl Household for Family {
     }
 
     fn reset_member_task(&mut self, member: MemberIdx, world: &mut World) {
-        self.log.push_str(
+        self.log.log(
             format!("Reset member {}\n", member.0).as_str(),
         );
         TaskEndSchedulerID::local_first(world).deschedule(self.id.into(), member, world);
@@ -735,6 +748,7 @@ impl Household for Family {
                         }
                     }
                     ui.tree_node(im_str!("Log")).build(|| for line in self.log
+                        .0
                         .lines()
                     {
                         ui.text(im_str!("{}", line));
