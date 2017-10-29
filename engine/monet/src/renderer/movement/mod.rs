@@ -9,6 +9,7 @@ use {Renderer, RendererID, Eye};
 pub enum Movement {
     Shift(V3),
     ShiftAbsolute(V3),
+    ShiftProjected(P2, P2),
     Zoom(N, P3),
     Yaw(N),
     Pitch(N),
@@ -24,6 +25,9 @@ impl Renderer {
         match movement {
             Movement::Shift(delta) => self.movement_shift(scene_id, delta),
             Movement::ShiftAbsolute(delta) => self.movement_shift_absolute(scene_id, delta),
+            Movement::ShiftProjected(source_2d, target_2d) => {
+                self.movement_shift_projected(scene_id, source_2d, target_2d)
+            }
             Movement::Zoom(delta, mouse_position) => {
                 self.movement_zoom(scene_id, delta, mouse_position)
             }
@@ -55,6 +59,11 @@ impl Renderer {
         let eye = &mut self.scenes[scene_id].eye;
         eye.position += delta;
         eye.target += delta;
+    }
+
+    fn movement_shift_projected(&mut self, scene_id: usize, source_2d: P2, target_2d: P2) {
+        let difference_3d = self.project(scene_id, source_2d) - self.project(scene_id, target_2d);
+        self.movement_shift_absolute(scene_id, difference_3d);
     }
 
     fn movement_zoom(&mut self, scene_id: usize, delta: N, zoom_point: P3) {
