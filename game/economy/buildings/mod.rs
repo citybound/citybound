@@ -219,6 +219,20 @@ impl Interactable3d for BuildingSpawner {
     }
 }
 
+use core::simulation::{Simulatable, SimulatableID, MSG_Simulatable_tick};
+
+impl Simulatable for BuildingSpawner {
+    fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
+        if current_instant.ticks() % 1000 == 0 {
+            if let BuildingSpawnerState::Idle = self.state {
+                LaneID::global_broadcast(world).find_lot(self.id, world);
+                self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
+                self.state = BuildingSpawnerState::Collecting(CVec::new());
+            }
+        }
+    }
+}
+
 const MIN_BUILDING_DISTANCE: f32 = 20.0;
 
 trait LotConflictor {

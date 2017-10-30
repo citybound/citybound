@@ -46,6 +46,7 @@ use transport::rendering::LaneRendererID;
 use planning::plan_manager::PlanManagerID;
 use economy::households::family::FamilyID;
 use economy::households::tasks::TaskEndSchedulerID;
+use economy::buildings::BuildingSpawnerID;
 use economy::buildings::rendering::BuildingRendererID;
 
 fn main() {
@@ -65,6 +66,7 @@ fn main() {
             TransferLaneID::local_broadcast(world).into(),
             FamilyID::local_broadcast(world).into(),
             TaskEndSchedulerID::local_first(world).into(),
+            BuildingSpawnerID::local_first(world).into(),
         ];
         let simulation = core::simulation::setup(&mut system, simulatables);
 
