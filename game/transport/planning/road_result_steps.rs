@@ -35,15 +35,17 @@ pub fn find_intersections(strokes: &CVec<LaneStroke>) -> CVec<Intersection> {
     intersection_point_groups
         .sets()
         .filter_map(|group| if group.len() >= 2 {
-            Some(Intersection {
-                shape: convex_hull::<CPath>(group)
-                    .shift_orthogonally(-5.0)
-                    .unwrap(),
-                incoming: CDict::new(),
-                outgoing: CDict::new(),
-                strokes: CVec::new(),
-                timings: CVec::new(),
-            })
+            convex_hull::<CPath>(group).shift_orthogonally(-5.0).map(
+                |shape| {
+                    Intersection {
+                        shape: shape,
+                        incoming: CDict::new(),
+                        outgoing: CDict::new(),
+                        strokes: CVec::new(),
+                        timings: CVec::new(),
+                    }
+                },
+            )
         } else {
             None
         })

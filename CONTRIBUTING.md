@@ -53,6 +53,7 @@ Recommended setup:
   * `rustup override add nightly-2017-10-19-x86_64-apple-darwin`
 * Linux:
   * `rustup override add nightly-2017-10-19-x86_64-unknown-linux-gnu`
+  * `sudo apt install build-essential` (for Ubuntu)
 * `cargo run --release` (Debug mode is generally too slow to interact with)
 
 ## Getting the recommended dev environment
@@ -70,7 +71,13 @@ Recommended setup:
       * `"rust.racerPath": "C:\\firstname\\.cargo\\bin\\racer.exe"`,
       * `"rust.rustLangSrcPath": "C:\\firstname\\.rustup\\toolchains\\nightly-2017-10-19-x86_64-pc-windows-msvc\\lib\\rustlib\\src\\rust\\src"`
   * Otherwise it "should just work"
-* For debugging (Linux/MacOS): Install the [LLDB Debugger Extension](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb)
+* For debugging 
+  * Linux/MacOS: 
+    * Install the [LLDB Debugger Extension](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb)
+  * Windows:
+    * Install the [C/C++ Extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools)
+    * Select the "(Windows) Debug" Configuration when running the debug program in VS Code
+
 * Now everything should just work! (fingers crossed)
 
 ## Conforming to style
