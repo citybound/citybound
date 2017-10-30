@@ -3,7 +3,6 @@ extern crate open;
 use kay::{ActorSystem, World, Networking};
 use monet::glium::glutin::WindowBuilder;
 use stagemaster::UserInterfaceID;
-use std::any::Any;
 use std::net::SocketAddr;
 use std::time::Instant;
 
@@ -75,7 +74,7 @@ pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
             location
         );
 
-        let report_guide = "HOW TO REPORT BUGS: https://github.com/citybound/citybound/wiki/How-to-report-bugs";
+        let report_guide = "HOW TO REPORT BUGS: https://github.com/citybound/citybound/blob/master/CONTRIBUTING.md#reporting-bugs";
 
         println!(
             "{}\n{}\nALSO SEE cb_last_error.txt (AUTO-OPENED)",
