@@ -35,28 +35,77 @@ pub fn first_time_open_wiki_release_page() {
     }
 }
 
-pub fn create_init_callback() -> Box<Fn(Box<Any>, &mut World)> {
-    Box::new(|error: Box<Any>, world: &mut ::kay::World| {
-        let ui_id = UserInterfaceID::local_first(world);
-        let message = match error.downcast::<String>() {
-            Ok(string) => (*string),
-            Err(any) => {
-                match any.downcast::<&'static str>() {
-                    Ok(static_str) => (*static_str).to_string(),
-                    Err(_) => "Weird error type".to_string(),
+use std::panic::{set_hook, PanicInfo};
+use backtrace::Backtrace;
+use std::fs::File;
+use std::io::Write;
+
+pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
+    let callback: Box<FnMut(&PanicInfo)> = Box::new(move |panic_info| {
+
+        let title = "SIMULATION BROKE :(";
+
+        let message = match panic_info.payload().downcast_ref::<String>() {
+            Some(string) => (string.clone()),
+            None => {
+                match panic_info.payload().downcast_ref::<&'static str>() {
+                    Some(static_str) => (*static_str).to_string(),
+                    None => "Weird error type".to_string(),
                 }
             }
         };
-        println!("Simulation Panic!\n{:?}", message);
+
+        let backtrace = Backtrace::new();
+        let location = format!(
+            "at {}, line {}",
+            panic_info.location().map(|l| l.file()).unwrap_or("unknown"),
+            panic_info.location().map(|l| l.line()).unwrap_or(0)
+        );
+
+        let body = format!(
+            "WHAT HAPPENED: {}\nWHERE IT HAPPENED:\n{}\nWHERE EXACTLY:\n{:?}",
+            message,
+            location,
+            backtrace
+        );
+
+        let small_body = format!(
+            "{}\n{}\nDETAILS IN cb_last_error.txt (AUTO-OPENED)",
+            message,
+            location
+        );
+
+        let report_guide = "HOW TO REPORT BUGS: https://github.com/citybound/citybound/wiki/How-to-report-bugs";
+
+        println!(
+            "{}\n{}\nALSO SEE cb_last_error.txt (AUTO-OPENED)",
+            title,
+            body
+        );
+
+        {
+            if let Ok(mut file) = File::create("./cb_last_error.txt") {
+                if let Err(_) = write!(file, "{}\n{}\n\nDETAILS:\n{}", title, report_guide, body) {
+                    println!("Error writing error file, lol");
+                }
+            };
+        }
+
+        if let Err(_) = open::that("./cb_last_error.txt") {
+            println!("Couldn't open error file");
+        };
+
         ui_id.add_debug_text(
-            "SIMULATION PANIC".to_owned().into(),
-            message.into(),
+            title.to_owned().into(),
+            small_body.into(),
             [1.0, 0.0, 0.0, 1.0],
             true,
-            world,
+            &mut world,
         );
-        ui_id.on_panic(world);
-    })
+        ui_id.on_panic(&mut world);
+    });
+
+    set_hook(unsafe { ::std::mem::transmute(callback) });
 }
 
 pub fn networking_from_env_args() -> Networking {

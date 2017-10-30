@@ -86,6 +86,7 @@ impl CameraControl {
 }
 
 impl Interactable3d for CameraControl {
+    /// Critical
     fn on_event(&mut self, event: Event3d, world: &mut World) {
         match event {
             Event3d::Combos(combos) => {
@@ -195,6 +196,7 @@ use user_interface::{Interactable2d, Interactable2dID, MSG_Interactable2d_draw_u
 use imgui_sys::ImGuiSetCond_FirstUseEver;
 
 impl Interactable2d for CameraControl {
+    /// Critical
     fn draw_ui_2d(
         &mut self,
         imgui_ui: &External<::imgui::Ui<'static>>,

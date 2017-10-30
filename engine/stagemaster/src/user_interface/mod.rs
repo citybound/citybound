@@ -213,7 +213,7 @@ impl UserInterface {
         res
     }
 
-    /// critical
+    /// Critical
     pub fn process_events(&mut self, world: &mut World) {
         let scale = self.imgui.display_framebuffer_scale();
         let events = self.poll_events();
@@ -416,7 +416,7 @@ impl UserInterface {
         }
     }
 
-    /// critical
+    /// Critical
     pub fn on_panic(&mut self, _: &mut World) {
         // so we don't wait forever for crashed actors to render UI
         let cc_id = self.camera_control_id.into();
@@ -424,6 +424,7 @@ impl UserInterface {
         self.interactables_2d_todo.retain(|id| *id == cc_id);
     }
 
+    /// Critical
     pub fn start_frame(&mut self, world: &mut World) {
         if self.parked_frame.is_some() {
             let target = ::std::mem::replace(&mut self.parked_frame, None).expect(
@@ -498,6 +499,7 @@ use monet::{TargetProvider, TargetProviderID, MSG_TargetProvider_submitted};
 use monet::glium::Frame;
 
 impl TargetProvider for UserInterface {
+    /// Critical
     fn submitted(&mut self, target: &External<Frame>, world: &mut World) {
         self.parked_frame = Some(target.steal().into_box());
 
@@ -528,7 +530,13 @@ impl TargetProvider for UserInterface {
             .size((600.0, 200.0), ImGuiSetCond_FirstUseEver)
             .collapsible(false)
             .build(|| for (ref key, (ref text, ref color)) in texts {
-                imgui_ui.text_colored(*color, im_str!("{}:\n{}", key, text));
+                if text.lines().count() > 3 {
+                    imgui_ui.tree_node(im_str!("{}", key)).build(|| {
+                        imgui_ui.text_colored(*color, im_str!("{}", text));
+                    });
+                } else {
+                    imgui_ui.text_colored(*color, im_str!("{}\n{}", key, text));
+                }
             });
 
         self.interactables_2d_todo = self.interactables_2d.clone();
@@ -537,7 +545,7 @@ impl TargetProvider for UserInterface {
 }
 
 impl UserInterface {
-    /// critical
+    /// Critical
     pub fn ui_drawn(&mut self, imgui_ui: &External<::imgui::Ui<'static>>, world: &mut World) {
         if let Some(interactable_2d) = self.interactables_2d_todo.pop() {
             interactable_2d.draw_ui_2d(imgui_ui.steal(), self.id, world);
@@ -554,7 +562,7 @@ impl UserInterface {
         }
     }
 
-    /// critical
+    /// Critical
     pub fn add_debug_text(
         &mut self,
         key: &CString,

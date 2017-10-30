@@ -12,6 +12,7 @@ extern crate itertools;
 extern crate rand;
 extern crate fnv;
 extern crate roaring;
+extern crate backtrace;
 
 extern crate compact;
 #[macro_use]
@@ -52,7 +53,6 @@ fn main() {
         core::init::first_time_open_wiki_release_page();
 
         let mut system = Box::new(kay::ActorSystem::new(
-            core::init::create_init_callback(),
             core::init::networking_from_env_args(),
         ));
 
@@ -85,6 +85,8 @@ fn main() {
             core::init::build_window(machine_id),
             (0.6, 0.75, 0.4, 1.0)
         );
+
+        core::init::set_error_hook(user_interface, system.world());
 
         let materialized_reality = planning::setup(&mut system, user_interface, renderer);
         transport::setup(&mut system, simulation);

@@ -51,8 +51,7 @@ const MAX_MESSAGE_TYPES: usize = 256;
 ///
 /// It can be controlled from the outside to do message passing and handling in turns.
 pub struct ActorSystem {
-    panic_happened: bool,
-    panic_callback: Box<Fn(Box<Any>, &mut World)>,
+    pub panic_happened: bool,
     inboxes: [Option<Inbox>; MAX_RECIPIENT_TYPES],
     actor_registry: TypeRegistry,
     swarms: [Option<*mut u8>; MAX_RECIPIENT_TYPES],
@@ -81,13 +80,9 @@ impl ActorSystem {
     /// Note that after an actor panicking, the whole `ActorSystem` switches
     /// to a panicked state and only passes messages anymore which have been
     /// marked as *critically receiveable* using `add_handler`.
-    pub fn new(
-        panic_callback: Box<Fn(Box<Any>, &mut World)>,
-        networking: Networking,
-    ) -> ActorSystem {
+    pub fn new(networking: Networking) -> ActorSystem {
         ActorSystem {
             panic_happened: false,
-            panic_callback: panic_callback,
             inboxes: unsafe { make_array!(MAX_RECIPIENT_TYPES, |_| None) },
             actor_registry: TypeRegistry::new(),
             message_registry: TypeRegistry::new(),
@@ -271,10 +266,6 @@ impl ActorSystem {
 
         if result.is_err() {
             self.panic_happened = true;
-            (self.panic_callback)(
-                result.unwrap_err(),
-                &mut World(self as *const Self as *mut Self),
-            );
         }
     }
 
@@ -336,6 +327,11 @@ impl ActorSystem {
 /// Gives limited access to an [`ActorSystem`](struct.ActorSystem.html) (typically
 /// from inside, in a message handler) to identify other actors and send messages to them.
 pub struct World(*mut ActorSystem);
+
+
+// TODO: make this true
+unsafe impl Sync for World {}
+unsafe impl Send for World {}
 
 impl World {
     /// Send a message to a (sub-)actor with the given ID.
