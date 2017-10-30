@@ -6,7 +6,24 @@
 
 # Reporting Bugs
 
-Make sure you read: [how to report bugs](https://github.com/citybound/citybound/wiki/How-to-report-bugs)
+If the game stops working, it usually displays a red `SIMULATION BROKE :(` message.
+
+More details should be visible in the editor that automatically opens, or in a `cb_last_error.txt` file next to the citybound executable.
+
+**First look if your issue has already been reported:**
+* [as a Bug](https://github.com/citybound/citybound/issues?utf8=✓&q=is%3Aissue%20label%3A%22P%20Bug%22%20)
+* [as Not Fun](https://github.com/citybound/citybound/issues?utf8=✓&q=is%3Aissue%20label%3A%22P%20Not%20Fun%22%20)
+* [as an Annoyance](https://github.com/citybound/citybound/issues?q=is%3Aissue+label%3A%22P+Annoyance%22)
+
+If not, [create a new issue](https://github.com/aeickhoff/citybound/issues/new).
+
+* Please provide details
+    * what platform you're on
+    * what you were trying to do or what you expected to happen
+    * what actually happened
+    * the detailed error information
+* Ideally: If the game is still running, take one or several screenshots (camera controls continue to work in many cases)
+* Perfect: Provide precise instructions on how to reproduce the problem (if possible)
 
 # Contributing to the Design Doc
 
