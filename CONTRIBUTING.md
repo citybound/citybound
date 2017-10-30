@@ -53,6 +53,7 @@ Recommended setup:
   * `rustup override add nightly-2017-10-19-x86_64-apple-darwin`
 * Linux:
   * `rustup override add nightly-2017-10-19-x86_64-unknown-linux-gnu`
+  * `sudo apt install build-essential` (for Ubuntu)
 * `cargo run --release` (Debug mode is generally too slow to interact with)
 
 ## Getting the recommended dev environment
