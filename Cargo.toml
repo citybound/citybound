@@ -32,7 +32,7 @@ roaring = "0.5.2"
 open = "1.2.1"
 serde = "1.0"
 serde_derive = "1.0"
-imgui = "0.0.15"
+imgui = "0.0.16"
 pulldown-cmark = "0.0.15"
 backtrace = "0.3"
 

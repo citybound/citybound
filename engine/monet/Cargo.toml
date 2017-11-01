@@ -5,7 +5,7 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 build = "src/build.rs"
 
 [dependencies]
-glium = "0.17.0"
+glium = "0.18.0"
 clippy = { version = "0.0.168", optional = true }
 fnv = "1.0.3"
 itertools = "0.6.3"
