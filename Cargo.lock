@@ -133,7 +133,7 @@ dependencies = [
  "monet 0.1.0",
  "open 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ordered-float 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "pulldown-cmark 0.0.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pulldown-cmark 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.3.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "roaring 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.18 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -870,6 +870,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pulldown-cmark"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "bitflags 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "getopts 0.2.15 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "quine-mc_cluskey"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1346,6 +1355,7 @@ dependencies = [
 "checksum primal-estimate 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "56ea4531dde757b56906493c8604641da14607bf9cdaa80fb9c9cabd2429f8d5"
 "checksum primal-sieve 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)" = "e058e7a369c70c0103d138ef71f052a48b102592aadb8ca38ee80d85d303e1de"
 "checksum pulldown-cmark 0.0.15 (registry+https://github.com/rust-lang/crates.io-index)" = "378e941dbd392c101f2cb88097fa4d7167bc421d4b88de3ff7dbee503bc3233b"
+"checksum pulldown-cmark 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a656fdb8b6848f896df5e478a0eb9083681663e37dcb77dd16981ff65329fe8b"
 "checksum quine-mc_cluskey 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)" = "07589615d719a60c8dd8a4622e7946465dfef20d1a428f969e3443e7386d5f45"
 "checksum quote 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)" = "7a6e920b65c65f10b2ae65c831a81a073a89edd28c7cce89475bff467ab4167a"
 "checksum rand 0.3.17 (registry+https://github.com/rust-lang/crates.io-index)" = "61efcbcd9fa8d8fbb07c84e34a8af18a1ff177b449689ad38a6e9457ecc7b2ae"
