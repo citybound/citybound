@@ -12,7 +12,7 @@ pub struct Table {
     pub columns: HashMap<String, Vec<String>>,
 }
 
-fn read_str(string: &str) -> Result<Vec<Table>> {
+pub fn read_str(string: &str) -> Result<Vec<Table>> {
     let mut options = Options::empty();
     options.insert(OPTION_ENABLE_TABLES);
     let parser = Parser::new_ext(string, options);

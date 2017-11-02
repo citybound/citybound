@@ -113,7 +113,7 @@ impl UserInterface {
         world: &mut World,
     ) -> UserInterface {
         let mut imgui = ImGui::init();
-        let default_font = im_str!("game/assets/ClearSans-Regular.ttf\0");
+        let default_font = include_bytes!("../../../../game/assets/ClearSans-Regular.ttf");
 
         unsafe {
             let atlas = (*::imgui_sys::igGetIO()).fonts;
@@ -121,9 +121,11 @@ impl UserInterface {
             ImFontConfig_DefaultConstructor(&mut config);
             config.oversample_h = 2;
             config.oversample_v = 2;
-            ::imgui_sys::ImFontAtlas_AddFontFromFileTTF(
+            config.font_data_owned_by_atlas = false;
+            ::imgui_sys::ImFontAtlas_AddFontFromMemoryTTF(
                 atlas,
-                default_font.as_ptr(),
+                ::std::mem::transmute(default_font.as_ptr()),
+                default_font.len() as i32,
                 16.0,
                 &config,
                 ::std::ptr::null(),

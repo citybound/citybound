@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use core::read_md_tables::read;
+use core::read_md_tables;
 use itertools::multizip;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -99,7 +99,8 @@ pub fn all_resource_ids() -> Vec<ResourceId> {
 
 pub fn setup() {
     let mut resources = Box::new(ResourceRegistry::default());
-    let tables = read(&"game/economy/parameters/resources").unwrap();
+    let tables = read_md_tables::read_str(include_str!("parameters/resources/default.data.md"))
+        .unwrap();
 
     for table in &tables {
         let c = &table.columns;
