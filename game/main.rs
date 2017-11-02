@@ -31,7 +31,7 @@ use stagemaster::environment::Environment;
 pub const ENV: &'static Environment = &Environment {
     name: "Citybound",
     author: "ae play",
-    version: "0.1.3",
+    version: "0.2.0",
 };
 
 mod core;
