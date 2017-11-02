@@ -162,10 +162,10 @@ impl Offer {
                 world,
             );
         } else {
-            println!(
-                "Not in opening hours for {}",
-                r_info(self.deal.main_given()).0
-            );
+            // println!(
+            //     "Not in opening hours for {}",
+            //     r_info(self.deal.main_given()).0
+            // );
             requester.on_result(
                 EvaluatedSearchResult {
                     resource: self.deal.main_given(),
@@ -398,8 +398,6 @@ impl TripCostEstimator {
     }
 }
 
-use economy::resources::r_info;
-
 impl LocationRequester for TripCostEstimator {
     fn location_resolved(
         &mut self,
@@ -425,10 +423,10 @@ impl LocationRequester for TripCostEstimator {
                 world,
             );
         } else if self.n_resolved == 2 {
-            println!(
-                "Either source or dest not resolvable for {}",
-                r_info(self.base_result.resource).0
-            );
+            // println!(
+            //     "Either source or dest not resolvable for {}",
+            //     r_info(self.base_result.resource).0
+            // );
             self.requester.on_result(
                 EvaluatedSearchResult {
                     resource: self.base_result.resource,

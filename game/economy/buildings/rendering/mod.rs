@@ -295,7 +295,7 @@ pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) -> Build
     BuildingRendererID::spawn(&mut system.world())
 }
 
-use rand::{XorShiftRng, SeedableRng};
+use core::random::seed;
 
 pub fn on_add(building: &Building, world: &mut World) {
     // TODO: not sure if correct
@@ -314,7 +314,7 @@ pub fn on_add(building: &Building, world: &mut World) {
         architecture::build_building(
             &building.lot,
             is_building_shop(building, world),
-            &mut building_id_to_seeded_rng(building.id),
+            &mut seed(building.id),
         ),
         world,
     )
@@ -323,17 +323,6 @@ pub fn on_add(building: &Building, world: &mut World) {
 pub fn on_destroy(building_id: BuildingID, world: &mut World) {
     UserInterfaceID::local_first(world).remove(building_id.into(), world);
     BuildingRendererID::local_first(world).remove_geometry(building_id, world);
-}
-
-fn building_id_to_seeded_rng(id: BuildingID) -> XorShiftRng {
-    XorShiftRng::from_seed(
-        [
-            id._raw_id.instance_id * 1000,
-            u32::from(id._raw_id.machine),
-            id._raw_id.instance_id,
-            42,
-        ],
-    )
 }
 
 fn is_building_shop(building: &Building, world: &mut World) -> bool {
@@ -353,7 +342,7 @@ impl Building {
         let geometries = architecture::build_building(
             &self.lot,
             is_building_shop(self, world),
-            &mut building_id_to_seeded_rng(self.id),
+            &mut seed(self.id),
         );
 
         let combined_geometry = geometries.brick_roof + geometries.flat_roof + geometries.wall;

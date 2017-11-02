@@ -1,6 +1,6 @@
 use super::FamilyID;
 use super::super::MemberIdx;
-use rand::{XorShiftRng, Rng, SeedableRng};
+use core::random::{seed, Rng};
 
 // names taken from https://github.com/icebob/fakerator
 
@@ -14,12 +14,68 @@ const LAST_NAMES: [&'static str; 474] = [
     "Abbott", "Abernathy", "Abshire", "Adams", "Altenwerth", "Anderson", "Ankunding", "Armstrong", "Auer", "Aufderhar", "Bahringer", "Bailey", "Balistreri", "Barrows", "Bartell", "Bartoletti", "Barton", "Bashirian", "Batz", "Bauch", "Baumbach", "Bayer", "Beahan", "Beatty", "Bechtelar", "Becker", "Bednar", "Beer", "Beier", "Berge", "Bergnaum", "Bergstrom", "Bernhard", "Bernier", "Bins", "Blanda", "Blick", "Block", "Bode", "Boehm", "Bogan", "Bogisich", "Borer", "Bosco", "Botsford", "Boyer", "Boyle", "Bradtke", "Brakus", "Braun", "Breitenberg", "Brekke", "Brown", "Bruen", "Buckridge", "Carroll", "Carter", "Cartwright", "Casper", "Cassin", "Champlin", "Christiansen", "Cole", "Collier", "Collins", "Conn", "Connelly", "Conroy", "Considine", "Corkery", "Cormier", "Corwin", "Cremin", "Crist", "Crona", "Cronin", "Crooks", "Cruickshank", "Cummerata", "Cummings", "Dach", "D'Amore", "Daniel", "Dare", "Daugherty", "Davis", "Deckow", "Denesik", "Dibbert", "Dickens", "Dicki", "Dickinson", "Dietrich", "Donnelly", "Dooley", "Douglas", "Doyle", "DuBuque", "Durgan", "Ebert", "Effertz", "Eichmann", "Emard", "Emmerich", "Erdman", "Ernser", "Fadel", "Fahey", "Farrell", "Fay", "Feeney", "Feest", "Feil", "Ferry", "Fisher", "Flatley", "Frami", "Franecki", "Friesen", "Fritsch", "Funk", "Gaylord", "Gerhold", "Gerlach", "Gibson", "Gislason", "Gleason", "Gleichner", "Glover", "Goldner", "Goodwin", "Gorczany", "Gottlieb", "Goyette", "Grady", "Graham", "Grant", "Green", "Greenfelder", "Greenholt", "Grimes", "Gulgowski", "Gusikowski", "Gutkowski", "Gutmann", "Haag", "Hackett", "Hagenes", "Hahn", "Haley", "Halvorson", "Hamill", "Hammes", "Hand", "Hane", "Hansen", "Harber", "Harris", "Hartmann", "Harvey", "Hauck", "Hayes", "Heaney", "Heathcote", "Hegmann", "Heidenreich", "Heller", "Herman", "Hermann", "Hermiston", "Herzog", "Hessel", "Hettinger", "Hickle", "Hilll", "Hills", "Hilpert", "Hintz", "Hirthe", "Hodkiewicz", "Hoeger", "Homenick", "Hoppe", "Howe", "Howell", "Hudson", "Huel", "Huels", "Hyatt", "Jacobi", "Jacobs", "Jacobson", "Jakubowski", "Jaskolski", "Jast", "Jenkins", "Jerde", "Johns", "Johnson", "Johnston", "Jones", "Kassulke", "Kautzer", "Keebler", "Keeling", "Kemmer", "Kerluke", "Kertzmann", "Kessler", "Kiehn", "Kihn", "Kilback", "King", "Kirlin", "Klein", "Kling", "Klocko", "Koch", "Koelpin", "Koepp", "Kohler", "Konopelski", "Koss", "Kovacek", "Kozey", "Krajcik", "Kreiger", "Kris", "Kshlerin", "Kub", "Kuhic", "Kuhlman", "Kuhn", "Kulas", "Kunde", "Kunze", "Kuphal", "Kutch", "Kuvalis", "Labadie", "Lakin", "Lang", "Langosh", "Langworth", "Larkin", "Larson", "Leannon", "Lebsack", "Ledner", "Leffler", "Legros", "Lehner", "Lemke", "Lesch", "Leuschke", "Lind", "Lindgren", "Littel", "Little", "Lockman", "Lowe", "Lubowitz", "Lueilwitz", "Luettgen", "Lynch", "Macejkovic", "MacGyver", "Maggio", "Mann", "Mante", "Marks", "Marquardt", "Marvin", "Mayer", "Mayert", "McClure", "McCullough", "McDermott", "McGlynn", "McKenzie", "McLaughlin", "Medhurst", "Mertz", "Metz", "Miller", "Mills", "Mitchell", "Moen", "Mohr", "Monahan", "Moore", "Morar", "Morissette", "Mosciski", "Mraz", "Mueller", "Muller", "Murazik", "Murphy", "Murray", "Nader", "Nicolas", "Nienow", "Nikolaus", "Nitzsche", "Nolan", "Oberbrunner", "O'Connell", "O'Conner", "O'Hara", "O'Keefe", "O'Kon", "Okuneva", "Olson", "Ondricka", "O'Reilly", "Orn", "Ortiz", "Osinski", "Pacocha", "Padberg", "Pagac", "Parisian", "Parker", "Paucek", "Pfannerstill", "Pfeffer", "Pollich", "Pouros", "Powlowski", "Predovic", "Price", "Prohaska", "Prosacco", "Purdy", "Quigley", "Quitzon", "Rath", "Ratke", "Rau", "Raynor", "Reichel", "Reichert", "Reilly", "Reinger", "Rempel", "Renner", "Reynolds", "Rice", "Rippin", "Ritchie", "Robel", "Roberts", "Rodriguez", "Rogahn", "Rohan", "Rolfson", "Romaguera", "Roob", "Rosenbaum", "Rowe", "Ruecker", "Runolfsdottir", "Runolfsson", "Runte", "Russel", "Rutherford", "Ryan", "Sanford", "Satterfield", "Sauer", "Sawayn", "Schaden", "Schaefer", "Schamberger", "Schiller", "Schimmel", "Schinner", "Schmeler", "Schmidt", "Schmitt", "Schneider", "Schoen", "Schowalter", "Schroeder", "Schulist", "Schultz", "Schumm", "Schuppe", "Schuster", "Senger", "Shanahan", "Shields", "Simonis", "Sipes", "Skiles", "Smith", "Smitham", "Spencer", "Spinka", "Sporer", "Stamm", "Stanton", "Stark", "Stehr", "Steuber", "Stiedemann", "Stokes", "Stoltenberg", "Stracke", "Streich", "Stroman", "Strosin", "Swaniawski", "Swift", "Terry", "Thiel", "Thompson", "Tillman", "Torp", "Torphy", "Towne", "Toy", "Trantow", "Tremblay", "Treutel", "Tromp", "Turcotte", "Turner", "Ullrich", "Upton", "Vandervort", "Veum", "Volkman", "Von", "VonRueden", "Waelchi", "Walker", "Walsh", "Walter", "Ward", "Waters", "Watsica", "Weber", "Wehner", "Weimann", "Weissnat", "Welch", "West", "White", "Wiegand", "Wilderman", "Wilkinson", "Will", "Williamson", "Willms", "Windler", "Wintheiser", "Wisoky", "Wisozk", "Witting", "Wiza", "Wolf", "Wolff", "Wuckert", "Wunsch", "Wyman", "Yost", "Yundt", "Zboncak", "Zemlak", "Ziemann", "Zieme", "Zulauf"
 ];
 
+const PATREON_NAMES: [(&'static str, &'static str); 37] = [
+    ("Trent", "Varner"),
+    ("Edward", "Pierzchalski"),
+    ("Alex", "So"),
+    ("Fish", "Wang"),
+    ("Jacob", "Snedaker"),
+    ("Andrew", "Seling"),
+    ("Kaleb", "Crow"),
+    ("Schmel", "924"),
+    ("Brian", "F. Loss"),
+    ("Jagger", "De Leo"),
+    ("Louis", "Britton"),
+    ("Quirin", "Fischer"),
+    ("Brandon", "Callender"),
+    ("Joey", "Smith"),
+    ("Tele", "Vision"),
+    ("Inge", "Jones"),
+    ("Tommy", "Carlsson"),
+    ("Andrew", "Babb"),
+    ("Brandon", "Edens"),
+    ("Fiona", "Sparks"),
+    ("Mathieu", "Habegger"),
+    ("Jonas", "Trumpf"),
+    ("Eric", "Duplantis"),
+    ("Cure", "Cure"),
+    ("Brett", "Epps"),
+    ("Connor", "Barnes"),
+    ("Travis", "Koch-Gensiorek"),
+    ("Bradley", "Lejeune"),
+    ("Alsid", "Prime"),
+    ("Alexander", "Brunius"),
+    ("Edwin", "Michell"),
+    ("Jesse", "Mallen"),
+    ("Chance", "Snow"),
+    ("William", "Brin"),
+    ("Bryan", "Donlan"),
+    ("M", "Farkas-Dyck"),
+    ("Mark", "Kochan"),
+];
+
 pub fn family_name(id: FamilyID) -> &'static str {
-    let mut rng = XorShiftRng::from_seed([id._raw_id.instance_id, 32, 33, 34]);
-    rng.choose(&LAST_NAMES).unwrap()
+    let mut rng = seed(id);
+    if rng.gen_weighted_bool(10) {
+        rng.choose(&PATREON_NAMES).unwrap().1
+    } else {
+        rng.choose(&LAST_NAMES).unwrap()
+    }
 }
 
 pub fn member_name(id: FamilyID, member: MemberIdx) -> String {
-    let mut rng = XorShiftRng::from_seed([id._raw_id.instance_id, member.0 as u32, 17, 28]);
-    format!("{} {}", rng.choose(&FIRST_NAMES).unwrap(), family_name(id))
+    let mut family_rng = seed(id);
+    let (first_name, last_name) = if family_rng.gen_weighted_bool(10) {
+        let entry = family_rng.choose(&PATREON_NAMES).unwrap();
+        if member.0 == 0 {
+            *entry
+        } else {
+            let mut rng = seed((id, member.0));
+            (*rng.choose(&FIRST_NAMES).unwrap(), entry.1)
+        }
+    } else {
+        let mut rng = seed((id, member.0));
+        (*rng.choose(&FIRST_NAMES).unwrap(), family_name(id))
+    };
+    format!("{} {}", first_name, last_name)
 }

@@ -2,7 +2,7 @@ use kay::{ActorSystem, World, External};
 use compact::{CVec, CDict, COption, CString};
 use imgui::Ui;
 use ordered_float::OrderedFloat;
-use rand::{XorShiftRng, Rng, SeedableRng};
+use core::random::{seed, Rng};
 
 use core::simulation::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, SimulationID,
                        Simulatable, SimulatableID, MSG_Simulatable_tick};
@@ -130,14 +130,7 @@ impl Sleeper for Family {
                     _ => None,
                 })
                 .collect::<Vec<_>>();
-            let mut rng = XorShiftRng::from_seed(
-                [
-                    current_instant.ticks() as u32,
-                    self.id._raw_id.instance_id as u32,
-                    33,
-                    44,
-                ],
-            );
+            let mut rng = seed((current_instant.ticks(), self.id));
             let maybe_idle_idx_loc = rng.choose(&idle_members_idx_loc);
             if let Some(&(idle_member_idx, location)) = maybe_idle_idx_loc {
                 self.find_new_task_for(
@@ -610,16 +603,12 @@ impl Household for Family {
     fn decay(&mut self, dt: Duration, _: &mut World) {
         for (i, member_resources) in self.member_resources.iter_mut().enumerate() {
             {
-                let individuality = XorShiftRng::from_seed(
-                    [self.id._raw_id.instance_id, 22, i as u32, 111],
-                ).gen_range(0.8, 1.2);
+                let individuality = seed((self.id, i)).gen_range(0.8, 1.2);
                 let awakeness = member_resources.mut_entry_or(r_id("awakeness"), 0.0);
                 *awakeness -= 1.0 * individuality * dt.as_hours();
             }
             {
-                let individuality = XorShiftRng::from_seed(
-                    [self.id._raw_id.instance_id, 2222, i as u32, 33],
-                ).gen_range(0.8, 1.2);
+                let individuality = seed((self.id, i, 1u8)).gen_range(0.8, 1.2);
                 let satiety = member_resources.mut_entry_or(r_id("satiety"), 0.0);
                 if *satiety < 0.0 {
                     let groceries = self.resources.mut_entry_or(r_id("groceries"), 0.0);
