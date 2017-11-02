@@ -702,7 +702,7 @@ impl Household for Family {
                     for resource in all_resource_ids() {
                         if r_properties(resource).ownership_shared {
                             ui.text(im_str!("{}", r_info(resource).0));
-                            ui.same_line(250.0);
+                            ui.same_line(100.0);
                             let amount = self.resources.get(resource).cloned().unwrap_or(0.0);
                             ui.text(im_str!("{:.2}", amount));
                         }
@@ -730,18 +730,18 @@ impl Household for Family {
                         for resource in all_resource_ids() {
                             if !r_properties(resource).ownership_shared {
                                 ui.text(im_str!("{}", r_info(resource).0));
-                                ui.same_line(250.0);
+                                ui.same_line(100.0);
                                 let amount = member_resources.get(resource).cloned().unwrap_or(0.0);
                                 ui.text(im_str!("{:.2}", amount));
                             }
                         }
                     }
-                    ui.tree_node(im_str!("Log")).build(|| for line in self.log
-                        .0
-                        .lines()
-                    {
-                        ui.text(im_str!("{}", line));
-                    });
+                    // ui.tree_node(im_str!("Log")).build(|| for line in self.log
+                    //     .0
+                    //     .lines()
+                    // {
+                    //     ui.text(im_str!("{}", line));
+                    // });
                 })
         });
 

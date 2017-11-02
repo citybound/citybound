@@ -124,7 +124,7 @@ impl UserInterface {
             ::imgui_sys::ImFontAtlas_AddFontFromFileTTF(
                 atlas,
                 default_font.as_ptr(),
-                24.0,
+                16.0,
                 &config,
                 ::std::ptr::null(),
             );
