@@ -105,7 +105,7 @@ fn main() {
 
         let mut frame_counter = core::init::FrameCounter::new();
 
-        loop {
+        while !system.shutting_down {
             frame_counter.start_frame();
 
             user_interface.process_events(world);

@@ -52,6 +52,7 @@ const MAX_MESSAGE_TYPES: usize = 256;
 /// It can be controlled from the outside to do message passing and handling in turns.
 pub struct ActorSystem {
     pub panic_happened: bool,
+    pub shutting_down: bool,
     inboxes: [Option<Inbox>; MAX_RECIPIENT_TYPES],
     actor_registry: TypeRegistry,
     swarms: [Option<*mut u8>; MAX_RECIPIENT_TYPES],
@@ -83,6 +84,7 @@ impl ActorSystem {
     pub fn new(networking: Networking) -> ActorSystem {
         ActorSystem {
             panic_happened: false,
+            shutting_down: false,
             inboxes: unsafe { make_array!(MAX_RECIPIENT_TYPES, |_| None) },
             actor_registry: TypeRegistry::new(),
             message_registry: TypeRegistry::new(),
@@ -380,6 +382,12 @@ impl World {
     pub fn local_machine_id(&mut self) -> u8 {
         let system: &mut ActorSystem = unsafe { &mut *self.0 };
         system.networking.machine_id
+    }
+
+    /// Signal intent to shutdown the actor system
+    pub fn shutdown(&mut self) {
+        let system: &mut ActorSystem = unsafe { &mut *self.0 };
+        system.shutting_down = true;
     }
 }
 

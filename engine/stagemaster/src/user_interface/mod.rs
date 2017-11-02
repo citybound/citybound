@@ -223,7 +223,7 @@ impl UserInterface {
         for event in events {
             if let Event::WindowEvent { event: ref window_event, .. } = event {
                 match *window_event {
-                    WindowEvent::Closed => ::std::process::exit(0),
+                    WindowEvent::Closed => world.shutdown(),
 
                     WindowEvent::MouseWheel { delta, .. } => {
                         let v = match delta {
