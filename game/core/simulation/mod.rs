@@ -4,23 +4,23 @@ use stagemaster::UserInterfaceID;
 
 mod time;
 
-pub use self::time::{Timestamp, Ticks, Seconds, TICKS_PER_SIM_MINUTE, TICKS_PER_SIM_SECOND,
-                     TimeOfDay};
+pub use self::time::{Instant, Ticks, Duration, TICKS_PER_SIM_MINUTE, TICKS_PER_SIM_SECOND,
+                     TimeOfDay, TimeOfDayRange};
 
 pub trait Simulatable {
-    fn tick(&mut self, dt: f32, current_tick: Timestamp, world: &mut World);
+    fn tick(&mut self, dt: f32, current_instant: Instant, world: &mut World);
 }
 
 pub trait Sleeper {
-    fn wake(&mut self, current_tick: Timestamp, world: &mut World);
+    fn wake(&mut self, current_instant: Instant, world: &mut World);
 }
 
 #[derive(Compact, Clone)]
 pub struct Simulation {
     id: SimulationID,
     simulatables: CVec<SimulatableID>,
-    current_tick: Timestamp,
-    sleepers: CVec<(Timestamp, SleeperID)>,
+    current_instant: Instant,
+    sleepers: CVec<(Instant, SleeperID)>,
 }
 
 impl Simulation {
@@ -32,7 +32,7 @@ impl Simulation {
         Simulation {
             id,
             simulatables: simulatables.clone(),
-            current_tick: Timestamp::new(0),
+            current_instant: Instant::new(0),
             sleepers: CVec::new(),
         }
     }
@@ -41,27 +41,27 @@ impl Simulation {
         for simulatable in &self.simulatables {
             simulatable.tick(
                 1.0 / (TICKS_PER_SIM_SECOND as f32),
-                self.current_tick,
+                self.current_instant,
                 world,
             );
         }
         while self.sleepers
             .last()
-            .map(|&(end, _)| end < self.current_tick)
+            .map(|&(end, _)| end < self.current_instant)
             .unwrap_or(false)
         {
             let (_, sleeper) = self.sleepers.pop().expect(
                 "just checked that there are sleepers",
             );
-            sleeper.wake(self.current_tick, world);
+            sleeper.wake(self.current_instant, world);
         }
-        self.current_tick += Ticks(1);
+        self.current_instant += Ticks(1);
 
-        let time = TimeOfDay::from_tick(self.current_tick).hours_minutes();
+        let time = TimeOfDay::from(self.current_instant).hours_minutes();
 
         UserInterfaceID::local_first(world).add_debug_text(
-            "Time".chars().collect(),
-            format!("{:02}:{:02}", time.0, time.1).chars().collect(),
+            "Time".to_owned().into(),
+            format!("{:02}:{:02}", time.0, time.1).into(),
             [0.0, 0.0, 0.0, 1.0],
             false,
             world,
@@ -69,7 +69,7 @@ impl Simulation {
     }
 
     pub fn wake_up_in(&mut self, remaining_ticks: Ticks, sleeper_id: SleeperID, _: &mut World) {
-        let wake_up_at = self.current_tick + remaining_ticks;
+        let wake_up_at = self.current_instant + remaining_ticks;
         let maybe_idx = self.sleepers.binary_search_by_key(
             &wake_up_at.iticks(),
             |&(t, _)| -(t.iticks()),

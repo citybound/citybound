@@ -7,10 +7,16 @@ pub mod buildings;
 
 use stagemaster::UserInterfaceID;
 use core::simulation::SimulationID;
+use planning::materialized_reality::MaterializedRealityID;
 
-pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID, simulation: SimulationID) {
+pub fn setup(
+    system: &mut ActorSystem,
+    user_interface: UserInterfaceID,
+    simulation: SimulationID,
+    materialized_reality: MaterializedRealityID,
+) {
     resources::setup();
     market::setup(system);
     households::setup(system);
-    buildings::setup(system, user_interface, simulation);
+    buildings::setup(system, user_interface, simulation, materialized_reality);
 }

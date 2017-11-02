@@ -1,91 +1,155 @@
 use kay::{ActorSystem, Fate, World};
 use compact::{CVec, CDict};
-use super::resources::{ResourceMap, ResourceId, ResourceAmount};
+use super::resources::{Inventory, Entry, ResourceId, ResourceAmount};
 use super::households::{HouseholdID, MemberIdx};
-use core::simulation::{TimeOfDay, Seconds, Timestamp};
+use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, Instant};
 
 #[derive(Compact, Clone)]
 pub struct Deal {
-    pub duration: Seconds,
-    pub take: ResourceMap<ResourceAmount>,
-    pub give: (ResourceId, ResourceAmount),
+    pub duration: Duration,
+    pub delta: Inventory,
 }
 
 impl Deal {
     pub fn new<T: IntoIterator<Item = (ResourceId, ResourceAmount)>>(
-        give: (ResourceId, ResourceAmount),
-        take: T,
-        duration: Seconds,
+        delta: T,
+        duration: Duration,
     ) -> Self {
         Deal {
             duration,
-            give,
-            take: take.into_iter().collect(),
+            delta: delta.into_iter().collect(),
         }
+    }
+
+    pub fn main_given(&self) -> ResourceId {
+        self.delta
+            .iter()
+            .filter_map(|&Entry(resource, amount)| if amount > 0.0 {
+                Some(resource)
+            } else {
+                None
+            })
+            .next()
+            .unwrap()
     }
 }
 
 #[derive(Compact, Clone)]
 pub struct Offer {
     id: OfferID,
-    by: HouseholdID,
+    offerer: HouseholdID,
+    offering_member: MemberIdx,
     location: RoughLocationID,
-    from: TimeOfDay,
-    to: TimeOfDay,
+    opening_hours: TimeOfDayRange,
     deal: Deal,
     users: CVec<(HouseholdID, Option<MemberIdx>)>,
+    active_users: CVec<(HouseholdID, MemberIdx)>,
+    being_withdrawn: bool,
 }
 
 impl Offer {
     pub fn register(
         id: OfferID,
-        by: HouseholdID,
+        offerer: HouseholdID,
+        offering_member: MemberIdx,
         location: RoughLocationID,
-        from: TimeOfDay,
-        to: TimeOfDay,
+        opening_hours: TimeOfDayRange,
         deal: &Deal,
         world: &mut World,
     ) -> Offer {
-        MarketID::global_first(world).register(deal.give.0, id, world);
+        MarketID::global_first(world).register(deal.main_given(), id, world);
 
         Offer {
             id,
-            by,
+            offerer,
+            offering_member,
             location,
-            from,
-            to,
+            opening_hours,
             deal: deal.clone(),
             users: CVec::new(),
+            active_users: CVec::new(),
+            being_withdrawn: false,
+        }
+    }
+
+    // create an internal offer, only known manually to members of one household
+    pub fn internal(
+        id: OfferID,
+        offerer: HouseholdID,
+        offering_member: MemberIdx,
+        location: RoughLocationID,
+        opening_hours: TimeOfDayRange,
+        deal: &Deal,
+        _: &mut World,
+    ) -> Offer {
+        Offer {
+            id,
+            offerer,
+            offering_member,
+            location,
+            opening_hours,
+            deal: deal.clone(),
+            users: CVec::new(),
+            active_users: CVec::new(),
+            being_withdrawn: false,
         }
     }
 
     // The offer stays alive until the withdrawal is confirmed
     // to prevent offers being used while they're being withdrawn
     pub fn withdraw(&mut self, world: &mut World) {
-        // TODO: notify users and wait for their confirmation as well
-        MarketID::global_first(world).withdraw(self.deal.give.0, self.id, world);
+        MarketID::global_first(world).withdraw(self.deal.main_given(), self.id, world);
+        self.being_withdrawn = true;
     }
 
-    pub fn withdrawal_confirmed(&mut self, _: &mut World) -> Fate {
+    // Internal users are manually responsible for forgetting about this offer
+    pub fn withdraw_internal(&mut self, _: &mut World) -> Fate {
         Fate::Die
+    }
+
+    // TODO: there is still a tiny potential race condition here:
+    //       1) household finds offer in market -> household
+    //       2) offer withdrawn from market
+    //       3) withdrawal confirmed
+    //       ... starting to notify existing users
+    //       4) household starts using offer
+    //       => dangling single user keeping the offer half-dead
+    pub fn withdrawal_confirmed(&mut self, world: &mut World) -> Fate {
+        if self.users.is_empty() {
+
+            Fate::Die
+        } else {
+
+            for user in &self.users {
+                user.0.stop_using(self.id, world);
+            }
+
+            for &(active_user_household, active_member) in &self.active_users {
+                active_user_household.reset_member_task(active_member, world);
+            }
+
+            Fate::Live // ...for now
+        }
     }
 
     pub fn evaluate(
         &mut self,
-        tick: Timestamp,
+        instant: Instant,
         location: RoughLocationID,
         requester: EvaluationRequesterID,
         world: &mut World,
     ) {
-        if TimeOfDay::from_tick(tick) < self.to {
+        if self.opening_hours.end_after_on_same_day(
+            TimeOfDay::from(instant),
+        )
+        {
             let search_result = EvaluatedSearchResult {
-                resource: self.deal.give.0,
+                resource: self.deal.main_given(),
                 evaluated_deals: vec![
                     EvaluatedDeal {
                         offer: self.id,
                         deal: self.deal.clone(),
-                        from: self.from,
-                        to: self.to,
+                        opening_hours: self.opening_hours,
                     },
                 ].into(),
             };
@@ -94,13 +158,17 @@ impl Offer {
                 location,
                 self.location,
                 search_result,
-                tick,
+                instant,
                 world,
             );
         } else {
+            // println!(
+            //     "Not in opening hours for {}",
+            //     r_info(self.deal.main_given()).0
+            // );
             requester.on_result(
                 EvaluatedSearchResult {
-                    resource: self.deal.give.0,
+                    resource: self.deal.main_given(),
                     evaluated_deals: CVec::new(),
                 },
                 world,
@@ -108,14 +176,32 @@ impl Offer {
         }
     }
 
-    pub fn get_receivable_deal(
+    pub fn request_receive_deal(
         &mut self,
         household: HouseholdID,
         member: MemberIdx,
         world: &mut World,
     ) {
-        self.by.provide_deal(self.deal.clone(), world);
+        self.offerer.provide_deal(
+            self.deal.clone(),
+            self.offering_member,
+            world,
+        );
         household.receive_deal(self.deal.clone(), member, world);
+    }
+
+    pub fn request_receive_undo_deal(
+        &mut self,
+        household: HouseholdID,
+        member: MemberIdx,
+        world: &mut World,
+    ) {
+        self.offerer.receive_deal(
+            self.deal.clone(),
+            self.offering_member,
+            world,
+        );
+        household.provide_deal(self.deal.clone(), member, world);
     }
 
     pub fn started_using(
@@ -124,7 +210,9 @@ impl Offer {
         member: Option<MemberIdx>,
         _: &mut World,
     ) {
-        self.users.push((household, member));
+        if !self.users.contains(&(household, member)) {
+            self.users.push((household, member));
+        }
     }
 
     pub fn stopped_using(
@@ -132,29 +220,72 @@ impl Offer {
         household: HouseholdID,
         member: Option<MemberIdx>,
         _: &mut World,
-    ) {
+    ) -> Fate {
         self.users.retain(|&(o_household, o_member)| {
+            o_household != household || o_member != member
+        });
+
+        if self.users.is_empty() && self.being_withdrawn {
+
+            Fate::Die
+        } else {
+            Fate::Live
+        }
+    }
+
+    pub fn started_actively_using(
+        &mut self,
+        household: HouseholdID,
+        member: MemberIdx,
+        _: &mut World,
+    ) {
+        if !self.active_users.contains(&(household, member)) {
+            self.active_users.push((household, member));
+        }
+    }
+
+    pub fn stopped_actively_using(
+        &mut self,
+        household: HouseholdID,
+        member: MemberIdx,
+        _: &mut World,
+    ) {
+        self.active_users.retain(|&(o_household, o_member)| {
             o_household != household || o_member != member
         });
     }
 }
 
 use transport::pathfinding::{RoughLocation, RoughLocationID,
-                             MSG_RoughLocation_resolve_as_location, LocationRequesterID,
-                             MSG_LocationRequester_location_resolved};
+                             MSG_RoughLocation_resolve_as_location,
+                             MSG_RoughLocation_resolve_as_position, LocationRequesterID,
+                             PositionRequesterID, MSG_LocationRequester_location_resolved};
 
 impl RoughLocation for Offer {
     fn resolve_as_location(
         &mut self,
         requester: LocationRequesterID,
         rough_location: RoughLocationID,
-        tick: Timestamp,
+        instant: Instant,
         world: &mut World,
     ) {
         self.location.resolve_as_location(
             requester,
             rough_location,
-            tick,
+            instant,
+            world,
+        );
+    }
+
+    fn resolve_as_position(
+        &mut self,
+        requester: PositionRequesterID,
+        rough_location: RoughLocationID,
+        world: &mut World,
+    ) {
+        self.location.resolve_as_position(
+            requester,
+            rough_location,
             world,
         );
     }
@@ -171,8 +302,6 @@ pub struct Market {
     offers_by_resource: CDict<ResourceId, CVec<OfferID>>,
 }
 
-use economy::resources::r_info;
-
 impl Market {
     pub fn spawn(id: MarketID, _: &mut World) -> Market {
         Market { id, offers_by_resource: CDict::new() }
@@ -180,7 +309,7 @@ impl Market {
 
     pub fn search(
         &mut self,
-        tick: Timestamp,
+        instant: Instant,
         location: RoughLocationID,
         resource: ResourceId,
         requester: EvaluationRequesterID,
@@ -188,15 +317,13 @@ impl Market {
     ) {
         let n_to_expect = if let Some(offers) = self.offers_by_resource.get(resource) {
             for offer in offers.iter() {
-                offer.evaluate(tick, location, requester, world);
+                offer.evaluate(instant, location, requester, world);
             }
 
             offers.len()
         } else {
             0
         };
-
-        println!("{} offers for {}", n_to_expect, r_info(resource).0);
 
         requester.expect_n_results(resource, n_to_expect, world);
     }
@@ -217,8 +344,7 @@ impl Market {
 pub struct EvaluatedDeal {
     pub offer: OfferID,
     pub deal: Deal,
-    pub from: TimeOfDay,
-    pub to: TimeOfDay,
+    pub opening_hours: TimeOfDayRange,
 }
 
 #[derive(Compact, Clone)]
@@ -249,11 +375,11 @@ impl TripCostEstimator {
         rough_source: RoughLocationID,
         rough_destination: RoughLocationID,
         base_result: &EvaluatedSearchResult,
-        tick: Timestamp,
+        instant: Instant,
         world: &mut World,
     ) -> TripCostEstimator {
-        rough_source.resolve_as_location(id.into(), rough_source, tick, world);
-        rough_destination.resolve_as_location(id.into(), rough_destination, tick, world);
+        rough_source.resolve_as_location(id.into(), rough_source, instant, world);
+        rough_destination.resolve_as_location(id.into(), rough_destination, instant, world);
 
         TripCostEstimator {
             id,
@@ -277,7 +403,7 @@ impl LocationRequester for TripCostEstimator {
         &mut self,
         rough_location: RoughLocationID,
         location: Option<Location>,
-        _tick: Timestamp,
+        _tick: Instant,
         world: &mut World,
     ) {
         if self.rough_source == rough_location {
@@ -297,10 +423,10 @@ impl LocationRequester for TripCostEstimator {
                 world,
             );
         } else if self.n_resolved == 2 {
-            println!(
-                "Either source or dest not resolvable for {}",
-                r_info(self.base_result.resource).0
-            );
+            // println!(
+            //     "Either source or dest not resolvable for {}",
+            //     r_info(self.base_result.resource).0
+            // );
             self.requester.on_result(
                 EvaluatedSearchResult {
                     resource: self.base_result.resource,
@@ -324,24 +450,24 @@ impl DistanceRequester for TripCostEstimator {
                     .iter()
                     .map(|evaluated_deal| {
                         let estimated_travel_time =
-                            Seconds((distance / ASSUMED_AVG_SPEED) as usize);
+                            Duration((distance / ASSUMED_AVG_SPEED) as usize);
                         let mut new_deal = evaluated_deal.clone();
                         new_deal.deal.duration += estimated_travel_time;
-                        new_deal.from -= estimated_travel_time;
-                        new_deal.to -= estimated_travel_time;
-                        // TODO: adjust possible-until and resources
+                        new_deal.opening_hours =
+                            new_deal.opening_hours.earlier_by(estimated_travel_time);
+                        // TODO: adjust resources to incorporate travel costs
                         new_deal
                     })
                     .collect(),
                 ..self.base_result
             }
         } else {
-            println!(
-                "No distance for {}, from {:?} to {:?}",
-                r_info(self.base_result.resource).0,
-                self.source,
-                self.destination
-            );
+            // println!(
+            //     "No distance for {}, from {:?} to {:?}",
+            //     r_info(self.base_result.resource).0,
+            //     self.source,
+            //     self.destination
+            // );
             EvaluatedSearchResult {
                 resource: self.base_result.resource,
                 evaluated_deals: CVec::new(),

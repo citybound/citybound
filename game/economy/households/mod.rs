@@ -1,5 +1,5 @@
 use kay::{ActorSystem, World};
-use core::simulation::Seconds;
+use core::simulation::Duration;
 
 use transport::pathfinding::RoughLocationID;
 
@@ -7,21 +7,24 @@ pub mod tasks;
 pub mod family;
 pub mod grocery_shop;
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct MemberIdx(usize);
 
 use imgui::Ui;
 use kay::External;
 
-use super::market::Deal;
+use super::market::{Deal, OfferID};
 use super::buildings::rendering::BuildingInspectorID;
 
 pub trait Household {
     fn receive_deal(&mut self, deal: &Deal, member: MemberIdx, world: &mut World);
-    fn provide_deal(&mut self, deal: &Deal, world: &mut World);
-    fn decay(&mut self, dt: Seconds, world: &mut World);
+    fn provide_deal(&mut self, deal: &Deal, member: MemberIdx, world: &mut World);
+    fn decay(&mut self, dt: Duration, world: &mut World);
     fn task_succeeded(&mut self, member: MemberIdx, world: &mut World);
     fn task_failed(&mut self, member: MemberIdx, location: RoughLocationID, world: &mut World);
+    fn reset_member_task(&mut self, member: MemberIdx, world: &mut World);
+    fn stop_using(&mut self, offer: OfferID, world: &mut World);
+    fn destroy(&mut self, world: &mut World);
     fn inspect(
         &mut self,
         imgui_ui: &External<Ui<'static>>,

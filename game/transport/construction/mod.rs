@@ -10,8 +10,8 @@ use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
 use super::microtraffic::LaneLikeID;
 
-pub mod materialized_reality;
-use self::materialized_reality::{MaterializedRealityID, BuildableRef};
+use planning::materialized_reality::MaterializedRealityID;
+use super::planning::materialized_roads::BuildableRef;
 
 const CONNECTION_TOLERANCE: f32 = 0.1;
 
@@ -85,7 +85,7 @@ impl Lane {
         reply_needed: bool,
         world: &mut World,
     ) {
-        if other_id == self.id.into() {
+        if other_id == self.id {
             return;
         };
 
@@ -246,12 +246,7 @@ impl Lane {
 
 
             if reply_needed {
-                other_id.connect_overlaps(
-                    self.id.into(),
-                    self.construction.path.clone(),
-                    false,
-                    world,
-                );
+                other_id.connect_overlaps(self.id, self.construction.path.clone(), false, world);
             }
         });
     }
@@ -320,7 +315,7 @@ impl Unbuildable for Lane {
             memoized_bands_outlines.remove(&self.id.into())
         });
         if disconnects_remaining == 0 {
-            report_to.on_lane_unbuilt(Some(self.id.into()), world);
+            report_to.on_lane_unbuilt(self.id.into(), world);
             Fate::Die
         } else {
             self.construction.disconnects_remaining = disconnects_remaining;
@@ -335,7 +330,7 @@ impl Unbuildable for Lane {
             self.construction
                 .unbuilding_for
                 .expect("should be unbuilding")
-                .on_lane_unbuilt(Some(self.id.into()), world);
+                .on_lane_unbuilt(self.id.into(), world);
             Fate::Die
         } else {
             Fate::Live
@@ -364,6 +359,7 @@ impl Lane {
                     position,
                     orientation,
                     adjacent_lane: self.id,
+                    adjacent_lane_position: path.along(distance),
                 },
                 world,
             );
@@ -488,7 +484,7 @@ impl Unbuildable for TransferLane {
         }
         super::rendering::on_unbuild_transfer(self, world);
         if self.connectivity.left.is_none() && self.connectivity.right.is_none() {
-            report_to.on_lane_unbuilt(Some(self.id.into()), world);
+            report_to.on_lane_unbuilt(self.id.into(), world);
             Fate::Die
         } else {
             self.construction.disconnects_remaining = self.connectivity
@@ -507,7 +503,7 @@ impl Unbuildable for TransferLane {
             self.construction
                 .unbuilding_for
                 .expect("should be unbuilding")
-                .on_lane_unbuilt(Some(self.id.into()), world);
+                .on_lane_unbuilt(self.id.into(), world);
             Fate::Die
         } else {
             Fate::Live
@@ -515,9 +511,8 @@ impl Unbuildable for TransferLane {
     }
 }
 
-pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
+pub fn setup(system: &mut ActorSystem) {
     auto_setup(system);
-    self::materialized_reality::setup(system)
 }
 
 mod kay_auto;

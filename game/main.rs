@@ -12,6 +12,7 @@ extern crate itertools;
 extern crate rand;
 extern crate fnv;
 extern crate roaring;
+extern crate backtrace;
 
 extern crate compact;
 #[macro_use]
@@ -35,15 +36,17 @@ pub const ENV: &'static Environment = &Environment {
 
 mod core;
 mod transport;
+mod planning;
 mod economy;
 
 use compact::CVec;
 use monet::GrouperID;
 use transport::lane::{LaneID, TransferLaneID};
 use transport::rendering::LaneRendererID;
-use transport::planning::current_plan::CurrentPlanID;
+use planning::plan_manager::PlanManagerID;
 use economy::households::family::FamilyID;
 use economy::households::tasks::TaskEndSchedulerID;
+use economy::buildings::BuildingSpawnerID;
 use economy::buildings::rendering::BuildingRendererID;
 
 fn main() {
@@ -51,7 +54,6 @@ fn main() {
         core::init::first_time_open_wiki_release_page();
 
         let mut system = Box::new(kay::ActorSystem::new(
-            core::init::create_init_callback(),
             core::init::networking_from_env_args(),
         ));
 
@@ -64,13 +66,14 @@ fn main() {
             TransferLaneID::local_broadcast(world).into(),
             FamilyID::local_broadcast(world).into(),
             TaskEndSchedulerID::local_first(world).into(),
-        ].into();
+            BuildingSpawnerID::local_first(world).into(),
+        ];
         let simulation = core::simulation::setup(&mut system, simulatables);
 
         let renderables: CVec<_> = vec![
             LaneRendererID::global_broadcast(world).into(),
             GrouperID::global_broadcast(world).into(),
-            CurrentPlanID::global_broadcast(world).into(),
+            PlanManagerID::global_broadcast(world).into(),
             BuildingRendererID::global_broadcast(&mut system.world())
                 .into(),
         ].into();
@@ -85,8 +88,16 @@ fn main() {
             (0.6, 0.75, 0.4, 1.0)
         );
 
-        transport::setup(&mut system, user_interface, renderer, simulation);
-        economy::setup(&mut system, user_interface, simulation);
+        core::init::set_error_hook(user_interface, system.world());
+
+        let materialized_reality = planning::setup(&mut system, user_interface, renderer);
+        transport::setup(&mut system, simulation);
+        economy::setup(
+            &mut system,
+            user_interface,
+            simulation,
+            materialized_reality,
+        );
 
         core::init::print_version(user_interface, world);
 
@@ -96,16 +107,14 @@ fn main() {
 
         loop {
             frame_counter.start_frame();
-            frame_counter.print_fps(user_interface, world);
-
-            core::init::print_instance_counts(&mut system, user_interface);
-            core::init::print_network_turn(&mut system, user_interface);
 
             user_interface.process_events(world);
 
             system.process_all_messages();
 
-            simulation.do_tick(world);
+            for _i in 0..20 {
+                simulation.do_tick(world);
+            }
 
             system.process_all_messages();
 
@@ -114,6 +123,12 @@ fn main() {
             system.process_all_messages();
 
             system.networking_send_and_receive();
+
+            frame_counter.print_fps(user_interface, world);
+
+            core::init::print_instance_counts(&mut system, user_interface);
+            core::init::print_network_turn(&mut system, user_interface);
+
             system.process_all_messages();
 
             user_interface.start_frame(world);

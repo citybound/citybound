@@ -70,11 +70,11 @@ impl ::std::fmt::Debug for ID {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         write!(
             f,
-            "ID @{}_?{}_#{}_v{}",
-            self.machine,
+            "{}_{}.{}@{}",
             u16::from(self.type_id),
             self.instance_id,
             self.version,
+            self.machine,
         )
     }
 }

@@ -1,8 +1,7 @@
 use kay::{ActorSystem, World, External};
 use imgui::Ui;
-use core::simulation::{TimeOfDay, Seconds};
-use economy::resources::{ResourceAmount, ResourceMap, Entry, r_id, r_properties, r_info,
-                         all_resource_ids};
+use core::simulation::{TimeOfDayRange, Duration};
+use economy::resources::{ResourceAmount, ResourceMap, r_id, r_properties, r_info, all_resource_ids};
 use economy::market::{Deal, OfferID};
 use economy::buildings::BuildingID;
 use economy::buildings::rendering::BuildingInspectorID;
@@ -10,7 +9,8 @@ use transport::pathfinding::RoughLocationID;
 
 use super::{Household, HouseholdID, MemberIdx, MSG_Household_decay, MSG_Household_inspect,
             MSG_Household_provide_deal, MSG_Household_receive_deal, MSG_Household_task_succeeded,
-            MSG_Household_task_failed};
+            MSG_Household_task_failed, MSG_Household_destroy, MSG_Household_stop_using,
+            MSG_Household_reset_member_task};
 
 #[derive(Compact, Clone)]
 pub struct GroceryShop {
@@ -29,22 +29,21 @@ impl GroceryShop {
             resources: ResourceMap::new(),
             grocery_offer: OfferID::register(
                 id.into(),
+                MemberIdx(0),
                 site.into(),
-                TimeOfDay::new(7, 0),
-                TimeOfDay::new(20, 0),
+                TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
-                    (r_id("groceries"), 30.0),
-                    vec![(r_id("money"), 40.0)],
-                    Seconds(5 * 60),
+                    vec![(r_id("groceries"), 30.0), (r_id("money"), -60.0)],
+                    Duration::from_minutes(30),
                 ),
                 world,
             ),
             job_offer: OfferID::register(
                 id.into(),
+                MemberIdx(0),
                 site.into(),
-                TimeOfDay::new(7, 0),
-                TimeOfDay::new(20, 0),
-                Deal::new((r_id("money"), 50.0), None, Seconds(5 * 60 * 60)),
+                TimeOfDayRange::new(7, 0, 15, 0),
+                Deal::new(Some((r_id("money"), 50.0)), Duration::from_hours(5)),
                 world,
             ),
         }
@@ -52,17 +51,12 @@ impl GroceryShop {
 }
 
 impl Household for GroceryShop {
-    fn receive_deal(&mut self, _deal: &Deal, _member: MemberIdx, _: &mut World) {
-        unimplemented!()
+    fn receive_deal(&mut self, deal: &Deal, _member: MemberIdx, _: &mut World) {
+        deal.delta.give_to(&mut self.resources);
     }
 
-    fn provide_deal(&mut self, deal: &Deal, _: &mut World) {
-        let (resource, amount) = deal.give;
-        *self.resources.mut_entry_or(resource, 0.0) -= amount;
-
-        for &Entry(resource, amount) in &*deal.take {
-            *self.resources.mut_entry_or(resource, 0.0) += amount;
-        }
+    fn provide_deal(&mut self, deal: &Deal, _member: MemberIdx, _: &mut World) {
+        deal.delta.take_from(&mut self.resources);
     }
 
     fn task_succeeded(&mut self, _member: MemberIdx, _: &mut World) {
@@ -73,9 +67,23 @@ impl Household for GroceryShop {
         unimplemented!()
     }
 
-    fn decay(&mut self, dt: Seconds, _: &mut World) {
+    fn reset_member_task(&mut self, _member: MemberIdx, _: &mut World) {
+        unimplemented!()
+    }
+
+    fn stop_using(&mut self, _offer: OfferID, _: &mut World) {
+        unimplemented!()
+    }
+
+    fn decay(&mut self, dt: Duration, _: &mut World) {
         let groceries = self.resources.mut_entry_or(r_id("groceries"), 0.0);
-        *groceries += 0.001 * dt.seconds() as f32;
+        *groceries += 0.001 * dt.as_seconds();
+    }
+
+    fn destroy(&mut self, world: &mut World) {
+        self.site.remove_household(self.id.into(), world);
+        self.grocery_offer.withdraw(world);
+        self.job_offer.withdraw(world);
     }
 
     #[allow(useless_format)]
@@ -89,17 +97,13 @@ impl Household for GroceryShop {
 
         ui.window(im_str!("Building")).build(|| {
             ui.tree_node(im_str!("Grocery Shop ID: {:?}", self.id._raw_id))
-                .build(|| {
-                    ui.tree_node(im_str!("Resources")).build(|| for resource in
-                        all_resource_ids()
-                    {
-                        if r_properties(resource).ownership_shared {
-                            ui.text(im_str!("{}", r_info(resource).0));
-                            ui.same_line(250.0);
-                            let amount = self.resources.get(resource).cloned().unwrap_or(0.0);
-                            ui.text(im_str!("{}", amount));
-                        }
-                    });
+                .build(|| for resource in all_resource_ids() {
+                    if r_properties(resource).ownership_shared {
+                        ui.text(im_str!("{}", r_info(resource).0));
+                        ui.same_line(100.0);
+                        let amount = self.resources.get(resource).cloned().unwrap_or(0.0);
+                        ui.text(im_str!("{:.2}", amount));
+                    }
                 });
         });
 

@@ -25,8 +25,9 @@ pub fn judgement_table() -> &'static JudgementTable {
 pub fn setup() {
     let mut table = Box::<JudgementTable>::default();
 
-    for md_table in read_md_tables::read(&"game/economy/parameters/judgement/adult.data.md")
-        .expect("Expected judgement table to exist")
+    for md_table in read_md_tables::read_str(
+        include_str!("../../parameters/judgement/adult.data.md"),
+    ).expect("Expected judgement table to exist")
     {
         let c = &md_table.columns;
 

@@ -3,7 +3,6 @@ extern crate open;
 use kay::{ActorSystem, World, Networking};
 use monet::glium::glutin::WindowBuilder;
 use stagemaster::UserInterfaceID;
-use std::any::Any;
 use std::net::SocketAddr;
 use std::time::Instant;
 
@@ -35,28 +34,77 @@ pub fn first_time_open_wiki_release_page() {
     }
 }
 
-pub fn create_init_callback() -> Box<Fn(Box<Any>, &mut World)> {
-    Box::new(|error: Box<Any>, world: &mut ::kay::World| {
-        let ui_id = UserInterfaceID::local_first(world);
-        let message = match error.downcast::<String>() {
-            Ok(string) => (*string),
-            Err(any) => {
-                match any.downcast::<&'static str>() {
-                    Ok(static_str) => (*static_str).to_string(),
-                    Err(_) => "Weird error type".to_string(),
+use std::panic::{set_hook, PanicInfo};
+use backtrace::Backtrace;
+use std::fs::File;
+use std::io::Write;
+
+pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
+    let callback: Box<FnMut(&PanicInfo)> = Box::new(move |panic_info| {
+
+        let title = "SIMULATION BROKE :(";
+
+        let message = match panic_info.payload().downcast_ref::<String>() {
+            Some(string) => (string.clone()),
+            None => {
+                match panic_info.payload().downcast_ref::<&'static str>() {
+                    Some(static_str) => (*static_str).to_string(),
+                    None => "Weird error type".to_string(),
                 }
             }
         };
-        println!("Simulation Panic!\n{:?}", message);
+
+        let backtrace = Backtrace::new();
+        let location = format!(
+            "at {}, line {}",
+            panic_info.location().map(|l| l.file()).unwrap_or("unknown"),
+            panic_info.location().map(|l| l.line()).unwrap_or(0)
+        );
+
+        let body = format!(
+            "WHAT HAPPENED: {}\nWHERE IT HAPPENED:\n{}\nWHERE EXACTLY:\n{:?}",
+            message,
+            location,
+            backtrace
+        );
+
+        let small_body = format!(
+            "{}\n{}\nDETAILS IN cb_last_error.txt (AUTO-OPENED)",
+            message,
+            location
+        );
+
+        let report_guide = "HOW TO REPORT BUGS: https://github.com/citybound/citybound/blob/master/CONTRIBUTING.md#reporting-bugs";
+
+        println!(
+            "{}\n{}\nALSO SEE cb_last_error.txt (AUTO-OPENED)",
+            title,
+            body
+        );
+
+        {
+            if let Ok(mut file) = File::create("./cb_last_error.txt") {
+                if let Err(_) = write!(file, "{}\n{}\n\nDETAILS:\n{}", title, report_guide, body) {
+                    println!("Error writing error file, lol");
+                }
+            };
+        }
+
+        if let Err(_) = open::that("./cb_last_error.txt") {
+            println!("Couldn't open error file");
+        };
+
         ui_id.add_debug_text(
-            "SIMULATION PANIC".chars().collect(),
-            message.as_str().chars().collect(),
+            title.to_owned().into(),
+            small_body.into(),
             [1.0, 0.0, 0.0, 1.0],
             true,
-            world,
+            &mut world,
         );
-        ui_id.on_panic(world);
-    })
+        ui_id.on_panic(&mut world);
+    });
+
+    set_hook(unsafe { ::std::mem::transmute(callback) });
 }
 
 pub fn networking_from_env_args() -> Networking {
@@ -91,8 +139,8 @@ pub fn build_window(machine_id: u8) -> WindowBuilder {
 
 pub fn print_version(user_interface: UserInterfaceID, world: &mut World) {
     user_interface.add_debug_text(
-        "Version".chars().collect(),
-        ::ENV.version.chars().collect(),
+        "Version".to_owned().into(),
+        ::ENV.version.to_owned().into(),
         [0.0, 0.0, 0.0, 1.0],
         true,
         world,
@@ -101,8 +149,8 @@ pub fn print_version(user_interface: UserInterfaceID, world: &mut World) {
 
 pub fn print_instance_counts(system: &mut ActorSystem, user_interface: UserInterfaceID) {
     user_interface.add_debug_text(
-        "Number of actors".chars().collect(),
-        system.get_instance_counts().as_str().chars().collect(),
+        "Number of actors".to_owned().into(),
+        system.get_instance_counts().into(),
         [0.0, 0.0, 0.0, 1.0],
         false,
         &mut system.world(),
@@ -111,12 +159,8 @@ pub fn print_instance_counts(system: &mut ActorSystem, user_interface: UserInter
 
 pub fn print_network_turn(system: &mut ActorSystem, user_interface: UserInterfaceID) {
     user_interface.add_debug_text(
-        "Networking turn".chars().collect(),
-        system
-            .networking_debug_all_n_turns()
-            .as_str()
-            .chars()
-            .collect(),
+        "Networking turn".to_owned().into(),
+        system.networking_debug_all_n_turns().into(),
         [0.0, 0.0, 0.0, 1.0],
         false,
         &mut system.world(),
@@ -154,11 +198,8 @@ impl FrameCounter {
             (self.elapsed_ms_collected.len() as f32);
 
         user_interface.add_debug_text(
-            "Frame".chars().collect(),
-            format!("{:.1} FPS", 1000.0 * 1.0 / avg_elapsed_ms)
-                .as_str()
-                .chars()
-                .collect(),
+            "Frame".to_owned().into(),
+            format!("{:.1} FPS", 1000.0 * 1.0 / avg_elapsed_ms).into(),
             [0.0, 0.0, 0.0, 0.5],
             false,
             world,

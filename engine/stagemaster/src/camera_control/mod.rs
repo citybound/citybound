@@ -86,6 +86,7 @@ impl CameraControl {
 }
 
 impl Interactable3d for CameraControl {
+    /// Critical
     fn on_event(&mut self, event: Event3d, world: &mut World) {
         match event {
             Event3d::Combos(combos) => {
@@ -99,6 +100,7 @@ impl Interactable3d for CameraControl {
                 self.pitch_modifier = self.settings.bindings["Pitch"].is_in(&combos);
             }
             Event3d::MouseMove(cursor_2d) => {
+                let old_cursor_2d = self.last_cursor_2d;
                 let delta = cursor_2d - self.last_cursor_2d;
                 self.last_cursor_2d = cursor_2d;
 
@@ -121,20 +123,20 @@ impl Interactable3d for CameraControl {
                         world,
                     );
                 }
-            }
-            Event3d::MouseMove3d(cursor_3d) => {
-                let delta = cursor_3d - self.last_cursor_3d;
-                self.last_cursor_3d = cursor_3d;
 
                 if self.pan_modifier {
                     self.renderer_id.move_eye(
                         0,
-                        Movement::ShiftAbsolute(-delta),
+                        Movement::ShiftProjected(
+                            old_cursor_2d,
+                            cursor_2d,
+                        ),
                         world,
-                    );
-                    // predict next movement to avoid jitter
-                    self.last_cursor_3d -= delta;
+                    )
                 }
+            }
+            Event3d::MouseMove3d(cursor_3d) => {
+                self.last_cursor_3d = cursor_3d;
             }
             Event3d::Scroll(delta) => {
                 self.renderer_id.move_eye(
@@ -194,6 +196,7 @@ use user_interface::{Interactable2d, Interactable2dID, MSG_Interactable2d_draw_u
 use imgui_sys::ImGuiSetCond_FirstUseEver;
 
 impl Interactable2d for CameraControl {
+    /// Critical
     fn draw_ui_2d(
         &mut self,
         imgui_ui: &External<::imgui::Ui<'static>>,

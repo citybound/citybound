@@ -75,8 +75,8 @@ impl Obstacle {
     }
 }
 
-use super::pathfinding::trip::TripID;
-use super::pathfinding::{RoughLocationID, Node};
+use super::pathfinding::trip::{TripID, TripResult, TripFate};
+use super::pathfinding::Node;
 
 #[derive(Copy, Clone)]
 pub struct LaneCar {
@@ -133,14 +133,14 @@ impl DerefMut for TransferringLaneCar {
     }
 }
 
-use core::simulation::Timestamp;
+use core::simulation::Instant;
 
 pub trait LaneLike {
     fn add_car(
         &mut self,
         car: LaneCar,
         from: Option<LaneLikeID>,
-        tick: Timestamp,
+        instant: Instant,
         world: &mut World,
     );
     fn add_obstacles(&mut self, obstacles: &CVec<Obstacle>, from: LaneLikeID, world: &mut World);
@@ -158,11 +158,23 @@ impl LaneLike for Lane {
         &mut self,
         car: LaneCar,
         _from: Option<LaneLikeID>,
-        tick: Timestamp,
+        instant: Instant,
         world: &mut World,
     ) {
-        // TODO: horrible hack to encode it like this
-        let car_forcibly_spawned = *car.as_obstacle.position < 0.0;
+        if let Some(self_as_location) = self.pathfinding.location {
+            if car.destination == self_as_location {
+                car.trip.finish(
+                    TripResult {
+                        location_now: self.id.into(),
+                        instant,
+                        fate: TripFate::Success,
+                    },
+                    world,
+                );
+
+                return;
+            }
+        }
 
         let maybe_next_hop_interaction =
             self.pathfinding
@@ -174,43 +186,21 @@ impl LaneLike for Lane {
                             .landmark_destination(),
                     )
                 })
-                .or_else(|| {
-                    println!("NO ROUTE!");
-                    if car_forcibly_spawned || self.pathfinding.routes.is_empty() {
-                        None
-                    } else {
-                        // pseudorandom, lol
-                        self.pathfinding.routes.values().nth(
-                            (car.velocity * 10000.0) as usize %
-                                self.pathfinding.routes.len(),
-                        )
-                    }
-                })
+                // .or_else(|| {
+                //     if self.pathfinding.routes.is_empty() {
+                //         None
+                //     } else {
+                //         // pseudorandom, lol
+                //         self.pathfinding.routes.values().nth(
+                //             (car.velocity * 10000.0) as usize %
+                //                 self.pathfinding.routes.len(),
+                //         )
+                //     }
+                // })
                 .map(|&RoutingInfo { outgoing_idx, .. }| outgoing_idx as usize);
-
-        let spawn_possible = if car_forcibly_spawned {
-            if self.last_spawn_position > 2.0 {
-                Some(true)
-            } else {
-                None
-            }
-        } else {
-            Some(true)
-        };
-
-        if let (Some(next_hop_interaction), Some(_)) =
-            (maybe_next_hop_interaction, spawn_possible)
-        {
+        if let Some(next_hop_interaction) = maybe_next_hop_interaction {
             let routed_car = LaneCar {
                 next_hop_interaction: next_hop_interaction as u8,
-                as_obstacle: if car_forcibly_spawned {
-                    self.last_spawn_position -= 6.0;
-                    car.as_obstacle
-                        .offset_by(-*car.as_obstacle.position)
-                        .offset_by(self.last_spawn_position + 6.0)
-                } else {
-                    car.as_obstacle
-                },
                 ..car
             };
 
@@ -225,9 +215,12 @@ impl LaneLike for Lane {
                 None => self.microtraffic.cars.push(routed_car),
             }
         } else {
-            car.trip.fail_at(
-                RoughLocationID { _raw_id: self.id._raw_id },
-                tick,
+            car.trip.finish(
+                TripResult {
+                    location_now: self.id.into(),
+                    instant,
+                    fate: TripFate::NoRoute,
+                },
                 world,
             );
         }
@@ -269,31 +262,32 @@ impl Lane {
 }
 
 impl Simulatable for Lane {
-    fn tick(&mut self, dt: f32, current_tick: Timestamp, world: &mut World) {
+    fn tick(&mut self, dt: f32, current_instant: Instant, world: &mut World) {
         let dt = dt / MICROTRAFFIC_UNREALISTIC_SLOWDOWN;
 
         self.construction.progress += dt * 400.0;
 
-        let do_traffic = current_tick.ticks() % TRAFFIC_LOGIC_THROTTLING ==
+        let do_traffic = current_instant.ticks() % TRAFFIC_LOGIC_THROTTLING ==
             self.id._raw_id.instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
         let old_green = self.microtraffic.green;
         self.microtraffic.yellow_to_red = if self.microtraffic.timings.is_empty() {
             true
         } else {
-            !self.microtraffic.timings[((current_tick.ticks() + 100) / 10) %
+            !self.microtraffic.timings[((current_instant.ticks() + 100) / 10) %
                                            self.microtraffic.timings.len()]
         };
         self.microtraffic.yellow_to_green = if self.microtraffic.timings.is_empty() {
             true
         } else {
-            self.microtraffic.timings[((current_tick.ticks() + 100) / 10) %
+            self.microtraffic.timings[((current_instant.ticks() + 100) / 10) %
                                           self.microtraffic.timings.len()]
         };
         self.microtraffic.green = if self.microtraffic.timings.is_empty() {
             true
         } else {
-            self.microtraffic.timings[(current_tick.ticks() / 10) % self.microtraffic.timings.len()]
+            self.microtraffic.timings[(current_instant.ticks() / 10) %
+                                          self.microtraffic.timings.len()]
         };
 
         // TODO: this is just a hacky way to update new lanes about existing lane's green
@@ -315,7 +309,7 @@ impl Simulatable for Lane {
             }
         }
 
-        if current_tick.ticks() % PATHFINDING_THROTTLING ==
+        if current_instant.ticks() % PATHFINDING_THROTTLING ==
             self.id._raw_id.instance_id as usize % PATHFINDING_THROTTLING
         {
             self.update_routes(world);
@@ -446,12 +440,19 @@ impl Simulatable for Lane {
                 let car = self.microtraffic.cars.remove(idx_to_remove);
                 // TODO: ugly: untyped ID shenanigans
                 if self.id._raw_id == car.destination.node._raw_id {
-                    car.trip.succeed(current_tick, world);
+                    car.trip.finish(
+                        TripResult {
+                            location_now: self.id.into(),
+                            instant: current_instant,
+                            fate: TripFate::Success,
+                        },
+                        world,
+                    );
                 } else {
                     next_lane.add_car(
                         car.offset_by(partner_start - start),
                         Some(self.id.into()),
-                        current_tick,
+                        current_instant,
                         world,
                     );
                 }
@@ -464,7 +465,7 @@ impl Simulatable for Lane {
         for interaction in self.connectivity.interactions.iter() {
             let cars = self.microtraffic.cars.iter();
 
-            if (current_tick.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING ==
+            if (current_instant.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING ==
                 interaction.partner_lane._raw_id.instance_id as usize % TRAFFIC_LOGIC_THROTTLING
             {
                 let maybe_obstacles = obstacles_for_interaction(
@@ -490,7 +491,7 @@ impl LaneLike for TransferLane {
         &mut self,
         car: LaneCar,
         maybe_from: Option<LaneLikeID>,
-        _tick: Timestamp,
+        _tick: Instant,
         _: &mut World,
     ) {
         let from = maybe_from.expect("car has to come from somewhere on transfer lane");
@@ -547,12 +548,12 @@ impl LaneLike for TransferLane {
 }
 
 impl Simulatable for TransferLane {
-    fn tick(&mut self, dt: f32, current_tick: Timestamp, world: &mut World) {
+    fn tick(&mut self, dt: f32, current_instant: Instant, world: &mut World) {
         let dt = dt / MICROTRAFFIC_UNREALISTIC_SLOWDOWN;
 
         self.construction.progress += dt * 400.0;
 
-        let do_traffic = current_tick.ticks() % TRAFFIC_LOGIC_THROTTLING ==
+        let do_traffic = current_instant.ticks() % TRAFFIC_LOGIC_THROTTLING ==
             self.id._raw_id.instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
         if do_traffic {
@@ -667,7 +668,14 @@ impl Simulatable for TransferLane {
                              car.transfer_acceleration > 0.0)
                     {
                         if car.destination.node == right.into() {
-                            car.trip.succeed(current_tick, world);
+                            car.trip.finish(
+                                TripResult {
+                                    location_now: right.into(),
+                                    instant: current_instant,
+                                    fate: TripFate::Success,
+                                },
+                                world,
+                            );
                         } else {
                             let right_as_lane: LaneLikeID = right.into();
                             right_as_lane.add_car(
@@ -679,7 +687,7 @@ impl Simulatable for TransferLane {
                                         ),
                                 ),
                                 Some(self.id.into()),
-                                current_tick,
+                                current_instant,
                                 world,
                             );
                         }
@@ -689,7 +697,14 @@ impl Simulatable for TransferLane {
                                     car.transfer_acceleration <= 0.0)
                     {
                         if car.destination.node == left.into() {
-                            car.trip.succeed(current_tick, world);
+                            car.trip.finish(
+                                TripResult {
+                                    location_now: left.into(),
+                                    instant: current_instant,
+                                    fate: TripFate::Success,
+                                },
+                                world,
+                            );
                         } else {
                             let left_as_lane: LaneLikeID = left.into();
                             left_as_lane.add_car(
@@ -701,7 +716,7 @@ impl Simulatable for TransferLane {
                                         ),
                                 ),
                                 Some(self.id.into()),
-                                current_tick,
+                                current_instant,
                                 world,
                             );
                         }
@@ -721,7 +736,7 @@ impl Simulatable for TransferLane {
                 }
             }
 
-            if (current_tick.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING ==
+            if (current_instant.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING ==
                 left._raw_id.instance_id as usize % TRAFFIC_LOGIC_THROTTLING
             {
                 let obstacles = self.microtraffic
@@ -745,7 +760,7 @@ impl Simulatable for TransferLane {
                 left_as_lane.add_obstacles(obstacles, self.id.into(), world);
             }
 
-            if (current_tick.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING ==
+            if (current_instant.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING ==
                 right._raw_id.instance_id as usize % TRAFFIC_LOGIC_THROTTLING
             {
                 let obstacles = self.microtraffic

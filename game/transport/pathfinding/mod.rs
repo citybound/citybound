@@ -1,8 +1,9 @@
 use compact::{CDict, CVec, CHashMap};
 use kay::{ActorSystem, World};
+use descartes::{P2, FiniteCurve};
 use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
-use core::simulation::Timestamp;
+use core::simulation::Instant;
 
 // TODO: MAKE TRANSFER LANE NOT PARTICIPATE AT ALL IN PATHFINDING -> MUCH SIMPLER
 
@@ -43,6 +44,7 @@ pub struct PathfindingInfo {
     pub tell_to_forget_next_tick: CVec<Location>,
     pub query_routes_next_tick: bool,
     pub routing_timeout: u16,
+    pub debug_highlight_for: CHashMap<LaneID, ()>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
@@ -71,22 +73,6 @@ pub struct RoutingInfo {
     learned_from: NodeID,
     fresh: bool,
 }
-
-// use stagemaster::{UserInterfaceID, MSG};
-// const DEBUG_CARS_ON_LANES: bool = false;
-
-// pub fn on_build(lane: &mut Lane, world: &mut World) {
-//     lane.pathfinding.as_destination = None;
-//     if DEBUG_CARS_ON_LANES {
-//         world.send_to_id_of::<UserInterface, _>(AddInteractable(
-//             lane.id(),
-//             AnyShape::Band(
-//                 Band::new(lane.construction.path.clone(), 3.0),
-//             ),
-//             5,
-//         ));
-//     }
-// }
 
 pub fn on_connect(lane: &mut Lane) {
     lane.pathfinding.routing_timeout = ROUTING_TIMEOUT_AFTER_CHANGE;
@@ -144,6 +130,7 @@ impl Node for Lane {
                 query_routes_next_tick: false,
                 tell_to_forget_next_tick: CVec::new(),
                 routing_timeout: ROUTING_TIMEOUT_AFTER_CHANGE,
+                debug_highlight_for: self.pathfinding.debug_highlight_for.clone(),
             }
         }
 
@@ -344,6 +331,7 @@ impl Node for Lane {
                 query_routes_next_tick: true,
                 tell_to_forget_next_tick: tell_to_forget_next_tick,
                 routing_timeout: ROUTING_TIMEOUT_AFTER_CHANGE,
+                debug_highlight_for: self.pathfinding.debug_highlight_for.clone(),
             };
         }
     }
@@ -418,10 +406,23 @@ impl RoughLocation for Lane {
         &mut self,
         requester: LocationRequesterID,
         rough_location: RoughLocationID,
-        tick: Timestamp,
+        instant: Instant,
         world: &mut World,
     ) {
-        requester.location_resolved(rough_location, self.pathfinding.location, tick, world);
+        requester.location_resolved(rough_location, self.pathfinding.location, instant, world);
+    }
+
+    fn resolve_as_position(
+        &mut self,
+        requester: PositionRequesterID,
+        rough_location: RoughLocationID,
+        world: &mut World,
+    ) {
+        requester.position_resolved(
+            rough_location,
+            self.construction.path.along(self.construction.length / 2.0),
+            world,
+        );
     }
 }
 
@@ -504,7 +505,14 @@ pub trait RoughLocation {
         &mut self,
         requester: LocationRequesterID,
         rough_location: RoughLocationID,
-        tick: Timestamp,
+        instant: Instant,
+        world: &mut World,
+    );
+
+    fn resolve_as_position(
+        &mut self,
+        requester: PositionRequesterID,
+        rough_location: RoughLocationID,
         world: &mut World,
     );
 }
@@ -514,13 +522,54 @@ pub trait LocationRequester {
         &mut self,
         rough_location: RoughLocationID,
         location: Option<Location>,
-        tick: Timestamp,
+        instant: Instant,
+        world: &mut World,
+    );
+}
+
+pub trait PositionRequester {
+    fn position_resolved(
+        &mut self,
+        rough_location: RoughLocationID,
+        position: P2,
         world: &mut World,
     );
 }
 
 pub trait DistanceRequester {
     fn on_distance(&mut self, maybe_distance: Option<f32>, world: &mut World);
+}
+
+pub const DEBUG_VIEW_CONNECTIVITY: bool = false;
+
+impl Lane {
+    pub fn start_debug_connectivity(&self, world: &mut World) {
+        for &Location { node, .. } in self.pathfinding.routes.keys() {
+            // TODO: ugly: untyped ID shenanigans
+            if node._raw_id.local_broadcast() == LaneID::local_broadcast(world)._raw_id {
+                let lane = LaneID { _raw_id: node._raw_id };
+                lane.highlight_as_connected(self.id, world);
+            }
+        }
+    }
+
+    pub fn stop_debug_connectivity(&self, world: &mut World) {
+        for &Location { node, .. } in self.pathfinding.routes.keys() {
+            // TODO: ugly: untyped ID shenanigans
+            if node._raw_id.local_broadcast() == LaneID::local_broadcast(world)._raw_id {
+                let lane = LaneID { _raw_id: node._raw_id };
+                lane.stop_highlight_as_connected(self.id, world);
+            }
+        }
+    }
+
+    pub fn highlight_as_connected(&mut self, for_lane: LaneID, _: &mut World) {
+        self.pathfinding.debug_highlight_for.insert(for_lane, ());
+    }
+
+    pub fn stop_highlight_as_connected(&mut self, for_lane: LaneID, _: &mut World) {
+        self.pathfinding.debug_highlight_for.remove(for_lane);
+    }
 }
 
 use core::simulation::SimulationID;

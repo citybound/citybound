@@ -3,7 +3,8 @@ use compact::CVec;
 use kay::World;
 use monet::Geometry;
 use stagemaster::geometry::{CPath, band_to_geometry};
-use super::super::construction::materialized_reality::{BuildableRef, MaterializedRealityID};
+use planning::materialized_reality::MaterializedRealityID;
+use super::materialized_roads::BuildableRef;
 use super::super::lane::{LaneID, TransferLaneID};
 
 #[derive(Compact, Clone)]

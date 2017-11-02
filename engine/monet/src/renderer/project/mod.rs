@@ -18,6 +18,10 @@ impl Renderer {
         requester: ProjectionRequesterID,
         world: &mut World,
     ) {
+        requester.projected_3d(self.project(scene_id, position_2d), world);
+    }
+
+    pub fn project(&self, scene_id: usize, position_2d: P2) -> P3 {
         let eye = &self.scenes[scene_id].eye;
         let frame_size = self.render_context.window.get_framebuffer_dimensions();
 
@@ -57,9 +61,8 @@ impl Renderer {
         // / direction_into_world.w;
 
         let distance = -eye.position.z / direction_into_world_3d.z;
-        let position_in_world = eye.position + distance * direction_into_world_3d;
-
-        requester.projected_3d(position_in_world, world);
+        // position in world
+        eye.position + distance * direction_into_world_3d
     }
 }
 
