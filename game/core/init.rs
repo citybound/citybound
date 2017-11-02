@@ -62,7 +62,7 @@ pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
         );
 
         let body = format!(
-            "WHAT HAPPENED: {}\nWHERE IT HAPPENED:\n{}\nWHERE EXACTLY:\n{:?}",
+            "WHAT HAPPENED:\n{}\nWHERE IT HAPPENED:\n{}\nWHERE EXACTLY:\n{:?}",
             message,
             location,
             backtrace
