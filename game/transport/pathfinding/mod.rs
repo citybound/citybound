@@ -8,9 +8,10 @@ use core::simulation::Instant;
 // TODO: MAKE TRANSFER LANE NOT PARTICIPATE AT ALL IN PATHFINDING -> MUCH SIMPLER
 
 pub mod trip;
+use self::trip::{TripResult, TripFate};
 
 pub trait Node {
-    fn update_routes(&mut self, world: &mut World);
+    fn update_routes(&mut self, instant: Instant, world: &mut World);
     fn query_routes(&mut self, requester: NodeID, is_transfer: bool, world: &mut World);
     fn on_routes(
         &mut self,
@@ -18,7 +19,13 @@ pub trait Node {
         from: NodeID,
         world: &mut World,
     );
-    fn forget_routes(&mut self, forget: &CVec<Location>, from: NodeID, world: &mut World);
+    fn forget_routes(
+        &mut self,
+        forget: &CVec<Location>,
+        from: NodeID,
+        instant: Instant,
+        world: &mut World,
+    );
     fn join_landmark(
         &mut self,
         from: NodeID,
@@ -32,6 +39,7 @@ pub trait Node {
         requester: DistanceRequesterID,
         world: &mut World,
     );
+    fn add_attachee(&mut self, attachee: AttacheeID, world: &mut World);
 }
 
 #[derive(Compact, Clone, Default)]
@@ -44,6 +52,7 @@ pub struct PathfindingInfo {
     pub tell_to_forget_next_tick: CVec<Location>,
     pub query_routes_next_tick: bool,
     pub routing_timeout: u16,
+    attachees: CVec<AttacheeID>,
     pub debug_highlight_for: CHashMap<LaneID, ()>,
 }
 
@@ -51,6 +60,26 @@ pub struct PathfindingInfo {
 pub struct Location {
     pub landmark: NodeID,
     pub node: NodeID,
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct PreciseLocation {
+    pub location: Location,
+    pub offset: f32,
+}
+
+impl ::std::ops::Deref for PreciseLocation {
+    type Target = Location;
+
+    fn deref(&self) -> &Location {
+        &self.location
+    }
+}
+
+impl ::std::ops::DerefMut for PreciseLocation {
+    fn deref_mut(&mut self) -> &mut Location {
+        &mut self.location
+    }
 }
 
 impl Location {
@@ -63,6 +92,15 @@ impl Location {
     pub fn landmark_destination(&self) -> Self {
         Self::landmark(self.landmark)
     }
+}
+
+pub trait Attachee {
+    fn location_changed(
+        &mut self,
+        _old: Option<Location>,
+        new: Option<Location>,
+        world: &mut World,
+    );
 }
 
 #[derive(Copy, Clone)]
@@ -105,7 +143,7 @@ const LANE_CHANGE_COST_LEFT: f32 = 5.0;
 const LANE_CHANGE_COST_RIGHT: f32 = 3.0;
 
 impl Node for Lane {
-    fn update_routes(&mut self, world: &mut World) {
+    fn update_routes(&mut self, instant: Instant, world: &mut World) {
         if let Some(location) = self.pathfinding.location {
             for successor in successors(self) {
                 successor.join_landmark(
@@ -130,6 +168,7 @@ impl Node for Lane {
                 query_routes_next_tick: false,
                 tell_to_forget_next_tick: CVec::new(),
                 routing_timeout: ROUTING_TIMEOUT_AFTER_CHANGE,
+                attachees: self.pathfinding.attachees.clone(),
                 debug_highlight_for: self.pathfinding.debug_highlight_for.clone(),
             }
         }
@@ -149,6 +188,7 @@ impl Node for Lane {
                     predecessor.forget_routes(
                         self.pathfinding.tell_to_forget_next_tick.clone(),
                         self.id.into(),
+                        instant,
                         world,
                     );
                 }
@@ -266,7 +306,13 @@ impl Node for Lane {
         }
     }
 
-    fn forget_routes(&mut self, forget: &CVec<Location>, from: NodeID, _: &mut World) {
+    fn forget_routes(
+        &mut self,
+        forget: &CVec<Location>,
+        from: NodeID,
+        instant: Instant,
+        world: &mut World,
+    ) {
         let mut forgotten = CVec::<Location>::new();
         for destination_to_forget in forget.iter() {
             let forget =
@@ -277,14 +323,43 @@ impl Node for Lane {
                 };
             if forget {
                 self.pathfinding.routes.remove(*destination_to_forget);
+                let self_as_rough_location = self.id.into();
                 if destination_to_forget.is_landmark() {
-                    self.microtraffic.cars.retain(|car| {
-                        car.destination.landmark != destination_to_forget.landmark
-                    })
+                    self.microtraffic.cars.retain(
+                        |car| if car.destination.landmark ==
+                            destination_to_forget.landmark
+                        {
+                            car.trip.finish(
+                                TripResult {
+                                    location_now: Some(self_as_rough_location),
+                                    instant: instant,
+                                    fate: TripFate::RouteForgotten,
+                                },
+                                world,
+                            );
+                            false
+                        } else {
+                            true
+                        },
+                    )
                 } else {
-                    self.microtraffic.cars.retain(|car| {
-                        &car.destination != destination_to_forget
-                    })
+                    self.microtraffic.cars.retain(
+                        |car| if &car.destination.location ==
+                            destination_to_forget
+                        {
+                            car.trip.finish(
+                                TripResult {
+                                    location_now: Some(self_as_rough_location),
+                                    instant: instant,
+                                    fate: TripFate::RouteForgotten,
+                                },
+                                world,
+                            );
+                            false
+                        } else {
+                            true
+                        },
+                    )
                 }
                 forgotten.push(*destination_to_forget);
             }
@@ -297,13 +372,13 @@ impl Node for Lane {
         from: NodeID,
         join_as: Location,
         hops_from_landmark: u8,
-        _: &mut World,
+        world: &mut World,
     ) {
         let join = self.pathfinding
             .location
-            .map(|self_destination| {
-                join_as != self_destination &&
-                    (if self_destination.is_landmark() {
+            .map(|self_location| {
+                join_as != self_location &&
+                    (if self_location.is_landmark() {
                          hops_from_landmark < IDEAL_LANDMARK_RADIUS &&
                              join_as.landmark._raw_id.instance_id < self.id._raw_id.instance_id
                      } else {
@@ -322,6 +397,11 @@ impl Node for Lane {
                 .cloned()
                 .chain(self.pathfinding.location.into_iter())
                 .collect();
+
+            for attachee in &self.pathfinding.attachees {
+                attachee.location_changed(self.pathfinding.location, Some(join_as), world);
+            }
+
             self.pathfinding = PathfindingInfo {
                 location: Some(join_as),
                 learned_landmark_from: Some(from),
@@ -331,6 +411,7 @@ impl Node for Lane {
                 query_routes_next_tick: true,
                 tell_to_forget_next_tick: tell_to_forget_next_tick,
                 routing_timeout: ROUTING_TIMEOUT_AFTER_CHANGE,
+                attachees: self.pathfinding.attachees.clone(),
                 debug_highlight_for: self.pathfinding.debug_highlight_for.clone(),
             };
         }
@@ -352,6 +433,10 @@ impl Node for Lane {
             })
             .map(|routing_info| routing_info.distance);
         requester.on_distance(maybe_distance, world);
+    }
+
+    fn add_attachee(&mut self, attachee: AttacheeID, _: &mut World) {
+        self.pathfinding.attachees.push(attachee);
     }
 }
 
@@ -409,7 +494,14 @@ impl RoughLocation for Lane {
         instant: Instant,
         world: &mut World,
     ) {
-        requester.location_resolved(rough_location, self.pathfinding.location, instant, world);
+        requester.location_resolved(
+            rough_location,
+            self.pathfinding.location.map(|location| {
+                PreciseLocation { location, offset: 0.0 }
+            }),
+            instant,
+            world,
+        );
     }
 
     fn resolve_as_position(
@@ -427,7 +519,7 @@ impl RoughLocation for Lane {
 }
 
 impl Node for TransferLane {
-    fn update_routes(&mut self, _: &mut World) {}
+    fn update_routes(&mut self, _instant: Instant, _: &mut World) {}
 
     fn query_routes(&mut self, requester: NodeID, _is_transfer: bool, world: &mut World) {
         // TODO: ugly: untyped ID shenanigans
@@ -464,10 +556,16 @@ impl Node for TransferLane {
         );
     }
 
-    fn forget_routes(&mut self, forget: &CVec<Location>, from: NodeID, world: &mut World) {
+    fn forget_routes(
+        &mut self,
+        forget: &CVec<Location>,
+        from: NodeID,
+        instant: Instant,
+        world: &mut World,
+    ) {
         let from_lane = LaneID { _raw_id: from._raw_id };
         let other_lane: NodeID = self.other_side(from_lane).into();
-        other_lane.forget_routes(forget.clone(), self.id.into(), world);
+        other_lane.forget_routes(forget.clone(), self.id.into(), instant, world);
     }
 
     fn join_landmark(
@@ -498,6 +596,8 @@ impl Node for TransferLane {
     ) {
         unimplemented!()
     }
+
+    fn add_attachee(&mut self, _attachee: AttacheeID, _: &mut World) {}
 }
 
 pub trait RoughLocation {
@@ -521,7 +621,7 @@ pub trait LocationRequester {
     fn location_resolved(
         &mut self,
         rough_location: RoughLocationID,
-        location: Option<Location>,
+        location: Option<PreciseLocation>,
         instant: Instant,
         world: &mut World,
     );

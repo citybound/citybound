@@ -42,11 +42,14 @@ impl RoadUpdateState {
     }
 }
 
+use core::simulation::Instant;
+
 impl MaterializedRoads {
     pub fn start_applying_roads(
         materialized_reality: MaterializedRealityID,
         materialized_roads: &mut MaterializedRoads,
         result_delta: &RoadPlanResultDelta,
+        instant: Instant,
         world: &mut World,
     ) -> RoadUpdateState {
         let mut lanes_to_unbuild = CVec::new();
@@ -79,7 +82,7 @@ impl MaterializedRoads {
         for &id in &lanes_to_unbuild {
             // TODO: ugly: untyped ID shenanigans
             let id_as_unbuildable: UnbuildableID = UnbuildableID { _raw_id: id._raw_id };
-            id_as_unbuildable.unbuild(materialized_reality, world);
+            id_as_unbuildable.unbuild(materialized_reality, instant, world);
         }
 
         RoadUpdateState { lanes_to_unbuild }

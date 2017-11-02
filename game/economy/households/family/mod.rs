@@ -524,7 +524,7 @@ impl TripListener for Family {
                 self.start_task(
                     matching_task_member,
                     result.instant,
-                    result.location_now,
+                    rough_destination,
                     world,
                 );
             }
@@ -569,8 +569,13 @@ impl Family {
         self.member_tasks[member.0].state = TaskState::StartedAt(start, location);
     }
 
-    pub fn stop_task(&mut self, member: MemberIdx, location: RoughLocationID, world: &mut World) {
-        self.member_tasks[member.0].state = TaskState::IdleAt(location);
+    pub fn stop_task(
+        &mut self,
+        member: MemberIdx,
+        location: Option<RoughLocationID>,
+        world: &mut World,
+    ) {
+        self.member_tasks[member.0].state = TaskState::IdleAt(location.unwrap_or(self.home.into()));
         self.log.log("Task stopped\n");
         if let Some((_, offer)) = self.member_tasks[member.0].goal {
             offer.stopped_actively_using(self.id.into(), member, world);
@@ -623,14 +628,14 @@ impl Household for Family {
     fn task_succeeded(&mut self, member: MemberIdx, world: &mut World) {
         self.log.log("Task succeeded\n");
         if let TaskState::StartedAt(_, location) = self.member_tasks[member.0].state {
-            self.stop_task(member, location, world);
+            self.stop_task(member, Some(location), world);
         } else {
             panic!("Can't finish unstarted task");
         }
     }
 
     fn task_failed(&mut self, member: MemberIdx, location: RoughLocationID, world: &mut World) {
-        self.stop_task(member, location, world);
+        self.stop_task(member, Some(location), world);
     }
 
     fn reset_member_task(&mut self, member: MemberIdx, world: &mut World) {
@@ -638,9 +643,8 @@ impl Household for Family {
             format!("Reset member {}\n", member.0).as_str(),
         );
         TaskEndSchedulerID::local_first(world).deschedule(self.id.into(), member, world);
-        // teleport back home
-        let home = self.home;
-        self.stop_task(member, home.into(), world);
+
+        self.stop_task(member, None, world);
     }
 
     fn stop_using(&mut self, offer: OfferID, world: &mut World) {

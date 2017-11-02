@@ -4,8 +4,7 @@ use ordered_float::OrderedFloat;
 use core::simulation::Instant;
 
 use transport::lane::LaneID;
-use super::Location;
-use super::{RoughLocationID, LocationRequester, LocationRequesterID,
+use super::{PreciseLocation, RoughLocationID, LocationRequester, LocationRequesterID,
             MSG_LocationRequester_location_resolved};
 
 use itertools::Itertools;
@@ -16,23 +15,26 @@ pub struct Trip {
     id: TripID,
     rough_source: RoughLocationID,
     rough_destination: RoughLocationID,
-    source: Option<Location>,
-    destination: Option<Location>,
+    source: Option<PreciseLocation>,
+    destination: Option<PreciseLocation>,
     listener: Option<TripListenerID>,
 }
 
 #[derive(Copy, Clone)]
 pub struct TripResult {
-    pub location_now: RoughLocationID,
+    pub location_now: Option<RoughLocationID>,
     pub instant: Instant,
     pub fate: TripFate,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum TripFate {
     Success,
     SourceOrDestinationNotResolvable,
     NoRoute,
+    RouteForgotten,
+    HopDisconnected,
+    LaneUnbuilt,
 }
 
 const DEBUG_FAILED_TRIPS_VISUALLY: bool = false;
@@ -64,11 +66,12 @@ impl Trip {
 
     pub fn finish(&mut self, result: TripResult, world: &mut World) -> Fate {
         match result.fate {
-            TripFate::NoRoute |
-            TripFate::SourceOrDestinationNotResolvable => {
+            TripFate::Success => {}
+            reason @ _ => {
                 println!(
-                    "Trip {:?} failed! {:?} ({:?}) -> {:?} ({:?})",
+                    "Trip {:?} failed! ({:?}) {:?} ({:?}) -> {:?} ({:?})",
                     self.id,
+                    reason,
                     self.rough_source,
                     self.source,
                     self.rough_destination,
@@ -78,7 +81,6 @@ impl Trip {
                     FailedTripDebuggerID::spawn(self.rough_source, self.rough_destination, world);
                 }
             }
-            _ => {}
         }
 
         if let Some(listener) = self.listener {
@@ -99,7 +101,7 @@ impl LocationRequester for Trip {
     fn location_resolved(
         &mut self,
         rough_location: RoughLocationID,
-        location: Option<Location>,
+        location: Option<PreciseLocation>,
         instant: Instant,
         world: &mut World,
     ) {
@@ -130,13 +132,13 @@ impl LocationRequester for Trip {
                     LaneCar {
                         trip: self.id,
                         as_obstacle: Obstacle {
-                            position: OrderedFloat(0.0),
+                            position: OrderedFloat(source.offset),
                             velocity: 0.0,
                             max_velocity: 15.0,
                         },
                         acceleration: 0.0,
                         destination: destination,
-                        next_hop_interaction: 0,
+                        next_hop_interaction: None,
                     },
                     None,
                     instant,
@@ -150,7 +152,7 @@ impl LocationRequester for Trip {
             );
             self.id.finish(
                 TripResult {
-                    location_now: self.rough_source,
+                    location_now: Some(self.rough_source),
                     instant,
                     fate: TripFate::SourceOrDestinationNotResolvable,
                 },

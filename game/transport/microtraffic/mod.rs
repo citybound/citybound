@@ -11,6 +11,8 @@ use super::pathfinding;
 mod intelligent_acceleration;
 use self::intelligent_acceleration::intelligent_acceleration;
 
+// TODO: move all iteration, updates, etc into one huge retain loop (see identical TODO below)
+
 #[derive(Compact, Clone)]
 pub struct Microtraffic {
     pub obstacles: CVec<(Obstacle, LaneLikeID)>,
@@ -83,8 +85,8 @@ pub struct LaneCar {
     pub trip: TripID,
     pub as_obstacle: Obstacle,
     pub acceleration: f32,
-    pub destination: pathfinding::Location,
-    pub next_hop_interaction: u8,
+    pub destination: pathfinding::PreciseLocation,
+    pub next_hop_interaction: Option<u8>,
 }
 
 impl LaneCar {
@@ -162,10 +164,12 @@ impl LaneLike for Lane {
         world: &mut World,
     ) {
         if let Some(self_as_location) = self.pathfinding.location {
-            if car.destination == self_as_location {
+            if car.destination.location == self_as_location &&
+                *car.position >= car.destination.offset
+            {
                 car.trip.finish(
                     TripResult {
-                        location_now: self.id.into(),
+                        location_now: None,
                         instant,
                         fate: TripFate::Success,
                     },
@@ -176,10 +180,13 @@ impl LaneLike for Lane {
             }
         }
 
-        let maybe_next_hop_interaction =
-            self.pathfinding
+        let (maybe_next_hop_interaction, almost_there) =
+            if Some(car.destination.location) == self.pathfinding.location {
+                (None, true)
+            } else {
+                let maybe_hop = self.pathfinding
                 .routes
-                .get(car.destination)
+                .get(car.destination.location)
                 .or_else(|| {
                     self.pathfinding.routes.get(
                         car.destination
@@ -198,9 +205,13 @@ impl LaneLike for Lane {
                 //     }
                 // })
                 .map(|&RoutingInfo { outgoing_idx, .. }| outgoing_idx as usize);
-        if let Some(next_hop_interaction) = maybe_next_hop_interaction {
+
+                (maybe_hop, false)
+            };
+
+        if maybe_next_hop_interaction.is_some() || almost_there {
             let routed_car = LaneCar {
-                next_hop_interaction: next_hop_interaction as u8,
+                next_hop_interaction: maybe_next_hop_interaction.map(|hop| hop as u8),
                 ..car
             };
 
@@ -217,7 +228,7 @@ impl LaneLike for Lane {
         } else {
             car.trip.finish(
                 TripResult {
-                    location_now: self.id.into(),
+                    location_now: Some(self.id.into()),
                     instant,
                     fate: TripFate::NoRoute,
                 },
@@ -312,7 +323,7 @@ impl Simulatable for Lane {
         if current_instant.ticks() % PATHFINDING_THROTTLING ==
             self.id._raw_id.instance_id as usize % PATHFINDING_THROTTLING
         {
-            self.update_routes(world);
+            self.update_routes(current_instant, world);
         }
 
         if do_traffic {
@@ -356,22 +367,24 @@ impl Simulatable for Lane {
 
                 car.acceleration = next_car_acceleration.min(next_obstacle_acceleration);
 
-                if let Interaction {
-                    start,
-                    kind: InteractionKind::Next { green },
-                    ..
-                } = self.connectivity.interactions[car.next_hop_interaction as usize]
-                {
-                    if !green {
-                        car.acceleration = car.acceleration.min(intelligent_acceleration(
-                            car,
-                            &Obstacle {
-                                position: OrderedFloat(start + 2.0),
-                                velocity: 0.0,
-                                max_velocity: 0.0,
-                            },
-                            2.0,
-                        ))
+                if let Some(next_hop_interaction) = car.next_hop_interaction {
+                    if let Interaction {
+                        start,
+                        kind: InteractionKind::Next { green },
+                        ..
+                    } = self.connectivity.interactions[next_hop_interaction as usize]
+                    {
+                        if !green {
+                            car.acceleration = car.acceleration.min(intelligent_acceleration(
+                                car,
+                                &Obstacle {
+                                    position: OrderedFloat(start + 2.0),
+                                    velocity: 0.0,
+                                    max_velocity: 0.0,
+                                },
+                                2.0,
+                            ))
+                        }
                     }
                 }
             }
@@ -397,6 +410,30 @@ impl Simulatable for Lane {
             }
         }
 
+        // TODO: move all iteration, updates, etc into one huge retain loop
+
+        if let Some(self_as_location) = self.pathfinding.location {
+            self.microtraffic.cars.retain(
+                |car| if car.destination.location == self_as_location &&
+                    *car.position >=
+                        car.destination.offset
+                {
+                    car.trip.finish(
+                        TripResult {
+                            location_now: None,
+                            instant: current_instant,
+                            fate: TripFate::Success,
+                        },
+                        world,
+                    );
+
+                    false
+                } else {
+                    true
+                },
+            );
+        }
+
         loop {
             let maybe_switch_car = self.microtraffic
                 .cars
@@ -404,34 +441,34 @@ impl Simulatable for Lane {
                 .enumerate()
                 .rev()
                 .filter_map(|(i, &car)| {
-                    let interaction = self.connectivity.interactions[car.next_hop_interaction as
-                                                                         usize];
+                    let interaction = car.next_hop_interaction.map(|hop_interaction| {
+                        self.connectivity.interactions[hop_interaction as usize]
+                    });
 
-                    match interaction.kind {
-                        InteractionKind::Overlap { end, kind: OverlapKind::Transfer, .. } => {
-                            if *car.position > interaction.start && *car.position > end - 300.0 {
-                                Some((
-                                    i,
-                                    interaction.partner_lane,
-                                    interaction.start,
-                                    interaction.partner_start,
-                                ))
+                    match interaction {
+                        Some(Interaction {
+                                 start,
+                                 partner_lane,
+                                 partner_start,
+                                 kind: InteractionKind::Overlap {
+                                     end, kind: OverlapKind::Transfer, ..
+                                 },
+                                 ..
+                             }) => {
+                            if *car.position > start && *car.position > end - 300.0 {
+                                Some((i, partner_lane, start, partner_start))
                             } else {
                                 None
                             }
                         }
-                        _ => {
-                            if *car.position > interaction.start {
-                                Some((
-                                    i,
-                                    interaction.partner_lane,
-                                    interaction.start,
-                                    interaction.partner_start,
-                                ))
+                        Some(Interaction { start, partner_lane, partner_start, .. }) => {
+                            if *car.position > start {
+                                Some((i, partner_lane, start, partner_start))
                             } else {
                                 None
                             }
                         }
+                        None => None,
                     }
                 })
                 .next();
@@ -439,23 +476,12 @@ impl Simulatable for Lane {
             if let Some((idx_to_remove, next_lane, start, partner_start)) = maybe_switch_car {
                 let car = self.microtraffic.cars.remove(idx_to_remove);
                 // TODO: ugly: untyped ID shenanigans
-                if self.id._raw_id == car.destination.node._raw_id {
-                    car.trip.finish(
-                        TripResult {
-                            location_now: self.id.into(),
-                            instant: current_instant,
-                            fate: TripFate::Success,
-                        },
-                        world,
-                    );
-                } else {
-                    next_lane.add_car(
-                        car.offset_by(partner_start - start),
-                        Some(self.id.into()),
-                        current_instant,
-                        world,
-                    );
-                }
+                next_lane.add_car(
+                    car.offset_by(partner_start - start),
+                    Some(self.id.into()),
+                    current_instant,
+                    world,
+                );
             } else {
                 break;
             }
@@ -667,59 +693,37 @@ impl Simulatable for TransferLane {
                         (*car.position > self.construction.length &&
                              car.transfer_acceleration > 0.0)
                     {
-                        if car.destination.node == right.into() {
-                            car.trip.finish(
-                                TripResult {
-                                    location_now: right.into(),
-                                    instant: current_instant,
-                                    fate: TripFate::Success,
-                                },
-                                world,
-                            );
-                        } else {
-                            let right_as_lane: LaneLikeID = right.into();
-                            right_as_lane.add_car(
-                                car.as_lane_car.offset_by(
-                                    right_start +
-                                        self.self_to_interaction_offset(
-                                            *car.position,
-                                            false,
-                                        ),
-                                ),
-                                Some(self.id.into()),
-                                current_instant,
-                                world,
-                            );
-                        }
+                        let right_as_lane: LaneLikeID = right.into();
+                        right_as_lane.add_car(
+                            car.as_lane_car.offset_by(
+                                right_start +
+                                    self.self_to_interaction_offset(
+                                        *car.position,
+                                        false,
+                                    ),
+                            ),
+                            Some(self.id.into()),
+                            current_instant,
+                            world,
+                        );
                         (true, false)
                     } else if car.transfer_position < -1.0 ||
                                (*car.position > self.construction.length &&
                                     car.transfer_acceleration <= 0.0)
                     {
-                        if car.destination.node == left.into() {
-                            car.trip.finish(
-                                TripResult {
-                                    location_now: left.into(),
-                                    instant: current_instant,
-                                    fate: TripFate::Success,
-                                },
-                                world,
-                            );
-                        } else {
-                            let left_as_lane: LaneLikeID = left.into();
-                            left_as_lane.add_car(
-                                car.as_lane_car.offset_by(
-                                    left_start +
-                                        self.self_to_interaction_offset(
-                                            *car.position,
-                                            true,
-                                        ),
-                                ),
-                                Some(self.id.into()),
-                                current_instant,
-                                world,
-                            );
-                        }
+                        let left_as_lane: LaneLikeID = left.into();
+                        left_as_lane.add_car(
+                            car.as_lane_car.offset_by(
+                                left_start +
+                                    self.self_to_interaction_offset(
+                                        *car.position,
+                                        true,
+                                    ),
+                            ),
+                            Some(self.id.into()),
+                            current_instant,
+                            world,
+                        );
                         (true, false)
                     } else {
                         i += 1;

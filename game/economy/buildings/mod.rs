@@ -13,6 +13,7 @@ use planning::materialized_reality::{MaterializedReality, MaterializedRealityID}
 pub mod rendering;
 
 use super::households::HouseholdID;
+use transport::pathfinding::PreciseLocation;
 
 #[derive(Compact, Clone)]
 pub struct Building {
@@ -39,7 +40,19 @@ impl Building {
         //     0.0,
         //     world,
         // );
-        materialized_reality.on_building_built(lot.position, id, lot.adjacent_lane, world);
+        // TODO: ugly: untyped ID shenanigans
+        let adjacent_lane = LaneID {
+            _raw_id: lot.location
+                .expect("Lot should already have location")
+                .node
+                ._raw_id,
+        };
+        materialized_reality.on_building_built(lot.position, id, adjacent_lane, world);
+        lot.location
+            .expect("Lot should already have location")
+            .node
+            .add_attachee(id.into(), world);
+
         Building {
             id,
             households: households.clone(),
@@ -82,6 +95,27 @@ impl Building {
     }
 }
 
+use transport::pathfinding::{Location, Attachee, AttacheeID, MSG_Attachee_location_changed};
+
+impl Attachee for Building {
+    fn location_changed(
+        &mut self,
+        _old: Option<Location>,
+        maybe_new: Option<Location>,
+        _: &mut World,
+    ) {
+        if let Some(new) = maybe_new {
+            self.lot
+                .location
+                .as_mut()
+                .expect("Only an existing location can change")
+                .location = new;
+        } else {
+            self.lot.location = None;
+        }
+    }
+}
+
 use transport::pathfinding::{RoughLocation, LocationRequesterID, PositionRequesterID,
                              RoughLocationID, MSG_RoughLocation_resolve_as_location,
                              MSG_RoughLocation_resolve_as_position};
@@ -95,8 +129,7 @@ impl RoughLocation for Building {
         instant: Instant,
         world: &mut World,
     ) {
-        Into::<RoughLocationID>::into(self.lot.adjacent_lane)
-            .resolve_as_location(requester, rough_location, instant, world)
+        requester.location_resolved(rough_location, self.lot.location, instant, world);
     }
 
     fn resolve_as_position(
@@ -113,7 +146,7 @@ impl RoughLocation for Building {
 pub struct Lot {
     pub position: P2,
     pub orientation: V2,
-    pub adjacent_lane: LaneID,
+    pub location: Option<PreciseLocation>,
     pub adjacent_lane_position: P2,
 }
 

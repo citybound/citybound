@@ -353,17 +353,17 @@ pub struct EvaluatedSearchResult {
     pub evaluated_deals: CVec<EvaluatedDeal>,
 }
 
-use transport::pathfinding::{Location, LocationRequester, DistanceRequester, DistanceRequesterID,
-                             MSG_DistanceRequester_on_distance};
+use transport::pathfinding::{PreciseLocation, LocationRequester, DistanceRequester,
+                             DistanceRequesterID, MSG_DistanceRequester_on_distance};
 
 #[derive(Compact, Clone)]
 pub struct TripCostEstimator {
     id: TripCostEstimatorID,
     requester: EvaluationRequesterID,
     rough_source: RoughLocationID,
-    source: Option<Location>,
+    source: Option<PreciseLocation>,
     rough_destination: RoughLocationID,
-    destination: Option<Location>,
+    destination: Option<PreciseLocation>,
     n_resolved: u8,
     base_result: EvaluatedSearchResult,
 }
@@ -402,7 +402,7 @@ impl LocationRequester for TripCostEstimator {
     fn location_resolved(
         &mut self,
         rough_location: RoughLocationID,
-        location: Option<Location>,
+        location: Option<PreciseLocation>,
         _tick: Instant,
         world: &mut World,
     ) {
@@ -418,7 +418,7 @@ impl LocationRequester for TripCostEstimator {
 
         if let (Some(source), Some(destination)) = (self.source, self.destination) {
             source.node.get_distance_to(
-                destination,
+                destination.location,
                 self.id.into(),
                 world,
             );

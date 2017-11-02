@@ -59,6 +59,8 @@ pub struct PlanManager {
     interaction: Interaction,
 }
 
+use core::simulation::Instant;
+
 impl PlanManager {
     pub fn spawn(
         id: PlanManagerID,
@@ -68,7 +70,7 @@ impl PlanManager {
         world: &mut World,
     ) -> PlanManager {
         // TODO: is there a nicer way to get initial built strokes?
-        materialized_reality.apply(id, PlanDelta::default(), world);
+        materialized_reality.apply(id, PlanDelta::default(), Instant::new(0), world);
 
         PlanManager {
             id: id,
@@ -203,8 +205,14 @@ impl PlanManager {
     }
 }
 
+use core::simulation::{SimulationID, Ticks, Sleeper, SleeperID, MSG_Sleeper_wake};
+
 impl PlanManager {
     pub fn materialize(&mut self, world: &mut World) {
+        SimulationID::local_first(world).wake_up_in(Ticks(0), self.id.into(), world);
+    }
+
+    fn materialize_now(&mut self, instant: Instant, world: &mut World) {
         let commit_before_materialize = match self.current.intent {
             Intent::RoadIntent(ref road_intent) => road_intent.commit_before_materialize(),
             _ => false,
@@ -218,6 +226,7 @@ impl PlanManager {
         self.materialized_reality.apply(
             self.id,
             self.current.plan_delta.clone(),
+            instant,
             world,
         );
 
@@ -236,6 +245,12 @@ impl PlanManager {
             preview_result_delta_rendered_in: CDict::new(),
             interactables_valid: false,
         };
+    }
+}
+
+impl Sleeper for PlanManager {
+    fn wake(&mut self, instant: Instant, world: &mut World) {
+        self.materialize_now(instant, world);
     }
 }
 

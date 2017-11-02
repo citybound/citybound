@@ -36,9 +36,16 @@ impl ConstructionInfo {
     }
 }
 
+use core::simulation::Instant;
+
 pub trait Unbuildable {
-    fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World);
-    fn unbuild(&mut self, report_to: MaterializedRealityID, world: &mut World) -> Fate;
+    fn disconnect(&mut self, other_id: UnbuildableID, instant: Instant, world: &mut World);
+    fn unbuild(
+        &mut self,
+        report_to: MaterializedRealityID,
+        instant: Instant,
+        world: &mut World,
+    ) -> Fate;
     fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate;
 }
 
@@ -266,8 +273,10 @@ impl Lane {
     }
 }
 
+use transport::pathfinding::trip::{TripResult, TripFate};
+
 impl Unbuildable for Lane {
-    fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World) {
+    fn disconnect(&mut self, other_id: UnbuildableID, instant: Instant, world: &mut World) {
         let interaction_indices_to_remove = self.connectivity
             .interactions
             .iter()
@@ -279,10 +288,29 @@ impl Unbuildable for Lane {
                 None
             })
             .collect::<Vec<_>>();
-        // TODO: Cancel trip
-        self.microtraffic.cars.retain(|car| {
-            !interaction_indices_to_remove.contains(&(car.next_hop_interaction as usize))
-        });
+
+        let self_as_rough_location = self.id.into();
+        self.microtraffic.cars.retain(
+            |car| if let Some(hop_interaction) =
+                car.next_hop_interaction
+            {
+                if interaction_indices_to_remove.contains(&(hop_interaction as usize)) {
+                    car.trip.finish(
+                        TripResult {
+                            location_now: Some(self_as_rough_location),
+                            instant,
+                            fate: TripFate::HopDisconnected,
+                        },
+                        world,
+                    );
+                    false
+                } else {
+                    true
+                }
+            } else {
+                true
+            },
+        );
         self.microtraffic.obstacles.retain(|&(_obstacle, from_id)| {
             // TODO: ugly: untyped ID shenanigans
             from_id._raw_id != other_id._raw_id
@@ -296,7 +324,12 @@ impl Unbuildable for Lane {
         other_id.on_confirm_disconnect(world);
     }
 
-    fn unbuild(&mut self, report_to: MaterializedRealityID, world: &mut World) -> Fate {
+    fn unbuild(
+        &mut self,
+        report_to: MaterializedRealityID,
+        instant: Instant,
+        world: &mut World,
+    ) -> Fate {
         let mut disconnects_remaining = 0;
         for id in self.connectivity
             .interactions
@@ -306,7 +339,7 @@ impl Unbuildable for Lane {
         {
             // TODO: untyped ID shenanigans
             let id_as_unbuildable = UnbuildableID { _raw_id: id._raw_id };
-            id_as_unbuildable.disconnect(self.id.into(), world);
+            id_as_unbuildable.disconnect(self.id.into(), instant, world);
             disconnects_remaining += 1;
         }
         super::rendering::on_unbuild(self, world);
@@ -316,6 +349,18 @@ impl Unbuildable for Lane {
         });
         if disconnects_remaining == 0 {
             report_to.on_lane_unbuilt(self.id.into(), world);
+
+            for car in &self.microtraffic.cars {
+                car.trip.finish(
+                    TripResult {
+                        location_now: None,
+                        instant,
+                        fate: TripFate::LaneUnbuilt,
+                    },
+                    world,
+                );
+            }
+
             Fate::Die
         } else {
             self.construction.disconnects_remaining = disconnects_remaining;
@@ -340,29 +385,32 @@ impl Unbuildable for Lane {
 
 use economy::buildings::{Lot, BuildingSpawnerID};
 use rand::Rng;
+use transport::pathfinding::PreciseLocation;
 
 impl Lane {
     // TODO: this is a horrible hack
     pub fn find_lot(&mut self, requester: BuildingSpawnerID, world: &mut World) {
         const BUILDING_DISTANCE: f32 = 15.0;
 
-        if !self.connectivity.on_intersection {
-            let path = &self.construction.path;
-            let distance = ::rand::thread_rng().next_f32() * path.length();
-            let position = path.along(distance) +
-                (1.0 + ::rand::thread_rng().next_f32() * 1.0) * BUILDING_DISTANCE *
-                    path.direction_along(distance).orthogonal();
-            let orientation = path.direction_along(distance);
+        if let Some(location) = self.pathfinding.location {
+            if !self.connectivity.on_intersection {
+                let path = &self.construction.path;
+                let distance = ::rand::thread_rng().next_f32() * path.length();
+                let position = path.along(distance) +
+                    (1.0 + ::rand::thread_rng().next_f32() * 1.0) * BUILDING_DISTANCE *
+                        path.direction_along(distance).orthogonal();
+                let orientation = path.direction_along(distance);
 
-            requester.found_lot(
-                Lot {
-                    position,
-                    orientation,
-                    adjacent_lane: self.id,
-                    adjacent_lane_position: path.along(distance),
-                },
-                world,
-            );
+                requester.found_lot(
+                    Lot {
+                        position,
+                        orientation,
+                        location: Some(PreciseLocation { location, offset: distance }),
+                        adjacent_lane_position: path.along(distance),
+                    },
+                    world,
+                );
+            }
         }
     }
 }
@@ -452,7 +500,7 @@ impl TransferLane {
 }
 
 impl Unbuildable for TransferLane {
-    fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World) {
+    fn disconnect(&mut self, other_id: UnbuildableID, _instant: Instant, world: &mut World) {
         self.connectivity.left =
             self.connectivity.left.and_then(
                 // TODO: ugly: untyped ID shenanigans
@@ -475,16 +523,33 @@ impl Unbuildable for TransferLane {
         other_id.on_confirm_disconnect(world);
     }
 
-    fn unbuild(&mut self, report_to: MaterializedRealityID, world: &mut World) -> Fate {
+    fn unbuild(
+        &mut self,
+        report_to: MaterializedRealityID,
+        instant: Instant,
+        world: &mut World,
+    ) -> Fate {
         if let Some((left_id, _)) = self.connectivity.left {
-            Into::<UnbuildableID>::into(left_id).disconnect(self.id.into(), world);
+            Into::<UnbuildableID>::into(left_id).disconnect(self.id.into(), instant, world);
         }
         if let Some((right_id, _)) = self.connectivity.right {
-            Into::<UnbuildableID>::into(right_id).disconnect(self.id.into(), world);
+            Into::<UnbuildableID>::into(right_id).disconnect(self.id.into(), instant, world);
         }
         super::rendering::on_unbuild_transfer(self, world);
         if self.connectivity.left.is_none() && self.connectivity.right.is_none() {
             report_to.on_lane_unbuilt(self.id.into(), world);
+
+            for car in &self.microtraffic.cars {
+                car.trip.finish(
+                    TripResult {
+                        location_now: None,
+                        instant,
+                        fate: TripFate::LaneUnbuilt,
+                    },
+                    world,
+                );
+            }
+
             Fate::Die
         } else {
             self.construction.disconnects_remaining = self.connectivity
