@@ -596,6 +596,19 @@ impl Renderable for LaneRenderer {
         frame: usize,
         world: &mut World,
     ) {
+        // Render a single invisible car to clean all instances every frame
+        renderer_id.add_instance(
+            scene_id,
+            8000,
+            frame,
+            Instance {
+                instance_position: [-1000000.0, -1000000.0, -1000000.0],
+                instance_direction: [0.0, 0.0],
+                instance_color: [0.0, 0.0, 0.0],
+            },
+            world,
+        );
+
         let lanes_as_renderables: RenderableID = LaneID::local_broadcast(world).into();
         lanes_as_renderables.render_to_scene(renderer_id, scene_id, frame, world);
 
