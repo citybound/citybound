@@ -87,6 +87,7 @@ pub struct UserInterfaceInner {
     imgui_renderer: ImguiRenderer,
     debug_text: BTreeMap<String, (String, [f32; 4])>,
     persistent_debug_text: BTreeMap<String, (String, [f32; 4])>,
+    panicked: bool,
 }
 
 impl ::std::ops::Deref for UserInterface {
@@ -205,6 +206,7 @@ impl UserInterface {
                 imgui_renderer: imgui_renderer,
                 debug_text: BTreeMap::new(),
                 persistent_debug_text: BTreeMap::new(),
+                panicked: false,
             }),
         }
     }
@@ -424,6 +426,7 @@ impl UserInterface {
         let cc_id = self.camera_control_id.into();
         self.interactables_2d.retain(|id| *id == cc_id);
         self.interactables_2d_todo.retain(|id| *id == cc_id);
+        self.panicked = true;
     }
 
     /// Critical
@@ -529,8 +532,9 @@ impl TargetProvider for UserInterface {
 
         imgui_ui
             .window(im_str!("Debug Info"))
-            .size((600.0, 200.0), ImGuiSetCond_FirstUseEver)
-            .collapsible(false)
+            .size((230.0, 200.0), ImGuiSetCond_FirstUseEver)
+            .collapsible(!self.panicked)
+            .position((10.0, 10.0), ImGuiSetCond_FirstUseEver)
             .build(|| for (ref key, (ref text, ref color)) in texts {
                 if text.lines().count() > 3 {
                     imgui_ui.tree_node(im_str!("{}", key)).build(|| {

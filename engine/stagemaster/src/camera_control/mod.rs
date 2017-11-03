@@ -208,14 +208,14 @@ impl Interactable2d for CameraControl {
         let mut settings_changed = false;
 
         ui.window(im_str!("Controls"))
-            .size((600.0, 200.0), ImGuiSetCond_FirstUseEver)
-            .collapsible(false)
+            .size((400.0, 200.0), ImGuiSetCond_FirstUseEver)
+            .position((250.0, 10.0), ImGuiSetCond_FirstUseEver)
             .build(|| {
                 ui.text(im_str!("Camera Movement"));
                 ui.separator();
 
                 ui.text(im_str!("Move Speed"));
-                ui.same_line(150.0);
+                ui.same_line(130.0);
                 settings_changed = settings_changed ||
                     ui.slider_float(
                         im_str!("##camera-speed"),

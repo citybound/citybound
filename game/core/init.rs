@@ -62,7 +62,7 @@ pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
         );
 
         let body = format!(
-            "WHAT HAPPENED:\n{}\nWHERE IT HAPPENED:\n{}\nWHERE EXACTLY:\n{:?}",
+            "WHAT HAPPENED:\n{}\n\nWHERE IT HAPPENED:\n{}\n\nWHERE EXACTLY:\n{:?}",
             message,
             location,
             backtrace
@@ -74,17 +74,17 @@ pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
             location
         );
 
-        let report_guide = "HOW TO REPORT BUGS: https://github.com/citybound/citybound/blob/master/CONTRIBUTING.md#reporting-bugs";
+        let report_guide = "HOW TO REPORT BUGS:\nhttps://github.com/citybound/citybound/blob/master/CONTRIBUTING.md#reporting-bugs";
 
         println!(
-            "{}\n{}\nALSO SEE cb_last_error.txt (AUTO-OPENED)",
+            "{}\n\n{}\n\nALSO SEE cb_last_error.txt (AUTO-OPENED)",
             title,
             body
         );
 
         {
             if let Ok(mut file) = File::create("./cb_last_error.txt") {
-                let file_content = format!("{}\n{}\n\nDETAILS:\n{}", title, report_guide, body);
+                let file_content = format!("{}\n\n{}\n\n{}", title, report_guide, body);
                 let file_content = file_content.replace("\n", "\r\n");
 
                 if let Err(_) = file.write_all(file_content.as_bytes()) {

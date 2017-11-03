@@ -374,7 +374,7 @@ impl Bindings {
         let mut finished_changing = false;
         for (name, combos) in self.bindings.clone() {
             ui.text(im_str!("{:?}", name));
-            ui.same_line(150.0);
+            ui.same_line(130.0);
             let target_is = match self.rebinding {
                 Some((ref target_name, idx)) if target_name == &name => {
                     if idx == 0 {
@@ -390,7 +390,7 @@ impl Bindings {
                 im_str!("{}", combos.0[0]),
                 target_is.0,
                 ImGuiSelectableFlags::empty(),
-                ImVec2::new(200.0, 0.0),
+                ImVec2::new(120.0, 0.0),
             )
             {
                 if target_is.0 {
@@ -401,12 +401,12 @@ impl Bindings {
                     new_target = Some((name.clone(), 0))
                 }
             }
-            ui.same_line(350.0);
+            ui.same_line(270.0);
             if ui.selectable(
                 im_str!("(2nd: {})", combos.0[1]),
                 target_is.1,
                 ImGuiSelectableFlags::empty(),
-                ImVec2::new(200.0, 0.0),
+                ImVec2::new(120.0, 0.0),
             )
             {
                 if target_is.1 {

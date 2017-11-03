@@ -694,15 +694,16 @@ impl Household for Family {
         let ui = imgui_ui.steal();
 
         ui.window(im_str!("Building")).build(|| {
-            ui.tree_node(im_str!(
-                "The {} Family{}",
-                family_name(self.id),
-                match self.decision_state {
-                    DecisionState::None => "",
-                    DecisionState::Choosing(_, _, _, _) => ": Waiting for choice",
-                    DecisionState::WaitingForTrip(_) => ": Waiting for trip",
-                }
-            )).build(|| {
+            ui.tree_node(im_str!("The {} Family:", family_name(self.id)))
+                .build(|| {
+                    // ui.text(im_str!(
+                    //     "({})",
+                    //     match self.decision_state {
+                    //         DecisionState::None => "",
+                    //         DecisionState::Choosing(_, _, _, _) => ": Waiting for choice",
+                    //         DecisionState::WaitingForTrip(_) => ": Waiting for trip",
+                    //     }
+                    // ));
                     for resource in all_resource_ids() {
                         if r_properties(resource).ownership_shared {
                             ui.text(im_str!("{}", r_info(resource).0));
@@ -717,9 +718,14 @@ impl Household for Family {
                             .zip(&self.member_tasks)
                             .enumerate()
                     {
+                        ui.spacing();
                         ui.text(im_str!(
-                            "{}: {} {}",
+                            "{}:",
                             member_name(self.id, MemberIdx(i)),
+                            
+                        ));
+                        ui.text(im_str!(
+                            "({} {})",
                             match member_task.state {
                                 TaskState::IdleAt(_) => "Idle after getting",
                                 TaskState::GettingReadyAt(_) => "Preparing to get",

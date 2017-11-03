@@ -78,7 +78,8 @@ impl Interactable2d for BuildingInspector {
             let mut opened = true;
 
             ui.window(im_str!("Building"))
-                .size((200.0, 300.0), ImGuiSetCond_FirstUseEver)
+                .size((230.0, 400.0), ImGuiSetCond_FirstUseEver)
+                .position((10.0, 220.0), ImGuiSetCond_FirstUseEver)
                 .collapsible(false)
                 .opened(&mut opened)
                 .build(|| {
