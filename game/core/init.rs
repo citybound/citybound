@@ -84,7 +84,10 @@ pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
 
         {
             if let Ok(mut file) = File::create("./cb_last_error.txt") {
-                if let Err(_) = write!(file, "{}\n{}\n\nDETAILS:\n{}", title, report_guide, body) {
+                let file_content = format!("{}\n{}\n\nDETAILS:\n{}", title, report_guide, body);
+                let file_content = file_content.replace("\n", "\r\n");
+
+                if let Err(_) = file.write_all(file_content.as_bytes()) {
                     println!("Error writing error file, lol");
                 }
             };

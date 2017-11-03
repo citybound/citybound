@@ -105,12 +105,14 @@ fn main() {
 
         let mut frame_counter = core::init::FrameCounter::new();
 
-        while !system.shutting_down {
+        loop {
             frame_counter.start_frame();
 
             user_interface.process_events(world);
 
             system.process_all_messages();
+            
+            if system.shutting_down {break;}
 
             for _i in 0..20 {
                 simulation.do_tick(world);
