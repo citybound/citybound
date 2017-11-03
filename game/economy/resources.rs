@@ -128,14 +128,20 @@ pub type ResourceAmount = f32;
 #[derive(Compact, Clone, Debug)]
 pub struct Entry<AssociatedValue: Compact>(pub ResourceId, pub AssociatedValue);
 
-#[derive(Compact, Clone, Default, Debug)]
+#[derive(Compact, Clone, Debug)]
 pub struct ResourceMap<AssociatedValue: Compact> {
     entries: CVec<Entry<AssociatedValue>>,
 }
 
+impl<AssociatedValue: Compact> Default for ResourceMap<AssociatedValue> {
+    fn default() -> Self {
+        ResourceMap { entries: CVec::new() }
+    }
+}
+
 impl<AssociatedValue: Compact> ResourceMap<AssociatedValue> {
     pub fn new() -> Self {
-        ResourceMap { entries: CVec::new() }
+        Default::default()
     }
 
     pub fn get(&self, key: ResourceId) -> Option<&AssociatedValue> {

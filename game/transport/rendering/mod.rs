@@ -22,6 +22,7 @@ const LANE_MARKER_GAPS_THING_ID: u16 = 2400;
 impl Renderable for Lane {
     fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}
 
+    #[allow(cyclomatic_complexity)]
     fn render_to_scene(
         &mut self,
         renderer_id: RendererID,

@@ -117,6 +117,7 @@ impl PlanManager {
 }
 
 impl RoadInteraction {
+    #[allow(too_many_arguments)]
     pub fn update_interactables(
         &mut self,
         world: &mut World,

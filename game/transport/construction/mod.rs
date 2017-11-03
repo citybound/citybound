@@ -389,7 +389,7 @@ impl Lane {
             );
         }
 
-        super::pathfinding::on_unbuild(&self, world);
+        super::pathfinding::on_unbuild(self, world);
     }
 }
 

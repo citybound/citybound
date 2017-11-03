@@ -575,7 +575,8 @@ impl Family {
         location: Option<RoughLocationID>,
         world: &mut World,
     ) {
-        self.member_tasks[member.0].state = TaskState::IdleAt(location.unwrap_or(self.home.into()));
+        self.member_tasks[member.0].state =
+            TaskState::IdleAt(location.unwrap_or_else(|| self.home.into()));
         self.log.log("Task stopped\n");
         if let Some((_, offer)) = self.member_tasks[member.0].goal {
             offer.stopped_actively_using(self.id.into(), member, world);

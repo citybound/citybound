@@ -87,15 +87,13 @@ pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
                 let file_content = format!("{}\n\n{}\n\n{}", title, report_guide, body);
                 let file_content = file_content.replace("\n", "\r\n");
 
-                if let Err(_) = file.write_all(file_content.as_bytes()) {
-                    println!("Error writing error file, lol");
-                }
+                file.write_all(file_content.as_bytes()).expect(
+                    "Error writing error file, lol",
+                );
             };
         }
 
-        if let Err(_) = open::that("./cb_last_error.txt") {
-            println!("Couldn't open error file");
-        };
+        open::that("./cb_last_error.txt").expect("Couldn't open error file");
 
         ui_id.add_debug_text(
             title.to_owned().into(),

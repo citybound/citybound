@@ -67,7 +67,7 @@ impl Trip {
     pub fn finish(&mut self, result: TripResult, world: &mut World) -> Fate {
         match result.fate {
             TripFate::Success => {}
-            reason @ _ => {
+            reason => {
                 println!(
                     "Trip {:?} failed! ({:?}) {:?} ({:?}) -> {:?} ({:?})",
                     self.id,

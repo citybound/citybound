@@ -503,6 +503,7 @@ impl ProjectionRequester for UserInterface {
 use monet::{TargetProvider, TargetProviderID, MSG_TargetProvider_submitted};
 use monet::glium::Frame;
 
+#[allow(useless_format)]
 impl TargetProvider for UserInterface {
     /// Critical
     fn submitted(&mut self, target: &External<Frame>, world: &mut World) {
