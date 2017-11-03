@@ -8,7 +8,7 @@
 
 If the game stops working, it usually displays a red `SIMULATION BROKE :(` message.
 
-More details should be visible in the editor that automatically opens, or in a `cb_last_error.txt` file next to the citybound executable.
+More details should be visible in the editor that automatically opens, or in a `cb_last_error.txt` file in your system's temporary directory.
 
 **First look if your issue has already been reported:**
 * [as a Bug](https://github.com/citybound/citybound/issues?utf8=✓&q=is%3Aissue%20label%3A%22P%20Bug%22%20)

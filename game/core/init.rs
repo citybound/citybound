@@ -77,14 +77,18 @@ pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
         let report_guide = "HOW TO REPORT BUGS:\n\
             https://github.com/citybound/citybound/blob/master/CONTRIBUTING.md#reporting-bugs";
 
+        let mut error_file_path = ::std::env::temp_dir();
+        error_file_path.push("cb_last_error.txt");
+
         println!(
-            "{}\n\n{}\n\nALSO SEE cb_last_error.txt (AUTO-OPENED)",
+            "{}\n\n{}\n\nALSO SEE {:?} (AUTO-OPENED)",
             title,
-            body
+            body,
+            error_file_path
         );
 
         {
-            if let Ok(mut file) = File::create("./cb_last_error.txt") {
+            if let Ok(mut file) = File::create(&error_file_path) {
                 let file_content = format!("{}\n\n{}\n\n{}", title, report_guide, body);
                 let file_content = file_content.replace("\n", "\r\n");
 
@@ -94,7 +98,7 @@ pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
             };
         }
 
-        open::that("./cb_last_error.txt").expect("Couldn't open error file");
+        open::that(error_file_path).expect("Couldn't open error file");
 
         ui_id.add_debug_text(
             title.to_owned().into(),
