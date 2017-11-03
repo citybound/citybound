@@ -437,7 +437,6 @@ impl Node for Lane {
     }
 
     fn add_attachee(&mut self, attachee: AttacheeID, _: &mut World) {
-        println!("Added attachee");
         self.pathfinding.attachees.push(attachee);
     }
 

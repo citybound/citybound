@@ -74,7 +74,8 @@ pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
             location
         );
 
-        let report_guide = "HOW TO REPORT BUGS:\nhttps://github.com/citybound/citybound/blob/master/CONTRIBUTING.md#reporting-bugs";
+        let report_guide = "HOW TO REPORT BUGS:\n\
+            https://github.com/citybound/citybound/blob/master/CONTRIBUTING.md#reporting-bugs";
 
         println!(
             "{}\n\n{}\n\nALSO SEE cb_last_error.txt (AUTO-OPENED)",

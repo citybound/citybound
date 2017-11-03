@@ -723,7 +723,6 @@ impl Household for Family {
                         ui.text(im_str!(
                             "{}:",
                             member_name(self.id, MemberIdx(i)),
-                            
                         ));
                         ui.text(im_str!(
                             "({} {})",

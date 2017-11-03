@@ -48,8 +48,6 @@ impl Compact for CompactString {
     }
 
     unsafe fn decompact(source: *const Self) -> Self {
-        CompactString {
-            chars: Compact::decompact(&(*source).chars)
-        }
+        CompactString { chars: Compact::decompact(&(*source).chars) }
     }
 }

@@ -64,7 +64,13 @@ impl MaterializedReality {
                 let new_result = new_plan.get_result();
                 let result_delta = new_result.delta(&self.current_result, &self.buildings);
 
-                let road_update_state = MaterializedRoads::start_applying_roads(self.id, &mut self.roads, &result_delta.roads, instant, world);
+                let road_update_state = MaterializedRoads::start_applying_roads(
+                    self.id,
+                    &mut self.roads,
+                    &result_delta.roads,
+                    instant,
+                    world
+                );
                 self.buildings.apply(world, &result_delta.buildings);
 
                 Updating(
