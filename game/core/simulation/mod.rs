@@ -21,6 +21,7 @@ pub struct Simulation {
     simulatables: CVec<SimulatableID>,
     current_instant: Instant,
     sleepers: CVec<(Instant, SleeperID)>,
+    speed: i32,
 }
 
 impl Simulation {
@@ -34,28 +35,31 @@ impl Simulation {
             simulatables: simulatables.clone(),
             current_instant: Instant::new(0),
             sleepers: CVec::new(),
+            speed: 1,
         }
     }
 
-    pub fn do_tick(&mut self, world: &mut World) {
-        for simulatable in &self.simulatables {
-            simulatable.tick(
-                1.0 / (TICKS_PER_SIM_SECOND as f32),
-                self.current_instant,
-                world,
-            );
+    pub fn progress(&mut self, world: &mut World) {
+        for _ in 0..self.speed {
+            for simulatable in &self.simulatables {
+                simulatable.tick(
+                    1.0 / (TICKS_PER_SIM_SECOND as f32),
+                    self.current_instant,
+                    world,
+                );
+            }
+            while self.sleepers
+                .last()
+                .map(|&(end, _)| end < self.current_instant)
+                .unwrap_or(false)
+            {
+                let (_, sleeper) = self.sleepers.pop().expect(
+                    "just checked that there are sleepers",
+                );
+                sleeper.wake(self.current_instant, world);
+            }
+            self.current_instant += Ticks(1);
         }
-        while self.sleepers
-            .last()
-            .map(|&(end, _)| end < self.current_instant)
-            .unwrap_or(false)
-        {
-            let (_, sleeper) = self.sleepers.pop().expect(
-                "just checked that there are sleepers",
-            );
-            sleeper.wake(self.current_instant, world);
-        }
-        self.current_instant += Ticks(1);
 
         let time = TimeOfDay::from(self.current_instant).hours_minutes();
 
@@ -78,6 +82,35 @@ impl Simulation {
             Ok(idx) | Err(idx) => idx,
         };
         self.sleepers.insert(insert_idx, (wake_up_at, sleeper_id));
+    }
+
+    pub fn add_to_ui(&mut self, ui_id: &UserInterfaceID, world: &mut World) {
+        ui_id.add_2d(self.id.into(), world);
+    }
+}
+
+use kay::External;
+use stagemaster::{Interactable2d, Interactable2dID, MSG_Interactable2d_draw_ui_2d};
+
+impl Interactable2d for Simulation {
+    fn draw_ui_2d(
+        &mut self,
+        imgui_ui: &External<::imgui::Ui<'static>>,
+        return_to: UserInterfaceID,
+        world: &mut World,
+    ) {
+        let ui = imgui_ui.steal();
+        ui.window(im_str!("Controls")).build(|| {
+            ui.text(im_str!("Simulation"));
+            ui.separator();
+            ui.text(im_str!("Simulation Speed"));
+            ui.same_line(150.0);
+            let _ = ui.slider_int(im_str!("##simulation-speed"), &mut self.speed, 1, 30)
+                .build();
+            ui.spacing();
+        });
+
+        return_to.ui_drawn(ui, world);
     }
 }
 

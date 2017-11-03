@@ -88,6 +88,8 @@ fn main() {
             (0.6, 0.75, 0.4, 1.0)
         );
 
+        simulation.add_to_ui(user_interface, world);
+
         core::init::set_error_hook(user_interface, system.world());
 
         let materialized_reality = planning::setup(&mut system, user_interface, renderer);
@@ -111,12 +113,12 @@ fn main() {
             user_interface.process_events(world);
 
             system.process_all_messages();
-            
-            if system.shutting_down {break;}
 
-            for _i in 0..20 {
-                simulation.do_tick(world);
+            if system.shutting_down {
+                break;
             }
+
+            simulation.progress(world);
 
             system.process_all_messages();
 

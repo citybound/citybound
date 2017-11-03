@@ -217,8 +217,12 @@ impl Interactable2d for CameraControl {
                 ui.text(im_str!("Move Speed"));
                 ui.same_line(150.0);
                 settings_changed = settings_changed ||
-                    ui.slider_float(im_str!(""), &mut self.settings.move_speed, 0.1, 10.0)
-                        .build();
+                    ui.slider_float(
+                        im_str!("##camera-speed"),
+                        &mut self.settings.move_speed,
+                        0.1,
+                        10.0,
+                    ).build();
 
                 settings_changed = settings_changed ||
                     ui.checkbox(im_str!("Invert Y"), &mut self.settings.invert_y);
