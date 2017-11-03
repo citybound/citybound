@@ -6,6 +6,12 @@
 - [ ] Shows correct **new** version number
 - [ ] Opens correct wiki page
 
+## Error handling
+
+- [ ] Continues to run on simple panics
+- [ ] Opens editor with error message
+- [ ] Complete stacktrace
+
 ## Road laying
 
 - [ ] Can plan simple roads
@@ -28,10 +34,8 @@
 - [ ] Cars can do road changes
 - [ ] > 60.000 cars run fluidly
 
-# All steps completed for:
-- [ ] Development build on one platform
+## Buildings/Economy
 
-Automatic builds of release-candidate on:
-- [ ] Windows
-- [ ] MacOS
-- [ ] Linux
+- [ ] Buildings show family info
+- [ ] Buildings show grocery store info
+- [ ] Properly connected families can complete a daily cycle

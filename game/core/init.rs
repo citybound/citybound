@@ -26,7 +26,7 @@ pub fn first_time_open_wiki_release_page() {
     let mut dir = ::std::env::temp_dir();
     dir.push("cb_seen_wiki.txt");
     if !::std::path::Path::new(&dir).exists() {
-        let url = "https://github.com/citybound/citybound/wiki/Road-&-Traffic-Prototype-1.2";
+        let url = "https://github.com/citybound/citybound/wiki/October-2017-Prototype-0.2.0";
         if let Err(_err) = open::that(url) {
             println!("Please open {:?} in your browser!", url);
         };
