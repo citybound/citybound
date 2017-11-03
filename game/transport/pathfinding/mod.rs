@@ -40,6 +40,7 @@ pub trait Node {
         world: &mut World,
     );
     fn add_attachee(&mut self, attachee: AttacheeID, world: &mut World);
+    fn remove_attachee(&mut self, attachee: AttacheeID, world: &mut World);
 }
 
 #[derive(Compact, Clone, Default)]
@@ -436,7 +437,12 @@ impl Node for Lane {
     }
 
     fn add_attachee(&mut self, attachee: AttacheeID, _: &mut World) {
+        println!("Added attachee");
         self.pathfinding.attachees.push(attachee);
+    }
+
+    fn remove_attachee(&mut self, attachee: AttacheeID, _: &mut World) {
+        self.pathfinding.attachees.retain(|a| *a != attachee);
     }
 }
 
@@ -484,6 +490,12 @@ fn predecessors<'a>(lane: &'a Lane) -> impl Iterator<Item = (u8, NodeID, bool)> 
             } => Some((i as u8, NodeID { _raw_id: partner_lane._raw_id }, false)),
             _ => None,
         })
+}
+
+pub fn on_unbuild(lane: &Lane, world: &mut World) {
+    for attachee in &lane.pathfinding.attachees {
+        attachee.location_changed(lane.pathfinding.location, None, world);
+    }
 }
 
 impl RoughLocation for Lane {
@@ -598,6 +610,7 @@ impl Node for TransferLane {
     }
 
     fn add_attachee(&mut self, _attachee: AttacheeID, _: &mut World) {}
+    fn remove_attachee(&mut self, _attachee: AttacheeID, _: &mut World) {}
 }
 
 pub trait RoughLocation {

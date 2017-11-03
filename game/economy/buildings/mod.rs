@@ -21,6 +21,7 @@ pub struct Building {
     households: CVec<HouseholdID>,
     lot: Lot,
     being_destroyed: bool,
+    started_reconnect: bool,
 }
 
 //use stagemaster::geometry::add_debug_line;
@@ -58,6 +59,7 @@ impl Building {
             households: households.clone(),
             lot: lot.clone(),
             being_destroyed: false,
+            started_reconnect: false,
         }
     }
 
@@ -91,18 +93,22 @@ impl Building {
 
     pub fn finally_destroy(&mut self, world: &mut World) -> ::kay::Fate {
         rendering::on_destroy(self.id, world);
+        if let Some(location) = self.lot.location {
+            location.node.remove_attachee(self.id.into(), world);
+        }
         ::kay::Fate::Die
     }
 }
 
 use transport::pathfinding::{Location, Attachee, AttacheeID, MSG_Attachee_location_changed};
+use core::simulation::{SimulationID, Sleeper, SleeperID, Duration, MSG_Sleeper_wake};
 
 impl Attachee for Building {
     fn location_changed(
         &mut self,
         _old: Option<Location>,
         maybe_new: Option<Location>,
-        _: &mut World,
+        world: &mut World,
     ) {
         if let Some(new) = maybe_new {
             self.lot
@@ -112,6 +118,50 @@ impl Attachee for Building {
                 .location = new;
         } else {
             self.lot.location = None;
+            SimulationID::local_first(world).wake_up_in(
+                Ticks::from(Duration::from_minutes(10)),
+                self.id.into(),
+                world,
+            );
+        }
+    }
+}
+
+impl Sleeper for Building {
+    fn wake(&mut self, _instant: Instant, world: &mut World) {
+        if self.started_reconnect {
+            if self.lot.location.is_none() {
+                self.destroy(world);
+            } else {
+                self.started_reconnect = false;
+            }
+        } else {
+            LaneID::global_broadcast(world).try_reconnect_building(
+                self.id,
+                self.lot.position,
+                world,
+            );
+            SimulationID::local_first(world).wake_up_in(
+                Ticks::from(Duration::from_minutes(10)),
+                self.id.into(),
+                world,
+            );
+            self.started_reconnect = true;
+        }
+    }
+}
+
+impl Building {
+    pub fn reconnect(
+        &mut self,
+        new_location: PreciseLocation,
+        new_adjacent_lane_position: P2,
+        world: &mut World,
+    ) {
+        if self.lot.location.is_none() {
+            self.lot.location = Some(new_location);
+            self.lot.adjacent_lane_position = new_adjacent_lane_position;
+            new_location.node.add_attachee(self.id.into(), world);
         }
     }
 }
@@ -290,7 +340,7 @@ impl LotConflictor for Building {
     }
 }
 
-const MIN_LANE_BUILDING_DISTANCE: f32 = 15.0;
+pub const MIN_LANE_BUILDING_DISTANCE: f32 = 15.0;
 
 impl LotConflictor for Lane {
     fn find_conflicts(
@@ -309,8 +359,6 @@ impl LotConflictor for Lane {
         )
     }
 }
-
-use core::simulation::{Sleeper, SleeperID, MSG_Sleeper_wake};
 
 impl Sleeper for BuildingSpawner {
     fn wake(&mut self, _time: Instant, world: &mut World) {
@@ -380,14 +428,12 @@ pub struct MaterializedBuildings {
 }
 
 use transport::planning::road_plan::RoadPlanResultDelta;
-use transport::planning::materialized_roads::MaterializedRoads;
 use std::collections::HashSet;
 
 impl MaterializedBuildings {
     pub fn delta_with_road_result_delta(
         &self,
         road_result_delta: &RoadPlanResultDelta,
-        materialized_roads: &MaterializedRoads,
     ) -> BuildingPlanResultDelta {
         let all_strokes_to_create =
             road_result_delta
@@ -404,25 +450,6 @@ impl MaterializedBuildings {
                 if stroke_to_create.path().distance_to(building_pos) < MIN_LANE_BUILDING_DISTANCE {
                     buildings_to_destroy.insert(building_id);
                 }
-            }
-        }
-
-        let lane_ids_to_be_destroyed = road_result_delta
-            .trimmed_strokes
-            .to_destroy
-            .keys()
-            .map(|lane_ref| {
-                materialized_roads
-                    .built_trimmed_lanes
-                    .get(*lane_ref)
-                    .cloned()
-                    .expect("Expected road to be destroyed to be built")
-            })
-            .collect::<Vec<_>>();
-
-        for &(_, building_id, building_lane) in &self.buildings {
-            if lane_ids_to_be_destroyed.contains(&building_lane.into()) {
-                buildings_to_destroy.insert(building_id);
             }
         }
 
@@ -451,7 +478,7 @@ impl MaterializedReality {
 
 use super::households::family::FamilyID;
 use super::households::grocery_shop::GroceryShopID;
-use core::simulation::{SimulationID, Ticks};
+use core::simulation::Ticks;
 
 pub fn setup(
     system: &mut ActorSystem,
