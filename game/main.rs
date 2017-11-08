@@ -45,6 +45,7 @@ use transport::lane::{LaneID, TransferLaneID};
 use transport::rendering::LaneRendererID;
 use planning::plan_manager::PlanManagerID;
 use economy::households::family::FamilyID;
+use economy::households::crop_farm::CropFarmID;
 use economy::households::tasks::TaskEndSchedulerID;
 use economy::buildings::BuildingSpawnerID;
 use economy::buildings::rendering::BuildingRendererID;
@@ -65,6 +66,7 @@ fn main() {
             LaneID::local_broadcast(world).into(),
             TransferLaneID::local_broadcast(world).into(),
             FamilyID::local_broadcast(world).into(),
+            CropFarmID::local_broadcast(world).into(),
             TaskEndSchedulerID::local_first(world).into(),
             BuildingSpawnerID::local_first(world).into(),
         ];

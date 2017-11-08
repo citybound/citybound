@@ -6,6 +6,7 @@ use transport::pathfinding::RoughLocationID;
 pub mod tasks;
 pub mod family;
 pub mod grocery_shop;
+pub mod crop_farm;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct MemberIdx(usize);
@@ -38,6 +39,7 @@ pub fn setup(system: &mut ActorSystem) {
     tasks::setup(system);
     family::setup(system);
     grocery_shop::setup(system);
+    crop_farm::setup(system);
 }
 
 mod kay_auto;

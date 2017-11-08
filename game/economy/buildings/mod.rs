@@ -10,6 +10,11 @@ use transport::lane::{Lane, LaneID};
 use planning::materialized_reality::{MaterializedReality, MaterializedRealityID};
 
 
+use super::households::family::FamilyID;
+use super::households::grocery_shop::GroceryShopID;
+use super::households::crop_farm::CropFarmID;
+use core::simulation::Ticks;
+
 pub mod rendering;
 
 use super::households::HouseholdID;
@@ -267,6 +272,9 @@ impl BuildingSpawner {
         if building_id._raw_id.instance_id % 6 == 0 {
             let shop_id = GroceryShopID::move_into(building_id, world);
             building_id.add_household(shop_id.into(), world);
+        } else if building_id._raw_id.instance_id % 6 == 1 {
+            let farm_id = CropFarmID::move_into(building_id, world);
+            building_id.add_household(farm_id.into(), world);
         } else {
             let family_id = FamilyID::move_into(3, building_id, simulation, world);
             building_id.add_household(family_id.into(), world);
@@ -475,10 +483,6 @@ impl MaterializedReality {
         self.buildings.buildings.push((position, id, lane));
     }
 }
-
-use super::households::family::FamilyID;
-use super::households::grocery_shop::GroceryShopID;
-use core::simulation::Ticks;
 
 pub fn setup(
     system: &mut ActorSystem,

@@ -52,6 +52,13 @@ impl Geometry {
             indices: indices.into(),
         }
     }
+
+    pub fn empty() -> Geometry {
+        Geometry {
+            vertices: CVec::new(),
+            indices: CVec::new(),
+        }
+    }
 }
 
 impl Clone for Geometry {
@@ -326,7 +333,7 @@ impl Renderable for Grouper {
             renderer_id.update_individual(
                 scene_id,
                 self.base_individual_id + i as u16,
-                Geometry::new(vec![], vec![]),
+                Geometry::empty(),
                 Instance::with_color([0.0, 0.0, 0.0]),
                 self.is_decal,
                 world,
@@ -357,7 +364,7 @@ impl Renderable for Grouper {
                 renderer_id.update_individual(
                     scene_id,
                     self.base_individual_id + FROZEN_OFFSET + i as u16,
-                    Geometry::new(vec![], vec![]),
+                    Geometry::empty(),
                     Instance::with_color([0.0, 0.0, 0.0]),
                     self.is_decal,
                     world,

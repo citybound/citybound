@@ -277,7 +277,7 @@ impl Renderable for Lane {
                 renderer_id.update_individual(
                     scene_id,
                     40_000 + self.id._raw_id.instance_id as u16,
-                    Geometry::new(vec![], vec![]),
+                    Geometry::empty(),
                     Instance::with_color([0.0, 0.0, 0.0]),
                     true,
                     world,
@@ -319,7 +319,7 @@ impl GrouperIndividual for Lane {
                             },
                         )
                     })
-                    .unwrap_or_else(|| Geometry::new(vec![], vec![])),
+                    .unwrap_or_else(|| Geometry::empty()),
                 world,
             );
             if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
@@ -332,12 +332,12 @@ impl GrouperIndividual for Lane {
                 .clone()
                 .and_then(|path| path.shift_orthogonally(2.5))
                 .map(|path| band_to_geometry(&Band::new(path, 0.6), 0.1))
-                .unwrap_or_else(|| Geometry::new(vec![], vec![]));
+                .unwrap_or_else(|| Geometry::empty());
 
             let right_marker = maybe_path
                 .and_then(|path| path.shift_orthogonally(-2.5))
                 .map(|path| band_to_geometry(&Band::new(path, 0.6), 0.1))
-                .unwrap_or_else(|| Geometry::new(vec![], vec![]));
+                .unwrap_or_else(|| Geometry::empty());
             grouper.update(self.id.into(), left_marker + right_marker, world);
             if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
                 self.construction.length
@@ -508,7 +508,7 @@ impl GrouperIndividual for TransferLane {
                         .map(|dash| band_to_geometry(&Band::new(dash, 0.8), 0.2))
                         .sum()
                 })
-                .unwrap_or_else(|| Geometry::new(vec![], vec![])),
+                .unwrap_or_else(|| Geometry::empty()),
             world,
         );
         if self.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY >
@@ -696,7 +696,7 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
         RendererID::local_first(world).update_individual(
             0,
             4000 + lane.id._raw_id.instance_id as u16,
-            Geometry::new(vec![], vec![]),
+            Geometry::empty(),
             Instance::with_color([0.0, 0.0, 0.0]),
             true,
             world,
@@ -707,7 +707,7 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
         RendererID::local_first(world).update_individual(
             0,
             4000 + lane.id._raw_id.instance_id as u16,
-            Geometry::new(vec![], vec![]),
+            Geometry::empty(),
             Instance::with_color([0.0, 0.0, 0.0]),
             true,
             world,

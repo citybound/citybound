@@ -1,7 +1,7 @@
 use kay::{ActorSystem, World, External};
 use imgui::Ui;
 use core::simulation::{TimeOfDayRange, Duration};
-use economy::resources::{ResourceAmount, Inventory, ResourceMap, r_id, r_properties, r_info,
+use economy::resources::{Inventory, ResourceAmount, ResourceMap, r_id, r_properties, r_info,
                          all_resource_ids};
 use economy::market::{Deal, OfferID};
 use economy::buildings::BuildingID;
@@ -13,29 +13,30 @@ use super::{Household, HouseholdID, MemberIdx, MSG_Household_decay, MSG_Househol
             MSG_Household_task_failed, MSG_Household_destroy, MSG_Household_stop_using,
             MSG_Household_reset_member_task};
 
+
 #[derive(Compact, Clone)]
-pub struct GroceryShop {
-    id: GroceryShopID,
+pub struct CropFarm {
+    id: CropFarmID,
     site: BuildingID,
     resources: Inventory,
-    grocery_offer: OfferID,
+    crops_offer: OfferID,
     job_offer: OfferID,
 }
 
-impl GroceryShop {
-    pub fn move_into(id: GroceryShopID, site: BuildingID, world: &mut World) -> GroceryShop {
-        GroceryShop {
+impl CropFarm {
+    pub fn move_into(id: CropFarmID, site: BuildingID, world: &mut World) -> CropFarm {
+        CropFarm {
             id,
             site,
             resources: Inventory::new(),
-            grocery_offer: OfferID::register(
+            crops_offer: OfferID::register(
                 id.into(),
                 MemberIdx(0),
                 site.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
-                    vec![(r_id("groceries"), 30.0), (r_id("money"), -60.0)],
-                    Duration::from_minutes(30),
+                    vec![(r_id("crops"), 1000.0), (r_id("money"), -500.0)],
+                    Duration::from_minutes(10),
                 ),
                 world,
             ),
@@ -43,15 +44,15 @@ impl GroceryShop {
                 id.into(),
                 MemberIdx(0),
                 site.into(),
-                TimeOfDayRange::new(7, 0, 15, 0),
-                Deal::new(Some((r_id("money"), 50.0)), Duration::from_hours(5)),
+                TimeOfDayRange::new(5, 0, 15, 0),
+                Deal::new(Some((r_id("money"), 60.0)), Duration::from_hours(7)),
                 world,
             ),
         }
     }
 }
 
-impl Household for GroceryShop {
+impl Household for CropFarm {
     fn receive_deal(&mut self, deal: &Deal, _member: MemberIdx, _: &mut World) {
         deal.delta.give_to(&mut self.resources);
     }
@@ -77,13 +78,13 @@ impl Household for GroceryShop {
     }
 
     fn decay(&mut self, dt: Duration, _: &mut World) {
-        let groceries = self.resources.mut_entry_or(r_id("groceries"), 0.0);
-        *groceries += 0.001 * dt.as_seconds();
+        let crops = self.resources.mut_entry_or(r_id("crops"), 0.0);
+        *crops += 0.001 * dt.as_seconds();
     }
 
     fn destroy(&mut self, world: &mut World) {
         self.site.remove_household(self.id.into(), world);
-        self.grocery_offer.withdraw(world);
+        self.crops_offer.withdraw(world);
         self.job_offer.withdraw(world);
     }
 
@@ -97,7 +98,7 @@ impl Household for GroceryShop {
         let ui = imgui_ui.steal();
 
         ui.window(im_str!("Building")).build(|| {
-            ui.tree_node(im_str!("Grocery Shop ID: {:?}", self.id._raw_id))
+            ui.tree_node(im_str!("Crop Farm ID: {:?}", self.id._raw_id))
                 .build(|| for resource in all_resource_ids() {
                     if r_properties(resource).ownership_shared {
                         ui.text(im_str!("{}", r_info(resource).0));
@@ -112,8 +113,22 @@ impl Household for GroceryShop {
     }
 }
 
+use core::simulation::{Simulatable, SimulatableID, Instant, TICKS_PER_SIM_SECOND,
+                       MSG_Simulatable_tick};
+const UPDATE_EVERY_N_SECS: usize = 4;
+
+impl Simulatable for CropFarm {
+    fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
+        if (current_instant.ticks() + self.id._raw_id.instance_id as usize) %
+            (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0
+        {
+            self.decay(Duration(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world);
+        }
+    }
+}
+
 pub fn setup(system: &mut ActorSystem) {
-    system.register::<GroceryShop>();
+    system.register::<CropFarm>();
     auto_setup(system);
 }
 

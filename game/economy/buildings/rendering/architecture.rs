@@ -9,37 +9,60 @@ pub struct BuildingGeometry {
     pub wall: Geometry,
     pub brick_roof: Geometry,
     pub flat_roof: Geometry,
+    pub field: Geometry,
 }
 
-pub fn build_building<R: Rng>(lot: &Lot, is_shop: bool, rng: &mut R) -> BuildingGeometry {
+use super::BuildingType;
+
+pub fn build_building<R: Rng>(
+    lot: &Lot,
+    building_type: BuildingType,
+    rng: &mut R,
+) -> BuildingGeometry {
     let (main_footprint, entrance_footprint) = generate_house_footprint(lot, rng);
 
-    if is_shop {
-        let height = 3.0 + rng.next_f32();
-        let entrance_height = height - 0.7;
+    match building_type {
+        BuildingType::GroceryShopSite => {
+            let height = 3.0 + rng.next_f32();
+            let entrance_height = height - 0.7;
 
-        BuildingGeometry {
-            wall: main_footprint.wall_geometry(height) +
-                entrance_footprint.wall_geometry(entrance_height),
-            brick_roof: Geometry::new(vec![], vec![]),
-            flat_roof: main_footprint.flat_roof_geometry(height) +
-                entrance_footprint.flat_roof_geometry(entrance_height),
+            BuildingGeometry {
+                wall: main_footprint.wall_geometry(height) +
+                    entrance_footprint.wall_geometry(entrance_height),
+                brick_roof: Geometry::empty(),
+                flat_roof: main_footprint.flat_roof_geometry(height) +
+                    entrance_footprint.flat_roof_geometry(entrance_height),
+                field: Geometry::empty(),
+            }
         }
-    } else {
-        let height = 3.0 + 3.0 * rng.next_f32();
-        let entrance_height = 2.0 + rng.next_f32();
+        BuildingType::CropFarmSite => {
+            let height = 3.0 + rng.next_f32();
+            let entrance_height = height - 0.7;
 
-        let (roof_brick_geometry, roof_wall_geometry) =
-            main_footprint.open_gable_roof_geometry(height, 0.3);
-        let (entrance_roof_brick_geometry, entrance_roof_wall_geometry) =
-            entrance_footprint.open_gable_roof_geometry(entrance_height, 0.3);
+            BuildingGeometry {
+                wall: Geometry::empty(),
+                brick_roof: Geometry::empty(),
+                flat_roof: Geometry::empty(),
+                field: main_footprint.flat_roof_geometry(0.0),
+            }
+        }
+        BuildingType::FamilyHouse => {
+            let height = 3.0 + 3.0 * rng.next_f32();
+            let entrance_height = 2.0 + rng.next_f32();
 
-        BuildingGeometry {
-            wall: main_footprint.wall_geometry(height) +
-                entrance_footprint.wall_geometry(entrance_height) +
-                roof_wall_geometry + entrance_roof_wall_geometry,
-            brick_roof: roof_brick_geometry + entrance_roof_brick_geometry,
-            flat_roof: Geometry::new(vec![], vec![]),
+            let (roof_brick_geometry, roof_wall_geometry) =
+                main_footprint.open_gable_roof_geometry(height, 0.3);
+            let (entrance_roof_brick_geometry, entrance_roof_wall_geometry) =
+                entrance_footprint.open_gable_roof_geometry(entrance_height, 0.3);
+
+            BuildingGeometry {
+                wall: main_footprint.wall_geometry(height) +
+                    entrance_footprint.wall_geometry(entrance_height) +
+                    roof_wall_geometry + entrance_roof_wall_geometry,
+                brick_roof: roof_brick_geometry + entrance_roof_brick_geometry,
+                flat_roof: Geometry::empty(),
+                field: Geometry::empty(),
+            }
         }
     }
 }

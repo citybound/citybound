@@ -43,7 +43,7 @@ enum DecisionState {
     WaitingForTrip(MemberIdx),
 }
 
-const DO_FAMILY_LOGGING: bool = false;
+const DO_FAMILY_LOGGING: bool = true;
 
 #[derive(Compact, Clone, Default)]
 pub struct FamilyLog(CString);
@@ -746,12 +746,12 @@ impl Household for Family {
                             }
                         }
                     }
-                    // ui.tree_node(im_str!("Log")).build(|| for line in self.log
-                    //     .0
-                    //     .lines()
-                    // {
-                    //     ui.text(im_str!("{}", line));
-                    // });
+                    ui.tree_node(im_str!("Log")).build(|| for line in self.log
+                        .0
+                        .lines()
+                    {
+                        ui.text(im_str!("{}", line));
+                    });
                 })
         });
 

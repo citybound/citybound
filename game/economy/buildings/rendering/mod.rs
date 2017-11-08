@@ -119,6 +119,7 @@ pub struct BuildingRenderer {
     wall_grouper: GrouperID,
     flat_roof_grouper: GrouperID,
     brick_roof_grouper: GrouperID,
+    field_grouper: GrouperID,
     current_n_buildings_to_be_destroyed: CDict<RendererID, usize>,
 }
 
@@ -129,6 +130,7 @@ impl BuildingRenderer {
             wall_grouper: GrouperID::spawn([0.95, 0.95, 0.95], 5000, false, world),
             flat_roof_grouper: GrouperID::spawn([0.5, 0.5, 0.5], 5100, false, world),
             brick_roof_grouper: GrouperID::spawn([0.8, 0.5, 0.2], 5200, false, world),
+            field_grouper: GrouperID::spawn([0.7, 0.7, 0.2], 5300, false, world),
             current_n_buildings_to_be_destroyed: CDict::new(),
         }
     }
@@ -155,6 +157,11 @@ impl BuildingRenderer {
             geometry.brick_roof.clone(),
             world,
         );
+        self.field_grouper.add_frozen(
+            GrouperIndividualID { _raw_id: id._raw_id },
+            geometry.field.clone(),
+            world,
+        );
     }
 
     pub fn remove_geometry(&mut self, building_id: BuildingID, world: &mut World) {
@@ -171,6 +178,12 @@ impl BuildingRenderer {
             world,
         );
         self.brick_roof_grouper.remove(
+            GrouperIndividualID {
+                _raw_id: building_id._raw_id,
+            },
+            world,
+        );
+        self.field_grouper.remove(
             GrouperIndividualID {
                 _raw_id: building_id._raw_id,
             },
@@ -194,7 +207,7 @@ impl BuildingRenderer {
             renderer_id.update_individual(
                 scene_id,
                 37_000 + i as u16,
-                Geometry::new(vec![], vec![]),
+                Geometry::empty(),
                 Instance::with_color([1.0, 0.0, 0.0]),
                 true,
                 world,
@@ -213,6 +226,7 @@ impl BuildingRenderer {
 }
 
 use economy::households::grocery_shop::GroceryShopID;
+use economy::households::crop_farm::CropFarmID;
 
 impl Renderable for BuildingRenderer {
     fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
@@ -235,6 +249,7 @@ impl Renderable for BuildingRenderer {
             .setup_in_scene(renderer_id, scene_id, world);
         Into::<RenderableID>::into(self.brick_roof_grouper)
             .setup_in_scene(renderer_id, scene_id, world);
+        Into::<RenderableID>::into(self.field_grouper).setup_in_scene(renderer_id, scene_id, world);
     }
 
     fn render_to_scene(
@@ -251,6 +266,8 @@ impl Renderable for BuildingRenderer {
         Into::<RenderableID>::into(self.flat_roof_grouper)
             .render_to_scene(renderer_id, scene_id, frame, world);
         Into::<RenderableID>::into(self.brick_roof_grouper)
+            .render_to_scene(renderer_id, scene_id, frame, world);
+        Into::<RenderableID>::into(self.field_grouper)
             .render_to_scene(renderer_id, scene_id, frame, world);
     }
 }
@@ -314,7 +331,7 @@ pub fn on_add(building: &Building, world: &mut World) {
         building.id,
         architecture::build_building(
             &building.lot,
-            is_building_shop(building, world),
+            get_building_type(building, world),
             &mut seed(building.id),
         ),
         world,
@@ -326,10 +343,25 @@ pub fn on_destroy(building_id: BuildingID, world: &mut World) {
     BuildingRendererID::local_first(world).remove_geometry(building_id, world);
 }
 
-fn is_building_shop(building: &Building, world: &mut World) -> bool {
+pub enum BuildingType {
+    FamilyHouse,
+    GroceryShopSite,
+    CropFarmSite,
+}
+
+fn get_building_type(building: &Building, world: &mut World) -> BuildingType {
     // TODO: this is super hacky
-    building.households[0]._raw_id.local_broadcast() ==
+    if building.households[0]._raw_id.local_broadcast() ==
         GroceryShopID::local_broadcast(world)._raw_id
+    {
+        BuildingType::GroceryShopSite
+    } else if building.households[0]._raw_id.local_broadcast() ==
+               CropFarmID::local_broadcast(world)._raw_id
+    {
+        BuildingType::CropFarmSite
+    } else {
+        BuildingType::FamilyHouse
+    }
 }
 
 impl Building {
@@ -342,11 +374,12 @@ impl Building {
     ) {
         let geometries = architecture::build_building(
             &self.lot,
-            is_building_shop(self, world),
+            get_building_type(self, world),
             &mut seed(self.id),
         );
 
-        let combined_geometry = geometries.brick_roof + geometries.flat_roof + geometries.wall;
+        let combined_geometry = geometries.brick_roof + geometries.flat_roof + geometries.wall +
+            geometries.field;
 
         renderer_id.update_individual(
             scene_id,

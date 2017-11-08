@@ -11,3 +11,9 @@
 | ----------------- | ---------- | ---------- | ----------------------------------------------- |
 | money             | shared     | individual | how much money a household has                  |
 | groceries         | shared     | shared     | how much groceries a household has              |
+
+# Raw Materials
+
+| resource          | ownership  | supplier   | description                                     |
+| ----------------- | ---------- | ---------- | ----------------------------------------------- |
+| crops             | shared     | shared     | grains and other produce needed for groceries   |
