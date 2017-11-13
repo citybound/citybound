@@ -6,7 +6,7 @@ build = "src/build.rs"
 
 [dependencies]
 glium = "0.18.0"
-clippy = { version = "0.0.168", optional = true }
+clippy = { version = "0.0.170", optional = true }
 fnv = "1.0.3"
 itertools = "0.7.2"
 

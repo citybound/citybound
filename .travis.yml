@@ -8,7 +8,7 @@ sudo: required
 
 # TODO This is the Rust channel that build jobs will use by default but can be
 # overridden on a case by case basis down below
-rust: nightly-2017-10-31
+rust: nightly-2017-11-12
 osx_image: xcode8.2
 
 env:
