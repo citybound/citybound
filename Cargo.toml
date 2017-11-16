@@ -12,7 +12,7 @@ path = "./game/main.rs"
 [workspace]
 members = [
     "./engine/allocators",
-    "./engine/chunked",
+    "./engine/chunky",
     "./engine/compact",
     "./engine/compact_macros",
     "./engine/descartes",

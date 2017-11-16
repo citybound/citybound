@@ -20,7 +20,7 @@
 #![feature(box_syntax)]
 #![feature(nonzero)]
 #![feature(tcpstream_connect_timeout)]
-extern crate chunked;
+extern crate chunky;
 extern crate compact;
 #[macro_use]
 extern crate compact_macros;

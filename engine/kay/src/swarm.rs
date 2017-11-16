@@ -1,6 +1,6 @@
 //! Tools for dealing with large amounts of identical actors
 use compact::Compact;
-use super::chunked::{MemChunker, ValueInChunk, SizedChunkedArena, MultiSized};
+use super::chunky;
 use super::slot_map::{SlotIndices, SlotMap};
 use super::messaging::{Message, Packet, Fate};
 use super::actor_system::{World, Actor};
@@ -14,23 +14,23 @@ use std::marker::PhantomData;
 /// New instances can be added to a swarm using [`Create`](struct.Create.html)
 /// or [`CreateWith`](struct.CreateWith.html).
 pub struct Swarm<Actor> {
-    instances: MultiSized<SizedChunkedArena>,
+    instances: chunky::MultiArena<chunky::HeapHandler>,
     slot_map: SlotMap,
-    n_instances: ValueInChunk<usize>,
+    n_instances: chunky::Value<usize, chunky::HeapHandler>,
     _marker: PhantomData<[Actor]>,
 }
 
-const CHUNK_SIZE: usize = 4096 * 4096 * 16;
+const CHUNK_SIZE: usize = 1024 * 1024 * 16;
 
 impl<A: Actor + Clone> Swarm<A> {
     /// Create an empty `Swarm`.
     #[allow(new_without_default)]
     pub fn new() -> Self {
-        let chunker = MemChunker::from_settings("", CHUNK_SIZE);
+        let ident: chunky::Ident = unsafe {::std::intrinsics::type_name::<A>().into()};
         Swarm {
-            instances: MultiSized::new(chunker.child("_instances"), A::typical_size()),
-            n_instances: ValueInChunk::new(chunker.child("_n_instances"), 0),
-            slot_map: SlotMap::new(chunker.child("_slot_map")),
+            instances: chunky::MultiArena::new(ident.sub("instances"), CHUNK_SIZE, A::typical_size()),
+            n_instances: chunky::Value::load_or_default(ident.sub("n_instances"), 0),
+            slot_map: SlotMap::new(ident.sub("slot_map")),
             _marker: PhantomData,
         }
     }
@@ -40,7 +40,7 @@ impl<A: Actor + Clone> Swarm<A> {
     }
 
     fn at_index_mut(&mut self, index: SlotIndices) -> &mut A {
-        unsafe { &mut *(self.instances.bins[index.bin()].at_mut(index.slot()) as *mut A) }
+        unsafe { &mut *(self.instances.at_mut(index.into()) as *mut A) }
     }
 
     fn at_mut(&mut self, id: usize, version: u8) -> Option<&mut A> {
@@ -70,19 +70,11 @@ impl<A: Actor + Clone> Swarm<A> {
     /// Used internally
     unsafe fn add_with_id(&mut self, initial_state: *mut A, id: ID) {
         let size = (*initial_state).total_size_bytes();
-        let bin_index = self.instances.size_to_index(size);
-        let bin = &mut self.instances.bin_for_size_mut(size);
-        let (ptr, index) = bin.push();
+        let (ptr, index) = self.instances.push(size);
 
         self.slot_map.associate(
             id.instance_id as usize,
-            SlotIndices::new(bin_index, index),
-        );
-        assert_eq!(
-            self.slot_map
-                .indices_of_no_version_check(id.instance_id as usize)
-                .bin(),
-            bin_index
+            index.into(),
         );
 
         Compact::compact_behind(initial_state, ptr as *mut A);
@@ -92,13 +84,12 @@ impl<A: Actor + Clone> Swarm<A> {
 
     fn swap_remove(&mut self, indices: SlotIndices) -> bool {
         unsafe {
-            let bin = &mut self.instances.bins[indices.bin()];
-            match bin.swap_remove(indices.slot()) {
+            match self.instances.swap_remove_within_bin(indices.into()) {
                 Some(ptr) => {
                     let swapped_actor = &*(ptr as *mut A);
                     self.slot_map.associate(
                         swapped_actor.id().instance_id as usize,
-                        indices,
+                        indices.into(),
                     );
                     true
                 }
@@ -192,21 +183,16 @@ impl<A: Actor + Clone> Swarm<A> {
         //    - sub actors that were created during one of the broadcast receive handlers,
         //      that shouldn't receive this broadcast
         // the only assumption is that no sub actors are immediately completely deleted
-
-        let recipients_todo_per_bin: Vec<usize> = {
-            self.instances.bins.iter().map(|bin| bin.len()).collect()
-        };
-
-        let n_bins = self.instances.bins.len();
-
-        for (c, recipients_todo) in recipients_todo_per_bin.iter().enumerate().take(n_bins) {
+        let bin_indices_recipients_todo: Vec<_> = self.instances.populated_bin_indices_and_lens().collect();
+        
+        for (bin_index, recipients_todo) in bin_indices_recipients_todo {
             let mut slot = 0;
-            let mut index_after_last_recipient = *recipients_todo;
+            let mut index_after_last_recipient = recipients_todo;
 
-            for _ in 0..*recipients_todo {
-                let index = SlotIndices::new(c, slot);
+            for _ in 0..recipients_todo {
+                let index = SlotIndices::new(bin_index, slot);
                 let (fate, is_still_compact, id) = {
-                    let actor = self.at_index_mut(index);
+                    let actor = self.at_index_mut(index.into());
                     let fate = handler(&packet.message, actor, world);
                     (fate, actor.is_still_compact(), actor.id())
                 };
@@ -219,7 +205,7 @@ impl<A: Actor + Clone> Swarm<A> {
                             self.resize_at_index(index);
                             // this should also work in the case where the "resized" actor
                             // itself is added to the same bin again
-                            let swapped_in_another_receiver = self.instances.bins[c].len() <
+                            let swapped_in_another_receiver = self.instances.bin_len(bin_index) <
                                 index_after_last_recipient;
                             if swapped_in_another_receiver {
                                 index_after_last_recipient -= 1;
@@ -233,7 +219,7 @@ impl<A: Actor + Clone> Swarm<A> {
                         self.remove_at_index(index, id);
                         // this should also work in the case where the "resized" actor
                         // itself is added to the same bin again
-                        let swapped_in_another_receiver = self.instances.bins[c].len() <
+                        let swapped_in_another_receiver = self.instances.bin_len(bin_index) <
                             index_after_last_recipient;
                         if swapped_in_another_receiver {
                             index_after_last_recipient -= 1;

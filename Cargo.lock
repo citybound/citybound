@@ -119,7 +119,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "chunked"
+name = "chunky"
 version = "0.1.0"
 dependencies = [
  "allocators 0.1.0",
@@ -476,7 +476,7 @@ name = "kay"
 version = "0.1.0"
 dependencies = [
  "byteorder 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "chunked 0.1.0",
+ "chunky 0.1.0",
  "clippy 0.0.166 (registry+https://github.com/rust-lang/crates.io-index)",
  "compact 0.1.0",
  "compact_macros 0.1.0",
