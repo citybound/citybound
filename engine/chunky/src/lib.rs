@@ -86,7 +86,7 @@ pub struct HeapHandler;
 
 impl Handler for HeapHandler {
     fn create_chunk(ident: Ident, size: usize) -> *mut u8 {
-        println!("Allocating chunk {} of size {}", ident.0, size);
+        //println!("Allocating chunk {} of size {}", ident.0, size);
         DefaultHeap::allocate(size)
     }
 
@@ -397,7 +397,7 @@ impl<H: Handler> Queue<H> {
             // one more next item ref needs to fit afterwards, even if it will just be a jump marker!
             let min_space = ref_size + size + ref_size;
 
-            if offset + min_space < chunk.size {
+            if offset + min_space <= chunk.size {
                 // store the item size as a header
                 *(entry_ptr as *mut NextItemRef) = NextItemRef::SameChunk(ref_size + size);
                 let payload_ptr = entry_ptr.offset(ref_size as isize);
@@ -406,6 +406,7 @@ impl<H: Handler> Queue<H> {
                 // return the pointer to where the item can be written
                 EnqueueResult::Success(payload_ptr)
             } else {
+                println!("Not enough space. Offset: {}, Min Space: {}, Chunk size: {}", offset, min_space, chunk.size);
                 // store a jump marker instead of item size
                 *(entry_ptr as *mut NextItemRef) = NextItemRef::NextChunk;
                 let new_chunk_size = ::std::cmp::max(self.typical_chunk_size, min_space);
@@ -459,7 +460,10 @@ impl<H: Handler> Queue<H> {
         match result {
             DequeueResult::Empty => None,
             DequeueResult::Success(payload_ptr) => Some(payload_ptr),
-            DequeueResult::RetryInNextChunk => self.dequeue()
+            DequeueResult::RetryInNextChunk => {
+                self.chunks_to_drop.push(self.chunks.remove(0));
+                self.dequeue()
+            }
         }
     }
 
