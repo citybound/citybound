@@ -263,7 +263,7 @@ pub struct Vector<Item: Clone, H: Handler> {
 }
 
 impl<Item: Clone, H: Handler> Vector<Item, H> {
-    /// Create a new chunked vector
+    /// Create a new chunky vector
     pub fn new(ident: Ident, chunk_size: usize) -> Self {
         let item_size = mem::size_of::<Item>();
         Vector {
@@ -277,7 +277,7 @@ impl<Item: Clone, H: Handler> Vector<Item, H> {
         *self.arena.len
     }
 
-    /// Is the chunked vector empty?
+    /// Is the chunky vector empty?
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }

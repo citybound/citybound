@@ -1,7 +1,7 @@
 if [ "$TRAVIS_BRANCH" = "master" ] && [ "$TRAVIS_PULL_REQUEST" = "false" ]
 then
     cargo doc --package allocators --no-deps
-    cargo doc --package chunked --no-deps
+    cargo doc --package chunky --no-deps
     cargo doc --package compact --no-deps
     cargo doc --package compact_macros --no-deps
     cargo doc --package descartes --no-deps
