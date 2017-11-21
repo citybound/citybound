@@ -1,8 +1,7 @@
 use kay::{ActorSystem, World, External};
 use imgui::Ui;
 use core::simulation::{TimeOfDayRange, Duration};
-use economy::resources::{ResourceAmount, Inventory, ResourceMap, r_id, r_properties, r_info,
-                         all_resource_ids};
+use economy::resources::{Inventory, r_id, r_properties, r_info, all_resource_ids};
 use economy::market::{Deal, OfferID};
 use economy::buildings::BuildingID;
 use economy::buildings::rendering::BuildingInspectorID;

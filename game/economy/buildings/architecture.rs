@@ -2,7 +2,7 @@ use descartes::{N, P2, Norm, WithUniqueOrthogonal};
 use rand::Rng;
 use monet::{Vertex, Geometry};
 
-use super::super::Lot;
+use super::Lot;
 
 #[derive(Compact, Clone)]
 pub struct BuildingGeometry {
@@ -12,17 +12,22 @@ pub struct BuildingGeometry {
     pub field: Geometry,
 }
 
-use super::BuildingType;
+#[derive(Copy, Clone)]
+pub enum BuildingStyle {
+    FamilyHouse,
+    GroceryShop,
+    CropFarm,
+}
 
 pub fn build_building<R: Rng>(
     lot: &Lot,
-    building_type: BuildingType,
+    building_type: BuildingStyle,
     rng: &mut R,
 ) -> BuildingGeometry {
     let (main_footprint, entrance_footprint) = generate_house_footprint(lot, rng);
 
     match building_type {
-        BuildingType::GroceryShopSite => {
+        BuildingStyle::GroceryShop => {
             let height = 3.0 + rng.next_f32();
             let entrance_height = height - 0.7;
 
@@ -35,10 +40,7 @@ pub fn build_building<R: Rng>(
                 field: Geometry::empty(),
             }
         }
-        BuildingType::CropFarmSite => {
-            let height = 3.0 + rng.next_f32();
-            let entrance_height = height - 0.7;
-
+        BuildingStyle::CropFarm => {
             BuildingGeometry {
                 wall: Geometry::empty(),
                 brick_roof: Geometry::empty(),
@@ -46,7 +48,7 @@ pub fn build_building<R: Rng>(
                 field: main_footprint.flat_roof_geometry(0.0),
             }
         }
-        BuildingType::FamilyHouse => {
+        BuildingStyle::FamilyHouse => {
             let height = 3.0 + 3.0 * rng.next_f32();
             let entrance_height = 2.0 + rng.next_f32();
 

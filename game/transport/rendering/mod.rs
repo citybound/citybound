@@ -319,7 +319,7 @@ impl GrouperIndividual for Lane {
                             },
                         )
                     })
-                    .unwrap_or_else(|| Geometry::empty()),
+                    .unwrap_or_else(Geometry::empty),
                 world,
             );
             if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
@@ -332,12 +332,12 @@ impl GrouperIndividual for Lane {
                 .clone()
                 .and_then(|path| path.shift_orthogonally(2.5))
                 .map(|path| band_to_geometry(&Band::new(path, 0.6), 0.1))
-                .unwrap_or_else(|| Geometry::empty());
+                .unwrap_or_else(Geometry::empty);
 
             let right_marker = maybe_path
                 .and_then(|path| path.shift_orthogonally(-2.5))
                 .map(|path| band_to_geometry(&Band::new(path, 0.6), 0.1))
-                .unwrap_or_else(|| Geometry::empty());
+                .unwrap_or_else(Geometry::empty);
             grouper.update(self.id.into(), left_marker + right_marker, world);
             if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
                 self.construction.length
@@ -508,7 +508,7 @@ impl GrouperIndividual for TransferLane {
                         .map(|dash| band_to_geometry(&Band::new(dash, 0.8), 0.2))
                         .sum()
                 })
-                .unwrap_or_else(|| Geometry::empty()),
+                .unwrap_or_else(Geometry::empty),
             world,
         );
         if self.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY >

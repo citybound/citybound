@@ -8,10 +8,10 @@ use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID, In
                   Interactable2dID, MSG_Interactable3d_on_event, MSG_Interactable2d_draw_ui_2d};
 use imgui::ImGuiSetCond_FirstUseEver;
 
-use super::{Building, BuildingID, BuildingPlanResultDelta};
+use super::{Building, Lot, BuildingID, BuildingPlanResultDelta};
 use economy::households::HouseholdID;
 
-mod architecture;
+use super::architecture::{BuildingStyle, BuildingGeometry, build_building};
 
 #[derive(Compact, Clone)]
 pub struct BuildingInspector {
@@ -108,7 +108,7 @@ impl Interactable3d for Building {
     fn on_event(&mut self, event: Event3d, world: &mut World) {
         if let Event3d::DragFinished { .. } = event {
             BuildingInspectorID::local_first(world)
-                .set_inspected_building(self.id, self.households.clone(), world);
+                .set_inspected_building(self.id, self.all_households().into(), world);
         };
     }
 }
@@ -135,12 +135,7 @@ impl BuildingRenderer {
         }
     }
 
-    pub fn add_geometry(
-        &mut self,
-        id: BuildingID,
-        geometry: &architecture::BuildingGeometry,
-        world: &mut World,
-    ) {
+    pub fn add_geometry(&mut self, id: BuildingID, geometry: &BuildingGeometry, world: &mut World) {
         // TODO: ugly: Building is not really a GrouperIndividual
         self.wall_grouper.add_frozen(
             GrouperIndividualID { _raw_id: id._raw_id },
@@ -224,9 +219,6 @@ impl BuildingRenderer {
         );
     }
 }
-
-use economy::households::grocery_shop::GroceryShopID;
-use economy::households::crop_farm::CropFarmID;
 
 impl Renderable for BuildingRenderer {
     fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
@@ -315,24 +307,23 @@ pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) -> Build
 
 use core::random::seed;
 
-pub fn on_add(building: &Building, world: &mut World) {
+pub fn on_add(id: BuildingID, lot: &Lot, building_type: BuildingStyle, world: &mut World) {
     // TODO: not sure if correct
     UserInterfaceID::local_first(world).add(
-        building.id.into(),
-        AnyShape::Circle(Circle {
-            center: building.lot.position,
-            radius: 5.0,
-        }),
+        id.into(),
+        AnyShape::Circle(
+            Circle { center: lot.position, radius: 5.0 },
+        ),
         10,
         world,
     );
 
     BuildingRendererID::local_first(world).add_geometry(
-        building.id,
-        architecture::build_building(
-            &building.lot,
-            get_building_type(building, world),
-            &mut seed(building.id),
+        id,
+        build_building(
+            lot,
+            building_type,
+            &mut seed(id),
         ),
         world,
     )
@@ -343,27 +334,6 @@ pub fn on_destroy(building_id: BuildingID, world: &mut World) {
     BuildingRendererID::local_first(world).remove_geometry(building_id, world);
 }
 
-pub enum BuildingType {
-    FamilyHouse,
-    GroceryShopSite,
-    CropFarmSite,
-}
-
-fn get_building_type(building: &Building, world: &mut World) -> BuildingType {
-    // TODO: this is super hacky
-    if building.households[0]._raw_id.local_broadcast() ==
-        GroceryShopID::local_broadcast(world)._raw_id
-    {
-        BuildingType::GroceryShopSite
-    } else if building.households[0]._raw_id.local_broadcast() ==
-               CropFarmID::local_broadcast(world)._raw_id
-    {
-        BuildingType::CropFarmSite
-    } else {
-        BuildingType::FamilyHouse
-    }
-}
-
 impl Building {
     pub fn render_as_destroyed(
         &mut self,
@@ -372,11 +342,7 @@ impl Building {
         building_index: usize,
         world: &mut World,
     ) {
-        let geometries = architecture::build_building(
-            &self.lot,
-            get_building_type(self, world),
-            &mut seed(self.id),
-        );
+        let geometries = build_building(&self.lot, self.style, &mut seed(self.id));
 
         let combined_geometry = geometries.brick_roof + geometries.flat_roof + geometries.wall +
             geometries.field;
