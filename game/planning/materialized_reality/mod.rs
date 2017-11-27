@@ -1,4 +1,4 @@
-use kay::{ActorSystem, World};
+use kay::{ActorSystem, World, Actor};
 
 // TODO: How to evolve this:
 // - get rid of building confirmations, use that we synchronously get IDs for spawned stuff
@@ -131,7 +131,7 @@ pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
     auto_setup(system);
 
     if system.networking_machine_id() > 0 {
-        MaterializedRealityID::global_first(&mut system.world())
+        MaterializedReality::global_first(&mut system.world())
     } else {
         MaterializedRealityID::spawn(&mut system.world())
     }

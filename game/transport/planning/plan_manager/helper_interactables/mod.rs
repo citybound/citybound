@@ -27,7 +27,7 @@ impl Deselecter {
     }
 
     pub fn clear(&mut self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(self.id.into(), world);
+        user_interface.remove(self.id_as(), world);
         Fate::Die
     }
 }
@@ -70,7 +70,7 @@ impl Addable {
     }
 
     pub fn clear(&mut self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(self.id.into(), world);
+        user_interface.remove(self.id_as(), world);
         Fate::Die
     }
 }
@@ -140,7 +140,7 @@ impl Draggable {
     }
 
     pub fn clear(&mut self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(self.id.into(), world);
+        user_interface.remove(self.id_as(), world);
         Fate::Die
     }
 }
@@ -213,7 +213,7 @@ impl Selectable {
     }
 
     pub fn clear(&mut self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(self.id.into(), world);
+        user_interface.remove(self.id_as(), world);
         Fate::Die
     }
 }
@@ -358,7 +358,7 @@ impl StrokeCanvas {
 
     // probably never called
     pub fn clear(&mut self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(self.id.into(), world);
+        user_interface.remove(self.id_as(), world);
         Fate::Die
     }
 }

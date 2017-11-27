@@ -1,5 +1,5 @@
 use compact::CVec;
-use kay::{ActorSystem, World, Fate};
+use kay::{ActorSystem, World, Fate, Actor, TypedID};
 use descartes::{N, P2, Dot, Band, Curve, FiniteCurve, Path, RoughlyComparable, Intersect,
                 WithUniqueOrthogonal};
 use itertools::Itertools;
@@ -64,7 +64,7 @@ impl Lane {
         report_as: BuildableRef,
         world: &mut World,
     ) {
-        LaneID::global_broadcast(world).connect(
+        Lane::global_broadcast(world).connect(
             self.id,
             self.construction.path.start(),
             self.construction.path.end(),
@@ -72,9 +72,9 @@ impl Lane {
             true,
             world,
         );
-        TransferLaneID::global_broadcast(world)
+        TransferLane::global_broadcast(world)
             .connect_transfer_to_normal(self.id, self.construction.path.clone(), world);
-        report_to.on_lane_built(self.id.into(), report_as, world);
+        report_to.on_lane_built(self.id_as(), report_as, world);
     }
 
     pub fn start_connecting_overlaps(&mut self, lanes: &CVec<LaneID>, world: &mut World) {
@@ -171,7 +171,7 @@ impl Lane {
         MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
             let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
             let &(ref lane_band, ref lane_outline) = memoized_bands_outlines
-                .entry(self.id.into())
+                .entry(self.id_as())
                 .or_insert_with(|| {
                     let band = Band::new(self.construction.path.clone(), 4.5);
                     let outline = band.outline();
@@ -281,15 +281,15 @@ impl Unbuildable for Lane {
             .interactions
             .iter()
             .enumerate()
-            // TODO: ugly: untyped ID shenanigans
-            .filter_map(|(i, interaction)| if interaction.partner_lane._raw_id == other_id._raw_id {
+            // TODO: ugly: untyped RawID shenanigans
+            .filter_map(|(i, interaction)| if interaction.partner_lane.as_raw() == other_id.as_raw() {
                 Some(i)
             } else {
                 None
             })
             .collect::<Vec<_>>();
 
-        let self_as_rough_location = self.id.into();
+        let self_as_rough_location = self.id_as();
         self.microtraffic.cars.retain(
             |car| if let Some(hop_interaction) =
                 car.next_hop_interaction
@@ -312,14 +312,14 @@ impl Unbuildable for Lane {
             },
         );
         self.microtraffic.obstacles.retain(|&(_obstacle, from_id)| {
-            // TODO: ugly: untyped ID shenanigans
-            from_id._raw_id != other_id._raw_id
+            // TODO: ugly: untyped RawID shenanigans
+            from_id.as_raw() != other_id.as_raw()
         });
         for idx in interaction_indices_to_remove.into_iter().rev() {
             self.connectivity.interactions.remove(idx);
         }
-        // TODO: untyped ID shenanigans
-        let other_as_lanelike = LaneLikeID { _raw_id: other_id._raw_id };
+        // TODO: untyped RawID shenanigans
+        let other_as_lanelike = unsafe { LaneLikeID::from_raw(other_id.as_raw()) };
         super::pathfinding::on_disconnect(self, other_as_lanelike);
         other_id.on_confirm_disconnect(instant, world);
     }
@@ -337,15 +337,15 @@ impl Unbuildable for Lane {
             .map(|interaction| interaction.partner_lane)
             .unique()
         {
-            // TODO: untyped ID shenanigans
-            let id_as_unbuildable = UnbuildableID { _raw_id: id._raw_id };
-            id_as_unbuildable.disconnect(self.id.into(), instant, world);
+            // TODO: untyped RawID shenanigans
+            let id_as_unbuildable = unsafe { UnbuildableID::from_raw(id.as_raw()) };
+            id_as_unbuildable.disconnect(self.id_as(), instant, world);
             disconnects_remaining += 1;
         }
         super::rendering::on_unbuild(self, world);
         MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
             let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
-            memoized_bands_outlines.remove(&self.id.into())
+            memoized_bands_outlines.remove(&self.id_as())
         });
         if disconnects_remaining == 0 {
             self.finalize(report_to, instant, world);
@@ -376,7 +376,7 @@ impl Unbuildable for Lane {
 
 impl Lane {
     fn finalize(&self, report_to: MaterializedRealityID, instant: Instant, world: &mut World) {
-        report_to.on_lane_unbuilt(self.id.into(), world);
+        report_to.on_lane_unbuilt(self.id_as(), world);
 
         for car in &self.microtraffic.cars {
             car.trip.finish(
@@ -463,8 +463,8 @@ impl TransferLane {
         report_as: BuildableRef,
         world: &mut World,
     ) {
-        LaneID::global_broadcast(world).connect_to_transfer(self.id, world);
-        report_to.on_lane_built(self.id.into(), report_as, world);
+        Lane::global_broadcast(world).connect_to_transfer(self.id, world);
+        report_to.on_lane_built(self.id_as(), report_as, world);
         super::rendering::on_build_transfer(self, world);
     }
 
@@ -492,7 +492,7 @@ impl TransferLane {
                 {
                     other_id.add_transfer_lane_interaction(
                         Interaction {
-                            partner_lane: self.id.into(),
+                            partner_lane: self.id_as(),
                             start: lane_start_on_other_distance,
                             partner_start: 0.0,
                             kind: InteractionKind::Overlap {
@@ -542,19 +542,20 @@ impl TransferLane {
 
 impl Unbuildable for TransferLane {
     fn disconnect(&mut self, other_id: UnbuildableID, instant: Instant, world: &mut World) {
-        self.connectivity.left =
-            self.connectivity.left.and_then(
-                // TODO: ugly: untyped ID shenanigans
-                |(left_id, left_start)| if left_id._raw_id == other_id._raw_id {
-                    None
-                } else {
-                    Some((left_id, left_start))
-                },
-            );
+        self.connectivity.left = self.connectivity.left.and_then(
+            // TODO: ugly: untyped RawID shenanigans
+            |(left_id, left_start)| if left_id.as_raw() ==
+                other_id.as_raw()
+            {
+                None
+            } else {
+                Some((left_id, left_start))
+            },
+        );
         self.connectivity.right = self.connectivity.right.and_then(
-            // TODO: ugly: untyped ID shenanigans
-            |(right_id, right_start)| if right_id._raw_id ==
-                other_id._raw_id
+            // TODO: ugly: untyped RawID shenanigans
+            |(right_id, right_start)| if right_id.as_raw() ==
+                other_id.as_raw()
             {
                 None
             } else {
@@ -571,10 +572,10 @@ impl Unbuildable for TransferLane {
         world: &mut World,
     ) -> Fate {
         if let Some((left_id, _)) = self.connectivity.left {
-            Into::<UnbuildableID>::into(left_id).disconnect(self.id.into(), instant, world);
+            Into::<UnbuildableID>::into(left_id).disconnect(self.id_as(), instant, world);
         }
         if let Some((right_id, _)) = self.connectivity.right {
-            Into::<UnbuildableID>::into(right_id).disconnect(self.id.into(), instant, world);
+            Into::<UnbuildableID>::into(right_id).disconnect(self.id_as(), instant, world);
         }
         super::rendering::on_unbuild_transfer(self, world);
         if self.connectivity.left.is_none() && self.connectivity.right.is_none() {
@@ -610,7 +611,7 @@ impl Unbuildable for TransferLane {
 
 impl TransferLane {
     fn finalize(&self, report_to: MaterializedRealityID, instant: Instant, world: &mut World) {
-        report_to.on_lane_unbuilt(self.id.into(), world);
+        report_to.on_lane_unbuilt(self.id_as(), world);
 
         for car in &self.microtraffic.cars {
             car.trip.finish(

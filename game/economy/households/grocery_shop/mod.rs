@@ -1,8 +1,10 @@
-use kay::{ActorSystem, World, External};
+use kay::{ActorSystem, World, External, TypedID};
 use imgui::Ui;
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration};
-use economy::resources::{Inventory, Resource};
-use economy::market::{Deal, OfferID};
+use economy::resources::Resource;
+use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
+                      EvaluatedSearchResult, MSG_EvaluationRequester_expect_n_results,
+                      MSG_EvaluationRequester_on_result};
 use economy::buildings::BuildingID;
 use economy::buildings::rendering::BuildingInspectorID;
 use transport::pathfinding::RoughLocationID;
@@ -26,7 +28,7 @@ impl GroceryShop {
         GroceryShop {
             id,
             site,
-            core: HouseholdCore::new(0),
+            core: HouseholdCore::new(0, site.into()),
             grocery_offer: OfferID::register(
                 id.into(),
                 MemberIdx(0),
@@ -105,7 +107,7 @@ impl Household for GroceryShop {
     }
 
     fn destroy(&mut self, world: &mut World) {
-        self.site.remove_household(self.id.into(), world);
+        self.site.remove_household(self.id_as(), world);
         self.grocery_offer.withdraw(world);
         self.job_offer.withdraw(world);
     }
@@ -120,7 +122,7 @@ impl Household for GroceryShop {
         let ui = imgui_ui.steal();
 
         ui.window(im_str!("Building")).build(|| {
-            ui.tree_node(im_str!("Grocery Shop ID: {:?}", self.id._raw_id))
+            ui.tree_node(im_str!("Grocery Shop RawID: {:?}", self.id.as_raw()))
                 .build(|| for resource in Self::interesting_resources() {
                     if Self::is_shared(*resource) {
                         ui.text(im_str!("{}", resource));
@@ -133,6 +135,11 @@ impl Household for GroceryShop {
 
         return_to.ui_drawn(ui, world);
     }
+}
+
+impl EvaluationRequester for GroceryShop {
+    fn expect_n_results(&mut self, _r: Resource, _n: usize, _: &mut World) {}
+    fn on_result(&mut self, _e: &EvaluatedSearchResult, _: &mut World) {}
 }
 
 pub fn setup(system: &mut ActorSystem) {

@@ -1,11 +1,12 @@
 use descartes::Circle;
 use compact::{CVec, CDict};
-use kay::{ActorSystem, World, External};
+use kay::{ActorSystem, World, External, TypedID, Actor};
 use monet::{RendererID, Renderable, RenderableID, MSG_Renderable_setup_in_scene,
             MSG_Renderable_render_to_scene, GrouperID, GrouperIndividualID, Geometry, Instance};
 use stagemaster::geometry::AnyShape;
-use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID, Interactable2d,
-                  Interactable2dID, MSG_Interactable3d_on_event, MSG_Interactable2d_draw_ui_2d};
+use stagemaster::{UserInterface, UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
+                  Interactable2d, Interactable2dID, MSG_Interactable3d_on_event,
+                  MSG_Interactable2d_draw_ui_2d};
 use imgui::ImGuiSetCond_FirstUseEver;
 
 use super::{Building, Lot, BuildingID, BuildingPlanResultDelta};
@@ -48,7 +49,7 @@ impl BuildingInspector {
         self.current_building = Some(building);
         self.current_households = households.clone();
         self.households_todo.clear();
-        self.user_interface.add_2d(self.id.into(), world);
+        self.user_interface.add_2d(self.id_as(), world);
     }
 
     pub fn ui_drawn(&mut self, imgui_ui: &External<::imgui::Ui<'static>>, world: &mut World) {
@@ -83,7 +84,7 @@ impl Interactable2d for BuildingInspector {
                 .collapsible(false)
                 .opened(&mut opened)
                 .build(|| {
-                    ui.text(im_str!("Building ID: {:?}", building._raw_id));
+                    ui.text(im_str!("Building RawID: {:?}", building.as_raw()));
                     ui.text(im_str!(
                         "# of households: {}",
                         self.current_households.len()
@@ -107,7 +108,7 @@ impl Interactable2d for BuildingInspector {
 impl Interactable3d for Building {
     fn on_event(&mut self, event: Event3d, world: &mut World) {
         if let Event3d::DragFinished { .. } = event {
-            BuildingInspectorID::local_first(world)
+            BuildingInspector::local_first(world)
                 .set_inspected_building(self.id, self.all_households().into(), world);
         };
     }
@@ -138,22 +139,22 @@ impl BuildingRenderer {
     pub fn add_geometry(&mut self, id: BuildingID, geometry: &BuildingGeometry, world: &mut World) {
         // TODO: ugly: Building is not really a GrouperIndividual
         self.wall_grouper.add_frozen(
-            GrouperIndividualID { _raw_id: id._raw_id },
+            unsafe { GrouperIndividualID::from_raw(id.as_raw()) },
             geometry.wall.clone(),
             world,
         );
         self.flat_roof_grouper.add_frozen(
-            GrouperIndividualID { _raw_id: id._raw_id },
+            unsafe { GrouperIndividualID::from_raw(id.as_raw()) },
             geometry.flat_roof.clone(),
             world,
         );
         self.brick_roof_grouper.add_frozen(
-            GrouperIndividualID { _raw_id: id._raw_id },
+            unsafe { GrouperIndividualID::from_raw(id.as_raw()) },
             geometry.brick_roof.clone(),
             world,
         );
         self.field_grouper.add_frozen(
-            GrouperIndividualID { _raw_id: id._raw_id },
+            unsafe { GrouperIndividualID::from_raw(id.as_raw()) },
             geometry.field.clone(),
             world,
         );
@@ -161,27 +162,19 @@ impl BuildingRenderer {
 
     pub fn remove_geometry(&mut self, building_id: BuildingID, world: &mut World) {
         self.wall_grouper.remove(
-            GrouperIndividualID {
-                _raw_id: building_id._raw_id,
-            },
+            unsafe { GrouperIndividualID::from_raw(building_id.as_raw()) },
             world,
         );
         self.flat_roof_grouper.remove(
-            GrouperIndividualID {
-                _raw_id: building_id._raw_id,
-            },
+            unsafe { GrouperIndividualID::from_raw(building_id.as_raw()) },
             world,
         );
         self.brick_roof_grouper.remove(
-            GrouperIndividualID {
-                _raw_id: building_id._raw_id,
-            },
+            unsafe { GrouperIndividualID::from_raw(building_id.as_raw()) },
             world,
         );
         self.field_grouper.remove(
-            GrouperIndividualID {
-                _raw_id: building_id._raw_id,
-            },
+            unsafe { GrouperIndividualID::from_raw(building_id.as_raw()) },
             world,
         );
     }
@@ -275,8 +268,8 @@ impl Renderable for BuildingRenderer {
 //         world: &mut World,
 //     ) {
 //         // TODO: this is super hacky
-//         let is_shop = self.households[0]._raw_id.local_broadcast() ==
-//             GroceryShopID::local_broadcast(world)._raw_id;
+//         let is_shop = self.households[0].as_raw().local_broadcast() ==
+//             GroceryShopID::local_broadcast(world).as_raw();
 //         renderer_id.add_instance(
 //             scene_id,
 //             11_111,
@@ -309,16 +302,14 @@ use core::random::seed;
 
 pub fn on_add(id: BuildingID, lot: &Lot, building_type: BuildingStyle, world: &mut World) {
     // TODO: not sure if correct
-    UserInterfaceID::local_first(world).add(
+    UserInterface::local_first(world).add(
         id.into(),
-        AnyShape::Circle(
-            Circle { center: lot.position, radius: 5.0 },
-        ),
+        AnyShape::Circle(Circle { center: lot.position, radius: 5.0 }),
         10,
         world,
     );
 
-    BuildingRendererID::local_first(world).add_geometry(
+    BuildingRenderer::local_first(world).add_geometry(
         id,
         build_building(
             lot,
@@ -330,8 +321,8 @@ pub fn on_add(id: BuildingID, lot: &Lot, building_type: BuildingStyle, world: &m
 }
 
 pub fn on_destroy(building_id: BuildingID, world: &mut World) {
-    UserInterfaceID::local_first(world).remove(building_id.into(), world);
-    BuildingRendererID::local_first(world).remove_geometry(building_id, world);
+    UserInterface::local_first(world).remove(building_id.into(), world);
+    BuildingRenderer::local_first(world).remove_geometry(building_id, world);
 }
 
 impl Building {

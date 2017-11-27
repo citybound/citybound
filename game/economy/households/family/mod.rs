@@ -21,7 +21,6 @@ use super::{Household, HouseholdID, HouseholdCore, MemberIdx, MSG_Household_deca
             MSG_Household_inspect, MSG_Household_provide_deal, MSG_Household_receive_deal,
             MSG_Household_task_succeeded, MSG_Household_task_failed, MSG_Household_destroy,
             MSG_Household_stop_using, MSG_Household_reset_member_task};
-use super::tasks::TaskEndSchedulerID;
 
 #[derive(Compact, Clone)]
 pub struct Family {
@@ -156,26 +155,6 @@ impl Household for Family {
         ]
     }
 
-    fn receive_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
-        deal.delta.give_to_shared_private(
-            &mut self.resources,
-            &mut self.member_resources[member.0],
-            Self::is_shared,
-        );
-    }
-
-    fn provide_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
-        let provide_awakeness = deal.delta.len() == 1 &&
-            deal.delta.get(Resource::Awakeness).is_some();
-        if !provide_awakeness {
-            deal.delta.take_from_shared_private(
-                &mut self.resources,
-                &mut self.member_resources[member.0],
-                Self::is_shared,
-            );
-        }
-    }
-
     fn decay(&mut self, dt: Duration, _: &mut World) {
         for (i, member_resources) in self.member_resources.iter_mut().enumerate() {
             {
@@ -196,63 +175,9 @@ impl Household for Family {
         }
     }
 
-    fn task_succeeded(&mut self, member: MemberIdx, world: &mut World) {
-        self.log.log("Task succeeded\n");
-        if let TaskState::StartedAt(_, location) = self.member_tasks[member.0].state {
-            self.stop_task(member, Some(location), world);
-        } else {
-            panic!("Can't finish unstarted task");
-        }
-    }
-
-    fn task_failed(&mut self, member: MemberIdx, location: RoughLocationID, world: &mut World) {
-        self.stop_task(member, Some(location), world);
-    }
-
-    fn reset_member_task(&mut self, member: MemberIdx, world: &mut World) {
-        self.log.log(
-            format!("Reset member {}\n", member.0).as_str(),
-        );
-        TaskEndSchedulerID::local_first(world).deschedule(self.id.into(), member, world);
-
-        self.stop_task(member, None, world);
-    }
-
-    fn stop_using(&mut self, offer: OfferID, world: &mut World) {
-        if let Some(Entry(associated_resource, _)) =
-            self.used_offers
-                .iter()
-                .find(|&&Entry(_, resource_offer)| resource_offer == offer)
-                .cloned()
-        {
-            self.used_offers.remove(associated_resource);
-            offer.stopped_using(self.id.into(), None, world);
-        }
-
-        for (i, member_used_offers) in self.member_used_offers.iter_mut().enumerate() {
-            if let Some(Entry(associated_resource, _)) =
-                member_used_offers
-                    .iter()
-                    .find(|&&Entry(_, resource_offer)| resource_offer == offer)
-                    .cloned()
-            {
-                member_used_offers.remove(associated_resource);
-                offer.stopped_using(self.id.into(), Some(MemberIdx(i)), world);
-            }
-        }
-    }
-
-    fn destroy(&mut self, world: &mut World) {
-        for &Entry(_, offer) in self.used_offers.iter() {
-            offer.stopped_using(self.id.into(), None, world);
-        }
-        for (i, member_used_offers) in self.member_used_offers.iter().enumerate() {
-            for &Entry(_, offer) in member_used_offers.iter() {
-                offer.stopped_using(self.id.into(), Some(MemberIdx(i)), world);
-            }
-        }
+    fn on_destroy(&mut self, world: &mut World) {
         self.sleep_offer.withdraw_internal(world);
-        self.home.remove_household(self.id.into(), world);
+        self.home.remove_household(self.id_as(), world);
     }
 
     #[allow(useless_format)]

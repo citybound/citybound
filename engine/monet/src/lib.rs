@@ -19,7 +19,7 @@ mod scene;
 
 pub use glium::backend::glutin::Display;
 
-pub use geometry::{Geometry, Batch, Vertex, Instance, GrouperID, GrouperIndividual,
+pub use geometry::{Geometry, Batch, Vertex, Instance, Grouper, GrouperID, GrouperIndividual,
                    GrouperIndividualID, MSG_GrouperIndividual_render_to_grouper};
 pub use renderer::{setup, Renderer, RendererID, Renderable, RenderableID, TargetProvider,
                    TargetProviderID, MSG_TargetProvider_submitted, Movement, EyeListener,

@@ -1,4 +1,4 @@
-use kay::{World, ActorSystem, Fate};
+use kay::{World, ActorSystem, Fate, TypedID, Actor};
 use compact::CVec;
 use ordered_float::OrderedFloat;
 use core::simulation::Instant;
@@ -113,7 +113,7 @@ impl LocationRequester for Trip {
                     self.destination = Some(precise);
                 } else {
                     self.rough_destination.resolve_as_location(
-                        self.id.into(),
+                        self.id_as(),
                         self.rough_destination,
                         instant,
                         world,
@@ -126,8 +126,9 @@ impl LocationRequester for Trip {
             }
 
             if let (Some(source), Some(destination)) = (self.source, self.destination) {
-                // TODO: ugly: untyped ID shenanigans
-                let source_as_lane: LaneLikeID = LaneLikeID { _raw_id: source.node._raw_id };
+                // TODO: ugly: untyped RawID shenanigans
+                let source_as_lane: LaneLikeID =
+                    unsafe { LaneLikeID::from_raw(source.node.as_raw()) };
                 source_as_lane.add_car(
                     LaneCar {
                         trip: self.id,
@@ -148,7 +149,7 @@ impl LocationRequester for Trip {
         } else {
             println!(
                 "{:?} is not a source/destination yet",
-                rough_location._raw_id
+                rough_location.as_raw()
             );
             self.id.finish(
                 TripResult {
@@ -194,7 +195,7 @@ impl TripCreator {
         self.lanes.push(lane_id);
 
         if self.lanes.len() > 1 {
-            self.simulation.wake_up_in(Ticks(50), self.id.into(), world);
+            self.simulation.wake_up_in(Ticks(50), self.id_as(), world);
         }
     }
 }
@@ -227,7 +228,7 @@ impl Lane {
     pub fn manually_spawn_car_add_lane(&self, world: &mut World) {
         if !self.connectivity.on_intersection {
             // TODO: ugly/wrong
-            TripCreatorID::local_first(world).add_lane_for_trip(self.id, world);
+            TripCreator::local_first(world).add_lane_for_trip(self.id, world);
         }
     }
 }

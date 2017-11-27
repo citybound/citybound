@@ -1,4 +1,4 @@
-use kay::World;
+use kay::{World, TypedID, Actor};
 use compact::CDict;
 use monet::RendererID;
 use super::{PlanManager, PlanManagerID};
@@ -20,7 +20,7 @@ impl Renderable for PlanManager {
         world: &mut World,
     ) {
         if self.preview_rendered_in.get(renderer_id).is_none() {
-            let origin_machine = self.id._raw_id.machine;
+            let origin_machine = self.id.as_raw().machine;
             let preview = if self.preview.is_none() {
                 self.preview_rendered_in = CDict::new();
                 self.update_preview(world)
@@ -72,7 +72,7 @@ impl Renderable for PlanManager {
 
             // TODO: render this more seldomly
             // TODO: not that nice to have to use local_first here
-            building_rendering::BuildingRendererID::local_first(world)
+            building_rendering::BuildingRenderer::local_first(world)
                 .update_buildings_to_be_destroyed(
                     renderer_id,
                     scene_id,
