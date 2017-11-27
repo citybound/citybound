@@ -1,4 +1,4 @@
-use kay::{ActorSystem, World};
+use kay::{ActorSystem, World, TypedID};
 use compact::CVec;
 use ordered_float::OrderedFloat;
 use std::f32::INFINITY;
@@ -228,7 +228,7 @@ impl LaneLike for Lane {
         } else {
             car.trip.finish(
                 TripResult {
-                    location_now: Some(self.id.into()),
+                    location_now: Some(self.id_as()),
                     instant,
                     fate: TripFate::NoRoute,
                 },
@@ -279,7 +279,7 @@ impl Simulatable for Lane {
         self.construction.progress += dt * 400.0;
 
         let do_traffic = current_instant.ticks() % TRAFFIC_LOGIC_THROTTLING ==
-            self.id._raw_id.instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
+            self.id.as_raw().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
         let old_green = self.microtraffic.green;
         self.microtraffic.yellow_to_red = if self.microtraffic.timings.is_empty() {
@@ -310,18 +310,14 @@ impl Simulatable for Lane {
                     ..
                 } = *interaction
                 {
-                    LaneID { _raw_id: partner_lane._raw_id }.on_signal_changed(
-                        self.id.into(),
-                        self.microtraffic
-                            .green,
-                        world,
-                    );
+                    unsafe { LaneID::from_raw(partner_lane.as_raw()) }
+                        .on_signal_changed(self.id_as(), self.microtraffic.green, world);
                 }
             }
         }
 
         if current_instant.ticks() % PATHFINDING_THROTTLING ==
-            self.id._raw_id.instance_id as usize % PATHFINDING_THROTTLING
+            self.id.as_raw().instance_id as usize % PATHFINDING_THROTTLING
         {
             self.update_routes(current_instant, world);
         }
@@ -475,10 +471,10 @@ impl Simulatable for Lane {
 
             if let Some((idx_to_remove, next_lane, start, partner_start)) = maybe_switch_car {
                 let car = self.microtraffic.cars.remove(idx_to_remove);
-                // TODO: ugly: untyped ID shenanigans
+                // TODO: ugly: untyped RawID shenanigans
                 next_lane.add_car(
                     car.offset_by(partner_start - start),
-                    Some(self.id.into()),
+                    Some(self.id_as()),
                     current_instant,
                     world,
                 );
@@ -492,7 +488,7 @@ impl Simulatable for Lane {
             let cars = self.microtraffic.cars.iter();
 
             if (current_instant.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING ==
-                interaction.partner_lane._raw_id.instance_id as usize % TRAFFIC_LOGIC_THROTTLING
+                interaction.partner_lane.as_raw().instance_id as usize % TRAFFIC_LOGIC_THROTTLING
             {
                 let maybe_obstacles = obstacles_for_interaction(
                     interaction,
@@ -503,7 +499,7 @@ impl Simulatable for Lane {
                 if let Some(obstacles) = maybe_obstacles {
                     interaction.partner_lane.add_obstacles(
                         obstacles,
-                        self.id.into(),
+                        self.id_as(),
                         world,
                     );
                 }
@@ -545,8 +541,8 @@ impl LaneLike for TransferLane {
 
     fn add_obstacles(&mut self, obstacles: &CVec<Obstacle>, from: LaneLikeID, _: &mut World) {
         if let (Some((left_id, _)), Some(_)) = (self.connectivity.left, self.connectivity.right) {
-            // TODO: ugly: untyped ID shenanigans
-            if left_id._raw_id == from._raw_id {
+            // TODO: ugly: untyped RawID shenanigans
+            if left_id.as_raw() == from.as_raw() {
                 self.microtraffic.left_obstacles = obstacles
                     .iter()
                     .map(|obstacle| {
@@ -580,7 +576,7 @@ impl Simulatable for TransferLane {
         self.construction.progress += dt * 400.0;
 
         let do_traffic = current_instant.ticks() % TRAFFIC_LOGIC_THROTTLING ==
-            self.id._raw_id.instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
+            self.id.as_raw().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
 
         if do_traffic {
             // TODO: optimize using BinaryHeap?
@@ -702,7 +698,7 @@ impl Simulatable for TransferLane {
                                         false,
                                     ),
                             ),
-                            Some(self.id.into()),
+                            Some(self.id_as()),
                             current_instant,
                             world,
                         );
@@ -720,7 +716,7 @@ impl Simulatable for TransferLane {
                                         true,
                                     ),
                             ),
-                            Some(self.id.into()),
+                            Some(self.id_as()),
                             current_instant,
                             world,
                         );
@@ -741,7 +737,7 @@ impl Simulatable for TransferLane {
             }
 
             if (current_instant.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING ==
-                left._raw_id.instance_id as usize % TRAFFIC_LOGIC_THROTTLING
+                left.as_raw().instance_id as usize % TRAFFIC_LOGIC_THROTTLING
             {
                 let obstacles = self.microtraffic
                     .cars
@@ -761,11 +757,11 @@ impl Simulatable for TransferLane {
                     })
                     .collect();
                 let left_as_lane: LaneLikeID = left.into();
-                left_as_lane.add_obstacles(obstacles, self.id.into(), world);
+                left_as_lane.add_obstacles(obstacles, self.id_as(), world);
             }
 
             if (current_instant.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING ==
-                right._raw_id.instance_id as usize % TRAFFIC_LOGIC_THROTTLING
+                right.as_raw().instance_id as usize % TRAFFIC_LOGIC_THROTTLING
             {
                 let obstacles = self.microtraffic
                     .cars
@@ -785,7 +781,7 @@ impl Simulatable for TransferLane {
                     })
                     .collect();
                 let right_as_lane: LaneLikeID = right.into();
-                right_as_lane.add_obstacles(obstacles, self.id.into(), world);
+                right_as_lane.add_obstacles(obstacles, self.id_as(), world);
             }
         }
     }

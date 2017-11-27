@@ -1,4 +1,4 @@
-use kay::{ActorSystem, World, External};
+use kay::{ActorSystem, World, External, TypedID};
 use imgui::Ui;
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration};
 use economy::resources::{Inventory, Resource};
@@ -98,7 +98,7 @@ impl Household for CropFarm {
     }
 
     fn destroy(&mut self, world: &mut World) {
-        self.site.remove_household(self.id.into(), world);
+        self.site.remove_household(self.id_as(), world);
         self.crops_offer.withdraw(world);
         self.job_offer.withdraw(world);
     }
@@ -113,7 +113,7 @@ impl Household for CropFarm {
         let ui = imgui_ui.steal();
 
         ui.window(im_str!("Building")).build(|| {
-            ui.tree_node(im_str!("Crop Farm ID: {:?}", self.id._raw_id))
+            ui.tree_node(im_str!("Crop Farm ID: {:?}", self.id.as_raw()))
                 .build(|| for resource in Self::interesting_resources() {
                     if Self::is_shared(*resource) {
                         ui.text(im_str!("{}", resource));
@@ -134,7 +134,7 @@ const UPDATE_EVERY_N_SECS: usize = 4;
 
 impl Simulatable for CropFarm {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
-        if (current_instant.ticks() + self.id._raw_id.instance_id as usize) %
+        if (current_instant.ticks() + self.id.as_raw().instance_id as usize) %
             (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0
         {
             self.decay(Duration(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world);

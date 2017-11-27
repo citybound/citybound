@@ -1,4 +1,4 @@
-use kay::{ActorSystem, World};
+use kay::{ActorSystem, World, Actor};
 use compact::{COption, CVec, CDict};
 use stagemaster::UserInterfaceID;
 use monet::RendererID;
@@ -205,11 +205,11 @@ impl PlanManager {
     }
 }
 
-use core::simulation::{SimulationID, Ticks, Sleeper, SleeperID, MSG_Sleeper_wake};
+use core::simulation::{Simulation, Ticks, Sleeper, SleeperID, MSG_Sleeper_wake};
 
 impl PlanManager {
     pub fn materialize(&mut self, world: &mut World) {
-        SimulationID::local_first(world).wake_up_in(Ticks(0), self.id.into(), world);
+        Simulation::local_first(world).wake_up_in(Ticks(0), self.id_as(), world);
     }
 
     fn materialize_now(&mut self, instant: Instant, world: &mut World) {

@@ -1,13 +1,13 @@
-use kay::{ActorSystem, World, External};
+use kay::{ActorSystem, World, External, Actor, TypedID};
 use compact::{CVec, CDict, COption, CString};
 use imgui::Ui;
 use ordered_float::OrderedFloat;
 use core::random::{seed, Rng};
 
-use core::simulation::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, SimulationID,
-                       Simulatable, SimulatableID, MSG_Simulatable_tick};
+use core::simulation::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, Simulation,
+                       SimulationID, Simulatable, SimulatableID, MSG_Simulatable_tick};
 use economy::resources::{Resource, ResourceAmount, ResourceMap, Entry};
-use economy::market::{Deal, MarketID, OfferID, EvaluatedDeal, EvaluationRequester,
+use economy::market::{Deal, Market, OfferID, EvaluatedDeal, EvaluationRequester,
                       EvaluationRequesterID, MSG_EvaluationRequester_expect_n_results,
                       MSG_EvaluationRequester_on_result, EvaluatedSearchResult};
 use economy::buildings::BuildingID;
@@ -25,7 +25,7 @@ use super::{Household, HouseholdID, MemberIdx, MSG_Household_decay, MSG_Househol
             MSG_Household_provide_deal, MSG_Household_receive_deal, MSG_Household_task_succeeded,
             MSG_Household_task_failed, MSG_Household_destroy, MSG_Household_stop_using,
             MSG_Household_reset_member_task};
-use super::tasks::{Task, TaskEndSchedulerID};
+use super::tasks::{Task, TaskEndScheduler};
 
 #[derive(Compact, Clone)]
 struct DecisionResourceEntry {
@@ -159,14 +159,14 @@ impl Family {
         world: &mut World,
     ) {
         self.log.log(
-            format!("Top N Problems for Family {:?}\n", self.id._raw_id).as_str(),
+            format!("Top N Problems for Family {:?}\n", self.id.as_raw()).as_str(),
         );
 
         let time = TimeOfDay::from(instant);
         let top_problems = self.top_problems(member, time);
 
         if top_problems.is_empty() {
-            SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, self.id.into(), world);
+            Simulation::local_first(world).wake_up_in(DECISION_PAUSE, self.id_as(), world);
         } else {
             let mut decision_entries = CDict::<Resource, DecisionResourceEntry>::new();
 
@@ -184,22 +184,22 @@ impl Family {
                     self.log.log(
                         format!(
                             " -> Using favorite offer {:?} for {}\n",
-                            offer._raw_id,
+                            offer.as_raw(),
                             resource
                         ).as_str(),
                     );
-                    offer.evaluate(instant, location, self.id.into(), world);
+                    offer.evaluate(instant, location, self.id_as(), world);
 
                     AsyncCounter::with_target(1)
                 } else {
                     self.log.log(
                         format!(" -> Doing market query for {}\n", resource).as_str(),
                     );
-                    MarketID::global_first(world).search(
+                    Market::global_first(world).search(
                         instant,
                         location,
                         resource,
-                        self.id.into(),
+                        self.id_as(),
                         world,
                     );
 
@@ -388,17 +388,17 @@ impl Family {
             };
         if let Some((member, instant, best_offer)) = maybe_best_info {
             self.decision_state = DecisionState::WaitingForTrip(member);
-            best_offer.request_receive_deal(self.id.into(), member, world);
+            best_offer.request_receive_deal(self.id_as(), member, world);
             self.start_trip(member, instant, world);
         } else {
             self.log.log(
                 format!(
                     "{:?} didn't find any suitable offers at all\n",
-                    self.id._raw_id
+                    self.id.as_raw()
                 ).as_str(),
             );
             self.decision_state = DecisionState::None;
-            SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, self.id.into(), world);
+            Simulation::local_first(world).wake_up_in(DECISION_PAUSE, self.id_as(), world);
         }
 
         fn most_useful_evaluated_deal(
@@ -420,7 +420,7 @@ impl Family {
             ..
         } = self.member_tasks[member.0]
         {
-            TripID::spawn(source, offer.into(), Some(self.id.into()), instant, world);
+            TripID::spawn(source, offer.into(), Some(self.id_as()), instant, world);
         } else {
             panic!("Member should be getting ready before starting trip");
         }
@@ -434,7 +434,7 @@ impl TripListener for Family {
     fn trip_created(&mut self, trip: TripID, world: &mut World) {
         self.decision_state = if let DecisionState::WaitingForTrip(member) = self.decision_state {
             self.member_tasks[member.0].state = TaskState::InTrip(trip);
-            SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, self.id.into(), world);
+            Simulation::local_first(world).wake_up_in(DECISION_PAUSE, self.id_as(), world);
             DecisionState::None
         } else {
             panic!("Should be in waiting for trip state")
@@ -486,14 +486,14 @@ impl TripListener for Family {
                         used_offers.insert(matching_resource, matching_offer)
                     {
                         if previous_offer != matching_offer {
-                            previous_offer.stopped_using(self.id.into(), maybe_member, world);
+                            previous_offer.stopped_using(self.id_as(), maybe_member, world);
                         }
                     }
-                    matching_offer.started_using(self.id.into(), maybe_member, world);
+                    matching_offer.started_using(self.id_as(), maybe_member, world);
                 }
                 _ => {
                     used_offers.remove(matching_resource);
-                    matching_offer.stopped_using(self.id.into(), maybe_member, world);
+                    matching_offer.stopped_using(self.id_as(), maybe_member, world);
                 }
             }
         }
@@ -518,7 +518,7 @@ impl TripListener for Family {
                 );
 
                 if let Some((_, offer)) = self.member_tasks[matching_task_member.0].goal {
-                    offer.request_receive_undo_deal(self.id.into(), matching_task_member, world);
+                    offer.request_receive_undo_deal(self.id_as(), matching_task_member, world);
                 }
                 self.stop_task(matching_task_member, result.location_now, world);
 
@@ -536,14 +536,14 @@ impl Family {
         world: &mut World,
     ) {
         self.log.log("Started task\n");
-        TaskEndSchedulerID::local_first(world).schedule(
+        TaskEndScheduler::local_first(world).schedule(
             start + self.member_tasks[member.0].duration,
-            self.id.into(),
+            self.id_as(),
             member,
             world,
         );
         if let Some((_, offer)) = self.member_tasks[member.0].goal {
-            offer.started_actively_using(self.id.into(), member, world);
+            offer.started_actively_using(self.id_as(), member, world);
         }
         self.member_tasks[member.0].state = TaskState::StartedAt(start, location);
     }
@@ -558,9 +558,9 @@ impl Family {
             TaskState::IdleAt(location.unwrap_or_else(|| self.home.into()));
         self.log.log("Task stopped\n");
         if let Some((_, offer)) = self.member_tasks[member.0].goal {
-            offer.stopped_actively_using(self.id.into(), member, world);
+            offer.stopped_actively_using(self.id_as(), member, world);
         }
-        SimulationID::local_first(world).wake_up_in(Ticks(0), self.id.into(), world);
+        Simulation::local_first(world).wake_up_in(Ticks(0), self.id_as(), world);
     }
 }
 
@@ -663,7 +663,7 @@ impl Household for Family {
         self.log.log(
             format!("Reset member {}\n", member.0).as_str(),
         );
-        TaskEndSchedulerID::local_first(world).deschedule(self.id.into(), member, world);
+        TaskEndScheduler::local_first(world).deschedule(self.id_as(), member, world);
 
         self.stop_task(member, None, world);
     }
@@ -676,7 +676,7 @@ impl Household for Family {
                 .cloned()
         {
             self.used_offers.remove(associated_resource);
-            offer.stopped_using(self.id.into(), None, world);
+            offer.stopped_using(self.id_as(), None, world);
         }
 
         for (i, member_used_offers) in self.member_used_offers.iter_mut().enumerate() {
@@ -687,22 +687,22 @@ impl Household for Family {
                     .cloned()
             {
                 member_used_offers.remove(associated_resource);
-                offer.stopped_using(self.id.into(), Some(MemberIdx(i)), world);
+                offer.stopped_using(self.id_as(), Some(MemberIdx(i)), world);
             }
         }
     }
 
     fn destroy(&mut self, world: &mut World) {
         for &Entry(_, offer) in self.used_offers.iter() {
-            offer.stopped_using(self.id.into(), None, world);
+            offer.stopped_using(self.id_as(), None, world);
         }
         for (i, member_used_offers) in self.member_used_offers.iter().enumerate() {
             for &Entry(_, offer) in member_used_offers.iter() {
-                offer.stopped_using(self.id.into(), Some(MemberIdx(i)), world);
+                offer.stopped_using(self.id_as(), Some(MemberIdx(i)), world);
             }
         }
         self.sleep_offer.withdraw_internal(world);
-        self.home.remove_household(self.id.into(), world);
+        self.home.remove_household(self.id_as(), world);
     }
 
     #[allow(useless_format)]
@@ -784,7 +784,7 @@ use core::simulation::TICKS_PER_SIM_SECOND;
 
 impl Simulatable for Family {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
-        if (current_instant.ticks() + self.id._raw_id.instance_id as usize) %
+        if (current_instant.ticks() + self.id.as_raw().instance_id as usize) %
             (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0
         {
             self.decay(Duration(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world);

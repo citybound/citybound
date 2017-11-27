@@ -1,5 +1,5 @@
 use compact::CVec;
-use kay::{ActorSystem, World};
+use kay::{ActorSystem, World, Actor};
 use descartes::{N, Band};
 use stagemaster::geometry::{CPath, AnyShape};
 
@@ -8,7 +8,7 @@ pub mod connectivity;
 use self::connectivity::{ConnectivityInfo, TransferConnectivityInfo};
 use super::microtraffic::{Microtraffic, TransferringMicrotraffic};
 use super::pathfinding::PathfindingInfo;
-use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
+use stagemaster::{UserInterface, Event3d, Interactable3d, Interactable3dID,
                   MSG_Interactable3d_on_event};
 
 #[derive(Compact, Clone)]
@@ -42,7 +42,7 @@ impl Lane {
         if super::pathfinding::DEBUG_VIEW_CONNECTIVITY ||
             super::pathfinding::trip::DEBUG_MANUALLY_SPAWN_CARS
         {
-            UserInterfaceID::local_first(world).add(
+            UserInterface::local_first(world).add(
                 id.into(),
                 AnyShape::Band(Band::new(path.clone(), 3.0)),
                 5,

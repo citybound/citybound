@@ -178,7 +178,11 @@ impl Model {
 
     pub fn generate_trait_ids_and_messages(&self) -> Tokens {
         let trait_ids_1: Vec<_> = self.traits.keys().map(trait_name_to_id).collect();
-        let trait_ids_2 = trait_ids_1.clone();
+        let (trait_ids_2, trait_ids_3, trait_ids_4) = (
+            trait_ids_1.clone(),
+            trait_ids_1.clone(),
+            trait_ids_1.clone(),
+        );
         let (handler_names, _) = self.map_trait_handlers(|_, handler| handler.name.clone());
         let (handler_args, _) = self.map_trait_handlers_args(arg_as_ident_and_type);
         let (msg_names_1, _) = self.map_trait_handlers(|trait_name, handler| {
@@ -199,13 +203,23 @@ impl Model {
             #(
             #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
             pub struct #trait_ids_1 {
-                pub _raw_id: ID
+                _raw_id: RawID
             }
 
-            impl #trait_ids_2 {
+            impl TypedID for #trait_ids_2 {
+                unsafe fn from_raw(id: RawID) -> Self {
+                    #trait_ids_3 { _raw_id: id }
+                }
+
+                fn as_raw(&self) -> RawID {
+                    self._raw_id
+                }
+            }
+
+            impl #trait_ids_4 {
                 #(
                 pub fn #handler_names(&self #(,#handler_args)*, world: &mut World) {
-                    world.send(self._raw_id, #msg_names_1(#(#msg_params),*));
+                    world.send(self.as_raw(), #msg_names_1(#(#msg_params),*));
                 }
                 )*
             }
@@ -228,12 +242,6 @@ impl Model {
                 None
             })
             .collect();
-        let (actor_here_names_2, actor_here_names_3, actor_here_names_4, actor_here_names_5) = (
-            actor_here_names_1.clone(),
-            actor_here_names_1.clone(),
-            actor_here_names_1.clone(),
-            actor_here_names_1.clone(),
-        );
         let actor_here_ids_1: Vec<_> = self.actors
             .iter()
             .filter_map(|(actor_name, actor_def)| if actor_def.defined_here {
@@ -242,13 +250,7 @@ impl Model {
                 None
             })
             .collect();
-        let (actor_here_ids_2,
-             actor_here_ids_3,
-             actor_here_ids_4,
-             actor_here_ids_5,
-             actor_here_ids_6) = (
-            actor_here_ids_1.clone(),
-            actor_here_ids_1.clone(),
+        let (actor_here_ids_2, actor_here_ids_3, actor_here_ids_4) = (
             actor_here_ids_1.clone(),
             actor_here_ids_1.clone(),
             actor_here_ids_1.clone(),
@@ -302,42 +304,28 @@ impl Model {
         quote!(
             #(
             impl Actor for #actor_here_names_1 {
-                fn id(&self) -> ID {
-                    self.id._raw_id
+                type ID = #actor_here_ids_2;
+
+                fn id(&self) -> Self::ID {
+                    self.id
                 }
-                unsafe fn set_id(&mut self, id: ID) {
-                    self.id._raw_id = id;
+                unsafe fn set_id(&mut self, id: RawID) {
+                    self.id = Self::ID::from_raw(id);
                 }
             }
 
             #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
             pub struct #actor_here_ids_1 {
-                pub _raw_id: ID
+                _raw_id: RawID
             }
 
-            impl #actor_here_ids_2 {
-                pub fn local_first(world: &mut World) -> Self {
-                    #actor_here_ids_3 {
-                        _raw_id: world.local_first::<#actor_here_names_2>()
-                    }
+            impl TypedID for #actor_here_ids_3 {
+                unsafe fn from_raw(id: RawID) -> Self {
+                    #actor_here_ids_4 { _raw_id: id }
                 }
 
-                pub fn global_first(world: &mut World) -> Self {
-                    #actor_here_ids_4 {
-                        _raw_id: world.global_first::<#actor_here_names_3>()
-                    }
-                }
-
-                pub fn local_broadcast(world: &mut World) -> Self {
-                    #actor_here_ids_5 {
-                        _raw_id: world.local_broadcast::<#actor_here_names_4>()
-                    }
-                }
-
-                pub fn global_broadcast(world: &mut World) -> Self {
-                    #actor_here_ids_6 {
-                        _raw_id: world.global_broadcast::<#actor_here_names_5>()
-                    }
+                fn as_raw(&self) -> RawID {
+                    self._raw_id
                 }
             }
             )*
@@ -346,15 +334,15 @@ impl Model {
             impl #actor_ids {
                 #(
                 pub fn #handler_names(&self #(,#handler_args)*, world: &mut World) {
-                    world.send(self._raw_id, #msg_names_1(#(#msg_params),*));
+                    world.send(self.as_raw(), #msg_names_1(#(#msg_params),*));
                 }
                 )*
 
                 #(
                 pub fn #init_handler_names(#(#init_handler_args,)* world: &mut World) -> Self {
-                    let id = #actor_ids_for_init_handlers {
-                        _raw_id: world.allocate_instance_id::<#actor_types_for_init_handlers_1>()
-                    };
+                    let id = unsafe { #actor_ids_for_init_handlers::from_raw(
+                        world.allocate_instance_id::<#actor_types_for_init_handlers_1>()
+                    )};
                     let swarm = world.local_broadcast::<#actor_types_for_init_handlers_2>();
                     world.send(swarm, #init_msg_names_1(id, #(#init_msg_params),*));
                     id

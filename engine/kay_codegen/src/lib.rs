@@ -112,7 +112,7 @@ pub fn generate(model: &Model) -> String {
     quote!(
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
-        use kay::{ActorSystem, ID, Fate, Actor};
+        use kay::{ActorSystem, TypedID, RawID, Fate, Actor};
         use super::*;
 
         #traits_msgs
@@ -155,52 +155,48 @@ fn simple_actor() {
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
-        use kay::{ActorSystem, ID, Fate, Actor};
+        use kay::{ActorSystem, TypedID, RawID, Fate, Actor};
         use super::*;
 
         impl Actor for SomeActor {
-            fn id(&self) -> ID {
-                self.id._raw_id
+            type ID = SomeActorID;
+
+            fn id(&self) -> Self::ID {
+                self.id
             }
-            unsafe fn set_id(&mut self, id: ID) {
-                self.id._raw_id = id;
+            unsafe fn set_id(&mut self, id: RawID) {
+                self.id = Self::ID::from_raw(id);
             }
         }
 
         #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
         pub struct SomeActorID {
-            pub _raw_id: ID
+            _raw_id: RawID
         }
 
-        impl SomeActorID {
-            pub fn local_first(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.local_first::<SomeActor>() }
+        impl TypedID for SomeActorID {
+            unsafe fn from_raw(id: RawID) -> Self {
+                SomeActorID { _raw_id: id }
             }
 
-            pub fn global_first(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.global_first::<SomeActor>() }
-            }
-
-            pub fn local_broadcast(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.local_broadcast::<SomeActor>() }
-            }
-
-            pub fn global_broadcast(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.global_broadcast::<SomeActor>() }
+            fn as_raw(&self) -> RawID {
+                self._raw_id
             }
         }
 
         impl SomeActorID {
             pub fn some_method(&self, some_param: usize, world: &mut World) {
-                world.send(self._raw_id, MSG_SomeActor_some_method(some_param));
+                world.send(self.as_raw(), MSG_SomeActor_some_method(some_param));
             }
 
             pub fn no_params_fate(&self, world: &mut World) {
-                world.send(self._raw_id, MSG_SomeActor_no_params_fate());
+                world.send(self.as_raw(), MSG_SomeActor_no_params_fate());
             }
 
             pub fn init_ish(some_param: usize, world: &mut World) -> Self {
-                let id = SomeActorID { _raw_id: world.allocate_instance_id::<SomeActor>() };
+                let id = unsafe{
+                    SomeActorID::from_raw(world.allocate_instance_id::<SomeActor>())
+                };
                 let swarm = world.local_broadcast::<SomeActor>();
                 world.send(swarm, MSG_SomeActor_init_ish(id, some_param));
                 id
@@ -273,7 +269,7 @@ fn trait_and_impl() {
             }
         }
 
-        // This shouldn't generate any ID
+        // This shouldn't generate any RawID
         impl Deref for SomeActor {
             type Target = usize;
             fn deref(&self) -> &usize {
@@ -284,21 +280,31 @@ fn trait_and_impl() {
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
-        use kay::{ActorSystem, ID, Fate, Actor};
+        use kay::{ActorSystem, TypedID, RawID, Fate, Actor};
         use super::*;
 
         #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
         pub struct SomeTraitID {
-            pub _raw_id: ID
+            _raw_id: RawID
+        }
+
+        impl TypedID for SomeTraitID {
+            unsafe fn from_raw(id: RawID) -> Self {
+                SomeTraitID { _raw_id: id }
+            }
+
+            fn as_raw(&self) -> RawID {
+                self._raw_id
+            }
         }
 
         impl SomeTraitID {
             pub fn some_method(&self, some_param: usize, world: &mut World) {
-                world.send(self._raw_id, MSG_SomeTrait_some_method(some_param));
+                world.send(self.as_raw(), MSG_SomeTrait_some_method(some_param));
             }
 
             pub fn no_params_fate(&self, world: &mut World) {
-                world.send(self._raw_id, MSG_SomeTrait_no_params_fate());
+                world.send(self.as_raw(), MSG_SomeTrait_no_params_fate());
             }
         }
 
@@ -310,34 +316,28 @@ fn trait_and_impl() {
         pub struct MSG_SomeTrait_no_params_fate();
 
         impl Actor for SomeActor {
-            fn id(&self) -> ID {
-                self.id._raw_id
+            type ID = SomeActorID;
+
+            fn id(&self) -> Self::ID {
+                self.id
             }
-            unsafe fn set_id(&mut self, id: ID) {
-                self.id._raw_id = id;
+            unsafe fn set_id(&mut self, id: RawID) {
+                self.id = Self::ID::from_raw(id);
             }
         }
 
         #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
         pub struct SomeActorID {
-            pub _raw_id: ID
+            _raw_id: RawID
         }
 
-        impl SomeActorID {
-            pub fn local_first(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.local_first::<SomeActor>() }
+        impl TypedID for SomeActorID {
+            unsafe fn from_raw(id: RawID) -> Self {
+                SomeActorID { _raw_id: id }
             }
 
-            pub fn global_first(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.global_first::<SomeActor>() }
-            }
-
-            pub fn local_broadcast(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.local_broadcast::<SomeActor>() }
-            }
-
-            pub fn global_broadcast(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.global_broadcast::<SomeActor>() }
+            fn as_raw(&self) -> RawID {
+                self._raw_id
             }
         }
 
