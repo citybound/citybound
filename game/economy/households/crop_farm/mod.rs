@@ -7,17 +7,17 @@ use economy::buildings::BuildingID;
 use economy::buildings::rendering::BuildingInspectorID;
 use transport::pathfinding::RoughLocationID;
 
-use super::{Household, HouseholdID, MemberIdx, MSG_Household_decay, MSG_Household_inspect,
-            MSG_Household_provide_deal, MSG_Household_receive_deal, MSG_Household_task_succeeded,
-            MSG_Household_task_failed, MSG_Household_destroy, MSG_Household_stop_using,
-            MSG_Household_reset_member_task};
+use super::{Household, HouseholdID, HouseholdCore, MemberIdx, MSG_Household_decay,
+            MSG_Household_inspect, MSG_Household_provide_deal, MSG_Household_receive_deal,
+            MSG_Household_task_succeeded, MSG_Household_task_failed, MSG_Household_destroy,
+            MSG_Household_stop_using, MSG_Household_reset_member_task};
 
 
 #[derive(Compact, Clone)]
 pub struct CropFarm {
     id: CropFarmID,
     site: BuildingID,
-    resources: Inventory,
+    core: HouseholdCore,
     crops_offer: OfferID,
     job_offer: OfferID,
 }
@@ -52,6 +52,14 @@ impl CropFarm {
 }
 
 impl Household for CropFarm {
+    fn core(&self) -> &HouseholdCore {
+        &self.core
+    }
+
+    fn core_mut(&mut self) -> &mut HouseholdCore {
+        &mut self.core
+    }
+
     fn is_shared(_: Resource) -> bool {
         true
     }
