@@ -3,7 +3,7 @@ use compact::CVec;
 use core::simulation::{Instant, Duration, Simulatable, SimulatableID, MSG_Simulatable_tick};
 use transport::pathfinding::RoughLocationID;
 use transport::pathfinding::trip::TripID;
-use super::super::resources::ResourceId;
+use super::super::resources::Resource;
 use super::super::market::OfferID;
 
 use super::{HouseholdID, MemberIdx};
@@ -18,7 +18,7 @@ pub enum TaskState {
 
 #[derive(Copy, Clone)]
 pub struct Task {
-    pub goal: Option<(ResourceId, OfferID)>,
+    pub goal: Option<(Resource, OfferID)>,
     pub duration: Duration,
     pub state: TaskState,
 }

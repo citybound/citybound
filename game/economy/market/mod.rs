@@ -1,6 +1,6 @@
 use kay::{ActorSystem, Fate, World};
 use compact::{CVec, CDict};
-use super::resources::{Inventory, Entry, ResourceId, ResourceAmount};
+use super::resources::{Inventory, Entry, Resource, ResourceAmount};
 use super::households::{HouseholdID, MemberIdx};
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, Instant};
 
@@ -11,7 +11,7 @@ pub struct Deal {
 }
 
 impl Deal {
-    pub fn new<T: IntoIterator<Item = (ResourceId, ResourceAmount)>>(
+    pub fn new<T: IntoIterator<Item = (Resource, ResourceAmount)>>(
         delta: T,
         duration: Duration,
     ) -> Self {
@@ -21,7 +21,7 @@ impl Deal {
         }
     }
 
-    pub fn main_given(&self) -> ResourceId {
+    pub fn main_given(&self) -> Resource {
         self.delta
             .iter()
             .filter_map(|&Entry(resource, amount)| if amount > 0.0 {
@@ -292,14 +292,14 @@ impl RoughLocation for Offer {
 }
 
 pub trait EvaluationRequester {
-    fn expect_n_results(&mut self, resource: ResourceId, n: usize, world: &mut World);
+    fn expect_n_results(&mut self, resource: Resource, n: usize, world: &mut World);
     fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World);
 }
 
 #[derive(Compact, Clone)]
 pub struct Market {
     id: MarketID,
-    offers_by_resource: CDict<ResourceId, CVec<OfferID>>,
+    offers_by_resource: CDict<Resource, CVec<OfferID>>,
 }
 
 impl Market {
@@ -311,7 +311,7 @@ impl Market {
         &mut self,
         instant: Instant,
         location: RoughLocationID,
-        resource: ResourceId,
+        resource: Resource,
         requester: EvaluationRequesterID,
         world: &mut World,
     ) {
@@ -328,11 +328,11 @@ impl Market {
         requester.expect_n_results(resource, n_to_expect, world);
     }
 
-    pub fn register(&mut self, resource: ResourceId, offer: OfferID, _: &mut World) {
+    pub fn register(&mut self, resource: Resource, offer: OfferID, _: &mut World) {
         self.offers_by_resource.push_at(resource, offer);
     }
 
-    pub fn withdraw(&mut self, resource: ResourceId, offer: OfferID, world: &mut World) {
+    pub fn withdraw(&mut self, resource: Resource, offer: OfferID, world: &mut World) {
         if let Some(offers) = self.offers_by_resource.get_mut(resource) {
             offers.retain(|o| *o != offer);
         }
@@ -349,7 +349,7 @@ pub struct EvaluatedDeal {
 
 #[derive(Compact, Clone)]
 pub struct EvaluatedSearchResult {
-    pub resource: ResourceId,
+    pub resource: Resource,
     pub evaluated_deals: CVec<EvaluatedDeal>,
 }
 

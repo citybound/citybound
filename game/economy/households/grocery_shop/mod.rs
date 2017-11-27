@@ -1,7 +1,7 @@
 use kay::{ActorSystem, World, External};
 use imgui::Ui;
-use core::simulation::{TimeOfDayRange, Duration};
-use economy::resources::{Inventory, r_id, r_properties, r_info, all_resource_ids};
+use core::simulation::{TimeOfDay, TimeOfDayRange, Duration};
+use economy::resources::{Inventory, Resource};
 use economy::market::{Deal, OfferID};
 use economy::buildings::BuildingID;
 use economy::buildings::rendering::BuildingInspectorID;
@@ -33,7 +33,7 @@ impl GroceryShop {
                 site.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
-                    vec![(r_id("groceries"), 30.0), (r_id("money"), -60.0)],
+                    vec![(Resource::Groceries, 30.0), (Resource::Money, -60.0)],
                     Duration::from_minutes(30),
                 ),
                 world,
@@ -43,7 +43,7 @@ impl GroceryShop {
                 MemberIdx(0),
                 site.into(),
                 TimeOfDayRange::new(7, 0, 15, 0),
-                Deal::new(Some((r_id("money"), 50.0)), Duration::from_hours(5)),
+                Deal::new(Some((Resource::Money, 50.0)), Duration::from_hours(5)),
                 world,
             ),
         }
@@ -51,6 +51,22 @@ impl GroceryShop {
 }
 
 impl Household for GroceryShop {
+    fn is_shared(_: Resource) -> bool {
+        true
+    }
+
+    fn supplier_shared(_: Resource) -> bool {
+        true
+    }
+
+    fn importance(_: Resource, _: TimeOfDay) -> f32 {
+        1.0
+    }
+
+    fn interesting_resources() -> &'static [Resource] {
+        &[Resource::Money, Resource::Groceries]
+    }
+
     fn receive_deal(&mut self, deal: &Deal, _member: MemberIdx, _: &mut World) {
         deal.delta.give_to(&mut self.resources);
     }
@@ -76,7 +92,7 @@ impl Household for GroceryShop {
     }
 
     fn decay(&mut self, dt: Duration, _: &mut World) {
-        let groceries = self.resources.mut_entry_or(r_id("groceries"), 0.0);
+        let groceries = self.resources.mut_entry_or(Resource::Groceries, 0.0);
         *groceries += 0.001 * dt.as_seconds();
     }
 
@@ -97,11 +113,11 @@ impl Household for GroceryShop {
 
         ui.window(im_str!("Building")).build(|| {
             ui.tree_node(im_str!("Grocery Shop ID: {:?}", self.id._raw_id))
-                .build(|| for resource in all_resource_ids() {
-                    if r_properties(resource).ownership_shared {
-                        ui.text(im_str!("{}", r_info(resource).0));
+                .build(|| for resource in Self::interesting_resources() {
+                    if Self::is_shared(*resource) {
+                        ui.text(im_str!("{}", resource));
                         ui.same_line(100.0);
-                        let amount = self.resources.get(resource).cloned().unwrap_or(0.0);
+                        let amount = self.resources.get(*resource).cloned().unwrap_or(0.0);
                         ui.text(im_str!("{:.2}", amount));
                     }
                 });

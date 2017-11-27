@@ -6,7 +6,7 @@ use core::random::{seed, Rng};
 
 use core::simulation::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, SimulationID,
                        Simulatable, SimulatableID, MSG_Simulatable_tick};
-use economy::resources::{ResourceId, ResourceAmount, ResourceMap, Entry};
+use economy::resources::{Resource, ResourceAmount, ResourceMap, Entry};
 use economy::market::{Deal, MarketID, OfferID, EvaluatedDeal, EvaluationRequester,
                       EvaluationRequesterID, MSG_EvaluationRequester_expect_n_results,
                       MSG_EvaluationRequester_on_result, EvaluatedSearchResult};
@@ -16,8 +16,6 @@ use transport::pathfinding::trip::{TripResult, TripFate, TripListenerID,
                                    MSG_TripListener_trip_created, MSG_TripListener_trip_result};
 use transport::pathfinding::RoughLocationID;
 
-mod judgement_table;
-use self::judgement_table::judgement_table;
 pub mod names;
 use self::names::{family_name, member_name};
 
@@ -39,7 +37,7 @@ struct DecisionResourceEntry {
 #[derive(Compact, Clone)]
 enum DecisionState {
     None,
-    Choosing(MemberIdx, Instant, CVec<(ResourceId, f32)>, CDict<ResourceId, DecisionResourceEntry>),
+    Choosing(MemberIdx, Instant, CVec<(Resource, f32)>, CDict<Resource, DecisionResourceEntry>),
     WaitingForTrip(MemberIdx),
 }
 
@@ -74,12 +72,6 @@ const N_TOP_PROBLEMS: usize = 5;
 const DECISION_PAUSE: Ticks = Ticks(200);
 const UPDATE_EVERY_N_SECS: usize = 4;
 
-use economy::resources::r_properties;
-
-fn resource_graveness_helper(resource: ResourceId, amount: ResourceAmount, time: TimeOfDay) -> f32 {
-    -amount * judgement_table().importance(resource, time)
-}
-
 impl Family {
     pub fn move_into(
         id: FamilyID,
@@ -95,12 +87,12 @@ impl Family {
             MemberIdx(0),
             home.into(),
             TimeOfDayRange::new(16, 0, 11, 0),
-            Deal::new(Some((r_id("awakeness"), 3.0)), Duration::from_hours(1)),
+            Deal::new(Some((Resource::Awakeness, 3.0)), Duration::from_hours(1)),
             world,
         );
 
         let mut used_offers = ResourceMap::new();
-        used_offers.insert(r_id("awakeness"), sleep_offer);
+        used_offers.insert(Resource::Awakeness, sleep_offer);
 
         Family {
             id,
@@ -145,12 +137,12 @@ impl Sleeper for Family {
 }
 
 impl Family {
-    pub fn top_problems(&self, member: MemberIdx, time: TimeOfDay) -> Vec<(ResourceId, f32)> {
+    pub fn top_problems(&self, member: MemberIdx, time: TimeOfDay) -> Vec<(Resource, f32)> {
         let mut resource_graveness = self.resources
             .iter()
             .chain(self.member_resources[member.0].iter())
             .map(|&Entry(resource, amount)| {
-                (resource, resource_graveness_helper(resource, amount, time))
+                (resource, Self::graveness(resource, amount, time))
             })
             .collect::<Vec<_>>();
         resource_graveness.sort_by_key(|&(_r, i)| OrderedFloat(i));
@@ -176,18 +168,13 @@ impl Family {
         if top_problems.is_empty() {
             SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, self.id.into(), world);
         } else {
-            let mut decision_entries = CDict::<ResourceId, DecisionResourceEntry>::new();
+            let mut decision_entries = CDict::<Resource, DecisionResourceEntry>::new();
 
             for &(resource, graveness) in &top_problems {
                 self.log.log(
-                    format!(
-                        "Member #{}: {} = {}",
-                        member.0,
-                        r_info(resource).0,
-                        graveness
-                    ).as_str(),
+                    format!("Member #{}: {} = {}", member.0, resource, graveness).as_str(),
                 );
-                let maybe_offer = if r_properties(resource).supplier_shared {
+                let maybe_offer = if Self::supplier_shared(resource) {
                     self.used_offers.get(resource)
                 } else {
                     self.member_used_offers[member.0].get(resource)
@@ -198,7 +185,7 @@ impl Family {
                         format!(
                             " -> Using favorite offer {:?} for {}\n",
                             offer._raw_id,
-                            r_info(resource).0
+                            resource
                         ).as_str(),
                     );
                     offer.evaluate(instant, location, self.id.into(), world);
@@ -206,7 +193,7 @@ impl Family {
                     AsyncCounter::with_target(1)
                 } else {
                     self.log.log(
-                        format!(" -> Doing market query for {}\n", r_info(resource).0).as_str(),
+                        format!(" -> Doing market query for {}\n", resource).as_str(),
                     );
                     MarketID::global_first(world).search(
                         instant,
@@ -242,7 +229,7 @@ enum ResultAspect {
 }
 
 impl Family {
-    fn update_results(&mut self, resource: ResourceId, update: ResultAspect, world: &mut World) {
+    fn update_results(&mut self, resource: Resource, update: ResultAspect, world: &mut World) {
         let done =
             if let DecisionState::Choosing(_, instant, ref top_problems, ref mut entries) =
                 self.decision_state
@@ -257,7 +244,7 @@ impl Family {
                             for evaluated_deal in evaluated_deals {
                                 self.log.log(
                                     format!("Got eval'd deal for {}, {:?} -> {:?}\n",
-                                        r_info(evaluated_deal.deal.main_given()).0,
+                                        evaluated_deal.deal.main_given(),
                                         evaluated_deal.opening_hours.start.hours_minutes(),
                                         evaluated_deal.opening_hours.end.hours_minutes(),).as_str(),
                                 );
@@ -309,7 +296,7 @@ impl Family {
 
     fn deal_usefulness(
         log: &mut FamilyLog,
-        top_problems: &[(ResourceId, f32)],
+        top_problems: &[(Resource, f32)],
         evaluated: &EvaluatedDeal,
     ) -> f32 {
         let resource_graveness_improvement: f32 = top_problems
@@ -319,9 +306,8 @@ impl Family {
                 let improvement_strength = delta * graveness;
                 log.log(
                     format!(
-                        "{} ({}) improves by {} (graveness {}, delta: {:?})\n",
-                        r_info(resource).0,
-                        resource.as_index(),
+                        "{} improves by {} (graveness {}, delta: {:?})\n",
+                        resource,
                         improvement_strength,
                         graveness,
                         evaluated.deal.delta.get(resource)
@@ -341,7 +327,7 @@ impl Family {
         //         log.push_str(
         //             format!(
         //                 "{} improves by {}\n",
-        //                 r_info(resource).0,
+        //                 resource,
         //                 resource_improvement
         //             ).as_str(),
         //         );
@@ -355,7 +341,7 @@ impl Family {
 
 
 impl EvaluationRequester for Family {
-    fn expect_n_results(&mut self, resource: ResourceId, n: usize, world: &mut World) {
+    fn expect_n_results(&mut self, resource: Resource, n: usize, world: &mut World) {
         self.update_results(resource, ResultAspect::SetTarget(n), world);
     }
 
@@ -390,10 +376,7 @@ impl Family {
                     };
 
                     self.log.log(
-                        format!(
-                            "Found best offer for {}\n",
-                            r_info(best.deal.main_given()).0
-                        ).as_str(),
+                        format!("Found best offer for {}\n", best.deal.main_given()).as_str(),
                     );
 
                     Some((member, instant, best.offer))
@@ -419,7 +402,7 @@ impl Family {
         }
 
         fn most_useful_evaluated_deal(
-            entries: &CDict<ResourceId, DecisionResourceEntry>,
+            entries: &CDict<Resource, DecisionResourceEntry>,
         ) -> Option<EvaluatedDeal> {
             entries
                 .values()
@@ -488,17 +471,13 @@ impl TripListener for Family {
                 .next()
                 .expect("Should have a matching task");
         {
-            let shared = r_properties(matching_resource).supplier_shared;
-            let used_offers = if shared {
-                &mut self.used_offers
+            let (used_offers, maybe_member) = if Self::supplier_shared(matching_resource) {
+                (&mut self.used_offers, None)
             } else {
-                &mut self.member_used_offers[matching_task_member.0]
-            };
-
-            let maybe_member = if shared {
-                None
-            } else {
-                Some(matching_task_member)
+                (
+                    &mut self.member_used_offers[matching_task_member.0],
+                    Some(matching_task_member),
+                )
             };
 
             match result.fate {
@@ -585,23 +564,64 @@ impl Family {
     }
 }
 
-use economy::resources::{all_resource_ids, r_info, r_id};
-
 impl Household for Family {
+    fn is_shared(resource: Resource) -> bool {
+        match resource {
+            Resource::Awakeness | Resource::Satiety => false,
+            Resource::Money | Resource::Groceries => true,
+            _ => unimplemented!(),
+        }
+    }
+
+    fn supplier_shared(resource: Resource) -> bool {
+        match resource {
+            Resource::Money => false,
+            Resource::Awakeness | Resource::Satiety | Resource::Groceries => true,
+            _ => unimplemented!(),
+        }
+    }
+
+    fn importance(resource: Resource, time: TimeOfDay) -> f32 {
+        let hour = time.hours_minutes().0;
+
+        let bihourly_importance = match resource {
+            Resource::Awakeness => Some([7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 7, 7]),
+            Resource::Satiety => Some([0, 0, 5, 5, 1, 5, 5, 1, 5, 5, 1, 1]),
+            Resource::Money => Some([0, 0, 3, 3, 5, 5, 5, 3, 3, 1, 1, 1]),
+            Resource::Groceries => Some([0, 0, 4, 4, 1, 4, 4, 4, 4, 4, 0, 0]),
+            _ => None,
+        };
+
+        bihourly_importance
+            .map(|lookup| lookup[hour / 2] as f32)
+            .unwrap_or(0.0)
+    }
+
+    fn interesting_resources() -> &'static [Resource] {
+        &[
+            Resource::Awakeness,
+            Resource::Satiety,
+            Resource::Money,
+            Resource::Groceries,
+        ]
+    }
+
     fn receive_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
         deal.delta.give_to_shared_private(
             &mut self.resources,
             &mut self.member_resources[member.0],
+            Self::is_shared,
         );
     }
 
     fn provide_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
         let provide_awakeness = deal.delta.len() == 1 &&
-            deal.delta.get(r_id("awakeness")).is_some();
+            deal.delta.get(Resource::Awakeness).is_some();
         if !provide_awakeness {
             deal.delta.take_from_shared_private(
                 &mut self.resources,
                 &mut self.member_resources[member.0],
+                Self::is_shared,
             );
         }
     }
@@ -610,14 +630,14 @@ impl Household for Family {
         for (i, member_resources) in self.member_resources.iter_mut().enumerate() {
             {
                 let individuality = seed((self.id, i)).gen_range(0.8, 1.2);
-                let awakeness = member_resources.mut_entry_or(r_id("awakeness"), 0.0);
+                let awakeness = member_resources.mut_entry_or(Resource::Awakeness, 0.0);
                 *awakeness -= 1.0 * individuality * dt.as_hours();
             }
             {
                 let individuality = seed((self.id, i, 1u8)).gen_range(0.8, 1.2);
-                let satiety = member_resources.mut_entry_or(r_id("satiety"), 0.0);
+                let satiety = member_resources.mut_entry_or(Resource::Satiety, 0.0);
                 if *satiety < 0.0 {
-                    let groceries = self.resources.mut_entry_or(r_id("groceries"), 0.0);
+                    let groceries = self.resources.mut_entry_or(Resource::Groceries, 0.0);
                     *groceries -= 3.0;
                     *satiety += 3.0;
                 }
@@ -705,11 +725,11 @@ impl Household for Family {
                     //         DecisionState::WaitingForTrip(_) => ": Waiting for trip",
                     //     }
                     // ));
-                    for resource in all_resource_ids() {
-                        if r_properties(resource).ownership_shared {
-                            ui.text(im_str!("{}", r_info(resource).0));
+                    for resource in Self::interesting_resources() {
+                        if Self::is_shared(*resource) {
+                            ui.text(im_str!("{}", resource));
                             ui.same_line(100.0);
-                            let amount = self.resources.get(resource).cloned().unwrap_or(0.0);
+                            let amount = self.resources.get(*resource).cloned().unwrap_or(0.0);
                             ui.text(im_str!("{:.2}", amount));
                         }
                     }
@@ -734,14 +754,15 @@ impl Household for Family {
                             },
                             member_task
                                 .goal
-                                .map(|goal| r_info(goal.0).0)
+                                .map(|goal| format!("{}", goal.0))
                                 .unwrap_or_else(|| "nothing".to_owned())
                         ));
-                        for resource in all_resource_ids() {
-                            if !r_properties(resource).ownership_shared {
-                                ui.text(im_str!("{}", r_info(resource).0));
+                        for resource in Self::interesting_resources() {
+                            if !Self::is_shared(*resource) {
+                                ui.text(im_str!("{}", resource));
                                 ui.same_line(100.0);
-                                let amount = member_resources.get(resource).cloned().unwrap_or(0.0);
+                                let amount =
+                                    member_resources.get(*resource).cloned().unwrap_or(0.0);
                                 ui.text(im_str!("{:.2}", amount));
                             }
                         }
@@ -772,10 +793,7 @@ impl Simulatable for Family {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    judgement_table::setup();
-
     system.register::<Family>();
-
     auto_setup(system);
 }
 

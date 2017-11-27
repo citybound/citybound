@@ -1,5 +1,5 @@
 use kay::{ActorSystem, World};
-use core::simulation::Duration;
+use core::simulation::{Duration, TimeOfDay};
 
 use transport::pathfinding::RoughLocationID;
 
@@ -16,8 +16,16 @@ use kay::External;
 
 use super::market::{Deal, OfferID};
 use super::buildings::rendering::BuildingInspectorID;
+use super::resources::{Resource, ResourceAmount};
 
 pub trait Household {
+    fn is_shared(resource: Resource) -> bool;
+    fn supplier_shared(resource: Resource) -> bool;
+    fn importance(resource: Resource, time: TimeOfDay) -> f32;
+    fn graveness(resource: Resource, amount: ResourceAmount, time: TimeOfDay) -> f32 {
+        -amount * Self::importance(resource, time)
+    }
+    fn interesting_resources() -> &'static [Resource];
     fn receive_deal(&mut self, deal: &Deal, member: MemberIdx, world: &mut World);
     fn provide_deal(&mut self, deal: &Deal, member: MemberIdx, world: &mut World);
     fn decay(&mut self, dt: Duration, world: &mut World);
