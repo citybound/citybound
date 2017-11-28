@@ -112,7 +112,7 @@ pub fn generate(model: &Model) -> String {
     quote!(
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
-        use kay::{ActorSystem, TypedID, RawID, Fate, Actor};
+        use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom};
         use super::*;
 
         #traits_msgs
@@ -155,7 +155,7 @@ fn simple_actor() {
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
-        use kay::{ActorSystem, TypedID, RawID, Fate, Actor};
+        use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom};
         use super::*;
 
         impl Actor for SomeActor {
@@ -283,7 +283,7 @@ fn trait_and_impl() {
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
-        use kay::{ActorSystem, TypedID, RawID, Fate, Actor};
+        use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom};
         use super::*;
 
         #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
@@ -300,6 +300,8 @@ fn trait_and_impl() {
                 self._raw_id
             }
         }
+
+        impl<A: Actor + SomeTrait> TraitIDFrom<A> for SomeTraitID {}
 
         impl SomeTraitID {
             pub fn some_method(&self, some_param: usize, world: &mut World) {
@@ -371,18 +373,6 @@ fn trait_and_impl() {
         }
 
         impl SomeActorID { }
-
-        impl Into<SomeTraitID> for SomeActorID {
-            fn into(self) -> SomeTraitID {
-                unsafe {::std::mem::transmute(self)}
-            }
-        }
-
-        impl Into<ForeignTraitID> for SomeActorID {
-            fn into(self) -> ForeignTraitID {
-                unsafe {::std::mem::transmute(self)}
-            }
-        }
 
         #[allow(unused_variables)]
         #[allow(unused_mut)]

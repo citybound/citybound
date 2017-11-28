@@ -35,11 +35,8 @@ pub trait Actor: Compact + StorageAware + 'static {
     /// Set the full RawID (Actor type id + instance id) of `self` (called internally by `Swarm`)
     unsafe fn set_id(&mut self, id: RawID);
 
-    fn id_as<T: TypedID>(&self) -> T
-    where
-        Self::ID: Into<T>,
-    {
-        self.id().into()
+    fn id_as<TargetID: TraitIDFrom<Self>>(&self) -> TargetID {
+        TargetID::from(&self)
     }
 
     fn local_first(world: &mut World) -> Self::ID {
@@ -56,6 +53,12 @@ pub trait Actor: Compact + StorageAware + 'static {
 
     fn global_broadcast(world: &mut World) -> Self::ID {
         unsafe { Self::ID::from_raw(world.global_broadcast::<Self>()) }
+    }
+}
+
+pub trait TraitIDFrom<A: Actor>: TypedID {
+    fn from(act: &A) -> Self {
+        unsafe { Self::from_raw(act.id().as_raw()) }
     }
 }
 

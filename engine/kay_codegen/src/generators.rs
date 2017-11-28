@@ -197,7 +197,8 @@ impl Model {
         let trait_types_1: Vec<_> = self.traits.keys().collect();
         let trait_types_2 = trait_types_1.clone();
         let trait_ids_1: Vec<_> = self.traits.keys().map(trait_name_to_id).collect();
-        let (trait_ids_2, trait_ids_3, trait_ids_4) = (
+        let (trait_ids_2, trait_ids_3, trait_ids_4, trait_ids_5) = (
+            trait_ids_1.clone(),
             trait_ids_1.clone(),
             trait_ids_1.clone(),
             trait_ids_1.clone(),
@@ -258,7 +259,9 @@ impl Model {
                 }
             }
 
-            impl #trait_ids_4 {
+            impl<A: Actor + #trait_types_1> TraitIDFrom<A> for #trait_ids_4 {}
+
+            impl #trait_ids_5 {
                 #(
                 pub fn #handler_names_1(&self #(,#handler_args)*, world: &mut World) {
                     world.send(self.as_raw(), #msg_names_1(#(#msg_params_1),*));
@@ -334,24 +337,6 @@ impl Model {
             self.map_handlers(OnlyOwn, |actor_name, _| actor_name_to_id(actor_name));
         let actor_ids_for_init_msgs = actor_ids_for_init_handlers.clone();
 
-        let actor_trait_ids_1: Vec<Vec<_>> = self.actors
-            .iter()
-            .map(|(_, actor_def)| {
-                actor_def.impls.iter().map(trait_name_to_id).collect()
-            })
-            .collect();
-        let actor_trait_ids_2 = actor_trait_ids_1.clone();
-        let actor_ids_for_traits: Vec<Vec<_>> = self.actors
-            .iter()
-            .map(|(actor_name, actor_def)| {
-                actor_def
-                    .impls
-                    .iter()
-                    .map(|_| actor_name_to_id(actor_name))
-                    .collect()
-            })
-            .collect();
-
         quote!(
             #(
             impl Actor for #actor_here_names_1 {
@@ -414,18 +399,6 @@ impl Model {
                 pub #actor_ids_for_init_msgs, #(pub #init_msg_param_types),*
             );
             )*
-            )*
-
-            #(
-                #(
-                impl Into<#actor_trait_ids_1> for #actor_ids_for_traits {
-                    fn into(self) -> #actor_trait_ids_2 {
-                        unsafe {
-                            ::std::mem::transmute(self)
-                        }
-                    }
-                }
-                )*
             )*
         )
     }
