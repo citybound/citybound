@@ -205,7 +205,7 @@ impl PlanManager {
     }
 }
 
-use core::simulation::{Simulation, Ticks, Sleeper, SleeperID, MSG_Sleeper_wake};
+use core::simulation::{Simulation, Ticks, Sleeper, SleeperID};
 
 impl PlanManager {
     pub fn materialize(&mut self, world: &mut World) {

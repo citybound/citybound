@@ -1,11 +1,10 @@
-use kay::{ActorSystem, Fate, World};
+use kay::{ActorSystem, Fate, World, Actor};
 use compact::CVec;
 use descartes::{P2, N, Norm, Band, Into2d, Curve, FiniteCurve, Path, RoughlyComparable};
 use stagemaster::geometry::{AnyShape, CPath};
 use planning::plan_manager::{PlanManagerID, Intent, IntentProgress};
 
-use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
-                  MSG_Interactable3d_on_event};
+use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID};
 
 use super::RoadIntent;
 

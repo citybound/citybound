@@ -105,7 +105,7 @@ pub enum HandlerType {
 }
 
 pub fn generate(model: &Model) -> String {
-    let traits_msgs = model.generate_trait_ids_and_messages();
+    let traits_msgs = model.generate_traits();
     let actors_msgs = model.generate_actor_ids_messages_and_conversions();
     let setup = model.generate_setups();
 
@@ -205,13 +205,13 @@ fn simple_actor() {
 
         #[allow(non_camel_case_types)]
         #[derive(Compact, Clone)]
-        pub struct MSG_SomeActor_some_method(pub usize);
+        struct MSG_SomeActor_some_method(pub usize);
         #[allow(non_camel_case_types)]
         #[derive(Copy, Clone)]
-        pub struct MSG_SomeActor_no_params_fate();
+        struct MSG_SomeActor_no_params_fate();
         #[allow(non_camel_case_types)]
         #[derive(Compact, Clone)]
-        pub struct MSG_SomeActor_init_ish(pub SomeActorID, pub usize);
+        struct MSG_SomeActor_init_ish(pub SomeActorID, pub usize);
 
         #[allow(unused_variables)]
         #[allow(unused_mut)]
@@ -251,6 +251,9 @@ fn trait_and_impl() {
         trait SomeTrait {
             fn some_method(&mut self, some_param: &usize, world: &mut World);
             fn no_params_fate(&mut self, world: &mut World) -> Fate;
+            fn some_default_impl_method(&mut self, world: &mut World) {
+                self.some_method(3, world);
+            }
         }
 
         impl SomeTrait for SomeActor {
@@ -306,14 +309,40 @@ fn trait_and_impl() {
             pub fn no_params_fate(&self, world: &mut World) {
                 world.send(self.as_raw(), MSG_SomeTrait_no_params_fate());
             }
+
+            pub fn some_default_impl_method(&self, world: &mut World) {
+                world.send(self.as_raw(), MSG_SomeTrait_some_default_impl_method());
+            }
+
+            pub fn register_handlers<A: Actor + SomeTrait>(system: &mut ActorSystem) {
+                system.add_handler::<A, _, _>(
+                    |&MSG_SomeTrait_some_method(ref some_param), instance, world| {
+                    instance.some_method(some_param, world);
+                    Fate::Live
+                }, false);
+
+                system.add_handler::<A, _, _>(
+                    |&MSG_SomeTrait_no_params_fate(), instance, world| {
+                    instance.no_params_fate(world)
+                }, false);
+
+                system.add_handler::<A, _, _>(
+                    |&MSG_SomeTrait_some_default_impl_method(), instance, world| {
+                    instance.some_default_impl_method(world);
+                    Fate::Live
+                }, false);
+            }
         }
 
         #[allow(non_camel_case_types)]
         #[derive(Compact, Clone)]
-        pub struct MSG_SomeTrait_some_method(pub usize);
+        struct MSG_SomeTrait_some_method(pub usize);
         #[allow(non_camel_case_types)]
         #[derive(Copy, Clone)]
-        pub struct MSG_SomeTrait_no_params_fate();
+        struct MSG_SomeTrait_no_params_fate();
+        #[allow(non_camel_case_types)]
+        #[derive(Copy, Clone)]
+        struct MSG_SomeTrait_some_default_impl_method();
 
         impl Actor for SomeActor {
             type ID = SomeActorID;
@@ -358,22 +387,8 @@ fn trait_and_impl() {
         #[allow(unused_variables)]
         #[allow(unused_mut)]
         pub fn auto_setup(system: &mut ActorSystem) {
-            system.add_handler::<SomeActor, _, _>(
-                |&MSG_SomeTrait_some_method(ref some_param), instance, world| {
-                instance.some_method(some_param, world);
-                Fate::Live
-            }, false);
-
-            system.add_handler::<SomeActor, _, _>(
-                |&MSG_SomeTrait_no_params_fate(), instance, world| {
-                instance.no_params_fate(world)
-            }, false);
-
-            system.add_handler::<SomeActor, _, _>(
-                |&MSG_ForeignTrait_simple(ref some_param), instance, world| {
-                instance.simple(some_param, world);
-                Fate::Live
-            }, false);
+            SomeTraitID::register_handlers::<SomeActor>(system);
+            ForeignTraitID::register_handlers::<SomeActor>(system);
         }
     );
 

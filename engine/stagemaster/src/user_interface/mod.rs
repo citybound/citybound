@@ -444,7 +444,7 @@ impl UserInterface {
     }
 }
 
-use monet::{ProjectionRequester, ProjectionRequesterID, MSG_ProjectionRequester_projected_3d};
+use monet::{ProjectionRequester, ProjectionRequesterID};
 
 impl ProjectionRequester for UserInterface {
     fn projected_3d(&mut self, position_3d: P3, world: &mut World) {
@@ -500,7 +500,7 @@ impl ProjectionRequester for UserInterface {
     }
 }
 
-use monet::{TargetProvider, TargetProviderID, MSG_TargetProvider_submitted};
+use monet::{TargetProvider, TargetProviderID};
 use monet::glium::Frame;
 
 #[allow(useless_format)]

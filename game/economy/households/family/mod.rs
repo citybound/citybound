@@ -5,15 +5,13 @@ use ordered_float::OrderedFloat;
 use core::random::{seed, Rng};
 
 use core::simulation::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, Simulation,
-                       SimulationID, Simulatable, SimulatableID, MSG_Simulatable_tick};
+                       SimulationID, Simulatable, SimulatableID};
 use economy::resources::{Resource, ResourceAmount, ResourceMap, Entry};
 use economy::market::{Deal, Market, OfferID, EvaluatedDeal, EvaluationRequester,
-                      EvaluationRequesterID, MSG_EvaluationRequester_expect_n_results,
-                      MSG_EvaluationRequester_on_result, EvaluatedSearchResult};
+                      EvaluationRequesterID, EvaluatedSearchResult};
 use economy::buildings::BuildingID;
 use economy::buildings::rendering::BuildingInspectorID;
-use transport::pathfinding::trip::{TripResult, TripFate, TripListenerID,
-                                   MSG_TripListener_trip_created, MSG_TripListener_trip_result};
+use transport::pathfinding::trip::{TripResult, TripFate, TripListenerID};
 use transport::pathfinding::RoughLocationID;
 
 pub mod names;
@@ -21,10 +19,7 @@ use self::names::{family_name, member_name};
 
 use core::async_counter::AsyncCounter;
 
-use super::{Household, HouseholdID, MemberIdx, MSG_Household_decay, MSG_Household_inspect,
-            MSG_Household_provide_deal, MSG_Household_receive_deal, MSG_Household_task_succeeded,
-            MSG_Household_task_failed, MSG_Household_destroy, MSG_Household_stop_using,
-            MSG_Household_reset_member_task};
+use super::{Household, HouseholdID, MemberIdx};
 use super::tasks::{Task, TaskEndScheduler};
 
 #[derive(Compact, Clone)]
@@ -109,7 +104,7 @@ impl Family {
     }
 }
 
-use core::simulation::{Sleeper, SleeperID, MSG_Sleeper_wake};
+use core::simulation::{Sleeper, SleeperID};
 
 impl Sleeper for Family {
     fn wake(&mut self, current_instant: Instant, world: &mut World) {
@@ -486,14 +481,14 @@ impl TripListener for Family {
                         used_offers.insert(matching_resource, matching_offer)
                     {
                         if previous_offer != matching_offer {
-                            previous_offer.stopped_using(self.id_as(), maybe_member, world);
+                            previous_offer.stopped_using(self.id.into(), maybe_member, world);
                         }
                     }
-                    matching_offer.started_using(self.id_as(), maybe_member, world);
+                    matching_offer.started_using(self.id.into(), maybe_member, world);
                 }
                 _ => {
                     used_offers.remove(matching_resource);
-                    matching_offer.stopped_using(self.id_as(), maybe_member, world);
+                    matching_offer.stopped_using(self.id.into(), maybe_member, world);
                 }
             }
         }
@@ -687,7 +682,7 @@ impl Household for Family {
                     .cloned()
             {
                 member_used_offers.remove(associated_resource);
-                offer.stopped_using(self.id_as(), Some(MemberIdx(i)), world);
+                offer.stopped_using(self.id.into(), Some(MemberIdx(i)), world);
             }
         }
     }

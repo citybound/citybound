@@ -252,8 +252,7 @@ impl Grouper {
     }
 }
 
-use {Renderable, RendererID, RenderableID, MSG_Renderable_setup_in_scene,
-     MSG_Renderable_render_to_scene};
+use {Renderable, RendererID, RenderableID};
 
 impl Renderable for Grouper {
     fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}

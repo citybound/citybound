@@ -1,4 +1,4 @@
-use kay::{ActorSystem, World, External, TypedID};
+use kay::{ActorSystem, World, External, TypedID, Actor};
 use imgui::Ui;
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration};
 use economy::resources::{Inventory, Resource};
@@ -7,10 +7,7 @@ use economy::buildings::BuildingID;
 use economy::buildings::rendering::BuildingInspectorID;
 use transport::pathfinding::RoughLocationID;
 
-use super::{Household, HouseholdID, MemberIdx, MSG_Household_decay, MSG_Household_inspect,
-            MSG_Household_provide_deal, MSG_Household_receive_deal, MSG_Household_task_succeeded,
-            MSG_Household_task_failed, MSG_Household_destroy, MSG_Household_stop_using,
-            MSG_Household_reset_member_task};
+use super::{Household, HouseholdID, MemberIdx};
 
 
 #[derive(Compact, Clone)]
@@ -128,8 +125,7 @@ impl Household for CropFarm {
     }
 }
 
-use core::simulation::{Simulatable, SimulatableID, Instant, TICKS_PER_SIM_SECOND,
-                       MSG_Simulatable_tick};
+use core::simulation::{Simulatable, SimulatableID, Instant, TICKS_PER_SIM_SECOND};
 const UPDATE_EVERY_N_SECS: usize = 4;
 
 impl Simulatable for CropFarm {

@@ -12,8 +12,7 @@ mod car;
 #[path = "./resources/traffic_light.rs"]
 mod traffic_light;
 
-use monet::{Renderable, RenderableID, GrouperID, GrouperIndividual, GrouperIndividualID,
-            MSG_GrouperIndividual_render_to_grouper, MSG_Renderable_setup_in_scene};
+use monet::{Renderable, RenderableID, GrouperID, GrouperIndividual, GrouperIndividualID};
 
 const LANE_ASPHALT_THING_ID: u16 = 2000;
 const LANE_MARKER_THING_ID: u16 = 2200;
@@ -550,8 +549,6 @@ pub fn setup(system: &mut ActorSystem) {
 }
 
 const CONSTRUCTION_ANIMATION_DELAY: f32 = 120.0;
-
-use monet::MSG_Renderable_render_to_scene;
 
 const DEBUG_VIEW_LANDMARKS: bool = false;
 const DEBUG_VIEW_SIGNALS: bool = false;

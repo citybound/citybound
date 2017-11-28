@@ -98,8 +98,7 @@ impl PlanManager {
     }
 }
 
-use stagemaster::{Interactable3d, Interactable3dID, Interactable2d, Interactable2dID, Event3d,
-                  MSG_Interactable3d_on_event, MSG_Interactable2d_draw_ui_2d};
+use stagemaster::{Interactable3d, Interactable3dID, Interactable2d, Interactable2dID, Event3d};
 
 impl Interactable3d for PlanManager {
     fn on_event(&mut self, event: Event3d, world: &mut World) {
