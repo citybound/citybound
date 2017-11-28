@@ -39,6 +39,6 @@ mod external;
 
 pub use self::messaging::{Message, Packet, Fate};
 pub use self::id::{RawID, TypedID};
-pub use self::actor_system::{Actor, ActorSystem, World};
+pub use self::actor_system::{Actor, ActorSystem, World, TraitIDFrom};
 pub use self::networking::Networking;
 pub use self::external::External;
