@@ -2,8 +2,7 @@ use kay::{ActorSystem, World, External, TypedID, Actor};
 use compact::CVec;
 use descartes::{P2, V2, Norm, Curve};
 use stagemaster::combo::{Bindings, Combo2};
-use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
-                  MSG_Interactable3d_on_event};
+use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID};
 use stagemaster::combo::Button::*;
 use stagemaster::geometry::AnyShape;
 use transport::lane::{Lane, LaneID};
@@ -131,8 +130,8 @@ impl Building {
     }
 }
 
-use transport::pathfinding::{Location, Attachee, AttacheeID, MSG_Attachee_location_changed};
-use core::simulation::{Simulation, SimulationID, Sleeper, SleeperID, Duration, MSG_Sleeper_wake};
+use transport::pathfinding::{Location, Attachee, AttacheeID};
+use core::simulation::{Simulation, SimulationID, Sleeper, SleeperID, Duration};
 
 impl Attachee for Building {
     fn location_changed(
@@ -198,8 +197,7 @@ impl Building {
 }
 
 use transport::pathfinding::{RoughLocation, LocationRequesterID, PositionRequesterID,
-                             RoughLocationID, MSG_RoughLocation_resolve_as_location,
-                             MSG_RoughLocation_resolve_as_position};
+                             RoughLocationID};
 use core::simulation::Instant;
 
 impl RoughLocation for Building {
@@ -360,7 +358,7 @@ impl Interactable3d for BuildingSpawner {
     }
 }
 
-use core::simulation::{Simulatable, SimulatableID, MSG_Simulatable_tick};
+use core::simulation::{Simulatable, SimulatableID};
 
 impl Simulatable for BuildingSpawner {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
@@ -376,7 +374,7 @@ impl Simulatable for BuildingSpawner {
 
 const MIN_BUILDING_DISTANCE: f32 = 20.0;
 
-trait LotConflictor {
+pub trait LotConflictor {
     fn find_conflicts(&mut self, lots: &CVec<Lot>, requester: BuildingSpawnerID, world: &mut World);
 }
 
@@ -433,7 +431,7 @@ impl Sleeper for BuildingSpawner {
                     }
                 }
                 buildings.find_conflicts(nonconflicting_lots.clone(), self.id, world);
-                self.simulation.wake_up_in(Ticks(10), self.id_as(), world);
+                self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
 
                 let nonconclicting_lots_len = nonconflicting_lots.len();
                 BuildingSpawnerState::CheckingBuildings(
@@ -452,7 +450,7 @@ impl Sleeper for BuildingSpawner {
                     .collect();
                 let lanes = unsafe { LotConflictorID::from_raw(world.global_broadcast::<Lane>()) };
                 lanes.find_conflicts(new_lots.clone(), self.id, world);
-                self.simulation.wake_up_in(Ticks(10), self.id_as(), world);
+                self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
 
                 let new_lots_len = new_lots.len();
                 BuildingSpawnerState::CheckingLanes(new_lots, vec![true; new_lots_len].into())

@@ -3,8 +3,7 @@ use compact::CDict;
 use monet::RendererID;
 use super::{PlanManager, PlanManagerID};
 
-use monet::{Renderable, RenderableID, MSG_Renderable_setup_in_scene,
-            MSG_Renderable_render_to_scene};
+use monet::{Renderable, RenderableID};
 
 use transport::planning::plan_manager::rendering as road_rendering;
 use economy::buildings::rendering as building_rendering;

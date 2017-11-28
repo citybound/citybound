@@ -1,12 +1,11 @@
 use descartes::Circle;
 use compact::{CVec, CDict};
 use kay::{ActorSystem, World, External, TypedID, Actor};
-use monet::{RendererID, Renderable, RenderableID, MSG_Renderable_setup_in_scene,
-            MSG_Renderable_render_to_scene, GrouperID, GrouperIndividualID, Geometry, Instance};
+use monet::{RendererID, Renderable, RenderableID, GrouperID, GrouperIndividualID, Geometry,
+            Instance};
 use stagemaster::geometry::AnyShape;
 use stagemaster::{UserInterface, UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
-                  Interactable2d, Interactable2dID, MSG_Interactable3d_on_event,
-                  MSG_Interactable2d_draw_ui_2d};
+                  Interactable2d, Interactable2dID};
 use imgui::ImGuiSetCond_FirstUseEver;
 
 use super::{Building, Lot, BuildingID, BuildingPlanResultDelta};

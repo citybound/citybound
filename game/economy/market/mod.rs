@@ -256,10 +256,8 @@ impl Offer {
     }
 }
 
-use transport::pathfinding::{RoughLocation, RoughLocationID,
-                             MSG_RoughLocation_resolve_as_location,
-                             MSG_RoughLocation_resolve_as_position, LocationRequesterID,
-                             PositionRequesterID, MSG_LocationRequester_location_resolved};
+use transport::pathfinding::{RoughLocation, RoughLocationID, LocationRequesterID,
+                             PositionRequesterID};
 
 impl RoughLocation for Offer {
     fn resolve_as_location(
@@ -354,7 +352,7 @@ pub struct EvaluatedSearchResult {
 }
 
 use transport::pathfinding::{PreciseLocation, LocationRequester, DistanceRequester,
-                             DistanceRequesterID, MSG_DistanceRequester_on_distance};
+                             DistanceRequesterID};
 
 #[derive(Compact, Clone)]
 pub struct TripCostEstimator {

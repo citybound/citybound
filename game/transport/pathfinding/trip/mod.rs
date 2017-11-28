@@ -4,8 +4,7 @@ use ordered_float::OrderedFloat;
 use core::simulation::Instant;
 
 use transport::lane::LaneID;
-use super::{PreciseLocation, RoughLocationID, LocationRequester, LocationRequesterID,
-            MSG_LocationRequester_location_resolved};
+use super::{PreciseLocation, RoughLocationID, LocationRequester, LocationRequesterID};
 
 use itertools::Itertools;
 use super::super::lane::Lane;
@@ -163,7 +162,7 @@ impl LocationRequester for Trip {
     }
 }
 
-use core::simulation::{SimulationID, Sleeper, SleeperID, MSG_Sleeper_wake};
+use core::simulation::{SimulationID, Sleeper, SleeperID};
 use core::simulation::Ticks;
 use super::super::microtraffic::{LaneLikeID, LaneCar, Obstacle};
 
@@ -233,7 +232,7 @@ impl Lane {
     }
 }
 
-use super::{PositionRequester, PositionRequesterID, MSG_PositionRequester_position_resolved};
+use super::{PositionRequester, PositionRequesterID};
 use stagemaster::geometry::{add_debug_line, add_debug_point};
 use descartes::{P2, V2};
 

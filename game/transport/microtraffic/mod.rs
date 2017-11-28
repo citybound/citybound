@@ -1,4 +1,4 @@
-use kay::{ActorSystem, World, TypedID};
+use kay::{ActorSystem, World, TypedID, Actor};
 use compact::CVec;
 use ordered_float::OrderedFloat;
 use std::f32::INFINITY;
@@ -150,7 +150,7 @@ pub trait LaneLike {
 
 use self::pathfinding::RoutingInfo;
 
-use core::simulation::{Simulatable, SimulatableID, MSG_Simulatable_tick};
+use core::simulation::{Simulatable, SimulatableID};
 
 const TRAFFIC_LOGIC_THROTTLING: usize = 30;
 const PATHFINDING_THROTTLING: usize = 10;

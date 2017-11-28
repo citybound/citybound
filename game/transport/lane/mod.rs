@@ -8,8 +8,7 @@ pub mod connectivity;
 use self::connectivity::{ConnectivityInfo, TransferConnectivityInfo};
 use super::microtraffic::{Microtraffic, TransferringMicrotraffic};
 use super::pathfinding::PathfindingInfo;
-use stagemaster::{UserInterface, Event3d, Interactable3d, Interactable3dID,
-                  MSG_Interactable3d_on_event};
+use stagemaster::{UserInterface, Event3d, Interactable3d, Interactable3dID};
 
 #[derive(Compact, Clone)]
 pub struct Lane {

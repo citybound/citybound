@@ -1,18 +1,14 @@
-use kay::{ActorSystem, World, External, TypedID};
+use kay::{ActorSystem, World, External, TypedID, Actor};
 use imgui::Ui;
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration};
 use economy::resources::{Inventory, Resource};
 use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
-                      EvaluatedSearchResult, MSG_EvaluationRequester_expect_n_results,
-                      MSG_EvaluationRequester_on_result};
+                      EvaluatedSearchResult};
 use economy::buildings::BuildingID;
 use economy::buildings::rendering::BuildingInspectorID;
 use transport::pathfinding::RoughLocationID;
 
-use super::{Household, HouseholdID, HouseholdCore, MemberIdx, MSG_Household_decay,
-            MSG_Household_inspect, MSG_Household_provide_deal, MSG_Household_receive_deal,
-            MSG_Household_task_succeeded, MSG_Household_task_failed, MSG_Household_destroy,
-            MSG_Household_stop_using, MSG_Household_reset_member_task};
+use super::{Household, HouseholdID, HouseholdCore, MemberIdx};
 
 
 #[derive(Compact, Clone)]
@@ -136,10 +132,12 @@ impl Household for CropFarm {
 
         return_to.ui_drawn(ui, world);
     }
+
+    fn on_destroy(&mut self, _: &mut World) {}
 }
 
-use core::simulation::{Simulatable, SimulatableID, Instant, TICKS_PER_SIM_SECOND,
-                       MSG_Simulatable_tick};
+use core::simulation::{Simulatable, SimulatableID, Sleeper, SleeperID, Instant,
+                       TICKS_PER_SIM_SECOND};
 const UPDATE_EVERY_N_SECS: usize = 4;
 
 impl Simulatable for CropFarm {
@@ -149,6 +147,12 @@ impl Simulatable for CropFarm {
         {
             self.decay(Duration(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world);
         }
+    }
+}
+
+impl Sleeper for CropFarm {
+    fn wake(&mut self, current_instant: Instant, world: &mut World) {
+        self.update_core(current_instant, world);
     }
 }
 

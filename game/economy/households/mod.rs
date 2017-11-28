@@ -1,7 +1,7 @@
 use kay::{ActorSystem, World, Actor};
 use compact::{CVec, CDict, COption, CString};
 use core::simulation::{Duration, TimeOfDay, Instant, Ticks, Simulation, TICKS_PER_SIM_SECOND,
-                       SleeperID};
+                       Sleeper, Simulatable};
 use core::async_counter::AsyncCounter;
 use core::random::{seed, Rng};
 use ordered_float::OrderedFloat;
@@ -19,7 +19,7 @@ pub struct MemberIdx(usize);
 use imgui::Ui;
 use kay::External;
 
-use super::market::{Market, Deal, OfferID, EvaluatedDeal, EvaluationRequesterID};
+use super::market::{Market, Deal, OfferID, EvaluatedDeal, EvaluationRequester};
 use super::buildings::rendering::BuildingInspectorID;
 use super::resources::{Resource, ResourceAmount, ResourceMap, Entry, Inventory};
 use transport::pathfinding::trip::{TripID, TripResult, TripFate};
@@ -29,12 +29,7 @@ const N_TOP_PROBLEMS: usize = 5;
 const DECISION_PAUSE: Ticks = Ticks(200);
 const UPDATE_EVERY_N_SECS: usize = 4;
 
-pub trait Household: Actor
-where
-    Self::ID: Into<HouseholdID>,
-    Self::ID: Into<EvaluationRequesterID>,
-    Self::ID: Into<SleeperID>,
-{
+pub trait Household: Actor + EvaluationRequester + Sleeper + Simulatable {
     fn core(&self) -> &HouseholdCore;
     fn core_mut(&mut self) -> &mut HouseholdCore;
 

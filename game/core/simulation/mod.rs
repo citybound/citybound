@@ -90,7 +90,7 @@ impl Simulation {
 }
 
 use kay::External;
-use stagemaster::{Interactable2d, Interactable2dID, MSG_Interactable2d_draw_ui_2d};
+use stagemaster::{Interactable2d, Interactable2dID};
 
 impl Interactable2d for Simulation {
     fn draw_ui_2d(
