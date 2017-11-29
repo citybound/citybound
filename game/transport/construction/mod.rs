@@ -282,7 +282,7 @@ impl Unbuildable for Lane {
             .iter()
             .enumerate()
             // TODO: ugly: untyped RawID shenanigans
-            .filter_map(|(i, interaction)| if interaction.partner_lane.as_raw() == other_id.as_raw() {
+            .filter_map(|(i, inter)| if inter.partner_lane.as_raw() == other_id.as_raw() {
                 Some(i)
             } else {
                 None

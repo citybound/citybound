@@ -379,7 +379,7 @@ fn trait_and_impl() {
                 unsafe {SomeTraitID::from_raw(self.as_raw())}
             }
         }
-            
+
         impl Into<ForeignTraitID> for SomeActorID {
             fn into(self) -> ForeignTraitID {
                 unsafe {ForeignTraitID::from_raw(self.as_raw())}
