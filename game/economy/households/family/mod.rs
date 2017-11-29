@@ -1,4 +1,4 @@
-use kay::{ActorSystem, World, External};
+use kay::{ActorSystem, World, External, Actor};
 use imgui::Ui;
 use core::random::{seed, Rng};
 
@@ -67,14 +67,14 @@ use super::ResultAspect;
 
 impl EvaluationRequester for Family {
     fn expect_n_results(&mut self, resource: Resource, n: usize, world: &mut World) {
-        self.update_results(resource, ResultAspect::SetTarget(n), world);
+        self.update_results(resource, &ResultAspect::SetTarget(n), world);
     }
 
     fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World) {
         let &EvaluatedSearchResult { resource, ref evaluated_deals, .. } = result;
         self.update_results(
             resource,
-            ResultAspect::AddDeals(evaluated_deals.clone()),
+            &ResultAspect::AddDeals(evaluated_deals.clone()),
             world,
         );
     }
@@ -96,7 +96,7 @@ impl TripListener for Family {
         rough_destination: RoughLocationID,
         world: &mut World,
     ) {
-        self.on_trip_result(self, trip, result, rough_source, rough_destination, world);
+        self.on_trip_result(trip, result, rough_source, rough_destination, world);
     }
 }
 
@@ -107,6 +107,10 @@ impl Household for Family {
 
     fn core_mut(&mut self) -> &mut HouseholdCore {
         &mut self.core
+    }
+
+    fn site(&self) -> RoughLocationID {
+        self.home.into()
     }
 
     fn is_shared(resource: Resource) -> bool {
@@ -151,7 +155,7 @@ impl Household for Family {
     }
 
     fn decay(&mut self, dt: Duration, _: &mut World) {
-        for (i, member_resources) in self.member_resources.iter_mut().enumerate() {
+        for (i, member_resources) in self.core.member_resources.iter_mut().enumerate() {
             {
                 let individuality = seed((self.id, i)).gen_range(0.8, 1.2);
                 let awakeness = member_resources.mut_entry_or(Resource::Awakeness, 0.0);
@@ -161,7 +165,7 @@ impl Household for Family {
                 let individuality = seed((self.id, i, 1u8)).gen_range(0.8, 1.2);
                 let satiety = member_resources.mut_entry_or(Resource::Satiety, 0.0);
                 if *satiety < 0.0 {
-                    let groceries = self.resources.mut_entry_or(Resource::Groceries, 0.0);
+                    let groceries = self.core.resources.mut_entry_or(Resource::Groceries, 0.0);
                     *groceries -= 3.0;
                     *satiety += 3.0;
                 }
@@ -199,14 +203,15 @@ impl Household for Family {
                         if Self::is_shared(*resource) {
                             ui.text(im_str!("{}", resource));
                             ui.same_line(100.0);
-                            let amount = self.resources.get(*resource).cloned().unwrap_or(0.0);
+                            let amount = self.core.resources.get(*resource).cloned().unwrap_or(0.0);
                             ui.text(im_str!("{:.2}", amount));
                         }
                     }
                     for (i, (member_resources, member_task)) in
-                        self.member_resources
+                        self.core
+                            .member_resources
                             .iter()
-                            .zip(&self.member_tasks)
+                            .zip(&self.core.member_tasks)
                             .enumerate()
                     {
                         ui.spacing();
@@ -237,7 +242,8 @@ impl Household for Family {
                             }
                         }
                     }
-                    ui.tree_node(im_str!("Log")).build(|| for line in self.log
+                    ui.tree_node(im_str!("Log")).build(|| for line in self.core
+                        .log
                         .0
                         .lines()
                     {

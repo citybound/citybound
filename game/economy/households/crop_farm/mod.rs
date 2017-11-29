@@ -1,12 +1,11 @@
 use kay::{ActorSystem, World, External, TypedID, Actor};
 use imgui::Ui;
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration};
-use economy::resources::{Inventory, Resource};
+use economy::resources::Resource;
 use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
                       EvaluatedSearchResult};
 use economy::buildings::BuildingID;
 use economy::buildings::rendering::BuildingInspectorID;
-use transport::pathfinding::RoughLocationID;
 
 use super::{Household, HouseholdID, HouseholdCore, MemberIdx};
 
@@ -25,7 +24,7 @@ impl CropFarm {
         CropFarm {
             id,
             site,
-            resources: Inventory::new(),
+            core: HouseholdCore::new(1, site.into()),
             crops_offer: OfferID::register(
                 id.into(),
                 MemberIdx(0),
@@ -58,6 +57,10 @@ impl Household for CropFarm {
         &mut self.core
     }
 
+    fn site(&self) -> RoughLocationID {
+        self.site.into()
+    }
+
     fn is_shared(_: Resource) -> bool {
         true
     }
@@ -74,36 +77,9 @@ impl Household for CropFarm {
         &[Resource::Money, Resource::Crops]
     }
 
-    fn receive_deal(&mut self, deal: &Deal, _member: MemberIdx, _: &mut World) {
-        deal.delta.give_to(&mut self.resources);
-    }
+    fn decay(&mut self, _dt: Duration, _: &mut World) {}
 
-    fn provide_deal(&mut self, deal: &Deal, _member: MemberIdx, _: &mut World) {
-        deal.delta.take_from(&mut self.resources);
-    }
-
-    fn task_succeeded(&mut self, _member: MemberIdx, _: &mut World) {
-        unimplemented!()
-    }
-
-    fn task_failed(&mut self, _member: MemberIdx, _location: RoughLocationID, _: &mut World) {
-        unimplemented!()
-    }
-
-    fn reset_member_task(&mut self, _member: MemberIdx, _: &mut World) {
-        unimplemented!()
-    }
-
-    fn stop_using(&mut self, _offer: OfferID, _: &mut World) {
-        unimplemented!()
-    }
-
-    fn decay(&mut self, dt: Duration, _: &mut World) {
-        let crops = self.resources.mut_entry_or(Resource::Crops, 0.0);
-        *crops += 0.001 * dt.as_seconds();
-    }
-
-    fn destroy(&mut self, world: &mut World) {
+    fn on_destroy(&mut self, world: &mut World) {
         self.site.remove_household(self.id_as(), world);
         self.crops_offer.withdraw(world);
         self.job_offer.withdraw(world);
@@ -124,7 +100,7 @@ impl Household for CropFarm {
                     if Self::is_shared(*resource) {
                         ui.text(im_str!("{}", resource));
                         ui.same_line(100.0);
-                        let amount = self.resources.get(*resource).cloned().unwrap_or(0.0);
+                        let amount = self.core.resources.get(*resource).cloned().unwrap_or(0.0);
                         ui.text(im_str!("{:.2}", amount));
                     }
                 });
@@ -132,8 +108,6 @@ impl Household for CropFarm {
 
         return_to.ui_drawn(ui, world);
     }
-
-    fn on_destroy(&mut self, _: &mut World) {}
 }
 
 use core::simulation::{Simulatable, SimulatableID, Sleeper, SleeperID, Instant,
@@ -159,6 +133,26 @@ impl Sleeper for CropFarm {
 impl EvaluationRequester for CropFarm {
     fn expect_n_results(&mut self, _r: Resource, _n: usize, _: &mut World) {}
     fn on_result(&mut self, _e: &EvaluatedSearchResult, _: &mut World) {}
+}
+
+use transport::pathfinding::RoughLocationID;
+use transport::pathfinding::trip::{TripListener, TripListenerID, TripID, TripResult};
+
+impl TripListener for CropFarm {
+    fn trip_created(&mut self, trip: TripID, world: &mut World) {
+        self.on_trip_created(trip, world);
+    }
+
+    fn trip_result(
+        &mut self,
+        trip: TripID,
+        result: TripResult,
+        rough_source: RoughLocationID,
+        rough_destination: RoughLocationID,
+        world: &mut World,
+    ) {
+        self.on_trip_result(trip, result, rough_source, rough_destination, world);
+    }
 }
 
 pub fn setup(system: &mut ActorSystem) {
