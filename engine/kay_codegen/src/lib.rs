@@ -374,6 +374,18 @@ fn trait_and_impl() {
 
         impl SomeActorID { }
 
+        impl Into<SomeTraitID> for SomeActorID {
+            fn into(self) -> SomeTraitID {
+                unsafe {SomeTraitID::from_raw(self.as_raw())}
+            }
+        }
+            
+        impl Into<ForeignTraitID> for SomeActorID {
+            fn into(self) -> ForeignTraitID {
+                unsafe {ForeignTraitID::from_raw(self.as_raw())}
+            }
+        }
+
         #[allow(unused_variables)]
         #[allow(unused_mut)]
         pub fn auto_setup(system: &mut ActorSystem) {

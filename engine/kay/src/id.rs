@@ -1,5 +1,4 @@
 use super::type_registry::ShortTypeId;
-use super::{Actor, World};
 
 /// An RawID that uniquely identifies an `Actor`, or even a `Actor` within a `Swarm`
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]

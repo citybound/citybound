@@ -6,7 +6,6 @@ use super::id::{RawID, TypedID};
 use super::type_registry::{ShortTypeId, TypeRegistry};
 use super::swarm::Swarm;
 use super::networking::Networking;
-use std::any::Any;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 /// Trait that allows dynamically sized `Actor` instances to provide
@@ -36,7 +35,7 @@ pub trait Actor: Compact + StorageAware + 'static {
     unsafe fn set_id(&mut self, id: RawID);
 
     fn id_as<TargetID: TraitIDFrom<Self>>(&self) -> TargetID {
-        TargetID::from(&self)
+        TargetID::from(self.id())
     }
 
     fn local_first(world: &mut World) -> Self::ID {
@@ -57,8 +56,8 @@ pub trait Actor: Compact + StorageAware + 'static {
 }
 
 pub trait TraitIDFrom<A: Actor>: TypedID {
-    fn from(act: &A) -> Self {
-        unsafe { Self::from_raw(act.id().as_raw()) }
+    fn from(id: <A as Actor>::ID) -> Self {
+        unsafe { Self::from_raw(id.as_raw()) }
     }
 }
 
