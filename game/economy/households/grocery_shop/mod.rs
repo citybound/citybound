@@ -1,22 +1,17 @@
-use kay::{ActorSystem, World, External};
-use imgui::Ui;
+use kay::{ActorSystem, World, TypedID, Actor};
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration};
-use economy::resources::{Inventory, Resource};
-use economy::market::{Deal, OfferID};
+use economy::resources::Resource;
+use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
+                      EvaluatedSearchResult};
 use economy::buildings::BuildingID;
-use economy::buildings::rendering::BuildingInspectorID;
-use transport::pathfinding::RoughLocationID;
 
-use super::{Household, HouseholdID, MemberIdx, MSG_Household_decay, MSG_Household_inspect,
-            MSG_Household_provide_deal, MSG_Household_receive_deal, MSG_Household_task_succeeded,
-            MSG_Household_task_failed, MSG_Household_destroy, MSG_Household_stop_using,
-            MSG_Household_reset_member_task};
+use super::{Household, HouseholdID, HouseholdCore, MemberIdx};
 
 #[derive(Compact, Clone)]
 pub struct GroceryShop {
     id: GroceryShopID,
     site: BuildingID,
-    resources: Inventory,
+    core: HouseholdCore,
     grocery_offer: OfferID,
     job_offer: OfferID,
 }
@@ -26,7 +21,7 @@ impl GroceryShop {
         GroceryShop {
             id,
             site,
-            resources: Inventory::new(),
+            core: HouseholdCore::new(1, site.into()),
             grocery_offer: OfferID::register(
                 id.into(),
                 MemberIdx(0),
@@ -51,6 +46,18 @@ impl GroceryShop {
 }
 
 impl Household for GroceryShop {
+    fn core(&self) -> &HouseholdCore {
+        &self.core
+    }
+
+    fn core_mut(&mut self) -> &mut HouseholdCore {
+        &mut self.core
+    }
+
+    fn site(&self) -> RoughLocationID {
+        self.site.into()
+    }
+
     fn is_shared(_: Resource) -> bool {
         true
     }
@@ -67,63 +74,68 @@ impl Household for GroceryShop {
         &[Resource::Money, Resource::Groceries]
     }
 
-    fn receive_deal(&mut self, deal: &Deal, _member: MemberIdx, _: &mut World) {
-        deal.delta.give_to(&mut self.resources);
-    }
-
-    fn provide_deal(&mut self, deal: &Deal, _member: MemberIdx, _: &mut World) {
-        deal.delta.take_from(&mut self.resources);
-    }
-
-    fn task_succeeded(&mut self, _member: MemberIdx, _: &mut World) {
-        unimplemented!()
-    }
-
-    fn task_failed(&mut self, _member: MemberIdx, _location: RoughLocationID, _: &mut World) {
-        unimplemented!()
-    }
-
-    fn reset_member_task(&mut self, _member: MemberIdx, _: &mut World) {
-        unimplemented!()
-    }
-
-    fn stop_using(&mut self, _offer: OfferID, _: &mut World) {
-        unimplemented!()
-    }
-
     fn decay(&mut self, dt: Duration, _: &mut World) {
-        let groceries = self.resources.mut_entry_or(Resource::Groceries, 0.0);
+        let groceries = self.core.resources.mut_entry_or(Resource::Groceries, 0.0);
         *groceries += 0.001 * dt.as_seconds();
     }
 
-    fn destroy(&mut self, world: &mut World) {
-        self.site.remove_household(self.id.into(), world);
+    fn household_name(&self) -> String {
+        "Grocery Shop".to_owned()
+    }
+
+    fn member_name(&self, member: MemberIdx) -> String {
+        format!("Retail Worker {}", member.0 + 1)
+    }
+
+    fn on_destroy(&mut self, world: &mut World) {
+        self.site.remove_household(self.id_as(), world);
         self.grocery_offer.withdraw(world);
         self.job_offer.withdraw(world);
     }
+}
 
-    #[allow(useless_format)]
-    fn inspect(
+impl EvaluationRequester for GroceryShop {
+    fn expect_n_results(&mut self, _r: Resource, _n: usize, _: &mut World) {}
+    fn on_result(&mut self, _e: &EvaluatedSearchResult, _: &mut World) {}
+}
+
+use core::simulation::{Simulatable, SimulatableID, Sleeper, SleeperID, Instant,
+                       TICKS_PER_SIM_SECOND};
+const UPDATE_EVERY_N_SECS: usize = 4;
+
+impl Simulatable for GroceryShop {
+    fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
+        if (current_instant.ticks() + self.id.as_raw().instance_id as usize) %
+            (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0
+        {
+            self.decay(Duration(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world);
+        }
+    }
+}
+
+impl Sleeper for GroceryShop {
+    fn wake(&mut self, current_instant: Instant, world: &mut World) {
+        self.update_core(current_instant, world);
+    }
+}
+
+use transport::pathfinding::RoughLocationID;
+use transport::pathfinding::trip::{TripListener, TripListenerID, TripID, TripResult};
+
+impl TripListener for GroceryShop {
+    fn trip_created(&mut self, trip: TripID, world: &mut World) {
+        self.on_trip_created(trip, world);
+    }
+
+    fn trip_result(
         &mut self,
-        imgui_ui: &External<Ui<'static>>,
-        return_to: BuildingInspectorID,
+        trip: TripID,
+        result: TripResult,
+        rough_source: RoughLocationID,
+        rough_destination: RoughLocationID,
         world: &mut World,
     ) {
-        let ui = imgui_ui.steal();
-
-        ui.window(im_str!("Building")).build(|| {
-            ui.tree_node(im_str!("Grocery Shop ID: {:?}", self.id._raw_id))
-                .build(|| for resource in Self::interesting_resources() {
-                    if Self::is_shared(*resource) {
-                        ui.text(im_str!("{}", resource));
-                        ui.same_line(100.0);
-                        let amount = self.resources.get(*resource).cloned().unwrap_or(0.0);
-                        ui.text(im_str!("{:.2}", amount));
-                    }
-                });
-        });
-
-        return_to.ui_drawn(ui, world);
+        self.on_trip_result(trip, result, rough_source, rough_destination, world);
     }
 }
 

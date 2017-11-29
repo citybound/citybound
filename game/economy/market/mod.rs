@@ -1,4 +1,4 @@
-use kay::{ActorSystem, Fate, World};
+use kay::{ActorSystem, Fate, World, Actor};
 use compact::{CVec, CDict};
 use super::resources::{Inventory, Entry, Resource, ResourceAmount};
 use super::households::{HouseholdID, MemberIdx};
@@ -57,7 +57,7 @@ impl Offer {
         deal: &Deal,
         world: &mut World,
     ) -> Offer {
-        MarketID::global_first(world).register(deal.main_given(), id, world);
+        Market::global_first(world).register(deal.main_given(), id, world);
 
         Offer {
             id,
@@ -98,7 +98,7 @@ impl Offer {
     // The offer stays alive until the withdrawal is confirmed
     // to prevent offers being used while they're being withdrawn
     pub fn withdraw(&mut self, world: &mut World) {
-        MarketID::global_first(world).withdraw(self.deal.main_given(), self.id, world);
+        Market::global_first(world).withdraw(self.deal.main_given(), self.id, world);
         self.being_withdrawn = true;
     }
 
@@ -256,10 +256,8 @@ impl Offer {
     }
 }
 
-use transport::pathfinding::{RoughLocation, RoughLocationID,
-                             MSG_RoughLocation_resolve_as_location,
-                             MSG_RoughLocation_resolve_as_position, LocationRequesterID,
-                             PositionRequesterID, MSG_LocationRequester_location_resolved};
+use transport::pathfinding::{RoughLocation, RoughLocationID, LocationRequesterID,
+                             PositionRequesterID};
 
 impl RoughLocation for Offer {
     fn resolve_as_location(
@@ -354,7 +352,7 @@ pub struct EvaluatedSearchResult {
 }
 
 use transport::pathfinding::{PreciseLocation, LocationRequester, DistanceRequester,
-                             DistanceRequesterID, MSG_DistanceRequester_on_distance};
+                             DistanceRequesterID};
 
 #[derive(Compact, Clone)]
 pub struct TripCostEstimator {
@@ -419,7 +417,7 @@ impl LocationRequester for TripCostEstimator {
         if let (Some(source), Some(destination)) = (self.source, self.destination) {
             source.node.get_distance_to(
                 destination.location,
-                self.id.into(),
+                self.id_as(),
                 world,
             );
         } else if self.n_resolved == 2 {

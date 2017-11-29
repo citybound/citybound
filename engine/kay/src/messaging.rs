@@ -1,4 +1,4 @@
-use super::id::ID;
+use super::id::RawID;
 use super::compact::Compact;
 
 /// Return type of message handling functions, signifying if
@@ -22,8 +22,8 @@ impl<T: Compact + 'static> Message for T {}
 /// Combination of a message and its destination recipient id
 #[derive(Compact, Clone)]
 pub struct Packet<M: Message> {
-    /// ID of the `Actor`/`Actor` that should receive this message
-    pub recipient_id: ID,
+    /// RawID of the `Actor`/`Actor` that should receive this message
+    pub recipient_id: RawID,
     /// The message itself
     pub message: M,
 }

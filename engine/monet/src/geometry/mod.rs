@@ -1,4 +1,4 @@
-pub use kay::External;
+pub use kay::{External, TypedID};
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
                     WithUniqueOrthogonal, Inverse, Rotate};
 
@@ -252,8 +252,7 @@ impl Grouper {
     }
 }
 
-use {Renderable, RendererID, RenderableID, MSG_Renderable_setup_in_scene,
-     MSG_Renderable_render_to_scene};
+use {Renderable, RendererID, RenderableID};
 
 impl Renderable for Grouper {
     fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}
@@ -267,7 +266,7 @@ impl Renderable for Grouper {
     ) {
 
         // kinda ugly way to enforce only one update per "global" frame
-        if renderer_id._raw_id.machine == self.id._raw_id.machine {
+        if renderer_id.as_raw().machine == self.id.as_raw().machine {
             // TODO: this introduces 1 frame delay
             for id in self.living_individuals.keys() {
                 id.render_to_grouper(self.id, self.base_individual_id, world);

@@ -30,7 +30,7 @@ pub fn default_road_planning_bindings() -> Vec<(&'static str, Combo2)> {
     ]
 }
 
-use monet::{RendererID, EyeListener, Eye, Movement, EyeListenerID, MSG_EyeListener_eye_moved};
+use monet::{RendererID, EyeListener, Eye, Movement, EyeListenerID};
 use stagemaster::UserInterfaceID;
 
 impl RoadInteraction {

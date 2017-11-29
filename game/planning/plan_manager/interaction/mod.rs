@@ -1,9 +1,9 @@
-use kay::{ActorSystem, External, World};
+use kay::{ActorSystem, External, World, Actor};
 use super::{PlanManager, PlanManagerID, Intent};
 use descartes::P2;
 use stagemaster::combo::{Bindings, Combo2};
 use stagemaster::geometry::AnyShape;
-use transport::lane::LaneID;
+use transport::lane::Lane;
 use transport::planning::plan_manager::interaction::{RoadInteraction,
                                                      default_road_planning_bindings};
 
@@ -98,8 +98,7 @@ impl PlanManager {
     }
 }
 
-use stagemaster::{Interactable3d, Interactable3dID, Interactable2d, Interactable2dID, Event3d,
-                  MSG_Interactable3d_on_event, MSG_Interactable2d_draw_ui_2d};
+use stagemaster::{Interactable3d, Interactable3dID, Interactable2d, Interactable2dID, Event3d};
 
 impl Interactable3d for PlanManager {
     fn on_event(&mut self, event: Event3d, world: &mut World) {
@@ -127,8 +126,7 @@ impl Interactable3d for PlanManager {
                 //       When will you finally?!
                 //       *Uh.. next week maybe?*
                 use descartes::P3;
-                let lanes_as_interactables: Interactable3dID = LaneID::global_broadcast(world)
-                    .into();
+                let lanes_as_interactables: Interactable3dID = Lane::global_broadcast(world).into();
                 for _i in 0..100 {
                     lanes_as_interactables.on_event(
                         Event3d::DragFinished {

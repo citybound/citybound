@@ -1,6 +1,6 @@
 use kay::{ActorSystem, World};
 use compact::CVec;
-use core::simulation::{Instant, Duration, Simulatable, SimulatableID, MSG_Simulatable_tick};
+use core::simulation::{Instant, Duration, Simulatable, SimulatableID};
 use transport::pathfinding::RoughLocationID;
 use transport::pathfinding::trip::TripID;
 use super::super::resources::Resource;

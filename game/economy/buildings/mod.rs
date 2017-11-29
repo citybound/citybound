@@ -1,9 +1,8 @@
-use kay::{ActorSystem, World, External};
+use kay::{ActorSystem, World, External, TypedID, Actor};
 use compact::CVec;
 use descartes::{P2, V2, Norm, Curve};
 use stagemaster::combo::{Bindings, Combo2};
-use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
-                  MSG_Interactable3d_on_event};
+use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID};
 use stagemaster::combo::Button::*;
 use stagemaster::geometry::AnyShape;
 use transport::lane::{Lane, LaneID};
@@ -64,12 +63,14 @@ impl Building {
         //     0.0,
         //     world,
         // );
-        // TODO: ugly: untyped ID shenanigans
-        let adjacent_lane = LaneID {
-            _raw_id: lot.location
-                .expect("Lot should already have location")
-                .node
-                ._raw_id,
+        // TODO: ugly: untyped RawID shenanigans
+        let adjacent_lane = unsafe {
+            LaneID::from_raw(
+                lot.location
+                    .expect("Lot should already have location")
+                    .node
+                    .as_raw(),
+            )
         };
         materialized_reality.on_building_built(lot.position, id, adjacent_lane, world);
 
@@ -123,14 +124,14 @@ impl Building {
     pub fn finally_destroy(&mut self, world: &mut World) -> ::kay::Fate {
         rendering::on_destroy(self.id, world);
         if let Some(location) = self.lot.location {
-            location.node.remove_attachee(self.id.into(), world);
+            location.node.remove_attachee(self.id_as(), world);
         }
         ::kay::Fate::Die
     }
 }
 
-use transport::pathfinding::{Location, Attachee, AttacheeID, MSG_Attachee_location_changed};
-use core::simulation::{SimulationID, Sleeper, SleeperID, Duration, MSG_Sleeper_wake};
+use transport::pathfinding::{Location, Attachee, AttacheeID};
+use core::simulation::{Simulation, SimulationID, Sleeper, SleeperID, Duration};
 
 impl Attachee for Building {
     fn location_changed(
@@ -147,9 +148,11 @@ impl Attachee for Building {
                 .location = new;
         } else {
             self.lot.location = None;
-            SimulationID::local_first(world).wake_up_in(
-                Ticks::from(Duration::from_minutes(10)),
-                self.id.into(),
+            Simulation::local_first(world).wake_up_in(
+                Ticks::from(
+                    Duration::from_minutes(10),
+                ),
+                self.id_as(),
                 world,
             );
         }
@@ -165,14 +168,12 @@ impl Sleeper for Building {
                 self.started_reconnect = false;
             }
         } else {
-            LaneID::global_broadcast(world).try_reconnect_building(
-                self.id,
-                self.lot.position,
-                world,
-            );
-            SimulationID::local_first(world).wake_up_in(
-                Ticks::from(Duration::from_minutes(10)),
-                self.id.into(),
+            Lane::global_broadcast(world).try_reconnect_building(self.id, self.lot.position, world);
+            Simulation::local_first(world).wake_up_in(
+                Ticks::from(
+                    Duration::from_minutes(10),
+                ),
+                self.id_as(),
                 world,
             );
             self.started_reconnect = true;
@@ -190,14 +191,13 @@ impl Building {
         if self.lot.location.is_none() {
             self.lot.location = Some(new_location);
             self.lot.adjacent_lane_position = new_adjacent_lane_position;
-            new_location.node.add_attachee(self.id.into(), world);
+            new_location.node.add_attachee(self.id_as(), world);
         }
     }
 }
 
 use transport::pathfinding::{RoughLocation, LocationRequesterID, PositionRequesterID,
-                             RoughLocationID, MSG_RoughLocation_resolve_as_location,
-                             MSG_RoughLocation_resolve_as_position};
+                             RoughLocationID};
 use core::simulation::Instant;
 
 impl RoughLocation for Building {
@@ -349,8 +349,8 @@ impl Interactable3d for BuildingSpawner {
 
             if self.bindings.0["Spawn Building"].is_freshly_in(&combos) {
                 if let BuildingSpawnerState::Idle = self.state {
-                    LaneID::global_broadcast(world).find_lot(self.id, world);
-                    self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
+                    Lane::global_broadcast(world).find_lot(self.id, world);
+                    self.simulation.wake_up_in(Ticks(10), self.id_as(), world);
                     self.state = BuildingSpawnerState::Collecting(CVec::new());
                 }
             }
@@ -358,14 +358,14 @@ impl Interactable3d for BuildingSpawner {
     }
 }
 
-use core::simulation::{Simulatable, SimulatableID, MSG_Simulatable_tick};
+use core::simulation::{Simulatable, SimulatableID};
 
 impl Simulatable for BuildingSpawner {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
         if current_instant.ticks() % 1000 == 0 {
             if let BuildingSpawnerState::Idle = self.state {
-                LaneID::global_broadcast(world).find_lot(self.id, world);
-                self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
+                Lane::global_broadcast(world).find_lot(self.id, world);
+                self.simulation.wake_up_in(Ticks(10), self.id_as(), world);
                 self.state = BuildingSpawnerState::Collecting(CVec::new());
             }
         }
@@ -374,7 +374,7 @@ impl Simulatable for BuildingSpawner {
 
 const MIN_BUILDING_DISTANCE: f32 = 20.0;
 
-trait LotConflictor {
+pub trait LotConflictor {
     fn find_conflicts(&mut self, lots: &CVec<Lot>, requester: BuildingSpawnerID, world: &mut World);
 }
 
@@ -420,7 +420,7 @@ impl Sleeper for BuildingSpawner {
     fn wake(&mut self, time: Instant, world: &mut World) {
         self.state = match self.state {
             BuildingSpawnerState::Collecting(ref mut lots) => {
-                let buildings: LotConflictorID = BuildingID::global_broadcast(world).into();
+                let buildings: LotConflictorID = Building::global_broadcast(world).into();
                 let mut nonconflicting_lots = CVec::<Lot>::new();
                 for lot in lots.iter() {
                     let far_from_all = nonconflicting_lots.iter().all(|other_lot| {
@@ -448,7 +448,7 @@ impl Sleeper for BuildingSpawner {
                         None
                     })
                     .collect();
-                let lanes = LotConflictorID { _raw_id: world.global_broadcast::<Lane>() };
+                let lanes = unsafe { LotConflictorID::from_raw(world.global_broadcast::<Lane>()) };
                 lanes.find_conflicts(new_lots.clone(), self.id, world);
                 self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
 

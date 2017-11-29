@@ -2,11 +2,10 @@ use compact::Compact;
 use std::mem::size_of;
 use super::messaging::{Message, Packet, Fate};
 use super::inbox::{Inbox, DispatchablePacket};
-use super::id::ID;
+use super::id::{RawID, TypedID};
 use super::type_registry::{ShortTypeId, TypeRegistry};
 use super::swarm::Swarm;
 use super::networking::Networking;
-use std::any::Any;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 /// Trait that allows dynamically sized `Actor` instances to provide
@@ -21,7 +20,7 @@ pub trait StorageAware: Sized {
 impl<T> StorageAware for T {}
 
 /// Trait that Actors instance have to implement for a [`Swarm`](struct.Swarm.html)
-/// so their internally stored instance ID can be gotten and set.
+/// so their internally stored instance RawID can be gotten and set.
 ///
 /// Furthermore, an `Actor` has to implement [`Compact`](../../compact), so a `Swarm`
 /// can compactly store each `Actor`'s potentially dynamically-sized state.
@@ -29,10 +28,37 @@ impl<T> StorageAware for T {}
 /// This trait can is auto-derived when using the
 /// [`kay_codegen`](../../kay_codegen/index.html) build script.
 pub trait Actor: Compact + StorageAware + 'static {
-    /// Get the full ID (Actor type id + instance id) of `self`
-    fn id(&self) -> ID;
-    /// Set the full ID (Actor type id + instance id) of `self` (called internally by `Swarm`)
-    unsafe fn set_id(&mut self, id: ID);
+    type ID: TypedID;
+    /// Get the full TypedID (Actor type id + instance id) of `self`
+    fn id(&self) -> Self::ID;
+    /// Set the full RawID (Actor type id + instance id) of `self` (called internally by `Swarm`)
+    unsafe fn set_id(&mut self, id: RawID);
+
+    fn id_as<TargetID: TraitIDFrom<Self>>(&self) -> TargetID {
+        TargetID::from(self.id())
+    }
+
+    fn local_first(world: &mut World) -> Self::ID {
+        unsafe { Self::ID::from_raw(world.local_first::<Self>()) }
+    }
+
+    fn global_first(world: &mut World) -> Self::ID {
+        unsafe { Self::ID::from_raw(world.global_first::<Self>()) }
+    }
+
+    fn local_broadcast(world: &mut World) -> Self::ID {
+        unsafe { Self::ID::from_raw(world.local_broadcast::<Self>()) }
+    }
+
+    fn global_broadcast(world: &mut World) -> Self::ID {
+        unsafe { Self::ID::from_raw(world.global_broadcast::<Self>()) }
+    }
+}
+
+pub trait TraitIDFrom<A: Actor>: TypedID {
+    fn from(id: <A as Actor>::ID) -> Self {
+        unsafe { Self::from_raw(id.as_raw()) }
+    }
 }
 
 struct Dispatcher {
@@ -147,7 +173,7 @@ impl ActorSystem {
         });
     }
 
-    /// Register a handler that constructs an instance of an Actor type, given an ID
+    /// Register a handler that constructs an instance of an Actor type, given an RawID
     pub fn add_spawner<A: Actor, M: Message, F: Fn(&M, &mut World) -> A + 'static>(
         &mut self,
         constructor: F,
@@ -168,7 +194,7 @@ impl ActorSystem {
                 let packet = &*(packet_ptr as *const Packet<M>);
 
                 let mut instance = constructor(&packet.message, world);
-                (*swarm_ptr).add_manually_with_id(&mut instance, instance.id());
+                (*swarm_ptr).add_manually_with_id(&mut instance, instance.id().as_raw());
 
                 ::std::mem::forget(instance);
 
@@ -179,11 +205,11 @@ impl ActorSystem {
         });
     }
 
-    /// Send a message to the actor(s) with a given `ID`.
+    /// Send a message to the actor(s) with a given `RawID`.
     /// This is only used to send messages into the system from outside.
     /// Inside actor message handlers you always have access to a
     /// [`World`](struct.World.html) that allows you to send messages.
-    pub fn send<M: Message>(&mut self, recipient: ID, message: M) {
+    pub fn send<M: Message>(&mut self, recipient: RawID, message: M) {
         let packet = Packet {
             recipient_id: recipient,
             message: message,
@@ -214,9 +240,9 @@ impl ActorSystem {
         }
     }
 
-    /// Get the base ID of an Actor type
-    pub fn id<A: Actor>(&mut self) -> ID {
-        ID::new(self.short_id::<A>(), 0, self.networking.machine_id, 0)
+    /// Get the base RawID of an Actor type
+    pub fn id<A: Actor>(&mut self) -> RawID {
+        RawID::new(self.short_id::<A>(), 0, self.networking.machine_id, 0)
     }
 
     fn short_id<A: Actor>(&mut self) -> ShortTypeId {
@@ -336,40 +362,40 @@ unsafe impl Sync for World {}
 unsafe impl Send for World {}
 
 impl World {
-    /// Send a message to a (sub-)actor with the given ID.
+    /// Send a message to a (sub-)actor with the given RawID.
     ///
     /// ```
     /// world.send(child_id, Update {dt: 1.0});
     /// ```
-    pub fn send<M: Message>(&mut self, receiver: ID, message: M) {
+    pub fn send<M: Message>(&mut self, receiver: RawID, message: M) {
         unsafe { &mut *self.0 }.send(receiver, message);
     }
 
-    /// Get the ID of the first machine-local instance of an actor.
-    pub fn local_first<A: Actor>(&mut self) -> ID {
+    /// Get the RawID of the first machine-local instance of an actor.
+    pub fn local_first<A: Actor>(&mut self) -> RawID {
         unsafe { &mut *self.0 }.id::<A>()
     }
 
-    /// Get the ID of the first instance of an actor on machine 0
-    pub fn global_first<A: Actor>(&mut self) -> ID {
+    /// Get the RawID of the first instance of an actor on machine 0
+    pub fn global_first<A: Actor>(&mut self) -> RawID {
         let mut id = unsafe { &mut *self.0 }.id::<A>();
         id.machine = 0;
         id
     }
 
-    /// Get the ID for a broadcast to all machine-local instances of an actor.
-    pub fn local_broadcast<A: Actor>(&mut self) -> ID {
+    /// Get the RawID for a broadcast to all machine-local instances of an actor.
+    pub fn local_broadcast<A: Actor>(&mut self) -> RawID {
         unsafe { &mut *self.0 }.id::<A>().local_broadcast()
     }
 
-    /// Get the ID for a global broadcast to all instances of an actor on all machines.
-    pub fn global_broadcast<A: Actor>(&mut self) -> ID {
+    /// Get the RawID for a global broadcast to all instances of an actor on all machines.
+    pub fn global_broadcast<A: Actor>(&mut self) -> RawID {
         unsafe { &mut *self.0 }.id::<A>().global_broadcast()
     }
 
     /// Synchronously allocate a instance id for a instance
     /// that will later manually be added to a Swarm
-    pub fn allocate_instance_id<A: 'static + Actor>(&mut self) -> ID {
+    pub fn allocate_instance_id<A: 'static + Actor>(&mut self) -> RawID {
         let system: &mut ActorSystem = unsafe { &mut *self.0 };
         let swarm = unsafe {
             &mut *(system.swarms[system.actor_registry.get::<A>().as_usize()]
