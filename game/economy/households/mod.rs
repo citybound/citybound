@@ -44,6 +44,9 @@ pub trait Household
     fn interesting_resources() -> &'static [Resource];
     fn decay(&mut self, dt: Duration, world: &mut World);
 
+    fn household_name(&self) -> String;
+    fn member_name(&self, member: MemberIdx) -> String;
+
     fn receive_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
         let core = self.core_mut();
         deal.delta.give_to_shared_private(
@@ -130,13 +133,6 @@ pub trait Household
         self.on_destroy(world);
     }
     fn on_destroy(&mut self, world: &mut World);
-
-    fn inspect(
-        &mut self,
-        imgui_ui: &External<Ui<'static>>,
-        return_to: BuildingInspectorID,
-        world: &mut World,
-    );
 
     fn update_core(&mut self, current_instant: Instant, world: &mut World) {
         if let DecisionState::None = self.core().decision_state {
@@ -553,6 +549,86 @@ pub trait Household
             self.decay(Duration(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world);
         }
     }
+
+    #[allow(useless_format)]
+    fn inspect(
+        &mut self,
+        imgui_ui: &External<Ui<'static>>,
+        return_to: BuildingInspectorID,
+        world: &mut World,
+    ) {
+        let ui = imgui_ui.steal();
+
+        ui.window(im_str!("Building")).build(|| {
+            ui.tree_node(im_str!("{}", self.household_name())).build(
+                || {
+                    // ui.text(im_str!(
+                    //     "({})",
+                    //     match self.decision_state {
+                    //         DecisionState::None => "",
+                    //         DecisionState::Choosing(_, _, _, _) => ": Waiting for choice",
+                    //         DecisionState::WaitingForTrip(_) => ": Waiting for trip",
+                    //     }
+                    // ));
+                    for resource in Self::interesting_resources() {
+                        if Self::is_shared(*resource) {
+                            ui.text(im_str!("{}", resource));
+                            ui.same_line(100.0);
+                            let amount =
+                                self.core().resources.get(*resource).cloned().unwrap_or(0.0);
+                            ui.text(im_str!("{:.2}", amount));
+                        }
+                    }
+                    for (i, (member_resources, member_task)) in
+                        self.core()
+                            .member_resources
+                            .iter()
+                            .zip(&self.core().member_tasks)
+                            .enumerate()
+                    {
+                        ui.spacing();
+                        ui.text(im_str!(
+                            "{}:",
+                            self.member_name(MemberIdx(i)),
+                        ));
+                        ui.text(im_str!(
+                            "({} {})",
+                            match member_task.state {
+                                TaskState::IdleAt(_) => "Idle after getting",
+                                TaskState::GettingReadyAt(_) => "Preparing to get",
+                                TaskState::InTrip(_) => "In trip to get",
+                                TaskState::StartedAt(_, _) => "Getting",
+                            },
+                            member_task
+                                .goal
+                                .map(|goal| format!("{}", goal.0))
+                                .unwrap_or_else(|| "nothing".to_owned())
+                        ));
+                        for resource in Self::interesting_resources() {
+                            if !Self::is_shared(*resource) {
+                                ui.text(im_str!("{}", resource));
+                                ui.same_line(100.0);
+                                let amount =
+                                    member_resources.get(*resource).cloned().unwrap_or(0.0);
+                                ui.text(im_str!("{:.2}", amount));
+                            }
+                        }
+                    }
+                    ui.tree_node(im_str!("Log")).build(
+                        || for line in self.core_mut()
+                            .log
+                            .0
+                            .lines()
+                        {
+                            ui.text(im_str!("{}", line));
+                        },
+                    );
+                },
+            )
+        });
+
+        return_to.ui_drawn(ui, world);
+    }
 }
 
 #[derive(Compact, Clone)]
@@ -601,7 +677,7 @@ impl HouseholdCore {
     }
 }
 
-const DO_HOUSEHOLD_LOGGING: bool = true;
+const DO_HOUSEHOLD_LOGGING: bool = false;
 
 #[derive(Compact, Clone, Default)]
 pub struct HouseholdLog(CString);

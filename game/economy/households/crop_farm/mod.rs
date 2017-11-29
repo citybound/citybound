@@ -1,11 +1,9 @@
-use kay::{ActorSystem, World, External, TypedID, Actor};
-use imgui::Ui;
+use kay::{ActorSystem, World, TypedID, Actor};
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration};
 use economy::resources::Resource;
 use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
                       EvaluatedSearchResult};
 use economy::buildings::BuildingID;
-use economy::buildings::rendering::BuildingInspectorID;
 
 use super::{Household, HouseholdID, HouseholdCore, MemberIdx};
 
@@ -85,28 +83,12 @@ impl Household for CropFarm {
         self.job_offer.withdraw(world);
     }
 
-    #[allow(useless_format)]
-    fn inspect(
-        &mut self,
-        imgui_ui: &External<Ui<'static>>,
-        return_to: BuildingInspectorID,
-        world: &mut World,
-    ) {
-        let ui = imgui_ui.steal();
+    fn household_name(&self) -> String {
+        "Crop Farm".to_owned()
+    }
 
-        ui.window(im_str!("Building")).build(|| {
-            ui.tree_node(im_str!("Crop Farm ID: {:?}", self.id.as_raw()))
-                .build(|| for resource in Self::interesting_resources() {
-                    if Self::is_shared(*resource) {
-                        ui.text(im_str!("{}", resource));
-                        ui.same_line(100.0);
-                        let amount = self.core.resources.get(*resource).cloned().unwrap_or(0.0);
-                        ui.text(im_str!("{:.2}", amount));
-                    }
-                });
-        });
-
-        return_to.ui_drawn(ui, world);
+    fn member_name(&self, member: MemberIdx) -> String {
+        format!("Farmer {}", member.0 + 1)
     }
 }
 

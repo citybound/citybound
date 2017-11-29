@@ -1,5 +1,4 @@
-use kay::{ActorSystem, World, External, Actor};
-use imgui::Ui;
+use kay::{ActorSystem, World, Actor};
 use core::random::{seed, Rng};
 
 use core::simulation::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, SimulationID,
@@ -8,7 +7,6 @@ use economy::resources::Resource;
 use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
                       EvaluatedSearchResult};
 use economy::buildings::BuildingID;
-use economy::buildings::rendering::BuildingInspectorID;
 use transport::pathfinding::trip::{TripResult, TripListenerID};
 use transport::pathfinding::RoughLocationID;
 
@@ -81,7 +79,6 @@ impl EvaluationRequester for Family {
 }
 
 use transport::pathfinding::trip::{TripListener, TripID};
-use super::tasks::TaskState;
 
 impl TripListener for Family {
     fn trip_created(&mut self, trip: TripID, world: &mut World) {
@@ -179,80 +176,12 @@ impl Household for Family {
         self.home.remove_household(self.id_as(), world);
     }
 
-    #[allow(useless_format)]
-    fn inspect(
-        &mut self,
-        imgui_ui: &External<Ui<'static>>,
-        return_to: BuildingInspectorID,
-        world: &mut World,
-    ) {
-        let ui = imgui_ui.steal();
+    fn household_name(&self) -> String {
+        format!("The {} Family", family_name(self.id))
+    }
 
-        ui.window(im_str!("Building")).build(|| {
-            ui.tree_node(im_str!("The {} Family:", family_name(self.id)))
-                .build(|| {
-                    // ui.text(im_str!(
-                    //     "({})",
-                    //     match self.decision_state {
-                    //         DecisionState::None => "",
-                    //         DecisionState::Choosing(_, _, _, _) => ": Waiting for choice",
-                    //         DecisionState::WaitingForTrip(_) => ": Waiting for trip",
-                    //     }
-                    // ));
-                    for resource in Self::interesting_resources() {
-                        if Self::is_shared(*resource) {
-                            ui.text(im_str!("{}", resource));
-                            ui.same_line(100.0);
-                            let amount = self.core.resources.get(*resource).cloned().unwrap_or(0.0);
-                            ui.text(im_str!("{:.2}", amount));
-                        }
-                    }
-                    for (i, (member_resources, member_task)) in
-                        self.core
-                            .member_resources
-                            .iter()
-                            .zip(&self.core.member_tasks)
-                            .enumerate()
-                    {
-                        ui.spacing();
-                        ui.text(im_str!(
-                            "{}:",
-                            member_name(self.id, MemberIdx(i)),
-                        ));
-                        ui.text(im_str!(
-                            "({} {})",
-                            match member_task.state {
-                                TaskState::IdleAt(_) => "Idle after getting",
-                                TaskState::GettingReadyAt(_) => "Preparing to get",
-                                TaskState::InTrip(_) => "In trip to get",
-                                TaskState::StartedAt(_, _) => "Getting",
-                            },
-                            member_task
-                                .goal
-                                .map(|goal| format!("{}", goal.0))
-                                .unwrap_or_else(|| "nothing".to_owned())
-                        ));
-                        for resource in Self::interesting_resources() {
-                            if !Self::is_shared(*resource) {
-                                ui.text(im_str!("{}", resource));
-                                ui.same_line(100.0);
-                                let amount =
-                                    member_resources.get(*resource).cloned().unwrap_or(0.0);
-                                ui.text(im_str!("{:.2}", amount));
-                            }
-                        }
-                    }
-                    ui.tree_node(im_str!("Log")).build(|| for line in self.core
-                        .log
-                        .0
-                        .lines()
-                    {
-                        ui.text(im_str!("{}", line));
-                    });
-                })
-        });
-
-        return_to.ui_drawn(ui, world);
+    fn member_name(&self, member: MemberIdx) -> String {
+        member_name(self.id, member)
     }
 }
 
