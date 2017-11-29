@@ -337,6 +337,25 @@ impl Model {
             self.map_handlers(OnlyOwn, |actor_name, _| actor_name_to_id(actor_name));
         let actor_ids_for_init_msgs = actor_ids_for_init_handlers.clone();
 
+        let actor_trait_ids_1: Vec<Vec<_>> = self.actors
+            .iter()
+            .map(|(_, actor_def)| {
+                actor_def.impls.iter().map(trait_name_to_id).collect()
+            })
+            .collect();
+        let (actor_trait_ids_2, actor_trait_ids_3) =
+            (actor_trait_ids_1.clone(), actor_trait_ids_1.clone());
+        let actor_ids_for_traits: Vec<Vec<_>> = self.actors
+            .iter()
+            .map(|(actor_name, actor_def)| {
+                actor_def
+                    .impls
+                    .iter()
+                    .map(|_| actor_name_to_id(actor_name))
+                    .collect()
+            })
+            .collect();
+
         quote!(
             #(
             impl Actor for #actor_here_names_1 {
@@ -399,6 +418,17 @@ impl Model {
                 pub #actor_ids_for_init_msgs, #(pub #init_msg_param_types),*
             );
             )*
+            )*
+
+
+            #(
+                #(
+                    impl Into<#actor_trait_ids_1> for #actor_ids_for_traits {
+                        fn into(self) -> #actor_trait_ids_2 {
+                            unsafe {#actor_trait_ids_3::from_raw(self.as_raw())}
+                        }
+                    }
+                )*
             )*
         )
     }
