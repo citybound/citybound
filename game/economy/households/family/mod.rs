@@ -42,14 +42,10 @@ impl Family {
             world,
         );
 
-        // TODO: use sleep offer again
+        let mut core = HouseholdCore::new(n_members, home.into());
+        core.used_offers.insert(Resource::Awakeness, sleep_offer);
 
-        Family {
-            id,
-            home,
-            sleep_offer,
-            core: HouseholdCore::new(n_members, home.into()),
-        }
+        Family { id, home, sleep_offer, core }
     }
 }
 
