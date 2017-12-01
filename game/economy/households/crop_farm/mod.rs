@@ -9,27 +9,27 @@ use super::{Household, HouseholdID, HouseholdCore, MemberIdx};
 
 
 #[derive(Compact, Clone)]
-pub struct CropFarm {
-    id: CropFarmID,
+pub struct GrainFarm {
+    id: GrainFarmID,
     site: BuildingID,
     core: HouseholdCore,
-    crops_offer: OfferID,
+    grain_offer: OfferID,
     job_offer: OfferID,
 }
 
-impl CropFarm {
-    pub fn move_into(id: CropFarmID, site: BuildingID, world: &mut World) -> CropFarm {
-        CropFarm {
+impl GrainFarm {
+    pub fn move_into(id: GrainFarmID, site: BuildingID, world: &mut World) -> GrainFarm {
+        GrainFarm {
             id,
             site,
             core: HouseholdCore::new(1, site.into()),
-            crops_offer: OfferID::register(
+            grain_offer: OfferID::register(
                 id.into(),
                 MemberIdx(0),
                 site.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
-                    vec![(Resource::Crops, 1000.0), (Resource::Money, -500.0)],
+                    vec![(Resource::Grain, 1000.0), (Resource::Money, -500.0)],
                     Duration::from_minutes(10),
                 ),
                 world,
@@ -46,7 +46,7 @@ impl CropFarm {
     }
 }
 
-impl Household for CropFarm {
+impl Household for GrainFarm {
     fn core(&self) -> &HouseholdCore {
         &self.core
     }
@@ -72,19 +72,19 @@ impl Household for CropFarm {
     }
 
     fn interesting_resources() -> &'static [Resource] {
-        &[Resource::Money, Resource::Crops]
+        &[Resource::Money, Resource::Grain]
     }
 
     fn decay(&mut self, _dt: Duration, _: &mut World) {}
 
     fn on_destroy(&mut self, world: &mut World) {
         self.site.remove_household(self.id_as(), world);
-        self.crops_offer.withdraw(world);
+        self.grain_offer.withdraw(world);
         self.job_offer.withdraw(world);
     }
 
     fn household_name(&self) -> String {
-        "Crop Farm".to_owned()
+        "Grain Farm".to_owned()
     }
 
     fn member_name(&self, member: MemberIdx) -> String {
@@ -96,7 +96,7 @@ use core::simulation::{Simulatable, SimulatableID, Sleeper, SleeperID, Instant,
                        TICKS_PER_SIM_SECOND};
 const UPDATE_EVERY_N_SECS: usize = 4;
 
-impl Simulatable for CropFarm {
+impl Simulatable for GrainFarm {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
         if (current_instant.ticks() + self.id.as_raw().instance_id as usize) %
             (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0
@@ -106,13 +106,13 @@ impl Simulatable for CropFarm {
     }
 }
 
-impl Sleeper for CropFarm {
+impl Sleeper for GrainFarm {
     fn wake(&mut self, current_instant: Instant, world: &mut World) {
         self.update_core(current_instant, world);
     }
 }
 
-impl EvaluationRequester for CropFarm {
+impl EvaluationRequester for GrainFarm {
     fn expect_n_results(&mut self, _r: Resource, _n: usize, _: &mut World) {}
     fn on_result(&mut self, _e: &EvaluatedSearchResult, _: &mut World) {}
 }
@@ -120,7 +120,7 @@ impl EvaluationRequester for CropFarm {
 use transport::pathfinding::RoughLocationID;
 use transport::pathfinding::trip::{TripListener, TripListenerID, TripID, TripResult};
 
-impl TripListener for CropFarm {
+impl TripListener for GrainFarm {
     fn trip_created(&mut self, trip: TripID, world: &mut World) {
         self.on_trip_created(trip, world);
     }
@@ -138,7 +138,7 @@ impl TripListener for CropFarm {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.register::<CropFarm>();
+    system.register::<GrainFarm>();
     auto_setup(system);
 }
 

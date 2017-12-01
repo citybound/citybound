@@ -46,7 +46,8 @@ use transport::lane::{Lane, TransferLane};
 use transport::rendering::LaneRenderer;
 use planning::plan_manager::PlanManager;
 use economy::households::family::Family;
-use economy::households::crop_farm::CropFarm;
+use economy::households::crop_farm::GrainFarm;
+use economy::households::grocery_shop::GroceryShop;
 use economy::households::tasks::TaskEndScheduler;
 use economy::buildings::BuildingSpawner;
 use economy::buildings::rendering::BuildingRenderer;
@@ -67,7 +68,8 @@ fn main() {
             Lane::local_broadcast(world).into(),
             TransferLane::local_broadcast(world).into(),
             Family::local_broadcast(world).into(),
-            CropFarm::local_broadcast(world).into(),
+            GrainFarm::local_broadcast(world).into(),
+            GroceryShop::local_broadcast(world).into(),
             TaskEndScheduler::local_first(world).into(),
             BuildingSpawner::local_first(world).into(),
         ];

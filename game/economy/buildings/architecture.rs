@@ -16,7 +16,7 @@ pub struct BuildingGeometry {
 pub enum BuildingStyle {
     FamilyHouse,
     GroceryShop,
-    CropFarm,
+    GrainFarm,
     NeihboringTownConnection,
 }
 
@@ -41,7 +41,7 @@ pub fn build_building<R: Rng>(
                 field: Geometry::empty(),
             }
         }
-        BuildingStyle::CropFarm => {
+        BuildingStyle::GrainFarm => {
             BuildingGeometry {
                 wall: Geometry::empty(),
                 brick_roof: Geometry::empty(),

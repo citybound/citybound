@@ -2,9 +2,21 @@
 pub enum Resource {
     Awakeness,
     Satiety,
+    Entertainment,
+    Services,
     Money,
     Groceries,
-    Crops,
+    Produce,
+    Grain,
+    Flour,
+    BakedGoods,
+    Meat,
+    DairyGoods,
+    Wood,
+    Furniture,
+    TextileGoods,
+    Clothes,
+    Devices,
 }
 
 use self::Resource::*;
@@ -20,9 +32,21 @@ impl Resource {
         match *self {
             Awakeness => "How much energy a person has.",
             Satiety => "How little hungry a person is.",
+            Entertainment => "How entertained a person is.",
+            Services => "How many services a person or business needs.",
             Money => "Money.",
             Groceries => "Mixed food for daily consumption.",
-            Crops => "Plant-based agricultural produce",
+            Produce => "Agricultural fruits & vegeteables produce",
+            Grain => "Agricultural grain produce",
+            Flour => "Processed Grains",
+            BakedGoods => "Baked Goods",
+            Meat => "Meat",
+            DairyGoods => "Dairy Goods",
+            Wood => "Wood",
+            Furniture => "Furniture",
+            TextileGoods => "Textile Goods",
+            Clothes => "Clothes",
+            Devices => "Devices",
         }
     }
 }

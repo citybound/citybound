@@ -4,6 +4,7 @@ use core::random::{seed, Rng};
 use core::simulation::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, SimulationID,
                        Simulatable, SimulatableID};
 use economy::resources::Resource;
+use economy::resources::Resource::*;
 use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
                       EvaluatedSearchResult};
 use economy::buildings::BuildingID;
@@ -38,12 +39,12 @@ impl Family {
             MemberIdx(0),
             home.into(),
             TimeOfDayRange::new(16, 0, 11, 0),
-            Deal::new(Some((Resource::Awakeness, 3.0)), Duration::from_hours(1)),
+            Deal::new(Some((Awakeness, 3.0)), Duration::from_hours(1)),
             world,
         );
 
         let mut core = HouseholdCore::new(n_members, home.into());
-        core.used_offers.insert(Resource::Awakeness, sleep_offer);
+        core.used_offers.insert(Awakeness, sleep_offer);
 
         Family { id, home, sleep_offer, core }
     }
@@ -108,16 +109,16 @@ impl Household for Family {
 
     fn is_shared(resource: Resource) -> bool {
         match resource {
-            Resource::Awakeness | Resource::Satiety => false,
-            Resource::Money | Resource::Groceries => true,
+            Awakeness | Satiety | Entertainment | Clothes => false,
+            Money | Groceries | Furniture | Devices | Services => true,
             _ => unimplemented!(),
         }
     }
 
     fn supplier_shared(resource: Resource) -> bool {
         match resource {
-            Resource::Money => false,
-            Resource::Awakeness | Resource::Satiety | Resource::Groceries => true,
+            Money | Entertainment | Clothes => false,
+            Awakeness | Satiety | Groceries | Furniture | Devices | Services => true,
             _ => unimplemented!(),
         }
     }
@@ -126,10 +127,12 @@ impl Household for Family {
         let hour = time.hours_minutes().0;
 
         let bihourly_importance = match resource {
-            Resource::Awakeness => Some([7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 7, 7]),
-            Resource::Satiety => Some([0, 0, 5, 5, 1, 5, 5, 1, 5, 5, 1, 1]),
-            Resource::Money => Some([0, 0, 3, 3, 5, 5, 5, 3, 3, 1, 1, 1]),
-            Resource::Groceries => Some([0, 0, 4, 4, 1, 4, 4, 4, 4, 4, 0, 0]),
+            Awakeness => Some([7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 7, 7]),
+            Satiety => Some([0, 0, 5, 5, 1, 5, 5, 1, 5, 5, 1, 1]),
+            Entertainment => Some([0, 0, 1, 1, 1, 1, 1, 1, 2, 3, 3, 2]),
+            Money => Some([0, 0, 3, 3, 5, 5, 5, 3, 3, 1, 1, 1]),
+            Groceries => Some([0, 0, 4, 4, 1, 4, 4, 4, 4, 4, 0, 0]),
+            Furniture | Clothes | Devices | Services => Some([0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0]),
             _ => None,
         };
 
@@ -140,10 +143,15 @@ impl Household for Family {
 
     fn interesting_resources() -> &'static [Resource] {
         &[
-            Resource::Awakeness,
-            Resource::Satiety,
-            Resource::Money,
-            Resource::Groceries,
+            Awakeness,
+            Satiety,
+            Entertainment,
+            Money,
+            Groceries,
+            Furniture,
+            Clothes,
+            Devices,
+            Services,
         ]
     }
 
@@ -151,19 +159,39 @@ impl Household for Family {
         for (i, member_resources) in self.core.member_resources.iter_mut().enumerate() {
             {
                 let individuality = seed((self.id, i)).gen_range(0.8, 1.2);
-                let awakeness = member_resources.mut_entry_or(Resource::Awakeness, 0.0);
+                let awakeness = member_resources.mut_entry_or(Awakeness, 0.0);
                 *awakeness -= 1.0 * individuality * dt.as_hours();
             }
             {
                 let individuality = seed((self.id, i, 1u8)).gen_range(0.8, 1.2);
-                let satiety = member_resources.mut_entry_or(Resource::Satiety, 0.0);
+                let satiety = member_resources.mut_entry_or(Satiety, 0.0);
                 if *satiety < 0.0 {
-                    let groceries = self.core.resources.mut_entry_or(Resource::Groceries, 0.0);
+                    let groceries = self.core.resources.mut_entry_or(Groceries, 0.0);
                     *groceries -= 3.0;
                     *satiety += 3.0;
                 }
                 *satiety -= 1.0 * individuality * dt.as_hours();
             }
+            {
+                let individuality = seed((self.id, i)).gen_range(0.8, 1.2);
+                let entertainment = member_resources.mut_entry_or(Entertainment, 0.0);
+                *entertainment -= 0.2 * individuality * dt.as_hours();
+            }
+        }
+        {
+            let individuality = seed(self.id).gen_range(0.8, 1.2);
+            let furniture = self.core.resources.mut_entry_or(Furniture, 0.0);
+            *furniture -= 0.05 * individuality * dt.as_hours();
+        }
+        {
+            let individuality = seed(self.id).gen_range(0.8, 1.2);
+            let devices = self.core.resources.mut_entry_or(Devices, 0.0);
+            *devices -= 0.05 * individuality * dt.as_hours();
+        }
+        {
+            let individuality = seed(self.id).gen_range(0.8, 1.2);
+            let services = self.core.resources.mut_entry_or(Services, 0.0);
+            *services -= 0.1 * individuality * dt.as_hours();
         }
     }
 

@@ -11,7 +11,7 @@ use planning::materialized_reality::{MaterializedReality, MaterializedRealityID}
 
 use super::households::family::FamilyID;
 use super::households::grocery_shop::GroceryShopID;
-use super::households::crop_farm::CropFarmID;
+use super::households::crop_farm::GrainFarmID;
 use core::simulation::Ticks;
 use core::random::{seed, Rng};
 
@@ -319,11 +319,11 @@ impl BuildingSpawner {
                     let building_id = BuildingID::spawn(
                         materialized_reality,
                         vec![Unit(None, UnitType::Agriculture)].into(),
-                        BuildingStyle::CropFarm,
+                        BuildingStyle::GrainFarm,
                         lot.clone(),
                         world,
                     );
-                    let farm_id = CropFarmID::move_into(building_id, world);
+                    let farm_id = GrainFarmID::move_into(building_id, world);
                     building_id.add_household(farm_id.into(), UnitIdx(0), world);
                 }
                 _ => {

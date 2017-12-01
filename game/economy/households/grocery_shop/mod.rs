@@ -1,6 +1,7 @@
 use kay::{ActorSystem, World, TypedID, Actor};
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration};
 use economy::resources::Resource;
+use economy::resources::Resource::*;
 use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
                       EvaluatedSearchResult};
 use economy::buildings::BuildingID;
@@ -28,7 +29,7 @@ impl GroceryShop {
                 site.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
-                    vec![(Resource::Groceries, 30.0), (Resource::Money, -60.0)],
+                    vec![(Groceries, 30.0), (Money, -60.0)],
                     Duration::from_minutes(30),
                 ),
                 world,
@@ -38,7 +39,7 @@ impl GroceryShop {
                 MemberIdx(0),
                 site.into(),
                 TimeOfDayRange::new(7, 0, 15, 0),
-                Deal::new(Some((Resource::Money, 50.0)), Duration::from_hours(5)),
+                Deal::new(Some((Money, 50.0)), Duration::from_hours(5)),
                 world,
             ),
         }
@@ -71,12 +72,28 @@ impl Household for GroceryShop {
     }
 
     fn interesting_resources() -> &'static [Resource] {
-        &[Resource::Money, Resource::Groceries]
+        &[
+            Money,
+            Groceries,
+            Produce,
+            Grain,
+            Flour,
+            BakedGoods,
+            Meat,
+            DairyGoods,
+        ]
     }
 
     fn decay(&mut self, dt: Duration, _: &mut World) {
-        let groceries = self.core.resources.mut_entry_or(Resource::Groceries, 0.0);
-        *groceries += 0.001 * dt.as_seconds();
+        {
+            let groceries = self.core.resources.mut_entry_or(Groceries, 0.0);
+            *groceries += 0.001 * dt.as_seconds();
+        }
+
+        for raw_resource in &[Produce, Grain, Flour, BakedGoods, Meat, DairyGoods] {
+            let amount = self.core.resources.mut_entry_or(*raw_resource, 0.0);
+            *amount -= 0.001 * dt.as_seconds();
+        }
     }
 
     fn household_name(&self) -> String {
