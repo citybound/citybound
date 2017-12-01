@@ -292,39 +292,51 @@ impl BuildingSpawner {
         simulation: SimulationID,
         world: &mut World,
     ) {
-        match *seed(time).choose(&[0, 1, 2, 2, 2, 2]).unwrap() {
-            0 => {
-                let building_id = BuildingID::spawn(
-                    materialized_reality,
-                    vec![Unit(None, UnitType::Retail)].into(),
-                    BuildingStyle::GroceryShop,
-                    lot.clone(),
-                    world,
-                );
-                let shop_id = GroceryShopID::move_into(building_id, world);
-                building_id.add_household(shop_id.into(), UnitIdx(0), world);
-            }
-            1 => {
-                let building_id = BuildingID::spawn(
-                    materialized_reality,
-                    vec![Unit(None, UnitType::Agriculture)].into(),
-                    BuildingStyle::CropFarm,
-                    lot.clone(),
-                    world,
-                );
-                let farm_id = CropFarmID::move_into(building_id, world);
-                building_id.add_household(farm_id.into(), UnitIdx(0), world);
-            }
-            _ => {
-                let building_id = BuildingID::spawn(
-                    materialized_reality,
-                    vec![Unit(None, UnitType::Dwelling)].into(),
-                    BuildingStyle::FamilyHouse,
-                    lot.clone(),
-                    world,
-                );
-                let family_id = FamilyID::move_into(3, building_id, simulation, world);
-                building_id.add_household(family_id.into(), UnitIdx(0), world);
+        if (lot.position - P2::new(0.0, 0.0)).norm() > INNER_REGION_RADIUS {
+            let building_id = BuildingID::spawn(
+                materialized_reality,
+                vec![Unit(None, UnitType::Dwelling)].into(),
+                BuildingStyle::NeihboringTownConnection,
+                lot.clone(),
+                world,
+            );
+            let family_id = FamilyID::move_into(3, building_id, simulation, world);
+            building_id.add_household(family_id.into(), UnitIdx(0), world);
+        } else {
+            match *seed(time).choose(&[0, 1, 2, 2, 2, 2]).unwrap() {
+                0 => {
+                    let building_id = BuildingID::spawn(
+                        materialized_reality,
+                        vec![Unit(None, UnitType::Retail)].into(),
+                        BuildingStyle::GroceryShop,
+                        lot.clone(),
+                        world,
+                    );
+                    let shop_id = GroceryShopID::move_into(building_id, world);
+                    building_id.add_household(shop_id.into(), UnitIdx(0), world);
+                }
+                1 => {
+                    let building_id = BuildingID::spawn(
+                        materialized_reality,
+                        vec![Unit(None, UnitType::Agriculture)].into(),
+                        BuildingStyle::CropFarm,
+                        lot.clone(),
+                        world,
+                    );
+                    let farm_id = CropFarmID::move_into(building_id, world);
+                    building_id.add_household(farm_id.into(), UnitIdx(0), world);
+                }
+                _ => {
+                    let building_id = BuildingID::spawn(
+                        materialized_reality,
+                        vec![Unit(None, UnitType::Dwelling)].into(),
+                        BuildingStyle::FamilyHouse,
+                        lot.clone(),
+                        world,
+                    );
+                    let family_id = FamilyID::move_into(3, building_id, simulation, world);
+                    building_id.add_household(family_id.into(), UnitIdx(0), world);
+                }
             }
         }
     }
@@ -373,6 +385,8 @@ impl Simulatable for BuildingSpawner {
 }
 
 const MIN_BUILDING_DISTANCE: f32 = 20.0;
+pub const INNER_REGION_RADIUS: f32 = 4000.0;
+const MIN_NEIGHBORING_TOWN_DISTANCE: f32 = 2000.0;
 
 pub trait LotConflictor {
     fn find_conflicts(&mut self, lots: &CVec<Lot>, requester: BuildingSpawnerID, world: &mut World);
@@ -388,7 +402,13 @@ impl LotConflictor for Building {
         requester.update_feasibility(
             lots.iter()
                 .map(|lot| {
-                    (lot.position - self.lot.position).norm() > MIN_BUILDING_DISTANCE
+                    let min_distance =
+                        if (self.lot.position - P2::new(0.0, 0.0)).norm() > INNER_REGION_RADIUS {
+                            MIN_NEIGHBORING_TOWN_DISTANCE
+                        } else {
+                            MIN_BUILDING_DISTANCE
+                        };
+                    (lot.position - self.lot.position).norm() > min_distance
                 })
                 .collect(),
             world,
@@ -407,7 +427,11 @@ impl LotConflictor for Lane {
     ) {
         requester.update_feasibility(
             lots.iter()
-                .map(|lot| {
+                .map(|lot| if (lot.position - P2::new(0.0, 0.0)).norm() >
+                    INNER_REGION_RADIUS
+                {
+                    true
+                } else {
                     self.construction.path.distance_to(lot.position) > MIN_LANE_BUILDING_DISTANCE
                 })
                 .collect(),
@@ -424,7 +448,13 @@ impl Sleeper for BuildingSpawner {
                 let mut nonconflicting_lots = CVec::<Lot>::new();
                 for lot in lots.iter() {
                     let far_from_all = nonconflicting_lots.iter().all(|other_lot| {
-                        (lot.position - other_lot.position).norm() > MIN_BUILDING_DISTANCE
+                        let min_distance =
+                            if (lot.position - P2::new(0.0, 0.0)).norm() > INNER_REGION_RADIUS {
+                                MIN_NEIGHBORING_TOWN_DISTANCE
+                            } else {
+                                MIN_BUILDING_DISTANCE
+                            };
+                        (lot.position - other_lot.position).norm() > min_distance
                     });
                     if far_from_all {
                         nonconflicting_lots.push(lot.clone());

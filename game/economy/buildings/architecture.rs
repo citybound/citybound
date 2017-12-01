@@ -17,6 +17,7 @@ pub enum BuildingStyle {
     FamilyHouse,
     GroceryShop,
     CropFarm,
+    NeihboringTownConnection,
 }
 
 pub fn build_building<R: Rng>(
@@ -62,6 +63,28 @@ pub fn build_building<R: Rng>(
                     entrance_footprint.wall_geometry(entrance_height) +
                     roof_wall_geometry + entrance_roof_wall_geometry,
                 brick_roof: roof_brick_geometry + entrance_roof_brick_geometry,
+                flat_roof: Geometry::empty(),
+                field: Geometry::empty(),
+            }
+        }
+        BuildingStyle::NeihboringTownConnection => {
+            let length = 100.0;
+            let orientation_orth = lot.orientation.orthogonal();
+
+            let vertices = vec![
+                lot.position - length / 4.0 * orientation_orth,
+                lot.position + length / 2.0 * lot.orientation,
+                lot.position + length / 4.0 * orientation_orth,
+                lot.position - length / 2.0 * lot.orientation,
+            ].into_iter()
+                .map(|v| Vertex { position: [v.x, v.y, 3.0] })
+                .collect();
+
+            let indices = vec![0, 1, 2, 2, 3, 0];
+
+            BuildingGeometry {
+                wall: Geometry::new(vertices, indices),
+                brick_roof: Geometry::empty(),
                 flat_roof: Geometry::empty(),
                 field: Geometry::empty(),
             }
