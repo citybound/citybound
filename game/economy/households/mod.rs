@@ -12,6 +12,9 @@ pub mod tasks;
 pub mod family;
 pub mod grocery_shop;
 pub mod crop_farm;
+pub mod cow_farm;
+pub mod mill;
+pub mod bakery;
 pub mod neighboring_town_trade;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
