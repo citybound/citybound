@@ -12,6 +12,7 @@ use planning::materialized_reality::{MaterializedReality, MaterializedRealityID}
 use super::households::family::FamilyID;
 use super::households::grocery_shop::GroceryShopID;
 use super::households::crop_farm::GrainFarmID;
+use super::households::neighboring_town_trade::NeighboringTownTradeID;
 use core::simulation::Ticks;
 use core::random::{seed, Rng};
 
@@ -293,15 +294,21 @@ impl BuildingSpawner {
         world: &mut World,
     ) {
         if (lot.position - P2::new(0.0, 0.0)).norm() > INNER_REGION_RADIUS {
-            let building_id = BuildingID::spawn(
-                materialized_reality,
-                vec![Unit(None, UnitType::Dwelling)].into(),
-                BuildingStyle::NeihboringTownConnection,
-                lot.clone(),
-                world,
-            );
-            let family_id = FamilyID::move_into(3, building_id, simulation, world);
-            building_id.add_household(family_id.into(), UnitIdx(0), world);
+            const FAMILIES_PER_NEIGHBORING_TOWN: usize = 50;
+            let building_id =
+                BuildingID::spawn(
+                    materialized_reality,
+                    vec![Unit(None, UnitType::Dwelling); 1 + FAMILIES_PER_NEIGHBORING_TOWN].into(),
+                    BuildingStyle::NeihboringTownConnection,
+                    lot.clone(),
+                    world,
+                );
+            let trade_id = NeighboringTownTradeID::move_into(building_id, world);
+            building_id.add_household(trade_id.into(), UnitIdx(0), world);
+            for i in 0..FAMILIES_PER_NEIGHBORING_TOWN {
+                let family_id = FamilyID::move_into(3, building_id, simulation, world);
+                building_id.add_household(family_id.into(), UnitIdx(i + 1), world);
+            }
         } else {
             match *seed(time).choose(&[0, 1, 2, 2, 2, 2]).unwrap() {
                 0 => {

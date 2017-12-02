@@ -12,6 +12,7 @@ pub mod tasks;
 pub mod family;
 pub mod grocery_shop;
 pub mod crop_farm;
+pub mod neighboring_town_trade;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct MemberIdx(usize);
