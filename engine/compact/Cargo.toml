@@ -6,7 +6,7 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 [dependencies]
 primal = "0.2.3"
 lazy_static = "0.2.8"
-clippy = { version = "0.0.170", optional = true }
+clippy = { version = "0.0.175", optional = true }
 
 [dependencies.allocators]
 path = "../allocators/"
