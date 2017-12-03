@@ -2,44 +2,92 @@ use descartes::{N, P2, Norm, WithUniqueOrthogonal};
 use rand::Rng;
 use monet::{Vertex, Geometry};
 
-use super::super::Lot;
+use super::Lot;
 
 #[derive(Compact, Clone)]
 pub struct BuildingGeometry {
     pub wall: Geometry,
     pub brick_roof: Geometry,
     pub flat_roof: Geometry,
+    pub field: Geometry,
 }
 
-pub fn build_building<R: Rng>(lot: &Lot, is_shop: bool, rng: &mut R) -> BuildingGeometry {
+#[derive(Copy, Clone)]
+pub enum BuildingStyle {
+    FamilyHouse,
+    GroceryShop,
+    GrainFarm,
+    NeihboringTownConnection,
+}
+
+pub fn build_building<R: Rng>(
+    lot: &Lot,
+    building_type: BuildingStyle,
+    rng: &mut R,
+) -> BuildingGeometry {
     let (main_footprint, entrance_footprint) = generate_house_footprint(lot, rng);
 
-    if is_shop {
-        let height = 3.0 + rng.next_f32();
-        let entrance_height = height - 0.7;
+    match building_type {
+        BuildingStyle::GroceryShop => {
+            let height = 3.0 + rng.next_f32();
+            let entrance_height = height - 0.7;
 
-        BuildingGeometry {
-            wall: main_footprint.wall_geometry(height) +
-                entrance_footprint.wall_geometry(entrance_height),
-            brick_roof: Geometry::new(vec![], vec![]),
-            flat_roof: main_footprint.flat_roof_geometry(height) +
-                entrance_footprint.flat_roof_geometry(entrance_height),
+            BuildingGeometry {
+                wall: main_footprint.wall_geometry(height) +
+                    entrance_footprint.wall_geometry(entrance_height),
+                brick_roof: Geometry::empty(),
+                flat_roof: main_footprint.flat_roof_geometry(height) +
+                    entrance_footprint.flat_roof_geometry(entrance_height),
+                field: Geometry::empty(),
+            }
         }
-    } else {
-        let height = 3.0 + 3.0 * rng.next_f32();
-        let entrance_height = 2.0 + rng.next_f32();
+        BuildingStyle::GrainFarm => {
+            BuildingGeometry {
+                wall: Geometry::empty(),
+                brick_roof: Geometry::empty(),
+                flat_roof: Geometry::empty(),
+                field: main_footprint.flat_roof_geometry(0.0),
+            }
+        }
+        BuildingStyle::FamilyHouse => {
+            let height = 3.0 + 3.0 * rng.next_f32();
+            let entrance_height = 2.0 + rng.next_f32();
 
-        let (roof_brick_geometry, roof_wall_geometry) =
-            main_footprint.open_gable_roof_geometry(height, 0.3);
-        let (entrance_roof_brick_geometry, entrance_roof_wall_geometry) =
-            entrance_footprint.open_gable_roof_geometry(entrance_height, 0.3);
+            let (roof_brick_geometry, roof_wall_geometry) =
+                main_footprint.open_gable_roof_geometry(height, 0.3);
+            let (entrance_roof_brick_geometry, entrance_roof_wall_geometry) =
+                entrance_footprint.open_gable_roof_geometry(entrance_height, 0.3);
 
-        BuildingGeometry {
-            wall: main_footprint.wall_geometry(height) +
-                entrance_footprint.wall_geometry(entrance_height) +
-                roof_wall_geometry + entrance_roof_wall_geometry,
-            brick_roof: roof_brick_geometry + entrance_roof_brick_geometry,
-            flat_roof: Geometry::new(vec![], vec![]),
+            BuildingGeometry {
+                wall: main_footprint.wall_geometry(height) +
+                    entrance_footprint.wall_geometry(entrance_height) +
+                    roof_wall_geometry + entrance_roof_wall_geometry,
+                brick_roof: roof_brick_geometry + entrance_roof_brick_geometry,
+                flat_roof: Geometry::empty(),
+                field: Geometry::empty(),
+            }
+        }
+        BuildingStyle::NeihboringTownConnection => {
+            let length = 100.0;
+            let orientation_orth = lot.orientation.orthogonal();
+
+            let vertices = vec![
+                lot.position - length / 4.0 * orientation_orth,
+                lot.position + length / 2.0 * lot.orientation,
+                lot.position + length / 4.0 * orientation_orth,
+                lot.position - length / 2.0 * lot.orientation,
+            ].into_iter()
+                .map(|v| Vertex { position: [v.x, v.y, 3.0] })
+                .collect();
+
+            let indices = vec![0, 1, 2, 2, 3, 0];
+
+            BuildingGeometry {
+                wall: Geometry::new(vertices, indices),
+                brick_roof: Geometry::empty(),
+                flat_roof: Geometry::empty(),
+                field: Geometry::empty(),
+            }
         }
     }
 }

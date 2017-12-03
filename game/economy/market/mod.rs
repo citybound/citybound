@@ -1,6 +1,6 @@
-use kay::{ActorSystem, Fate, World};
+use kay::{ActorSystem, Fate, World, Actor};
 use compact::{CVec, CDict};
-use super::resources::{Inventory, Entry, ResourceId, ResourceAmount};
+use super::resources::{Inventory, Entry, Resource, ResourceAmount};
 use super::households::{HouseholdID, MemberIdx};
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, Instant};
 
@@ -11,7 +11,7 @@ pub struct Deal {
 }
 
 impl Deal {
-    pub fn new<T: IntoIterator<Item = (ResourceId, ResourceAmount)>>(
+    pub fn new<T: IntoIterator<Item = (Resource, ResourceAmount)>>(
         delta: T,
         duration: Duration,
     ) -> Self {
@@ -21,7 +21,7 @@ impl Deal {
         }
     }
 
-    pub fn main_given(&self) -> ResourceId {
+    pub fn main_given(&self) -> Resource {
         self.delta
             .iter()
             .filter_map(|&Entry(resource, amount)| if amount > 0.0 {
@@ -42,6 +42,8 @@ pub struct Offer {
     location: RoughLocationID,
     opening_hours: TimeOfDayRange,
     deal: Deal,
+    max_users: usize,
+    is_internal: bool,
     users: CVec<(HouseholdID, Option<MemberIdx>)>,
     active_users: CVec<(HouseholdID, MemberIdx)>,
     being_withdrawn: bool,
@@ -55,9 +57,10 @@ impl Offer {
         location: RoughLocationID,
         opening_hours: TimeOfDayRange,
         deal: &Deal,
+        max_users: usize,
         world: &mut World,
     ) -> Offer {
-        MarketID::global_first(world).register(deal.main_given(), id, world);
+        Market::global_first(world).register(deal.main_given(), id, world);
 
         Offer {
             id,
@@ -68,6 +71,8 @@ impl Offer {
             deal: deal.clone(),
             users: CVec::new(),
             active_users: CVec::new(),
+            is_internal: false,
+            max_users,
             being_withdrawn: false,
         }
     }
@@ -80,6 +85,7 @@ impl Offer {
         location: RoughLocationID,
         opening_hours: TimeOfDayRange,
         deal: &Deal,
+        max_users: usize,
         _: &mut World,
     ) -> Offer {
         Offer {
@@ -91,6 +97,8 @@ impl Offer {
             deal: deal.clone(),
             users: CVec::new(),
             active_users: CVec::new(),
+            is_internal: true,
+            max_users,
             being_withdrawn: false,
         }
     }
@@ -98,7 +106,7 @@ impl Offer {
     // The offer stays alive until the withdrawal is confirmed
     // to prevent offers being used while they're being withdrawn
     pub fn withdraw(&mut self, world: &mut World) {
-        MarketID::global_first(world).withdraw(self.deal.main_given(), self.id, world);
+        Market::global_first(world).withdraw(self.deal.main_given(), self.id, world);
         self.being_withdrawn = true;
     }
 
@@ -208,10 +216,13 @@ impl Offer {
         &mut self,
         household: HouseholdID,
         member: Option<MemberIdx>,
-        _: &mut World,
+        world: &mut World,
     ) {
         if !self.users.contains(&(household, member)) {
             self.users.push((household, member));
+            if self.is_internal && self.users.len() >= self.max_users {
+                Market::global_first(world).withdraw(self.deal.main_given(), self.id, world);
+            }
         }
     }
 
@@ -219,14 +230,19 @@ impl Offer {
         &mut self,
         household: HouseholdID,
         member: Option<MemberIdx>,
-        _: &mut World,
+        world: &mut World,
     ) -> Fate {
+        let users_before = self.users.len();
+
         self.users.retain(|&(o_household, o_member)| {
             o_household != household || o_member != member
         });
 
-        if self.users.is_empty() && self.being_withdrawn {
+        if self.is_internal && users_before >= self.max_users && self.users.len() < self.max_users {
+            Market::global_first(world).register(self.deal.main_given(), self.id, world);
+        }
 
+        if self.users.is_empty() && self.being_withdrawn {
             Fate::Die
         } else {
             Fate::Live
@@ -256,10 +272,8 @@ impl Offer {
     }
 }
 
-use transport::pathfinding::{RoughLocation, RoughLocationID,
-                             MSG_RoughLocation_resolve_as_location,
-                             MSG_RoughLocation_resolve_as_position, LocationRequesterID,
-                             PositionRequesterID, MSG_LocationRequester_location_resolved};
+use transport::pathfinding::{RoughLocation, RoughLocationID, LocationRequesterID,
+                             PositionRequesterID};
 
 impl RoughLocation for Offer {
     fn resolve_as_location(
@@ -292,14 +306,14 @@ impl RoughLocation for Offer {
 }
 
 pub trait EvaluationRequester {
-    fn expect_n_results(&mut self, resource: ResourceId, n: usize, world: &mut World);
+    fn expect_n_results(&mut self, resource: Resource, n: usize, world: &mut World);
     fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World);
 }
 
 #[derive(Compact, Clone)]
 pub struct Market {
     id: MarketID,
-    offers_by_resource: CDict<ResourceId, CVec<OfferID>>,
+    offers_by_resource: CDict<Resource, CVec<OfferID>>,
 }
 
 impl Market {
@@ -311,7 +325,7 @@ impl Market {
         &mut self,
         instant: Instant,
         location: RoughLocationID,
-        resource: ResourceId,
+        resource: Resource,
         requester: EvaluationRequesterID,
         world: &mut World,
     ) {
@@ -328,11 +342,11 @@ impl Market {
         requester.expect_n_results(resource, n_to_expect, world);
     }
 
-    pub fn register(&mut self, resource: ResourceId, offer: OfferID, _: &mut World) {
+    pub fn register(&mut self, resource: Resource, offer: OfferID, _: &mut World) {
         self.offers_by_resource.push_at(resource, offer);
     }
 
-    pub fn withdraw(&mut self, resource: ResourceId, offer: OfferID, world: &mut World) {
+    pub fn withdraw(&mut self, resource: Resource, offer: OfferID, world: &mut World) {
         if let Some(offers) = self.offers_by_resource.get_mut(resource) {
             offers.retain(|o| *o != offer);
         }
@@ -349,12 +363,12 @@ pub struct EvaluatedDeal {
 
 #[derive(Compact, Clone)]
 pub struct EvaluatedSearchResult {
-    pub resource: ResourceId,
+    pub resource: Resource,
     pub evaluated_deals: CVec<EvaluatedDeal>,
 }
 
 use transport::pathfinding::{PreciseLocation, LocationRequester, DistanceRequester,
-                             DistanceRequesterID, MSG_DistanceRequester_on_distance};
+                             DistanceRequesterID};
 
 #[derive(Compact, Clone)]
 pub struct TripCostEstimator {
@@ -419,7 +433,7 @@ impl LocationRequester for TripCostEstimator {
         if let (Some(source), Some(destination)) = (self.source, self.destination) {
             source.node.get_distance_to(
                 destination.location,
-                self.id.into(),
+                self.id_as(),
                 world,
             );
         } else if self.n_resolved == 2 {

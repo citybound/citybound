@@ -9,7 +9,7 @@ use super::road_plan::{LaneStrokeRef, Intersection};
 use super::lane_stroke::{LaneStroke, LaneStrokeNode};
 
 const STROKE_INTERSECTION_WIDTH: N = 4.0;
-const INTERSECTION_GROUPING_RADIUS: N = 30.0;
+const INTERSECTION_GROUPING_RADIUS: N = 15.0;
 
 #[inline(never)]
 pub fn find_intersections(strokes: &CVec<LaneStroke>) -> CVec<Intersection> {
@@ -78,7 +78,7 @@ fn find_intersection_points(strokes: &CVec<LaneStroke>) -> Vec<P2> {
         );
     }
 
-    let points = grid.colocated_pairs()
+    let mut points = grid.colocated_pairs()
         .into_iter()
         .flat_map(|&(stroke_idx_a, ref stroke_idx_b_bmap)| {
             stroke_idx_b_bmap
@@ -95,6 +95,23 @@ fn find_intersection_points(strokes: &CVec<LaneStroke>) -> Vec<P2> {
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
+
+    // Super hacky way to add u-turns to every road end,
+    // by creating a "fake" intersection there
+    points.extend(strokes.iter().flat_map(
+        |stroke| if stroke.nodes().len() > 1 {
+            let path = stroke.path();
+            let length = path.length();
+            vec![
+                path.along(0.0f32),
+                path.along(1.0f32.min(length)),
+                path.along(length),
+                path.along(length - 1.0f32.min(length)),
+            ]
+        } else {
+            vec![]
+        },
+    ));
 
     points
 }

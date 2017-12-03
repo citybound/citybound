@@ -1,25 +1,47 @@
-use kay::{ActorSystem, World, External};
+use kay::{ActorSystem, World, External, TypedID, Actor};
 use compact::CVec;
 use descartes::{P2, V2, Norm, Curve};
 use stagemaster::combo::{Bindings, Combo2};
-use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
-                  MSG_Interactable3d_on_event};
+use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID};
 use stagemaster::combo::Button::*;
 use stagemaster::geometry::AnyShape;
 use transport::lane::{Lane, LaneID};
 use planning::materialized_reality::{MaterializedReality, MaterializedRealityID};
 
 
+use super::households::family::FamilyID;
+use super::households::grocery_shop::GroceryShopID;
+use super::households::crop_farm::GrainFarmID;
+use super::households::neighboring_town_trade::NeighboringTownTradeID;
+use core::simulation::Ticks;
+use core::random::{seed, Rng};
+
 pub mod rendering;
+pub mod architecture;
+use self::architecture::BuildingStyle;
 
 use super::households::HouseholdID;
 use transport::pathfinding::PreciseLocation;
 
+#[derive(Copy, Clone)]
+pub struct Unit(Option<HouseholdID>, UnitType);
+
+#[derive(Copy, Clone)]
+pub enum UnitType {
+    Dwelling,
+    Retail,
+    Agriculture,
+}
+
+#[derive(Copy, Clone)]
+pub struct UnitIdx(usize);
+
 #[derive(Compact, Clone)]
 pub struct Building {
     id: BuildingID,
-    households: CVec<HouseholdID>,
+    units: CVec<Unit>,
     lot: Lot,
+    style: BuildingStyle,
     being_destroyed: bool,
     started_reconnect: bool,
 }
@@ -30,7 +52,8 @@ impl Building {
     pub fn spawn(
         id: BuildingID,
         materialized_reality: MaterializedRealityID,
-        households: &CVec<HouseholdID>,
+        units: &CVec<Unit>,
+        style: BuildingStyle,
         lot: &Lot,
         world: &mut World,
     ) -> Building {
@@ -41,14 +64,18 @@ impl Building {
         //     0.0,
         //     world,
         // );
-        // TODO: ugly: untyped ID shenanigans
-        let adjacent_lane = LaneID {
-            _raw_id: lot.location
-                .expect("Lot should already have location")
-                .node
-                ._raw_id,
+        // TODO: ugly: untyped RawID shenanigans
+        let adjacent_lane = unsafe {
+            LaneID::from_raw(
+                lot.location
+                    .expect("Lot should already have location")
+                    .node
+                    .as_raw(),
+            )
         };
         materialized_reality.on_building_built(lot.position, id, adjacent_lane, world);
+
+        rendering::on_add(id, lot, style, world);
         lot.location
             .expect("Lot should already have location")
             .node
@@ -56,52 +83,56 @@ impl Building {
 
         Building {
             id,
-            households: households.clone(),
+            units: units.clone(),
             lot: lot.clone(),
+            style,
             being_destroyed: false,
             started_reconnect: false,
         }
     }
 
-    pub fn add_household(&mut self, household: HouseholdID, world: &mut World) {
-        self.households.push(household);
-        // TODO: such a weird place to do this, but ok for now
-        if self.households.len() == 1 {
-            rendering::on_add(self, world);
-        }
+    pub fn add_household(&mut self, household: HouseholdID, unit: UnitIdx, _: &mut World) {
+        self.units[unit.0].0 = Some(household);
     }
 
     pub fn remove_household(&mut self, household: HouseholdID, world: &mut World) {
-        let position = self.households
+        let position = self.units
             .iter()
-            .position(|household_here| *household_here == household)
+            .position(|&Unit(user, _)| user == Some(household))
             .expect("Tried to remove a household not in the building");
-        self.households.remove(position);
+        self.units[position].0 = None;
 
-        if self.being_destroyed && self.households.is_empty() {
+        if self.being_destroyed && self.all_households().is_empty() {
             self.id.finally_destroy(world);
         }
     }
 
     pub fn destroy(&mut self, world: &mut World) {
-        for household in &self.households {
+        for household in &self.all_households() {
             household.destroy(world);
         }
 
         self.being_destroyed = true;
     }
 
+    pub fn all_households(&self) -> Vec<HouseholdID> {
+        self.units
+            .iter()
+            .filter_map(|&Unit(user, _)| user)
+            .collect()
+    }
+
     pub fn finally_destroy(&mut self, world: &mut World) -> ::kay::Fate {
         rendering::on_destroy(self.id, world);
         if let Some(location) = self.lot.location {
-            location.node.remove_attachee(self.id.into(), world);
+            location.node.remove_attachee(self.id_as(), world);
         }
         ::kay::Fate::Die
     }
 }
 
-use transport::pathfinding::{Location, Attachee, AttacheeID, MSG_Attachee_location_changed};
-use core::simulation::{SimulationID, Sleeper, SleeperID, Duration, MSG_Sleeper_wake};
+use transport::pathfinding::{Location, Attachee, AttacheeID};
+use core::simulation::{Simulation, SimulationID, Sleeper, SleeperID, Duration};
 
 impl Attachee for Building {
     fn location_changed(
@@ -118,9 +149,11 @@ impl Attachee for Building {
                 .location = new;
         } else {
             self.lot.location = None;
-            SimulationID::local_first(world).wake_up_in(
-                Ticks::from(Duration::from_minutes(10)),
-                self.id.into(),
+            Simulation::local_first(world).wake_up_in(
+                Ticks::from(
+                    Duration::from_minutes(10),
+                ),
+                self.id_as(),
                 world,
             );
         }
@@ -136,14 +169,12 @@ impl Sleeper for Building {
                 self.started_reconnect = false;
             }
         } else {
-            LaneID::global_broadcast(world).try_reconnect_building(
-                self.id,
-                self.lot.position,
-                world,
-            );
-            SimulationID::local_first(world).wake_up_in(
-                Ticks::from(Duration::from_minutes(10)),
-                self.id.into(),
+            Lane::global_broadcast(world).try_reconnect_building(self.id, self.lot.position, world);
+            Simulation::local_first(world).wake_up_in(
+                Ticks::from(
+                    Duration::from_minutes(10),
+                ),
+                self.id_as(),
                 world,
             );
             self.started_reconnect = true;
@@ -161,14 +192,13 @@ impl Building {
         if self.lot.location.is_none() {
             self.lot.location = Some(new_location);
             self.lot.adjacent_lane_position = new_adjacent_lane_position;
-            new_location.node.add_attachee(self.id.into(), world);
+            new_location.node.add_attachee(self.id_as(), world);
         }
     }
 }
 
 use transport::pathfinding::{RoughLocation, LocationRequesterID, PositionRequesterID,
-                             RoughLocationID, MSG_RoughLocation_resolve_as_location,
-                             MSG_RoughLocation_resolve_as_position};
+                             RoughLocationID};
 use core::simulation::Instant;
 
 impl RoughLocation for Building {
@@ -257,19 +287,64 @@ impl BuildingSpawner {
     }
 
     fn spawn_building(
+        time: Instant,
         materialized_reality: MaterializedRealityID,
         lot: &Lot,
         simulation: SimulationID,
         world: &mut World,
     ) {
-        let building_id = BuildingID::spawn(materialized_reality, CVec::new(), lot.clone(), world);
-
-        if building_id._raw_id.instance_id % 6 == 0 {
-            let shop_id = GroceryShopID::move_into(building_id, world);
-            building_id.add_household(shop_id.into(), world);
+        if (lot.position - P2::new(0.0, 0.0)).norm() > INNER_REGION_RADIUS {
+            const FAMILIES_PER_NEIGHBORING_TOWN: usize = 50;
+            let building_id =
+                BuildingID::spawn(
+                    materialized_reality,
+                    vec![Unit(None, UnitType::Dwelling); 1 + FAMILIES_PER_NEIGHBORING_TOWN].into(),
+                    BuildingStyle::NeihboringTownConnection,
+                    lot.clone(),
+                    world,
+                );
+            let trade_id = NeighboringTownTradeID::move_into(building_id, world);
+            building_id.add_household(trade_id.into(), UnitIdx(0), world);
+            for i in 0..FAMILIES_PER_NEIGHBORING_TOWN {
+                let family_id = FamilyID::move_into(3, building_id, simulation, world);
+                building_id.add_household(family_id.into(), UnitIdx(i + 1), world);
+            }
         } else {
-            let family_id = FamilyID::move_into(3, building_id, simulation, world);
-            building_id.add_household(family_id.into(), world);
+            match *seed(time).choose(&[0, 1, 2, 2, 2, 2]).unwrap() {
+                0 => {
+                    let building_id = BuildingID::spawn(
+                        materialized_reality,
+                        vec![Unit(None, UnitType::Retail)].into(),
+                        BuildingStyle::GroceryShop,
+                        lot.clone(),
+                        world,
+                    );
+                    let shop_id = GroceryShopID::move_into(building_id, world);
+                    building_id.add_household(shop_id.into(), UnitIdx(0), world);
+                }
+                1 => {
+                    let building_id = BuildingID::spawn(
+                        materialized_reality,
+                        vec![Unit(None, UnitType::Agriculture)].into(),
+                        BuildingStyle::GrainFarm,
+                        lot.clone(),
+                        world,
+                    );
+                    let farm_id = GrainFarmID::move_into(building_id, world);
+                    building_id.add_household(farm_id.into(), UnitIdx(0), world);
+                }
+                _ => {
+                    let building_id = BuildingID::spawn(
+                        materialized_reality,
+                        vec![Unit(None, UnitType::Dwelling)].into(),
+                        BuildingStyle::FamilyHouse,
+                        lot.clone(),
+                        world,
+                    );
+                    let family_id = FamilyID::move_into(3, building_id, simulation, world);
+                    building_id.add_household(family_id.into(), UnitIdx(0), world);
+                }
+            }
         }
     }
 
@@ -293,8 +368,8 @@ impl Interactable3d for BuildingSpawner {
 
             if self.bindings.0["Spawn Building"].is_freshly_in(&combos) {
                 if let BuildingSpawnerState::Idle = self.state {
-                    LaneID::global_broadcast(world).find_lot(self.id, world);
-                    self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
+                    Lane::global_broadcast(world).find_lot(self.id, world);
+                    self.simulation.wake_up_in(Ticks(10), self.id_as(), world);
                     self.state = BuildingSpawnerState::Collecting(CVec::new());
                 }
             }
@@ -302,14 +377,14 @@ impl Interactable3d for BuildingSpawner {
     }
 }
 
-use core::simulation::{Simulatable, SimulatableID, MSG_Simulatable_tick};
+use core::simulation::{Simulatable, SimulatableID};
 
 impl Simulatable for BuildingSpawner {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
         if current_instant.ticks() % 1000 == 0 {
             if let BuildingSpawnerState::Idle = self.state {
-                LaneID::global_broadcast(world).find_lot(self.id, world);
-                self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
+                Lane::global_broadcast(world).find_lot(self.id, world);
+                self.simulation.wake_up_in(Ticks(10), self.id_as(), world);
                 self.state = BuildingSpawnerState::Collecting(CVec::new());
             }
         }
@@ -317,8 +392,10 @@ impl Simulatable for BuildingSpawner {
 }
 
 const MIN_BUILDING_DISTANCE: f32 = 20.0;
+pub const INNER_REGION_RADIUS: f32 = 4000.0;
+const MIN_NEIGHBORING_TOWN_DISTANCE: f32 = 2000.0;
 
-trait LotConflictor {
+pub trait LotConflictor {
     fn find_conflicts(&mut self, lots: &CVec<Lot>, requester: BuildingSpawnerID, world: &mut World);
 }
 
@@ -332,7 +409,13 @@ impl LotConflictor for Building {
         requester.update_feasibility(
             lots.iter()
                 .map(|lot| {
-                    (lot.position - self.lot.position).norm() > MIN_BUILDING_DISTANCE
+                    let min_distance =
+                        if (self.lot.position - P2::new(0.0, 0.0)).norm() > INNER_REGION_RADIUS {
+                            MIN_NEIGHBORING_TOWN_DISTANCE
+                        } else {
+                            MIN_BUILDING_DISTANCE
+                        };
+                    (lot.position - self.lot.position).norm() > min_distance
                 })
                 .collect(),
             world,
@@ -351,7 +434,11 @@ impl LotConflictor for Lane {
     ) {
         requester.update_feasibility(
             lots.iter()
-                .map(|lot| {
+                .map(|lot| if (lot.position - P2::new(0.0, 0.0)).norm() >
+                    INNER_REGION_RADIUS
+                {
+                    true
+                } else {
                     self.construction.path.distance_to(lot.position) > MIN_LANE_BUILDING_DISTANCE
                 })
                 .collect(),
@@ -361,14 +448,20 @@ impl LotConflictor for Lane {
 }
 
 impl Sleeper for BuildingSpawner {
-    fn wake(&mut self, _time: Instant, world: &mut World) {
+    fn wake(&mut self, time: Instant, world: &mut World) {
         self.state = match self.state {
             BuildingSpawnerState::Collecting(ref mut lots) => {
-                let buildings: LotConflictorID = BuildingID::global_broadcast(world).into();
+                let buildings: LotConflictorID = Building::global_broadcast(world).into();
                 let mut nonconflicting_lots = CVec::<Lot>::new();
                 for lot in lots.iter() {
                     let far_from_all = nonconflicting_lots.iter().all(|other_lot| {
-                        (lot.position - other_lot.position).norm() > MIN_BUILDING_DISTANCE
+                        let min_distance =
+                            if (lot.position - P2::new(0.0, 0.0)).norm() > INNER_REGION_RADIUS {
+                                MIN_NEIGHBORING_TOWN_DISTANCE
+                            } else {
+                                MIN_BUILDING_DISTANCE
+                            };
+                        (lot.position - other_lot.position).norm() > min_distance
                     });
                     if far_from_all {
                         nonconflicting_lots.push(lot.clone());
@@ -392,7 +485,7 @@ impl Sleeper for BuildingSpawner {
                         None
                     })
                     .collect();
-                let lanes = LotConflictorID { _raw_id: world.global_broadcast::<Lane>() };
+                let lanes = unsafe { LotConflictorID::from_raw(world.global_broadcast::<Lane>()) };
                 lanes.find_conflicts(new_lots.clone(), self.id, world);
                 self.simulation.wake_up_in(Ticks(10), self.id.into(), world);
 
@@ -403,6 +496,7 @@ impl Sleeper for BuildingSpawner {
                 for (lot, feasible) in lots.iter().zip(feasible) {
                     if *feasible {
                         Self::spawn_building(
+                            time,
                             self.materialized_reality,
                             lot,
                             self.simulation,
@@ -475,10 +569,6 @@ impl MaterializedReality {
         self.buildings.buildings.push((position, id, lane));
     }
 }
-
-use super::households::family::FamilyID;
-use super::households::grocery_shop::GroceryShopID;
-use core::simulation::Ticks;
 
 pub fn setup(
     system: &mut ActorSystem,
