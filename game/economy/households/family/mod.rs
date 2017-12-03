@@ -40,6 +40,7 @@ impl Family {
             home.into(),
             TimeOfDayRange::new(16, 0, 11, 0),
             Deal::new(Some((Awakeness, 3.0)), Duration::from_hours(1)),
+            3,
             world,
         );
 

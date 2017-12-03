@@ -32,6 +32,7 @@ impl Mill {
                     vec![(Resource::Flour, 500.0), (Resource::Money, -500.0)],
                     Duration::from_minutes(10),
                 ),
+                10,
                 world,
             ),
             job_offer: OfferID::register(
@@ -40,6 +41,7 @@ impl Mill {
                 site.into(),
                 TimeOfDayRange::new(5, 0, 15, 0),
                 Deal::new(Some((Resource::Money, 60.0)), Duration::from_hours(7)),
+                3,
                 world,
             ),
         }

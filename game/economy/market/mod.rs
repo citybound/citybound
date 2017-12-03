@@ -42,6 +42,8 @@ pub struct Offer {
     location: RoughLocationID,
     opening_hours: TimeOfDayRange,
     deal: Deal,
+    max_users: usize,
+    is_internal: bool,
     users: CVec<(HouseholdID, Option<MemberIdx>)>,
     active_users: CVec<(HouseholdID, MemberIdx)>,
     being_withdrawn: bool,
@@ -55,6 +57,7 @@ impl Offer {
         location: RoughLocationID,
         opening_hours: TimeOfDayRange,
         deal: &Deal,
+        max_users: usize,
         world: &mut World,
     ) -> Offer {
         Market::global_first(world).register(deal.main_given(), id, world);
@@ -68,6 +71,8 @@ impl Offer {
             deal: deal.clone(),
             users: CVec::new(),
             active_users: CVec::new(),
+            is_internal: false,
+            max_users,
             being_withdrawn: false,
         }
     }
@@ -80,6 +85,7 @@ impl Offer {
         location: RoughLocationID,
         opening_hours: TimeOfDayRange,
         deal: &Deal,
+        max_users: usize,
         _: &mut World,
     ) -> Offer {
         Offer {
@@ -91,6 +97,8 @@ impl Offer {
             deal: deal.clone(),
             users: CVec::new(),
             active_users: CVec::new(),
+            is_internal: true,
+            max_users,
             being_withdrawn: false,
         }
     }
@@ -208,10 +216,13 @@ impl Offer {
         &mut self,
         household: HouseholdID,
         member: Option<MemberIdx>,
-        _: &mut World,
+        world: &mut World,
     ) {
         if !self.users.contains(&(household, member)) {
             self.users.push((household, member));
+            if self.is_internal && self.users.len() >= self.max_users {
+                Market::global_first(world).withdraw(self.deal.main_given(), self.id, world);
+            }
         }
     }
 
@@ -219,14 +230,19 @@ impl Offer {
         &mut self,
         household: HouseholdID,
         member: Option<MemberIdx>,
-        _: &mut World,
+        world: &mut World,
     ) -> Fate {
+        let users_before = self.users.len();
+
         self.users.retain(|&(o_household, o_member)| {
             o_household != household || o_member != member
         });
 
-        if self.users.is_empty() && self.being_withdrawn {
+        if self.is_internal && users_before >= self.max_users && self.users.len() < self.max_users {
+            Market::global_first(world).register(self.deal.main_given(), self.id, world);
+        }
 
+        if self.users.is_empty() && self.being_withdrawn {
             Fate::Die
         } else {
             Fate::Live

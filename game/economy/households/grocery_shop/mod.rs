@@ -32,6 +32,7 @@ impl GroceryShop {
                     vec![(Groceries, 30.0), (Money, -60.0)],
                     Duration::from_minutes(30),
                 ),
+                30,
                 world,
             ),
             job_offer: OfferID::register(
@@ -40,6 +41,7 @@ impl GroceryShop {
                 site.into(),
                 TimeOfDayRange::new(7, 0, 15, 0),
                 Deal::new(Some((Money, 50.0)), Duration::from_hours(5)),
+                5,
                 world,
             ),
         }

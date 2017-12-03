@@ -1,4 +1,4 @@
- use kay::{ActorSystem, World, TypedID, Actor};
+use kay::{ActorSystem, World, TypedID, Actor};
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration};
 use economy::resources::Resource;
 use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
@@ -13,7 +13,7 @@ pub struct Bakery {
     id: BakeryID,
     site: BuildingID,
     core: HouseholdCore,
-    flour_offer: OfferID,
+    baked_goods_offer: OfferID,
     job_offer: OfferID,
 }
 
@@ -23,15 +23,16 @@ impl Bakery {
             id,
             site,
             core: HouseholdCore::new(1, site.into()),
-            flour_offer: OfferID::register(
+            baked_goods_offer: OfferID::register(
                 id.into(),
                 MemberIdx(0),
                 site.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
-                    vec![(Resource::Flour, 500.0), (Resource::Money, -500.0)],
+                    vec![(Resource::BakedGoods, 5.0), (Resource::Money, -5.0)],
                     Duration::from_minutes(10),
                 ),
+                30,
                 world,
             ),
             job_offer: OfferID::register(
@@ -40,6 +41,7 @@ impl Bakery {
                 site.into(),
                 TimeOfDayRange::new(5, 0, 15, 0),
                 Deal::new(Some((Resource::Money, 60.0)), Duration::from_hours(7)),
+                5,
                 world,
             ),
         }
@@ -79,7 +81,7 @@ impl Household for Bakery {
 
     fn on_destroy(&mut self, world: &mut World) {
         self.site.remove_household(self.id_as(), world);
-        self.flour_offer.withdraw(world);
+        self.baked_goods_offer.withdraw(world);
         self.job_offer.withdraw(world);
     }
 

@@ -366,7 +366,7 @@ pub trait Household
                         format!("Found best offer for {}\n", best.deal.main_given()).as_str(),
                     );
 
-                    Some((member, instant, best.offer))
+                    Some((member, instant, best))
                 } else {
                     None
                 }
@@ -375,9 +375,37 @@ pub trait Household
             }
         };
 
-        if let Some((member, instant, best_offer)) = maybe_best_info {
+        if let Some((member, instant, best)) = maybe_best_info {
+            {
+                let (used_offers, maybe_member) =
+                    if Self::supplier_shared(best.deal.main_given()) {
+                        (&mut self.core_mut().used_offers, None)
+                    } else {
+                        (
+                            &mut self.core_mut().member_used_offers[member.0],
+                            Some(member),
+                        )
+                    };
+                if let Some(previous_offer) =
+                    used_offers.insert(best.deal.main_given(), best.offer)
+                {
+                    if previous_offer != best.offer {
+                        previous_offer.stopped_using(id_as_household, maybe_member, world);
+                    }
+                }
+                best.offer.started_using(
+                    id_as_household,
+                    maybe_member,
+                    world,
+                );
+            }
+
             self.core_mut().decision_state = DecisionState::WaitingForTrip(member);
-            best_offer.request_receive_deal(id_as_household, member, world);
+            best.offer.request_receive_deal(
+                id_as_household,
+                member,
+                world,
+            );
             self.start_trip(member, instant, world);
         } else {
             self.core_mut().log.log(
@@ -466,16 +494,7 @@ pub trait Household
             };
 
             match result.fate {
-                TripFate::Success => {
-                    if let Some(previous_offer) =
-                        used_offers.insert(matching_resource, matching_offer)
-                    {
-                        if previous_offer != matching_offer {
-                            previous_offer.stopped_using(id_as_household, maybe_member, world);
-                        }
-                    }
-                    matching_offer.started_using(id_as_household, maybe_member, world);
-                }
+                TripFate::Success => {}
                 _ => {
                     used_offers.remove(matching_resource);
                     matching_offer.stopped_using(id_as_household, maybe_member, world);
