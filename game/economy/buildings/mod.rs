@@ -313,7 +313,9 @@ impl BuildingSpawner {
                 building_id.add_household(family_id.into(), UnitIdx(i + 1), world);
             }
         } else {
-            match *seed(time).choose(&[0, 1, 2, 2, 2, 2]).unwrap() {
+            match *seed((lot.position.x as u32, lot.position.y as u32))
+                .choose(&[0, 1, 2, 2, 2, 2])
+                .unwrap() {
                 0 => {
                     let building_id = BuildingID::spawn(
                         materialized_reality,
@@ -509,13 +511,17 @@ impl Sleeper for BuildingSpawner {
             BuildingSpawnerState::CheckingLanes(ref mut lots, ref mut feasible) => {
                 for (lot, feasible) in lots.iter().zip(feasible) {
                     if *feasible {
-                        Self::spawn_building(
-                            time,
-                            self.materialized_reality,
-                            lot,
-                            self.simulation,
-                            world,
-                        );
+                        if seed((lot.position.x as u32, lot.position.y as u32))
+                            .gen_weighted_bool(3)
+                        {
+                            Self::spawn_building(
+                                time,
+                                self.materialized_reality,
+                                lot,
+                                self.simulation,
+                                world,
+                            );
+                        }
                     }
                 }
                 BuildingSpawnerState::Idle

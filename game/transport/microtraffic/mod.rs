@@ -38,7 +38,7 @@ impl Microtraffic {
 
 // makes "time pass slower" for traffic, so we can still use realistic
 // unit values while traffic happening at a slower pace to be visible
-const MICROTRAFFIC_UNREALISTIC_SLOWDOWN: f32 = 20.0;
+const MICROTRAFFIC_UNREALISTIC_SLOWDOWN: f32 = 1.0;
 
 #[derive(Compact, Clone, Default)]
 pub struct TransferringMicrotraffic {
@@ -152,7 +152,7 @@ use self::pathfinding::RoutingInfo;
 
 use core::simulation::{Simulatable, SimulatableID};
 
-const TRAFFIC_LOGIC_THROTTLING: usize = 30;
+const TRAFFIC_LOGIC_THROTTLING: usize = 10;
 const PATHFINDING_THROTTLING: usize = 10;
 
 impl LaneLike for Lane {
@@ -285,19 +285,19 @@ impl Simulatable for Lane {
         self.microtraffic.yellow_to_red = if self.microtraffic.timings.is_empty() {
             true
         } else {
-            !self.microtraffic.timings[((current_instant.ticks() + 100) / 10) %
+            !self.microtraffic.timings[((current_instant.ticks() + 100) / 30) %
                                            self.microtraffic.timings.len()]
         };
         self.microtraffic.yellow_to_green = if self.microtraffic.timings.is_empty() {
             true
         } else {
-            self.microtraffic.timings[((current_instant.ticks() + 100) / 10) %
+            self.microtraffic.timings[((current_instant.ticks() + 100) / 30) %
                                           self.microtraffic.timings.len()]
         };
         self.microtraffic.green = if self.microtraffic.timings.is_empty() {
             true
         } else {
-            self.microtraffic.timings[(current_instant.ticks() / 10) %
+            self.microtraffic.timings[(current_instant.ticks() / 30) %
                                           self.microtraffic.timings.len()]
         };
 
@@ -356,7 +356,7 @@ impl Simulatable for Lane {
                 });
 
                 let next_obstacle_acceleration = if let Some(next_obstacle) = maybe_next_obstacle {
-                    intelligent_acceleration(car, next_obstacle, 4.0)
+                    intelligent_acceleration(car, next_obstacle, 3.0)
                 } else {
                     INFINITY
                 };

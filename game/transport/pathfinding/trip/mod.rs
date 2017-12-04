@@ -134,7 +134,7 @@ impl LocationRequester for Trip {
                         as_obstacle: Obstacle {
                             position: OrderedFloat(source.offset),
                             velocity: 0.0,
-                            max_velocity: 15.0,
+                            max_velocity: 8.0,
                         },
                         acceleration: 0.0,
                         destination: destination,

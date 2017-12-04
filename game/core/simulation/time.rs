@@ -1,4 +1,4 @@
-pub const TICKS_PER_SIM_SECOND: usize = 1;
+pub const TICKS_PER_SIM_SECOND: usize = 3;
 pub const TICKS_PER_SIM_MINUTE: usize = 60 * TICKS_PER_SIM_SECOND;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]

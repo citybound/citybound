@@ -270,21 +270,28 @@ impl RoadInteraction {
                     let mut rough_angle = rnd.next_f32() * 2.0 * ::std::f32::consts::PI;
                     for i in 0..rnd.gen_range(15, 30) {
                         let is_major = i < 6;
-                        plan_manager.set_n_lanes(if is_major { 2 } else { 1 }, world);
+                        plan_manager.set_n_lanes(
+                            if is_major {
+                                2
+                            } else {
+                                *rnd.choose(&[1, 2]).unwrap()
+                            },
+                            world,
+                        );
                         rough_angle += rnd.gen_range(0.4, 0.6) * ::std::f32::consts::PI;
                         let mut rough_direction = V2::new(rough_angle.sin(), rough_angle.cos());
                         let mut points = Vec::new();
                         let length = if is_major {
-                            rnd.gen_range(5000.0, 10000.0)
+                            rnd.gen_range(6000.0, 8000.0)
                         } else {
                             rnd.gen_range(300.0, 2000.0)
                         };
                         let mut point = start_point -
-                            rnd.gen_range(0.0, 1.0) * length * rough_direction;
+                            rnd.gen_range(0.0, 0.5) * length * rough_direction;
                         for p in 0..rnd.gen_range(10, 15) {
                             points.push(point);
                             point += length / 10.0 * rough_direction;
-                            if p == 7 {
+                            if p == 9 {
                                 start_point = point;
                             }
                             if rnd.gen_weighted_bool(7) {
