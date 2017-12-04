@@ -26,6 +26,15 @@ impl NeighboringTownTrade {
                 id.into(),
                 MemberIdx(0),
                 town.into(),
+                TimeOfDayRange::new(5, 0, 15, 0),
+                Deal::new(Some((Resource::Money, 60.0)), Duration::from_hours(7)),
+                300,
+                world
+            ),
+            OfferID::register(
+                id.into(),
+                MemberIdx(0),
+                town.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(Entertainment, 5.0), (Money, -10.0)],
@@ -322,6 +331,12 @@ impl Simulatable for NeighboringTownTrade {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
         self.on_tick(current_instant, world);
     }
+}
+
+
+pub fn setup(system: &mut ActorSystem) {
+    system.register::<NeighboringTownTrade>();
+    auto_setup(system);
 }
 
 mod kay_auto;

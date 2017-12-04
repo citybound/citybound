@@ -11,7 +11,7 @@ use planning::materialized_reality::{MaterializedReality, MaterializedRealityID}
 
 use super::households::family::FamilyID;
 use super::households::grocery_shop::GroceryShopID;
-use super::households::crop_farm::GrainFarmID;
+use super::households::grain_farm::GrainFarmID;
 use super::households::neighboring_town_trade::NeighboringTownTradeID;
 use core::simulation::Ticks;
 use core::random::{seed, Rng};
@@ -293,7 +293,10 @@ impl BuildingSpawner {
         simulation: SimulationID,
         world: &mut World,
     ) {
-        if (lot.position - P2::new(0.0, 0.0)).norm() > INNER_REGION_RADIUS {
+        if lot.location
+            .map(|PreciseLocation { offset, .. }| offset)
+            .unwrap_or(0.0) > MIN_ROAD_LENGTH_TO_TOWN
+        {
             const FAMILIES_PER_NEIGHBORING_TOWN: usize = 50;
             let building_id =
                 BuildingID::spawn(
@@ -392,7 +395,7 @@ impl Simulatable for BuildingSpawner {
 }
 
 const MIN_BUILDING_DISTANCE: f32 = 20.0;
-pub const INNER_REGION_RADIUS: f32 = 4000.0;
+pub const MIN_ROAD_LENGTH_TO_TOWN: f32 = 4000.0;
 const MIN_NEIGHBORING_TOWN_DISTANCE: f32 = 2000.0;
 
 pub trait LotConflictor {
@@ -409,12 +412,19 @@ impl LotConflictor for Building {
         requester.update_feasibility(
             lots.iter()
                 .map(|lot| {
-                    let min_distance =
-                        if (self.lot.position - P2::new(0.0, 0.0)).norm() > INNER_REGION_RADIUS {
-                            MIN_NEIGHBORING_TOWN_DISTANCE
-                        } else {
-                            MIN_BUILDING_DISTANCE
-                        };
+                    let min_distance = if lot.location
+                        .map(|PreciseLocation { offset, .. }| offset)
+                        .unwrap_or(0.0) >
+                        MIN_ROAD_LENGTH_TO_TOWN &&
+                        self.lot
+                            .location
+                            .map(|PreciseLocation { offset, .. }| offset)
+                            .unwrap_or(0.0) > MIN_ROAD_LENGTH_TO_TOWN
+                    {
+                        MIN_NEIGHBORING_TOWN_DISTANCE
+                    } else {
+                        MIN_BUILDING_DISTANCE
+                    };
                     (lot.position - self.lot.position).norm() > min_distance
                 })
                 .collect(),
@@ -434,11 +444,7 @@ impl LotConflictor for Lane {
     ) {
         requester.update_feasibility(
             lots.iter()
-                .map(|lot| if (lot.position - P2::new(0.0, 0.0)).norm() >
-                    INNER_REGION_RADIUS
-                {
-                    true
-                } else {
+                .map(|lot| {
                     self.construction.path.distance_to(lot.position) > MIN_LANE_BUILDING_DISTANCE
                 })
                 .collect(),
@@ -455,12 +461,20 @@ impl Sleeper for BuildingSpawner {
                 let mut nonconflicting_lots = CVec::<Lot>::new();
                 for lot in lots.iter() {
                     let far_from_all = nonconflicting_lots.iter().all(|other_lot| {
-                        let min_distance =
-                            if (lot.position - P2::new(0.0, 0.0)).norm() > INNER_REGION_RADIUS {
-                                MIN_NEIGHBORING_TOWN_DISTANCE
-                            } else {
-                                MIN_BUILDING_DISTANCE
-                            };
+                        let min_distance = if lot.location
+                            .map(|PreciseLocation { offset, .. }| offset)
+                            .unwrap_or(0.0) >
+                            MIN_ROAD_LENGTH_TO_TOWN &&
+                            other_lot
+                                .location
+                                .map(|PreciseLocation { offset, .. }| offset)
+                                .unwrap_or(0.0) >
+                                MIN_ROAD_LENGTH_TO_TOWN
+                        {
+                            MIN_NEIGHBORING_TOWN_DISTANCE
+                        } else {
+                            MIN_BUILDING_DISTANCE
+                        };
                         (lot.position - other_lot.position).norm() > min_distance
                     });
                     if far_from_all {

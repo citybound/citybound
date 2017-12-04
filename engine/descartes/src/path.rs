@@ -44,7 +44,8 @@ pub trait Path: Sized + Clone {
 
     // TODO: move this to shape
     fn contains(&self, point: P2) -> bool {
-        let ray = Segment::line(point, P2::new(point.x + 10000000000.0, point.y));
+        let ray = Segment::line(point, P2::new(point.x + 10000000000.0, point.y))
+            .expect("Ray should be valid");
         (self, &Self::new(vec![ray].into())).intersect().len() % 2 == 1
     }
 
@@ -175,7 +176,7 @@ impl<T: Path> FiniteCurve for T {
             match window_segments_iter.peek() {
                 Some(next_segment) => {
                     if !segment.end().is_roughly_within(next_segment.start(), 0.1) {
-                        glued_segments.push(Segment::line(segment.end(), next_segment.start()));
+                        glued_segments.push(Segment::line(segment.end(), next_segment.start())?);
                     }
                 }
                 None => break,
@@ -188,7 +189,7 @@ impl<T: Path> FiniteCurve for T {
             let new_end = glued_segments.last().unwrap().end();
             let new_start = glued_segments[0].start();
             if was_closed && !new_end.is_roughly_within(new_start, 0.1) {
-                glued_segments.push(Segment::line(new_end, new_start));
+                glued_segments.push(Segment::line(new_end, new_start)?);
             }
             Some(Self::new(glued_segments))
         }
@@ -251,7 +252,7 @@ pub fn convex_hull<P: Path>(points: &[P2]) -> P {
                 if point_1.is_roughly_within(point_2, ::primitives::MIN_START_TO_END) {
                     None
                 } else {
-                    Some(Segment::line(point_1, point_2))
+                    Segment::line(point_1, point_2)
                 }
             })
             .collect(),

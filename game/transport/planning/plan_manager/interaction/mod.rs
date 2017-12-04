@@ -263,22 +263,38 @@ impl RoadInteraction {
 
                 if bindings["Create Rural Roads"].is_freshly_in(&combos) {
                     let mut rnd = thread_rng();
-                    for _ in 0..rnd.gen_range(2, 5) {
-                        plan_manager.set_n_lanes(rnd.gen_range(1, 5) / 4, world);
-                        let mut rough_angle = rnd.next_f32() * 2.0 * ::std::f32::consts::PI;
+                    let mut start_point = P2::new(
+                        rnd.gen_range(-2000.0, 2000.0),
+                        rnd.gen_range(-2000.0, 2000.0),
+                    );
+                    let mut rough_angle = rnd.next_f32() * 2.0 * ::std::f32::consts::PI;
+                    for i in 0..rnd.gen_range(15, 30) {
+                        let is_major = i < 6;
+                        plan_manager.set_n_lanes(if is_major { 2 } else { 1 }, world);
+                        rough_angle += rnd.gen_range(0.4, 0.6) * ::std::f32::consts::PI;
                         let mut rough_direction = V2::new(rough_angle.sin(), rough_angle.cos());
                         let mut points = Vec::new();
-                        let mut point =
-                            P2::new(rnd.gen_range(-500.0, 500.0), rnd.gen_range(-500.0, 500.0)) -
-                                6000.0 * rough_direction;
-                        for _ in 0..rnd.gen_range(20, 30) {
+                        let length = if is_major {
+                            rnd.gen_range(5000.0, 10000.0)
+                        } else {
+                            rnd.gen_range(300.0, 2000.0)
+                        };
+                        let mut point = start_point -
+                            rnd.gen_range(0.0, 1.0) * length * rough_direction;
+                        for p in 0..rnd.gen_range(10, 15) {
                             points.push(point);
-                            point += 800.0 * rough_direction;
-                            rough_angle += rnd.gen_range(-0.3, 0.3);
-                            rough_direction = V2::new(rough_angle.sin(), rough_angle.cos());
+                            point += length / 10.0 * rough_direction;
+                            if p == 7 {
+                                start_point = point;
+                            }
+                            if rnd.gen_weighted_bool(7) {
+                                rough_angle += rnd.gen_range(-0.1, 0.1);
+                                rough_direction = V2::new(rough_angle.sin(), rough_angle.cos());
+                            }
                         }
                         plan_manager.on_stroke(points.into(), StrokeState::Finished, world);
                     }
+                    plan_manager.set_n_lanes(2, world);
                 }
 
                 if bindings["Delete Selection"].is_freshly_in(&combos) {

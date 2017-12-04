@@ -394,7 +394,7 @@ impl Lane {
 }
 
 use economy::buildings::{Lot, BuildingID, BuildingSpawnerID, MIN_LANE_BUILDING_DISTANCE,
-                         INNER_REGION_RADIUS};
+                         MIN_ROAD_LENGTH_TO_TOWN};
 use rand::Rng;
 use transport::pathfinding::PreciseLocation;
 
@@ -412,13 +412,9 @@ impl Lane {
                         path.direction_along(offset).orthogonal();
 
                 // hacky: spawn location for neighboring towns: only at road ends
-                if (position - P2::new(0.0, 0.0)).norm() > INNER_REGION_RADIUS {
-                    if offset > path.length() - offset {
-                        offset = path.length()
-                    } else {
-                        offset = 0.0
-                    }
-                    position = path.along(offset)
+                if offset > MIN_ROAD_LENGTH_TO_TOWN {
+                    offset = path.length();
+                    position = path.end() + 150.0 * path.end_direction()
                 }
 
                 let orientation = path.direction_along(offset);

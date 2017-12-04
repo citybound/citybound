@@ -8,8 +8,8 @@ use itertools::Itertools;
 use super::road_plan::{LaneStrokeRef, Intersection};
 use super::lane_stroke::{LaneStroke, LaneStrokeNode};
 
-const STROKE_INTERSECTION_WIDTH: N = 4.0;
-const INTERSECTION_GROUPING_RADIUS: N = 15.0;
+const STROKE_INTERSECTION_WIDTH: N = 5.0;
+const INTERSECTION_GROUPING_RADIUS: N = 25.0;
 
 #[inline(never)]
 pub fn find_intersections(strokes: &CVec<LaneStroke>) -> CVec<Intersection> {
@@ -98,8 +98,8 @@ fn find_intersection_points(strokes: &CVec<LaneStroke>) -> Vec<P2> {
 
     // Super hacky way to add u-turns to every road end,
     // by creating a "fake" intersection there
-    points.extend(strokes.iter().flat_map(|stroke| {
-        if stroke.nodes().len() > 1 {
+    points.extend(strokes.iter().flat_map(
+        |stroke| if stroke.nodes().len() > 1 {
             let path = stroke.path();
             let length = path.length();
             vec![
@@ -110,8 +110,8 @@ fn find_intersection_points(strokes: &CVec<LaneStroke>) -> Vec<P2> {
             ]
         } else {
             vec![]
-        }
-    }));
+        },
+    ));
 
     points
 }
@@ -281,7 +281,7 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                                 && segment_2.direction_along(end_1_on_2_dist)
                                     .is_roughly_within(segment_1.end_direction(), 0.05)
                                 {
-                                    Some(Segment::arc_with_direction(
+                                    Segment::arc_with_direction(
                                         ((segment_1.start().to_vector()
                                             + start_1_on_2.to_vector()) / 2.0)
                                             .to_point(),
@@ -289,7 +289,7 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                                         ((segment_1.end().to_vector()
                                             + end_1_on_2.to_vector()) / 2.0)
                                             .to_point(),
-                                    ))
+                                    )
                                 } else {None}
                             }
                             (_, _, Some(start_2_on_1_dist), Some(end_2_on_1_dist)) => {
@@ -302,7 +302,7 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                                 && segment_1.direction_along(end_2_on_1_dist)
                                     .is_roughly_within(segment_2.end_direction(), 0.05)
                                 {
-                                    Some(Segment::arc_with_direction(
+                                    Segment::arc_with_direction(
                                         ((segment_2.start().to_vector()
                                             + start_2_on_1.to_vector()) / 2.0)
                                             .to_point(),
@@ -310,7 +310,7 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                                         ((segment_2.end().to_vector()
                                             + end_2_on_1.to_vector()) / 2.0)
                                             .to_point(),
-                                    ))
+                                    )
                                 } else {None}
                             },
                             (None, Some(end_1_on_2_dist), Some(start_2_on_1_dist), _) => {
@@ -325,7 +325,7 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                                 && segment_2.direction_along(end_1_on_2_dist)
                                     .is_roughly_within(segment_1.end_direction(), 0.05)
                                 {
-                                    Some(Segment::arc_with_direction(
+                                    Segment::arc_with_direction(
                                         ((segment_2.start().to_vector()
                                             + start_2_on_1.to_vector()) / 2.0)
                                             .to_point(),
@@ -333,7 +333,7 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                                         ((segment_1.end().to_vector()
                                             + end_1_on_2.to_vector()) / 2.0)
                                             .to_point(),
-                                    ))
+                                    )
                                 } else {None}
                             }
                             (Some(start_1_on_2_dist), None, None, Some(end_2_on_1_dist)) => {
@@ -348,7 +348,7 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                                 && segment_1.direction_along(end_2_on_1_dist)
                                     .is_roughly_within(segment_2.end_direction(), 0.05)
                                 {
-                                    Some(Segment::arc_with_direction(
+                                    Segment::arc_with_direction(
                                         ((segment_1.start().to_vector()
                                             + start_1_on_2.to_vector()) / 2.0)
                                             .to_point(),
@@ -356,7 +356,7 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                                         ((segment_2.end().to_vector()
                                             + end_2_on_1.to_vector()) / 2.0)
                                             .to_point(),
-                                    ))
+                                    )
                                 } else {None}
                             }
                             _ => None

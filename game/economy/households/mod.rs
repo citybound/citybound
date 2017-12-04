@@ -11,7 +11,7 @@ use transport::pathfinding::RoughLocationID;
 pub mod tasks;
 pub mod family;
 pub mod grocery_shop;
-pub mod crop_farm;
+pub mod grain_farm;
 pub mod cow_farm;
 pub mod mill;
 pub mod bakery;
@@ -718,7 +718,11 @@ pub fn setup(system: &mut ActorSystem) {
     tasks::setup(system);
     family::setup(system);
     grocery_shop::setup(system);
-    crop_farm::setup(system);
+    grain_farm::setup(system);
+    cow_farm::setup(system);
+    mill::setup(system);
+    bakery::setup(system);
+    neighboring_town_trade::setup(system);
 }
 
 mod kay_auto;

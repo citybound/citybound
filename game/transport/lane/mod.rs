@@ -72,12 +72,18 @@ impl TransferLane {
         }
     }
 
-    pub fn other_side(&self, side: LaneID) -> LaneID {
-        if side == self.connectivity.left.expect("should have a left lane").0 {
-            self.connectivity.right.expect("should have a right lane").0
-        } else {
-            self.connectivity.left.expect("should have a left lane").0
-        }
+    pub fn other_side(&self, side: LaneID) -> Option<LaneID> {
+        if let Some((left, _)) = self.connectivity.left {
+            if side == left {
+                return self.connectivity.right.map(|(right, _)| right);
+            }
+        };
+        if let Some((right, _)) = self.connectivity.right {
+            if side == right {
+                return self.connectivity.left.map(|(left, _)| left);
+            }
+        };
+        None
     }
 
     #[allow(needless_range_loop)]

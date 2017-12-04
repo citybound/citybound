@@ -543,8 +543,10 @@ impl Node for TransferLane {
     fn query_routes(&mut self, requester: NodeID, _is_transfer: bool, world: &mut World) {
         // TODO: ugly: untyped RawID shenanigans
         let requester_lane = unsafe { LaneID::from_raw(requester.as_raw()) };
-        let other_lane: NodeID = self.other_side(requester_lane).into();
-        other_lane.query_routes(self.id_as(), true, world);
+        if let Some(other_lane) = self.other_side(requester_lane) {
+            let other_lane: NodeID = other_lane.into();
+            other_lane.query_routes(self.id_as(), true, world);
+        }
     }
 
     fn on_routes(
@@ -554,25 +556,27 @@ impl Node for TransferLane {
         world: &mut World,
     ) {
         let from_lane = unsafe { LaneID::from_raw(from.as_raw()) };
-        let other_lane: NodeID = self.other_side(from_lane).into();
-        other_lane.on_routes(
-            new_routes
-                .pairs()
-                .map(|(&destination, &(distance, hops))| {
-                    // TODO: ugly: untyped RawID shenanigans
-                    let change_cost = if from.as_raw() ==
-                        self.connectivity.left.expect("should have left").0.as_raw()
-                    {
-                        LANE_CHANGE_COST_RIGHT
-                    } else {
-                        LANE_CHANGE_COST_LEFT
-                    };
-                    (destination, (distance + change_cost, hops))
-                })
-                .collect(),
-            self.id_as(),
-            world,
-        );
+        if let Some(other_lane) = self.other_side(from_lane) {
+            let other_lane: NodeID = other_lane.into();
+            other_lane.on_routes(
+                new_routes
+                    .pairs()
+                    .map(|(&destination, &(distance, hops))| {
+                        // TODO: ugly: untyped RawID shenanigans
+                        let change_cost = if from.as_raw() ==
+                            self.connectivity.left.expect("should have left").0.as_raw()
+                        {
+                            LANE_CHANGE_COST_RIGHT
+                        } else {
+                            LANE_CHANGE_COST_LEFT
+                        };
+                        (destination, (distance + change_cost, hops))
+                    })
+                    .collect(),
+                self.id_as(),
+                world,
+            );
+        }
     }
 
     fn forget_routes(
@@ -583,8 +587,10 @@ impl Node for TransferLane {
         world: &mut World,
     ) {
         let from_lane = unsafe { LaneID::from_raw(from.as_raw()) };
-        let other_lane: NodeID = self.other_side(from_lane).into();
-        other_lane.forget_routes(forget.clone(), self.id_as(), instant, world);
+        if let Some(other_lane) = self.other_side(from_lane) {
+            let other_lane: NodeID = other_lane.into();
+            other_lane.forget_routes(forget.clone(), self.id_as(), instant, world);
+        }
     }
 
     fn join_landmark(
@@ -595,16 +601,18 @@ impl Node for TransferLane {
         world: &mut World,
     ) {
         let from_lane = unsafe { LaneID::from_raw(from.as_raw()) };
-        let other_lane: NodeID = self.other_side(from_lane).into();
-        other_lane.join_landmark(
-            self.id_as(),
-            Location {
-                landmark: join_as.landmark,
-                node: other_lane,
-            },
-            hops_from_landmark,
-            world,
-        );
+        if let Some(other_lane) = self.other_side(from_lane) {
+            let other_lane: NodeID = other_lane.into();
+            other_lane.join_landmark(
+                self.id_as(),
+                Location {
+                    landmark: join_as.landmark,
+                    node: other_lane,
+                },
+                hops_from_landmark,
+                world,
+            );
+        }
     }
 
     fn get_distance_to(
