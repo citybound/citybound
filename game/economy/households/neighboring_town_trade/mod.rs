@@ -302,35 +302,11 @@ impl Simulatable for NeighboringTownTrade {
     }
 }
 
-use transport::pathfinding::{RoughLocation, LocationRequesterID, PositionRequesterID};
+use transport::pathfinding::{RoughLocation, RoughLocationResolve};
 
 impl RoughLocation for NeighboringTownTrade {
-    fn resolve_as_location(
-        &mut self,
-        requester: LocationRequesterID,
-        rough_location: RoughLocationID,
-        instant: Instant,
-        world: &mut World,
-    ) {
-        self.site().resolve_as_location(
-            requester,
-            rough_location,
-            instant,
-            world,
-        );
-    }
-
-    fn resolve_as_position(
-        &mut self,
-        requester: PositionRequesterID,
-        rough_location: RoughLocationID,
-        world: &mut World,
-    ) {
-        self.site().resolve_as_position(
-            requester,
-            rough_location,
-            world,
-        );
+    fn resolve(&self) -> RoughLocationResolve {
+        RoughLocationResolve::SameAs(self.site())
     }
 }
 

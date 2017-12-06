@@ -506,34 +506,13 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
 }
 
 impl RoughLocation for Lane {
-    fn resolve_as_location(
-        &mut self,
-        requester: LocationRequesterID,
-        rough_location: RoughLocationID,
-        instant: Instant,
-        world: &mut World,
-    ) {
-        requester.location_resolved(
-            rough_location,
+    fn resolve(&self) -> RoughLocationResolve {
+        RoughLocationResolve::Done(
             self.pathfinding.location.map(|location| {
                 PreciseLocation { location, offset: 0.0 }
             }),
-            instant,
-            world,
-        );
-    }
-
-    fn resolve_as_position(
-        &mut self,
-        requester: PositionRequesterID,
-        rough_location: RoughLocationID,
-        world: &mut World,
-    ) {
-        requester.position_resolved(
-            rough_location,
             self.construction.path.along(self.construction.length / 2.0),
-            world,
-        );
+        )
     }
 }
 
@@ -628,21 +607,46 @@ impl Node for TransferLane {
     fn remove_attachee(&mut self, _attachee: AttacheeID, _: &mut World) {}
 }
 
+pub enum RoughLocationResolve {
+    Done(Option<PreciseLocation>, P2),
+    SameAs(RoughLocationID),
+}
+
 pub trait RoughLocation {
+    fn resolve(&self) -> RoughLocationResolve;
+
     fn resolve_as_location(
         &mut self,
         requester: LocationRequesterID,
         rough_location: RoughLocationID,
         instant: Instant,
         world: &mut World,
-    );
+    ) {
+        match self.resolve() {
+            RoughLocationResolve::Done(maybe_location, _) => {
+                requester.location_resolved(rough_location, maybe_location, instant, world);
+            }
+            RoughLocationResolve::SameAs(other_rough_location) => {
+                other_rough_location.resolve_as_location(requester, rough_location, instant, world);
+            }
+        }
+    }
 
     fn resolve_as_position(
         &mut self,
         requester: PositionRequesterID,
         rough_location: RoughLocationID,
         world: &mut World,
-    );
+    ) {
+        match self.resolve() {
+            RoughLocationResolve::Done(_, position) => {
+                requester.position_resolved(rough_location, position, world);
+            }
+            RoughLocationResolve::SameAs(other_rough_location) => {
+                other_rough_location.resolve_as_position(requester, rough_location, world);
+            }
+        }
+    }
 }
 
 pub trait LocationRequester {

@@ -201,28 +201,12 @@ impl Building {
     }
 }
 
-use transport::pathfinding::{RoughLocation, LocationRequesterID, PositionRequesterID,
-                             RoughLocationID};
+use transport::pathfinding::{RoughLocation, RoughLocationID, RoughLocationResolve};
 use core::simulation::Instant;
 
 impl RoughLocation for Building {
-    fn resolve_as_location(
-        &mut self,
-        requester: LocationRequesterID,
-        rough_location: RoughLocationID,
-        instant: Instant,
-        world: &mut World,
-    ) {
-        requester.location_resolved(rough_location, self.lot.location, instant, world);
-    }
-
-    fn resolve_as_position(
-        &mut self,
-        requester: PositionRequesterID,
-        rough_location: RoughLocationID,
-        world: &mut World,
-    ) {
-        requester.position_resolved(rough_location, self.lot.position, world)
+    fn resolve(&self) -> RoughLocationResolve {
+        RoughLocationResolve::Done(self.lot.location, self.lot.position)
     }
 }
 
