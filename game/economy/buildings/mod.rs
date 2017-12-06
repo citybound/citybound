@@ -11,7 +11,9 @@ use planning::materialized_reality::{MaterializedReality, MaterializedRealityID}
 
 use super::households::family::FamilyID;
 use super::households::grocery_shop::GroceryShopID;
+use super::households::cow_farm::CowFarmID;
 use super::households::grain_farm::GrainFarmID;
+use super::households::vegetable_farm::VegetableFarmID;
 use super::households::mill::MillID;
 use super::households::bakery::BakeryID;
 use super::households::neighboring_town_trade::NeighboringTownTradeID;
@@ -300,64 +302,97 @@ impl BuildingSpawner {
                 building_id.add_household(family_id.into(), UnitIdx(i + 1), world);
             }
         } else {
-            match *seed((lot.position.x as u32, lot.position.y as u32))
-                .choose(&[0, 1, 2, 3, 4, 4, 4, 4])
-                .unwrap() {
-                0 => {
-                    let building_id = BuildingID::spawn(
-                        materialized_reality,
-                        vec![Unit(None, UnitType::Retail)].into(),
-                        BuildingStyle::GroceryShop,
-                        lot.clone(),
-                        world,
-                    );
-                    let shop_id = GroceryShopID::move_into(building_id, simulation, world);
-                    building_id.add_household(shop_id.into(), UnitIdx(0), world);
-                }
-                1 => {
-                    let building_id = BuildingID::spawn(
-                        materialized_reality,
-                        vec![Unit(None, UnitType::Agriculture)].into(),
-                        BuildingStyle::GrainFarm,
-                        lot.clone(),
-                        world,
-                    );
-                    let farm_id = GrainFarmID::move_into(building_id, simulation, world);
-                    building_id.add_household(farm_id.into(), UnitIdx(0), world);
-                }
-                2 => {
-                    let building_id = BuildingID::spawn(
-                        materialized_reality,
-                        vec![Unit(None, UnitType::Mill)].into(),
-                        BuildingStyle::Mill,
-                        lot.clone(),
-                        world,
-                    );
-                    let mill_id = MillID::move_into(building_id, simulation, world);
-                    building_id.add_household(mill_id.into(), UnitIdx(0), world);
-                }
-                3 => {
-                    let building_id = BuildingID::spawn(
-                        materialized_reality,
-                        vec![Unit(None, UnitType::Bakery)].into(),
-                        BuildingStyle::Bakery,
-                        lot.clone(),
-                        world,
-                    );
-                    let bakery_id = BakeryID::move_into(building_id, simulation, world);
-                    building_id.add_household(bakery_id.into(), UnitIdx(0), world);
-                }
-                _ => {
-                    let building_id = BuildingID::spawn(
-                        materialized_reality,
-                        vec![Unit(None, UnitType::Dwelling)].into(),
-                        BuildingStyle::FamilyHouse,
-                        lot.clone(),
-                        world,
-                    );
-                    let family_id = FamilyID::move_into(3, building_id, simulation, world);
-                    building_id.add_household(family_id.into(), UnitIdx(0), world);
-                }
+            let family_share = 1.0;
+            let grocery_share = 0.02;
+            let cow_farm_share = 0.09;
+            let veg_farm_share = 0.026;
+            let grain_farm_share = 0.0016;
+            let mill_share = 0.001;
+            let bakery_share = 0.01;
+
+            let total_share = family_share + grocery_share + cow_farm_share + veg_farm_share +
+                grain_farm_share + mill_share +
+                bakery_share;
+
+            let dot = seed((lot.position.x as u32, lot.position.y as u32))
+                .gen_range(0.0, total_share);
+
+            if dot < family_share {
+                let building_id = BuildingID::spawn(
+                    materialized_reality,
+                    vec![Unit(None, UnitType::Dwelling)].into(),
+                    BuildingStyle::FamilyHouse,
+                    lot.clone(),
+                    world,
+                );
+                let family_id = FamilyID::move_into(3, building_id, simulation, world);
+                building_id.add_household(family_id.into(), UnitIdx(0), world);
+            } else if dot < family_share + grocery_share {
+                let building_id = BuildingID::spawn(
+                    materialized_reality,
+                    vec![Unit(None, UnitType::Retail)].into(),
+                    BuildingStyle::GroceryShop,
+                    lot.clone(),
+                    world,
+                );
+                let shop_id = GroceryShopID::move_into(building_id, simulation, world);
+                building_id.add_household(shop_id.into(), UnitIdx(0), world);
+            } else if dot < family_share + grocery_share + cow_farm_share {
+                let building_id = BuildingID::spawn(
+                    materialized_reality,
+                    vec![Unit(None, UnitType::Agriculture)].into(),
+                    BuildingStyle::Field,
+                    lot.clone(),
+                    world,
+                );
+                let farm_id = CowFarmID::move_into(building_id, simulation, world);
+                building_id.add_household(farm_id.into(), UnitIdx(0), world);
+            } else if dot < family_share + grocery_share + cow_farm_share + veg_farm_share {
+                let building_id = BuildingID::spawn(
+                    materialized_reality,
+                    vec![Unit(None, UnitType::Agriculture)].into(),
+                    BuildingStyle::Field,
+                    lot.clone(),
+                    world,
+                );
+                let farm_id = VegetableFarmID::move_into(building_id, simulation, world);
+                building_id.add_household(farm_id.into(), UnitIdx(0), world);
+            } else if dot <
+                       family_share + grocery_share + cow_farm_share + veg_farm_share +
+                           grain_farm_share
+            {
+                let building_id = BuildingID::spawn(
+                    materialized_reality,
+                    vec![Unit(None, UnitType::Agriculture)].into(),
+                    BuildingStyle::Field,
+                    lot.clone(),
+                    world,
+                );
+                let farm_id = GrainFarmID::move_into(building_id, simulation, world);
+                building_id.add_household(farm_id.into(), UnitIdx(0), world);
+            } else if dot <
+                       family_share + grocery_share + cow_farm_share + veg_farm_share +
+                           grain_farm_share + mill_share
+            {
+                let building_id = BuildingID::spawn(
+                    materialized_reality,
+                    vec![Unit(None, UnitType::Mill)].into(),
+                    BuildingStyle::Mill,
+                    lot.clone(),
+                    world,
+                );
+                let mill_id = MillID::move_into(building_id, simulation, world);
+                building_id.add_household(mill_id.into(), UnitIdx(0), world);
+            } else {
+                let building_id = BuildingID::spawn(
+                    materialized_reality,
+                    vec![Unit(None, UnitType::Bakery)].into(),
+                    BuildingStyle::Bakery,
+                    lot.clone(),
+                    world,
+                );
+                let bakery_id = BakeryID::move_into(building_id, simulation, world);
+                building_id.add_household(bakery_id.into(), UnitIdx(0), world);
             }
         }
     }

@@ -13,6 +13,7 @@ pub mod family;
 pub mod grocery_shop;
 pub mod grain_farm;
 pub mod cow_farm;
+pub mod vegetable_farm;
 pub mod mill;
 pub mod bakery;
 pub mod neighboring_town_trade;
@@ -1095,6 +1096,7 @@ pub fn setup(system: &mut ActorSystem) {
     grocery_shop::setup(system);
     grain_farm::setup(system);
     cow_farm::setup(system);
+    vegetable_farm::setup(system);
     mill::setup(system);
     bakery::setup(system);
     neighboring_town_trade::setup(system);

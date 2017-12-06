@@ -1,6 +1,7 @@
 use kay::{ActorSystem, World, TypedID, Actor};
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, SimulationID, Ticks};
 use economy::resources::Resource;
+use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
 use economy::buildings::BuildingID;
 
@@ -36,16 +37,16 @@ impl Mill {
                         MemberIdx(0),
                         TimeOfDayRange::new(7, 0, 20, 0),
                         Deal::new(
-                            vec![(Resource::Flour, 500.0), (Resource::Money, -500.0)],
+                            vec![(Resource::Flour, 200.0), (Resource::Money, -200.0 * 0.3)],
                             Duration::from_minutes(10),
                         ),
-                        10,
+                        4,
                         false
                     ),
                     Offer::new(
                         MemberIdx(0),
                         TimeOfDayRange::new(5, 0, 15, 0),
-                        Deal::new(Some((Resource::Money, 60.0)), Duration::from_hours(7)),
+                        Deal::new(Some((Resource::Money, 40.0)), Duration::from_hours(4)),
                         3,
                         false
                     ),
@@ -76,15 +77,34 @@ impl Household for Mill {
         true
     }
 
-    fn importance(_: Resource, _: TimeOfDay) -> f32 {
-        0.0
+    fn importance(resource: Resource, time: TimeOfDay) -> f32 {
+        let hour = time.hours_minutes().0;
+
+        let bihourly_importance = match resource {
+            Grain => Some([0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0]),
+            _ => None,
+        };
+
+        bihourly_importance
+            .map(|lookup| lookup[hour / 2] as f32)
+            .unwrap_or(0.0)
     }
 
     fn interesting_resources() -> &'static [Resource] {
         &[Resource::Money, Resource::Grain, Resource::Flour]
     }
 
-    fn decay(&mut self, _dt: Duration, _: &mut World) {}
+    fn decay(&mut self, dt: Duration, _: &mut World) {
+        {
+            let flour = self.core.resources.mut_entry_or(Flour, 0.0);
+            *flour += 800.0 * dt.as_days();
+        }
+
+        {
+            let grain = self.core.resources.mut_entry_or(Grain, 0.0);
+            *grain -= 800.0 * 1.0 * dt.as_days();
+        }
+    }
 
     fn on_destroy(&mut self, world: &mut World) {
         self.site.remove_household(self.id_as(), world);

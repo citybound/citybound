@@ -116,16 +116,16 @@ impl Household for Family {
 
     fn is_shared(resource: Resource) -> bool {
         match resource {
-            Awakeness | Satiety | Entertainment | Clothes => false,
-            Money | Groceries | Furniture | Devices | Services => true,
+            Awakeness | Satiety /*| Entertainment | Clothes*/ => false,
+            Money | Groceries /*| Furniture | Devices | Services*/ => true,
             _ => unimplemented!(),
         }
     }
 
     fn supplier_shared(resource: Resource) -> bool {
         match resource {
-            Money | Entertainment | Clothes => false,
-            Awakeness | Satiety | Groceries | Furniture | Devices | Services => true,
+            Money /*| Entertainment | Clothes*/ => false,
+            Awakeness | Satiety | Groceries /*| Furniture | Devices | Services*/ => true,
             _ => unimplemented!(),
         }
     }
@@ -136,10 +136,10 @@ impl Household for Family {
         let bihourly_importance = match resource {
             Awakeness => Some([7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 7, 7]),
             Satiety => Some([0, 0, 5, 5, 1, 5, 5, 1, 5, 5, 1, 1]),
-            Entertainment => Some([0, 0, 0, 0, 0, 1, 1, 1, 2, 3, 3, 2]),
+            //Entertainment => Some([0, 0, 0, 0, 0, 1, 1, 1, 2, 3, 3, 2]),
             Money => Some([0, 0, 3, 3, 5, 5, 5, 3, 3, 1, 1, 1]),
             Groceries => Some([0, 0, 4, 4, 1, 4, 4, 4, 4, 4, 0, 0]),
-            Furniture | Clothes | Devices | Services => Some([0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0]),
+            //Furniture | Clothes | Devices | Services => Some([0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0]),
             _ => None,
         };
 
@@ -152,13 +152,13 @@ impl Household for Family {
         &[
             Awakeness,
             Satiety,
-            Entertainment,
+            //Entertainment,
             Money,
             Groceries,
-            Furniture,
-            Clothes,
-            Devices,
-            Services,
+            //Furniture,
+            //Clothes,
+            //Devices,
+            //Services,
         ]
     }
 
@@ -174,32 +174,32 @@ impl Household for Family {
                 let satiety = member_resources.mut_entry_or(Satiety, 0.0);
                 if *satiety < 0.0 {
                     let groceries = self.core.resources.mut_entry_or(Groceries, 0.0);
-                    *groceries -= 3.0;
-                    *satiety += 3.0;
+                    *groceries -= 1.0;
+                    *satiety += 1.0;
                 }
-                *satiety -= 1.0 * individuality * dt.as_hours();
+                *satiety -= 3.0 * individuality * dt.as_days();
             }
-            {
-                let individuality = seed((self.id, i)).gen_range(0.8, 1.2);
-                let entertainment = member_resources.mut_entry_or(Entertainment, 0.0);
-                *entertainment -= 0.2 * individuality * dt.as_hours();
-            }
+            // {
+            //     let individuality = seed((self.id, i)).gen_range(0.8, 1.2);
+            //     let entertainment = member_resources.mut_entry_or(Entertainment, 0.0);
+            //     *entertainment -= 0.2 * individuality * dt.as_hours();
+            // }
         }
-        {
-            let individuality = seed(self.id).gen_range(0.8, 1.2);
-            let furniture = self.core.resources.mut_entry_or(Furniture, 0.0);
-            *furniture -= 0.005 * individuality * dt.as_hours();
-        }
-        {
-            let individuality = seed(self.id).gen_range(0.8, 1.2);
-            let devices = self.core.resources.mut_entry_or(Devices, 0.0);
-            *devices -= 0.005 * individuality * dt.as_hours();
-        }
-        {
-            let individuality = seed(self.id).gen_range(0.8, 1.2);
-            let services = self.core.resources.mut_entry_or(Services, 0.0);
-            *services -= 0.01 * individuality * dt.as_hours();
-        }
+        // {
+        //     let individuality = seed(self.id).gen_range(0.8, 1.2);
+        //     let furniture = self.core.resources.mut_entry_or(Furniture, 0.0);
+        //     *furniture -= 0.005 * individuality * dt.as_hours();
+        // }
+        // {
+        //     let individuality = seed(self.id).gen_range(0.8, 1.2);
+        //     let devices = self.core.resources.mut_entry_or(Devices, 0.0);
+        //     *devices -= 0.005 * individuality * dt.as_hours();
+        // }
+        // {
+        //     let individuality = seed(self.id).gen_range(0.8, 1.2);
+        //     let services = self.core.resources.mut_entry_or(Services, 0.0);
+        //     *services -= 0.01 * individuality * dt.as_hours();
+        // }
     }
 
     fn on_destroy(&mut self, world: &mut World) {

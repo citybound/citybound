@@ -1,6 +1,7 @@
 use kay::{ActorSystem, World, TypedID, Actor};
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, SimulationID, Ticks};
 use economy::resources::Resource;
+use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
 use economy::buildings::BuildingID;
 
@@ -36,17 +37,17 @@ impl GrainFarm {
                         MemberIdx(0),
                         TimeOfDayRange::new(7, 0, 20, 0),
                         Deal::new(
-                            vec![(Resource::Grain, 1000.0), (Resource::Money, -500.0)],
+                            vec![(Resource::Grain, 200.0), (Resource::Money, -200.0 * 0.13)],
                             Duration::from_minutes(10),
                         ),
-                        3,
+                        4,
                         false
                     ),
                     Offer::new(
                         MemberIdx(0),
                         TimeOfDayRange::new(5, 0, 15, 0),
-                        Deal::new(Some((Resource::Money, 60.0)), Duration::from_hours(7)),
-                        3,
+                        Deal::new(Some((Resource::Money, 40.0)), Duration::from_hours(4)),
+                        2,
                         false
                     ),
                 ].into(),
@@ -84,7 +85,12 @@ impl Household for GrainFarm {
         &[Resource::Money, Resource::Grain]
     }
 
-    fn decay(&mut self, _dt: Duration, _: &mut World) {}
+    fn decay(&mut self, dt: Duration, _: &mut World) {
+        {
+            let grain = self.core.resources.mut_entry_or(Grain, 0.0);
+            *grain += 800.0 * dt.as_days();
+        }
+    }
 
     fn on_destroy(&mut self, world: &mut World) {
         self.site.remove_household(self.id_as(), world);

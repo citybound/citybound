@@ -30,160 +30,156 @@ impl NeighboringTownTrade {
             Offer::new(
                 MemberIdx(0),
                 TimeOfDayRange::new(5, 0, 15, 0),
-                Deal::new(Some((Resource::Money, 60.0)), Duration::from_hours(7)),
-                10,
+                Deal::new(Some((Resource::Money, 50.0)), Duration::from_hours(5)),
+                300,
                 false
             ),
+            // Offer::new(
+            //     MemberIdx(0),
+            //     TimeOfDayRange::new(7, 0, 20, 0),
+            //     Deal::new(
+            //         vec![(Entertainment, 5.0), (Money, -10.0)],
+            //         Duration::from_minutes(30),
+            //     ),
+            //     10,
+            //     false
+            // ),
+            // Offer::new(
+            //     MemberIdx(0),
+            //     TimeOfDayRange::new(7, 0, 20, 0),
+            //     Deal::new(
+            //         vec![(Services, 5.0), (Money, -10.0)],
+            //         Duration::from_minutes(30),
+            //     ),
+            //     10,
+            //     false
+            // ),
             Offer::new(
                 MemberIdx(0),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
-                    vec![(Entertainment, 5.0), (Money, -10.0)],
+                    vec![(Groceries, 30.0), (Money, -30.0 * 2.7)],
                     Duration::from_minutes(30),
                 ),
-                10,
+                32,
                 false
             ),
             Offer::new(
                 MemberIdx(0),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
-                    vec![(Services, 5.0), (Money, -10.0)],
-                    Duration::from_minutes(30),
-                ),
-                10,
-                false
-            ),
-            Offer::new(
-                MemberIdx(0),
-                TimeOfDayRange::new(7, 0, 20, 0),
-                Deal::new(
-                    vec![(Groceries, 30.0), (Money, -60.0)],
-                    Duration::from_minutes(30),
-                ),
-                10,
-                false
-            ),
-            Offer::new(
-                MemberIdx(0),
-                TimeOfDayRange::new(7, 0, 20, 0),
-                Deal::new(
-                    vec![(Produce, 30.0), (Money, -30.0)],
+                    vec![(Resource::Produce, 20.0), (Resource::Money, -20.0 * 1.3)],
                     Duration::from_minutes(10),
                 ),
-                10,
+                8,
                 false
             ),
             Offer::new(
                 MemberIdx(0),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
-                    vec![(Grain, 30.0), (Money, -30.0)],
+                    vec![(Resource::Grain, 200.0), (Resource::Money, -200.0 * 0.13)],
                     Duration::from_minutes(10),
                 ),
-                10,
+                8,
                 false
             ),
             Offer::new(
                 MemberIdx(0),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
-                    vec![(Flour, 30.0), (Money, -30.0)],
+                    vec![(Resource::Flour, 200.0), (Resource::Money, -200.0 * 0.3)],
                     Duration::from_minutes(10),
                 ),
-                10,
+                8,
                 false
             ),
             Offer::new(
                 MemberIdx(0),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
-                    vec![(BakedGoods, 30.0), (Money, -30.0)],
+                    vec![
+                        (Resource::BakedGoods, 100.0),
+                        (Resource::Money, -100.0 * 2.5),
+                    ],
                     Duration::from_minutes(10),
                 ),
-                10,
+                60,
                 false
             ),
             Offer::new(
                 MemberIdx(0),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
-                    vec![(BakedGoods, 30.0), (Money, -30.0)],
+                    vec![(Resource::Meat, 5.0), (Resource::Money, -5.0 * 3.0)],
                     Duration::from_minutes(10),
                 ),
-                10,
+                8,
                 false
             ),
             Offer::new(
                 MemberIdx(0),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
-                    vec![(Meat, 30.0), (Money, -30.0)],
+                    vec![
+                        (Resource::DairyGoods, 10.0),
+                        (Resource::Money, -10.0 * 1.31),
+                    ],
                     Duration::from_minutes(10),
                 ),
-                10,
+                8,
                 false
             ),
-            Offer::new(
-                MemberIdx(0),
-                TimeOfDayRange::new(7, 0, 20, 0),
-                Deal::new(
-                    vec![(DairyGoods, 30.0), (Money, -30.0)],
-                    Duration::from_minutes(10),
-                ),
-                10,
-                false
-            ),
-            Offer::new(
-                MemberIdx(0),
-                TimeOfDayRange::new(7, 0, 20, 0),
-                Deal::new(
-                    vec![(Wood, 30.0), (Money, -10.0)],
-                    Duration::from_minutes(10),
-                ),
-                10,
-                false
-            ),
-            Offer::new(
-                MemberIdx(0),
-                TimeOfDayRange::new(7, 0, 20, 0),
-                Deal::new(
-                    vec![(Furniture, 5.0), (Money, -100.0)],
-                    Duration::from_minutes(10),
-                ),
-                10,
-                false
-            ),
-            Offer::new(
-                MemberIdx(0),
-                TimeOfDayRange::new(7, 0, 20, 0),
-                Deal::new(
-                    vec![(TextileGoods, 30.0), (Money, -30.0)],
-                    Duration::from_minutes(10),
-                ),
-                10,
-                false
-            ),
-            Offer::new(
-                MemberIdx(0),
-                TimeOfDayRange::new(7, 0, 20, 0),
-                Deal::new(
-                    vec![(Clothes, 5.0), (Money, -50.0)],
-                    Duration::from_minutes(10),
-                ),
-                10,
-                false
-            ),
-            Offer::new(
-                MemberIdx(0),
-                TimeOfDayRange::new(7, 0, 20, 0),
-                Deal::new(
-                    vec![(Devices, 5.0), (Money, -100.0)],
-                    Duration::from_minutes(10),
-                ),
-                10,
-                false
-            ),
+            // Offer::new(
+            //     MemberIdx(0),
+            //     TimeOfDayRange::new(7, 0, 20, 0),
+            //     Deal::new(
+            //         vec![(Wood, 30.0), (Money, -10.0)],
+            //         Duration::from_minutes(10),
+            //     ),
+            //     10,
+            //     false
+            // ),
+            // Offer::new(
+            //     MemberIdx(0),
+            //     TimeOfDayRange::new(7, 0, 20, 0),
+            //     Deal::new(
+            //         vec![(Furniture, 5.0), (Money, -100.0)],
+            //         Duration::from_minutes(10),
+            //     ),
+            //     10,
+            //     false
+            // ),
+            // Offer::new(
+            //     MemberIdx(0),
+            //     TimeOfDayRange::new(7, 0, 20, 0),
+            //     Deal::new(
+            //         vec![(TextileGoods, 30.0), (Money, -30.0)],
+            //         Duration::from_minutes(10),
+            //     ),
+            //     10,
+            //     false
+            // ),
+            // Offer::new(
+            //     MemberIdx(0),
+            //     TimeOfDayRange::new(7, 0, 20, 0),
+            //     Deal::new(
+            //         vec![(Clothes, 5.0), (Money, -50.0)],
+            //         Duration::from_minutes(10),
+            //     ),
+            //     10,
+            //     false
+            // ),
+            // Offer::new(
+            //     MemberIdx(0),
+            //     TimeOfDayRange::new(7, 0, 20, 0),
+            //     Deal::new(
+            //         vec![(Devices, 5.0), (Money, -100.0)],
+            //         Duration::from_minutes(10),
+            //     ),
+            //     10,
+            //     false
+            // ),
         ];
 
         NeighboringTownTrade {
@@ -221,8 +217,8 @@ impl Household for NeighboringTownTrade {
 
     fn interesting_resources() -> &'static [Resource] {
         &[
-            Entertainment,
-            Services,
+            //Entertainment,
+            //Services,
             Groceries,
             Produce,
             Grain,
@@ -230,11 +226,11 @@ impl Household for NeighboringTownTrade {
             BakedGoods,
             Meat,
             DairyGoods,
-            Wood,
-            Furniture,
-            TextileGoods,
-            Clothes,
-            Devices,
+            // Wood,
+            //Furniture,
+            //TextileGoods,
+            //Clothes,
+            //Devices,
         ]
     }
 

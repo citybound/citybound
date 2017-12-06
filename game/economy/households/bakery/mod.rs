@@ -1,6 +1,7 @@
 use kay::{ActorSystem, World, TypedID, Actor};
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, SimulationID, Ticks};
 use economy::resources::Resource;
+use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
 use economy::buildings::BuildingID;
 
@@ -36,7 +37,10 @@ impl Bakery {
                         MemberIdx(0),
                         TimeOfDayRange::new(7, 0, 20, 0),
                         Deal::new(
-                            vec![(Resource::BakedGoods, 5.0), (Resource::Money, -5.0)],
+                            vec![
+                                (Resource::BakedGoods, 100.0),
+                                (Resource::Money, -100.0 * 2.5),
+                            ],
                             Duration::from_minutes(10),
                         ),
                         30,
@@ -45,8 +49,8 @@ impl Bakery {
                     Offer::new(
                         MemberIdx(0),
                         TimeOfDayRange::new(5, 0, 15, 0),
-                        Deal::new(Some((Resource::Money, 60.0)), Duration::from_hours(7)),
-                        5,
+                        Deal::new(Some((Resource::Money, 50.0)), Duration::from_hours(5)),
+                        3,
                         false
                     ),
                 ].into(),
@@ -76,15 +80,44 @@ impl Household for Bakery {
         true
     }
 
-    fn importance(_: Resource, _: TimeOfDay) -> f32 {
-        0.0
+    fn importance(resource: Resource, time: TimeOfDay) -> f32 {
+        let hour = time.hours_minutes().0;
+
+        let bihourly_importance = match resource {
+            Flour | Grain => Some([0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0]),
+            _ => None,
+        };
+
+        bihourly_importance
+            .map(|lookup| lookup[hour / 2] as f32)
+            .unwrap_or(0.0)
     }
 
     fn interesting_resources() -> &'static [Resource] {
-        &[Resource::Money, Resource::Flour, Resource::BakedGoods]
+        &[
+            Resource::Money,
+            Resource::Flour,
+            Resource::Grain,
+            Resource::BakedGoods,
+        ]
     }
 
-    fn decay(&mut self, _dt: Duration, _: &mut World) {}
+    fn decay(&mut self, dt: Duration, _: &mut World) {
+        {
+            let baked = self.core.resources.mut_entry_or(BakedGoods, 0.0);
+            *baked += 300.0 * dt.as_days();
+        }
+
+        {
+            let flour = self.core.resources.mut_entry_or(Flour, 0.0);
+            *flour += 300.0 * 0.1 * dt.as_days();
+        }
+
+        {
+            let grain = self.core.resources.mut_entry_or(Grain, 0.0);
+            *grain += 300.0 * 0.05 * dt.as_days();
+        }
+    }
 
     fn on_destroy(&mut self, world: &mut World) {
         self.site.remove_household(self.id_as(), world);

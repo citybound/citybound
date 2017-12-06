@@ -37,6 +37,10 @@ impl Duration {
     pub fn as_hours(&self) -> f32 {
         self.as_minutes() / 60.0
     }
+
+    pub fn as_days(&self) -> f32 {
+        self.as_hours() / 24.0
+    }
 }
 
 impl ::std::ops::Add for Duration {

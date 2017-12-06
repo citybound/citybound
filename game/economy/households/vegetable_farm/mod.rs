@@ -9,22 +9,22 @@ use super::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer};
 
 
 #[derive(Compact, Clone)]
-pub struct CowFarm {
-    id: CowFarmID,
+pub struct VegetableFarm {
+    id: VegetableFarmID,
     site: BuildingID,
     core: HouseholdCore,
 }
 
-impl CowFarm {
+impl VegetableFarm {
     pub fn move_into(
-        id: CowFarmID,
+        id: VegetableFarmID,
         site: BuildingID,
         simulation: SimulationID,
         world: &mut World,
-    ) -> CowFarm {
+    ) -> VegetableFarm {
         simulation.wake_up_in(Ticks(0), id.into(), world);
 
-        CowFarm {
+        VegetableFarm {
             id,
             site,
             core: HouseholdCore::new(
@@ -37,20 +37,7 @@ impl CowFarm {
                         MemberIdx(0),
                         TimeOfDayRange::new(7, 0, 20, 0),
                         Deal::new(
-                            vec![(Resource::Meat, 5.0), (Resource::Money, -5.0 * 3.0)],
-                            Duration::from_minutes(10),
-                        ),
-                        4,
-                        false
-                    ),
-                    Offer::new(
-                        MemberIdx(0),
-                        TimeOfDayRange::new(7, 0, 20, 0),
-                        Deal::new(
-                            vec![
-                                (Resource::DairyGoods, 10.0),
-                                (Resource::Money, -10.0 * 1.31),
-                            ],
+                            vec![(Resource::Produce, 20.0), (Resource::Money, -20.0 * 1.3)],
                             Duration::from_minutes(10),
                         ),
                         4,
@@ -69,7 +56,7 @@ impl CowFarm {
     }
 }
 
-impl Household for CowFarm {
+impl Household for VegetableFarm {
     fn core(&self) -> &HouseholdCore {
         &self.core
     }
@@ -90,37 +77,18 @@ impl Household for CowFarm {
         true
     }
 
-    fn importance(resource: Resource, time: TimeOfDay) -> f32 {
-        let hour = time.hours_minutes().0;
-
-        let bihourly_importance = match resource {
-            Grain => Some([0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0]),
-            _ => None,
-        };
-
-        bihourly_importance
-            .map(|lookup| lookup[hour / 2] as f32)
-            .unwrap_or(0.0)
+    fn importance(_: Resource, _: TimeOfDay) -> f32 {
+        0.0
     }
 
     fn interesting_resources() -> &'static [Resource] {
-        &[Resource::Money, Resource::Grain, Resource::Meat]
+        &[Resource::Money, Resource::Produce]
     }
 
     fn decay(&mut self, dt: Duration, _: &mut World) {
         {
-            let meat = self.core.resources.mut_entry_or(Meat, 0.0);
-            *meat += 20.0 * dt.as_days();
-        }
-
-        {
-            let dairy = self.core.resources.mut_entry_or(DairyGoods, 0.0);
-            *dairy += 40.0 * dt.as_days();
-        }
-
-        {
-            let grain = self.core.resources.mut_entry_or(Grain, 0.0);
-            *grain -= (20.0 * 0.2 + 40.0 * 0.1) * dt.as_days();
+            let produce = self.core.resources.mut_entry_or(Produce, 0.0);
+            *produce += 80.0 * dt.as_days();
         }
     }
 
@@ -129,7 +97,7 @@ impl Household for CowFarm {
     }
 
     fn household_name(&self) -> String {
-        "Cow Farm".to_owned()
+        "Vegetable Farm".to_owned()
     }
 
     fn member_name(&self, member: MemberIdx) -> String {
@@ -141,7 +109,7 @@ use core::simulation::{Simulatable, SimulatableID, Sleeper, SleeperID, Instant,
                        TICKS_PER_SIM_SECOND};
 const UPDATE_EVERY_N_SECS: usize = 4;
 
-impl Simulatable for CowFarm {
+impl Simulatable for VegetableFarm {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
         if (current_instant.ticks() + self.id.as_raw().instance_id as usize) %
             (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0
@@ -151,20 +119,20 @@ impl Simulatable for CowFarm {
     }
 }
 
-impl Sleeper for CowFarm {
+impl Sleeper for VegetableFarm {
     fn wake(&mut self, current_instant: Instant, world: &mut World) {
         self.update_core(current_instant, world);
     }
 }
 
-impl EvaluationRequester for CowFarm {
+impl EvaluationRequester for VegetableFarm {
     fn expect_n_results(&mut self, _r: Resource, _n: usize, _: &mut World) {}
     fn on_result(&mut self, _e: &EvaluatedSearchResult, _: &mut World) {}
 }
 
 use transport::pathfinding::{RoughLocationID, RoughLocation, RoughLocationResolve};
 
-impl RoughLocation for CowFarm {
+impl RoughLocation for VegetableFarm {
     fn resolve(&self) -> RoughLocationResolve {
         RoughLocationResolve::SameAs(self.site())
     }
@@ -172,7 +140,7 @@ impl RoughLocation for CowFarm {
 
 use transport::pathfinding::trip::{TripListener, TripListenerID, TripID, TripResult};
 
-impl TripListener for CowFarm {
+impl TripListener for VegetableFarm {
     fn trip_created(&mut self, trip: TripID, world: &mut World) {
         self.on_trip_created(trip, world);
     }
@@ -190,7 +158,7 @@ impl TripListener for CowFarm {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.register::<CowFarm>();
+    system.register::<VegetableFarm>();
     auto_setup(system);
 }
 

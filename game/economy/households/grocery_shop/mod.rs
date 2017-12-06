@@ -36,10 +36,10 @@ impl GroceryShop {
                         MemberIdx(0),
                         TimeOfDayRange::new(7, 0, 20, 0),
                         Deal::new(
-                            vec![(Groceries, 30.0), (Money, -60.0)],
+                            vec![(Groceries, 30.0), (Money, -30.0 * 2.7)],
                             Duration::from_minutes(30),
                         ),
-                        30,
+                        16,
                         false
                     ),
                     Offer::new(
@@ -120,12 +120,37 @@ impl Household for GroceryShop {
     fn decay(&mut self, dt: Duration, _: &mut World) {
         {
             let groceries = self.core.resources.mut_entry_or(Groceries, 0.0);
-            *groceries += 0.001 * dt.as_seconds();
+            *groceries += 500.0 * dt.as_days();
         }
 
-        for raw_resource in &[Produce, Grain, Flour, BakedGoods, Meat, DairyGoods] {
-            let amount = self.core.resources.mut_entry_or(*raw_resource, 0.0);
-            *amount -= 0.001 * dt.as_seconds();
+        {
+            let meat = self.core.resources.mut_entry_or(Meat, 0.0);
+            *meat -= 500.0 * 0.2 * dt.as_days();
+        }
+
+        {
+            let dairy = self.core.resources.mut_entry_or(DairyGoods, 0.0);
+            *dairy -= 500.0 * 0.1 * dt.as_days();
+        }
+
+        {
+            let produce = self.core.resources.mut_entry_or(Produce, 0.0);
+            *produce -= 500.0 * 0.1 * dt.as_days();
+        }
+
+        {
+            let grain = self.core.resources.mut_entry_or(Grain, 0.0);
+            *grain -= 500.0 * 0.05 * dt.as_days();
+        }
+
+        {
+            let flour = self.core.resources.mut_entry_or(Flour, 0.0);
+            *flour -= 500.0 * 0.01 * dt.as_days();
+        }
+
+        {
+            let baked = self.core.resources.mut_entry_or(BakedGoods, 0.0);
+            *baked -= 500.0 * 0.3 * dt.as_days();
         }
     }
 
