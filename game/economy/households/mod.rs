@@ -994,15 +994,17 @@ pub trait Household
                             offer.active_users.len()
                         ))
                     });
-                    ui.tree_node(im_str!("Log")).build(
-                        || for line in self.core_mut()
-                            .log
-                            .0
-                            .lines()
-                        {
-                            ui.text(im_str!("{}", line));
-                        },
-                    );
+                    if DO_HOUSEHOLD_LOGGING {
+                        ui.tree_node(im_str!("Log")).build(
+                            || for line in self.core_mut()
+                                .log
+                                .0
+                                .lines()
+                            {
+                                ui.text(im_str!("{}", line));
+                            },
+                        );
+                    }
                 },
             )
         });
@@ -1076,7 +1078,7 @@ impl HouseholdCore {
     }
 }
 
-const DO_HOUSEHOLD_LOGGING: bool = true;
+const DO_HOUSEHOLD_LOGGING: bool = false;
 
 #[derive(Compact, Clone, Default)]
 pub struct HouseholdLog(CString);

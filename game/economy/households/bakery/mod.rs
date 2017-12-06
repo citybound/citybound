@@ -84,7 +84,7 @@ impl Household for Bakery {
         let hour = time.hours_minutes().0;
 
         let bihourly_importance = match resource {
-            Flour | Grain => Some([0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0]),
+            Flour | DairyGoods => Some([0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0]),
             _ => None,
         };
 
@@ -97,7 +97,7 @@ impl Household for Bakery {
         &[
             Resource::Money,
             Resource::Flour,
-            Resource::Grain,
+            Resource::DairyGoods,
             Resource::BakedGoods,
         ]
     }
@@ -114,8 +114,8 @@ impl Household for Bakery {
         }
 
         {
-            let grain = self.core.resources.mut_entry_or(Grain, 0.0);
-            *grain += 300.0 * 0.05 * dt.as_days();
+            let dairy = self.core.resources.mut_entry_or(DairyGoods, 0.0);
+            *dairy += 300.0 * 0.05 * dt.as_days();
         }
     }
 

@@ -306,9 +306,9 @@ impl BuildingSpawner {
             let grocery_share = 0.02;
             let cow_farm_share = 0.09;
             let veg_farm_share = 0.026;
-            let grain_farm_share = 0.0016;
-            let mill_share = 0.001;
-            let bakery_share = 0.01;
+            let grain_farm_share = 0.02; //0.0016;
+            let mill_share = 0.02; //0.001;
+            let bakery_share = 0.02; //0.01;
 
             let total_share = family_share + grocery_share + cow_farm_share + veg_farm_share +
                 grain_farm_share + mill_share +

@@ -128,7 +128,7 @@ dependencies = [
 
 [[package]]
 name = "citybound"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "backtrace 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "clippy 0.0.166 (registry+https://github.com/rust-lang/crates.io-index)",

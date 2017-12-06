@@ -1,6 +1,6 @@
 [package]
 name = "citybound"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 license = "AGPL-3.0"
 build = "./game/build.rs"

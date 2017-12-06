@@ -264,12 +264,7 @@ impl RoadInteraction {
                 if bindings["Create Rural Roads"].is_freshly_in(&combos) {
                     let mut rnd = thread_rng();
 
-                    let mut start_points = vec![
-                        P2::new(
-                            rnd.gen_range(-2000.0, 2000.0),
-                            rnd.gen_range(-2000.0, 2000.0)
-                        ),
-                    ];
+                    let mut start_points = vec![P2::new(0.0, 0.0)];
                     let mut rough_angle = rnd.next_f32() * 2.0 * ::std::f32::consts::PI;
                     let mut length = rnd.gen_range(9000.0, 12_000.0);
 

@@ -104,7 +104,12 @@ impl Household for CowFarm {
     }
 
     fn interesting_resources() -> &'static [Resource] {
-        &[Resource::Money, Resource::Grain, Resource::Meat]
+        &[
+            Resource::Money,
+            Resource::Grain,
+            Resource::Meat,
+            Resource::DairyGoods,
+        ]
     }
 
     fn decay(&mut self, dt: Duration, _: &mut World) {
