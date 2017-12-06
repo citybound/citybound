@@ -1,7 +1,7 @@
 use compact::CVec;
 use kay::{ActorSystem, World, Fate, Actor, TypedID};
 use descartes::{N, P2, Dot, Band, Curve, FiniteCurve, Path, RoughlyComparable, Intersect,
-                WithUniqueOrthogonal, Norm};
+                WithUniqueOrthogonal};
 use itertools::Itertools;
 use stagemaster::geometry::CPath;
 use ordered_float::OrderedFloat;

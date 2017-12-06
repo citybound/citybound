@@ -80,7 +80,7 @@ impl LaneStroke {
                             window[0].direction,
                             window[1].position,
                             window[1].direction,
-                        ).unwrap_or(vec![])
+                        ).unwrap_or_else(Vec::new)
                     })
                     .collect::<Vec<_>>(),
             )

@@ -6,7 +6,7 @@ use super::super::road_plan::RoadPlanDelta;
 use super::super::materialized_roads::BuiltStrokes;
 use stagemaster::combo::{Bindings, Combo2};
 use stagemaster::user_interface::Event3d;
-use descartes::{N, P2, V2, FiniteCurve, Norm};
+use descartes::{N, P2, V2, FiniteCurve};
 use rand::{Rng, thread_rng};
 
 use super::helper_interactables::{DeselecterID, AddableID, DraggableID, SelectableID,

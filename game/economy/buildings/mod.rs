@@ -291,7 +291,6 @@ impl BuildingSpawner {
     }
 
     fn spawn_building(
-        time: Instant,
         materialized_reality: MaterializedRealityID,
         lot: &Lot,
         simulation: SimulationID,
@@ -482,7 +481,7 @@ impl LotConflictor for Lane {
 }
 
 impl Sleeper for BuildingSpawner {
-    fn wake(&mut self, time: Instant, world: &mut World) {
+    fn wake(&mut self, _time: Instant, world: &mut World) {
         self.state = match self.state {
             BuildingSpawnerState::Collecting(ref mut lots) => {
                 let buildings: LotConflictorID = Building::global_broadcast(world).into();
@@ -536,19 +535,17 @@ impl Sleeper for BuildingSpawner {
             }
             BuildingSpawnerState::CheckingLanes(ref mut lots, ref mut feasible) => {
                 for (lot, feasible) in lots.iter().zip(feasible) {
-                    if *feasible {
-                        if seed((lot.position.x as u32, lot.position.y as u32))
-                            .gen_weighted_bool(3)
-                        {
-                            Self::spawn_building(
-                                time,
-                                self.materialized_reality,
-                                lot,
-                                self.simulation,
-                                world,
-                            );
-                        }
+                    if *feasible &&
+                        seed((lot.position.x as u32, lot.position.y as u32)).gen_weighted_bool(3)
+                    {
+                        Self::spawn_building(
+                            self.materialized_reality,
+                            lot,
+                            self.simulation,
+                            world,
+                        );
                     }
+
                 }
                 BuildingSpawnerState::Idle
             }
