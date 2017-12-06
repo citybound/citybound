@@ -167,8 +167,13 @@ pub trait Household
             .resources
             .iter()
             .chain(self.core().member_resources[member.0].iter())
-            .map(|&Entry(resource, amount)| {
-                (resource, Self::graveness(resource, amount, time))
+            .filter_map(|&Entry(resource, amount)| {
+                let graveness = Self::graveness(resource, amount, time);
+                if graveness > 0.1 {
+                    Some((resource, graveness))
+                } else {
+                    None
+                }
             })
             .collect::<Vec<_>>();
         resource_graveness.sort_by_key(|&(_r, i)| OrderedFloat(i));
@@ -596,7 +601,7 @@ pub trait Household
                     for resource in Self::interesting_resources() {
                         if Self::is_shared(*resource) {
                             ui.text(im_str!("{}", resource));
-                            ui.same_line(100.0);
+                            ui.same_line(130.0);
                             let amount =
                                 self.core().resources.get(*resource).cloned().unwrap_or(0.0);
                             ui.text(im_str!("{:.2}", amount));
@@ -700,7 +705,7 @@ impl HouseholdCore {
     }
 }
 
-const DO_HOUSEHOLD_LOGGING: bool = false;
+const DO_HOUSEHOLD_LOGGING: bool = true;
 
 #[derive(Compact, Clone, Default)]
 pub struct HouseholdLog(CString);

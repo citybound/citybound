@@ -1,5 +1,5 @@
 use kay::{ActorSystem, World, TypedID, Actor};
-use core::simulation::{TimeOfDay, TimeOfDayRange, Duration};
+use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, SimulationID, Ticks};
 use economy::resources::Resource;
 use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
                       EvaluatedSearchResult};
@@ -19,7 +19,14 @@ pub struct CowFarm {
 }
 
 impl CowFarm {
-    pub fn move_into(id: CowFarmID, site: BuildingID, world: &mut World) -> CowFarm {
+    pub fn move_into(
+        id: CowFarmID,
+        site: BuildingID,
+        simulation: SimulationID,
+        world: &mut World,
+    ) -> CowFarm {
+        simulation.wake_up_in(Ticks(0), id.into(), world);
+
         CowFarm {
             id,
             site,

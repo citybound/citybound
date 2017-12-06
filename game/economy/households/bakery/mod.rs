@@ -1,5 +1,5 @@
 use kay::{ActorSystem, World, TypedID, Actor};
-use core::simulation::{TimeOfDay, TimeOfDayRange, Duration};
+use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, SimulationID, Ticks};
 use economy::resources::Resource;
 use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
                       EvaluatedSearchResult};
@@ -18,7 +18,14 @@ pub struct Bakery {
 }
 
 impl Bakery {
-    pub fn move_into(id: BakeryID, site: BuildingID, world: &mut World) -> Bakery {
+    pub fn move_into(
+        id: BakeryID,
+        site: BuildingID,
+        simulation: SimulationID,
+        world: &mut World,
+    ) -> Bakery {
+        simulation.wake_up_in(Ticks(0), id.into(), world);
+
         Bakery {
             id,
             site,
@@ -74,7 +81,7 @@ impl Household for Bakery {
     }
 
     fn interesting_resources() -> &'static [Resource] {
-        &[Resource::Money, Resource::Grain]
+        &[Resource::Money, Resource::Flour, Resource::BakedGoods]
     }
 
     fn decay(&mut self, _dt: Duration, _: &mut World) {}

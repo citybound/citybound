@@ -1,5 +1,5 @@
 use kay::{ActorSystem, World, TypedID, Actor};
-use core::simulation::{TimeOfDay, TimeOfDayRange, Duration};
+use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, SimulationID, Ticks};
 use economy::resources::Resource;
 use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
                       EvaluatedSearchResult};
@@ -18,7 +18,14 @@ pub struct Mill {
 }
 
 impl Mill {
-    pub fn move_into(id: MillID, site: BuildingID, world: &mut World) -> Mill {
+    pub fn move_into(
+        id: MillID,
+        site: BuildingID,
+        simulation: SimulationID,
+        world: &mut World,
+    ) -> Mill {
+        simulation.wake_up_in(Ticks(0), id.into(), world);
+
         Mill {
             id,
             site,
@@ -74,7 +81,7 @@ impl Household for Mill {
     }
 
     fn interesting_resources() -> &'static [Resource] {
-        &[Resource::Money, Resource::Grain]
+        &[Resource::Money, Resource::Grain, Resource::Flour]
     }
 
     fn decay(&mut self, _dt: Duration, _: &mut World) {}
@@ -86,11 +93,11 @@ impl Household for Mill {
     }
 
     fn household_name(&self) -> String {
-        "Grain Farm".to_owned()
+        "Mill".to_owned()
     }
 
     fn member_name(&self, member: MemberIdx) -> String {
-        format!("Farmer {}", member.0 + 1)
+        format!("Miller {}", member.0 + 1)
     }
 }
 

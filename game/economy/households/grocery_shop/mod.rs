@@ -1,5 +1,5 @@
 use kay::{ActorSystem, World, TypedID, Actor};
-use core::simulation::{TimeOfDay, TimeOfDayRange, Duration};
+use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, SimulationID, Ticks};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
 use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
@@ -18,7 +18,14 @@ pub struct GroceryShop {
 }
 
 impl GroceryShop {
-    pub fn move_into(id: GroceryShopID, site: BuildingID, world: &mut World) -> GroceryShop {
+    pub fn move_into(
+        id: GroceryShopID,
+        site: BuildingID,
+        simulation: SimulationID,
+        world: &mut World,
+    ) -> GroceryShop {
+        simulation.wake_up_in(Ticks(0), id.into(), world);
+
         GroceryShop {
             id,
             site,
@@ -69,8 +76,32 @@ impl Household for GroceryShop {
         true
     }
 
-    fn importance(_: Resource, _: TimeOfDay) -> f32 {
-        1.0
+    fn importance(resource: Resource, time: TimeOfDay) -> f32 {
+        let hour = time.hours_minutes().0;
+
+        let bihourly_importance = match resource {
+            BakedGoods | Produce | Grain | Flour | Meat | DairyGoods => Some(
+                [
+                    0,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    0,
+                ],
+            ),
+            _ => None,
+        };
+
+        bihourly_importance
+            .map(|lookup| lookup[hour / 2] as f32)
+            .unwrap_or(0.0)
     }
 
     fn interesting_resources() -> &'static [Resource] {
@@ -113,9 +144,21 @@ impl Household for GroceryShop {
     }
 }
 
+use super::ResultAspect;
+
 impl EvaluationRequester for GroceryShop {
-    fn expect_n_results(&mut self, _r: Resource, _n: usize, _: &mut World) {}
-    fn on_result(&mut self, _e: &EvaluatedSearchResult, _: &mut World) {}
+    fn expect_n_results(&mut self, resource: Resource, n: usize, world: &mut World) {
+        self.update_results(resource, &ResultAspect::SetTarget(n), world);
+    }
+
+    fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World) {
+        let &EvaluatedSearchResult { resource, ref evaluated_deals, .. } = result;
+        self.update_results(
+            resource,
+            &ResultAspect::AddDeals(evaluated_deals.clone()),
+            world,
+        );
+    }
 }
 
 use core::simulation::{Simulatable, SimulatableID, Sleeper, SleeperID, Instant,

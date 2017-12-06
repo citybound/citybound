@@ -12,6 +12,8 @@ use planning::materialized_reality::{MaterializedReality, MaterializedRealityID}
 use super::households::family::FamilyID;
 use super::households::grocery_shop::GroceryShopID;
 use super::households::grain_farm::GrainFarmID;
+use super::households::mill::MillID;
+use super::households::bakery::BakeryID;
 use super::households::neighboring_town_trade::NeighboringTownTradeID;
 use core::simulation::Ticks;
 use core::random::{seed, Rng};
@@ -31,6 +33,8 @@ pub enum UnitType {
     Dwelling,
     Retail,
     Agriculture,
+    Mill,
+    Bakery,
 }
 
 #[derive(Copy, Clone)]
@@ -297,7 +301,7 @@ impl BuildingSpawner {
             .map(|PreciseLocation { offset, .. }| offset)
             .unwrap_or(0.0) > MIN_ROAD_LENGTH_TO_TOWN
         {
-            const FAMILIES_PER_NEIGHBORING_TOWN: usize = 50;
+            const FAMILIES_PER_NEIGHBORING_TOWN: usize = 5;
             let building_id =
                 BuildingID::spawn(
                     materialized_reality,
@@ -306,7 +310,7 @@ impl BuildingSpawner {
                     lot.clone(),
                     world,
                 );
-            let trade_id = NeighboringTownTradeID::move_into(building_id, world);
+            let trade_id = NeighboringTownTradeID::move_into(building_id, simulation, world);
             building_id.add_household(trade_id.into(), UnitIdx(0), world);
             for i in 0..FAMILIES_PER_NEIGHBORING_TOWN {
                 let family_id = FamilyID::move_into(3, building_id, simulation, world);
@@ -314,7 +318,7 @@ impl BuildingSpawner {
             }
         } else {
             match *seed((lot.position.x as u32, lot.position.y as u32))
-                .choose(&[0, 1, 2, 2, 2, 2])
+                .choose(&[0, 1, 2, 3, 4, 4, 4, 4])
                 .unwrap() {
                 0 => {
                     let building_id = BuildingID::spawn(
@@ -324,7 +328,7 @@ impl BuildingSpawner {
                         lot.clone(),
                         world,
                     );
-                    let shop_id = GroceryShopID::move_into(building_id, world);
+                    let shop_id = GroceryShopID::move_into(building_id, simulation, world);
                     building_id.add_household(shop_id.into(), UnitIdx(0), world);
                 }
                 1 => {
@@ -335,8 +339,30 @@ impl BuildingSpawner {
                         lot.clone(),
                         world,
                     );
-                    let farm_id = GrainFarmID::move_into(building_id, world);
+                    let farm_id = GrainFarmID::move_into(building_id, simulation, world);
                     building_id.add_household(farm_id.into(), UnitIdx(0), world);
+                }
+                2 => {
+                    let building_id = BuildingID::spawn(
+                        materialized_reality,
+                        vec![Unit(None, UnitType::Mill)].into(),
+                        BuildingStyle::Mill,
+                        lot.clone(),
+                        world,
+                    );
+                    let mill_id = MillID::move_into(building_id, simulation, world);
+                    building_id.add_household(mill_id.into(), UnitIdx(0), world);
+                }
+                3 => {
+                    let building_id = BuildingID::spawn(
+                        materialized_reality,
+                        vec![Unit(None, UnitType::Bakery)].into(),
+                        BuildingStyle::Bakery,
+                        lot.clone(),
+                        world,
+                    );
+                    let bakery_id = BakeryID::move_into(building_id, simulation, world);
+                    building_id.add_household(bakery_id.into(), UnitIdx(0), world);
                 }
                 _ => {
                     let building_id = BuildingID::spawn(

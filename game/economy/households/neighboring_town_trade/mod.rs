@@ -1,6 +1,7 @@
 use kay::{ActorSystem, World, TypedID, Actor};
 use compact::CVec;
-use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, Instant, Simulatable, SimulatableID};
+use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, Instant, Simulatable, SimulatableID,
+                       SimulationID, Ticks};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
 use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
@@ -20,7 +21,14 @@ pub struct NeighboringTownTrade {
 }
 
 impl NeighboringTownTrade {
-    pub fn move_into(id: NeighboringTownTradeID, town: BuildingID, world: &mut World) -> Self {
+    pub fn move_into(
+        id: NeighboringTownTradeID,
+        town: BuildingID,
+        simulation: SimulationID,
+        world: &mut World,
+    ) -> Self {
+        simulation.wake_up_in(Ticks(0), id.into(), world);
+
         let offers = vec![
             OfferID::register(
                 id.into(),
@@ -28,7 +36,7 @@ impl NeighboringTownTrade {
                 town.into(),
                 TimeOfDayRange::new(5, 0, 15, 0),
                 Deal::new(Some((Resource::Money, 60.0)), Duration::from_hours(7)),
-                300,
+                10,
                 world
             ),
             OfferID::register(
@@ -40,7 +48,7 @@ impl NeighboringTownTrade {
                     vec![(Entertainment, 5.0), (Money, -10.0)],
                     Duration::from_minutes(30),
                 ),
-                300,
+                10,
                 world
             ),
             OfferID::register(
@@ -52,7 +60,7 @@ impl NeighboringTownTrade {
                     vec![(Services, 5.0), (Money, -10.0)],
                     Duration::from_minutes(30),
                 ),
-                300,
+                10,
                 world
             ),
             OfferID::register(
@@ -64,7 +72,7 @@ impl NeighboringTownTrade {
                     vec![(Groceries, 30.0), (Money, -60.0)],
                     Duration::from_minutes(30),
                 ),
-                300,
+                10,
                 world
             ),
             OfferID::register(
@@ -76,7 +84,7 @@ impl NeighboringTownTrade {
                     vec![(Produce, 30.0), (Money, -30.0)],
                     Duration::from_minutes(10),
                 ),
-                300,
+                10,
                 world
             ),
             OfferID::register(
@@ -88,7 +96,7 @@ impl NeighboringTownTrade {
                     vec![(Grain, 30.0), (Money, -30.0)],
                     Duration::from_minutes(10),
                 ),
-                300,
+                10,
                 world
             ),
             OfferID::register(
@@ -100,7 +108,7 @@ impl NeighboringTownTrade {
                     vec![(Flour, 30.0), (Money, -30.0)],
                     Duration::from_minutes(10),
                 ),
-                300,
+                10,
                 world
             ),
             OfferID::register(
@@ -112,7 +120,7 @@ impl NeighboringTownTrade {
                     vec![(BakedGoods, 30.0), (Money, -30.0)],
                     Duration::from_minutes(10),
                 ),
-                300,
+                10,
                 world
             ),
             OfferID::register(
@@ -124,7 +132,7 @@ impl NeighboringTownTrade {
                     vec![(BakedGoods, 30.0), (Money, -30.0)],
                     Duration::from_minutes(10),
                 ),
-                300,
+                10,
                 world
             ),
             OfferID::register(
@@ -136,7 +144,7 @@ impl NeighboringTownTrade {
                     vec![(Meat, 30.0), (Money, -30.0)],
                     Duration::from_minutes(10),
                 ),
-                300,
+                10,
                 world
             ),
             OfferID::register(
@@ -148,7 +156,7 @@ impl NeighboringTownTrade {
                     vec![(DairyGoods, 30.0), (Money, -30.0)],
                     Duration::from_minutes(10),
                 ),
-                300,
+                10,
                 world
             ),
             OfferID::register(
@@ -160,7 +168,7 @@ impl NeighboringTownTrade {
                     vec![(Wood, 30.0), (Money, -10.0)],
                     Duration::from_minutes(10),
                 ),
-                300,
+                10,
                 world
             ),
             OfferID::register(
@@ -172,7 +180,7 @@ impl NeighboringTownTrade {
                     vec![(Furniture, 5.0), (Money, -100.0)],
                     Duration::from_minutes(10),
                 ),
-                300,
+                10,
                 world
             ),
             OfferID::register(
@@ -184,7 +192,7 @@ impl NeighboringTownTrade {
                     vec![(TextileGoods, 30.0), (Money, -30.0)],
                     Duration::from_minutes(10),
                 ),
-                300,
+                10,
                 world
             ),
             OfferID::register(
@@ -196,7 +204,7 @@ impl NeighboringTownTrade {
                     vec![(Clothes, 5.0), (Money, -50.0)],
                     Duration::from_minutes(10),
                 ),
-                300,
+                10,
                 world
             ),
             OfferID::register(
@@ -208,7 +216,7 @@ impl NeighboringTownTrade {
                     vec![(Devices, 5.0), (Money, -100.0)],
                     Duration::from_minutes(10),
                 ),
-                300,
+                10,
                 world
             ),
         ];
@@ -216,7 +224,7 @@ impl NeighboringTownTrade {
         NeighboringTownTrade {
             id,
             town,
-            core: HouseholdCore::new(30, town.into()),
+            core: HouseholdCore::new(10, town.into()),
             offers: offers.into(),
         }
     }
