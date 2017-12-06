@@ -28,8 +28,12 @@ impl<P: Path> Band<P> {
                 }),
             )
         {
-            let connector1 = Segment::line(left_path.end(), right_path.start());
-            let connector2 = Segment::line(right_path.end(), left_path.start());
+            let connector1 = Segment::line(left_path.end(), right_path.start()).expect(
+                "Connectors should always be valid",
+            );
+            let connector2 = Segment::line(right_path.end(), left_path.start()).expect(
+                "Connectors should always be valid",
+            );
             P::new(
                 left_path
                     .segments()

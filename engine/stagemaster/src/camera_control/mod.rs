@@ -52,8 +52,7 @@ pub struct CameraControl {
     last_cursor_3d: P3,
 }
 
-use user_interface::{Event3d, Interactable3d, Interactable3dID, UserInterfaceID,
-                     MSG_Interactable3d_on_event};
+use user_interface::{Event3d, Interactable3d, Interactable3dID, UserInterfaceID};
 
 impl CameraControl {
     pub fn spawn(
@@ -192,7 +191,7 @@ impl Interactable3d for CameraControl {
     }
 }
 
-use user_interface::{Interactable2d, Interactable2dID, MSG_Interactable2d_draw_ui_2d};
+use user_interface::{Interactable2d, Interactable2dID};
 use imgui_sys::ImGuiSetCond_FirstUseEver;
 
 impl Interactable2d for CameraControl {

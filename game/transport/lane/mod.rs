@@ -1,5 +1,5 @@
 use compact::CVec;
-use kay::{ActorSystem, World};
+use kay::{ActorSystem, World, Actor};
 use descartes::{N, Band};
 use stagemaster::geometry::{CPath, AnyShape};
 
@@ -8,8 +8,7 @@ pub mod connectivity;
 use self::connectivity::{ConnectivityInfo, TransferConnectivityInfo};
 use super::microtraffic::{Microtraffic, TransferringMicrotraffic};
 use super::pathfinding::PathfindingInfo;
-use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
-                  MSG_Interactable3d_on_event};
+use stagemaster::{UserInterface, Event3d, Interactable3d, Interactable3dID};
 
 #[derive(Compact, Clone)]
 pub struct Lane {
@@ -42,7 +41,7 @@ impl Lane {
         if super::pathfinding::DEBUG_VIEW_CONNECTIVITY ||
             super::pathfinding::trip::DEBUG_MANUALLY_SPAWN_CARS
         {
-            UserInterfaceID::local_first(world).add(
+            UserInterface::local_first(world).add(
                 id.into(),
                 AnyShape::Band(Band::new(path.clone(), 3.0)),
                 5,
@@ -73,12 +72,18 @@ impl TransferLane {
         }
     }
 
-    pub fn other_side(&self, side: LaneID) -> LaneID {
-        if side == self.connectivity.left.expect("should have a left lane").0 {
-            self.connectivity.right.expect("should have a right lane").0
-        } else {
-            self.connectivity.left.expect("should have a left lane").0
-        }
+    pub fn other_side(&self, side: LaneID) -> Option<LaneID> {
+        if let Some((left, _)) = self.connectivity.left {
+            if side == left {
+                return self.connectivity.right.map(|(right, _)| right);
+            }
+        };
+        if let Some((right, _)) = self.connectivity.right {
+            if side == right {
+                return self.connectivity.left.map(|(left, _)| left);
+            }
+        };
+        None
     }
 
     #[allow(needless_range_loop)]

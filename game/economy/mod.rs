@@ -15,7 +15,6 @@ pub fn setup(
     simulation: SimulationID,
     materialized_reality: MaterializedRealityID,
 ) {
-    resources::setup();
     market::setup(system);
     households::setup(system);
     buildings::setup(system, user_interface, simulation, materialized_reality);

@@ -4,7 +4,7 @@ use super::chunked::{MemChunker, ValueInChunk, SizedChunkedArena, MultiSized};
 use super::slot_map::{SlotIndices, SlotMap};
 use super::messaging::{Message, Packet, Fate};
 use super::actor_system::{World, Actor};
-use super::id::{ID, broadcast_instance_id};
+use super::id::{TypedID, RawID, broadcast_instance_id};
 use std::marker::PhantomData;
 
 /// A container-like actor, housing many instances of identical behaviour.
@@ -49,10 +49,10 @@ impl<A: Actor + Clone> Swarm<A> {
         })
     }
 
-    /// Allocate a instance ID for later use when manually adding a instance (see `add_with_id`)
-    pub unsafe fn allocate_id(&mut self, base_id: ID) -> ID {
+    /// Allocate a instance RawID for later use when manually adding a instance (see `add_with_id`)
+    pub unsafe fn allocate_id(&mut self, base_id: RawID) -> RawID {
         let (instance_id, version) = self.allocate_instance_id();
-        ID::new(
+        RawID::new(
             base_id.type_id,
             instance_id as u32,
             base_id.machine,
@@ -61,14 +61,14 @@ impl<A: Actor + Clone> Swarm<A> {
     }
 
     /// used externally when manually adding a instance,
-    /// making use of a previously allocated ID (see `allocate_id`)
-    pub unsafe fn add_manually_with_id(&mut self, initial_state: *mut A, id: ID) {
+    /// making use of a previously allocated RawID (see `allocate_id`)
+    pub unsafe fn add_manually_with_id(&mut self, initial_state: *mut A, id: RawID) {
         self.add_with_id(initial_state, id);
         *self.n_instances += 1;
     }
 
     /// Used internally
-    unsafe fn add_with_id(&mut self, initial_state: *mut A, id: ID) {
+    unsafe fn add_with_id(&mut self, initial_state: *mut A, id: RawID) {
         let size = (*initial_state).total_size_bytes();
         let bin_index = self.instances.size_to_index(size);
         let bin = &mut self.instances.bin_for_size_mut(size);
@@ -97,7 +97,8 @@ impl<A: Actor + Clone> Swarm<A> {
                 Some(ptr) => {
                     let swapped_actor = &*(ptr as *mut A);
                     self.slot_map.associate(
-                        swapped_actor.id().instance_id as usize,
+                        swapped_actor.id().as_raw().instance_id as
+                            usize,
                         indices,
                     );
                     true
@@ -108,14 +109,14 @@ impl<A: Actor + Clone> Swarm<A> {
         }
     }
 
-    fn remove(&mut self, id: ID) {
+    fn remove(&mut self, id: RawID) {
         let i = self.slot_map.indices_of_no_version_check(
             id.instance_id as usize,
         );
         self.remove_at_index(i, id);
     }
 
-    fn remove_at_index(&mut self, i: SlotIndices, id: ID) {
+    fn remove_at_index(&mut self, i: SlotIndices, id: RawID) {
         // TODO: not sure if this is the best place to drop actor state
         let old_actor_ptr = self.at_index_mut(i) as *mut A;
         unsafe {
@@ -136,7 +137,7 @@ impl<A: Actor + Clone> Swarm<A> {
 
     fn resize_at_index(&mut self, old_i: SlotIndices) -> bool {
         let old_actor_ptr = self.at_index_mut(old_i) as *mut A;
-        unsafe { self.add_with_id(old_actor_ptr, (*old_actor_ptr).id()) };
+        unsafe { self.add_with_id(old_actor_ptr, (*old_actor_ptr).id().as_raw()) };
         self.swap_remove(old_i)
     }
 
@@ -208,7 +209,7 @@ impl<A: Actor + Clone> Swarm<A> {
                 let (fate, is_still_compact, id) = {
                     let actor = self.at_index_mut(index);
                     let fate = handler(&packet.message, actor, world);
-                    (fate, actor.is_still_compact(), actor.id())
+                    (fate, actor.is_still_compact(), actor.id().as_raw())
                 };
 
                 let repeat_slot = match fate {

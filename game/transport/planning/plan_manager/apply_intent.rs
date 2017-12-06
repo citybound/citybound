@@ -234,7 +234,8 @@ fn continue_new_road(
                             previous_reference_point,
                             node.direction,
                             *next_reference_point,
-                        ).end_direction(),
+                        ).map(|arc| arc.end_direction())
+                            .unwrap_or(node.direction),
                     )
 
                 }
@@ -247,7 +248,8 @@ fn continue_new_road(
                             previous_reference_point,
                             -node.direction,
                             *next_reference_point,
-                        ).end_direction(),
+                        ).map(|arc| arc.end_direction())
+                            .unwrap_or(-node.direction),
                     )
                 }
             };

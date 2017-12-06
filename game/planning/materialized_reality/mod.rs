@@ -1,4 +1,4 @@
-use kay::{ActorSystem, World};
+use kay::{ActorSystem, World, Actor};
 
 // TODO: How to evolve this:
 // - get rid of building confirmations, use that we synchronously get IDs for spawned stuff
@@ -29,7 +29,6 @@ pub enum MaterializedRealityState {
 }
 
 use self::MaterializedRealityState::{Ready, Updating};
-use core::simulation::Instant;
 
 impl MaterializedReality {
     pub fn spawn(id: MaterializedRealityID, _: &mut World) -> MaterializedReality {
@@ -50,13 +49,7 @@ impl MaterializedReality {
         requester.on_simulation_result(result_delta, world);
     }
 
-    pub fn apply(
-        &mut self,
-        requester: PlanManagerID,
-        delta: &PlanDelta,
-        instant: Instant,
-        world: &mut World,
-    ) {
+    pub fn apply(&mut self, requester: PlanManagerID, delta: &PlanDelta, world: &mut World) {
         self.state = match self.state {
             Updating(..) => panic!("Already applying a plan"),
             Ready(()) => {
@@ -68,7 +61,6 @@ impl MaterializedReality {
                     self.id,
                     &mut self.roads,
                     &result_delta.roads,
-                    instant,
                     world
                 );
                 self.buildings.apply(world, &result_delta.buildings);
@@ -131,7 +123,7 @@ pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
     auto_setup(system);
 
     if system.networking_machine_id() > 0 {
-        MaterializedRealityID::global_first(&mut system.world())
+        MaterializedReality::global_first(&mut system.world())
     } else {
         MaterializedRealityID::spawn(&mut system.world())
     }

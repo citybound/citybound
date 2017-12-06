@@ -7,23 +7,24 @@ use economy::buildings::BuildingID;
 
 use super::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer};
 
+
 #[derive(Compact, Clone)]
-pub struct GroceryShop {
-    id: GroceryShopID,
+pub struct CowFarm {
+    id: CowFarmID,
     site: BuildingID,
     core: HouseholdCore,
 }
 
-impl GroceryShop {
+impl CowFarm {
     pub fn move_into(
-        id: GroceryShopID,
+        id: CowFarmID,
         site: BuildingID,
         simulation: SimulationID,
         world: &mut World,
-    ) -> GroceryShop {
+    ) -> CowFarm {
         simulation.wake_up_in(Ticks(0), id.into(), world);
 
-        GroceryShop {
+        CowFarm {
             id,
             site,
             core: HouseholdCore::new(
@@ -36,17 +37,30 @@ impl GroceryShop {
                         MemberIdx(0),
                         TimeOfDayRange::new(7, 0, 20, 0),
                         Deal::new(
-                            vec![(Groceries, 30.0), (Money, -30.0 * 2.7)],
-                            Duration::from_minutes(30),
+                            vec![(Resource::Meat, 5.0), (Resource::Money, -5.0 * 3.0)],
+                            Duration::from_minutes(10),
                         ),
-                        16,
+                        4,
                         false
                     ),
                     Offer::new(
                         MemberIdx(0),
-                        TimeOfDayRange::new(7, 0, 15, 0),
-                        Deal::new(Some((Money, 50.0)), Duration::from_hours(5)),
-                        5,
+                        TimeOfDayRange::new(7, 0, 20, 0),
+                        Deal::new(
+                            vec![
+                                (Resource::DairyGoods, 10.0),
+                                (Resource::Money, -10.0 * 1.31),
+                            ],
+                            Duration::from_minutes(10),
+                        ),
+                        4,
+                        false
+                    ),
+                    Offer::new(
+                        MemberIdx(0),
+                        TimeOfDayRange::new(5, 0, 15, 0),
+                        Deal::new(Some((Resource::Money, 40.0)), Duration::from_hours(4)),
+                        2,
                         false
                     ),
                 ].into(),
@@ -55,7 +69,7 @@ impl GroceryShop {
     }
 }
 
-impl Household for GroceryShop {
+impl Household for CowFarm {
     fn core(&self) -> &HouseholdCore {
         &self.core
     }
@@ -80,22 +94,7 @@ impl Household for GroceryShop {
         let hour = time.hours_minutes().0;
 
         let bihourly_importance = match resource {
-            BakedGoods | Produce | Grain | Flour | Meat | DairyGoods => Some(
-                [
-                    0,
-                    0,
-                    0,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0,
-                ],
-            ),
+            Grain => Some([0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0]),
             _ => None,
         };
 
@@ -106,81 +105,40 @@ impl Household for GroceryShop {
 
     fn interesting_resources() -> &'static [Resource] {
         &[
-            Money,
-            Groceries,
-            Produce,
-            Grain,
-            Flour,
-            BakedGoods,
-            Meat,
-            DairyGoods,
+            Resource::Money,
+            Resource::Grain,
+            Resource::Meat,
+            Resource::DairyGoods,
         ]
     }
 
     fn decay(&mut self, dt: Duration, _: &mut World) {
         {
-            let groceries = self.core.resources.mut_entry_or(Groceries, 0.0);
-            *groceries += 500.0 * dt.as_days();
-        }
-
-        {
             let meat = self.core.resources.mut_entry_or(Meat, 0.0);
-            *meat -= 500.0 * 0.2 * dt.as_days();
+            *meat += 20.0 * dt.as_days();
         }
 
         {
             let dairy = self.core.resources.mut_entry_or(DairyGoods, 0.0);
-            *dairy -= 500.0 * 0.1 * dt.as_days();
-        }
-
-        {
-            let produce = self.core.resources.mut_entry_or(Produce, 0.0);
-            *produce -= 500.0 * 0.1 * dt.as_days();
+            *dairy += 40.0 * dt.as_days();
         }
 
         {
             let grain = self.core.resources.mut_entry_or(Grain, 0.0);
-            *grain -= 500.0 * 0.05 * dt.as_days();
+            *grain -= (20.0 * 0.2 + 40.0 * 0.1) * dt.as_days();
         }
-
-        {
-            let flour = self.core.resources.mut_entry_or(Flour, 0.0);
-            *flour -= 500.0 * 0.01 * dt.as_days();
-        }
-
-        {
-            let baked = self.core.resources.mut_entry_or(BakedGoods, 0.0);
-            *baked -= 500.0 * 0.3 * dt.as_days();
-        }
-    }
-
-    fn household_name(&self) -> String {
-        "Grocery Shop".to_owned()
-    }
-
-    fn member_name(&self, member: MemberIdx) -> String {
-        format!("Retail Worker {}", member.0 + 1)
     }
 
     fn on_destroy(&mut self, world: &mut World) {
         self.site.remove_household(self.id_as(), world);
     }
-}
 
-use super::ResultAspect;
-
-impl EvaluationRequester for GroceryShop {
-    fn expect_n_results(&mut self, resource: Resource, n: usize, world: &mut World) {
-        self.update_results(resource, &ResultAspect::SetTarget(n), world);
+    fn household_name(&self) -> String {
+        "Cow Farm".to_owned()
     }
 
-    fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World) {
-        let &EvaluatedSearchResult { resource, ref evaluated_deals, .. } = result;
-        self.update_results(
-            resource,
-            &ResultAspect::AddDeals(evaluated_deals.clone()),
-            world,
-        );
+    fn member_name(&self, member: MemberIdx) -> String {
+        format!("Farmer {}", member.0 + 1)
     }
 }
 
@@ -188,7 +146,7 @@ use core::simulation::{Simulatable, SimulatableID, Sleeper, SleeperID, Instant,
                        TICKS_PER_SIM_SECOND};
 const UPDATE_EVERY_N_SECS: usize = 4;
 
-impl Simulatable for GroceryShop {
+impl Simulatable for CowFarm {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
         if (current_instant.ticks() + self.id.as_raw().instance_id as usize) %
             (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0
@@ -198,15 +156,20 @@ impl Simulatable for GroceryShop {
     }
 }
 
-impl Sleeper for GroceryShop {
+impl Sleeper for CowFarm {
     fn wake(&mut self, current_instant: Instant, world: &mut World) {
         self.update_core(current_instant, world);
     }
 }
 
+impl EvaluationRequester for CowFarm {
+    fn expect_n_results(&mut self, _r: Resource, _n: usize, _: &mut World) {}
+    fn on_result(&mut self, _e: &EvaluatedSearchResult, _: &mut World) {}
+}
+
 use transport::pathfinding::{RoughLocationID, RoughLocation, RoughLocationResolve};
 
-impl RoughLocation for GroceryShop {
+impl RoughLocation for CowFarm {
     fn resolve(&self) -> RoughLocationResolve {
         RoughLocationResolve::SameAs(self.site())
     }
@@ -214,7 +177,7 @@ impl RoughLocation for GroceryShop {
 
 use transport::pathfinding::trip::{TripListener, TripListenerID, TripID, TripResult};
 
-impl TripListener for GroceryShop {
+impl TripListener for CowFarm {
     fn trip_created(&mut self, trip: TripID, world: &mut World) {
         self.on_trip_created(trip, world);
     }
@@ -232,7 +195,7 @@ impl TripListener for GroceryShop {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.register::<GroceryShop>();
+    system.register::<CowFarm>();
     auto_setup(system);
 }
 

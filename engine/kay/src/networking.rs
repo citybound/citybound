@@ -3,7 +3,7 @@ use std::io::{Read, Write, ErrorKind, BufReader};
 use std::thread;
 use std::time::Duration;
 use super::inbox::Inbox;
-use super::id::{ID, broadcast_machine_id};
+use super::id::{RawID, broadcast_machine_id};
 use super::type_registry::ShortTypeId;
 use super::messaging::{Message, Packet};
 use byteorder::{LittleEndian, WriteBytesExt, ByteOrder};
@@ -300,7 +300,7 @@ impl Connection {
                                 let recipient_type_id =
                                     (&packet_buffer[::std::mem::size_of::<ShortTypeId>()] as
                                          *const u8) as
-                                        *const ID;
+                                        *const RawID;
 
                                 unsafe {
                                     // println!("Receiving packet of size {}, msg {} for actor {}",

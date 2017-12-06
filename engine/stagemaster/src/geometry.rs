@@ -180,8 +180,10 @@ pub static mut DEBUG_RENDERER: Option<RendererID> = None;
 use kay::World;
 
 pub fn add_debug_line(from: P2, to: P2, color: [f32; 3], z: f32, world: &mut World) {
-    let path = CPath::new(vec![Segment::line(from, to)]);
-    add_debug_path(path, color, z, world);
+    if let Some(line) = Segment::line(from, to) {
+        let path = CPath::new(vec![line]);
+        add_debug_path(path, color, z, world);
+    }
 }
 
 pub fn add_debug_path(path: CPath, color: [f32; 3], z: f32, world: &mut World) {

@@ -1,14 +1,14 @@
 use kay::{ActorSystem, World};
 use compact::CVec;
-use core::simulation::{Instant, Duration, Simulatable, SimulatableID, MSG_Simulatable_tick};
+use core::simulation::{Instant, Duration, Simulatable, SimulatableID};
 use transport::pathfinding::RoughLocationID;
 use transport::pathfinding::trip::TripID;
-use super::super::resources::ResourceId;
-use super::super::market::OfferID;
+use super::super::resources::Resource;
+use super::OfferID;
 
 use super::{HouseholdID, MemberIdx};
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum TaskState {
     GettingReadyAt(RoughLocationID),
     InTrip(TripID),
@@ -18,7 +18,7 @@ pub enum TaskState {
 
 #[derive(Copy, Clone)]
 pub struct Task {
-    pub goal: Option<(ResourceId, OfferID)>,
+    pub goal: Option<(Resource, OfferID)>,
     pub duration: Duration,
     pub state: TaskState,
 }

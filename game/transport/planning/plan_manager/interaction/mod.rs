@@ -6,7 +6,8 @@ use super::super::road_plan::RoadPlanDelta;
 use super::super::materialized_roads::BuiltStrokes;
 use stagemaster::combo::{Bindings, Combo2};
 use stagemaster::user_interface::Event3d;
-use descartes::{N, P2, FiniteCurve};
+use descartes::{N, P2, V2, FiniteCurve};
+use rand::{Rng, thread_rng};
 
 use super::helper_interactables::{DeselecterID, AddableID, DraggableID, SelectableID,
                                   StrokeCanvasID, StrokeState};
@@ -24,13 +25,14 @@ pub fn default_road_planning_bindings() -> Vec<(&'static str, Combo2)> {
     use stagemaster::combo::Button::*;
 
     vec![
+        ("Create Rural Roads", Combo2::new(&[R], &[])),
         ("Create Small Grid", Combo2::new(&[G], &[])),
         ("Create Large Grid", Combo2::new(&[LShift, G], &[])),
         ("Delete Selection", Combo2::new(&[Back], &[Delete])),
     ]
 }
 
-use monet::{RendererID, EyeListener, Eye, Movement, EyeListenerID, MSG_EyeListener_eye_moved};
+use monet::{RendererID, EyeListener, Eye, Movement, EyeListenerID};
 use stagemaster::UserInterfaceID;
 
 impl RoadInteraction {
@@ -223,13 +225,17 @@ impl RoadInteraction {
 
                 if let Some(grid_size) = maybe_grid_size {
                     const GRID_SPACING: N = 1000.0;
+                    let half_grid_extent = grid_size as f32 * GRID_SPACING / 2.0;
                     for x in 0..grid_size {
                         plan_manager.on_stroke(
                             vec![
-                                P2::new((x as f32 + 0.5) * GRID_SPACING, 0.0),
                                 P2::new(
-                                    (x as f32 + 0.5) * GRID_SPACING,
-                                    grid_size as f32 * GRID_SPACING
+                                    (x as f32 + 0.5) * GRID_SPACING - half_grid_extent,
+                                    -half_grid_extent
+                                ),
+                                P2::new(
+                                    (x as f32 + 0.5) * GRID_SPACING - half_grid_extent,
+                                    grid_size as f32 * GRID_SPACING - half_grid_extent
                                 ),
                             ].into(),
                             StrokeState::Finished,
@@ -240,15 +246,63 @@ impl RoadInteraction {
                     for y in 0..grid_size {
                         plan_manager.on_stroke(
                             vec![
-                                P2::new(0.0, (y as f32 + 0.5) * GRID_SPACING),
                                 P2::new(
-                                    grid_size as f32 * GRID_SPACING,
-                                    (y as f32 + 0.5) * GRID_SPACING
+                                    -half_grid_extent,
+                                    (y as f32 + 0.5) * GRID_SPACING - half_grid_extent
+                                ),
+                                P2::new(
+                                    grid_size as f32 * GRID_SPACING - half_grid_extent,
+                                    (y as f32 + 0.5) * GRID_SPACING - half_grid_extent
                                 ),
                             ].into(),
                             StrokeState::Finished,
                             world,
                         );
+                    }
+                }
+
+                if bindings["Create Rural Roads"].is_freshly_in(&combos) {
+                    let mut rnd = thread_rng();
+
+                    let mut start_points = vec![P2::new(0.0, 0.0)];
+                    let mut rough_angle = rnd.next_f32() * 2.0 * ::std::f32::consts::PI;
+                    let mut length = rnd.gen_range(9000.0, 12_000.0);
+
+                    for i in 0..6 {
+                        let mut new_start_points = vec![];
+
+                        for start_point in &start_points {
+                            let length_here = length * rnd.gen_range(0.8, 1.2);
+                            let mut rough_angle_here = rough_angle + rnd.gen_range(-0.1, 0.1);
+                            let mut rough_direction_here =
+                                V2::new(rough_angle_here.sin(), rough_angle_here.cos());
+                            plan_manager.set_n_lanes(
+                                if length_here < 600.0 { 1 } else { 2 },
+                                world,
+                            );
+
+                            let mut point = *start_point -
+                                rnd.gen_range(0.4, 0.6) * length_here * rough_direction_here;
+                            let mut points = Vec::new();
+
+                            for p in 0..6 {
+                                points.push(point);
+                                if (i == 0 && p == 3) || (i > 0 && (p == 1 || p == 4)) {
+                                    new_start_points.push(point);
+                                }
+                                point += length_here / 4.0 * rough_direction_here;
+
+                                // rough_angle_here += rnd.gen_range(-0.1, 0.1);
+                                // rough_direction_here =
+                                //     V2::new(rough_angle_here.sin(), rough_angle_here.cos());
+                            }
+
+                            plan_manager.on_stroke(points.into(), StrokeState::Finished, world);
+                        }
+
+                        length *= rnd.gen_range(0.4, 0.55);
+                        rough_angle += rnd.gen_range(0.47, 0.53) * ::std::f32::consts::PI;
+                        start_points = new_start_points;
                     }
                 }
 

@@ -1,4 +1,4 @@
-pub const TICKS_PER_SIM_SECOND: usize = 1;
+pub const TICKS_PER_SIM_SECOND: usize = 3;
 pub const TICKS_PER_SIM_MINUTE: usize = 60 * TICKS_PER_SIM_SECOND;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -37,6 +37,10 @@ impl Duration {
     pub fn as_hours(&self) -> f32 {
         self.as_minutes() / 60.0
     }
+
+    pub fn as_days(&self) -> f32 {
+        self.as_hours() / 24.0
+    }
 }
 
 impl ::std::ops::Add for Duration {
@@ -53,7 +57,7 @@ impl ::std::ops::AddAssign for Duration {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Instant(usize);
 
 impl Instant {

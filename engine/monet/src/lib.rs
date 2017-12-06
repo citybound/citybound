@@ -19,12 +19,10 @@ mod scene;
 
 pub use glium::backend::glutin::Display;
 
-pub use geometry::{Geometry, Batch, Vertex, Instance, GrouperID, GrouperIndividual,
-                   GrouperIndividualID, MSG_GrouperIndividual_render_to_grouper};
+pub use geometry::{Geometry, Batch, Vertex, Instance, Grouper, GrouperID, GrouperIndividual,
+                   GrouperIndividualID};
 pub use renderer::{setup, Renderer, RendererID, Renderable, RenderableID, TargetProvider,
-                   TargetProviderID, MSG_TargetProvider_submitted, Movement, EyeListener,
-                   EyeListenerID, MSG_EyeListener_eye_moved, MSG_Renderable_setup_in_scene,
-                   MSG_Renderable_render_to_scene, ProjectionRequester, ProjectionRequesterID,
-                   MSG_ProjectionRequester_projected_3d};
+                   TargetProviderID, Movement, EyeListener, EyeListenerID, ProjectionRequester,
+                   ProjectionRequesterID};
 pub use render_context::RenderContext;
 pub use scene::{Eye, Scene, SceneDescription};

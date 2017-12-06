@@ -28,9 +28,7 @@ pub fn parse(file: &str) -> Result<Model, String> {
                 if let Some(ref trait_name) = *maybe_trait {
                     let new_actor_handlers =
                         handlers_from_impl_items(impl_items, Some(trait_name.clone()), actor_path);
-                    if !new_actor_handlers.is_empty() {
-                        actor_def.impls.push(trait_name.clone());
-                    }
+                    actor_def.impls.push(trait_name.clone());
                     actor_def.handlers.extend(new_actor_handlers);
                 } else {
                     actor_def.handlers.extend(handlers_from_impl_items(
@@ -55,8 +53,25 @@ pub fn parse(file: &str) -> Result<Model, String> {
         }
     }
 
+    for (_, actor_def) in &mut model.actors {
+        // TODO: this is a horrible hack, figure out a way to distinguish ActorTraits globally
+        actor_def.impls.retain(|trait_name| {
+            ![
+                "Deref",
+                "DerefMut",
+                "Default",
+                "Clone",
+                "Into",
+                "From",
+                "Add",
+                "AddAssign",
+                "Sum",
+            ].contains(&trait_name.segments.last().unwrap().ident.as_ref())
+        });
+    }
+
     model.actors.retain(|ref _name, ref actor_def| {
-        !actor_def.handlers.is_empty()
+        !actor_def.handlers.is_empty() || !actor_def.impls.is_empty()
     });
 
     model.traits.retain(|ref _name, ref trait_def| {

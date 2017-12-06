@@ -31,7 +31,7 @@ use stagemaster::environment::Environment;
 pub const ENV: &'static Environment = &Environment {
     name: "Citybound",
     author: "ae play",
-    version: "0.2.0",
+    version: "0.3.0",
 };
 
 mod core;
@@ -39,15 +39,22 @@ mod transport;
 mod planning;
 mod economy;
 
+use kay::Actor;
 use compact::CVec;
-use monet::GrouperID;
-use transport::lane::{LaneID, TransferLaneID};
-use transport::rendering::LaneRendererID;
-use planning::plan_manager::PlanManagerID;
-use economy::households::family::FamilyID;
-use economy::households::tasks::TaskEndSchedulerID;
-use economy::buildings::BuildingSpawnerID;
-use economy::buildings::rendering::BuildingRendererID;
+use monet::Grouper;
+use transport::lane::{Lane, TransferLane};
+use transport::rendering::LaneRenderer;
+use planning::plan_manager::PlanManager;
+use economy::households::family::Family;
+use economy::households::grocery_shop::GroceryShop;
+use economy::households::grain_farm::GrainFarm;
+use economy::households::cow_farm::CowFarm;
+use economy::households::mill::Mill;
+use economy::households::bakery::Bakery;
+use economy::households::neighboring_town_trade::NeighboringTownTrade;
+use economy::households::tasks::TaskEndScheduler;
+use economy::buildings::BuildingSpawner;
+use economy::buildings::rendering::BuildingRenderer;
 
 fn main() {
     core::init::ensure_crossplatform_proper_thread(|| {
@@ -62,19 +69,25 @@ fn main() {
         system.networking_connect();
 
         let simulatables = vec![
-            LaneID::local_broadcast(world).into(),
-            TransferLaneID::local_broadcast(world).into(),
-            FamilyID::local_broadcast(world).into(),
-            TaskEndSchedulerID::local_first(world).into(),
-            BuildingSpawnerID::local_first(world).into(),
+            Lane::local_broadcast(world).into(),
+            TransferLane::local_broadcast(world).into(),
+            Family::local_broadcast(world).into(),
+            GroceryShop::local_broadcast(world).into(),
+            GrainFarm::local_broadcast(world).into(),
+            CowFarm::local_broadcast(world).into(),
+            Mill::local_broadcast(world).into(),
+            Bakery::local_broadcast(world).into(),
+            NeighboringTownTrade::local_broadcast(world).into(),
+            TaskEndScheduler::local_first(world).into(),
+            BuildingSpawner::local_first(world).into(),
         ];
         let simulation = core::simulation::setup(&mut system, simulatables);
 
         let renderables: CVec<_> = vec![
-            LaneRendererID::global_broadcast(world).into(),
-            GrouperID::global_broadcast(world).into(),
-            PlanManagerID::global_broadcast(world).into(),
-            BuildingRendererID::global_broadcast(&mut system.world())
+            LaneRenderer::global_broadcast(world).into(),
+            Grouper::global_broadcast(world).into(),
+            PlanManager::global_broadcast(world).into(),
+            BuildingRenderer::global_broadcast(&mut system.world())
                 .into(),
         ].into();
 
