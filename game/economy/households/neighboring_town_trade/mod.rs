@@ -1,23 +1,20 @@
-use kay::{ActorSystem, World, TypedID, Actor};
-use compact::CVec;
+use kay::{ActorSystem, World, Actor};
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, Instant, Simulatable, SimulatableID,
                        SimulationID, Ticks};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
-use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
-                      EvaluatedSearchResult};
+use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
 use economy::buildings::BuildingID;
 use transport::pathfinding::RoughLocationID;
 use transport::pathfinding::trip::{TripListener, TripListenerID, TripID, TripResult};
 
-use super::{Household, HouseholdID, HouseholdCore, MemberIdx};
+use super::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer};
 
 #[derive(Compact, Clone)]
 pub struct NeighboringTownTrade {
     id: NeighboringTownTradeID,
     town: BuildingID,
     core: HouseholdCore,
-    offers: CVec<OfferID>,
 }
 
 impl NeighboringTownTrade {
@@ -30,202 +27,169 @@ impl NeighboringTownTrade {
         simulation.wake_up_in(Ticks(0), id.into(), world);
 
         let offers = vec![
-            OfferID::register(
-                id.into(),
+            Offer::new(
                 MemberIdx(0),
-                town.into(),
                 TimeOfDayRange::new(5, 0, 15, 0),
                 Deal::new(Some((Resource::Money, 60.0)), Duration::from_hours(7)),
                 10,
-                world
+                false
             ),
-            OfferID::register(
-                id.into(),
+            Offer::new(
                 MemberIdx(0),
-                town.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(Entertainment, 5.0), (Money, -10.0)],
                     Duration::from_minutes(30),
                 ),
                 10,
-                world
+                false
             ),
-            OfferID::register(
-                id.into(),
+            Offer::new(
                 MemberIdx(0),
-                town.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(Services, 5.0), (Money, -10.0)],
                     Duration::from_minutes(30),
                 ),
                 10,
-                world
+                false
             ),
-            OfferID::register(
-                id.into(),
+            Offer::new(
                 MemberIdx(0),
-                town.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(Groceries, 30.0), (Money, -60.0)],
                     Duration::from_minutes(30),
                 ),
                 10,
-                world
+                false
             ),
-            OfferID::register(
-                id.into(),
+            Offer::new(
                 MemberIdx(0),
-                town.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(Produce, 30.0), (Money, -30.0)],
                     Duration::from_minutes(10),
                 ),
                 10,
-                world
+                false
             ),
-            OfferID::register(
-                id.into(),
+            Offer::new(
                 MemberIdx(0),
-                town.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(Grain, 30.0), (Money, -30.0)],
                     Duration::from_minutes(10),
                 ),
                 10,
-                world
+                false
             ),
-            OfferID::register(
-                id.into(),
+            Offer::new(
                 MemberIdx(0),
-                town.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(Flour, 30.0), (Money, -30.0)],
                     Duration::from_minutes(10),
                 ),
                 10,
-                world
+                false
             ),
-            OfferID::register(
-                id.into(),
+            Offer::new(
                 MemberIdx(0),
-                town.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(BakedGoods, 30.0), (Money, -30.0)],
                     Duration::from_minutes(10),
                 ),
                 10,
-                world
+                false
             ),
-            OfferID::register(
-                id.into(),
+            Offer::new(
                 MemberIdx(0),
-                town.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(BakedGoods, 30.0), (Money, -30.0)],
                     Duration::from_minutes(10),
                 ),
                 10,
-                world
+                false
             ),
-            OfferID::register(
-                id.into(),
+            Offer::new(
                 MemberIdx(0),
-                town.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(Meat, 30.0), (Money, -30.0)],
                     Duration::from_minutes(10),
                 ),
                 10,
-                world
+                false
             ),
-            OfferID::register(
-                id.into(),
+            Offer::new(
                 MemberIdx(0),
-                town.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(DairyGoods, 30.0), (Money, -30.0)],
                     Duration::from_minutes(10),
                 ),
                 10,
-                world
+                false
             ),
-            OfferID::register(
-                id.into(),
+            Offer::new(
                 MemberIdx(0),
-                town.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(Wood, 30.0), (Money, -10.0)],
                     Duration::from_minutes(10),
                 ),
                 10,
-                world
+                false
             ),
-            OfferID::register(
-                id.into(),
+            Offer::new(
                 MemberIdx(0),
-                town.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(Furniture, 5.0), (Money, -100.0)],
                     Duration::from_minutes(10),
                 ),
                 10,
-                world
+                false
             ),
-            OfferID::register(
-                id.into(),
+            Offer::new(
                 MemberIdx(0),
-                town.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(TextileGoods, 30.0), (Money, -30.0)],
                     Duration::from_minutes(10),
                 ),
                 10,
-                world
+                false
             ),
-            OfferID::register(
-                id.into(),
+            Offer::new(
                 MemberIdx(0),
-                town.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(Clothes, 5.0), (Money, -50.0)],
                     Duration::from_minutes(10),
                 ),
                 10,
-                world
+                false
             ),
-            OfferID::register(
-                id.into(),
+            Offer::new(
                 MemberIdx(0),
-                town.into(),
                 TimeOfDayRange::new(7, 0, 20, 0),
                 Deal::new(
                     vec![(Devices, 5.0), (Money, -100.0)],
                     Duration::from_minutes(10),
                 ),
                 10,
-                world
+                false
             ),
         ];
 
         NeighboringTownTrade {
             id,
             town,
-            core: HouseholdCore::new(10, town.into()),
-            offers: offers.into(),
+            core: HouseholdCore::new(id.into(), world, 10, town.into(), offers.into()),
         }
     }
 }
@@ -286,9 +250,6 @@ impl Household for NeighboringTownTrade {
 
     fn on_destroy(&mut self, world: &mut World) {
         self.town.remove_household(self.id_as(), world);
-        for offer in &self.offers {
-            offer.withdraw(world);
-        }
     }
 }
 
@@ -341,6 +302,37 @@ impl Simulatable for NeighboringTownTrade {
     }
 }
 
+use transport::pathfinding::{RoughLocation, LocationRequesterID, PositionRequesterID};
+
+impl RoughLocation for NeighboringTownTrade {
+    fn resolve_as_location(
+        &mut self,
+        requester: LocationRequesterID,
+        rough_location: RoughLocationID,
+        instant: Instant,
+        world: &mut World,
+    ) {
+        self.site().resolve_as_location(
+            requester,
+            rough_location,
+            instant,
+            world,
+        );
+    }
+
+    fn resolve_as_position(
+        &mut self,
+        requester: PositionRequesterID,
+        rough_location: RoughLocationID,
+        world: &mut World,
+    ) {
+        self.site().resolve_as_position(
+            requester,
+            rough_location,
+            world,
+        );
+    }
+}
 
 pub fn setup(system: &mut ActorSystem) {
     system.register::<NeighboringTownTrade>();

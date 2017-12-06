@@ -1,11 +1,10 @@
 use kay::{ActorSystem, World, TypedID, Actor};
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, SimulationID, Ticks};
 use economy::resources::Resource;
-use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
-                      EvaluatedSearchResult};
+use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
 use economy::buildings::BuildingID;
 
-use super::{Household, HouseholdID, HouseholdCore, MemberIdx};
+use super::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer};
 
 
 #[derive(Compact, Clone)]
@@ -13,8 +12,6 @@ pub struct GrainFarm {
     id: GrainFarmID,
     site: BuildingID,
     core: HouseholdCore,
-    grain_offer: OfferID,
-    job_offer: OfferID,
 }
 
 impl GrainFarm {
@@ -29,27 +26,30 @@ impl GrainFarm {
         GrainFarm {
             id,
             site,
-            core: HouseholdCore::new(1, site.into()),
-            grain_offer: OfferID::register(
+            core: HouseholdCore::new(
                 id.into(),
-                MemberIdx(0),
-                site.into(),
-                TimeOfDayRange::new(7, 0, 20, 0),
-                Deal::new(
-                    vec![(Resource::Grain, 1000.0), (Resource::Money, -500.0)],
-                    Duration::from_minutes(10),
-                ),
-                3,
                 world,
-            ),
-            job_offer: OfferID::register(
-                id.into(),
-                MemberIdx(0),
+                1,
                 site.into(),
-                TimeOfDayRange::new(5, 0, 15, 0),
-                Deal::new(Some((Resource::Money, 60.0)), Duration::from_hours(7)),
-                3,
-                world,
+                vec![
+                    Offer::new(
+                        MemberIdx(0),
+                        TimeOfDayRange::new(7, 0, 20, 0),
+                        Deal::new(
+                            vec![(Resource::Grain, 1000.0), (Resource::Money, -500.0)],
+                            Duration::from_minutes(10),
+                        ),
+                        3,
+                        false
+                    ),
+                    Offer::new(
+                        MemberIdx(0),
+                        TimeOfDayRange::new(5, 0, 15, 0),
+                        Deal::new(Some((Resource::Money, 60.0)), Duration::from_hours(7)),
+                        3,
+                        false
+                    ),
+                ].into(),
             ),
         }
     }
@@ -88,8 +88,6 @@ impl Household for GrainFarm {
 
     fn on_destroy(&mut self, world: &mut World) {
         self.site.remove_household(self.id_as(), world);
-        self.grain_offer.withdraw(world);
-        self.job_offer.withdraw(world);
     }
 
     fn household_name(&self) -> String {
@@ -126,7 +124,39 @@ impl EvaluationRequester for GrainFarm {
     fn on_result(&mut self, _e: &EvaluatedSearchResult, _: &mut World) {}
 }
 
-use transport::pathfinding::RoughLocationID;
+use transport::pathfinding::{RoughLocationID, RoughLocation, LocationRequesterID,
+                             PositionRequesterID};
+
+impl RoughLocation for GrainFarm {
+    fn resolve_as_location(
+        &mut self,
+        requester: LocationRequesterID,
+        rough_location: RoughLocationID,
+        instant: Instant,
+        world: &mut World,
+    ) {
+        self.site().resolve_as_location(
+            requester,
+            rough_location,
+            instant,
+            world,
+        );
+    }
+
+    fn resolve_as_position(
+        &mut self,
+        requester: PositionRequesterID,
+        rough_location: RoughLocationID,
+        world: &mut World,
+    ) {
+        self.site().resolve_as_position(
+            requester,
+            rough_location,
+            world,
+        );
+    }
+}
+
 use transport::pathfinding::trip::{TripListener, TripListenerID, TripID, TripResult};
 
 impl TripListener for GrainFarm {

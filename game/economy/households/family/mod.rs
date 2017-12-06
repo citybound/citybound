@@ -5,8 +5,7 @@ use core::simulation::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, Simu
                        Simulatable, SimulatableID};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
-use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
-                      EvaluatedSearchResult};
+use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
 use economy::buildings::BuildingID;
 use transport::pathfinding::trip::{TripResult, TripListenerID};
 use transport::pathfinding::RoughLocationID;
@@ -14,13 +13,12 @@ use transport::pathfinding::RoughLocationID;
 pub mod names;
 use self::names::{family_name, member_name};
 
-use super::{Household, HouseholdID, HouseholdCore, MemberIdx};
+use super::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer, OfferID, OfferIdx};
 
 #[derive(Compact, Clone)]
 pub struct Family {
     id: FamilyID,
     home: BuildingID,
-    sleep_offer: OfferID,
     core: HouseholdCore,
 }
 
@@ -34,20 +32,28 @@ impl Family {
     ) -> Family {
         simulation.wake_up_in(Ticks(0), id.into(), world);
 
-        let sleep_offer = OfferID::internal(
+        let mut core = HouseholdCore::new(
             id.into(),
-            MemberIdx(0),
-            home.into(),
-            TimeOfDayRange::new(16, 0, 11, 0),
-            Deal::new(Some((Awakeness, 3.0)), Duration::from_hours(1)),
-            3,
             world,
+            n_members,
+            home.into(),
+            vec![
+                Offer::new(
+                    MemberIdx(0),
+                    TimeOfDayRange::new(16, 0, 11, 0),
+                    Deal::new(Some((Awakeness, 3.0)), Duration::from_hours(1)),
+                    3,
+                    true
+                ),
+            ].into(),
         );
 
-        let mut core = HouseholdCore::new(n_members, home.into());
-        core.used_offers.insert(Awakeness, sleep_offer);
+        core.used_offers.insert(
+            Awakeness,
+            OfferID { household: id.into(), idx: OfferIdx(0) },
+        );
 
-        Family { id, home, sleep_offer, core }
+        Family { id, home, core }
     }
 }
 
@@ -197,7 +203,6 @@ impl Household for Family {
     }
 
     fn on_destroy(&mut self, world: &mut World) {
-        self.sleep_offer.withdraw_internal(world);
         self.home.remove_household(self.id_as(), world);
     }
 
@@ -213,6 +218,38 @@ impl Household for Family {
 impl Simulatable for Family {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
         self.on_tick(current_instant, world);
+    }
+}
+
+use transport::pathfinding::{RoughLocation, LocationRequesterID, PositionRequesterID};
+
+impl RoughLocation for Family {
+    fn resolve_as_location(
+        &mut self,
+        requester: LocationRequesterID,
+        rough_location: RoughLocationID,
+        instant: Instant,
+        world: &mut World,
+    ) {
+        self.site().resolve_as_location(
+            requester,
+            rough_location,
+            instant,
+            world,
+        );
+    }
+
+    fn resolve_as_position(
+        &mut self,
+        requester: PositionRequesterID,
+        rough_location: RoughLocationID,
+        world: &mut World,
+    ) {
+        self.site().resolve_as_position(
+            requester,
+            rough_location,
+            world,
+        );
     }
 }
 

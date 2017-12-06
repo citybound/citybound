@@ -4,7 +4,7 @@ use core::simulation::{Instant, Duration, Simulatable, SimulatableID};
 use transport::pathfinding::RoughLocationID;
 use transport::pathfinding::trip::TripID;
 use super::super::resources::Resource;
-use super::super::market::OfferID;
+use super::OfferID;
 
 use super::{HouseholdID, MemberIdx};
 

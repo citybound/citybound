@@ -2,19 +2,16 @@ use kay::{ActorSystem, World, TypedID, Actor};
 use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, SimulationID, Ticks};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
-use economy::market::{Deal, OfferID, EvaluationRequester, EvaluationRequesterID,
-                      EvaluatedSearchResult};
+use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
 use economy::buildings::BuildingID;
 
-use super::{Household, HouseholdID, HouseholdCore, MemberIdx};
+use super::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer};
 
 #[derive(Compact, Clone)]
 pub struct GroceryShop {
     id: GroceryShopID,
     site: BuildingID,
     core: HouseholdCore,
-    grocery_offer: OfferID,
-    job_offer: OfferID,
 }
 
 impl GroceryShop {
@@ -29,27 +26,30 @@ impl GroceryShop {
         GroceryShop {
             id,
             site,
-            core: HouseholdCore::new(1, site.into()),
-            grocery_offer: OfferID::register(
+            core: HouseholdCore::new(
                 id.into(),
-                MemberIdx(0),
-                site.into(),
-                TimeOfDayRange::new(7, 0, 20, 0),
-                Deal::new(
-                    vec![(Groceries, 30.0), (Money, -60.0)],
-                    Duration::from_minutes(30),
-                ),
-                30,
                 world,
-            ),
-            job_offer: OfferID::register(
-                id.into(),
-                MemberIdx(0),
+                1,
                 site.into(),
-                TimeOfDayRange::new(7, 0, 15, 0),
-                Deal::new(Some((Money, 50.0)), Duration::from_hours(5)),
-                5,
-                world,
+                vec![
+                    Offer::new(
+                        MemberIdx(0),
+                        TimeOfDayRange::new(7, 0, 20, 0),
+                        Deal::new(
+                            vec![(Groceries, 30.0), (Money, -60.0)],
+                            Duration::from_minutes(30),
+                        ),
+                        30,
+                        false
+                    ),
+                    Offer::new(
+                        MemberIdx(0),
+                        TimeOfDayRange::new(7, 0, 15, 0),
+                        Deal::new(Some((Money, 50.0)), Duration::from_hours(5)),
+                        5,
+                        false
+                    ),
+                ].into(),
             ),
         }
     }
@@ -139,8 +139,6 @@ impl Household for GroceryShop {
 
     fn on_destroy(&mut self, world: &mut World) {
         self.site.remove_household(self.id_as(), world);
-        self.grocery_offer.withdraw(world);
-        self.job_offer.withdraw(world);
     }
 }
 
@@ -181,7 +179,39 @@ impl Sleeper for GroceryShop {
     }
 }
 
-use transport::pathfinding::RoughLocationID;
+use transport::pathfinding::{RoughLocationID, RoughLocation, LocationRequesterID,
+                             PositionRequesterID};
+
+impl RoughLocation for GroceryShop {
+    fn resolve_as_location(
+        &mut self,
+        requester: LocationRequesterID,
+        rough_location: RoughLocationID,
+        instant: Instant,
+        world: &mut World,
+    ) {
+        self.site().resolve_as_location(
+            requester,
+            rough_location,
+            instant,
+            world,
+        );
+    }
+
+    fn resolve_as_position(
+        &mut self,
+        requester: PositionRequesterID,
+        rough_location: RoughLocationID,
+        world: &mut World,
+    ) {
+        self.site().resolve_as_position(
+            requester,
+            rough_location,
+            world,
+        );
+    }
+}
+
 use transport::pathfinding::trip::{TripListener, TripListenerID, TripID, TripResult};
 
 impl TripListener for GroceryShop {
