@@ -53,7 +53,7 @@ impl ::std::ops::AddAssign for Duration {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Instant(usize);
 
 impl Instant {

@@ -8,7 +8,7 @@ use super::OfferID;
 
 use super::{HouseholdID, MemberIdx};
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum TaskState {
     GettingReadyAt(RoughLocationID),
     InTrip(TripID),

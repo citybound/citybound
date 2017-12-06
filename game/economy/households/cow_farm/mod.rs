@@ -101,7 +101,7 @@ impl Household for CowFarm {
     }
 
     fn household_name(&self) -> String {
-        "Grain Farm".to_owned()
+        "Cow Farm".to_owned()
     }
 
     fn member_name(&self, member: MemberIdx) -> String {

@@ -170,8 +170,7 @@ impl LaneLike for Lane {
                 car.trip.finish(
                     TripResult {
                         location_now: None,
-                        instant,
-                        fate: TripFate::Success,
+                        fate: TripFate::Success(instant),
                     },
                     world,
                 );
@@ -229,7 +228,6 @@ impl LaneLike for Lane {
             car.trip.finish(
                 TripResult {
                     location_now: Some(self.id_as()),
-                    instant,
                     fate: TripFate::NoRoute,
                 },
                 world,
@@ -319,7 +317,7 @@ impl Simulatable for Lane {
         if current_instant.ticks() % PATHFINDING_THROTTLING ==
             self.id.as_raw().instance_id as usize % PATHFINDING_THROTTLING
         {
-            self.update_routes(current_instant, world);
+            self.update_routes(world);
         }
 
         if do_traffic {
@@ -417,8 +415,7 @@ impl Simulatable for Lane {
                     car.trip.finish(
                         TripResult {
                             location_now: None,
-                            instant: current_instant,
-                            fate: TripFate::Success,
+                            fate: TripFate::Success(current_instant),
                         },
                         world,
                     );

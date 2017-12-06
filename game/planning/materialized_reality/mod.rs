@@ -29,7 +29,6 @@ pub enum MaterializedRealityState {
 }
 
 use self::MaterializedRealityState::{Ready, Updating};
-use core::simulation::Instant;
 
 impl MaterializedReality {
     pub fn spawn(id: MaterializedRealityID, _: &mut World) -> MaterializedReality {
@@ -50,13 +49,7 @@ impl MaterializedReality {
         requester.on_simulation_result(result_delta, world);
     }
 
-    pub fn apply(
-        &mut self,
-        requester: PlanManagerID,
-        delta: &PlanDelta,
-        instant: Instant,
-        world: &mut World,
-    ) {
+    pub fn apply(&mut self, requester: PlanManagerID, delta: &PlanDelta, world: &mut World) {
         self.state = match self.state {
             Updating(..) => panic!("Already applying a plan"),
             Ready(()) => {
@@ -68,7 +61,6 @@ impl MaterializedReality {
                     self.id,
                     &mut self.roads,
                     &result_delta.roads,
-                    instant,
                     world
                 );
                 self.buildings.apply(world, &result_delta.buildings);

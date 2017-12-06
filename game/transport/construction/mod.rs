@@ -36,17 +36,10 @@ impl ConstructionInfo {
     }
 }
 
-use core::simulation::Instant;
-
 pub trait Unbuildable {
-    fn disconnect(&mut self, other_id: UnbuildableID, instant: Instant, world: &mut World);
-    fn unbuild(
-        &mut self,
-        report_to: MaterializedRealityID,
-        instant: Instant,
-        world: &mut World,
-    ) -> Fate;
-    fn on_confirm_disconnect(&mut self, instant: Instant, world: &mut World) -> Fate;
+    fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World);
+    fn unbuild(&mut self, report_to: MaterializedRealityID, world: &mut World) -> Fate;
+    fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate;
 }
 
 use fnv::FnvHashMap;
@@ -276,7 +269,7 @@ impl Lane {
 use transport::pathfinding::trip::{TripResult, TripFate};
 
 impl Unbuildable for Lane {
-    fn disconnect(&mut self, other_id: UnbuildableID, instant: Instant, world: &mut World) {
+    fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World) {
         let interaction_indices_to_remove = self.connectivity
             .interactions
             .iter()
@@ -298,7 +291,6 @@ impl Unbuildable for Lane {
                     car.trip.finish(
                         TripResult {
                             location_now: Some(self_as_rough_location),
-                            instant,
                             fate: TripFate::HopDisconnected,
                         },
                         world,
@@ -321,15 +313,10 @@ impl Unbuildable for Lane {
         // TODO: untyped RawID shenanigans
         let other_as_lanelike = unsafe { LaneLikeID::from_raw(other_id.as_raw()) };
         super::pathfinding::on_disconnect(self, other_as_lanelike);
-        other_id.on_confirm_disconnect(instant, world);
+        other_id.on_confirm_disconnect(world);
     }
 
-    fn unbuild(
-        &mut self,
-        report_to: MaterializedRealityID,
-        instant: Instant,
-        world: &mut World,
-    ) -> Fate {
+    fn unbuild(&mut self, report_to: MaterializedRealityID, world: &mut World) -> Fate {
         let mut disconnects_remaining = 0;
         for id in self.connectivity
             .interactions
@@ -339,7 +326,7 @@ impl Unbuildable for Lane {
         {
             // TODO: untyped RawID shenanigans
             let id_as_unbuildable = unsafe { UnbuildableID::from_raw(id.as_raw()) };
-            id_as_unbuildable.disconnect(self.id_as(), instant, world);
+            id_as_unbuildable.disconnect(self.id_as(), world);
             disconnects_remaining += 1;
         }
         super::rendering::on_unbuild(self, world);
@@ -348,7 +335,7 @@ impl Unbuildable for Lane {
             memoized_bands_outlines.remove(&self.id_as())
         });
         if disconnects_remaining == 0 {
-            self.finalize(report_to, instant, world);
+            self.finalize(report_to, world);
             Fate::Die
         } else {
             self.construction.disconnects_remaining = disconnects_remaining;
@@ -357,14 +344,13 @@ impl Unbuildable for Lane {
         }
     }
 
-    fn on_confirm_disconnect(&mut self, instant: Instant, world: &mut World) -> Fate {
+    fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate {
         self.construction.disconnects_remaining -= 1;
         if self.construction.disconnects_remaining == 0 {
             self.finalize(
                 self.construction.unbuilding_for.expect(
                     "should be unbuilding",
                 ),
-                instant,
                 world,
             );
             Fate::Die
@@ -375,14 +361,13 @@ impl Unbuildable for Lane {
 }
 
 impl Lane {
-    fn finalize(&self, report_to: MaterializedRealityID, instant: Instant, world: &mut World) {
+    fn finalize(&self, report_to: MaterializedRealityID, world: &mut World) {
         report_to.on_lane_unbuilt(self.id_as(), world);
 
         for car in &self.microtraffic.cars {
             car.trip.finish(
                 TripResult {
                     location_now: None,
-                    instant,
                     fate: TripFate::LaneUnbuilt,
                 },
                 world,
@@ -549,7 +534,7 @@ impl TransferLane {
 }
 
 impl Unbuildable for TransferLane {
-    fn disconnect(&mut self, other_id: UnbuildableID, instant: Instant, world: &mut World) {
+    fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World) {
         self.connectivity.left = self.connectivity.left.and_then(
             // TODO: ugly: untyped RawID shenanigans
             |(left_id, left_start)| if left_id.as_raw() ==
@@ -570,24 +555,19 @@ impl Unbuildable for TransferLane {
                 Some((right_id, right_start))
             },
         );
-        other_id.on_confirm_disconnect(instant, world);
+        other_id.on_confirm_disconnect(world);
     }
 
-    fn unbuild(
-        &mut self,
-        report_to: MaterializedRealityID,
-        instant: Instant,
-        world: &mut World,
-    ) -> Fate {
+    fn unbuild(&mut self, report_to: MaterializedRealityID, world: &mut World) -> Fate {
         if let Some((left_id, _)) = self.connectivity.left {
-            Into::<UnbuildableID>::into(left_id).disconnect(self.id_as(), instant, world);
+            Into::<UnbuildableID>::into(left_id).disconnect(self.id_as(), world);
         }
         if let Some((right_id, _)) = self.connectivity.right {
-            Into::<UnbuildableID>::into(right_id).disconnect(self.id_as(), instant, world);
+            Into::<UnbuildableID>::into(right_id).disconnect(self.id_as(), world);
         }
         super::rendering::on_unbuild_transfer(self, world);
         if self.connectivity.left.is_none() && self.connectivity.right.is_none() {
-            self.finalize(report_to, instant, world);
+            self.finalize(report_to, world);
             Fate::Die
         } else {
             self.construction.disconnects_remaining = self.connectivity
@@ -600,14 +580,13 @@ impl Unbuildable for TransferLane {
         }
     }
 
-    fn on_confirm_disconnect(&mut self, instant: Instant, world: &mut World) -> Fate {
+    fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate {
         self.construction.disconnects_remaining -= 1;
         if self.construction.disconnects_remaining == 0 {
             self.finalize(
                 self.construction.unbuilding_for.expect(
                     "should be unbuilding",
                 ),
-                instant,
                 world,
             );
             Fate::Die
@@ -618,14 +597,13 @@ impl Unbuildable for TransferLane {
 }
 
 impl TransferLane {
-    fn finalize(&self, report_to: MaterializedRealityID, instant: Instant, world: &mut World) {
+    fn finalize(&self, report_to: MaterializedRealityID, world: &mut World) {
         report_to.on_lane_unbuilt(self.id_as(), world);
 
         for car in &self.microtraffic.cars {
             car.trip.finish(
                 TripResult {
                     location_now: None,
-                    instant,
                     fate: TripFate::LaneUnbuilt,
                 },
                 world,

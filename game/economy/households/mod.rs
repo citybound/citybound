@@ -144,6 +144,28 @@ pub trait Household
                 );
             }
         }
+
+        let members_to_reset = self.core()
+            .member_tasks
+            .iter()
+            .enumerate()
+            .filter_map(|(i, task)| if let Task {
+                goal: Some((_, task_offer)), ..
+            } = *task
+            {
+                if task_offer == offer {
+                    Some(MemberIdx(i))
+                } else {
+                    None
+                }
+            } else {
+                None
+            })
+            .collect::<Vec<_>>();
+
+        for member_to_reset in members_to_reset {
+            self.reset_member_task(member_to_reset, world);
+        }
     }
 
     fn destroy(&mut self, world: &mut World) {
@@ -564,7 +586,7 @@ pub trait Household
             };
 
             match result.fate {
-                TripFate::Success => {}
+                TripFate::Success(_) => {}
                 _ => {
                     used_offers.remove(matching_resource);
                     matching_offer.household.stopped_using(
@@ -578,21 +600,17 @@ pub trait Household
         }
 
         match result.fate {
-            TripFate::Success => {
-                self.start_task(
-                    matching_task_member,
-                    result.instant,
-                    rough_destination,
-                    world,
-                );
+            TripFate::Success(instant) => {
+                self.start_task(matching_task_member, instant, rough_destination, world);
             }
-            _ => {
+            fate => {
                 self.core_mut().log.log(
                     format!(
-                        "Trip of member #{} from {:?} to {:?} failed!\n",
+                        "Trip of member #{} from {:?} to {:?} failed ({:?})!\n",
                         matching_task_member.0,
                         rough_source,
-                        rough_destination
+                        rough_destination,
+                        fate
                     ).as_str(),
                 );
 
@@ -641,18 +659,40 @@ pub trait Household
         location: Option<RoughLocationID>,
         world: &mut World,
     ) {
-        self.core_mut().member_tasks[member.0].state =
-            TaskState::IdleAt(location.unwrap_or_else(|| self.site()));
-        self.core_mut().log.log("Task stopped\n");
-        if let Some((_, offer)) = self.core().member_tasks[member.0].goal {
-            offer.household.stopped_actively_using(
-                offer.idx,
-                self.id_as(),
-                member,
+        if let TaskState::InTrip(trip) = self.core().member_tasks[member.0].state {
+            self.core_mut().log.log("Force stopping trip\n");
+            // reuse normal trip failed behaviour
+            trip.finish(
+                TripResult {
+                    location_now: None,
+                    fate: TripFate::ForceStopped,
+                },
                 world,
+            )
+        } else {
+            let old_state = self.core().member_tasks[member.0].state;
+            self.core_mut().log.log(
+                format!(
+                "Task of member {} stopped (was in state {:?})\n",
+                member.0,
+                old_state,
+            ).as_str(),
             );
+
+            self.core_mut().member_tasks[member.0].state =
+                TaskState::IdleAt(location.unwrap_or_else(|| self.site()));
+
+            if let Some((_, offer)) = self.core().member_tasks[member.0].goal {
+                offer.household.stopped_actively_using(
+                    offer.idx,
+                    self.id_as(),
+                    member,
+                    world,
+                );
+            }
+
+            Simulation::local_first(world).wake_up_in(Ticks(0), self.id_as(), world);
         }
-        Simulation::local_first(world).wake_up_in(Ticks(0), self.id_as(), world);
     }
 
     fn on_tick(&mut self, current_instant: Instant, world: &mut World) {
@@ -753,7 +793,7 @@ pub trait Household
         let offer = self.get_offer_mut(offer_idx);
         if !offer.users.contains(&(user, using_member)) {
             offer.users.push((user, using_member));
-            if offer.is_internal && offer.users.len() >= offer.max_users {
+            if !offer.is_internal && offer.users.len() >= offer.max_users {
                 Market::global_first(world).withdraw(
                     offer.deal.main_given(),
                     OfferID {
@@ -762,6 +802,19 @@ pub trait Household
                     },
                     world,
                 );
+                // already too much!
+                // TODO: this is a super hacky way to undo the overuse that happens when a lot
+                // households spawn at the same time. Replace this with a proper contract where the
+                // households waits for confirmation that it can indeed start using this offer
+                if offer.users.len() > offer.max_users {
+                    user.stop_using(
+                        OfferID {
+                            household: id_as_household,
+                            idx: offer_idx,
+                        },
+                        world,
+                    )
+                }
             }
         }
     }
@@ -922,13 +975,24 @@ pub trait Household
                         for resource in Self::interesting_resources() {
                             if !Self::is_shared(*resource) {
                                 ui.text(im_str!("{}", resource));
-                                ui.same_line(100.0);
+                                ui.same_line(130.0);
                                 let amount =
                                     member_resources.get(*resource).cloned().unwrap_or(0.0);
                                 ui.text(im_str!("{:.2}", amount));
                             }
                         }
                     }
+                    ui.tree_node(im_str!("Offers")).build(|| for offer in
+                        &self.core().provided_offers
+                    {
+                        ui.text(im_str!("Offer for {}", offer.deal.main_given()));
+                        ui.text(im_str!(
+                            "{} of max. {} users ({} right now)",
+                            offer.users.len(),
+                            offer.max_users,
+                            offer.active_users.len()
+                        ))
+                    });
                     ui.tree_node(im_str!("Log")).build(
                         || for line in self.core_mut()
                             .log

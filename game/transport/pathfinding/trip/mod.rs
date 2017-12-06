@@ -22,18 +22,19 @@ pub struct Trip {
 #[derive(Copy, Clone)]
 pub struct TripResult {
     pub location_now: Option<RoughLocationID>,
-    pub instant: Instant,
+    //pub instant: Instant,
     pub fate: TripFate,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub enum TripFate {
-    Success,
+    Success(Instant),
     SourceOrDestinationNotResolvable,
     NoRoute,
     RouteForgotten,
     HopDisconnected,
     LaneUnbuilt,
+    ForceStopped,
 }
 
 const DEBUG_FAILED_TRIPS_VISUALLY: bool = false;
@@ -65,7 +66,8 @@ impl Trip {
 
     pub fn finish(&mut self, result: TripResult, world: &mut World) -> Fate {
         match result.fate {
-            TripFate::Success => {}
+            TripFate::Success(_) |
+            TripFate::ForceStopped => {}
             reason => {
                 println!(
                     "Trip {:?} failed! ({:?}) {:?} ({:?}) -> {:?} ({:?})",
@@ -153,7 +155,6 @@ impl LocationRequester for Trip {
             self.id.finish(
                 TripResult {
                     location_now: Some(self.rough_source),
-                    instant,
                     fate: TripFate::SourceOrDestinationNotResolvable,
                 },
                 world,

@@ -11,7 +11,7 @@ pub mod trip;
 use self::trip::{TripResult, TripFate};
 
 pub trait Node {
-    fn update_routes(&mut self, instant: Instant, world: &mut World);
+    fn update_routes(&mut self, world: &mut World);
     fn query_routes(&mut self, requester: NodeID, is_transfer: bool, world: &mut World);
     fn on_routes(
         &mut self,
@@ -19,13 +19,7 @@ pub trait Node {
         from: NodeID,
         world: &mut World,
     );
-    fn forget_routes(
-        &mut self,
-        forget: &CVec<Location>,
-        from: NodeID,
-        instant: Instant,
-        world: &mut World,
-    );
+    fn forget_routes(&mut self, forget: &CVec<Location>, from: NodeID, world: &mut World);
     fn join_landmark(
         &mut self,
         from: NodeID,
@@ -144,7 +138,7 @@ const LANE_CHANGE_COST_LEFT: f32 = 5.0;
 const LANE_CHANGE_COST_RIGHT: f32 = 3.0;
 
 impl Node for Lane {
-    fn update_routes(&mut self, instant: Instant, world: &mut World) {
+    fn update_routes(&mut self, world: &mut World) {
         if let Some(location) = self.pathfinding.location {
             for successor in successors(self) {
                 successor.join_landmark(
@@ -189,7 +183,6 @@ impl Node for Lane {
                     predecessor.forget_routes(
                         self.pathfinding.tell_to_forget_next_tick.clone(),
                         self.id_as(),
-                        instant,
                         world,
                     );
                 }
@@ -307,13 +300,7 @@ impl Node for Lane {
         }
     }
 
-    fn forget_routes(
-        &mut self,
-        forget: &CVec<Location>,
-        from: NodeID,
-        instant: Instant,
-        world: &mut World,
-    ) {
+    fn forget_routes(&mut self, forget: &CVec<Location>, from: NodeID, world: &mut World) {
         let mut forgotten = CVec::<Location>::new();
         for destination_to_forget in forget.iter() {
             let forget =
@@ -333,7 +320,6 @@ impl Node for Lane {
                             car.trip.finish(
                                 TripResult {
                                     location_now: Some(self_as_rough_location),
-                                    instant: instant,
                                     fate: TripFate::RouteForgotten,
                                 },
                                 world,
@@ -351,7 +337,6 @@ impl Node for Lane {
                             car.trip.finish(
                                 TripResult {
                                     location_now: Some(self_as_rough_location),
-                                    instant: instant,
                                     fate: TripFate::RouteForgotten,
                                 },
                                 world,
@@ -517,7 +502,7 @@ impl RoughLocation for Lane {
 }
 
 impl Node for TransferLane {
-    fn update_routes(&mut self, _instant: Instant, _: &mut World) {}
+    fn update_routes(&mut self, _: &mut World) {}
 
     fn query_routes(&mut self, requester: NodeID, _is_transfer: bool, world: &mut World) {
         // TODO: ugly: untyped RawID shenanigans
@@ -558,17 +543,11 @@ impl Node for TransferLane {
         }
     }
 
-    fn forget_routes(
-        &mut self,
-        forget: &CVec<Location>,
-        from: NodeID,
-        instant: Instant,
-        world: &mut World,
-    ) {
+    fn forget_routes(&mut self, forget: &CVec<Location>, from: NodeID, world: &mut World) {
         let from_lane = unsafe { LaneID::from_raw(from.as_raw()) };
         if let Some(other_lane) = self.other_side(from_lane) {
             let other_lane: NodeID = other_lane.into();
-            other_lane.forget_routes(forget.clone(), self.id_as(), instant, world);
+            other_lane.forget_routes(forget.clone(), self.id_as(), world);
         }
     }
 
