@@ -139,7 +139,8 @@ impl Household for Family {
             //Entertainment => Some([0, 0, 0, 0, 0, 1, 1, 1, 2, 3, 3, 2]),
             Money => Some([0, 0, 3, 3, 5, 5, 5, 3, 3, 1, 1, 1]),
             Groceries => Some([0, 0, 4, 4, 1, 4, 4, 4, 4, 4, 0, 0]),
-            //Furniture | Clothes | Devices | Services => Some([0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0]),
+            //Furniture | Clothes | Devices | Services => Some(
+            //[0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0]),
             _ => None,
         };
 
