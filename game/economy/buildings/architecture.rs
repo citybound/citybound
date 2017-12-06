@@ -66,7 +66,7 @@ pub fn build_building<R: Rng>(
                 wall: Geometry::empty(),
                 brick_roof: Geometry::empty(),
                 flat_roof: Geometry::empty(),
-                field: main_footprint.flat_roof_geometry(0.0),
+                field: main_footprint.scale(3.0).flat_roof_geometry(0.0),
             }
         }
         BuildingStyle::Mill => {
@@ -82,14 +82,14 @@ pub fn build_building<R: Rng>(
                 wall: main_footprint.wall_geometry(height) +
                     entrance_footprint.wall_geometry(tower_height) +
                     roof_wall_geometry + tower_roof_wall_geometry,
-                brick_roof: roof_brick_geometry + tower_roof_brick_geometry,
-                flat_roof: Geometry::empty(),
+                brick_roof: Geometry::empty(),
+                flat_roof: roof_brick_geometry + tower_roof_brick_geometry,
                 field: Geometry::empty(),
             }
         }
         BuildingStyle::Bakery => {
             let height = 3.0 + rng.next_f32();
-            let entrance_height = height - 0.7;
+            let entrance_height = height;
 
             let (entrance_roof_brick_geometry, entrance_roof_wall_geometry) =
                 entrance_footprint.open_gable_roof_geometry(entrance_height, 0.3);
@@ -217,6 +217,20 @@ impl Footprint {
             Geometry::new(vertices.clone(), roof_indices),
             Geometry::new(vertices, wall_indices),
         )
+    }
+
+    fn scale(&self, factor: f32) -> Footprint {
+        let center = ((self.back_left.to_vector() + self.back_right.to_vector() +
+                           self.front_left.to_vector() +
+                           self.front_right.to_vector()) / 4.0)
+            .to_point();
+
+        Footprint {
+            back_left: center + factor * (self.back_left - center),
+            back_right: center + factor * (self.back_right - center),
+            front_left: center + factor * (self.front_left - center),
+            front_right: center + factor * (self.front_right - center),
+        }
     }
 }
 
