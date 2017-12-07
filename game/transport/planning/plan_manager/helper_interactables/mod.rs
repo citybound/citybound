@@ -1,11 +1,10 @@
-use kay::{ActorSystem, Fate, World};
+use kay::{ActorSystem, Fate, World, Actor};
 use compact::CVec;
 use descartes::{P2, N, Norm, Band, Into2d, Curve, FiniteCurve, Path, RoughlyComparable};
 use stagemaster::geometry::{AnyShape, CPath};
 use planning::plan_manager::{PlanManagerID, Intent, IntentProgress};
 
-use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
-                  MSG_Interactable3d_on_event};
+use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID};
 
 use super::RoadIntent;
 
@@ -27,7 +26,7 @@ impl Deselecter {
     }
 
     pub fn clear(&mut self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(self.id.into(), world);
+        user_interface.remove(self.id_as(), world);
         Fate::Die
     }
 }
@@ -70,7 +69,7 @@ impl Addable {
     }
 
     pub fn clear(&mut self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(self.id.into(), world);
+        user_interface.remove(self.id_as(), world);
         Fate::Die
     }
 }
@@ -140,7 +139,7 @@ impl Draggable {
     }
 
     pub fn clear(&mut self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(self.id.into(), world);
+        user_interface.remove(self.id_as(), world);
         Fate::Die
     }
 }
@@ -213,7 +212,7 @@ impl Selectable {
     }
 
     pub fn clear(&mut self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(self.id.into(), world);
+        user_interface.remove(self.id_as(), world);
         Fate::Die
     }
 }
@@ -358,7 +357,7 @@ impl StrokeCanvas {
 
     // probably never called
     pub fn clear(&mut self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(self.id.into(), world);
+        user_interface.remove(self.id_as(), world);
         Fate::Die
     }
 }

@@ -406,7 +406,7 @@ impl<H: Handler> Queue<H> {
                 // return the pointer to where the item can be written
                 EnqueueResult::Success(payload_ptr)
             } else {
-                println!("Not enough space. Offset: {}, Min Space: {}, Chunk size: {}", offset, min_space, chunk.size);
+                //println!("Not enough space. Offset: {}, Min Space: {}, Chunk size: {}", offset, min_space, chunk.size);
                 // store a jump marker instead of item size
                 *(entry_ptr as *mut NextItemRef) = NextItemRef::NextChunk;
                 let new_chunk_size = ::std::cmp::max(self.typical_chunk_size, min_space);

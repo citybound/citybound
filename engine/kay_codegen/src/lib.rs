@@ -105,14 +105,14 @@ pub enum HandlerType {
 }
 
 pub fn generate(model: &Model) -> String {
-    let traits_msgs = model.generate_trait_ids_and_messages();
+    let traits_msgs = model.generate_traits();
     let actors_msgs = model.generate_actor_ids_messages_and_conversions();
     let setup = model.generate_setups();
 
     quote!(
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
-        use kay::{ActorSystem, ID, Fate, Actor};
+        use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom};
         use super::*;
 
         #traits_msgs
@@ -155,52 +155,48 @@ fn simple_actor() {
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
-        use kay::{ActorSystem, ID, Fate, Actor};
+        use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom};
         use super::*;
 
         impl Actor for SomeActor {
-            fn id(&self) -> ID {
-                self.id._raw_id
+            type ID = SomeActorID;
+
+            fn id(&self) -> Self::ID {
+                self.id
             }
-            unsafe fn set_id(&mut self, id: ID) {
-                self.id._raw_id = id;
+            unsafe fn set_id(&mut self, id: RawID) {
+                self.id = Self::ID::from_raw(id);
             }
         }
 
         #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
         pub struct SomeActorID {
-            pub _raw_id: ID
+            _raw_id: RawID
         }
 
-        impl SomeActorID {
-            pub fn local_first(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.local_first::<SomeActor>() }
+        impl TypedID for SomeActorID {
+            unsafe fn from_raw(id: RawID) -> Self {
+                SomeActorID { _raw_id: id }
             }
 
-            pub fn global_first(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.global_first::<SomeActor>() }
-            }
-
-            pub fn local_broadcast(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.local_broadcast::<SomeActor>() }
-            }
-
-            pub fn global_broadcast(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.global_broadcast::<SomeActor>() }
+            fn as_raw(&self) -> RawID {
+                self._raw_id
             }
         }
 
         impl SomeActorID {
             pub fn some_method(&self, some_param: usize, world: &mut World) {
-                world.send(self._raw_id, MSG_SomeActor_some_method(some_param));
+                world.send(self.as_raw(), MSG_SomeActor_some_method(some_param));
             }
 
             pub fn no_params_fate(&self, world: &mut World) {
-                world.send(self._raw_id, MSG_SomeActor_no_params_fate());
+                world.send(self.as_raw(), MSG_SomeActor_no_params_fate());
             }
 
             pub fn init_ish(some_param: usize, world: &mut World) -> Self {
-                let id = SomeActorID { _raw_id: world.allocate_instance_id::<SomeActor>() };
+                let id = unsafe{
+                    SomeActorID::from_raw(world.allocate_instance_id::<SomeActor>())
+                };
                 let swarm = world.local_broadcast::<SomeActor>();
                 world.send(swarm, MSG_SomeActor_init_ish(id, some_param));
                 id
@@ -209,13 +205,13 @@ fn simple_actor() {
 
         #[allow(non_camel_case_types)]
         #[derive(Compact, Clone)]
-        pub struct MSG_SomeActor_some_method(pub usize);
+        struct MSG_SomeActor_some_method(pub usize);
         #[allow(non_camel_case_types)]
         #[derive(Copy, Clone)]
-        pub struct MSG_SomeActor_no_params_fate();
+        struct MSG_SomeActor_no_params_fate();
         #[allow(non_camel_case_types)]
         #[derive(Compact, Clone)]
-        pub struct MSG_SomeActor_init_ish(pub SomeActorID, pub usize);
+        struct MSG_SomeActor_init_ish(pub SomeActorID, pub usize);
 
         #[allow(unused_variables)]
         #[allow(unused_mut)]
@@ -255,6 +251,9 @@ fn trait_and_impl() {
         trait SomeTrait {
             fn some_method(&mut self, some_param: &usize, world: &mut World);
             fn no_params_fate(&mut self, world: &mut World) -> Fate;
+            fn some_default_impl_method(&mut self, world: &mut World) {
+                self.some_method(3, world);
+            }
         }
 
         impl SomeTrait for SomeActor {
@@ -273,7 +272,7 @@ fn trait_and_impl() {
             }
         }
 
-        // This shouldn't generate any ID
+        // This shouldn't generate any RawID
         impl Deref for SomeActor {
             type Target = usize;
             fn deref(&self) -> &usize {
@@ -284,60 +283,92 @@ fn trait_and_impl() {
     let expected = quote!(
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
-        use kay::{ActorSystem, ID, Fate, Actor};
+        use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom};
         use super::*;
 
         #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
         pub struct SomeTraitID {
-            pub _raw_id: ID
+            _raw_id: RawID
         }
+
+        impl TypedID for SomeTraitID {
+            unsafe fn from_raw(id: RawID) -> Self {
+                SomeTraitID { _raw_id: id }
+            }
+
+            fn as_raw(&self) -> RawID {
+                self._raw_id
+            }
+        }
+
+        impl<A: Actor + SomeTrait> TraitIDFrom<A> for SomeTraitID {}
 
         impl SomeTraitID {
             pub fn some_method(&self, some_param: usize, world: &mut World) {
-                world.send(self._raw_id, MSG_SomeTrait_some_method(some_param));
+                world.send(self.as_raw(), MSG_SomeTrait_some_method(some_param));
             }
 
             pub fn no_params_fate(&self, world: &mut World) {
-                world.send(self._raw_id, MSG_SomeTrait_no_params_fate());
+                world.send(self.as_raw(), MSG_SomeTrait_no_params_fate());
+            }
+
+            pub fn some_default_impl_method(&self, world: &mut World) {
+                world.send(self.as_raw(), MSG_SomeTrait_some_default_impl_method());
+            }
+
+            pub fn register_handlers<A: Actor + SomeTrait>(system: &mut ActorSystem) {
+                system.add_handler::<A, _, _>(
+                    |&MSG_SomeTrait_some_method(ref some_param), instance, world| {
+                    instance.some_method(some_param, world);
+                    Fate::Live
+                }, false);
+
+                system.add_handler::<A, _, _>(
+                    |&MSG_SomeTrait_no_params_fate(), instance, world| {
+                    instance.no_params_fate(world)
+                }, false);
+
+                system.add_handler::<A, _, _>(
+                    |&MSG_SomeTrait_some_default_impl_method(), instance, world| {
+                    instance.some_default_impl_method(world);
+                    Fate::Live
+                }, false);
             }
         }
 
         #[allow(non_camel_case_types)]
         #[derive(Compact, Clone)]
-        pub struct MSG_SomeTrait_some_method(pub usize);
+        struct MSG_SomeTrait_some_method(pub usize);
         #[allow(non_camel_case_types)]
         #[derive(Copy, Clone)]
-        pub struct MSG_SomeTrait_no_params_fate();
+        struct MSG_SomeTrait_no_params_fate();
+        #[allow(non_camel_case_types)]
+        #[derive(Copy, Clone)]
+        struct MSG_SomeTrait_some_default_impl_method();
 
         impl Actor for SomeActor {
-            fn id(&self) -> ID {
-                self.id._raw_id
+            type ID = SomeActorID;
+
+            fn id(&self) -> Self::ID {
+                self.id
             }
-            unsafe fn set_id(&mut self, id: ID) {
-                self.id._raw_id = id;
+            unsafe fn set_id(&mut self, id: RawID) {
+                self.id = Self::ID::from_raw(id);
             }
         }
 
         #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
         pub struct SomeActorID {
-            pub _raw_id: ID
+            _raw_id: RawID
         }
 
-        impl SomeActorID {
-            pub fn local_first(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.local_first::<SomeActor>() }
+        impl TypedID for SomeActorID {
+            unsafe fn from_raw(id: RawID) -> Self {
+                SomeActorID { _raw_id: id }
             }
 
-            pub fn global_first(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.global_first::<SomeActor>() }
-            }
-
-            pub fn local_broadcast(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.local_broadcast::<SomeActor>() }
-            }
-
-            pub fn global_broadcast(world: &mut World) -> Self {
-                SomeActorID { _raw_id: world.global_broadcast::<SomeActor>() }
+            fn as_raw(&self) -> RawID {
+                self._raw_id
             }
         }
 
@@ -345,35 +376,21 @@ fn trait_and_impl() {
 
         impl Into<SomeTraitID> for SomeActorID {
             fn into(self) -> SomeTraitID {
-                unsafe {::std::mem::transmute(self)}
+                unsafe {SomeTraitID::from_raw(self.as_raw())}
             }
         }
 
         impl Into<ForeignTraitID> for SomeActorID {
             fn into(self) -> ForeignTraitID {
-                unsafe {::std::mem::transmute(self)}
+                unsafe {ForeignTraitID::from_raw(self.as_raw())}
             }
         }
 
         #[allow(unused_variables)]
         #[allow(unused_mut)]
         pub fn auto_setup(system: &mut ActorSystem) {
-            system.add_handler::<SomeActor, _, _>(
-                |&MSG_SomeTrait_some_method(ref some_param), instance, world| {
-                instance.some_method(some_param, world);
-                Fate::Live
-            }, false);
-
-            system.add_handler::<SomeActor, _, _>(
-                |&MSG_SomeTrait_no_params_fate(), instance, world| {
-                instance.no_params_fate(world)
-            }, false);
-
-            system.add_handler::<SomeActor, _, _>(
-                |&MSG_ForeignTrait_simple(ref some_param), instance, world| {
-                instance.simple(some_param, world);
-                Fate::Live
-            }, false);
+            SomeTraitID::register_handlers::<SomeActor>(system);
+            ForeignTraitID::register_handlers::<SomeActor>(system);
         }
     );
 

@@ -1,6 +1,6 @@
-use kay::{ActorSystem, World};
+use kay::{ActorSystem, World, Actor};
 use compact::CVec;
-use stagemaster::UserInterfaceID;
+use stagemaster::{UserInterface, UserInterfaceID};
 
 mod time;
 
@@ -63,7 +63,7 @@ impl Simulation {
 
         let time = TimeOfDay::from(self.current_instant).hours_minutes();
 
-        UserInterfaceID::local_first(world).add_debug_text(
+        UserInterface::local_first(world).add_debug_text(
             "Time".to_owned().into(),
             format!("{:02}:{:02}", time.0, time.1).into(),
             [0.0, 0.0, 0.0, 1.0],
@@ -85,12 +85,12 @@ impl Simulation {
     }
 
     pub fn add_to_ui(&mut self, ui_id: &UserInterfaceID, world: &mut World) {
-        ui_id.add_2d(self.id.into(), world);
+        ui_id.add_2d(self.id_as(), world);
     }
 }
 
 use kay::External;
-use stagemaster::{Interactable2d, Interactable2dID, MSG_Interactable2d_draw_ui_2d};
+use stagemaster::{Interactable2d, Interactable2dID};
 
 impl Interactable2d for Simulation {
     fn draw_ui_2d(

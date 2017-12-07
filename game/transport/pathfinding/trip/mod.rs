@@ -1,11 +1,10 @@
-use kay::{World, ActorSystem, Fate};
+use kay::{World, ActorSystem, Fate, TypedID, Actor};
 use compact::CVec;
 use ordered_float::OrderedFloat;
 use core::simulation::Instant;
 
 use transport::lane::LaneID;
-use super::{PreciseLocation, RoughLocationID, LocationRequester, LocationRequesterID,
-            MSG_LocationRequester_location_resolved};
+use super::{PreciseLocation, RoughLocationID, LocationRequester, LocationRequesterID};
 
 use itertools::Itertools;
 use super::super::lane::Lane;
@@ -23,18 +22,19 @@ pub struct Trip {
 #[derive(Copy, Clone)]
 pub struct TripResult {
     pub location_now: Option<RoughLocationID>,
-    pub instant: Instant,
+    //pub instant: Instant,
     pub fate: TripFate,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub enum TripFate {
-    Success,
+    Success(Instant),
     SourceOrDestinationNotResolvable,
     NoRoute,
     RouteForgotten,
     HopDisconnected,
     LaneUnbuilt,
+    ForceStopped,
 }
 
 const DEBUG_FAILED_TRIPS_VISUALLY: bool = false;
@@ -66,7 +66,8 @@ impl Trip {
 
     pub fn finish(&mut self, result: TripResult, world: &mut World) -> Fate {
         match result.fate {
-            TripFate::Success => {}
+            TripFate::Success(_) |
+            TripFate::ForceStopped => {}
             reason => {
                 println!(
                     "Trip {:?} failed! ({:?}) {:?} ({:?}) -> {:?} ({:?})",
@@ -113,7 +114,7 @@ impl LocationRequester for Trip {
                     self.destination = Some(precise);
                 } else {
                     self.rough_destination.resolve_as_location(
-                        self.id.into(),
+                        self.id_as(),
                         self.rough_destination,
                         instant,
                         world,
@@ -126,15 +127,16 @@ impl LocationRequester for Trip {
             }
 
             if let (Some(source), Some(destination)) = (self.source, self.destination) {
-                // TODO: ugly: untyped ID shenanigans
-                let source_as_lane: LaneLikeID = LaneLikeID { _raw_id: source.node._raw_id };
+                // TODO: ugly: untyped RawID shenanigans
+                let source_as_lane: LaneLikeID =
+                    unsafe { LaneLikeID::from_raw(source.node.as_raw()) };
                 source_as_lane.add_car(
                     LaneCar {
                         trip: self.id,
                         as_obstacle: Obstacle {
                             position: OrderedFloat(source.offset),
                             velocity: 0.0,
-                            max_velocity: 15.0,
+                            max_velocity: 8.0,
                         },
                         acceleration: 0.0,
                         destination: destination,
@@ -148,12 +150,11 @@ impl LocationRequester for Trip {
         } else {
             println!(
                 "{:?} is not a source/destination yet",
-                rough_location._raw_id
+                rough_location.as_raw()
             );
             self.id.finish(
                 TripResult {
                     location_now: Some(self.rough_source),
-                    instant,
                     fate: TripFate::SourceOrDestinationNotResolvable,
                 },
                 world,
@@ -162,7 +163,7 @@ impl LocationRequester for Trip {
     }
 }
 
-use core::simulation::{SimulationID, Sleeper, SleeperID, MSG_Sleeper_wake};
+use core::simulation::{SimulationID, Sleeper, SleeperID};
 use core::simulation::Ticks;
 use super::super::microtraffic::{LaneLikeID, LaneCar, Obstacle};
 
@@ -194,7 +195,7 @@ impl TripCreator {
         self.lanes.push(lane_id);
 
         if self.lanes.len() > 1 {
-            self.simulation.wake_up_in(Ticks(50), self.id.into(), world);
+            self.simulation.wake_up_in(Ticks(50), self.id_as(), world);
         }
     }
 }
@@ -227,12 +228,12 @@ impl Lane {
     pub fn manually_spawn_car_add_lane(&self, world: &mut World) {
         if !self.connectivity.on_intersection {
             // TODO: ugly/wrong
-            TripCreatorID::local_first(world).add_lane_for_trip(self.id, world);
+            TripCreator::local_first(world).add_lane_for_trip(self.id, world);
         }
     }
 }
 
-use super::{PositionRequester, PositionRequesterID, MSG_PositionRequester_position_resolved};
+use super::{PositionRequester, PositionRequesterID};
 use stagemaster::geometry::{add_debug_line, add_debug_point};
 use descartes::{P2, V2};
 

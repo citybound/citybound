@@ -12,10 +12,9 @@ mod control;
 pub mod movement;
 mod project;
 
-pub use self::control::{TargetProvider, TargetProviderID, MSG_TargetProvider_submitted};
-pub use self::movement::{Movement, EyeListener, EyeListenerID, MSG_EyeListener_eye_moved};
-pub use self::project::{ProjectionRequester, ProjectionRequesterID,
-                        MSG_ProjectionRequester_projected_3d};
+pub use self::control::{TargetProvider, TargetProviderID};
+pub use self::movement::{Movement, EyeListener, EyeListenerID};
+pub use self::project::{ProjectionRequester, ProjectionRequesterID};
 
 #[derive(Compact, Clone)]
 pub struct Renderer {

@@ -118,18 +118,31 @@ impl Model {
     }
 
     pub fn generate_setups(&self) -> Tokens {
+        let actor_impl_actors: Vec<Vec<_>> = self.actors
+            .iter()
+            .map(|(actor_name, actor_def)| {
+                actor_def.impls.iter().map(|_| actor_name).collect()
+            })
+            .collect();
+
+        let actor_impl_trait_ids: Vec<Vec<_>> = self.actors
+            .iter()
+            .map(|(_, actor_def)| {
+                actor_def.impls.iter().map(trait_name_to_id).collect()
+            })
+            .collect();
+
         let (handler_actor_types, init_actor_types) =
-            self.map_handlers(AlsoFromTraits, |ty, _| ty.clone());
+            self.map_handlers(OnlyOwn, |ty, _| ty.clone());
         let (handler_criticals, init_handler_criticals) =
-            self.map_handlers(AlsoFromTraits, |_, handler| {
+            self.map_handlers(OnlyOwn, |_, handler| {
                 Ident::from(if handler.critical { "true" } else { "false" })
             });
-        let (msg_names, init_msg_names) =
-            self.map_handlers(AlsoFromTraits, |actor_name, handler| {
-                let msg_prefix = typ_to_message_prefix(actor_name, handler.from_trait.as_ref());
-                Ident::new(format!("{}_{}", msg_prefix, handler.name))
-            });
-        let (msg_args, init_msg_args) = self.map_handlers_args(AlsoFromTraits, |arg| match arg {
+        let (msg_names, init_msg_names) = self.map_handlers(OnlyOwn, |actor_name, handler| {
+            let msg_prefix = typ_to_message_prefix(actor_name, handler.from_trait.as_ref());
+            Ident::new(format!("{}_{}", msg_prefix, handler.name))
+        });
+        let (msg_args, init_msg_args) = self.map_handlers_args(OnlyOwn, |arg| match arg {
             &FnArg::Captured(Pat::Ident(_, ref ident, _), ref ty) => {
                 match ty {
                     &Ty::Rptr(_, _) => Pat::Ident(ByRef(Immutable), ident.clone(), None),
@@ -139,24 +152,28 @@ impl Model {
             _ => unimplemented!(),
         });
         let (handler_names, init_handler_names) =
-            self.map_handlers(AlsoFromTraits, |_, handler| handler.name.clone());
+            self.map_handlers(OnlyOwn, |_, handler| handler.name.clone());
         let (handler_params, init_handler_params) =
-            self.map_handlers_args(AlsoFromTraits, |arg| match arg {
+            self.map_handlers_args(OnlyOwn, |arg| match arg {
                 &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
                 _ => unimplemented!(),
             });
         let (maybe_fate_returns, _) =
-            self.map_handlers(AlsoFromTraits, |_, handler| if handler.returns_fate {
+            self.map_handlers(OnlyOwn, |_, handler| if handler.returns_fate {
                 quote!()
             } else {
                 quote!(; Fate::Live)
             });
         let (_, types_for_init_handlers_1) =
-            self.map_handlers(AlsoFromTraits, |actor_name, _| actor_name.clone());
+            self.map_handlers(OnlyOwn, |actor_name, _| actor_name.clone());
         let types_for_init_handlers_2 = types_for_init_handlers_1.clone();
 
         quote!(
             #(
+                #(
+                    #actor_impl_trait_ids::register_handlers::<#actor_impl_actors>(system);
+                )*
+
                 #(
                     system.add_handler::<#handler_actor_types, _, _>(
                         |&#msg_names(#(#msg_args),*), instance, world| {
@@ -176,17 +193,38 @@ impl Model {
         )
     }
 
-    pub fn generate_trait_ids_and_messages(&self) -> Tokens {
+    pub fn generate_traits(&self) -> Tokens {
+        let trait_types_1: Vec<_> = self.traits.keys().collect();
+        let trait_types_2 = trait_types_1.clone();
         let trait_ids_1: Vec<_> = self.traits.keys().map(trait_name_to_id).collect();
-        let trait_ids_2 = trait_ids_1.clone();
-        let (handler_names, _) = self.map_trait_handlers(|_, handler| handler.name.clone());
+        let (trait_ids_2, trait_ids_3, trait_ids_4, trait_ids_5) = (
+            trait_ids_1.clone(),
+            trait_ids_1.clone(),
+            trait_ids_1.clone(),
+            trait_ids_1.clone(),
+        );
+        let (handler_criticals, _) = self.map_trait_handlers(|_, handler| {
+            Ident::from(if handler.critical { "true" } else { "false" })
+        });
+        let (handler_names_1, _) = self.map_trait_handlers(|_, handler| handler.name.clone());
+        let handler_names_2 = handler_names_1.clone();
         let (handler_args, _) = self.map_trait_handlers_args(arg_as_ident_and_type);
+        let (handler_params, _) = self.map_trait_handlers_args(|arg| match arg {
+            &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
+            _ => unimplemented!(),
+        });
+        let (maybe_fate_returns, _) =
+            self.map_trait_handlers(|_, handler| if handler.returns_fate {
+                quote!()
+            } else {
+                quote!(; Fate::Live)
+            });
         let (msg_names_1, _) = self.map_trait_handlers(|trait_name, handler| {
             let msg_prefix = trait_to_message_prefix(&trait_name.segments.last().unwrap().ident);
             Ident::new(format!("{}_{}", msg_prefix, handler.name))
         });
-        let msg_names_2 = msg_names_1.clone();
-        let (msg_params, _) = self.map_trait_handlers_args(arg_as_value);
+        let (msg_names_2, msg_names_3) = (msg_names_1.clone(), msg_names_1.clone());
+        let (msg_params_1, _) = self.map_trait_handlers_args(arg_as_value);
         let (msg_param_types, _) = self.map_trait_handlers_args(arg_as_value_type);
         let (msg_derives, _) =
             self.map_trait_handlers(|_, handler| if handler.arguments.is_empty() {
@@ -194,26 +232,56 @@ impl Model {
             } else {
                 quote!(#[derive(Compact, Clone)])
             });
+        let (msg_args, _) = self.map_trait_handlers_args(|arg| match arg {
+            &FnArg::Captured(Pat::Ident(_, ref ident, _), ref ty) => {
+                match ty {
+                    &Ty::Rptr(_, _) => Pat::Ident(ByRef(Immutable), ident.clone(), None),
+                    _ => Pat::Ident(ByValue(Immutable), ident.clone(), None),
+                }
+            }
+            _ => unimplemented!(),
+        });
 
         quote!(
             #(
             #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
             pub struct #trait_ids_1 {
-                pub _raw_id: ID
+                _raw_id: RawID
             }
 
-            impl #trait_ids_2 {
+            impl TypedID for #trait_ids_2 {
+                unsafe fn from_raw(id: RawID) -> Self {
+                    #trait_ids_3 { _raw_id: id }
+                }
+
+                fn as_raw(&self) -> RawID {
+                    self._raw_id
+                }
+            }
+
+            impl<A: Actor + #trait_types_1> TraitIDFrom<A> for #trait_ids_4 {}
+
+            impl #trait_ids_5 {
                 #(
-                pub fn #handler_names(&self #(,#handler_args)*, world: &mut World) {
-                    world.send(self._raw_id, #msg_names_1(#(#msg_params),*));
+                pub fn #handler_names_1(&self #(,#handler_args)*, world: &mut World) {
+                    world.send(self.as_raw(), #msg_names_1(#(#msg_params_1),*));
                 }
                 )*
+
+                pub fn register_handlers<A: Actor + #trait_types_2>(system: &mut ActorSystem) {
+                    #(
+                    system.add_handler::<A, _, _>(
+                        |&#msg_names_3(#(#msg_args),*), instance, world| {
+                        instance.#handler_names_2(#(#handler_params,)* world)#maybe_fate_returns
+                    }, #handler_criticals);
+                    )*
+                }
             }
 
             #(
             #[allow(non_camel_case_types)]
             #msg_derives
-            pub struct #msg_names_2(#(pub #msg_param_types),*);
+            struct #msg_names_2(#(pub #msg_param_types),*);
             )*
             )*
         )
@@ -228,12 +296,6 @@ impl Model {
                 None
             })
             .collect();
-        let (actor_here_names_2, actor_here_names_3, actor_here_names_4, actor_here_names_5) = (
-            actor_here_names_1.clone(),
-            actor_here_names_1.clone(),
-            actor_here_names_1.clone(),
-            actor_here_names_1.clone(),
-        );
         let actor_here_ids_1: Vec<_> = self.actors
             .iter()
             .filter_map(|(actor_name, actor_def)| if actor_def.defined_here {
@@ -242,13 +304,7 @@ impl Model {
                 None
             })
             .collect();
-        let (actor_here_ids_2,
-             actor_here_ids_3,
-             actor_here_ids_4,
-             actor_here_ids_5,
-             actor_here_ids_6) = (
-            actor_here_ids_1.clone(),
-            actor_here_ids_1.clone(),
+        let (actor_here_ids_2, actor_here_ids_3, actor_here_ids_4) = (
             actor_here_ids_1.clone(),
             actor_here_ids_1.clone(),
             actor_here_ids_1.clone(),
@@ -287,7 +343,8 @@ impl Model {
                 actor_def.impls.iter().map(trait_name_to_id).collect()
             })
             .collect();
-        let actor_trait_ids_2 = actor_trait_ids_1.clone();
+        let (actor_trait_ids_2, actor_trait_ids_3) =
+            (actor_trait_ids_1.clone(), actor_trait_ids_1.clone());
         let actor_ids_for_traits: Vec<Vec<_>> = self.actors
             .iter()
             .map(|(actor_name, actor_def)| {
@@ -302,42 +359,28 @@ impl Model {
         quote!(
             #(
             impl Actor for #actor_here_names_1 {
-                fn id(&self) -> ID {
-                    self.id._raw_id
+                type ID = #actor_here_ids_2;
+
+                fn id(&self) -> Self::ID {
+                    self.id
                 }
-                unsafe fn set_id(&mut self, id: ID) {
-                    self.id._raw_id = id;
+                unsafe fn set_id(&mut self, id: RawID) {
+                    self.id = Self::ID::from_raw(id);
                 }
             }
 
             #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
             pub struct #actor_here_ids_1 {
-                pub _raw_id: ID
+                _raw_id: RawID
             }
 
-            impl #actor_here_ids_2 {
-                pub fn local_first(world: &mut World) -> Self {
-                    #actor_here_ids_3 {
-                        _raw_id: world.local_first::<#actor_here_names_2>()
-                    }
+            impl TypedID for #actor_here_ids_3 {
+                unsafe fn from_raw(id: RawID) -> Self {
+                    #actor_here_ids_4 { _raw_id: id }
                 }
 
-                pub fn global_first(world: &mut World) -> Self {
-                    #actor_here_ids_4 {
-                        _raw_id: world.global_first::<#actor_here_names_3>()
-                    }
-                }
-
-                pub fn local_broadcast(world: &mut World) -> Self {
-                    #actor_here_ids_5 {
-                        _raw_id: world.local_broadcast::<#actor_here_names_4>()
-                    }
-                }
-
-                pub fn global_broadcast(world: &mut World) -> Self {
-                    #actor_here_ids_6 {
-                        _raw_id: world.global_broadcast::<#actor_here_names_5>()
-                    }
+                fn as_raw(&self) -> RawID {
+                    self._raw_id
                 }
             }
             )*
@@ -346,15 +389,15 @@ impl Model {
             impl #actor_ids {
                 #(
                 pub fn #handler_names(&self #(,#handler_args)*, world: &mut World) {
-                    world.send(self._raw_id, #msg_names_1(#(#msg_params),*));
+                    world.send(self.as_raw(), #msg_names_1(#(#msg_params),*));
                 }
                 )*
 
                 #(
                 pub fn #init_handler_names(#(#init_handler_args,)* world: &mut World) -> Self {
-                    let id = #actor_ids_for_init_handlers {
-                        _raw_id: world.allocate_instance_id::<#actor_types_for_init_handlers_1>()
-                    };
+                    let id = unsafe { #actor_ids_for_init_handlers::from_raw(
+                        world.allocate_instance_id::<#actor_types_for_init_handlers_1>()
+                    )};
                     let swarm = world.local_broadcast::<#actor_types_for_init_handlers_2>();
                     world.send(swarm, #init_msg_names_1(id, #(#init_msg_params),*));
                     id
@@ -365,27 +408,26 @@ impl Model {
             #(
             #[allow(non_camel_case_types)]
             #msg_derives
-            pub struct #msg_names_2(#(pub #msg_param_types),*);
+            struct #msg_names_2(#(pub #msg_param_types),*);
             )*
 
             #(
             #[allow(non_camel_case_types)]
             #init_msg_derives
-            pub struct #init_msg_names_2(
+            struct #init_msg_names_2(
                 pub #actor_ids_for_init_msgs, #(pub #init_msg_param_types),*
             );
             )*
             )*
 
+
             #(
                 #(
-                impl Into<#actor_trait_ids_1> for #actor_ids_for_traits {
-                    fn into(self) -> #actor_trait_ids_2 {
-                        unsafe {
-                            ::std::mem::transmute(self)
+                    impl Into<#actor_trait_ids_1> for #actor_ids_for_traits {
+                        fn into(self) -> #actor_trait_ids_2 {
+                            unsafe {#actor_trait_ids_3::from_raw(self.as_raw())}
                         }
                     }
-                }
                 )*
             )*
         )

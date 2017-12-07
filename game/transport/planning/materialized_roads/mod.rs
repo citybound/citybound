@@ -1,4 +1,4 @@
-use kay::World;
+use kay::{World, TypedID};
 use compact::{CVec, CDict};
 use planning::materialized_reality::{MaterializedReality, MaterializedRealityID};
 use planning::materialized_reality::MaterializedRealityState::{Ready, Updating};
@@ -42,14 +42,11 @@ impl RoadUpdateState {
     }
 }
 
-use core::simulation::Instant;
-
 impl MaterializedRoads {
     pub fn start_applying_roads(
         materialized_reality: MaterializedRealityID,
         materialized_roads: &mut MaterializedRoads,
         result_delta: &RoadPlanResultDelta,
-        instant: Instant,
         world: &mut World,
     ) -> RoadUpdateState {
         let mut lanes_to_unbuild = CVec::new();
@@ -80,9 +77,9 @@ impl MaterializedRoads {
         }
 
         for &id in &lanes_to_unbuild {
-            // TODO: ugly: untyped ID shenanigans
-            let id_as_unbuildable: UnbuildableID = UnbuildableID { _raw_id: id._raw_id };
-            id_as_unbuildable.unbuild(materialized_reality, instant, world);
+            // TODO: ugly: untyped RawID shenanigans
+            let id_as_unbuildable: UnbuildableID = unsafe { UnbuildableID::from_raw(id.as_raw()) };
+            id_as_unbuildable.unbuild(materialized_reality, world);
         }
 
         RoadUpdateState { lanes_to_unbuild }
@@ -209,8 +206,8 @@ impl MaterializedReality {
             Ready(()) => {
                     match buildable_ref {
                         BuildableRef::Intersection(index) => {
-                            // TODO: ugly: raw ID shenanigans
-                            let id_as_lane: LaneID = LaneID{ _raw_id: id._raw_id};
+                            // TODO: ugly: raw RawID shenanigans
+                            let id_as_lane: LaneID = unsafe{LaneID::from_raw(id.as_raw())};
                             if let Some(other_intersection_lanes) =
                                 self.roads.built_intersection_lanes.get(IntersectionRef(index))
                             {

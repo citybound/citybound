@@ -1,4 +1,4 @@
-use kay::{ActorSystem, External, World};
+use kay::{ActorSystem, External, World, Actor};
 use compact::{CVec, CString};
 use descartes::{N, P2, V2, P3, Into2d, Shape};
 use monet::{RendererID, RenderableID, SceneDescription, Display};
@@ -257,7 +257,7 @@ impl UserInterface {
                         self.renderer_id.project_2d_to_3d(
                             0,
                             self.cursor_2d,
-                            self.id.into(),
+                            self.id_as(),
                             world,
                         );
                     }
@@ -440,11 +440,11 @@ impl UserInterface {
 
         let target = External::new(self.window.draw());
 
-        self.renderer_id.submit(target, self.id.into(), world);
+        self.renderer_id.submit(target, self.id_as(), world);
     }
 }
 
-use monet::{ProjectionRequester, ProjectionRequesterID, MSG_ProjectionRequester_projected_3d};
+use monet::{ProjectionRequester, ProjectionRequesterID};
 
 impl ProjectionRequester for UserInterface {
     fn projected_3d(&mut self, position_3d: P3, world: &mut World) {
@@ -500,7 +500,7 @@ impl ProjectionRequester for UserInterface {
     }
 }
 
-use monet::{TargetProvider, TargetProviderID, MSG_TargetProvider_submitted};
+use monet::{TargetProvider, TargetProviderID};
 use monet::glium::Frame;
 
 #[allow(useless_format)]

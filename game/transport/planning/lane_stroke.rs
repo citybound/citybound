@@ -80,7 +80,7 @@ impl LaneStroke {
                             window[0].direction,
                             window[1].position,
                             window[1].direction,
-                        )
+                        ).unwrap_or_else(Vec::new)
                     })
                     .collect::<Vec<_>>(),
             )
@@ -226,7 +226,7 @@ fn biarc_connection_node(
         start_node.direction,
         end_node.position,
         end_node.direction,
-    );
+    )?;
 
     if connection_segments.len() > 1 {
         let connection_node = LaneStrokeNode {
