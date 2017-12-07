@@ -130,7 +130,9 @@ impl ActorSystem {
         // allow use of actor id before it is added
         let actor_id = self.actor_registry.get_or_register::<A>();
         assert!(self.inboxes[actor_id.as_usize()].is_none());
-        self.inboxes[actor_id.as_usize()] = Some(Inbox::new());
+        let actor_name = unsafe { ::std::intrinsics::type_name::<A>() };
+        self.inboxes[actor_id.as_usize()] =
+            Some(Inbox::new(::chunky::Ident::from(actor_name).sub("inbox")));
         // ...but still make sure it is only added once
         assert!(self.swarms[actor_id.as_usize()].is_none());
         // Store pointer to the actor
