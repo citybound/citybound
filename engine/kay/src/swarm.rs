@@ -26,9 +26,13 @@ impl<A: Actor + Clone> Swarm<A> {
     /// Create an empty `Swarm`.
     #[allow(new_without_default)]
     pub fn new() -> Self {
-        let ident: chunky::Ident = unsafe {::std::intrinsics::type_name::<A>().into()};
+        let ident: chunky::Ident = unsafe { ::std::intrinsics::type_name::<A>().into() };
         Swarm {
-            instances: chunky::MultiArena::new(ident.sub("instances"), CHUNK_SIZE, A::typical_size()),
+            instances: chunky::MultiArena::new(
+                ident.sub("instances"),
+                CHUNK_SIZE,
+                A::typical_size(),
+            ),
             n_instances: chunky::Value::load_or_default(ident.sub("n_instances"), 0),
             slot_map: SlotMap::new(ident.sub("slot_map")),
             _marker: PhantomData,
@@ -88,8 +92,7 @@ impl<A: Actor + Clone> Swarm<A> {
                 Some(ptr) => {
                     let swapped_actor = &*(ptr as *mut A);
                     self.slot_map.associate(
-                        swapped_actor.id().as_raw().instance_id as
-                            usize,
+                        swapped_actor.id().as_raw().instance_id as usize,
                         indices.into(),
                     );
                     true
@@ -184,8 +187,9 @@ impl<A: Actor + Clone> Swarm<A> {
         //    - sub actors that were created during one of the broadcast receive handlers,
         //      that shouldn't receive this broadcast
         // the only assumption is that no sub actors are immediately completely deleted
-        let bin_indices_recipients_todo: Vec<_> = self.instances.populated_bin_indices_and_lens().collect();
-        
+        let bin_indices_recipients_todo: Vec<_> =
+            self.instances.populated_bin_indices_and_lens().collect();
+
         for (bin_index, recipients_todo) in bin_indices_recipients_todo {
             let mut slot = 0;
             let mut index_after_last_recipient = recipients_todo;

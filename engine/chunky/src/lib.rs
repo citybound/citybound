@@ -45,17 +45,17 @@ struct Chunk<H: Handler> {
 impl<H: Handler> Chunk<H> {
     pub fn load_or_create(ident: Ident, size: usize) -> (Chunk<H>, bool) {
         let (ptr, created_new) = H::load_or_create_chunk(ident, size);
-        (Chunk {ptr, size, _h: PhantomData}, created_new)
+        (Chunk { ptr, size, _h: PhantomData }, created_new)
     }
 
     pub fn load(ident: Ident) -> Chunk<H> {
         let (ptr, size) = H::load_chunk(ident);
-        Chunk {ptr, size, _h: PhantomData}
+        Chunk { ptr, size, _h: PhantomData }
     }
 
     pub fn create(ident: Ident, size: usize) -> Chunk<H> {
         let ptr = H::create_chunk(ident, size);
-        Chunk {ptr, size, _h: PhantomData}
+        Chunk { ptr, size, _h: PhantomData }
     }
 
     pub fn forget_forever(self) {
@@ -68,9 +68,7 @@ impl<H: Handler> Chunk<H> {
 
 impl<H: Handler> Drop for Chunk<H> {
     fn drop(&mut self) {
-        unsafe {
-            H::unload_chunk(self.ptr, self.size)
-        }
+        unsafe { H::unload_chunk(self.ptr, self.size) }
     }
 }
 
@@ -109,7 +107,7 @@ impl Handler for HeapHandler {
 
 pub struct Value<V, H: Handler> {
     chunk: Chunk<H>,
-    _marker: PhantomData<*mut V>
+    _marker: PhantomData<*mut V>,
 }
 
 impl<V, H: Handler> Value<V, H> {
@@ -122,7 +120,7 @@ impl<V, H: Handler> Value<V, H> {
             }
         }
 
-        Value {chunk, _marker: PhantomData}
+        Value { chunk, _marker: PhantomData }
     }
 }
 
@@ -156,7 +154,7 @@ pub struct Arena<H: Handler> {
     chunks: Vec<Chunk<H>>,
     chunk_size: usize,
     item_size: usize,
-    len: Value<usize, H>
+    len: Value<usize, H>,
 }
 
 impl<H: Handler> Arena<H> {
@@ -170,7 +168,13 @@ impl<H: Handler> Arena<H> {
             chunks.push(Chunk::<H>::load(ident.sub(i)));
         }
 
-        Arena{ident, chunks, chunk_size, item_size, len}
+        Arena {
+            ident,
+            chunks,
+            chunk_size,
+            item_size,
+            len,
+        }
     }
 
     fn items_per_chunk(&self) -> usize {
@@ -196,7 +200,10 @@ impl<H: Handler> Arena<H> {
         // Make sure the item can fit in the current chunk
         if (*self.len + 1) > self.chunks.len() * self.items_per_chunk() {
             // If not, create a new chunk
-            self.chunks.push(Chunk::create(self.ident.sub(*self.len), self.chunk_size));
+            self.chunks.push(Chunk::create(
+                self.ident.sub(*self.len),
+                self.chunk_size,
+            ));
         }
         let offset = (*self.len % self.items_per_chunk()) * self.item_size;
         let index = ArenaIndex(*self.len);
@@ -214,7 +221,10 @@ impl<H: Handler> Arena<H> {
         *self.len -= 1;
         // If possible, remove the last chunk as well
         if *self.len + self.items_per_chunk() < self.chunks.len() * self.items_per_chunk() {
-            self.chunks.pop().expect("should have chunk left").forget_forever();
+            self.chunks
+                .pop()
+                .expect("should have chunk left")
+                .forget_forever();
         }
     }
 
@@ -241,8 +251,8 @@ impl<H: Handler> Arena<H> {
     /// Get a pointer to the item at `index`
     pub unsafe fn at(&self, index: ArenaIndex) -> *const u8 {
         self.chunks[index.0 / self.items_per_chunk()].ptr.offset(
-            ((index.0 % self.items_per_chunk()) * self.item_size) as
-                isize,
+            ((index.0 % self.items_per_chunk()) *
+                 self.item_size) as isize,
         )
     }
 
@@ -308,7 +318,8 @@ impl<Item: Clone, H: Handler> Vector<Item, H> {
             None
         } else {
             unsafe {
-                let item_ptr: *const Item = transmute(self.arena.at(ArenaIndex(*self.arena.len - 1)));
+                let item_ptr: *const Item =
+                    transmute(self.arena.at(ArenaIndex(*self.arena.len - 1)));
                 let item = Some(ptr::read(item_ptr));
                 self.arena.pop_away();
                 item
@@ -333,7 +344,7 @@ pub struct Queue<H: Handler> {
 // TODO invent a container struct with NonZero instead
 enum NextItemRef {
     SameChunk(usize),
-    NextChunk
+    NextChunk,
 }
 
 impl<H: Handler> Queue<H> {
@@ -362,7 +373,9 @@ impl<H: Handler> Queue<H> {
         }
 
         if queue.chunks.is_empty() {
-            queue.chunks.push(Chunk::create(ident.sub(0), typical_chunk_size));
+            queue.chunks.push(
+                Chunk::create(ident.sub(0), typical_chunk_size),
+            );
         }
 
         queue
@@ -383,9 +396,9 @@ impl<H: Handler> Queue<H> {
     /// This is handled like this so items of heterogeneous types can be enqueued.
     // TODO: return done_guard to mark as concurrently readable
     pub unsafe fn enqueue(&mut self, size: usize) -> *mut u8 {
-        enum EnqueueResult{
+        enum EnqueueResult {
             Success(*mut u8),
-            RetryInNewChunkOfSize(usize)
+            RetryInNewChunkOfSize(usize),
         };
 
         let result = {
@@ -394,7 +407,8 @@ impl<H: Handler> Queue<H> {
             let chunk = self.chunks.last_mut().expect("should always have a chunk");
             let entry_ptr = chunk.ptr.offset(offset as isize);
 
-            // one more next item ref needs to fit afterwards, even if it will just be a jump marker!
+            // one more next item ref needs to fit afterwards,
+            // even if it will just be a jump marker!
             let min_space = ref_size + size + ref_size;
 
             if offset + min_space <= chunk.size {
@@ -406,7 +420,8 @@ impl<H: Handler> Queue<H> {
                 // return the pointer to where the item can be written
                 EnqueueResult::Success(payload_ptr)
             } else {
-                //println!("Not enough space. Offset: {}, Min Space: {}, Chunk size: {}", offset, min_space, chunk.size);
+                //println!("Not enough space. Offset: {}, Min Space: {},
+                //          Chunk size: {}", offset, min_space, chunk.size);
                 // store a jump marker instead of item size
                 *(entry_ptr as *mut NextItemRef) = NextItemRef::NextChunk;
                 let new_chunk_size = ::std::cmp::max(self.typical_chunk_size, min_space);
@@ -420,7 +435,10 @@ impl<H: Handler> Queue<H> {
         match result {
             EnqueueResult::Success(payload_ptr) => payload_ptr,
             EnqueueResult::RetryInNewChunkOfSize(new_chunk_size) => {
-                self.chunks.push(Chunk::create(self.ident.sub(*self.last_chunk_at), new_chunk_size));
+                self.chunks.push(Chunk::create(
+                    self.ident.sub(*self.last_chunk_at),
+                    new_chunk_size,
+                ));
                 self.enqueue(size)
             }
         }
@@ -432,7 +450,7 @@ impl<H: Handler> Queue<H> {
         enum DequeueResult {
             Empty,
             Success(*const u8),
-            RetryInNextChunk
+            RetryInNextChunk,
         };
 
         let result = if *self.read_at == *self.write_at {
@@ -532,7 +550,7 @@ impl<H: Handler> MultiArena<H> {
         if index >= self.bins.len() {
             self.bins.resize_default(index + 1)
         }
-        
+
         let maybe_bin = &mut self.bins[index];
 
         if let &mut Some(ref mut bin) = maybe_bin {
@@ -540,20 +558,30 @@ impl<H: Handler> MultiArena<H> {
         } else {
             self.used_bin_sizes.push(size_rounded_up);
             let chunk_size = ::std::cmp::max(self.typical_chunk_size, size_rounded_up);
-            *maybe_bin = Some(Arena::new(self.ident.sub(size_rounded_up), chunk_size,  size_rounded_up));
+            *maybe_bin = Some(Arena::new(
+                self.ident.sub(size_rounded_up),
+                chunk_size,
+                size_rounded_up,
+            ));
             maybe_bin.as_mut().unwrap()
         }
     }
 
     pub fn at(&self, index: MultiArenaIndex) -> *const u8 {
         unsafe {
-            self.bins[index.0].as_ref().expect("No bin at this index").at(index.1)
+            self.bins[index.0]
+                .as_ref()
+                .expect("No bin at this index")
+                .at(index.1)
         }
     }
 
     pub fn at_mut(&mut self, index: MultiArenaIndex) -> *mut u8 {
         unsafe {
-            self.bins[index.0].as_mut().expect("No bin at this index").at_mut(index.1)
+            self.bins[index.0]
+                .as_mut()
+                .expect("No bin at this index")
+                .at_mut(index.1)
         }
     }
 
@@ -566,15 +594,27 @@ impl<H: Handler> MultiArena<H> {
 
     pub fn swap_remove_within_bin(&mut self, index: MultiArenaIndex) -> Option<*const u8> {
         unsafe {
-            self.bins[index.0].as_mut().expect("No bin at this index").swap_remove(index.1)
+            self.bins[index.0]
+                .as_mut()
+                .expect("No bin at this index")
+                .swap_remove(index.1)
         }
     }
 
-    pub fn populated_bin_indices_and_lens<'a>(&'a self) -> impl Iterator<Item=(usize, usize)> + 'a {
-        self.bins.iter().enumerate().filter_map(|(index, maybe_bin)| maybe_bin.as_ref().map(|bin| (index, bin.len())))
+    pub fn populated_bin_indices_and_lens<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (usize, usize)> + 'a {
+        self.bins.iter().enumerate().filter_map(
+            |(index, maybe_bin)| {
+                maybe_bin.as_ref().map(|bin| (index, bin.len()))
+            },
+        )
     }
 
     pub fn bin_len(&self, bin_index: usize) -> usize {
-        self.bins[bin_index].as_ref().expect("No bin at this index").len()
+        self.bins[bin_index]
+            .as_ref()
+            .expect("No bin at this index")
+            .len()
     }
 }
