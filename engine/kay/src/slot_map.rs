@@ -1,4 +1,4 @@
-use super::chunked::{Chunker, ChunkedVec};
+use super::chunky;
 
 #[derive(Clone, Copy)]
 pub struct SlotIndices {
@@ -27,18 +27,30 @@ impl SlotIndices {
     }
 }
 
+impl Into<chunky::MultiArenaIndex> for SlotIndices {
+    fn into(self) -> chunky::MultiArenaIndex {
+        chunky::MultiArenaIndex(self.bin(), chunky::ArenaIndex(self.slot()))
+    }
+}
+
+impl From<chunky::MultiArenaIndex> for SlotIndices {
+    fn from(source: chunky::MultiArenaIndex) -> Self {
+        Self::new(source.0, (source.1).0)
+    }
+}
+
 pub struct SlotMap {
-    entries: ChunkedVec<SlotIndices>,
-    last_known_version: ChunkedVec<u8>,
-    free_ids_with_versions: ChunkedVec<(usize, usize)>,
+    entries: chunky::Vector<SlotIndices, chunky::HeapHandler>,
+    last_known_version: chunky::Vector<u8, chunky::HeapHandler>,
+    free_ids_with_versions: chunky::Vector<(usize, usize), chunky::HeapHandler>,
 }
 
 impl SlotMap {
-    pub fn new(chunker: Box<Chunker>) -> Self {
+    pub fn new(ident: chunky::Ident) -> Self {
         SlotMap {
-            entries: ChunkedVec::new(chunker.child("_entries")),
-            last_known_version: ChunkedVec::new(chunker.child("_last_known_version")),
-            free_ids_with_versions: ChunkedVec::new(chunker.child("_free_ids_with_versions")),
+            entries: chunky::Vector::new(ident.sub("entries"), 1024 * 1024),
+            last_known_version: chunky::Vector::new(ident.sub("last_known_version"), 1024 * 1024),
+            free_ids_with_versions: chunky::Vector::new(ident.sub("free_ids_with_versions"), 1024),
         }
     }
 
