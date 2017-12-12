@@ -135,7 +135,7 @@ dependencies = [
  "descartes 0.1.0",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "imgui 0.0.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "itertools 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "itertools 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay 0.1.0",
  "kay_codegen 0.1.0",
  "monet 0.1.0",
@@ -484,6 +484,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "either 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "itoa"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -602,7 +610,7 @@ dependencies = [
  "descartes 0.1.0",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "glium 0.17.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "itertools 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "itertools 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay 0.1.0",
  "kay_codegen 0.1.0",
 ]
@@ -1364,6 +1372,7 @@ dependencies = [
 "checksum imgui-glium-renderer 0.0.15 (registry+https://github.com/rust-lang/crates.io-index)" = "7e02b8532c199eb34bb11b227def1d45160b6385ac0e6fa53e4db0c327837392"
 "checksum imgui-sys 0.0.15 (registry+https://github.com/rust-lang/crates.io-index)" = "fc1b00e488f946796f2a6b1156944bf2bc03f5ac5939691944ab81d7ee2359be"
 "checksum itertools 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)" = "d3f2be4da1690a039e9ae5fd575f706a63ad5a2120f161b1d653c9da3930dd21"
+"checksum itertools 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)" = "947aa0b9bb417792efa3936c5dada2d680b3bc27ea6a88ffa062f4c4d86ef8c5"
 "checksum itoa 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)" = "8324a32baf01e2ae060e9de58ed0bc2320c9a2833491ee36cd3b4c414de4db8c"
 "checksum kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"
 "checksum khronos_api 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d5a08e2a31d665af8f1ca437eab6d00a93c9d62a549f73f9ed8fc2e55b5a91a7"
