@@ -1,4 +1,4 @@
-use super::{N, P2, V2, Norm, Curve, FiniteCurve, RoughlyComparable, THICKNESS};
+use super::{N, P2, V2, Curve, FiniteCurve, RoughlyComparable, THICKNESS};
 use super::primitives::Segment;
 use super::intersect::{Intersect, Intersection};
 use ordered_float::OrderedFloat;

@@ -4,8 +4,8 @@ extern crate nalgebra;
 extern crate ncollide_transformation;
 extern crate ordered_float;
 
-use nalgebra::{Vector2, Point2, Vector3, Vector4, Point3, Isometry3, Perspective3, Matrix4};
-pub use nalgebra::{Dot, ToHomogeneous, Norm, Inverse, Rotate};
+use nalgebra::{Vector2, Point2, Vector3, Vector4, Point3, Isometry3, Perspective3, Matrix4, dot};
+pub use nalgebra::try_inverse;
 use std::f32::consts::PI;
 
 pub type N = f32;
@@ -33,7 +33,7 @@ pub use self::intersect::*;
 pub use self::shapes::*;
 
 pub fn angle_to(a: V2, b: V2) -> N {
-    let theta: N = a.dot(&b) / (a.norm() * b.norm());
+    let theta: N = dot(&a, &b) / (a.norm() * b.norm());
     theta.min(1.0).max(-1.0).acos()
 }
 

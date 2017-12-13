@@ -1,4 +1,4 @@
-use descartes::{N, P2, Norm, WithUniqueOrthogonal};
+use descartes::{N, P2, WithUniqueOrthogonal};
 use rand::Rng;
 use monet::{Vertex, Geometry};
 
@@ -196,8 +196,8 @@ impl Footprint {
 
     fn open_gable_roof_geometry(&self, base_height: N, angle: N) -> (Geometry, Geometry) {
         let roof_height = (self.back_right - self.front_right).norm() * angle.sin();
-        let mid_right = (self.back_right + self.front_right.to_vector()) / 2.0;
-        let mid_left = (self.back_left + self.front_left.to_vector()) / 2.0;
+        let mid_right = (self.back_right + self.front_right.coords) / 2.0;
+        let mid_left = (self.back_left + self.front_left.coords) / 2.0;
 
         let vertices =
             vec![
@@ -220,10 +220,10 @@ impl Footprint {
     }
 
     fn scale(&self, factor: f32) -> Footprint {
-        let center = ((self.back_left.to_vector() + self.back_right.to_vector() +
-                           self.front_left.to_vector() +
-                           self.front_right.to_vector()) / 4.0)
-            .to_point();
+        let center = P2::from_coordinates(
+            (self.back_left.coords + self.back_right.coords + self.front_left.coords +
+                 self.front_right.coords) / 4.0,
+        );
 
         Footprint {
             back_left: center + factor * (self.back_left - center),

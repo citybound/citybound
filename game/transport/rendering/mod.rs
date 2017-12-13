@@ -1,4 +1,4 @@
-use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Norm, Path, Dot, RoughlyComparable};
+use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Path, RoughlyComparable};
 use compact::CVec;
 use kay::{ActorSystem, World, Actor, TypedID};
 use monet::{Instance, Vertex, Geometry, Renderer, RendererID};

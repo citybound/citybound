@@ -1,6 +1,6 @@
 use kay::{ActorSystem, Fate, World, Actor};
 use compact::CVec;
-use descartes::{P2, N, Norm, Band, Into2d, Curve, FiniteCurve, Path, RoughlyComparable};
+use descartes::{P2, N, Band, Into2d, Curve, FiniteCurve, Path, RoughlyComparable};
 use stagemaster::geometry::{AnyShape, CPath};
 use planning::plan_manager::{PlanManagerID, Intent, IntentProgress};
 

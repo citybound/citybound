@@ -1,5 +1,5 @@
-use descartes::{N, P2, Path, Norm, Band, Intersect, convex_hull, Curve, FiniteCurve,
-                RoughlyComparable, Dot, WithUniqueOrthogonal, Segment, HasBoundingBox, BoundingBox};
+use descartes::{N, P2, Path, Band, Intersect, convex_hull, Curve, FiniteCurve, RoughlyComparable,
+                WithUniqueOrthogonal, Segment, HasBoundingBox, BoundingBox};
 use compact::{CVec, CDict};
 use stagemaster::geometry::CPath;
 use core::disjoint_sets::DisjointSets;
@@ -282,13 +282,11 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                                     .is_roughly_within(segment_1.end_direction(), 0.05)
                                 {
                                     Segment::arc_with_direction(
-                                        ((segment_1.start().to_vector()
-                                            + start_1_on_2.to_vector()) / 2.0)
-                                            .to_point(),
+                                        P2::from_coordinates((segment_1.start().coords
+                                            + start_1_on_2.coords) / 2.0),
                                         segment_1.start_direction(),
-                                        ((segment_1.end().to_vector()
-                                            + end_1_on_2.to_vector()) / 2.0)
-                                            .to_point(),
+                                        P2::from_coordinates((segment_1.end().coords
+                                            + end_1_on_2.coords) / 2.0),
                                     )
                                 } else {None}
                             }
@@ -303,13 +301,11 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                                     .is_roughly_within(segment_2.end_direction(), 0.05)
                                 {
                                     Segment::arc_with_direction(
-                                        ((segment_2.start().to_vector()
-                                            + start_2_on_1.to_vector()) / 2.0)
-                                            .to_point(),
+                                        P2::from_coordinates((segment_2.start().coords
+                                            + start_2_on_1.coords) / 2.0),
                                         segment_2.start_direction(),
-                                        ((segment_2.end().to_vector()
-                                            + end_2_on_1.to_vector()) / 2.0)
-                                            .to_point(),
+                                        P2::from_coordinates((segment_2.end().coords
+                                            + end_2_on_1.coords) / 2.0),
                                     )
                                 } else {None}
                             },
@@ -318,21 +314,19 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                                 let end_1_on_2 = segment_2.along(end_1_on_2_dist);
                                 if start_2_on_1.is_roughly_within(segment_2.start(), 6.0)
                                 && end_1_on_2.is_roughly_within(segment_1.end(), 6.0)
-                                && !start_2_on_1.to_vector()
-                                    .is_roughly_within(end_1_on_2.to_vector(), 6.0)
+                                && !start_2_on_1.coords
+                                    .is_roughly_within(end_1_on_2.coords, 6.0)
                                 && segment_1.direction_along(start_2_on_1_dist)
                                     .is_roughly_within(segment_2.start_direction(), 0.05)
                                 && segment_2.direction_along(end_1_on_2_dist)
                                     .is_roughly_within(segment_1.end_direction(), 0.05)
                                 {
                                     Segment::arc_with_direction(
-                                        ((segment_2.start().to_vector()
-                                            + start_2_on_1.to_vector()) / 2.0)
-                                            .to_point(),
+                                        P2::from_coordinates((segment_2.start().coords
+                                            + start_2_on_1.coords) / 2.0),
                                         segment_2.start_direction(),
-                                        ((segment_1.end().to_vector()
-                                            + end_1_on_2.to_vector()) / 2.0)
-                                            .to_point(),
+                                        P2::from_coordinates((segment_1.end().coords
+                                            + end_1_on_2.coords) / 2.0),
                                     )
                                 } else {None}
                             }
@@ -341,21 +335,19 @@ pub fn find_transfer_strokes(trimmed_strokes: &CVec<LaneStroke>) -> Vec<LaneStro
                                 let end_2_on_1 = segment_1.along(end_2_on_1_dist);
                                 if start_1_on_2.is_roughly_within(segment_1.start(), 6.0)
                                 && end_2_on_1.is_roughly_within(segment_2.end(), 6.0)
-                                && !start_1_on_2.to_vector()
-                                    .is_roughly_within(end_2_on_1.to_vector(), 6.0)
+                                && !start_1_on_2.coords
+                                    .is_roughly_within(end_2_on_1.coords, 6.0)
                                 && segment_2.direction_along(start_1_on_2_dist)
                                     .is_roughly_within(segment_1.start_direction(), 0.05)
                                 && segment_1.direction_along(end_2_on_1_dist)
                                     .is_roughly_within(segment_2.end_direction(), 0.05)
                                 {
                                     Segment::arc_with_direction(
-                                        ((segment_1.start().to_vector()
-                                            + start_1_on_2.to_vector()) / 2.0)
-                                            .to_point(),
+                                        P2::from_coordinates((segment_1.start().coords
+                                            + start_1_on_2.coords) / 2.0),
                                         segment_1.start_direction(),
-                                        ((segment_2.end().to_vector()
-                                            + end_2_on_1.to_vector()) / 2.0)
-                                            .to_point(),
+                                        P2::from_coordinates((segment_2.end().coords
+                                            + end_2_on_1.coords) / 2.0),
                                     )
                                 } else {None}
                             }

@@ -1,6 +1,6 @@
 use super::{N, P2, V2, Curve, FiniteCurve, WithUniqueOrthogonal, angle_along_to,
             RoughlyComparable, Intersect, Intersection, HasBoundingBox, BoundingBox};
-use nalgebra::{Dot, Norm, rotate, Vector1, Rotation2};
+use nalgebra::Rotation2;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Circle {
@@ -79,7 +79,7 @@ impl Segment {
             let angle_span = angle_along_to(start - center, direction, end - center);
             Some(Segment {
                 start: start,
-                center_or_direction: center.to_vector(),
+                center_or_direction: center.coords,
                 end: end,
                 length: angle_span * signed_radius.abs(),
                 signed_radius: signed_radius,
@@ -159,7 +159,7 @@ impl Segment {
                         //  ^    v    ^
                         //        \__/
                         (
-                            ((start.to_vector() + end.to_vector()) / 2.0).to_point(),
+                            P2::from_coordinates((start.coords + end.coords) / 2.0),
                             -start_direction,
                         )
                     } else {
@@ -227,7 +227,7 @@ impl Segment {
     }
 
     pub fn center(&self) -> P2 {
-        *self.center_or_direction.as_point()
+        P2::from_coordinates(self.center_or_direction)
     }
 
     pub fn radius(&self) -> N {
@@ -246,10 +246,7 @@ impl FiniteCurve for Segment {
         } else {
             let center_to_start = self.start - self.center();
             let angle_to_rotate = distance / -self.signed_radius;
-            let center_to_point = rotate(
-                &Rotation2::new(Vector1::new(angle_to_rotate)),
-                &center_to_start,
-            );
+            let center_to_point = Rotation2::new(angle_to_rotate) * center_to_start;
             self.center() + center_to_point
         }
     }
@@ -260,10 +257,7 @@ impl FiniteCurve for Segment {
         } else {
             let center_to_start = self.start - self.center();
             let angle_to_rotate = distance / -self.signed_radius;
-            let center_to_point = rotate(
-                &Rotation2::new(Vector1::new(angle_to_rotate)),
-                &center_to_start,
-            );
+            let center_to_point = Rotation2::new(angle_to_rotate) * center_to_start;
             center_to_point.normalize().orthogonal() * self.signed_radius.signum()
         }
     }

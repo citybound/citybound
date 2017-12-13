@@ -1,4 +1,4 @@
-use super::{Shape, N, P2, THICKNESS, Norm, Curve, FiniteCurve};
+use super::{Shape, N, P2, THICKNESS, Curve, FiniteCurve};
 use super::path::Path;
 use super::primitives::{Circle, Segment};
 
