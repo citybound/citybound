@@ -1,8 +1,7 @@
 
 use glium;
 
-pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
-                    WithUniqueOrthogonal, Inverse, Rotate};
+pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, Into2d, Into3d, WithUniqueOrthogonal};
 
 use glium::Surface;
 use glium::backend::glutin::Display;
@@ -40,7 +39,7 @@ impl RenderContext {
             scene.eye.field_of_view,
             0.1,
             50000.0,
-        ).to_matrix()
+        ).as_matrix()
             .as_ref();
 
         let uniforms =

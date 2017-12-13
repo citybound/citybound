@@ -1,6 +1,4 @@
-
-pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
-                    WithUniqueOrthogonal, Inverse, Rotate};
+pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, Into2d, Into3d, WithUniqueOrthogonal};
 use kay::World;
 
 use {Renderer, RendererID, Eye};
@@ -82,16 +80,17 @@ impl Renderer {
 
         // Scale the distance from eye.target to zoom_point
         // with the scale between zoom distances
-        eye.target = ((new_zoom_distance * (eye.target - zoom_point)) / zoom_distance +
-                          zoom_point.to_vector())
-            .to_point();
+        eye.target = P3::from_coordinates(
+            (new_zoom_distance * (eye.target - zoom_point)) / zoom_distance +
+                zoom_point.coords,
+        );
     }
 
     fn movement_yaw(&mut self, scene_id: usize, delta: N) {
         let eye = &mut self.scenes[scene_id].eye;
         let relative_eye_position = eye.position - eye.target;
         let iso = Iso3::new(V3::new(0.0, 0.0, 0.0), V3::new(0.0, 0.0, delta));
-        let rotated_relative_eye_position = iso.rotate(&relative_eye_position);
+        let rotated_relative_eye_position = iso * relative_eye_position;
 
         eye.position = eye.target + rotated_relative_eye_position;
     }

@@ -1,6 +1,6 @@
 use kay::{ActorSystem, World, External, TypedID, Actor};
 use compact::CVec;
-use descartes::{P2, V2, Norm, Curve};
+use descartes::{P2, V2, Curve};
 use stagemaster::combo::{Bindings, Combo2};
 use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID};
 use stagemaster::combo::Button::*;
