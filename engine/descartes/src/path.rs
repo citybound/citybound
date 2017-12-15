@@ -46,7 +46,7 @@ pub trait Path: Sized + Clone {
     fn contains(&self, point: P2) -> bool {
         let ray = Segment::line(point, P2::new(point.x + 10000000000.0, point.y))
             .expect("Ray should be valid");
-        (self, &Self::new(vec![ray].into())).intersect().len() % 2 == 1
+        (self, &Self::new(vec![ray])).intersect().len() % 2 == 1
     }
 
     fn self_intersections(&self) -> Vec<Intersection> {

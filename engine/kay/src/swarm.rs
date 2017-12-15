@@ -34,7 +34,7 @@ impl<A: Actor + Clone> Swarm<A> {
                 A::typical_size(),
             ),
             n_instances: chunky::Value::load_or_default(ident.sub("n_instances"), 0),
-            slot_map: SlotMap::new(ident.sub("slot_map")),
+            slot_map: SlotMap::new(&ident.sub("slot_map")),
             _marker: PhantomData,
         }
     }
@@ -92,8 +92,9 @@ impl<A: Actor + Clone> Swarm<A> {
                 Some(ptr) => {
                     let swapped_actor = &*(ptr as *mut A);
                     self.slot_map.associate(
-                        swapped_actor.id().as_raw().instance_id as usize,
-                        indices.into(),
+                        swapped_actor.id().as_raw().instance_id as
+                            usize,
+                        indices,
                     );
                     true
                 }
@@ -197,7 +198,7 @@ impl<A: Actor + Clone> Swarm<A> {
             for _ in 0..recipients_todo {
                 let index = SlotIndices::new(bin_index, slot);
                 let (fate, is_still_compact, id) = {
-                    let actor = self.at_index_mut(index.into());
+                    let actor = self.at_index_mut(index);
                     let fate = handler(&packet.message, actor, world);
                     (fate, actor.is_still_compact(), actor.id().as_raw())
                 };

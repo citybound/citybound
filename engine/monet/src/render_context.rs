@@ -17,9 +17,9 @@ pub struct RenderContext {
 
 impl RenderContext {
     #[allow(redundant_closure)]
-    pub fn new(window: External<Display>, clear_color: (f32, f32, f32, f32)) -> RenderContext {
+    pub fn new(window: &External<Display>, clear_color: (f32, f32, f32, f32)) -> RenderContext {
         RenderContext {
-            batch_program: program!(&*window, 140 => {
+            batch_program: program!(&**window, 140 => {
                 vertex: include_str!("shader/solid_140.glslv"),
                 fragment: include_str!("shader/solid_140.glslf")
             }).unwrap(),

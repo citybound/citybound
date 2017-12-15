@@ -4,12 +4,12 @@ use core::random::{seed, Rng};
 
 // names taken from https://github.com/icebob/fakerator
 
-const FIRST_NAMES: [&'static str; 3007] = include!("first_names.txt");
+const FIRST_NAMES: [&str; 3007] = include!("first_names.txt");
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
-const LAST_NAMES: [&'static str; 474] = include!("last_names.txt");
+const LAST_NAMES: [&str; 474] = include!("last_names.txt");
 
-const PATREON_NAMES: [(&'static str, &'static str); 37] = include!("patron_names.txt");
+const PATREON_NAMES: [(&str, &str); 37] = include!("patron_names.txt");
 
 pub fn family_name(id: FamilyID) -> &'static str {
     let mut rng = seed(id);

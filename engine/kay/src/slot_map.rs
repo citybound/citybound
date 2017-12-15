@@ -46,7 +46,7 @@ pub struct SlotMap {
 }
 
 impl SlotMap {
-    pub fn new(ident: chunky::Ident) -> Self {
+    pub fn new(ident: &chunky::Ident) -> Self {
         SlotMap {
             entries: chunky::Vector::new(ident.sub("entries"), 1024 * 1024),
             last_known_version: chunky::Vector::new(ident.sub("last_known_version"), 1024 * 1024),

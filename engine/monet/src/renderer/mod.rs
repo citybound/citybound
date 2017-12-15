@@ -58,7 +58,7 @@ impl Renderer {
                     .iter()
                     .map(|description| description.to_scene())
                     .collect(),
-                render_context: RenderContext::new(window.clone(), clear_color),
+                render_context: RenderContext::new(window, clear_color),
             }),
         }
     }
@@ -78,7 +78,7 @@ impl Renderer {
         prototype: &Geometry,
         _: &mut World,
     ) {
-        let batch = Batch::new(prototype.clone(), &self.render_context.window);
+        let batch = Batch::new(prototype, &self.render_context.window);
         self.scenes[scene_id].batches.insert(batch_id, batch);
     }
 
@@ -93,7 +93,7 @@ impl Renderer {
         _: &mut World,
     ) {
         let individual = Batch::new_individual(
-            geometry.clone(),
+            geometry,
             *instance_info,
             is_decal,
             &self.render_context.window,

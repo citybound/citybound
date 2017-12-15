@@ -388,7 +388,7 @@ pub struct Batch {
 }
 
 impl Batch {
-    pub fn new(prototype: Geometry, window: &Display) -> Batch {
+    pub fn new(prototype: &Geometry, window: &Display) -> Batch {
         Batch {
             vertices: glium::VertexBuffer::new(window, &prototype.vertices).unwrap(),
             indices: glium::IndexBuffer::new(
@@ -405,7 +405,7 @@ impl Batch {
     }
 
     pub fn new_individual(
-        geometry: Geometry,
+        geometry: &Geometry,
         instance: Instance,
         is_decal: bool,
         window: &Display,

@@ -127,8 +127,8 @@ impl<K: Eq, V: Clone> Entry<K, V> {
         self.inner.as_mut().map(|kv| &mut kv.1)
     }
 
-    fn is_this(&self, key: K) -> bool {
-        self.inner.as_ref().map_or(false, |kv| kv.0 == key)
+    fn is_this(&self, key: &K) -> bool {
+        self.inner.as_ref().map_or(false, |kv| &kv.0 == key)
     }
 
     fn into_tuple(self) -> (K, V) {
@@ -227,6 +227,7 @@ impl<T: Default, A: Allocator> CompactArray<T, A> {
     }
 
     /// Create a new, empty vector
+    #[allow(new_without_default_derive)]
     pub fn new() -> CompactArray<T, A> {
         CompactArray {
             ptr: PointerToMaybeCompact::default(),
@@ -604,7 +605,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
             if entry.free() {
                 entry.make_used(hash, query, value);
                 return None;
-            } else if entry.is_this(query) {
+            } else if entry.is_this(&query) {
                 return entry.replace_value(value);
             }
         }
@@ -623,7 +624,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     fn remove_inner_inner(&mut self, query: K) -> Option<V> {
         let hash = Self::hash(query);
         for entry in self.quadratic_iterator_mut(hash) {
-            if entry.is_this(query) {
+            if entry.is_this(&query) {
                 return entry.remove();
             }
         }
@@ -648,7 +649,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     fn find_used(&self, query: K) -> Option<&Entry<K, V>> {
         for entry in self.quadratic_iterator(query) {
-            if entry.is_this(query) {
+            if entry.is_this(&query) {
                 return Some(entry);
             }
         }
@@ -658,7 +659,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     fn find_used_mut(&mut self, query: K) -> Option<&mut Entry<K, V>> {
         let h = Self::hash(query);
         for entry in self.quadratic_iterator_mut(h) {
-            if entry.is_this(query) {
+            if entry.is_this(&query) {
                 return Some(entry);
             }
         }
@@ -768,7 +769,7 @@ impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator>
         self.ensure_capacity();
         let hash = Self::hash(query);
         for entry in self.quadratic_iterator_mut(hash) {
-            if entry.is_this(query) {
+            if entry.is_this(&query) {
                 entry.mut_value().push(item);
                 return false;
             } else if !entry.used() {

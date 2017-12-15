@@ -10,7 +10,7 @@ pub struct Inbox {
 const CHUNK_SIZE: usize = 1024 * 1024 * 4; // 64MB
 
 impl Inbox {
-    pub fn new(ident: chunky::Ident) -> Self {
+    pub fn new(ident: &chunky::Ident) -> Self {
         Inbox { queue: chunky::Queue::new(ident, CHUNK_SIZE) }
     }
 

@@ -21,10 +21,12 @@ use std::ops::{Deref, DerefMut};
 extern crate allocators;
 use allocators::{Allocator, DefaultHeap};
 
+/// Identifies a chunk or chunk group uniquely - to be used for persistence
 #[derive(Clone)]
 pub struct Ident(pub String);
 
 impl Ident {
+    /// Create a sub-identifier within a group
     pub fn sub<T: ::std::fmt::Display>(&self, suffix: T) -> Ident {
         Ident(format!("{}:{}", self.0, suffix))
     }
@@ -43,21 +45,25 @@ struct Chunk<H: Handler> {
 }
 
 impl<H: Handler> Chunk<H> {
+    /// load a chunk with a given identifier, or create it if it didn't exist
     pub fn load_or_create(ident: Ident, size: usize) -> (Chunk<H>, bool) {
         let (ptr, created_new) = H::load_or_create_chunk(ident, size);
         (Chunk { ptr, size, _h: PhantomData }, created_new)
     }
 
+    /// load a chunk with a given identifier, assumes it exists
     pub fn load(ident: Ident) -> Chunk<H> {
         let (ptr, size) = H::load_chunk(ident);
         Chunk { ptr, size, _h: PhantomData }
     }
 
+    /// load a chunk with a given identifier, assumes it doesn't exist
     pub fn create(ident: Ident, size: usize) -> Chunk<H> {
         let ptr = H::create_chunk(ident, size);
         Chunk { ptr, size, _h: PhantomData }
     }
 
+    /// destroy a chunk and delete any persisted representation
     pub fn forget_forever(self) {
         unsafe {
             H::destroy_chunk(self.ptr, self.size);
@@ -72,18 +78,25 @@ impl<H: Handler> Drop for Chunk<H> {
     }
 }
 
+/// A strategy for managing chunks
 pub trait Handler: Sized {
+    /// Create a new chunk with a given identifier, assumes it doesn't exist
     fn create_chunk(ident: Ident, size: usize) -> *mut u8;
+    /// Load a chunk with a given identifier, or create it if it doesn't exist
     fn load_or_create_chunk(ident: Ident, size: usize) -> (*mut u8, bool);
+    /// Load a chunk with a given identifier, assumes it exists
     fn load_chunk(ident: Ident) -> (*mut u8, usize);
+    /// Deallocate a chunk, but keep any persisted representation of it
     unsafe fn unload_chunk(ptr: *mut u8, size: usize);
+    /// Deallocate a chunk and delete any persisted representation of it
     unsafe fn destroy_chunk(ptr: *mut u8, size: usize);
 }
 
+/// A `Handler` that allocates chunks on the heap
 pub struct HeapHandler;
 
 impl Handler for HeapHandler {
-    fn create_chunk(ident: Ident, size: usize) -> *mut u8 {
+    fn create_chunk(_ident: Ident, size: usize) -> *mut u8 {
         //println!("Allocating chunk {} of size {}", ident.0, size);
         DefaultHeap::allocate(size)
     }
@@ -105,12 +118,14 @@ impl Handler for HeapHandler {
     }
 }
 
+/// A single value stored in a chunk
 pub struct Value<V, H: Handler> {
     chunk: Chunk<H>,
     _marker: PhantomData<*mut V>,
 }
 
 impl<V, H: Handler> Value<V, H> {
+    /// Load the value in the chunk with the given identifier, or create it using a default value
     pub fn load_or_default(ident: Ident, default: V) -> Value<V, H> {
         let (chunk, created_new) = Chunk::load_or_create(ident, mem::size_of::<V>());
 
@@ -146,9 +161,11 @@ impl<V, H: Handler> Drop for Value<V, H> {
     }
 }
 
+/// Refers to an item within an `Arena`
 #[derive(Copy, Clone)]
 pub struct ArenaIndex(pub usize);
 
+/// Stores items of a fixed (max) size consecutively in a collection of chunks
 pub struct Arena<H: Handler> {
     ident: Ident,
     chunks: Vec<Chunk<H>>,
@@ -158,6 +175,7 @@ pub struct Arena<H: Handler> {
 }
 
 impl<H: Handler> Arena<H> {
+    /// Create a new arena given a chunk group identifier, chunk size and (max) item size
     pub fn new(ident: Ident, chunk_size: usize, item_size: usize) -> Arena<H> {
         assert!(chunk_size >= item_size);
 
@@ -349,7 +367,7 @@ enum NextItemRef {
 
 impl<H: Handler> Queue<H> {
     /// Create a new queue
-    pub fn new(ident: Ident, typical_chunk_size: usize) -> Self {
+    pub fn new(ident: &Ident, typical_chunk_size: usize) -> Self {
         let mut queue = Queue {
             first_chunk_at: Value::load_or_default(ident.sub("first_chunk"), 0),
             last_chunk_at: Value::load_or_default(ident.sub("last_chunk"), 0),
@@ -493,6 +511,7 @@ impl<H: Handler> Queue<H> {
     }
 }
 
+/// Refers to an item in a `MultiArena`
 #[derive(Copy, Clone)]
 pub struct MultiArenaIndex(pub usize, pub ArenaIndex);
 
@@ -553,7 +572,7 @@ impl<H: Handler> MultiArena<H> {
 
         let maybe_bin = &mut self.bins[index];
 
-        if let &mut Some(ref mut bin) = maybe_bin {
+        if let Some(ref mut bin) = *maybe_bin {
             bin
         } else {
             self.used_bin_sizes.push(size_rounded_up);
@@ -567,6 +586,7 @@ impl<H: Handler> MultiArena<H> {
         }
     }
 
+    /// Get an (untyped) pointer to the item at the given index
     pub fn at(&self, index: MultiArenaIndex) -> *const u8 {
         unsafe {
             self.bins[index.0]
@@ -576,6 +596,7 @@ impl<H: Handler> MultiArena<H> {
         }
     }
 
+    /// Get an (untyped) mutable pointer to the item at the given index
     pub fn at_mut(&mut self, index: MultiArenaIndex) -> *mut u8 {
         unsafe {
             self.bins[index.0]
@@ -585,6 +606,7 @@ impl<H: Handler> MultiArena<H> {
         }
     }
 
+    /// Add an item to the end of the bin corresponding to its size
     pub fn push(&mut self, size: usize) -> (*mut u8, MultiArenaIndex) {
         let bin_index = self.size_to_index(size);
         let bin = &mut self.get_or_insert_bin_for_size(size);
@@ -592,6 +614,7 @@ impl<H: Handler> MultiArena<H> {
         (ptr, MultiArenaIndex(bin_index, arena_index))
     }
 
+    /// Remove the item referenced by `index` from its bin by swapping with the bin's last item
     pub fn swap_remove_within_bin(&mut self, index: MultiArenaIndex) -> Option<*const u8> {
         unsafe {
             self.bins[index.0]
@@ -601,6 +624,7 @@ impl<H: Handler> MultiArena<H> {
         }
     }
 
+    /// Return indices of bins that actually contain items and their respective lengths
     pub fn populated_bin_indices_and_lens<'a>(
         &'a self,
     ) -> impl Iterator<Item = (usize, usize)> + 'a {
@@ -611,6 +635,7 @@ impl<H: Handler> MultiArena<H> {
         )
     }
 
+    /// Get the length of the bin of the given bin index
     pub fn bin_len(&self, bin_index: usize) -> usize {
         self.bins[bin_index]
             .as_ref()

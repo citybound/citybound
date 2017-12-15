@@ -28,7 +28,7 @@ extern crate serde_derive;
 
 use stagemaster::environment::Environment;
 
-pub const ENV: &'static Environment = &Environment {
+pub const ENV: &Environment = &Environment {
     name: "Citybound",
     author: "ae play",
     version: "0.3.0",

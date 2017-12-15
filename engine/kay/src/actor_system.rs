@@ -20,7 +20,7 @@ pub trait StorageAware: Sized {
 impl<T> StorageAware for T {}
 
 /// Trait that Actors instance have to implement for a [`Swarm`](struct.Swarm.html)
-/// so their internally stored instance RawID can be gotten and set.
+/// so their internally stored instance `RawID` can be gotten and set.
 ///
 /// Furthermore, an `Actor` has to implement [`Compact`](../../compact), so a `Swarm`
 /// can compactly store each `Actor`'s potentially dynamically-sized state.
@@ -28,34 +28,45 @@ impl<T> StorageAware for T {}
 /// This trait can is auto-derived when using the
 /// [`kay_codegen`](../../kay_codegen/index.html) build script.
 pub trait Actor: Compact + StorageAware + 'static {
+    /// The unique `TypedID` of this actor
     type ID: TypedID;
-    /// Get the full TypedID (Actor type id + instance id) of `self`
+    /// Get `TypedID` of this actor
     fn id(&self) -> Self::ID;
-    /// Set the full RawID (Actor type id + instance id) of `self` (called internally by `Swarm`)
+    /// Set the full RawID (Actor type id + instance id)
+    /// of this actor (only used internally by `Swarm`)
     unsafe fn set_id(&mut self, id: RawID);
 
+    /// Get the id of this actor as an actor trait `TypedID`
+    /// (available if the actor implements the corresponding trait)
     fn id_as<TargetID: TraitIDFrom<Self>>(&self) -> TargetID {
         TargetID::from(self.id())
     }
 
+    /// Get the `TypedID` of the local first actor of this kind
     fn local_first(world: &mut World) -> Self::ID {
         unsafe { Self::ID::from_raw(world.local_first::<Self>()) }
     }
 
+    /// Get the `TypedID` of the global first actor of this kind
     fn global_first(world: &mut World) -> Self::ID {
         unsafe { Self::ID::from_raw(world.global_first::<Self>()) }
     }
 
+    /// Get the `TypedID` representing a local broadcast to actors of this type
     fn local_broadcast(world: &mut World) -> Self::ID {
         unsafe { Self::ID::from_raw(world.local_broadcast::<Self>()) }
     }
 
+    /// Get the `TypedID` representing a global broadcast to actors of this type
     fn global_broadcast(world: &mut World) -> Self::ID {
         unsafe { Self::ID::from_raw(world.global_broadcast::<Self>()) }
     }
 }
 
+/// Helper trait that signifies that an actor's `TypedID` can be converted
+/// to an actor trait `TypedID` if that actor implements the corresponding trait.
 pub trait TraitIDFrom<A: Actor>: TypedID {
+    /// Construct the actor trait `TypedID` from an actor's `TypedID`
     fn from(id: <A as Actor>::ID) -> Self {
         unsafe { Self::from_raw(id.as_raw()) }
     }
@@ -77,7 +88,9 @@ const MAX_MESSAGE_TYPES: usize = 256;
 ///
 /// It can be controlled from the outside to do message passing and handling in turns.
 pub struct ActorSystem {
+    /// Flag that the system is in a panicked state
     pub panic_happened: bool,
+    /// Flag that the system is shutting down
     pub shutting_down: bool,
     inboxes: [Option<Inbox>; MAX_RECIPIENT_TYPES],
     actor_registry: TypeRegistry,
@@ -132,7 +145,7 @@ impl ActorSystem {
         assert!(self.inboxes[actor_id.as_usize()].is_none());
         let actor_name = unsafe { ::std::intrinsics::type_name::<A>() };
         self.inboxes[actor_id.as_usize()] =
-            Some(Inbox::new(::chunky::Ident::from(actor_name).sub("inbox")));
+            Some(Inbox::new(&::chunky::Ident::from(actor_name).sub("inbox")));
         // ...but still make sure it is only added once
         assert!(self.swarms[actor_id.as_usize()].is_none());
         // Store pointer to the actor
