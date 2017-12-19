@@ -302,6 +302,7 @@ use core::random::seed;
 pub fn on_add(id: BuildingID, lot: &Lot, building_type: BuildingStyle, world: &mut World) {
     // TODO: not sure if correct
     UserInterface::local_first(world).add(
+        ::ui_layers::INFO_LAYER,
         id.into(),
         AnyShape::Circle(Circle { center: lot.position, radius: 5.0 }),
         10,
@@ -320,7 +321,7 @@ pub fn on_add(id: BuildingID, lot: &Lot, building_type: BuildingStyle, world: &m
 }
 
 pub fn on_destroy(building_id: BuildingID, world: &mut World) {
-    UserInterface::local_first(world).remove(building_id.into(), world);
+    UserInterface::local_first(world).remove(::ui_layers::INFO_LAYER, building_id.into(), world);
     BuildingRenderer::local_first(world).remove_geometry(building_id, world);
 }
 

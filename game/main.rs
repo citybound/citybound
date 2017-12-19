@@ -38,6 +38,7 @@ mod core;
 mod transport;
 mod planning;
 mod economy;
+mod ui_layers;
 
 use kay::Actor;
 use compact::CVec;
@@ -102,6 +103,7 @@ fn main() {
         );
 
         simulation.add_to_ui(user_interface, world);
+        ui_layers::setup(&mut system, user_interface);
 
         core::init::set_error_hook(user_interface, system.world());
 

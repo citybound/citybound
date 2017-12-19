@@ -21,12 +21,18 @@ impl Deselecter {
         plan_manager: PlanManagerID,
         world: &mut World,
     ) -> Deselecter {
-        user_interface.add(id.into(), AnyShape::Everywhere, 2, world);
+        user_interface.add(
+            ::ui_layers::ROAD_LAYER,
+            id.into(),
+            AnyShape::Everywhere,
+            2,
+            world,
+        );
         Deselecter { id, plan_manager }
     }
 
     pub fn clear(&mut self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(self.id_as(), world);
+        user_interface.remove(::ui_layers::ROAD_LAYER, self.id_as(), world);
         Fate::Die
     }
 }
@@ -59,6 +65,7 @@ impl Addable {
         world: &mut World,
     ) -> Addable {
         user_interface.add(
+            ::ui_layers::ROAD_LAYER,
             id.into(),
             AnyShape::Band(Band::new(path.clone(), 3.0)),
             3,
@@ -69,7 +76,7 @@ impl Addable {
     }
 
     pub fn clear(&mut self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(self.id_as(), world);
+        user_interface.remove(::ui_layers::ROAD_LAYER, self.id_as(), world);
         Fate::Die
     }
 }
@@ -124,6 +131,7 @@ impl Draggable {
         world: &mut World,
     ) -> Draggable {
         user_interface.add(
+            ::ui_layers::ROAD_LAYER,
             id.into(),
             AnyShape::Band(Band::new(path.clone(), 5.0)),
             4,
@@ -139,7 +147,7 @@ impl Draggable {
     }
 
     pub fn clear(&mut self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(self.id_as(), world);
+        user_interface.remove(::ui_layers::ROAD_LAYER, self.id_as(), world);
         Fate::Die
     }
 }
@@ -197,6 +205,7 @@ impl Selectable {
         world: &mut World,
     ) -> Selectable {
         user_interface.add(
+            ::ui_layers::ROAD_LAYER,
             id.into(),
             AnyShape::Band(Band::new(path.clone(), 5.0)),
             3,
@@ -212,7 +221,7 @@ impl Selectable {
     }
 
     pub fn clear(&mut self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(self.id_as(), world);
+        user_interface.remove(::ui_layers::ROAD_LAYER, self.id_as(), world);
         Fate::Die
     }
 }
@@ -347,7 +356,13 @@ impl StrokeCanvas {
         plan_manager: PlanManagerID,
         world: &mut World,
     ) -> StrokeCanvas {
-        user_interface.add(id.into(), AnyShape::Everywhere, 1, world);
+        user_interface.add(
+            ::ui_layers::ROAD_LAYER,
+            id.into(),
+            AnyShape::Everywhere,
+            1,
+            world,
+        );
         StrokeCanvas { id, points: CVec::new(), plan_manager }
     }
 
@@ -357,7 +372,7 @@ impl StrokeCanvas {
 
     // probably never called
     pub fn clear(&mut self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(self.id_as(), world);
+        user_interface.remove(::ui_layers::ROAD_LAYER, self.id_as(), world);
         Fate::Die
     }
 }

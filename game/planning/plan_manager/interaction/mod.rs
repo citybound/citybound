@@ -52,7 +52,13 @@ impl Interaction {
         renderer_id: RendererID,
         id: PlanManagerID,
     ) -> Interaction {
-        user_interface.add(id.into(), AnyShape::Everywhere, 0, world);
+        user_interface.add(
+            ::ui_layers::BASE_LAYER,
+            id.into(),
+            AnyShape::Everywhere,
+            0,
+            world,
+        );
         user_interface.add_2d(id.into(), world);
         user_interface.focus(id.into(), world);
         Interaction {
