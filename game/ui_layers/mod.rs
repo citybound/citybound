@@ -1,5 +1,6 @@
-use kay::{ActorSystem, External, World};
-use stagemaster::{Interactable2d, Interactable2dID, UserInterfaceID, UserInterfaceLayer};
+use kay::{Actor, ActorSystem, World};
+use stagemaster::{Interactable2d, Interactable2dID, UserInterface, UserInterfaceID,
+                  UserInterfaceLayer};
 use imgui::ImGuiSetCond_FirstUseEver;
 
 pub const BASE_LAYER: UserInterfaceLayer = UserInterfaceLayer(0);
@@ -23,27 +24,18 @@ impl LayerSelection {
 }
 
 impl Interactable2d for LayerSelection {
-    fn draw_ui_2d(
-        &mut self,
-        imgui_ui: &External<::imgui::Ui<'static>>,
-        return_to: UserInterfaceID,
-        world: &mut World,
-    ) {
-        let ui = imgui_ui.steal();
-
+    fn draw(&mut self, world: &mut World, ui: &::imgui::Ui<'static>) {
         ui.window(im_str!("UI Mode"))
             .size((200.0, 50.0), ImGuiSetCond_FirstUseEver)
             .collapsible(false)
             .build(|| {
                 if ui.small_button(im_str!("Roads")) {
-                    return_to.set_current_layer(Some(ROAD_LAYER), world);
+                    UserInterface::local_first(world).set_current_layer(Some(ROAD_LAYER), world);
                 }
                 if ui.small_button(im_str!("Info")) {
-                    return_to.set_current_layer(Some(INFO_LAYER), world);
+                    UserInterface::local_first(world).set_current_layer(Some(INFO_LAYER), world);
                 }
             });
-
-        return_to.ui_drawn(ui, world);
     }
 }
 

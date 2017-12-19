@@ -203,14 +203,7 @@ use imgui_sys::ImGuiSetCond_FirstUseEver;
 
 impl Interactable2d for CameraControl {
     /// Critical
-    fn draw_ui_2d(
-        &mut self,
-        imgui_ui: &External<::imgui::Ui<'static>>,
-        return_to: UserInterfaceID,
-        world: &mut World,
-    ) {
-        let ui = imgui_ui.steal();
-
+    fn draw(&mut self, _: &mut World, ui: &::imgui::Ui<'static>) {
         let mut settings_changed = false;
 
         ui.window(im_str!("Controls"))
@@ -242,8 +235,6 @@ impl Interactable2d for CameraControl {
         if settings_changed {
             self.env.write_settings("Camera Control", &*self.settings);
         }
-
-        return_to.ui_drawn(ui, world);
     }
 }
 

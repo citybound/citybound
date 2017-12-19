@@ -54,7 +54,15 @@ pub trait Interactable2d {
         imgui_ui: &External<::imgui::Ui<'static>>,
         return_to: UserInterfaceID,
         world: &mut World,
-    );
+    ) {
+        let ui = imgui_ui.steal();
+        self.draw(world, &*ui);
+        return_to.ui_drawn(ui, world);
+    }
+
+    fn draw(&mut self, _world: &mut World, _ui: &::imgui::Ui<'static>) {
+        unimplemented!()
+    }
 }
 
 #[derive(Compact, Clone)]

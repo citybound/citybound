@@ -89,17 +89,10 @@ impl Simulation {
     }
 }
 
-use kay::External;
 use stagemaster::{Interactable2d, Interactable2dID};
 
 impl Interactable2d for Simulation {
-    fn draw_ui_2d(
-        &mut self,
-        imgui_ui: &External<::imgui::Ui<'static>>,
-        return_to: UserInterfaceID,
-        world: &mut World,
-    ) {
-        let ui = imgui_ui.steal();
+    fn draw(&mut self, world: &mut World, ui: &::imgui::Ui<'static>) {
         ui.window(im_str!("Controls")).build(|| {
             ui.text(im_str!("Simulation"));
             ui.separator();
@@ -109,8 +102,6 @@ impl Interactable2d for Simulation {
                 .build();
             ui.spacing();
         });
-
-        return_to.ui_drawn(ui, world);
     }
 }
 
