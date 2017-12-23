@@ -1,14 +1,14 @@
-use kay::{ActorSystem, World, Actor};
-use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, Instant, Simulatable, SimulatableID,
-                       SimulationID, Ticks};
+use kay::{Actor, ActorSystem, World};
+use core::simulation::{Duration, Instant, Simulatable, SimulatableID, SimulationID, Ticks,
+                       TimeOfDay, TimeOfDayRange};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
-use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
+use economy::market::{Deal, EvaluatedSearchResult, EvaluationRequester, EvaluationRequesterID};
 use economy::buildings::BuildingID;
 use transport::pathfinding::RoughLocationID;
-use transport::pathfinding::trip::{TripListener, TripListenerID, TripID, TripResult};
+use transport::pathfinding::trip::{TripID, TripListener, TripListenerID, TripResult};
 
-use super::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer};
+use super::{Household, HouseholdCore, HouseholdID, MemberIdx, Offer};
 
 #[derive(Compact, Clone)]
 pub struct NeighboringTownTrade {
@@ -30,9 +30,9 @@ impl NeighboringTownTrade {
             Offer::new(
                 MemberIdx(0),
                 TimeOfDayRange::new(5, 0, 15, 0),
-                Deal::new(Some((Resource::Money, 50.0)), Duration::from_hours(5)),
+                Deal::new(vec![(Resource::Money, 50.0)], Duration::from_hours(5)),
                 300,
-                false
+                false,
             ),
             // Offer::new(
             //     MemberIdx(0),
@@ -62,7 +62,7 @@ impl NeighboringTownTrade {
                     Duration::from_minutes(30),
                 ),
                 32,
-                false
+                false,
             ),
             Offer::new(
                 MemberIdx(0),
@@ -72,7 +72,7 @@ impl NeighboringTownTrade {
                     Duration::from_minutes(10),
                 ),
                 8,
-                false
+                false,
             ),
             Offer::new(
                 MemberIdx(0),
@@ -82,7 +82,7 @@ impl NeighboringTownTrade {
                     Duration::from_minutes(10),
                 ),
                 8,
-                false
+                false,
             ),
             Offer::new(
                 MemberIdx(0),
@@ -92,7 +92,7 @@ impl NeighboringTownTrade {
                     Duration::from_minutes(10),
                 ),
                 8,
-                false
+                false,
             ),
             Offer::new(
                 MemberIdx(0),
@@ -105,7 +105,7 @@ impl NeighboringTownTrade {
                     Duration::from_minutes(10),
                 ),
                 60,
-                false
+                false,
             ),
             Offer::new(
                 MemberIdx(0),
@@ -115,7 +115,7 @@ impl NeighboringTownTrade {
                     Duration::from_minutes(10),
                 ),
                 8,
-                false
+                false,
             ),
             Offer::new(
                 MemberIdx(0),
@@ -128,7 +128,7 @@ impl NeighboringTownTrade {
                     Duration::from_minutes(10),
                 ),
                 8,
-                false
+                false,
             ),
             // Offer::new(
             //     MemberIdx(0),
@@ -273,7 +273,6 @@ impl EvaluationRequester for NeighboringTownTrade {
         );
     }
 }
-
 
 impl TripListener for NeighboringTownTrade {
     fn trip_created(&mut self, trip: TripID, world: &mut World) {

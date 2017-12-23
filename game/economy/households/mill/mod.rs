@@ -1,12 +1,11 @@
-use kay::{ActorSystem, World, TypedID, Actor};
-use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, SimulationID, Ticks};
+use kay::{Actor, ActorSystem, TypedID, World};
+use core::simulation::{Duration, SimulationID, Ticks, TimeOfDay, TimeOfDayRange};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
-use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
+use economy::market::{Deal, EvaluatedSearchResult, EvaluationRequester, EvaluationRequesterID};
 use economy::buildings::BuildingID;
 
-use super::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer};
-
+use super::{Household, HouseholdCore, HouseholdID, MemberIdx, Offer};
 
 #[derive(Compact, Clone)]
 pub struct Mill {
@@ -46,7 +45,7 @@ impl Mill {
                     Offer::new(
                         MemberIdx(0),
                         TimeOfDayRange::new(5, 0, 15, 0),
-                        Deal::new(Some((Resource::Money, 40.0)), Duration::from_hours(4)),
+                        Deal::new(vec![(Resource::Money, 40.0)], Duration::from_hours(4)),
                         3,
                         false
                     ),
@@ -119,7 +118,7 @@ impl Household for Mill {
     }
 }
 
-use core::simulation::{Simulatable, SimulatableID, Sleeper, SleeperID, Instant,
+use core::simulation::{Instant, Simulatable, SimulatableID, Sleeper, SleeperID,
                        TICKS_PER_SIM_SECOND};
 const UPDATE_EVERY_N_SECS: usize = 4;
 
@@ -144,7 +143,7 @@ impl EvaluationRequester for Mill {
     fn on_result(&mut self, _e: &EvaluatedSearchResult, _: &mut World) {}
 }
 
-use transport::pathfinding::{RoughLocationID, RoughLocation, RoughLocationResolve};
+use transport::pathfinding::{RoughLocation, RoughLocationID, RoughLocationResolve};
 
 impl RoughLocation for Mill {
     fn resolve(&self) -> RoughLocationResolve {
@@ -152,7 +151,7 @@ impl RoughLocation for Mill {
     }
 }
 
-use transport::pathfinding::trip::{TripListener, TripListenerID, TripID, TripResult};
+use transport::pathfinding::trip::{TripID, TripListener, TripListenerID, TripResult};
 
 impl TripListener for Mill {
     fn trip_created(&mut self, trip: TripID, world: &mut World) {

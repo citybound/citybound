@@ -1,19 +1,19 @@
-use kay::{ActorSystem, World, Actor};
+use kay::{Actor, ActorSystem, World};
 use core::random::{seed, Rng};
 
-use core::simulation::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, SimulationID,
-                       Simulatable, SimulatableID};
+use core::simulation::{Duration, Instant, Simulatable, SimulatableID, SimulationID, Ticks,
+                       TimeOfDay, TimeOfDayRange};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
-use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
+use economy::market::{Deal, EvaluatedSearchResult, EvaluationRequester, EvaluationRequesterID};
 use economy::buildings::BuildingID;
-use transport::pathfinding::trip::{TripResult, TripListenerID};
+use transport::pathfinding::trip::{TripListenerID, TripResult};
 use transport::pathfinding::RoughLocationID;
 
 pub mod names;
 use self::names::{family_name, member_name};
 
-use super::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer, OfferID, OfferIdx};
+use super::{Household, HouseholdCore, HouseholdID, MemberIdx, Offer, OfferID, OfferIdx};
 
 #[derive(Compact, Clone)]
 pub struct Family {
@@ -41,7 +41,7 @@ impl Family {
                 Offer::new(
                     MemberIdx(0),
                     TimeOfDayRange::new(16, 0, 11, 0),
-                    Deal::new(Some((Awakeness, 3.0)), Duration::from_hours(1)),
+                    Deal::new(vec![(Awakeness, 3.0)], Duration::from_hours(1)),
                     1,
                     true
                 ),
@@ -82,7 +82,7 @@ impl EvaluationRequester for Family {
     }
 }
 
-use transport::pathfinding::trip::{TripListener, TripID};
+use transport::pathfinding::trip::{TripID, TripListener};
 
 impl TripListener for Family {
     fn trip_created(&mut self, trip: TripID, world: &mut World) {
