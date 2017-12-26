@@ -6,7 +6,7 @@ use super::{PlanManager, PlanManagerID};
 use monet::{Renderable, RenderableID};
 
 use transport::planning::plan_manager::rendering as road_rendering;
-use economy::buildings::rendering as building_rendering;
+use land_use::buildings::rendering as building_rendering;
 
 impl Renderable for PlanManager {
     fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}

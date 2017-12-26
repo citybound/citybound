@@ -9,14 +9,14 @@ use transport::lane::{Lane, LaneID};
 use planning::materialized_reality::{MaterializedReality, MaterializedRealityID};
 
 
-use super::households::family::FamilyID;
-use super::households::grocery_shop::GroceryShopID;
-use super::households::cow_farm::CowFarmID;
-use super::households::grain_farm::GrainFarmID;
-use super::households::vegetable_farm::VegetableFarmID;
-use super::households::mill::MillID;
-use super::households::bakery::BakeryID;
-use super::households::neighboring_town_trade::NeighboringTownTradeID;
+use economy::households::family::FamilyID;
+use economy::households::grocery_shop::GroceryShopID;
+use economy::households::cow_farm::CowFarmID;
+use economy::households::grain_farm::GrainFarmID;
+use economy::households::vegetable_farm::VegetableFarmID;
+use economy::households::mill::MillID;
+use economy::households::bakery::BakeryID;
+use economy::households::neighboring_town_trade::NeighboringTownTradeID;
 use core::simulation::Ticks;
 use core::random::{seed, Rng};
 
@@ -24,7 +24,7 @@ pub mod rendering;
 pub mod architecture;
 use self::architecture::BuildingStyle;
 
-use super::households::HouseholdID;
+use economy::households::HouseholdID;
 use transport::pathfinding::PreciseLocation;
 
 #[derive(Copy, Clone)]

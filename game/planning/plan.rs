@@ -3,7 +3,7 @@ use compact::CDict;
 use itertools::Itertools;
 
 use transport::planning::road_plan::{RoadPlan, RoadPlanDelta, RoadPlanResult, RoadPlanResultDelta};
-use economy::buildings::{BuildingPlanResultDelta, MaterializedBuildings};
+use land_use::buildings::{BuildingPlanResultDelta, MaterializedBuildings};
 
 #[derive(Clone, Compact, Default)]
 pub struct Plan {

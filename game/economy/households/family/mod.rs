@@ -6,7 +6,7 @@ use core::simulation::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, Simu
 use economy::resources::Resource;
 use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
-use economy::buildings::BuildingID;
+use land_use::buildings::BuildingID;
 use transport::pathfinding::trip::{TripResult, TripListenerID};
 use transport::pathfinding::RoughLocationID;
 

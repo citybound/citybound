@@ -3,7 +3,7 @@ use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, SimulationID, Ticks}
 use economy::resources::Resource;
 use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
-use economy::buildings::BuildingID;
+use land_use::buildings::BuildingID;
 
 use super::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer};
 

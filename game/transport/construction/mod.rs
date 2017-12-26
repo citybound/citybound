@@ -378,8 +378,8 @@ impl Lane {
     }
 }
 
-use economy::buildings::{Lot, BuildingID, BuildingSpawnerID, MIN_LANE_BUILDING_DISTANCE,
-                         MIN_ROAD_LENGTH_TO_TOWN};
+use land_use::buildings::{Lot, BuildingID, BuildingSpawnerID, MIN_LANE_BUILDING_DISTANCE,
+                          MIN_ROAD_LENGTH_TO_TOWN};
 use rand::Rng;
 use transport::pathfinding::PreciseLocation;
 

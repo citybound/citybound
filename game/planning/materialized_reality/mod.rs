@@ -7,7 +7,7 @@ use kay::{ActorSystem, World, Actor};
 use super::plan::{Plan, PlanDelta, PlanResult, PlanResultDelta};
 use super::plan_manager::PlanManagerID;
 use transport::planning::materialized_roads::{MaterializedRoads, RoadUpdateState};
-use economy::buildings::MaterializedBuildings;
+use land_use::buildings::MaterializedBuildings;
 
 // TODO: a lot of this shouldn't be `pub` - all the different aspects should rather
 //       just define helper functions, instead of extending the `MaterializedReality` actor

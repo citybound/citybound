@@ -4,7 +4,7 @@ use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, Instant, Simulatable
 use economy::resources::Resource;
 use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
-use economy::buildings::BuildingID;
+use land_use::buildings::BuildingID;
 use transport::pathfinding::RoughLocationID;
 use transport::pathfinding::trip::{TripListener, TripListenerID, TripID, TripResult};
 

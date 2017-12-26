@@ -38,6 +38,7 @@ mod core;
 mod transport;
 mod planning;
 mod economy;
+mod land_use;
 mod ui_layers;
 
 use kay::Actor;
@@ -54,8 +55,8 @@ use economy::households::mill::Mill;
 use economy::households::bakery::Bakery;
 use economy::households::neighboring_town_trade::NeighboringTownTrade;
 use economy::households::tasks::TaskEndScheduler;
-use economy::buildings::BuildingSpawner;
-use economy::buildings::rendering::BuildingRenderer;
+use land_use::buildings::BuildingSpawner;
+use land_use::buildings::rendering::BuildingRenderer;
 
 fn main() {
     core::init::ensure_crossplatform_proper_thread(|| {
@@ -109,7 +110,8 @@ fn main() {
 
         let materialized_reality = planning::setup(&mut system, user_interface, renderer);
         transport::setup(&mut system, simulation);
-        economy::setup(
+        economy::setup(&mut system);
+        land_use::setup(
             &mut system,
             user_interface,
             simulation,

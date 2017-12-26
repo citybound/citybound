@@ -26,7 +26,7 @@ use kay::External;
 
 use super::market::{Market, Deal, EvaluatedDeal, EvaluationRequester, EvaluationRequesterID,
                     TripCostEstimatorID, EvaluatedSearchResult};
-use super::buildings::rendering::BuildingInspectorID;
+use land_use::buildings::rendering::BuildingInspectorID;
 use super::resources::{Resource, ResourceAmount, ResourceMap, Entry, Inventory};
 use transport::pathfinding::{RoughLocationID, RoughLocation};
 use transport::pathfinding::trip::{TripListener, TripID, TripResult, TripFate};
