@@ -7,4 +7,4 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 nalgebra = "0.13.1"
 ncollide_transformation = "0.8.0"
 ordered-float = "0.5.0"
-clippy = { version = "0.0.175", optional = true }
+clippy = { version = "0.0.186", optional = true }
