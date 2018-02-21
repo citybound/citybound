@@ -271,8 +271,8 @@ impl<T, A: Allocator> Deref for CompactVec<T, A> {
     type Target = [T];
 
     fn deref(&self) -> &[T] {
-        if unsafe { self.ptr.ptr().is_null() } && self.len == 0 {
-            unsafe { ::std::slice::from_raw_parts(0x1 as *const T, self.len) }
+        if unsafe { self.ptr.ptr().is_null() } {
+            unsafe { ::std::slice::from_raw_parts(0x1 as *const T, 0) }
         } else {
             unsafe { ::std::slice::from_raw_parts(self.ptr.ptr(), self.len) }
         }
@@ -281,8 +281,8 @@ impl<T, A: Allocator> Deref for CompactVec<T, A> {
 
 impl<T, A: Allocator> DerefMut for CompactVec<T, A> {
     fn deref_mut(&mut self) -> &mut [T] {
-        if unsafe { self.ptr.ptr().is_null() } && self.len == 0 {
-            unsafe { ::std::slice::from_raw_parts_mut(0x1 as *mut T, self.len) }
+        if unsafe { self.ptr.ptr().is_null() } {
+            unsafe { ::std::slice::from_raw_parts_mut(0x1 as *mut T, 0) }
         } else {
             unsafe { ::std::slice::from_raw_parts_mut(self.ptr.mut_ptr(), self.len) }
         }
