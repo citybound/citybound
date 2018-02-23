@@ -1,10 +1,19 @@
-use super::{Shape, N, P2, THICKNESS, Curve, FiniteCurve};
+use super::{Shape, N, P2, THICKNESS, Curve, FiniteCurve, PointOnShapeLocation};
 use super::path::Path;
 use super::primitives::{Circle, Segment};
+use PointOnShapeLocation::*;
 
 impl Shape for Circle {
-    fn contains(&self, point: P2) -> bool {
-        (point - self.center).norm() <= self.radius + THICKNESS / 2.0
+    fn location_of(&self, point: P2) -> PointOnShapeLocation {
+        let distance = (point - self.center).norm();
+
+        if distance < self.radius - THICKNESS / 2.0 {
+            Inside
+        } else if distance < self.radius + THICKNESS / 2.0 {
+            OnEdge
+        } else {
+            Outside
+        }
     }
 }
 
@@ -81,12 +90,58 @@ impl<P: Path> Band<P> {
 }
 
 impl<P: Path> Shape for Band<P> {
-    fn contains(&self, point: P2) -> bool {
+    fn location_of(&self, point: P2) -> PointOnShapeLocation {
         if let Some(along) = self.path.project(point) {
             let distance = (point - self.path.along(along)).norm();
-            distance < self.width / 2.0 + THICKNESS / 2.0
+            if distance < self.width / 2.0 - THICKNESS / 2.0 {
+                if along < THICKNESS || along > self.path.length() - THICKNESS {
+                    OnEdge
+                } else {
+                    Inside
+                }
+            } else if distance < self.width / 2.0 + THICKNESS / 2.0 {
+                OnEdge
+            } else {
+                Outside
+            }
         } else {
-            false
+            Outside
+        }
+    }
+}
+
+pub struct SimpleShape<P: Path> {
+    pub outline: P,
+}
+
+impl<P: Path> SimpleShape<P> {
+    pub fn new(outline: P) -> Self {
+        SimpleShape { outline }
+    }
+}
+
+impl<P: Path> Shape for SimpleShape<P> {
+    fn location_of(&self, point: P2) -> PointOnShapeLocation {
+        if self.outline.includes(point) {
+            OnEdge
+        } else if self.outline.contains(point) {
+            Inside
+        } else {
+            Outside
+        }
+    }
+}
+
+pub struct InvertedSimpleShape<P: Path> {
+    simple: SimpleShape<P>,
+}
+
+impl<P: Path> Shape for InvertedSimpleShape<P> {
+    fn location_of(&self, point: P2) -> PointOnShapeLocation {
+        match self.simple.location_of(point) {
+            OnEdge => OnEdge,
+            Inside => Outside,
+            Outside => Inside,
         }
     }
 }

@@ -258,3 +258,16 @@ pub fn convex_hull<P: Path>(points: &[P2]) -> P {
             .collect(),
     )
 }
+
+#[derive(Clone)]
+pub struct VecPath(Vec<Segment>);
+
+impl Path for VecPath {
+    fn segments(&self) -> &[Segment] {
+        &self.0
+    }
+
+    fn new(vec: Vec<Segment>) -> Self {
+        VecPath(vec)
+    }
+}

@@ -31,7 +31,7 @@ impl Curve for Line {
     }
 
     fn distance_to(&self, point: P2) -> N {
-        (point - self.start).dot(&self.direction.orthogonal())
+        (point - self.start).dot(&self.direction.orthogonal()).abs()
     }
 }
 
@@ -232,6 +232,30 @@ impl Segment {
 
     pub fn radius(&self) -> N {
         self.signed_radius.abs()
+    }
+
+    pub fn to_svg(&self) -> String {
+        if self.is_linear() {
+            format!(
+                "M {} {} L {} {}",
+                self.start.x,
+                self.start.y,
+                self.end.x,
+                self.end.y
+            )
+        } else {
+            format!(
+                "M {} {} A {} {} 0 {} {} {} {}",
+                self.start.x,
+                self.start.y,
+                self.radius(),
+                self.radius(),
+                self.length / self.radius() > ::std::f32::consts::PI,
+                self.signed_radius > 0.0,
+                self.end.x,
+                self.end.y
+            )
+        }
     }
 }
 
