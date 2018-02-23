@@ -25,11 +25,11 @@ pub enum AnyShape {
 }
 
 impl ::descartes::Shape for AnyShape {
-    fn contains(&self, point: P2) -> bool {
+    fn location_of(&self, point: P2) -> ::descartes::PointOnShapeLocation {
         match *self {
-            AnyShape::Circle(circle) => circle.contains(point),
-            AnyShape::Band(ref band) => band.contains(point),
-            AnyShape::Everywhere => true,
+            AnyShape::Circle(circle) => circle.location_of(point),
+            AnyShape::Band(ref band) => band.location_of(point),
+            AnyShape::Everywhere => ::descartes::PointOnShapeLocation::Inside,
         }
     }
 }

@@ -174,12 +174,12 @@ pub fn clip<P: Path>(
 
     let mut start_subject_ref =
         vertices.add_chain(subject_shape.outline.segments().iter().map(|segment| {
-            VertexData::bare_vertex(segment.clone())
+            VertexData::bare_vertex(*segment)
         }));
 
     let mut start_clip_ref =
         vertices.add_chain(clip_shape.outline.segments().iter().map(|segment| {
-            VertexData::bare_vertex(segment.clone())
+            VertexData::bare_vertex(*segment)
         }));
 
     if DEBUG_PRINT {
@@ -256,11 +256,9 @@ pub fn clip<P: Path>(
         let mut intersection_refs = Vec::new();
 
         for (vertex_ref, intersection_distances) in
-            intersections
-                .into_sorted_vec()
-                .into_iter()
-                .group_by(|&(vertex_ref, _)| vertex_ref)
-                .into_iter()
+            &intersections.into_sorted_vec().into_iter().group_by(
+                |&(vertex_ref, _)| vertex_ref,
+            )
         {
             let segment = vertices.get(vertex_ref).forward_segment;
             let segmentation_distances = Some(0.0)
@@ -534,9 +532,9 @@ pub fn clip<P: Path>(
                     match (current_direction, current_role) {
                         (ForwardStay, Entry) => (ForwardSwitch, None),
                         (ForwardStay, EntryExit) => (ForwardStay, Exit),
-                        (ForwardStay, Exit) => (ForwardStay, None),
-                        (ForwardStay, ExitEntry) => (ForwardSwitch, Entry),
+                        (ForwardStay, Exit) |
                         (ForwardSwitch, Exit) => (ForwardStay, None),
+                        (ForwardStay, ExitEntry) => (ForwardSwitch, Entry),
                         (ForwardSwitch, Entry) => unreachable!(),
                         (direction, None) => (direction, None),
                         _ => unimplemented!(),
@@ -544,11 +542,11 @@ pub fn clip<P: Path>(
                 }
                 Mode::Intersection => {
                     match (current_direction, current_role) {
-                        (ForwardStay, Entry) => (ForwardStay, None),
+                        (ForwardStay, Entry) |
+                        (ForwardSwitch, Entry) => (ForwardStay, None),
                         (ForwardStay, EntryExit) => (ForwardStay, Exit),
                         (ForwardStay, Exit) => (ForwardSwitch, None),
                         (ForwardStay, ExitEntry) => (ForwardStay, Entry),
-                        (ForwardSwitch, Entry) => (ForwardStay, None),
                         (ForwardSwitch, Exit) => unreachable!(),
                         (direction, None) => (direction, None),
                         _ => unimplemented!(),
@@ -591,7 +589,7 @@ pub fn clip<P: Path>(
 
             match new_direction {
                 Direction::ForwardStay => {
-                    segments.push(old_vertex.forward_segment.clone());
+                    segments.push(old_vertex.forward_segment);
                     current_ref = old_vertex.next;
                 }
                 Direction::BackwardStay => {

@@ -234,6 +234,10 @@ impl Segment {
         self.signed_radius.abs()
     }
 
+    pub fn signed_angle(&self) -> N {
+        self.length / self.signed_radius
+    }
+
     pub fn to_svg(&self) -> String {
         if self.is_linear() {
             format!(
