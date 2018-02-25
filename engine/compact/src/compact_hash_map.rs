@@ -524,7 +524,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     /// Amount of entries in the dictionary
     pub fn len(&self) -> usize {
-        self.len
+        self.internal_size
     }
 
     /// Is the dictionary empty?
@@ -1101,4 +1101,14 @@ fn compact_copy() {
         assert_fun(&decompacted, 449);
         DefaultHeap::deallocate(storage, bytes);
     }
+}
+
+#[test]
+fn map_len_is_the_amount_of_inserted_and_not_removed_items() {
+    type Map = OpenAddressingMap<usize, usize>;
+    let mut map: Map = OpenAddressingMap::new();
+    for n in 0..1000 {
+        map.insert(n, elem(n));
+    }
+    assert_eq!(1000, map.len());
 }
