@@ -6,6 +6,8 @@ use super::pointer_to_maybe_compact::PointerToMaybeCompact;
 use super::compact_vec::CompactVec;
 use std::iter::Iterator;
 use std::collections::hash_map::DefaultHasher;
+#[cfg(test)]
+use std::collections::HashMap;
 use std::hash::Hasher;
 use std::hash::Hash;
 
@@ -806,7 +808,7 @@ impl<T: Hash> Hash for CompactVec<T> {
     }
 }
 
-#[test]
+#[cfg(test)]
 fn elem(n: usize) -> usize {
     (n * n) as usize
 }
