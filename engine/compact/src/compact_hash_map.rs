@@ -1129,7 +1129,7 @@ fn map_len_is_the_amount_of_inserted_and_not_removed_items() {
     for n in 0..1000 {
         map.insert(n, elem(n));
     }
-        for n in 0..10 {
+    for n in 0..10 {
         map.remove(n);
     }
     assert_eq!(990, map.len());
