@@ -3,7 +3,7 @@ pub mod construction;
 pub mod microtraffic;
 pub mod rendering;
 
-pub mod planning;
+pub mod transport_planning;
 pub mod pathfinding;
 
 use kay::ActorSystem;
@@ -15,5 +15,5 @@ pub fn setup(system: &mut ActorSystem, simulation: SimulationID) {
     self::microtraffic::setup(system);
     self::pathfinding::setup(system, simulation);
     self::rendering::setup(system);
-    self::planning::setup(system);
+    self::transport_planning::setup(system);
 }

@@ -589,7 +589,7 @@ pub struct MaterializedBuildings {
     buildings: CVec<(P2, BuildingID, LaneID)>,
 }
 
-use transport::planning::road_plan::RoadPlanResultDelta;
+use transport::transport_planning::road_plan::RoadPlanResultDelta;
 use std::collections::HashSet;
 
 impl MaterializedBuildings {

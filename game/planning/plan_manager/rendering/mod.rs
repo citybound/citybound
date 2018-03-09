@@ -5,7 +5,7 @@ use super::{PlanManager, PlanManagerID};
 
 use monet::{Renderable, RenderableID};
 
-use transport::planning::plan_manager::rendering as road_rendering;
+use transport::transport_planning::plan_manager::rendering as road_rendering;
 use land_use::buildings::rendering as building_rendering;
 
 impl Renderable for PlanManager {

@@ -6,9 +6,9 @@ use monet::RendererID;
 use super::materialized_reality::MaterializedRealityID;
 use super::plan::{PlanDelta, PlanResultDelta};
 
-use transport::planning::plan_manager::{RoadIntent, RoadSelections, RoadPlanSettings,
-                                        MaterializedRoadView};
-use transport::planning::plan_manager::apply_intent::apply_road_intent;
+use transport::transport_planning::plan_manager::{RoadIntent, RoadSelections, RoadPlanSettings,
+                                                  MaterializedRoadView};
+use transport::transport_planning::plan_manager::apply_intent::apply_road_intent;
 
 mod rendering;
 

@@ -4,6 +4,7 @@ use stagemaster::UserInterfaceID;
 use planning::materialized_reality::MaterializedRealityID;
 
 pub mod buildings;
+pub mod zone_planning;
 
 pub fn setup(
     system: &mut ActorSystem,

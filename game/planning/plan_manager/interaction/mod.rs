@@ -4,8 +4,8 @@ use descartes::P2;
 use stagemaster::combo::{Bindings, Combo2};
 use stagemaster::geometry::AnyShape;
 use transport::lane::Lane;
-use transport::planning::plan_manager::interaction::{RoadInteraction,
-                                                     default_road_planning_bindings};
+use transport::transport_planning::plan_manager::interaction::{RoadInteraction,
+                                                               default_road_planning_bindings};
 
 #[derive(Compact, Clone)]
 pub struct Interaction {

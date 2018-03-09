@@ -6,7 +6,7 @@ use kay::{ActorSystem, World, Actor};
 
 use super::plan::{Plan, PlanDelta, PlanResult, PlanResultDelta};
 use super::plan_manager::PlanManagerID;
-use transport::planning::materialized_roads::{MaterializedRoads, RoadUpdateState};
+use transport::transport_planning::materialized_roads::{MaterializedRoads, RoadUpdateState};
 use land_use::buildings::MaterializedBuildings;
 
 // TODO: a lot of this shouldn't be `pub` - all the different aspects should rather

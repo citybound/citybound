@@ -2,32 +2,43 @@ use descartes::{N, RoughlyComparable};
 use compact::CDict;
 use itertools::Itertools;
 
-use transport::planning::road_plan::{RoadPlan, RoadPlanDelta, RoadPlanResult, RoadPlanResultDelta};
+use transport::transport_planning::road_plan::{RoadPlan, RoadPlanDelta, RoadPlanResult,
+                                               RoadPlanResultDelta};
 use land_use::buildings::{BuildingPlanResultDelta, MaterializedBuildings};
+use land_use::zone_planning::{ZonePlan, ZonePlanDelta};
 
 #[derive(Clone, Compact, Default)]
 pub struct Plan {
     pub roads: RoadPlan,
+    pub zones: ZonePlan,
 }
 
 impl Plan {
     pub fn with_delta(&self, delta: &PlanDelta) -> Self {
-        Plan { roads: self.roads.with_delta(&delta.roads) }
+        Plan {
+            roads: self.roads.with_delta(&delta.roads),
+            zones: self.zones.with_delta(&delta.zones),
+        }
     }
 
     pub fn get_result(&self) -> PlanResult {
-        PlanResult { roads: self.roads.get_result() }
+        PlanResult {
+            roads: self.roads.get_result(),
+            zones: self.zones.get_result(),
+        }
     }
 }
 
 #[derive(Compact, Clone, Default)]
 pub struct PlanDelta {
     pub roads: RoadPlanDelta,
+    pub zones: ZonePlanDelta,
 }
 
 #[derive(Compact, Clone, Default)]
 pub struct PlanResult {
     pub roads: RoadPlanResult,
+    pub zones: ZonePlan,
 }
 
 #[derive(Compact, Clone, Default)]
