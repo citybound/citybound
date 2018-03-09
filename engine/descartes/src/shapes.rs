@@ -110,38 +110,20 @@ impl<P: Path> Shape for Band<P> {
     }
 }
 
-pub struct SimpleShape<P: Path> {
-    pub outline: P,
+pub trait SimpleShape {
+    type P: Path;
+    fn outline(&self) -> &Self::P;
+    fn new(outline: Self::P) -> Self;
 }
 
-impl<P: Path> SimpleShape<P> {
-    pub fn new(outline: P) -> Self {
-        SimpleShape { outline }
-    }
-}
-
-impl<P: Path> Shape for SimpleShape<P> {
+impl<S: SimpleShape> Shape for S {
     fn location_of(&self, point: P2) -> PointOnShapeLocation {
-        if self.outline.includes(point) {
+        if self.outline().includes(point) {
             OnEdge
-        } else if self.outline.contains(point) {
+        } else if self.outline().contains(point) {
             Inside
         } else {
             Outside
-        }
-    }
-}
-
-pub struct InvertedSimpleShape<P: Path> {
-    simple: SimpleShape<P>,
-}
-
-impl<P: Path> Shape for InvertedSimpleShape<P> {
-    fn location_of(&self, point: P2) -> PointOnShapeLocation {
-        match self.simple.location_of(point) {
-            OnEdge => OnEdge,
-            Inside => Outside,
-            Outside => Inside,
         }
     }
 }

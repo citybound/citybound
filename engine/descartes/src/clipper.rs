@@ -165,20 +165,16 @@ impl VertexArena {
     }
 }
 
-pub fn clip<P: Path>(
-    mode: Mode,
-    subject_shape: &SimpleShape<P>,
-    clip_shape: &SimpleShape<P>,
-) -> Vec<SimpleShape<P>> {
+pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Vec<S> {
     let mut vertices = VertexArena::new();
 
     let mut start_subject_ref =
-        vertices.add_chain(subject_shape.outline.segments().iter().map(|segment| {
+        vertices.add_chain(subject_shape.outline().segments().iter().map(|segment| {
             VertexData::bare_vertex(*segment)
         }));
 
     let mut start_clip_ref =
-        vertices.add_chain(clip_shape.outline.segments().iter().map(|segment| {
+        vertices.add_chain(clip_shape.outline().segments().iter().map(|segment| {
             VertexData::bare_vertex(*segment)
         }));
 
@@ -631,7 +627,7 @@ pub fn clip<P: Path>(
             );
         }
 
-        result_shapes.push(SimpleShape::new(P::new(segments)));
+        result_shapes.push(SimpleShape::new(S::P::new(segments)));
     }
 
 

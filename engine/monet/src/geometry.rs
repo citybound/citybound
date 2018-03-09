@@ -161,10 +161,10 @@ impl GeometryBuilder<FillVertex> for Geometry {
     }
 }
 
-impl<P: Path> From<SimpleShape<P>> for Geometry {
-    fn from(shape: SimpleShape<P>) -> Geometry {
+impl<S: SimpleShape> From<S> for Geometry {
+    fn from(shape: S) -> Geometry {
         let path_iterator =
-            PathIter::new(shape.outline.segments().iter().with_position().flat_map(
+            PathIter::new(shape.outline().segments().iter().with_position().flat_map(
                 |segment_with_position| {
                     let initial_move = match segment_with_position {
                         Position::First(segment) |

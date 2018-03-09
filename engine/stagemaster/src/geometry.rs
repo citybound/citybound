@@ -1,4 +1,4 @@
-use descartes::{Path, Band, Segment, P2, N, FiniteCurve, WithUniqueOrthogonal};
+use descartes::{SimpleShape, Path, Band, Segment, P2, N, FiniteCurve, WithUniqueOrthogonal};
 use compact::{CVec, Compact};
 use monet::{Geometry, Vertex, RendererID, Instance};
 
@@ -14,6 +14,23 @@ impl Path for CPath {
 
     fn new(vec: Vec<Segment>) -> Self {
         CPath { segments: vec.into() }
+    }
+}
+
+#[derive(Compact, Clone)]
+pub struct CShape {
+    outline: CPath,
+}
+
+impl SimpleShape for CShape {
+    type P = CPath;
+
+    fn outline(&self) -> &CPath {
+        &self.outline
+    }
+
+    fn new(outline: CPath) -> Self {
+        CShape { outline }
     }
 }
 
