@@ -10,6 +10,7 @@ use imgui::ImGuiSetCond_FirstUseEver;
 
 use super::{Building, Lot, BuildingID, BuildingPlanResultDelta};
 use economy::households::HouseholdID;
+use style::colors;
 
 use super::architecture::{BuildingStyle, BuildingGeometry, build_building};
 
@@ -127,10 +128,10 @@ impl BuildingRenderer {
     pub fn spawn(id: BuildingRendererID, world: &mut World) -> BuildingRenderer {
         BuildingRenderer {
             id,
-            wall_grouper: GrouperID::spawn([0.95, 0.95, 0.95], 5000, false, world),
-            flat_roof_grouper: GrouperID::spawn([0.5, 0.5, 0.5], 5100, false, world),
-            brick_roof_grouper: GrouperID::spawn([0.8, 0.5, 0.2], 5200, false, world),
-            field_grouper: GrouperID::spawn([0.7, 0.7, 0.2], 5300, false, world),
+            wall_grouper: GrouperID::spawn(colors::WALL, 5000, false, world),
+            flat_roof_grouper: GrouperID::spawn(colors::FLAT_ROOF, 5100, false, world),
+            brick_roof_grouper: GrouperID::spawn(colors::BRICK_ROOF, 5200, false, world),
+            field_grouper: GrouperID::spawn(colors::FIELD, 5300, false, world),
             current_n_buildings_to_be_destroyed: CDict::new(),
         }
     }

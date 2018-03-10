@@ -40,6 +40,7 @@ mod planning;
 mod economy;
 mod land_use;
 mod ui_layers;
+mod style;
 
 use kay::Actor;
 use compact::CVec;
@@ -100,7 +101,7 @@ fn main() {
             renderables,
             *ENV,
             core::init::build_window(machine_id),
-            (0.6, 0.75, 0.4, 1.0)
+            style::colors::GRASS,
         );
 
         simulation.add_to_ui(user_interface, world);

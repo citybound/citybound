@@ -8,6 +8,8 @@ use super::super::plan_manager::MaterializedRoadView;
 use super::super::lane_stroke::LaneStroke;
 use super::SelectableStrokeRef;
 
+use style::colors;
+
 pub fn render_strokes(
     origin_machine: u8,
     delta: &RoadPlanDelta,
@@ -27,7 +29,7 @@ pub fn render_strokes(
         scene_id,
         5496 + u16::from(world.local_machine_id()) * 10_000,
         destroyed_strokes_geometry,
-        Instance::with_color([1.0, 0.0, 0.0]),
+        Instance::with_color(colors::DESTROYED_STROKE),
         true,
         world,
     );
@@ -43,11 +45,7 @@ pub fn render_strokes(
         scene_id,
         5498 + u16::from(world.local_machine_id()) * 10_000,
         stroke_base_geometry,
-        Instance::with_color(if origin_machine == 0 {
-            [0.2, 0.2, 1.0]
-        } else {
-            [1.0, 0.5, 0.2]
-        }),
+        Instance::with_color(colors::STROKE_BASE),
         true,
         world,
     );
@@ -61,7 +59,7 @@ pub fn render_strokes(
         scene_id,
         5499 + u16::from(world.local_machine_id()) * 10_000,
         stroke_geometry,
-        Instance::with_color([0.6, 0.6, 0.6]),
+        Instance::with_color(colors::STROKE),
         true,
         world,
     );
@@ -84,7 +82,7 @@ pub fn render_trimmed_strokes(
         scene_id,
         5500 + u16::from(world.local_machine_id()) * 10_000,
         trimmed_stroke_geometry,
-        Instance::with_color([0.3, 0.3, 0.3]),
+        Instance::with_color(colors::TRIMMED_STROKE),
         true,
         world,
     );
@@ -124,7 +122,7 @@ pub fn render_intersections(
         scene_id,
         5502 + u16::from(world.local_machine_id()) * 10_000,
         connecting_strokes_geometry,
-        Instance::with_color([0.5, 0.5, 0.5]),
+        Instance::with_color(colors::INTERSECTION_STROKE),
         true,
         world,
     );
@@ -148,7 +146,7 @@ pub fn render_transfer_lanes(
         scene_id,
         5503 + u16::from(world.local_machine_id()) * 10_000,
         transfer_strokes_geometry,
-        Instance::with_color([1.0, 1.0, 1.0]),
+        Instance::with_color(colors::TRANSFER_STROKE),
         true,
         world,
     );
@@ -180,7 +178,7 @@ pub fn render_selections(
         scene_id,
         5497 + u16::from(world.local_machine_id()) * 10_000,
         addable_geometry,
-        Instance::with_color([0.8, 0.8, 1.0]),
+        Instance::with_color(colors::ADDABLE_STROKE),
         true,
         world,
     );
@@ -197,7 +195,7 @@ pub fn render_selections(
         scene_id,
         5504 + u16::from(world.local_machine_id()) * 10_000,
         selection_geometry,
-        Instance::with_color([0.0, 0.0, 1.0]),
+        Instance::with_color(colors::SELECTION_STROKE),
         true,
         world,
     );

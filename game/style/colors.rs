@@ -1,4 +1,37 @@
 #![allow(cast_lossless)]
+
+// TRANSPORT PLANNING
+
+pub const DESTROYED_STROKE: [f32; 3] = [1.0, 0.0, 0.0];
+pub const STROKE_BASE: [f32; 3] = [1.0, 1.0, 1.0];
+pub const STROKE: [f32; 3] = [0.6, 0.6, 0.6];
+pub const TRIMMED_STROKE: [f32; 3] = [0.3, 0.3, 0.3];
+pub const INTERSECTION_STROKE: [f32; 3] = [0.5, 0.5, 0.5];
+pub const TRANSFER_STROKE: [f32; 3] = [0.3, 0.3, 0.3];
+pub const ADDABLE_STROKE: [f32; 3] = [0.8, 0.8, 0.8];
+pub const SELECTION_STROKE: [f32; 3] = [0.2, 0.2, 0.2];
+
+// WORLD
+
+pub const GRASS: (f32, f32, f32, f32) = (0.6, 0.75, 0.4, 1.0);
+pub const ASPHALT: [f32; 3] = [0.7, 0.7, 0.7];
+pub const ROAD_MARKER: [f32; 3] = [1.0, 1.0, 1.0];
+pub const WALL: [f32; 3] = [0.95, 0.95, 0.95];
+pub const FLAT_ROOF: [f32; 3] = [0.5, 0.5, 0.5];
+pub const BRICK_ROOF: [f32; 3] = [0.8, 0.5, 0.2];
+pub const FIELD: [f32; 3] = [0.7, 0.7, 0.2];
+
+// ZONES
+
+pub const INDUSTRIAL: [f32; 3] = [1.0, 0.66, 0.45];
+pub const COMMERCIAL: [f32; 3] = [0.59, 0.71, 0.90];
+pub const RESIDENTIAL: [f32; 3] = [0.46, 0.82, 0.57];
+pub const AGRICULTURAL: [f32; 3] = [1.0, 0.84, 0.42];
+pub const RECREATIONAL: [f32; 3] = [0.47, 0.55, 0.41];
+pub const OFFICIAL: [f32; 3] = [0.45, 0.37, 0.86];
+
+// RANDOM COLORS
+
 // http://stackoverflow.com/a/12224359
 pub const RANDOM_COLORS: [[f32; 3]; 1022] = [
     [
