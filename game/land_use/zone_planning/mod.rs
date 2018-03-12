@@ -1,13 +1,18 @@
+use kay::ActorSystem;
 use compact::CVec;
 use stagemaster::geometry::CShape;
+
+pub mod rendering;
+pub mod plan_manager;
 
 #[derive(Copy, Clone)]
 enum LandUse {
     Residential,
     Commercial,
-    Offices,
-    Agricultural,
     Industrial,
+    Agricultural,
+    Recreational,
+    Official,
 }
 
 #[derive(Copy, Clone)]
@@ -31,22 +36,40 @@ pub struct ZonePlan {
 #[derive(Compact, Clone)]
 pub enum ZonePlanAction {
     Add(Zone),
-    Change(Zone),
     Remove(Zone),
 }
 
 #[derive(Compact, Clone, Default)]
 pub struct ZonePlanDelta {
-    actions: CVec<ZonePlanDelta>,
+    pub actions: CVec<ZonePlanAction>,
 }
 
 impl ZonePlan {
     pub fn with_delta(&self, delta: &ZonePlanDelta) -> Self {
-        // TODO
-        self.clone()
+        let mut new_plan = self.clone();
+
+        for action in &delta.actions {
+            match *action {
+                ZonePlanAction::Add(ref zone) => {
+                    if let ZoneMeaning::LandUse(_) = zone.meaning {
+                        new_plan.zones.push(zone.clone());
+                    } else {
+                        unimplemented!()
+                    }
+                }
+                _ => unimplemented!(),
+            }
+        }
+
+        new_plan
     }
 
     pub fn get_result(&self) -> ZonePlan {
         self.clone()
     }
+}
+
+pub fn setup(system: &mut ActorSystem) {
+    plan_manager::setup(system);
+    rendering::setup(system);
 }

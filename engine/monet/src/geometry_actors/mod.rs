@@ -119,6 +119,15 @@ impl Grouper {
             }
         };
     }
+
+    pub fn clear(&mut self, _: &mut World) {
+        self.living_individuals.clear();
+        self.frozen_individuals.clear();
+        self.frozen_up_to_date = false;
+        for state in self.renderer_state.values_mut() {
+            state.frozen_up_to_date = false;
+        }
+    }
 }
 
 use {Renderable, RendererID, RenderableID};

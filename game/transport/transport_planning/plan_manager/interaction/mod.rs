@@ -89,6 +89,7 @@ impl PlanManager {
                     None
                 }
             }
+            _ => None,
         };
         if let Some(new_intent) = maybe_new_intent {
             self.current.intent = new_intent;

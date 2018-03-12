@@ -161,8 +161,8 @@ impl GeometryBuilder<FillVertex> for Geometry {
     }
 }
 
-impl<S: SimpleShape> From<S> for Geometry {
-    fn from(shape: S) -> Geometry {
+impl Geometry {
+    pub fn from_shape<S: SimpleShape>(shape: &S) -> Geometry {
         let path_iterator =
             PathIter::new(shape.outline().segments().iter().with_position().flat_map(
                 |segment_with_position| {

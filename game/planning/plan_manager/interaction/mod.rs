@@ -6,12 +6,14 @@ use stagemaster::geometry::AnyShape;
 use transport::lane::Lane;
 use transport::transport_planning::plan_manager::interaction::{RoadInteraction,
                                                                default_road_planning_bindings};
+use land_use::zone_planning::plan_manager::interaction::ZoneInteraction;
 
 #[derive(Compact, Clone)]
 pub struct Interaction {
     user_interface: UserInterfaceID,
     settings: External<InteractionSettings>,
     road: RoadInteraction,
+    zone: ZoneInteraction,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -65,6 +67,7 @@ impl Interaction {
             settings: External::new(::ENV.load_settings("Plan Editing")),
             user_interface,
             road: RoadInteraction::init(world, renderer_id, user_interface, id),
+            zone: ZoneInteraction::init(world, renderer_id, user_interface, id),
         }
     }
 }

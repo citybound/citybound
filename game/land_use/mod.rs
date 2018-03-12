@@ -13,4 +13,5 @@ pub fn setup(
     materialized_reality: MaterializedRealityID,
 ) {
     buildings::setup(system, user_interface, simulation, materialized_reality);
+    zone_planning::setup(system);
 }

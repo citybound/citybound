@@ -58,6 +58,8 @@ use economy::households::neighboring_town_trade::NeighboringTownTrade;
 use economy::households::tasks::TaskEndScheduler;
 use land_use::buildings::BuildingSpawner;
 use land_use::buildings::rendering::BuildingRenderer;
+use land_use::zone_planning::rendering::ZoneRenderer;
+use land_use::zone_planning::plan_manager::interaction::ZoneCanvas;
 
 fn main() {
     core::init::ensure_crossplatform_proper_thread(|| {
@@ -92,6 +94,8 @@ fn main() {
             PlanManager::global_broadcast(world).into(),
             BuildingRenderer::global_broadcast(&mut system.world())
                 .into(),
+            ZoneRenderer::global_broadcast(&mut system.world()).into(),
+            ZoneCanvas::global_broadcast(&mut system.world()).into(),
         ].into();
 
         let machine_id = system.networking_machine_id();

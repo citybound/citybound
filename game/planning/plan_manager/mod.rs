@@ -9,6 +9,7 @@ use super::plan::{PlanDelta, PlanResultDelta};
 use transport::transport_planning::plan_manager::{RoadIntent, RoadSelections, RoadPlanSettings,
                                                   MaterializedRoadView};
 use transport::transport_planning::plan_manager::apply_intent::apply_road_intent;
+use land_use::zone_planning::{ZonePlanDelta, ZonePlanAction};
 
 mod rendering;
 
@@ -26,6 +27,7 @@ pub struct PlanStep {
 pub enum Intent {
     None,
     RoadIntent(RoadIntent),
+    ZoneIntent(ZonePlanAction),
 }
 
 impl Default for Intent {
@@ -96,6 +98,7 @@ impl PlanManager {
     pub fn update_preview(&mut self, world: &mut World) -> &PlanStep {
         if self.preview.is_none() {
             let preview = self.apply_intent();
+
             self.materialized_reality.simulate(
                 self.id,
                 preview.plan_delta.clone(),
@@ -146,12 +149,31 @@ impl PlanManager {
                         &self.settings,
                     );
 
+                // TODO
+                let new_zone_delta = ZonePlanDelta::default();
+
                 PlanStep {
-                    plan_delta: PlanDelta { roads: new_road_delta },
+                    plan_delta: PlanDelta {
+                        roads: new_road_delta,
+                        zones: new_zone_delta,
+                    },
                     selections: new_road_selections,
                     intent: maybe_new_road_intent.map(Intent::RoadIntent).unwrap_or(
                         Intent::None,
                     ),
+                }
+            }
+            Intent::ZoneIntent(ref zone_plan_action) => {
+                let mut new_zone_delta = self.current.plan_delta.zones.clone();
+                new_zone_delta.actions.push(zone_plan_action.clone());
+
+                PlanStep {
+                    plan_delta: PlanDelta {
+                        roads: self.current.plan_delta.roads.clone(),
+                        zones: new_zone_delta,
+                    },
+                    selections: RoadSelections::default(),
+                    intent: Intent::None,
                 }
             }
             _ => self.current.clone(),
