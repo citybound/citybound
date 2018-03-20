@@ -2,7 +2,7 @@ use compact::{CVec, CDict};
 use descartes::{N, RoughlyComparable};
 use stagemaster::geometry::CPath;
 use super::lane_stroke::{LaneStroke, LaneStrokeNode};
-use planning::plan::ReferencedDelta;
+use planning_old::plan::ReferencedDelta;
 
 #[derive(Compact, Clone, Default)]
 pub struct RoadPlan {

@@ -2,10 +2,10 @@ use descartes::{N, RoughlyComparable};
 use compact::CDict;
 use itertools::Itertools;
 
-use transport::transport_planning::road_plan::{RoadPlan, RoadPlanDelta, RoadPlanResult,
-                                               RoadPlanResultDelta};
+use transport::transport_planning_old::road_plan::{RoadPlan, RoadPlanDelta, RoadPlanResult,
+                                                   RoadPlanResultDelta};
 use land_use::buildings::{BuildingPlanResultDelta, MaterializedBuildings};
-use land_use::zone_planning::{ZonePlan, ZonePlanDelta};
+use land_use::zone_planning_old::{ZonePlan, ZonePlanDelta};
 
 #[derive(Clone, Compact, Default)]
 pub struct Plan {

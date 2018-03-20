@@ -1,11 +1,11 @@
-#![feature(custom_derive, conservative_impl_trait)]
+#![feature(custom_derive, conservative_impl_trait, iter_rfold)]
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 #![allow(dead_code)]
 // Enable this for memory tracking with Instruments/MacOS
 // and for much better stacktraces for memory issues
-//#![feature(alloc_system)]
-//extern crate alloc_system;
+#![feature(alloc_system)]
+extern crate alloc_system;
 
 extern crate ordered_float;
 extern crate itertools;
@@ -13,6 +13,7 @@ extern crate rand;
 extern crate fnv;
 extern crate roaring;
 extern crate backtrace;
+extern crate uuid;
 
 extern crate compact;
 #[macro_use]
@@ -36,7 +37,8 @@ pub const ENV: &Environment = &Environment {
 
 mod core;
 mod transport;
-mod planning;
+mod planning_old;
+mod planning_new;
 mod economy;
 mod land_use;
 mod ui_layers;
@@ -47,7 +49,7 @@ use compact::CVec;
 use monet::Grouper;
 use transport::lane::{Lane, TransferLane};
 use transport::rendering::LaneRenderer;
-use planning::plan_manager::PlanManager;
+use planning_old::plan_manager::PlanManager;
 use economy::households::family::Family;
 use economy::households::grocery_shop::GroceryShop;
 use economy::households::grain_farm::GrainFarm;
@@ -58,8 +60,9 @@ use economy::households::neighboring_town_trade::NeighboringTownTrade;
 use economy::households::tasks::TaskEndScheduler;
 use land_use::buildings::BuildingSpawner;
 use land_use::buildings::rendering::BuildingRenderer;
-use land_use::zone_planning::rendering::ZoneRenderer;
-use land_use::zone_planning::plan_manager::interaction::ZoneCanvas;
+use land_use::zone_planning_old::rendering::ZoneRenderer;
+use land_use::zone_planning_old::plan_manager::interaction::ZoneCanvas;
+use planning_new::PlanManager as PlanManagerNew;
 
 fn main() {
     core::init::ensure_crossplatform_proper_thread(|| {
@@ -96,6 +99,7 @@ fn main() {
                 .into(),
             ZoneRenderer::global_broadcast(&mut system.world()).into(),
             ZoneCanvas::global_broadcast(&mut system.world()).into(),
+            PlanManagerNew::global_first(&mut system.world()).into(),
         ].into();
 
         let machine_id = system.networking_machine_id();
@@ -104,7 +108,7 @@ fn main() {
             &mut system,
             renderables,
             *ENV,
-            core::init::build_window(machine_id),
+            core::init::build_window(machine_id.0),
             style::colors::GRASS,
         );
 
@@ -113,7 +117,7 @@ fn main() {
 
         core::init::set_error_hook(user_interface, system.world());
 
-        let materialized_reality = planning::setup(&mut system, user_interface, renderer);
+        let materialized_reality = planning_old::setup(&mut system, user_interface, renderer);
         transport::setup(&mut system, simulation);
         economy::setup(&mut system);
         land_use::setup(
@@ -122,6 +126,8 @@ fn main() {
             simulation,
             materialized_reality,
         );
+
+        planning_new::setup(&mut system, user_interface);
 
         core::init::print_version(user_interface, world);
 

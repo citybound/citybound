@@ -1,6 +1,6 @@
 use kay::{ActorSystem, External, World, Actor};
 use compact::CVec;
-use planning::plan_manager::{PlanManager, PlanManagerID, Intent, IntentProgress};
+use planning_old::plan_manager::{PlanManager, PlanManagerID, Intent, IntentProgress};
 use descartes::{P2, Into2d, RoughlyComparable, Path, SimpleShape, Segment, Band};
 use stagemaster::combo::{Bindings, Combo2};
 use stagemaster::geometry::{AnyShape, CPath, CShape, band_to_geometry};

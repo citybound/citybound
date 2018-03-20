@@ -1,0 +1,660 @@
+use kay::{World, MachineID, Fate, TypedID, ActorSystem};
+use compact::{CVec, CHashMap, CDict, COption};
+use descartes::{N, P2, V2, Circle, RoughlyComparable, Into2d, Band, Segment, Path};
+use monet::{RendererID, Renderable, RenderableID, Instance};
+use stagemaster::{UserInterfaceID, Interactable3d, Interactable2d, Interactable3dID};
+use stagemaster::geometry::{AnyShape, band_to_geometry, CPath};
+use uuid::Uuid;
+use ui_layers::GESTURE_LAYER;
+use style::colors;
+
+#[derive(Compact, Clone)]
+pub struct Gesture {
+    points: CVec<P2>,
+    intent: GestureIntent,
+    deleted: bool,
+}
+
+impl Gesture {
+    pub fn new(points: CVec<P2>, intent: GestureIntent) -> Self {
+        Gesture { points, intent, deleted: false }
+    }
+}
+
+#[derive(Compact, Clone)]
+pub enum GestureIntent {
+    Road(RoadIntent),
+    Zone(ZoneIntent),
+}
+
+#[derive(Copy, Clone, Hash, PartialEq, Eq)]
+pub struct GestureID(Uuid);
+
+impl GestureID {
+    pub fn new() -> GestureID {
+        GestureID(Uuid::new_v4())
+    }
+}
+
+#[derive(Compact, Clone, Default)]
+pub struct Plan {
+    gestures: CHashMap<GestureID, Gesture>,
+}
+
+impl Plan {
+    pub fn merge<'a, I: IntoIterator<Item = &'a Plan>>(&self, others: I) -> Plan {
+        let mut new_plan = self.clone();
+        for other in others {
+            for (key, value) in other.gestures.pairs() {
+                new_plan.gestures.insert(*key, value.clone());
+            }
+        }
+        new_plan
+    }
+}
+
+// TODO: when applied, proposals can be flattened into the last
+// version of each gesture and all intermediate gestures can be completely removed
+#[derive(Compact, Clone, Default)]
+pub struct Proposal {
+    undoable_history: CVec<Plan>,
+    redoable_history: CVec<Plan>,
+}
+
+impl Proposal {
+    pub fn new() -> Proposal {
+        Proposal::default()
+    }
+
+    pub fn start_new_step(&mut self) {
+        self.undoable_history.push(Plan::default());
+    }
+
+    pub fn set_ongoing_step(&mut self, current_change: Plan) {
+        if self.undoable_history.is_empty() {
+            self.undoable_history.push(current_change);
+        } else {
+            *self.undoable_history.last_mut().unwrap() = current_change;
+        }
+        self.redoable_history.clear();
+    }
+
+    pub fn undo(&mut self) {
+        if let Some(most_recent_step) = self.undoable_history.pop() {
+            self.redoable_history.push(most_recent_step);
+        }
+    }
+
+    pub fn redo(&mut self) {
+        if let Some(next_step_to_redo) = self.redoable_history.pop() {
+            self.undoable_history.push(next_step_to_redo);
+        }
+    }
+
+    pub fn current_history(&self) -> &[Plan] {
+        &self.undoable_history
+    }
+
+    fn apply_to(&self, base: &Plan) -> Plan {
+        base.merge(&self.undoable_history)
+    }
+}
+
+#[derive(Compact, Clone)]
+pub struct PlanManager {
+    id: PlanManagerID,
+    master_plan: Plan,
+    proposals: CVec<Proposal>,
+    implemented_proposals: CVec<Proposal>,
+    ui_state: CHashMap<MachineID, PlanManagerUIState>,
+}
+
+
+#[derive(Compact, Clone)]
+pub struct PlanManagerUIState {
+    current_proposal: COption<usize>,
+    canvas: COption<GestureCanvasID>,
+    control_point_interactables: CVec<ControlPointInteractableID>,
+    current_preview: COption<Plan>,
+    user_interface: UserInterfaceID,
+}
+
+impl PlanManager {
+    pub fn spawn(id: PlanManagerID, _: &mut World) -> PlanManager {
+        PlanManager {
+            id,
+            master_plan: Plan::default(),
+            proposals: vec![Proposal::default()].into(),
+            implemented_proposals: CVec::new(),
+            ui_state: CHashMap::new(),
+        }
+    }
+
+    pub fn connect(&mut self, user_interface: UserInterfaceID, _: &mut World) {
+        self.ui_state.insert(
+            user_interface.as_raw().machine,
+            PlanManagerUIState {
+                current_proposal: COption(None),
+                canvas: COption(None),
+                control_point_interactables: CVec::new(),
+                current_preview: COption(None),
+                user_interface,
+            },
+        );
+    }
+
+    pub fn switch_to(&mut self, machine_id: MachineID, proposal_id: usize, world: &mut World) {
+        // TODO: do only on this particular machine
+        self.recreate_control_point_interactables(proposal_id, world);
+
+        let ui_state = self.ui_state.get_mut(machine_id).expect(
+            "Should already have a ui state for this machine",
+        );
+
+        ui_state.current_proposal = COption(Some(proposal_id));
+
+        if let Some(current_canvas) = *ui_state.canvas {
+            current_canvas.remove(ui_state.user_interface, world);
+        }
+
+        ui_state.canvas = COption(Some(GestureCanvasID::spawn(
+            ui_state.user_interface,
+            self.id,
+            proposal_id,
+            world,
+        )));
+    }
+
+    fn clear_previews(&mut self, proposal_id: usize) {
+        for state in self.ui_state.values_mut().filter(|state| {
+            *state.current_proposal == Some(proposal_id)
+        })
+        {
+            state.current_preview = COption(None);
+        }
+    }
+
+    #[allow(mutable_transmutes)]
+    fn ensure_preview(&self, machine_id: MachineID, proposal_id: usize) -> &Plan {
+        let ui_state = self.ui_state.get(machine_id).expect(
+            "Should already have a ui state for this machine",
+        );
+
+        // super ugly of course, maybe we can use a cell or similar in the future
+        unsafe {
+            let ui_state_mut: &mut PlanManagerUIState = ::std::mem::transmute(ui_state);
+            if *ui_state.current_proposal != Some(proposal_id) {
+                ui_state_mut.current_preview = COption(None);
+            }
+
+            if ui_state.current_preview.is_none() {
+                ui_state_mut.current_preview = COption(Some(self.proposals[proposal_id].apply_to(
+                    &self.master_plan,
+                )))
+            }
+        }
+
+        ui_state.current_preview.as_ref().unwrap()
+    }
+
+    fn recreate_control_point_interactables(&mut self, proposal_id: usize, world: &mut World) {
+        let machines_with_this_proposal = self.ui_state
+            .pairs()
+            .filter(|&(_, state)| *state.current_proposal == Some(proposal_id))
+            .map(|(machine_id, _)| *machine_id)
+            .collect::<Vec<_>>();
+
+        for machine_id in machines_with_this_proposal {
+            let new_control_point_interactables = {
+                let user_interface = self.ui_state.get(machine_id).unwrap().user_interface;
+                let current_canvas = self.ui_state.get(machine_id).unwrap().canvas.expect(
+                    "Should already have a canvas",
+                );
+                let preview = self.ensure_preview(machine_id, proposal_id);
+
+                preview
+                    .gestures
+                    .pairs()
+                    .flat_map(|(gesture_id, gesture)| {
+                        gesture
+                            .points
+                            .iter()
+                            .enumerate()
+                            .map(|(point_index, point)| {
+                                ControlPointInteractableID::spawn(
+                                    user_interface,
+                                    self.id,
+                                    current_canvas,
+                                    proposal_id,
+                                    *gesture_id,
+                                    point_index,
+                                    *point,
+                                    world,
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect()
+            };
+
+            let state = self.ui_state.get_mut(machine_id).unwrap();
+
+            for control_point_interactable in state.control_point_interactables.drain() {
+                control_point_interactable.remove(state.user_interface, world);
+            }
+
+            state.control_point_interactables = new_control_point_interactables;
+        }
+    }
+
+    pub fn get_current_version_of(&self, gesture_id: GestureID, proposal_id: usize) -> &Gesture {
+        self.proposals[proposal_id]
+            .current_history()
+            .iter()
+            .rfold(None, |found, step| {
+                found.or_else(|| step.gestures.get(gesture_id))
+            })
+            .into_iter()
+            .chain(self.master_plan.gestures.get(gesture_id))
+            .next()
+            .expect("Expected gesture (that point should be added to) to exist!")
+    }
+
+    pub fn start_new_gesture(
+        &mut self,
+        proposal_id: usize,
+        new_gesture_id: GestureID,
+        start: P2,
+        world: &mut World,
+    ) {
+        let new_gesture = Gesture::new(
+            vec![start].into(),
+            GestureIntent::Road(RoadIntent::new(2, 2)),
+        );
+
+        let new_step = Plan { gestures: Some((new_gesture_id, new_gesture)).into_iter().collect() };
+
+        self.proposals[proposal_id].set_ongoing_step(new_step);
+        self.proposals[proposal_id].start_new_step();
+
+        self.clear_previews(proposal_id);
+        self.recreate_control_point_interactables(proposal_id, world);
+    }
+
+    pub fn add_control_point(
+        &mut self,
+        proposal_id: usize,
+        gesture_id: GestureID,
+        new_point: P2,
+        add_to_end: bool,
+        world: &mut World,
+    ) {
+        let new_step = {
+            let current_gesture = self.get_current_version_of(gesture_id, proposal_id);
+
+            let changed_gesture = if add_to_end {
+                Gesture {
+                    points: current_gesture
+                        .points
+                        .iter()
+                        .cloned()
+                        .chain(Some(new_point))
+                        .collect(),
+                    ..current_gesture.clone()
+                }
+            } else {
+                Gesture {
+                    points: Some(new_point)
+                        .into_iter()
+                        .chain(current_gesture.points.iter().cloned())
+                        .collect(),
+                    ..current_gesture.clone()
+                }
+            };
+
+            Plan { gestures: Some((gesture_id, changed_gesture)).into_iter().collect() }
+        };
+
+        self.proposals[proposal_id].set_ongoing_step(new_step);
+        self.proposals[proposal_id].start_new_step();
+        self.clear_previews(proposal_id);
+        self.recreate_control_point_interactables(proposal_id, world);
+    }
+
+    pub fn move_control_point(
+        &mut self,
+        proposal_id: usize,
+        gesture_id: GestureID,
+        point_index: usize,
+        new_position: P2,
+        is_move_finished: bool,
+        world: &mut World,
+    ) {
+        let current_change = {
+            let current_gesture = self.get_current_version_of(gesture_id, proposal_id);
+
+            let mut new_gesture_points = current_gesture.points.clone();
+            new_gesture_points[point_index] = new_position;
+
+            let new_gesture = Gesture {
+                points: new_gesture_points,
+                ..current_gesture.clone()
+            };
+
+
+            Plan { gestures: Some((gesture_id, new_gesture)).into_iter().collect() }
+        };
+
+        self.proposals[proposal_id].set_ongoing_step(current_change);
+
+        // TODO: can we update only part of the preview
+        // for better rendering performance while dragging?
+        self.clear_previews(proposal_id);
+
+        if is_move_finished {
+            self.proposals[proposal_id].start_new_step();
+            self.recreate_control_point_interactables(proposal_id, world);
+        }
+    }
+
+    pub fn undo(&mut self, proposal_id: usize, _: &mut World) {
+        self.proposals[proposal_id].undo();
+    }
+
+    pub fn redo(&mut self, proposal_id: usize, _: &mut World) {
+        self.proposals[proposal_id].redo();
+    }
+}
+
+impl Renderable for PlanManager {
+    fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
+        let dot_geometry = band_to_geometry(
+            &Band::new(
+                CPath::new(vec![
+                    Segment::arc_with_direction(
+                        P2::new(-CONTROL_POINT_HANDLE_RADIUS, 0.0),
+                        V2::new(0.0, 1.0),
+                        P2::new(CONTROL_POINT_HANDLE_RADIUS, 0.0)
+                    ).expect("gotta be valid"),
+                    Segment::arc_with_direction(
+                        P2::new(CONTROL_POINT_HANDLE_RADIUS, 0.0),
+                        V2::new(0.0, -1.0),
+                        P2::new(-CONTROL_POINT_HANDLE_RADIUS, 0.0)
+                    ).expect("gotta be valid"),
+                ]),
+                0.3,
+            ),
+            1.0,
+        );
+
+        renderer_id.add_batch(scene_id, 17_000, dot_geometry, world);
+    }
+
+    fn render_to_scene(
+        &mut self,
+        renderer_id: RendererID,
+        scene_id: usize,
+        frame: usize,
+        world: &mut World,
+    ) {
+        // TODO: clean up this mess
+        if let Some(proposal_id) =
+            *self.ui_state
+                .get(renderer_id.as_raw().machine)
+                .expect("should have ui state for this renderer")
+                .current_proposal
+        {
+            let preview = self.ensure_preview(renderer_id.as_raw().machine, proposal_id);
+
+            let control_point_instances = preview
+                .gestures
+                .values()
+                .flat_map(|gesture| {
+                    gesture.points.iter().map(|point| {
+                        Instance {
+                            instance_position: [point.x, point.y, 0.0],
+                            instance_direction: [1.0, 0.0],
+                            instance_color: colors::CONTROL_POINT,
+                        }
+                    })
+                })
+                .collect();
+
+            renderer_id.add_several_instances(
+                scene_id,
+                17_000,
+                frame,
+                control_point_instances,
+                world,
+            );
+
+            for (i, gesture) in preview.gestures.values().enumerate() {
+                let line_path = CPath::new(
+                    gesture
+                        .points
+                        .windows(2)
+                        .map(|window| {
+                            Segment::line(window[0], window[1]).expect("gotta be valid")
+                        })
+                        .collect(),
+                );
+
+                let line_geometry = band_to_geometry(&Band::new(line_path, 0.3), 1.0);
+
+                renderer_id.update_individual(
+                    scene_id,
+                    18_000 + i as u16,
+                    line_geometry,
+                    Instance::with_color(colors::GESTURE_LINES),
+                    true,
+                    world,
+                );
+            }
+        };
+
+    }
+}
+
+#[derive(Compact, Clone)]
+pub struct ControlPointInteractable {
+    id: ControlPointInteractableID,
+    plan_manager: PlanManagerID,
+    current_canvas: GestureCanvasID,
+    proposal_id: usize,
+    gesture_id: GestureID,
+    point_index: usize,
+}
+
+const CONTROL_POINT_HANDLE_RADIUS: N = 3.0;
+
+impl ControlPointInteractable {
+    pub fn spawn(
+        id: ControlPointInteractableID,
+        user_interface: UserInterfaceID,
+        plan_manager: PlanManagerID,
+        current_canvas: GestureCanvasID,
+        proposal_id: usize,
+        gesture_id: GestureID,
+        point_index: usize,
+        position: P2,
+        world: &mut World,
+    ) -> Self {
+        user_interface.add(
+            GESTURE_LAYER,
+            id.into(),
+            AnyShape::Circle(Circle {
+                center: position,
+                radius: CONTROL_POINT_HANDLE_RADIUS,
+            }),
+            1,
+            world,
+        );
+
+        ControlPointInteractable {
+            id,
+            plan_manager,
+            current_canvas,
+            proposal_id,
+            gesture_id,
+            point_index,
+        }
+    }
+
+    pub fn remove(&self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
+        user_interface.remove(GESTURE_LAYER, self.id.into(), world);
+        Fate::Die
+    }
+}
+
+use stagemaster::Event3d;
+
+impl Interactable3d for ControlPointInteractable {
+    fn on_event(&mut self, event: Event3d, world: &mut World) {
+        let drag_info = match event {
+            Event3d::DragStarted { .. } => {
+                self.current_canvas.finish_gesture(world);
+                None
+            }
+            Event3d::DragOngoing { from, to, .. } => Some((from, to, false)),
+            Event3d::DragFinished { from, to, .. } => Some((from, to, true)),
+            _ => None,
+        };
+
+        if let Some((from, to, is_finished)) = drag_info {
+            self.plan_manager.move_control_point(
+                self.proposal_id,
+                self.gesture_id,
+                self.point_index,
+                to.into_2d(),
+                is_finished,
+                world,
+            );
+        }
+    }
+}
+
+#[derive(Compact, Clone)]
+pub struct GestureCanvas {
+    id: GestureCanvasID,
+    plan_manager: PlanManagerID,
+    proposal_id: usize,
+    current_mode: GestureCanvasMode,
+}
+
+#[derive(Compact, Clone)]
+enum GestureCanvasMode {
+    StartNewGesture,
+    AddToEndOfExisting(GestureID),
+    AddToBeginningOfExisting(GestureID),
+}
+
+impl GestureCanvas {
+    pub fn spawn(
+        id: GestureCanvasID,
+        user_interface: UserInterfaceID,
+        plan_manager: PlanManagerID,
+        proposal_id: usize,
+        world: &mut World,
+    ) -> Self {
+        user_interface.add(GESTURE_LAYER, id.into(), AnyShape::Everywhere, 0, world);
+
+        GestureCanvas {
+            id,
+            plan_manager,
+            proposal_id,
+            current_mode: GestureCanvasMode::StartNewGesture,
+        }
+    }
+
+    pub fn remove(&self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
+        user_interface.remove(GESTURE_LAYER, self.id.into(), world);
+        Fate::Die
+    }
+
+    pub fn finish_gesture(&mut self, world: &mut World) {
+        self.current_mode = GestureCanvasMode::StartNewGesture;
+    }
+}
+
+impl Interactable3d for GestureCanvas {
+    fn on_event(&mut self, event: Event3d, world: &mut World) {
+        if let Event3d::DragStarted { at, .. } = event {
+            match self.current_mode {
+                GestureCanvasMode::StartNewGesture => {
+                    let new_gesture_id = GestureID::new();
+
+                    self.plan_manager.start_new_gesture(
+                        self.proposal_id,
+                        new_gesture_id,
+                        at.into_2d(),
+                        world,
+                    );
+                    self.current_mode = GestureCanvasMode::AddToEndOfExisting(new_gesture_id);
+                }
+                GestureCanvasMode::AddToEndOfExisting(gesture_id) => {
+                    self.plan_manager.add_control_point(
+                        self.proposal_id,
+                        gesture_id,
+                        at.into_2d(),
+                        true,
+                        world,
+                    );
+                }
+                GestureCanvasMode::AddToBeginningOfExisting(gesture_id) => {
+                    self.plan_manager.add_control_point(
+                        self.proposal_id,
+                        gesture_id,
+                        at.into_2d(),
+                        false,
+                        world,
+                    );
+                }
+            }
+        }
+    }
+}
+
+// Specific stuff
+
+#[derive(Compact, Clone)]
+pub struct RoadIntent {
+    n_lanes_forward: u8,
+    n_lanes_backward: u8,
+}
+
+impl RoadIntent {
+    pub fn new(n_lanes_forward: u8, n_lanes_backward: u8) -> Self {
+        RoadIntent { n_lanes_forward, n_lanes_backward }
+    }
+}
+
+#[derive(Compact, Clone)]
+pub enum ZoneIntent {
+    LandUse(LandUse),
+    MaxHeight(u8),
+    SetBack(u8),
+}
+
+#[derive(Copy, Clone)]
+pub enum LandUse {
+    Residential,
+    Commercial,
+    Industrial,
+    Agricultural,
+    Recreational,
+    Official,
+}
+
+pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) {
+    system.register::<PlanManager>();
+    system.register::<GestureCanvas>();
+    system.register::<ControlPointInteractable>();
+    auto_setup(system);
+
+    let plan_manager = PlanManagerID::spawn(&mut system.world());
+    plan_manager.connect(user_interface, &mut system.world());
+    plan_manager.switch_to(user_interface.as_raw().machine, 0, &mut system.world());
+}
+
+pub mod kay_auto;
+use self::kay_auto::*;

@@ -6,7 +6,7 @@ use kay::{ActorSystem, World, Actor};
 
 use super::plan::{Plan, PlanDelta, PlanResult, PlanResultDelta};
 use super::plan_manager::PlanManagerID;
-use transport::transport_planning::materialized_roads::{MaterializedRoads, RoadUpdateState};
+use transport::transport_planning_old::materialized_roads::{MaterializedRoads, RoadUpdateState};
 use land_use::buildings::MaterializedBuildings;
 
 // TODO: a lot of this shouldn't be `pub` - all the different aspects should rather
@@ -122,7 +122,7 @@ pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
 
     auto_setup(system);
 
-    if system.networking_machine_id() > 0 {
+    if system.networking_machine_id().0 > 0 {
         MaterializedReality::global_first(&mut system.world())
     } else {
         MaterializedRealityID::spawn(&mut system.world())

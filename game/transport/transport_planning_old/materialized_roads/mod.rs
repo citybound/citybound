@@ -1,7 +1,7 @@
 use kay::{World, TypedID};
 use compact::{CVec, CDict};
-use planning::materialized_reality::{MaterializedReality, MaterializedRealityID};
-use planning::materialized_reality::MaterializedRealityState::{Ready, Updating};
+use planning_old::materialized_reality::{MaterializedReality, MaterializedRealityID};
+use planning_old::materialized_reality::MaterializedRealityState::{Ready, Updating};
 use super::road_plan::{RoadPlan, RoadPlanResultDelta, LaneStrokeRef, IntersectionRef,
                        TrimmedStrokeRef, TransferStrokeRef};
 use super::lane_stroke::LaneStroke;

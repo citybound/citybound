@@ -5,8 +5,9 @@ use imgui::ImGuiSetCond_FirstUseEver;
 
 pub const BASE_LAYER: UserInterfaceLayer = UserInterfaceLayer(0);
 pub const ROAD_LAYER: UserInterfaceLayer = UserInterfaceLayer(1);
-pub const ZONE_LAYER: UserInterfaceLayer = UserInterfaceLayer(2);
-pub const INFO_LAYER: UserInterfaceLayer = UserInterfaceLayer(3);
+pub const GESTURE_LAYER: UserInterfaceLayer = UserInterfaceLayer(2);
+pub const ZONE_LAYER: UserInterfaceLayer = UserInterfaceLayer(3);
+pub const INFO_LAYER: UserInterfaceLayer = UserInterfaceLayer(4);
 
 #[derive(Compact, Clone)]
 pub struct LayerSelection {
@@ -32,6 +33,9 @@ impl Interactable2d for LayerSelection {
             .build(|| {
                 if ui.small_button(im_str!("Roads")) {
                     UserInterface::local_first(world).set_current_layer(Some(ROAD_LAYER), world);
+                }
+                if ui.small_button(im_str!("New Gesture Planning")) {
+                    UserInterface::local_first(world).set_current_layer(Some(GESTURE_LAYER), world);
                 }
                 if ui.small_button(im_str!("Zoning")) {
                     UserInterface::local_first(world).set_current_layer(Some(ZONE_LAYER), world);

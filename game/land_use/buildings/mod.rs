@@ -6,7 +6,7 @@ use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID, Us
 use stagemaster::combo::Button::*;
 use stagemaster::geometry::AnyShape;
 use transport::lane::{Lane, LaneID};
-use planning::materialized_reality::{MaterializedReality, MaterializedRealityID};
+use planning_old::materialized_reality::{MaterializedReality, MaterializedRealityID};
 
 
 use economy::households::family::FamilyID;
@@ -589,7 +589,7 @@ pub struct MaterializedBuildings {
     buildings: CVec<(P2, BuildingID, LaneID)>,
 }
 
-use transport::transport_planning::road_plan::RoadPlanResultDelta;
+use transport::transport_planning_old::road_plan::RoadPlanResultDelta;
 use std::collections::HashSet;
 
 impl MaterializedBuildings {

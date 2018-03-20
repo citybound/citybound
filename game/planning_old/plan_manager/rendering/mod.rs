@@ -5,7 +5,7 @@ use super::{PlanManager, PlanManagerID};
 
 use monet::{Renderable, RenderableID};
 
-use transport::transport_planning::plan_manager::rendering as road_rendering;
+use transport::transport_planning_old::plan_manager::rendering as road_rendering;
 use land_use::buildings::rendering as building_rendering;
 
 impl Renderable for PlanManager {
@@ -27,7 +27,7 @@ impl Renderable for PlanManager {
                 self.preview.as_ref().unwrap()
             };
             road_rendering::render_strokes(
-                origin_machine,
+                origin_machine.0,
                 &preview.plan_delta.roads,
                 renderer_id,
                 scene_id,

@@ -234,7 +234,7 @@ pub fn setup(system: &mut ActorSystem) {
 
     kay_auto::auto_setup(system);
 
-    if system.networking_machine_id() == 0 {
+    if system.networking_machine_id().0 == 0 {
         MarketID::spawn(&mut system.world());
     }
 }

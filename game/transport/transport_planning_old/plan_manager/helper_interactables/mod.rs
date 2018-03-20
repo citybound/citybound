@@ -2,7 +2,7 @@ use kay::{ActorSystem, Fate, World, Actor};
 use compact::CVec;
 use descartes::{P2, N, Band, Into2d, Curve, FiniteCurve, Path, RoughlyComparable};
 use stagemaster::geometry::{AnyShape, CPath};
-use planning::plan_manager::{PlanManagerID, Intent, IntentProgress};
+use planning_old::plan_manager::{PlanManagerID, Intent, IntentProgress};
 
 use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID};
 

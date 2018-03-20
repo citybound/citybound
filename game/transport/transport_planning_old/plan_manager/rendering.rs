@@ -27,7 +27,7 @@ pub fn render_strokes(
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5496 + u16::from(world.local_machine_id()) * 10_000,
+        5496 + u16::from(world.local_machine_id().0) * 10_000,
         destroyed_strokes_geometry,
         Instance::with_color(colors::DESTROYED_STROKE),
         true,
@@ -43,7 +43,7 @@ pub fn render_strokes(
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5498 + u16::from(world.local_machine_id()) * 10_000,
+        5498 + u16::from(world.local_machine_id().0) * 10_000,
         stroke_base_geometry,
         Instance::with_color(colors::STROKE_BASE),
         true,
@@ -57,7 +57,7 @@ pub fn render_strokes(
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5499 + u16::from(world.local_machine_id()) * 10_000,
+        5499 + u16::from(world.local_machine_id().0) * 10_000,
         stroke_geometry,
         Instance::with_color(colors::STROKE),
         true,
@@ -80,7 +80,7 @@ pub fn render_trimmed_strokes(
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5500 + u16::from(world.local_machine_id()) * 10_000,
+        5500 + u16::from(world.local_machine_id().0) * 10_000,
         trimmed_stroke_geometry,
         Instance::with_color(colors::TRIMMED_STROKE),
         true,
@@ -103,7 +103,7 @@ pub fn render_intersections(
     //     .sum();
     // renderer_id.update_individual(
     //     scene_id,
-    //     5501 + u16::from(world.local_machine_id()) * 10_000,
+    //     5501 + u16::from(world.local_machine_id().0) * 10_000,
     //     intersections_geometry,
     //     Instance::with_color([0.0, 0.0, 1.0]),
     //     true,
@@ -120,7 +120,7 @@ pub fn render_intersections(
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5502 + u16::from(world.local_machine_id()) * 10_000,
+        5502 + u16::from(world.local_machine_id().0) * 10_000,
         connecting_strokes_geometry,
         Instance::with_color(colors::INTERSECTION_STROKE),
         true,
@@ -144,7 +144,7 @@ pub fn render_transfer_lanes(
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5503 + u16::from(world.local_machine_id()) * 10_000,
+        5503 + u16::from(world.local_machine_id().0) * 10_000,
         transfer_strokes_geometry,
         Instance::with_color(colors::TRANSFER_STROKE),
         true,
@@ -176,7 +176,7 @@ pub fn render_selections(
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5497 + u16::from(world.local_machine_id()) * 10_000,
+        5497 + u16::from(world.local_machine_id().0) * 10_000,
         addable_geometry,
         Instance::with_color(colors::ADDABLE_STROKE),
         true,
@@ -193,7 +193,7 @@ pub fn render_selections(
         .sum();
     renderer_id.update_individual(
         scene_id,
-        5504 + u16::from(world.local_machine_id()) * 10_000,
+        5504 + u16::from(world.local_machine_id().0) * 10_000,
         selection_geometry,
         Instance::with_color(colors::SELECTION_STROKE),
         true,

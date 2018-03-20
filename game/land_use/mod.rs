@@ -1,10 +1,10 @@
 use kay::ActorSystem;
 use core::simulation::SimulationID;
 use stagemaster::UserInterfaceID;
-use planning::materialized_reality::MaterializedRealityID;
+use planning_old::materialized_reality::MaterializedRealityID;
 
 pub mod buildings;
-pub mod zone_planning;
+pub mod zone_planning_old;
 
 pub fn setup(
     system: &mut ActorSystem,
@@ -13,5 +13,5 @@ pub fn setup(
     materialized_reality: MaterializedRealityID,
 ) {
     buildings::setup(system, user_interface, simulation, materialized_reality);
-    zone_planning::setup(system);
+    zone_planning_old::setup(system);
 }

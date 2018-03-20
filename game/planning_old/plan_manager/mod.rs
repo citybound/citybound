@@ -6,10 +6,10 @@ use monet::RendererID;
 use super::materialized_reality::MaterializedRealityID;
 use super::plan::{PlanDelta, PlanResultDelta};
 
-use transport::transport_planning::plan_manager::{RoadIntent, RoadSelections, RoadPlanSettings,
-                                                  MaterializedRoadView};
-use transport::transport_planning::plan_manager::apply_intent::apply_road_intent;
-use land_use::zone_planning::{ZonePlanDelta, ZonePlanAction};
+use transport::transport_planning_old::plan_manager::{RoadIntent, RoadSelections,
+                                                      RoadPlanSettings, MaterializedRoadView};
+use transport::transport_planning_old::plan_manager::apply_intent::apply_road_intent;
+use land_use::zone_planning_old::{ZonePlanDelta, ZonePlanAction};
 
 mod rendering;
 

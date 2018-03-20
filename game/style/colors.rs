@@ -11,6 +11,11 @@ pub const TRANSFER_STROKE: [f32; 3] = [0.3, 0.3, 0.3];
 pub const ADDABLE_STROKE: [f32; 3] = [0.8, 0.8, 0.8];
 pub const SELECTION_STROKE: [f32; 3] = [0.2, 0.2, 0.2];
 
+// GESTURE BASED PLANNING
+
+pub const CONTROL_POINT: [f32; 3] = [0.0, 0.0, 0.0];
+pub const GESTURE_LINES: [f32; 3] = [0.3, 0.3, 0.3];
+
 // WORLD
 
 pub const GRASS: (f32, f32, f32, f32) = (0.6, 0.75, 0.4, 1.0);

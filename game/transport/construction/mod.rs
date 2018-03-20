@@ -10,8 +10,8 @@ use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
 use super::microtraffic::LaneLikeID;
 
-use planning::materialized_reality::MaterializedRealityID;
-use super::transport_planning::materialized_roads::BuildableRef;
+use planning_old::materialized_reality::MaterializedRealityID;
+use super::transport_planning_old::materialized_roads::BuildableRef;
 
 const CONNECTION_TOLERANCE: f32 = 0.1;
 

@@ -2,7 +2,7 @@ use compact::Compact;
 use std::mem::size_of;
 use super::messaging::{Message, Packet, Fate};
 use super::inbox::{Inbox, DispatchablePacket};
-use super::id::{RawID, TypedID};
+use super::id::{RawID, TypedID, MachineID};
 use super::type_registry::{ShortTypeId, TypeRegistry};
 use super::swarm::Swarm;
 use super::networking::Networking;
@@ -335,7 +335,7 @@ impl ActorSystem {
     }
 
     /// The machine index of this machine within the network of peers
-    pub fn networking_machine_id(&self) -> u8 {
+    pub fn networking_machine_id(&self) -> MachineID {
         self.networking.machine_id
     }
 
@@ -394,7 +394,7 @@ impl World {
     /// Get the RawID of the first instance of an actor on machine 0
     pub fn global_first<A: Actor>(&mut self) -> RawID {
         let mut id = unsafe { &mut *self.0 }.id::<A>();
-        id.machine = 0;
+        id.machine = MachineID(0);
         id
     }
 
@@ -420,7 +420,7 @@ impl World {
     }
 
     /// Get the id of the machine that we're currently in
-    pub fn local_machine_id(&mut self) -> u8 {
+    pub fn local_machine_id(&mut self) -> MachineID {
         let system: &mut ActorSystem = unsafe { &mut *self.0 };
         system.networking.machine_id
     }
