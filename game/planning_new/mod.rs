@@ -221,12 +221,15 @@ pub struct PlanManager {
     ui_state: CHashMap<MachineID, PlanManagerUIState>,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub struct ControlPointRef(pub GestureID, pub usize);
 
 #[derive(Compact, Clone)]
 pub struct PlanManagerUIState {
     current_proposal: COption<usize>,
     canvas: COption<GestureCanvasID>,
     control_point_interactables: CVec<ControlPointInteractableID>,
+    selected_points: CVec<ControlPointRef>,
     current_preview: COption<Plan>,
     current_result_preview: COption<PlanResult>,
     user_interface: UserInterfaceID,
@@ -250,6 +253,7 @@ impl PlanManager {
                 current_proposal: COption(None),
                 canvas: COption(None),
                 control_point_interactables: CVec::new(),
+                selected_points: CVec::new(),
                 current_preview: COption(None),
                 current_result_preview: COption(None),
                 user_interface,
@@ -317,6 +321,58 @@ impl PlanManager {
         )
     }
 
+    fn recreate_control_point_interactables_on_machine(
+        &mut self,
+        machine_id: MachineID,
+        world: &mut World,
+    ) {
+        let new_control_point_interactables = {
+            let (user_interface, current_canvas, proposal_id) = {
+                let state = self.ui_state.get(machine_id).unwrap();
+                (
+                    state.user_interface,
+                    state.canvas.expect("Should already have a canvas"),
+                    state.current_proposal.expect(
+                        "should already have a selected proposal",
+                    ),
+                )
+            };
+            let (preview, _) = self.ensure_preview(machine_id, proposal_id);
+
+            preview
+                .gestures
+                .pairs()
+                .flat_map(|(gesture_id, gesture)| {
+                    gesture
+                        .points
+                        .iter()
+                        .enumerate()
+                        .map(|(point_index, point)| {
+                            ControlPointInteractableID::spawn(
+                                user_interface,
+                                self.id,
+                                current_canvas,
+                                proposal_id,
+                                *gesture_id,
+                                point_index,
+                                *point,
+                                world,
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect()
+        };
+
+        let state = self.ui_state.get_mut(machine_id).unwrap();
+
+        for control_point_interactable in state.control_point_interactables.drain() {
+            control_point_interactable.remove(state.user_interface, world);
+        }
+
+        state.control_point_interactables = new_control_point_interactables;
+    }
+
     fn recreate_control_point_interactables(&mut self, proposal_id: usize, world: &mut World) {
         let machines_with_this_proposal = self.ui_state
             .pairs()
@@ -325,45 +381,7 @@ impl PlanManager {
             .collect::<Vec<_>>();
 
         for machine_id in machines_with_this_proposal {
-            let new_control_point_interactables = {
-                let user_interface = self.ui_state.get(machine_id).unwrap().user_interface;
-                let current_canvas = self.ui_state.get(machine_id).unwrap().canvas.expect(
-                    "Should already have a canvas",
-                );
-                let (preview, _) = self.ensure_preview(machine_id, proposal_id);
-
-                preview
-                    .gestures
-                    .pairs()
-                    .flat_map(|(gesture_id, gesture)| {
-                        gesture
-                            .points
-                            .iter()
-                            .enumerate()
-                            .map(|(point_index, point)| {
-                                ControlPointInteractableID::spawn(
-                                    user_interface,
-                                    self.id,
-                                    current_canvas,
-                                    proposal_id,
-                                    *gesture_id,
-                                    point_index,
-                                    *point,
-                                    world,
-                                )
-                            })
-                            .collect::<Vec<_>>()
-                    })
-                    .collect()
-            };
-
-            let state = self.ui_state.get_mut(machine_id).unwrap();
-
-            for control_point_interactable in state.control_point_interactables.drain() {
-                control_point_interactable.remove(state.user_interface, world);
-            }
-
-            state.control_point_interactables = new_control_point_interactables;
+            self.recreate_control_point_interactables_on_machine(machine_id, world);
         }
     }
 
@@ -378,6 +396,33 @@ impl PlanManager {
             .chain(self.master_plan.gestures.get(gesture_id))
             .next()
             .expect("Expected gesture (that point should be added to) to exist!")
+    }
+
+    pub fn add_selected_point(
+        &mut self,
+        point_ref: ControlPointRef,
+        machine_id: MachineID,
+        world: &mut World,
+    ) {
+        {
+            let ui_state = self.ui_state.get_mut(machine_id).expect(
+                "should already have ui state",
+            );
+            if !ui_state.selected_points.contains(&point_ref) {
+                ui_state.selected_points.push(point_ref);
+            }
+        }
+        self.recreate_control_point_interactables_on_machine(machine_id, world);
+    }
+
+    pub fn clear_selection(&mut self, machine_id: MachineID, world: &mut World) {
+        {
+            let ui_state = self.ui_state.get_mut(machine_id).expect(
+                "should already have ui state",
+            );
+            ui_state.selected_points.clear();
+        }
+        self.recreate_control_point_interactables_on_machine(machine_id, world);
     }
 
     pub fn start_new_gesture(
@@ -570,15 +615,29 @@ impl Renderable for PlanManager {
                 }
             }
 
+            let selected_points = &self.ui_state
+                .get(renderer_id.as_raw().machine)
+                .expect("should have ui state for this renderer")
+                .selected_points;
+
             let control_point_instances = preview
                 .gestures
-                .values()
-                .flat_map(|gesture| {
-                    gesture.points.iter().map(|point| {
+                .pairs()
+                .flat_map(|(gesture_id, gesture)| {
+                    gesture.points.iter().enumerate().map(move |(point_index,
+                           point)| {
                         Instance {
                             instance_position: [point.x, point.y, 0.0],
                             instance_direction: [1.0, 0.0],
-                            instance_color: colors::CONTROL_POINT,
+                            instance_color: if selected_points.contains(&ControlPointRef(
+                                *gesture_id,
+                                point_index,
+                            ))
+                            {
+                                colors::CONTROL_POINT_SELECTED
+                            } else {
+                                colors::CONTROL_POINT
+                            },
                         }
                     })
                 })
@@ -671,6 +730,14 @@ impl Interactable3d for ControlPointInteractable {
                 is_finished,
                 world,
             );
+
+            if is_finished {
+                self.plan_manager.add_selected_point(
+                    ControlPointRef(self.gesture_id, self.point_index),
+                    self.id.as_raw().machine,
+                    world,
+                );
+            }
         }
     }
 }

@@ -14,6 +14,7 @@ pub const SELECTION_STROKE: [f32; 3] = [0.2, 0.2, 0.2];
 // GESTURE BASED PLANNING
 
 pub const CONTROL_POINT: [f32; 3] = [0.0, 0.0, 0.0];
+pub const CONTROL_POINT_SELECTED: [f32; 3] = [1.0, 0.0, 0.0];
 pub const GESTURE_LINES: [f32; 3] = [0.3, 0.3, 0.3];
 
 // WORLD
