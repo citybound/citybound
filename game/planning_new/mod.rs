@@ -101,6 +101,65 @@ impl Proposal {
 }
 
 #[derive(Compact, Clone)]
+pub struct PlanResult {
+    prototypes: CVec<Prototype>,
+}
+
+#[derive(Compact, Clone)]
+pub enum Prototype {
+    Road(RoadPrototype),
+    Zone,
+}
+
+#[derive(Compact, Clone)]
+pub enum RoadPrototype {
+    Lane(LanePrototype),
+    Intersection(IntersectionPrototype),
+}
+
+#[derive(Compact, Clone)]
+pub struct LanePrototype(CPath);
+
+#[derive(Compact, Clone)]
+pub struct IntersectionPrototype {
+    connecting_lanes: CVec<LanePrototype>,
+    timings: CVec<CVec<bool>>,
+}
+
+impl Plan {
+    pub fn calculate_result(&self) -> PlanResult {
+        let lane_prototypes = self.gestures
+            .values()
+            .filter_map(|gesture| if let GestureIntent::Road(ref road_intent) =
+                gesture.intent
+            {
+                if gesture.points.len() >= 2 {
+                    Some(Prototype::Road(
+                        RoadPrototype::Lane(LanePrototype(CPath::new(
+                            gesture
+                                .points
+                                .windows(2)
+                                .map(|point_pair| {
+                                    Segment::line(point_pair[0], point_pair[1]).expect(
+                                        "gesture should only create valid line segments",
+                                    )
+                                })
+                                .collect(),
+                        ))),
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                None
+            })
+            .collect();
+
+        PlanResult { prototypes: lane_prototypes }
+    }
+}
+
+#[derive(Compact, Clone)]
 pub struct PlanManager {
     id: PlanManagerID,
     master_plan: Plan,
@@ -116,6 +175,7 @@ pub struct PlanManagerUIState {
     canvas: COption<GestureCanvasID>,
     control_point_interactables: CVec<ControlPointInteractableID>,
     current_preview: COption<Plan>,
+    current_result_preview: COption<PlanResult>,
     user_interface: UserInterfaceID,
 }
 
@@ -138,6 +198,7 @@ impl PlanManager {
                 canvas: COption(None),
                 control_point_interactables: CVec::new(),
                 current_preview: COption(None),
+                current_result_preview: COption(None),
                 user_interface,
             },
         );
@@ -171,11 +232,12 @@ impl PlanManager {
         })
         {
             state.current_preview = COption(None);
+            state.current_result_preview = COption(None);
         }
     }
 
     #[allow(mutable_transmutes)]
-    fn ensure_preview(&self, machine_id: MachineID, proposal_id: usize) -> &Plan {
+    fn ensure_preview(&self, machine_id: MachineID, proposal_id: usize) -> (&Plan, &PlanResult) {
         let ui_state = self.ui_state.get(machine_id).expect(
             "Should already have a ui state for this machine",
         );
@@ -188,13 +250,18 @@ impl PlanManager {
             }
 
             if ui_state.current_preview.is_none() {
-                ui_state_mut.current_preview = COption(Some(self.proposals[proposal_id].apply_to(
-                    &self.master_plan,
-                )))
+                let preview_plan = self.proposals[proposal_id].apply_to(&self.master_plan);
+                let preview_plan_result = preview_plan.calculate_result();
+
+                ui_state_mut.current_preview = COption(Some(preview_plan));
+                ui_state_mut.current_result_preview = COption(Some(preview_plan_result));
             }
         }
 
-        ui_state.current_preview.as_ref().unwrap()
+        (
+            ui_state.current_preview.as_ref().unwrap(),
+            ui_state.current_result_preview.as_ref().unwrap(),
+        )
     }
 
     fn recreate_control_point_interactables(&mut self, proposal_id: usize, world: &mut World) {
@@ -210,7 +277,7 @@ impl PlanManager {
                 let current_canvas = self.ui_state.get(machine_id).unwrap().canvas.expect(
                     "Should already have a canvas",
                 );
-                let preview = self.ensure_preview(machine_id, proposal_id);
+                let (preview, _) = self.ensure_preview(machine_id, proposal_id);
 
                 preview
                     .gestures
@@ -387,7 +454,7 @@ impl Renderable for PlanManager {
             1.0,
         );
 
-        renderer_id.add_batch(scene_id, 17_000, dot_geometry, world);
+        renderer_id.add_batch(scene_id, 20_000, dot_geometry, world);
     }
 
     fn render_to_scene(
@@ -404,7 +471,51 @@ impl Renderable for PlanManager {
                 .expect("should have ui state for this renderer")
                 .current_proposal
         {
-            let preview = self.ensure_preview(renderer_id.as_raw().machine, proposal_id);
+            let (preview, result_preview) =
+                self.ensure_preview(renderer_id.as_raw().machine, proposal_id);
+
+            for (i, prototype) in result_preview.prototypes.iter().enumerate() {
+                if let Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path))) =
+                    *prototype
+                {
+                    let line_geometry =
+                        band_to_geometry(&Band::new(lane_path.clone(), LANE_WIDTH), 0.1);
+
+                    renderer_id.update_individual(
+                        scene_id,
+                        18_000 + i as u16,
+                        line_geometry,
+                        Instance::with_color(colors::STROKE_BASE),
+                        true,
+                        world,
+                    );
+                }
+            }
+
+            for (i, gesture) in preview.gestures.values().enumerate() {
+                if gesture.points.len() >= 2 {
+                    let line_path = CPath::new(
+                        gesture
+                            .points
+                            .windows(2)
+                            .map(|window| {
+                                Segment::line(window[0], window[1]).expect("gotta be valid")
+                            })
+                            .collect(),
+                    );
+
+                    let line_geometry = band_to_geometry(&Band::new(line_path, 0.3), 1.0);
+
+                    renderer_id.update_individual(
+                        scene_id,
+                        19_000 + i as u16,
+                        line_geometry,
+                        Instance::with_color(colors::GESTURE_LINES),
+                        true,
+                        world,
+                    );
+                }
+            }
 
             let control_point_instances = preview
                 .gestures
@@ -422,38 +533,16 @@ impl Renderable for PlanManager {
 
             renderer_id.add_several_instances(
                 scene_id,
-                17_000,
+                20_000,
                 frame,
                 control_point_instances,
                 world,
             );
-
-            for (i, gesture) in preview.gestures.values().enumerate() {
-                let line_path = CPath::new(
-                    gesture
-                        .points
-                        .windows(2)
-                        .map(|window| {
-                            Segment::line(window[0], window[1]).expect("gotta be valid")
-                        })
-                        .collect(),
-                );
-
-                let line_geometry = band_to_geometry(&Band::new(line_path, 0.3), 1.0);
-
-                renderer_id.update_individual(
-                    scene_id,
-                    18_000 + i as u16,
-                    line_geometry,
-                    Instance::with_color(colors::GESTURE_LINES),
-                    true,
-                    world,
-                );
-            }
         };
-
     }
 }
+
+const LANE_WIDTH: N = 6.0;
 
 #[derive(Compact, Clone)]
 pub struct ControlPointInteractable {
