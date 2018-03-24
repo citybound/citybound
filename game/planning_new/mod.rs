@@ -1,6 +1,6 @@
 use kay::{World, MachineID, Fate, TypedID, ActorSystem};
 use compact::{CVec, CHashMap, CDict, COption};
-use descartes::{N, P2, V2, Circle, RoughlyComparable, Into2d, Band, Segment, Path};
+use descartes::{N, P2, V2, Circle, RoughlyComparable, Into2d, Band, Segment, Path, FiniteCurve};
 use monet::{RendererID, Renderable, RenderableID, Instance};
 use stagemaster::{UserInterfaceID, Interactable3d, Interactable2d, Interactable3dID};
 use stagemaster::geometry::{AnyShape, band_to_geometry, CPath};
@@ -126,11 +126,15 @@ pub struct IntersectionPrototype {
     timings: CVec<CVec<bool>>,
 }
 
+const LANE_WIDTH: N = 6.0;
+const LANE_DISTANCE: N = 0.8 * LANE_WIDTH;
+const CENTER_LANE_DISTANCE: N = LANE_DISTANCE;
+
 impl Plan {
     pub fn calculate_result(&self) -> PlanResult {
         let lane_prototypes = self.gestures
             .values()
-            .filter_map(|gesture| if let GestureIntent::Road(ref road_intent) =
+            .flat_map(|gesture| if let GestureIntent::Road(ref road_intent) =
                 gesture.intent
             {
                 if gesture.points.len() >= 2 {
@@ -197,14 +201,28 @@ impl Plan {
                         previous_direction = direction;
                     }
 
-                    Some(Prototype::Road(
-                        RoadPrototype::Lane(LanePrototype(CPath::new(segments))),
-                    ))
+                    let path = CPath::new(segments);
+
+                    (0..road_intent.n_lanes_forward)
+                        .into_iter()
+                        .map(|lane_i| {
+                            CENTER_LANE_DISTANCE / 2.0 + lane_i as f32 * LANE_DISTANCE
+                        })
+                        .chain((0..road_intent.n_lanes_backward).into_iter().map(
+                            |lane_i| {
+                                -(CENTER_LANE_DISTANCE / 2.0 + lane_i as f32 * LANE_DISTANCE)
+                            },
+                        ))
+                        .filter_map(|offset| path.shift_orthogonally(offset))
+                        .map(|shifted_path| {
+                            Prototype::Road(RoadPrototype::Lane(LanePrototype(shifted_path)))
+                        })
+                        .collect()
                 } else {
-                    None
+                    vec![]
                 }
             } else {
-                None
+                vec![]
             })
             .collect();
 
@@ -669,8 +687,6 @@ impl Renderable for PlanManager {
     }
 }
 
-const LANE_WIDTH: N = 6.0;
-
 #[derive(Compact, Clone)]
 pub struct ControlPointInteractable {
     id: ControlPointInteractableID,
@@ -790,10 +806,6 @@ impl GestureCanvas {
     pub fn remove(&self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
         user_interface.remove(GESTURE_LAYER, self.id.into(), world);
         Fate::Die
-    }
-
-    pub fn finish_gesture(&mut self, world: &mut World) {
-        self.current_mode = GestureCanvasMode::StartNewGesture;
     }
 }
 
