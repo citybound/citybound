@@ -4,6 +4,7 @@ pub mod microtraffic;
 pub mod rendering;
 
 pub mod transport_planning_old;
+pub mod transport_planning_new;
 pub mod pathfinding;
 
 use kay::ActorSystem;
