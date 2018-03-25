@@ -47,7 +47,13 @@ impl Renderable for PlanManager {
         let (preview, result_preview) =
             self.ensure_preview(renderer_id.as_raw().machine, proposal_id);
 
-
+        super::transport_planning_new::render_preview(
+            result_preview,
+            renderer_id,
+            scene_id,
+            frame,
+            world,
+        );
 
         for (i, gesture) in preview.gestures.values().enumerate() {
             if gesture.points.len() >= 2 {
