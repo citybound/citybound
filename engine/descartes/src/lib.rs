@@ -27,13 +27,12 @@ mod primitives;
 mod path;
 mod intersect;
 mod shapes;
-mod clipper;
+pub mod clipper;
 
 pub use self::primitives::*;
 pub use self::path::{Path, convex_hull};
 pub use self::intersect::*;
 pub use self::shapes::*;
-pub use self::clipper::clip;
 
 pub fn angle_to(a: V2, b: V2) -> N {
     let theta: N = dot(&a, &b) / (a.norm() * b.norm());

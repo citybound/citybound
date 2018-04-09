@@ -35,7 +35,7 @@ impl Curve for Line {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub struct Segment {
     pub start: P2,
     pub center_or_direction: V2,
@@ -48,9 +48,14 @@ const DIRECTION_TOLERANCE: f32 = 0.01;
 pub const MIN_START_TO_END: f32 = 0.01;
 const MAX_SIMPLE_LINE_LENGTH: f32 = 0.5;
 
+fn start_end_invalid(start: P2, end: P2) -> bool {
+    start.x.is_nan() || start.y.is_nan() || end.x.is_nan() || end.y.is_nan() ||
+        start.is_roughly_within(end, MIN_START_TO_END)
+}
+
 impl Segment {
     pub fn line(start: P2, end: P2) -> Option<Segment> {
-        if start.is_roughly_within(end, MIN_START_TO_END) {
+        if start_end_invalid(start, end) {
             //panic!("invalid segment!");
             None
         } else {
@@ -65,7 +70,7 @@ impl Segment {
     }
 
     pub fn arc_with_direction(start: P2, direction: V2, end: P2) -> Option<Segment> {
-        if start.is_roughly_within(end, MIN_START_TO_END) {
+        if start_end_invalid(start, end) {
             //panic!("invalid segment!");
             None
         } else if direction.is_roughly_within((end - start).normalize(), DIRECTION_TOLERANCE) {
@@ -93,7 +98,7 @@ impl Segment {
         end: P2,
         end_direction: V2,
     ) -> Option<Vec<Segment>> {
-        if start.is_roughly_within(end, MIN_START_TO_END) {
+        if start_end_invalid(start, end) {
             return None;
             // panic!(
             //     "invalid biarc! {:?}, {:?} -> {:?}, {:?}",
@@ -254,8 +259,12 @@ impl Segment {
                 self.start.y,
                 self.radius(),
                 self.radius(),
-                self.length / self.radius() > ::std::f32::consts::PI,
-                self.signed_radius > 0.0,
+                if self.length / self.radius() > ::std::f32::consts::PI {
+                    1
+                } else {
+                    0
+                },
+                if self.signed_radius < 0.0 { 1 } else { 0 },
                 self.end.x,
                 self.end.y
             )
@@ -447,6 +456,32 @@ impl HasBoundingBox for Segment {
                 min: self.center() - half_diagonal,
                 max: self.center() + half_diagonal,
             }
+        }
+    }
+}
+
+impl ::std::fmt::Debug for Segment {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
+        if self.is_linear() {
+            write!(
+                f,
+                "LineSeg({:.2}, {:.2} to {:.2}, {:.2})",
+                self.start().x,
+                self.start().y,
+                self.end().x,
+                self.end().y
+            )
+        } else {
+            write!(
+                f,
+                "ArcSeg({:.2}, {:.2} around {:.2}, {:.2} to {:.2}, {:.2})",
+                self.start().x,
+                self.start().y,
+                self.center().x,
+                self.center().y,
+                self.end().x,
+                self.end().y
+            )
         }
     }
 }

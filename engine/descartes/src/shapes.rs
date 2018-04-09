@@ -1,4 +1,4 @@
-use super::{Shape, N, P2, THICKNESS, Curve, FiniteCurve, PointOnShapeLocation};
+use super::{Shape, N, P2, THICKNESS, Curve, FiniteCurve, PointOnShapeLocation, RoughlyComparable};
 use super::path::Path;
 use super::primitives::{Circle, Segment};
 use PointOnShapeLocation::*;
@@ -52,7 +52,7 @@ impl<P: Path> Band<P> {
                     .chain(&[connector2])
                     .cloned()
                     .collect(),
-            )
+            ).unwrap()
         } else {
             self.path.clone()
         }
@@ -110,10 +110,25 @@ impl<P: Path> Shape for Band<P> {
     }
 }
 
+#[derive(Debug)]
+pub enum ShapeError {
+    NotClosed,
+}
+
 pub trait SimpleShape {
     type P: Path;
     fn outline(&self) -> &Self::P;
-    fn new(outline: Self::P) -> Self;
+    fn new(outline: Self::P) -> Result<Self, ShapeError>
+    where
+        Self: Sized,
+    {
+        if !outline.is_closed() {
+            Result::Err(ShapeError::NotClosed)
+        } else {
+            Result::Ok(Self::new_unchecked(outline))
+        }
+    }
+    fn new_unchecked(outline: Self::P) -> Self;
 }
 
 impl<S: SimpleShape> Shape for S {
