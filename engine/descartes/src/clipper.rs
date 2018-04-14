@@ -4,13 +4,9 @@
 /// by Dae Hyun Kima & Myoung-Jun Kim
 
 use super::shapes::SimpleShape;
-use super::{N, Shape, Segment, PointOnShapeLocation, Path, FiniteCurve};
+use super::{N, Shape, Segment, Path, FiniteCurve};
 use super::PointOnShapeLocation::*;
 use super::intersect::Intersect;
-use super::{RoughlyComparable, THICKNESS};
-use ordered_float::OrderedFloat;
-use itertools::Itertools;
-use std::collections::BinaryHeap;
 
 const DEBUG_PRINT: bool = true;
 

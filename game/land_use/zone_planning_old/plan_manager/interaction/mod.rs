@@ -103,7 +103,7 @@ impl Renderable for ZoneCanvas {
                         Segment::line(window[0], window[1]).expect("Should be valid line")
                     })
                     .collect::<Vec<_>>(),
-            );
+            ).unwrap();
             let band = Band::new(path, 0.4);
             band_to_geometry(&band, 1.0)
         } else {
@@ -134,16 +134,18 @@ impl Interactable2d for ZoneCanvas {
                         self.plan_manager.change_intent(
                             Intent::ZoneIntent(ZonePlanAction::Add(Zone {
                                 meaning: ZoneMeaning::LandUse(LandUse::Residential),
-                                shape: CShape::new(CPath::new(
-                                    points
-                                        .windows(2)
-                                        .map(|window| {
-                                            Segment::line(window[0], window[1]).expect(
-                                                "should be a valid line",
-                                            )
-                                        })
-                                        .collect::<Vec<_>>(),
-                                )),
+                                shape: CShape::new(
+                                    CPath::new(
+                                        points
+                                            .windows(2)
+                                            .map(|window| {
+                                                Segment::line(window[0], window[1]).expect(
+                                                    "should be a valid line",
+                                                )
+                                            })
+                                            .collect::<Vec<_>>(),
+                                    ).unwrap(),
+                                ).unwrap(),
                             })),
                             IntentProgress::Finished,
                             world,

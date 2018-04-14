@@ -143,8 +143,6 @@ impl PlanManager {
         }
     }
 
-
-
     pub fn get_current_version_of(&self, gesture_id: GestureID, proposal_id: usize) -> &Gesture {
         self.proposals[proposal_id]
             .current_history()
@@ -158,9 +156,6 @@ impl PlanManager {
             .expect("Expected gesture (that point should be added to) to exist!")
     }
 }
-
-
-
 
 // Specific stuff
 
@@ -185,6 +180,7 @@ pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) {
     system.register::<PlanManager>();
     auto_setup(system);
     rendering::auto_setup(system);
+    interaction::setup(system);
 
     let plan_manager = PlanManagerID::spawn(&mut system.world());
     plan_manager.switch_to(user_interface, 0, &mut system.world());

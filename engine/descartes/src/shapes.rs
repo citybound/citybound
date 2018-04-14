@@ -1,4 +1,4 @@
-use super::{Shape, N, P2, THICKNESS, Curve, FiniteCurve, PointOnShapeLocation, RoughlyComparable};
+use super::{Shape, N, P2, THICKNESS, Curve, FiniteCurve, PointOnShapeLocation};
 use super::path::Path;
 use super::primitives::{Circle, Segment};
 use PointOnShapeLocation::*;

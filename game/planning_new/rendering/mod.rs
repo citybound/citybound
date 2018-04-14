@@ -1,6 +1,6 @@
 use kay::{World, TypedID};
 use descartes::{P2, V2, Band, Segment, Path};
-use monet::{RendererID, Renderable, RenderableID, Instance};
+use monet::{RendererID, Renderable, RenderableID, Instance, Geometry};
 use stagemaster::geometry::{band_to_geometry, CPath};
 use style::colors;
 
@@ -23,7 +23,7 @@ impl Renderable for PlanManager {
                             P2::new(-CONTROL_POINT_HANDLE_RADIUS, 0.0),
                         ))
                         .collect(),
-                ),
+                ).unwrap(),
                 0.3,
             ),
             1.0,
@@ -57,16 +57,18 @@ impl Renderable for PlanManager {
 
         for (i, gesture) in preview.gestures.values().enumerate() {
             if gesture.points.len() >= 2 {
-                let line_path = CPath::new(
+                let line_geometry = if let Ok(line_path) = CPath::new(
                     gesture
                         .points
                         .windows(2)
                         .filter_map(|window| Segment::line(window[0], window[1]))
                         .collect(),
-                );
-
-                let line_geometry = band_to_geometry(&Band::new(line_path, 0.3), 1.0);
-
+                )
+                {
+                    band_to_geometry(&Band::new(line_path, 0.3), 1.0)
+                } else {
+                    Geometry::empty()
+                };
                 renderer_id.update_individual(
                     scene_id,
                     19_000 + i as u16,

@@ -12,7 +12,7 @@ impl Path for CPath {
         &self.segments
     }
 
-    fn new(vec: Vec<Segment>) -> Self {
+    fn new_unchecked(vec: Vec<Segment>) -> Self {
         CPath { segments: vec.into() }
     }
 }
@@ -29,7 +29,7 @@ impl SimpleShape for CShape {
         &self.outline
     }
 
-    fn new(outline: CPath) -> Self {
+    fn new_unchecked(outline: CPath) -> Self {
         CShape { outline }
     }
 }
@@ -198,7 +198,7 @@ use kay::World;
 
 pub fn add_debug_line(from: P2, to: P2, color: [f32; 3], z: f32, world: &mut World) {
     if let Some(line) = Segment::line(from, to) {
-        let path = CPath::new(vec![line]);
+        let path = CPath::new(vec![line]).unwrap();
         add_debug_path(path, color, z, world);
     }
 }

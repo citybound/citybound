@@ -28,7 +28,7 @@ impl LaneStroke {
     pub fn new(nodes: CVec<LaneStrokeNode>) -> Result<Self, LaneStrokeError> {
         let stroke = LaneStroke {
             nodes: nodes,
-            _memoized_path: CPath::new(vec![]),
+            _memoized_path: CPath::new_unchecked(vec![]),
         };
         if !stroke.well_formed() {
             Result::Err(LaneStrokeError::NodesTooClose)
@@ -42,7 +42,7 @@ impl LaneStroke {
     pub fn with_single_node(node: LaneStrokeNode) -> Self {
         LaneStroke {
             nodes: vec![node].into(),
-            _memoized_path: CPath::new(vec![]),
+            _memoized_path: CPath::new_unchecked(vec![]),
         }
     }
 
@@ -51,7 +51,7 @@ impl LaneStroke {
     }
 
     pub fn nodes_mut(&mut self) -> &mut CVec<LaneStrokeNode> {
-        self._memoized_path = CPath::new(vec![]);
+        self._memoized_path = CPath::new_unchecked(vec![]);
         &mut self.nodes
     }
 
@@ -83,7 +83,7 @@ impl LaneStroke {
                         ).unwrap_or_else(Vec::new)
                     })
                     .collect::<Vec<_>>(),
-            )
+            ).unwrap()
         }
         &self._memoized_path
     }
