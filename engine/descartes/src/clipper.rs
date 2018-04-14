@@ -40,7 +40,7 @@ enum Direction {
     BackwardSwitch,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 struct Intersection {
     along: [N; 2],
     role: [Role; 2],
@@ -61,12 +61,35 @@ fn other_focus(focus: usize) -> usize {
 pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Vec<S> {
     let shapes = [subject_shape, clip_shape];
 
+    if DEBUG_PRINT {
+        println!(
+            r#"
+            <svg width="320" height="320" viewbox="-0.5 -0.5 2.5 2.5" xmlns="http://www.w3.org/2000/svg">
+                <g fill="none" stroke="rgba(0, 0, 255, 0.3)" stroke-width="0.02" marker-end="url(#subj_marker)">
+                    <marker id="subj_marker" viewBox="0 0 6 6" refX="6" refY="3" markerUnits="strokeWidth" orient="auto">
+                        <path d="M 0 0 L 6 3 L 0 6 z" fill="rgba(0, 0, 255, 0.3)"/>
+                    </marker>
+                    <path d="{}"/>
+                </g>
+                <g fill="none" stroke="rgba(255, 0, 0, 0.3)" stroke-width="0.02" marker-end="url(#clip_marker)">
+                    <marker id="clip_marker" viewBox="0 0 6 6" refX="6" refY="3" markerUnits="strokeWidth" orient="auto">
+                        <path d="M 0 0 L 6 3 L 0 6 z" fill="rgba(255, 0, 0, 0.3)"/>
+                    </marker>
+                    <path d="{}"/>
+                </g>
+            
+        "#,
+        shapes[SUBJECT].outline().to_svg(),
+        shapes[CLIP].outline().to_svg()
+        );
+    }
+
     // get raw intersections and put them into relative order along the subject
     // and clip shape using insertion sort on a doubly-linked list
 
     let raw_intersections = (subject_shape.outline(), clip_shape.outline()).intersect();
 
-    if raw_intersections.is_empty() {
+    if raw_intersections.len() < 2 {
         // TODO: handle full containment
         // TODO: handle full containment with single intersection that touches
         return Vec::new();
@@ -92,7 +115,7 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
         for raw_intersection in &raw_intersections[1..] {
             let along = [raw_intersection.along_a, raw_intersection.along_b];
             let mut next = first.clone();
-            let mut prev = first.clone();
+            let mut prev = [START_SENTINEL, START_SENTINEL];
 
             let self_i = intersections.len();
 
@@ -138,14 +161,14 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
 
     fn midpoint_between(length: N, start: N, end: N) -> N {
         if start < end {
-            start + end / 2.0
+            (start + end) / 2.0
         } else {
             let distance = (length - start) + end;
 
             if distance / 2.0 < (length - start) {
                 start + distance / 2.0
             } else {
-                end + (start + distance / 2.0 - length)
+                end - distance / 2.0
             }
         }
     }
@@ -155,19 +178,21 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
             let role = {
                 let intersection = &intersections[i];
                 let prev_intersection = &intersections[intersection.prev[focus]];
-                let prev_midpoint = shapes[focus].outline().along(midpoint_between(
+                let prev_midpoint_along = midpoint_between(
                     shapes[focus].outline().length(),
                     prev_intersection.along[focus],
                     intersection.along[focus],
-                ));
+                );
+                let prev_midpoint = shapes[focus].outline().along(prev_midpoint_along);
                 let prev_location = shapes[other_focus(focus)].location_of(prev_midpoint);
 
                 let next_intersection = &intersections[intersection.next[focus]];
-                let next_midpoint = shapes[focus].outline().along(midpoint_between(
+                let next_midpoint_along = midpoint_between(
                     shapes[focus].outline().length(),
                     intersection.along[focus],
                     next_intersection.along[focus],
-                ));
+                );
+                let next_midpoint = shapes[focus].outline().along(next_midpoint_along);
                 let next_location = shapes[other_focus(focus)].location_of(next_midpoint);
 
                 match (prev_location, next_location) {
@@ -187,6 +212,42 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
         }
     }
 
+    if DEBUG_PRINT {
+        println!(
+            r#"
+                <g font-size="0.1" fill="rgba(0, 0, 255, 0.3)">
+                    {}
+                </g>
+                <g font-size="0.1" fill="rgba(255, 0, 0, 0.3)">
+                    {}
+                </g>
+        "#,
+            intersections
+                .iter()
+                .map(|intersection| {
+                    format!(
+                        r#"<text x="{}" y={}>{:?}</text> "#,
+                        shapes[SUBJECT].outline().along(intersection.along[SUBJECT]).x,
+                        shapes[SUBJECT].outline().along(intersection.along[SUBJECT]).y,
+                        intersection.role[SUBJECT]
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(" "),
+            intersections
+                .iter()
+                .map(|intersection| {
+                    format!(
+                        r#"<text x="{}" y={}>{:?}</text> "#,
+                        shapes[CLIP].outline().along(intersection.along[CLIP]).x,
+                        shapes[CLIP].outline().along(intersection.along[CLIP]).y + 0.1,
+                        intersection.role[CLIP]
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(" "),
+        );
+    }
 
 
     // TODO: set couples
@@ -254,7 +315,7 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
                         (ForwardStay, ExitEntry) => (ForwardSwitch, Entry),
                         (ForwardSwitch, Entry) => unreachable!(),
                         (direction, None) => (direction, None),
-                        _ => unimplemented!(),
+                        _ => unimplemented!("{:?} {:?}", current_direction, current_role),
                     }
                 }
                 Mode::Intersection => {
@@ -266,7 +327,7 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
                         (ForwardStay, ExitEntry) => (ForwardStay, Entry),
                         (ForwardSwitch, Exit) => unreachable!(),
                         (direction, None) => (direction, None),
-                        _ => unimplemented!(),
+                        _ => unimplemented!("{:?} {:?}", current_direction, current_role),
                     }
                 }
                 Mode::Difference => {
@@ -280,7 +341,7 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
                         (BackwardStay, Entry) => (ForwardSwitch, None),
                         (ForwardSwitch, Entry) => unreachable!(),
                         (direction, None) => (direction, None),
-                        _ => unimplemented!(),
+                        _ => unimplemented!("{:?} {:?}", current_direction, current_role),
                     }
                 }
                 _ => unimplemented!(),
@@ -288,7 +349,7 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
         }
 
         loop {
-            let (new_role, next_intersection_i) = {
+            let (new_role, next_focus, next_intersection_i) = {
                 let current_intersection = &intersections[current_intersection_i];
 
                 let (new_direction, new_role) =
@@ -296,9 +357,10 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
 
                 if DEBUG_PRINT {
                     println!(
-                        "<!-- {:?} {:?} -> {:?} {:?} -->",
+                        "<!-- {:?} {:?} {:?} -> {:?} {:?} -->",
                         current_intersection.role[focus],
                         direction,
+                        focus,
                         new_direction,
                         new_role
                     );
@@ -343,46 +405,47 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
                 }
 
                 direction = new_direction;
-                focus = next_focus;
 
-                (new_role, next_intersection_i)
+                (new_role, next_focus, next_intersection_i)
             };
 
             intersections[current_intersection_i].role[focus] = new_role;
 
+            focus = next_focus;
+
             current_intersection_i = next_intersection_i;
 
-            if current_intersection_i == start_intersection_i {
+            if current_intersection_i == start_intersection_i && focus == start_focus {
                 break;
             }
         }
 
-        if DEBUG_PRINT {
-            println!(
+        // TODO: maybe this can be caught earlier
+        if !segments.is_empty() {
+            if DEBUG_PRINT {
+                println!(r#"<!-- SEGMENTS {:?} -->"#, segments);
+            }
+
+            let path = S::P::new_welded(segments).expect("Resulting clip path should be valid");
+
+            if DEBUG_PRINT {
+                println!(
                 r#"
-                    <g stroke="rgba(0, 0, 0, 0.2)" stroke-width="0.05" marker-end="url(#result_marker)">
+                    <g fill="none" stroke="rgba(0, 0, 0, 0.2)" stroke-width="0.05" marker-end="url(#result_marker)">
                         <marker id="result_marker" viewBox="0 0 6 6" refX="6" refY="3" markerUnits="strokeWidth" orient="auto">
                             <path d="M 0 0 L 6 3 L 0 6 z" fill="rgba(0, 0, 0, 0.1)"/>
                         </marker>
-                        {}
+                        <path d="{}"/>
                     </g>
             "#,
-                segments
-                    .iter()
-                    .map(|segment| format!(r#"<path d="{}"/> "#, segment.to_svg()))
-                    .collect::<Vec<_>>()
-                    .join(" "),
+                path.to_svg(),
                 
             );
-        }
+            }
 
-        // TODO: maybe this can be caught earlier
-        if !segments.is_empty() {
-            result_shapes.push(
-                SimpleShape::new(S::P::new(segments).expect(
-                    "Resulting clip path should be valid",
-                )).expect("Resulting clip shape should be valid"),
-            );
+            result_shapes.push(SimpleShape::new(path).expect(
+                "Resulting clip shape should be valid",
+            ));
         }
     }
 
@@ -395,27 +458,47 @@ fn test() {
     use super::P2;
     use super::path::VecPath;
 
-    let subject = SimpleShape::new(VecPath::new(vec![
-        Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0))
-            .unwrap(),
-        Segment::line(P2::new(1.0, 0.0), P2::new(1.0, 1.0))
-            .unwrap(),
-        Segment::line(P2::new(1.0, 1.0), P2::new(0.0, 1.0))
-            .unwrap(),
-        Segment::line(P2::new(0.0, 1.0), P2::new(0.0, 0.0))
-            .unwrap(),
-    ]));
+    struct TestShape {
+        outline: VecPath,
+    }
 
-    let clip = SimpleShape::new(VecPath::new(vec![
-        Segment::line(P2::new(0.5, 0.5), P2::new(1.5, 0.5))
-            .unwrap(),
-        Segment::line(P2::new(1.5, 0.5), P2::new(1.5, 1.5))
-            .unwrap(),
-        Segment::line(P2::new(1.5, 1.5), P2::new(0.5, 1.5))
-            .unwrap(),
-        Segment::line(P2::new(0.5, 1.5), P2::new(0.5, 0.5))
-            .unwrap(),
-    ]));
+    impl SimpleShape for TestShape {
+        type P = VecPath;
+
+        fn outline(&self) -> &VecPath {
+            &self.outline
+        }
+
+        fn new_unchecked(outline: VecPath) -> Self {
+            TestShape { outline }
+        }
+    }
+
+    let subject = TestShape::new(
+        VecPath::new(vec![
+            Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0))
+                .unwrap(),
+            Segment::line(P2::new(1.0, 0.0), P2::new(1.0, 1.0))
+                .unwrap(),
+            Segment::line(P2::new(1.0, 1.0), P2::new(0.0, 1.0))
+                .unwrap(),
+            Segment::line(P2::new(0.0, 1.0), P2::new(0.0, 0.0))
+                .unwrap(),
+        ]).unwrap(),
+    ).unwrap();
+
+    let clip = TestShape::new(
+        VecPath::new(vec![
+            Segment::line(P2::new(0.5, 0.5), P2::new(1.5, 0.5))
+                .unwrap(),
+            Segment::line(P2::new(1.5, 0.5), P2::new(1.5, 1.5))
+                .unwrap(),
+            Segment::line(P2::new(1.5, 1.5), P2::new(0.5, 1.5))
+                .unwrap(),
+            Segment::line(P2::new(0.5, 1.5), P2::new(0.5, 0.5))
+                .unwrap(),
+        ]).unwrap(),
+    ).unwrap();
 
     self::clip(Mode::Union, &subject, &clip);
     self::clip(Mode::Intersection, &subject, &clip);

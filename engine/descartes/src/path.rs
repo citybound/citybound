@@ -39,6 +39,45 @@ pub trait Path: Sized + Clone {
 
     }
 
+    fn new_welded(mut segments: Vec<Segment>) -> Result<Self, PathError> {
+        if segments.is_empty() {
+            Result::Err(PathError::EmptyPath)
+        } else {
+            let probably_closed = segments.last().unwrap().end().is_roughly_within(
+                segments
+                    .first()
+                    .unwrap()
+                    .start(),
+                THICKNESS * 3.0,
+            );
+
+            if probably_closed {
+                let first_again = segments[0].clone();
+                segments.push(first_again);
+            }
+
+            let mut welded_segments: Vec<Segment> = segments
+                .windows(2)
+                .map(|seg_pair| if seg_pair[0].is_linear() {
+                    Segment::line(seg_pair[0].start(), seg_pair[1].start())
+                        .expect("Welding should always work for lines")
+                } else {
+                    Segment::arc_with_direction(
+                        seg_pair[0].start(),
+                        seg_pair[0].start_direction(),
+                        seg_pair[1].start(),
+                    ).expect("Welding should always work for arcs")
+                })
+                .collect();
+
+            if !probably_closed {
+                welded_segments.push(segments.last().cloned().unwrap())
+            }
+
+            Self::new(welded_segments)
+        }
+    }
+
     fn scan_segments<'a>(
         start_offset: &mut StartOffsetState,
         segment: &'a Segment,
@@ -138,6 +177,10 @@ pub trait Path: Sized + Clone {
         } else {
             Err(PathError::NotContinuous)
         }
+    }
+
+    fn to_svg(&self) -> String {
+        self.segments().iter().map(Segment::to_svg).collect()
     }
 }
 
