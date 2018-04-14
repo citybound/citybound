@@ -5,12 +5,14 @@
 
 use super::shapes::SimpleShape;
 use super::{N, Shape, Segment, Path, FiniteCurve};
+use super::path::PathError;
+use super::shapes::ShapeError;
 use super::PointOnShapeLocation::*;
 use super::intersect::Intersect;
 
 const DEBUG_PRINT: bool = true;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Mode {
     Intersection,
     Union,
@@ -20,7 +22,7 @@ pub enum Mode {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-enum Role {
+pub enum Role {
     None,
     Entry,
     Exit,
@@ -29,7 +31,7 @@ enum Role {
 }
 
 #[derive(Copy, Clone, Debug)]
-enum Direction {
+pub enum Direction {
     ForwardStay,
     ForwardSwitch,
     BackwardStay,
@@ -54,7 +56,21 @@ fn other_focus(focus: usize) -> usize {
     if focus == SUBJECT { CLIP } else { SUBJECT }
 }
 
-pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Vec<S> {
+#[derive(Debug)]
+pub enum ClipError {
+    UnimplementedTransition(Mode, Direction, Role),
+    ImpossibleTransition(Mode, Direction, Role),
+    InvalidSegmentBetweenIntersections,
+    InvalidResultPath(PathError),
+    InvalidResultShape(ShapeError),
+    InfiniteLoop,
+}
+
+pub fn clip<S: SimpleShape>(
+    mode: Mode,
+    subject_shape: &S,
+    clip_shape: &S,
+) -> Result<Vec<S>, ClipError> {
     let shapes = [subject_shape, clip_shape];
 
     if DEBUG_PRINT {
@@ -88,7 +104,7 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
     if raw_intersections.len() < 2 {
         // TODO: handle full containment
         // TODO: handle full containment with single intersection that touches
-        return Vec::new();
+        return Ok(Vec::new());
     }
 
     let mut intersections = Vec::<Intersection>::with_capacity(raw_intersections.len());
@@ -297,11 +313,11 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
             current_role: Role,
             current_direction: Direction,
             mode: Mode,
-        ) -> (Direction, Role) {
+        ) -> Result<(Direction, Role), ClipError> {
             use self::Direction::*;
             use self::Role::*;
 
-            match mode {
+            Ok(match mode {
                 Mode::Union => {
                     match (current_direction, current_role) {
                         (ForwardStay, Entry) => (ForwardSwitch, None),
@@ -309,9 +325,21 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
                         (ForwardStay, Exit) |
                         (ForwardSwitch, Exit) => (ForwardStay, None),
                         (ForwardStay, ExitEntry) => (ForwardSwitch, Entry),
-                        (ForwardSwitch, Entry) => unreachable!(),
+                        (ForwardSwitch, Entry) => {
+                            return Err(ClipError::ImpossibleTransition(
+                                mode,
+                                current_direction,
+                                current_role,
+                            ))
+                        }
                         (direction, None) => (direction, None),
-                        _ => unimplemented!("{:?} {:?}", current_direction, current_role),
+                        _ => {
+                            return Err(ClipError::UnimplementedTransition(
+                                mode,
+                                current_direction,
+                                current_role,
+                            ))
+                        }
                     }
                 }
                 Mode::Intersection => {
@@ -321,9 +349,21 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
                         (ForwardStay, EntryExit) => (ForwardStay, Exit),
                         (ForwardStay, Exit) => (ForwardSwitch, None),
                         (ForwardStay, ExitEntry) => (ForwardStay, Entry),
-                        (ForwardSwitch, Exit) => unreachable!(),
+                        (ForwardSwitch, Exit) => {
+                            return Err(ClipError::ImpossibleTransition(
+                                mode,
+                                current_direction,
+                                current_role,
+                            ))
+                        }
                         (direction, None) => (direction, None),
-                        _ => unimplemented!("{:?} {:?}", current_direction, current_role),
+                        _ => {
+                            return Err(ClipError::UnimplementedTransition(
+                                mode,
+                                current_direction,
+                                current_role,
+                            ))
+                        }
                     }
                 }
                 Mode::Difference => {
@@ -335,21 +375,35 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
                         (BackwardSwitch, Exit) => (BackwardStay, None),
                         (BackwardSwitch, ExitEntry) => (BackwardStay, Entry),
                         (BackwardStay, Entry) => (ForwardSwitch, None),
-                        (ForwardSwitch, Entry) => unreachable!(),
+                        (ForwardSwitch, Entry) => {
+                            return Err(ClipError::ImpossibleTransition(
+                                mode,
+                                current_direction,
+                                current_role,
+                            ))
+                        }
                         (direction, None) => (direction, None),
-                        _ => unimplemented!("{:?} {:?}", current_direction, current_role),
+                        _ => {
+                            return Err(ClipError::UnimplementedTransition(
+                                mode,
+                                current_direction,
+                                current_role,
+                            ))
+                        }
                     }
                 }
                 _ => unimplemented!(),
-            }
+            })
         }
 
+        let mut iterations = 0;
+        const MAX_ITERATIONS: usize = 500;
         loop {
             let (new_role, next_focus, next_intersection_i) = {
                 let current_intersection = &intersections[current_intersection_i];
 
                 let (new_direction, new_role) =
-                    traverse_step(current_intersection.role[focus], direction, mode);
+                    traverse_step(current_intersection.role[focus], direction, mode)?;
 
                 if DEBUG_PRINT {
                     println!(
@@ -373,29 +427,28 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
 
                 match new_direction {
                     Direction::ForwardStay => {
-                        segments.extend(
-                            shapes[next_focus]
-                                .outline()
-                                .subsection(
-                                    current_intersection.along[next_focus],
-                                    next_intersection.along[next_focus],
-                                )
-                                .expect("Intersections should always have valid subsections between them")
-                                .segments(),
-                        )
+                        let hopefully_subsection =
+                            shapes[next_focus].outline().subsection(
+                                current_intersection.along[next_focus],
+                                next_intersection.along[next_focus],
+                            );
+
+                        match hopefully_subsection {
+                            Some(subsection) => segments.extend(subsection.segments()),
+                            None => return Err(ClipError::InvalidSegmentBetweenIntersections),
+                        }
                     }
                     Direction::BackwardStay => {
-                        segments.extend(
-                            shapes[next_focus]
-                                .outline()
-                                .subsection(
-                                    next_intersection.along[next_focus],
-                                    current_intersection.along[next_focus],
-                                )
-                                .expect("Intersections should always have valid subsections between them")
-                                .reverse()
-                                .segments(),
-                        )
+                        let hopefully_subsection =
+                            shapes[next_focus].outline().subsection(
+                                next_intersection.along[next_focus],
+                                current_intersection.along[next_focus],
+                            );
+
+                        match hopefully_subsection {
+                            Some(subsection) => segments.extend(subsection.reverse().segments()),
+                            None => return Err(ClipError::InvalidSegmentBetweenIntersections),
+                        }
                     }
                     _ => {}
                 }
@@ -414,6 +467,12 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
             if current_intersection_i == start_intersection_i && focus == start_focus {
                 break;
             }
+
+            if iterations > MAX_ITERATIONS {
+                return Err(ClipError::InfiniteLoop);
+            }
+
+            iterations += 1;
         }
 
         // TODO: maybe this can be caught earlier
@@ -422,7 +481,12 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
                 println!(r#"<!-- SEGMENTS {:?} -->"#, segments);
             }
 
-            let path = S::P::new_welded(segments).expect("Resulting clip path should be valid");
+            let path = match S::P::new_welded(segments) {
+                Ok(path) => path,
+                Err(err) => {
+                    return Err(ClipError::InvalidResultPath(err));
+                }
+            };
 
             if DEBUG_PRINT {
                 println!(
@@ -439,13 +503,16 @@ pub fn clip<S: SimpleShape>(mode: Mode, subject_shape: &S, clip_shape: &S) -> Ve
             );
             }
 
-            result_shapes.push(SimpleShape::new(path).expect(
-                "Resulting clip shape should be valid",
-            ));
+            result_shapes.push(match SimpleShape::new(path) {
+                Ok(shape) => shape,
+                Err(err) => {
+                    return Err(ClipError::InvalidResultShape(err));
+                }
+            });
         }
     }
 
-    result_shapes
+    Ok(result_shapes)
 }
 
 

@@ -162,7 +162,14 @@ pub fn calculate_prototypes(plan: &Plan) -> Vec<Prototype> {
             if i_a == i_b {
                 vec![]
             } else {
-                clipper::clip(clipper::Mode::Intersection, shape_a, shape_b)
+                match clipper::clip(clipper::Mode::Intersection, shape_a, shape_b) {
+                    Ok(shapes) => shapes,
+                    Err(err) => {
+                        println!("Intersection clipping error: {:?}", err);
+                        vec![]
+                    }
+                }
+
             }
         });
 
