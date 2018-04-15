@@ -10,7 +10,7 @@ use super::shapes::ShapeError;
 use super::PointOnShapeLocation::*;
 use super::intersect::Intersect;
 
-const DEBUG_PRINT: bool = true;
+const DEBUG_PRINT: bool = false;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Mode {

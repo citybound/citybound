@@ -51,6 +51,8 @@ pub trait Path: Sized + Clone {
                 THICKNESS * 3.0,
             );
 
+            let original_length = segments.len();
+
             if probably_closed {
                 let first_again = segments[0].clone();
                 segments.push(first_again);
@@ -58,15 +60,14 @@ pub trait Path: Sized + Clone {
 
             let mut welded_segments: Vec<Segment> = segments
                 .windows(2)
-                .map(|seg_pair| if seg_pair[0].is_linear() {
+                .filter_map(|seg_pair| if seg_pair[0].is_linear() {
                     Segment::line(seg_pair[0].start(), seg_pair[1].start())
-                        .expect("Welding should always work for lines")
                 } else {
                     Segment::arc_with_direction(
                         seg_pair[0].start(),
                         seg_pair[0].start_direction(),
                         seg_pair[1].start(),
-                    ).expect("Welding should always work for arcs")
+                    )
                 })
                 .collect();
 
@@ -74,7 +75,12 @@ pub trait Path: Sized + Clone {
                 welded_segments.push(segments.last().cloned().unwrap())
             }
 
-            Self::new(welded_segments)
+            if welded_segments.len() < original_length {
+                // some welding resulted in an invalid segment, weld again
+                Self::new_welded(welded_segments)
+            } else {
+                Self::new(welded_segments)
+            }
         }
     }
 

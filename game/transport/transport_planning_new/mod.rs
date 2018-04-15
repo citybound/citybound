@@ -2,7 +2,7 @@ use kay::World;
 use compact::CVec;
 use descartes::{N, P2, V2, Band, Segment, Path, FiniteCurve, Shape, SimpleShape, clipper,
                 Intersect};
-use monet::{RendererID, Instance};
+use monet::{RendererID, Instance, Geometry};
 use stagemaster::geometry::{band_to_geometry, CPath, CShape};
 use itertools::Itertools;
 use style::colors;
@@ -153,7 +153,7 @@ pub fn calculate_prototypes(plan: &Plan) -> Vec<Prototype> {
         })
         .collect::<Vec<_>>();
 
-    let intersection_shapes = gesture_shapes
+    let mut intersection_shapes = gesture_shapes
         .iter()
         .enumerate()
         .cartesian_product(gesture_shapes.iter().enumerate())
@@ -171,9 +171,43 @@ pub fn calculate_prototypes(plan: &Plan) -> Vec<Prototype> {
                 }
 
             }
-        });
+        })
+        .collect::<Vec<_>>();
+
+    let mut i = 0;
+
+    // union overlapping intersections
+
+    while i < intersection_shapes.len() {
+        let mut advance = true;
+
+        for j in (i + 1)..intersection_shapes.len() {
+            match clipper::clip(
+                clipper::Mode::Union,
+                &intersection_shapes[i],
+                &intersection_shapes[j],
+            ) {
+                Ok(results) => {
+                    if results.len() >= 1 {
+                        intersection_shapes[i] = results[0].clone();
+                        intersection_shapes.remove(j);
+                        advance = false;
+                        break;
+                    }
+                }
+                Err(err) => {
+                    println!("Intersection combining clipping error: {:?}", err);
+                }
+            }
+        }
+
+        if advance {
+            i += 1;
+        }
+    }
 
     let mut intersection_prototypes: Vec<_> = intersection_shapes
+        .into_iter()
         .map(|shape| {
             Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
                 shape: shape,
@@ -290,37 +324,42 @@ pub fn render_preview(
     frame: usize,
     world: &mut World,
 ) {
+    let mut lane_geometry = Geometry::empty();
+    let mut intersection_geometry = Geometry::empty();
+
     for (i, prototype) in result_preview.prototypes.iter().enumerate() {
         match *prototype {
             Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path))) => {
-                let line_geometry =
+                lane_geometry +=
                     band_to_geometry(&Band::new(lane_path.clone(), LANE_WIDTH * 0.7), 0.1);
 
-                renderer_id.update_individual(
-                    scene_id,
-                    18_000 + i as u16,
-                    line_geometry,
-                    Instance::with_color(colors::STROKE_BASE),
-                    true,
-                    world,
-                );
+
             }
             Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
                                                             ref shape, ..
                                                         })) => {
-                let outline_geometry =
+                intersection_geometry +=
                     band_to_geometry(&Band::new(shape.outline().clone(), 0.1), 0.1);
-
-                renderer_id.update_individual(
-                    scene_id,
-                    18_500 + i as u16,
-                    outline_geometry,
-                    Instance::with_color(colors::SELECTION_STROKE),
-                    true,
-                    world,
-                );
             }
             _ => {}
         }
     }
+
+    renderer_id.update_individual(
+        scene_id,
+        18_000,
+        lane_geometry,
+        Instance::with_color(colors::STROKE_BASE),
+        true,
+        world,
+    );
+
+    renderer_id.update_individual(
+        scene_id,
+        18_001,
+        intersection_geometry,
+        Instance::with_color(colors::SELECTION_STROKE),
+        true,
+        world,
+    );
 }
