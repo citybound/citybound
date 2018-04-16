@@ -579,6 +579,15 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
         })
     }
 
+    pub fn pairs_mut<'a>(&'a mut self) -> impl Iterator<Item = (K, &'a mut V)> + 'a
+    where
+        K: Copy,
+    {
+        self.entries.iter_mut().filter(|e| e.alive()).map(|e| {
+            (*e.key(), e.mut_value())
+        })
+    }
+
     fn hash(key: K) -> u32 {
         let mut hasher = DefaultHasher::new();
         key.hash(&mut hasher);
