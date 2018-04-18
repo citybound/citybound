@@ -1,16 +1,20 @@
-use kay::World;
+use kay::{World, MachineID, Fate, TypedID, ActorSystem};
 use compact::{CHashMap, CVec};
 use descartes::{N, P2, V2, Band, Segment, Path, FiniteCurve, Shape, SimpleShape, clipper,
-                Intersect, WithUniqueOrthogonal, RoughlyComparable};
+                Intersect, WithUniqueOrthogonal, RoughlyComparable, Curve, Into2d};
 use monet::{RendererID, Instance, Geometry};
-use stagemaster::geometry::{band_to_geometry, CPath, CShape};
+use stagemaster::user_interface::{UserInterfaceID, Interactable3d, Interactable3dID, Event3d};
+use stagemaster::geometry::{band_to_geometry, AnyShape, CPath, CShape};
 use itertools::Itertools;
 use style::colors;
 use ordered_float::OrderedFloat;
 
-use planning_new::{Plan, GestureIntent, PlanResult, Prototype};
+use ui_layers::GESTURE_LAYER;
 
-#[derive(Compact, Clone)]
+use planning_new::{Plan, GestureIntent, PlanResult, Prototype, GestureID, PlanManagerID};
+use planning_new::interaction::{GestureInteractable, GestureInteractableID};
+
+#[derive(Copy, Clone)]
 pub struct RoadIntent {
     n_lanes_forward: u8,
     n_lanes_backward: u8,
@@ -86,9 +90,8 @@ const LANE_WIDTH: N = 6.0;
 const LANE_DISTANCE: N = 0.8 * LANE_WIDTH;
 const CENTER_LANE_DISTANCE: N = LANE_DISTANCE;
 
-#[allow(cyclomatic_complexity)]
-pub fn calculate_prototypes(plan: &Plan) -> Vec<Prototype> {
-    let gesture_intent_smooth_paths = plan.gestures
+fn gesture_intent_smooth_paths(plan: &Plan) -> Vec<(GestureID, RoadIntent, CPath)> {
+    plan.gestures
         .pairs()
         .filter_map(|(gesture_id, gesture)| match gesture.intent {
             GestureIntent::Road(ref road_intent) if gesture.points.len() >= 2 => {
@@ -156,45 +159,35 @@ pub fn calculate_prototypes(plan: &Plan) -> Vec<Prototype> {
                 }
 
                 CPath::new(segments).ok().map(|path| {
-                    (gesture_id, road_intent, path)
+                    (*gesture_id, *road_intent, path)
                 })
 
             }
             _ => None,
         })
-        .collect::<Vec<_>>();
+        .collect::<Vec<_>>()
+}
 
+#[allow(cyclomatic_complexity)]
+pub fn calculate_prototypes(plan: &Plan) -> Vec<Prototype> {
+    let gesture_intent_smooth_paths = gesture_intent_smooth_paths(plan);
 
     let gesture_shapes_for_intersection = gesture_intent_smooth_paths
         .iter()
-        .map(|&(_, road_intent, ref base_path)| {
-
-            let extended_path = CPath::new(
-                Segment::line(
-                    base_path.start() - base_path.start_direction() * 10.0,
-                    base_path.start(),
-                ).into_iter()
-                    .chain(base_path.segments().iter().cloned())
-                    .chain(Segment::line(
-                        base_path.end(),
-                        base_path.end() + base_path.end_direction() * 10.0,
-                    ))
-                    .collect(),
-            ).expect("Extending should always work");
-
-            let right_path = extended_path
-                .shift_orthogonally(
-                    CENTER_LANE_DISTANCE / 2.0 + road_intent.n_lanes_forward as f32 * LANE_DISTANCE,
-                )
-                .unwrap_or_else(|| extended_path.clone())
-                .reverse();
-            let left_path =
-                extended_path
-                    .shift_orthogonally(
-                        -(CENTER_LANE_DISTANCE / 2.0 +
-                              road_intent.n_lanes_backward as f32 * LANE_DISTANCE),
-                    )
-                    .unwrap_or_else(|| extended_path.clone());
+        .map(|&(_, road_intent, ref path)| {
+            let right_path = if road_intent.n_lanes_forward == 0 {
+                path.clone()
+            } else {
+                path.shift_orthogonally(road_intent.n_lanes_forward as f32 * LANE_DISTANCE + 0.4 * LANE_DISTANCE)
+                    .unwrap_or_else(|| path.clone())
+                    .reverse()
+            };
+            let left_path = if road_intent.n_lanes_backward == 0 {
+                path.clone()
+            } else {
+                path.shift_orthogonally(-(road_intent.n_lanes_backward as f32 * LANE_DISTANCE + 0.4 * LANE_DISTANCE))
+                    .unwrap_or_else(|| path.clone())
+            };
 
             let outline_segments = left_path
                 .segments()
@@ -215,26 +208,63 @@ pub fn calculate_prototypes(plan: &Plan) -> Vec<Prototype> {
         .iter()
         .enumerate()
         .cartesian_product(gesture_shapes_for_intersection.iter().enumerate())
-        .flat_map(|((i_a, shape_a), (i_b, shape_b))| {
-            println!("{} {}", i_a, i_a);
-            if i_a == i_b {
-                vec![]
-            } else {
-                match clipper::clip(clipper::Mode::Intersection, shape_a, shape_b) {
-                    Ok(shapes) => shapes,
-                    Err(err) => {
-                        println!("Intersection clipping error: {:?}", err);
-                        vec![]
-                    }
+        .flat_map(|((i_a, shape_a), (i_b, shape_b))| if i_a == i_b {
+            vec![]
+        } else {
+            match clipper::clip(clipper::Mode::Intersection, shape_a, shape_b) {
+                Ok(shapes) => shapes,
+                Err(err) => {
+                    println!("Intersection clipping error: {:?}", err);
+                    vec![]
                 }
-
             }
+
         })
         .collect::<Vec<_>>();
 
-    let mut i = 0;
+    // add intersections at the starts and ends of gestures
+    const END_INTERSECTION_DEPTH: N = 15.0;
+
+    intersection_shapes.extend(gesture_intent_smooth_paths.iter().flat_map(|&(_,
+       road_intent,
+       ref path)| {
+        [
+            (path.start(), path.start_direction()),
+            (path.end(), path.end_direction()),
+        ].into_iter()
+            .map(|&(point, direction)| {
+                let orthogonal = direction.orthogonal();
+                let half_depth = direction * END_INTERSECTION_DEPTH / 2.0;
+                let width_backward = orthogonal * (road_intent.n_lanes_backward as f32 *
+                    LANE_DISTANCE + 0.4 * LANE_DISTANCE);
+                let width_forward = orthogonal * (road_intent.n_lanes_forward as f32 * LANE_DISTANCE + 0.4 * LANE_DISTANCE);
+                CShape::new(
+                    CPath::new(vec![
+                        Segment::line(
+                            point - half_depth - width_backward,
+                            point + half_depth - width_backward
+                        ).unwrap(),
+                        Segment::line(
+                            point + half_depth - width_backward,
+                            point + half_depth + width_forward
+                        ).unwrap(),
+                        Segment::line(
+                            point + half_depth + width_forward,
+                            point - half_depth + width_forward
+                        ).unwrap(),
+                        Segment::line(
+                            point - half_depth + width_forward,
+                            point - half_depth - width_backward
+                        ).unwrap(),
+                    ]).expect("End intersection path should be valid"),
+                ).expect("End intersection shape should be valid")
+            })
+            .collect::<Vec<_>>()
+    }));
 
     // union overlapping intersections
+
+    let mut i = 0;
 
     while i < intersection_shapes.len() {
         let mut advance = true;
@@ -819,9 +849,10 @@ pub fn render_preview(
                 for &LanePrototype(ref lane_path, ref timings) in
                     connecting_lanes.values().flat_map(|lanes| lanes)
                 {
+                    lane_geometry += band_to_geometry(&Band::new(lane_path.clone(), LANE_WIDTH * 0.7), 0.1);
                     if timings[(frame / 10) % timings.len()] {
-                        lane_geometry +=
-                            band_to_geometry(&Band::new(lane_path.clone(), LANE_WIDTH * 0.1), 0.1);
+                        intersection_geometry +=
+                            band_to_geometry(&Band::new(lane_path.clone(), 0.1), 0.1);
                     }
                 }
             }
@@ -847,3 +878,161 @@ pub fn render_preview(
         world,
     );
 }
+
+#[derive(Compact, Clone)]
+pub struct LaneCountInteractable {
+    id: LaneCountInteractableID,
+    plan_manager: PlanManagerID,
+    for_machine: MachineID,
+    proposal_id: usize,
+    gesture_id: GestureID,
+    forward: bool,
+    path: CPath,
+    initial_intent: RoadIntent,
+}
+
+impl LaneCountInteractable {
+    pub fn spawn(
+        id: LaneCountInteractableID,
+        user_interface: UserInterfaceID,
+        plan_manager: PlanManagerID,
+        proposal_id: usize,
+        gesture_id: GestureID,
+        forward: bool,
+        path: &CPath,
+        initial_intent: RoadIntent,
+        world: &mut World,
+    ) -> Self {
+        user_interface.add(
+            GESTURE_LAYER,
+            id.into(),
+            AnyShape::Band(Band::new(path.clone(), 3.0)),
+            1,
+            world,
+        );
+
+        LaneCountInteractable {
+            id,
+            for_machine: user_interface.as_raw().machine,
+            plan_manager,
+            proposal_id,
+            gesture_id,
+            forward,
+            path: path.clone(),
+            initial_intent,
+        }
+    }
+}
+
+impl GestureInteractable for LaneCountInteractable {
+    fn remove(&self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
+        user_interface.remove(GESTURE_LAYER, self.id.into(), world);
+        Fate::Die
+    }
+}
+
+impl Interactable3d for LaneCountInteractable {
+    fn on_event(&mut self, event: Event3d, world: &mut World) {
+
+        if let Some((from, to, is_drag_finished)) =
+            match event {
+                Event3d::DragOngoing { from, to, .. } => Some((from, to, false)),
+                Event3d::DragFinished { from, to, .. } => Some((from, to, true)),
+                _ => None,
+            }
+        {
+            if let Some(closest_point_along) =
+                self.path.project_with_tolerance(from.into_2d(), 3.0)
+            {
+                let closest_point = self.path.along(closest_point_along);
+                let closest_point_direction = self.path.direction_along(closest_point_along);
+
+                let n_lanes_delta =
+                    ((to.into_2d() - closest_point).dot(&closest_point_direction.orthogonal())) /
+                        LANE_DISTANCE;
+
+                let new_intent = if self.forward {
+                    RoadIntent {
+                        n_lanes_forward: (self.initial_intent.n_lanes_forward as isize +
+                                              n_lanes_delta as isize)
+                            .max(0) as u8,
+                        n_lanes_backward: self.initial_intent.n_lanes_backward,
+                    }
+                } else {
+                    RoadIntent {
+                        n_lanes_backward: (self.initial_intent.n_lanes_backward as isize +
+                                               n_lanes_delta as isize)
+                            .max(0) as u8,
+                        n_lanes_forward: self.initial_intent.n_lanes_forward,
+                    }
+                };
+
+                self.plan_manager.set_intent(
+                    self.proposal_id,
+                    self.gesture_id,
+                    GestureIntent::Road(new_intent),
+                    is_drag_finished,
+                    world,
+                );
+            }
+        }
+    }
+}
+
+pub fn spawn_gesture_interactables(
+    plan: &Plan,
+    user_interface: UserInterfaceID,
+    plan_manager: PlanManagerID,
+    proposal_id: usize,
+    world: &mut World,
+) -> Vec<GestureInteractableID> {
+    let gesture_intent_smooth_paths = gesture_intent_smooth_paths(plan);
+
+    gesture_intent_smooth_paths
+        .into_iter()
+        .flat_map(|(gesture_id, road_intent, path)| {
+            path.shift_orthogonally(
+                CENTER_LANE_DISTANCE / 2.0 +
+                    (road_intent.n_lanes_forward as f32 - 0.5) * LANE_DISTANCE,
+            ).map(|shifted_path_forward| {
+                    LaneCountInteractableID::spawn(
+                        user_interface,
+                        plan_manager,
+                        proposal_id,
+                        gesture_id,
+                        true,
+                        shifted_path_forward,
+                        road_intent,
+                        world,
+                    ).into()
+                })
+                .into_iter()
+                .chain(
+                    path.shift_orthogonally(
+                        -(CENTER_LANE_DISTANCE / 2.0 +
+                              (road_intent.n_lanes_backward as f32 - 0.5) * LANE_DISTANCE),
+                    ).map(|shifted_path_backward| {
+                            LaneCountInteractableID::spawn(
+                                user_interface,
+                                plan_manager,
+                                proposal_id,
+                                gesture_id,
+                                false,
+                                shifted_path_backward.reverse(),
+                                road_intent,
+                                world,
+                            ).into()
+                        }),
+                )
+        })
+        .collect()
+}
+
+pub fn setup(system: &mut ActorSystem) {
+    system.register::<LaneCountInteractable>();
+
+    auto_setup(system);
+}
+
+pub mod kay_auto;
+pub use self::kay_auto::*;

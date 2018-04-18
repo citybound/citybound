@@ -187,4 +187,4 @@ pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) {
 }
 
 pub mod kay_auto;
-use self::kay_auto::*;
+pub use self::kay_auto::*;

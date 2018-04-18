@@ -17,4 +17,5 @@ pub fn setup(system: &mut ActorSystem, simulation: SimulationID) {
     self::pathfinding::setup(system, simulation);
     self::rendering::setup(system);
     self::transport_planning_old::setup(system);
+    self::transport_planning_new::setup(system);
 }

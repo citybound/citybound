@@ -13,14 +13,14 @@ impl Renderable for PlanManager {
             &Band::new(
                 CPath::new(
                     Segment::arc_with_direction(
-                        P2::new(-CONTROL_POINT_HANDLE_RADIUS, 0.0),
+                        P2::new(-CONTROL_POINT_HANDLE_RADIUS / 2.0, 0.0),
                         V2::new(0.0, 1.0),
-                        P2::new(CONTROL_POINT_HANDLE_RADIUS, 0.0),
+                        P2::new(CONTROL_POINT_HANDLE_RADIUS / 2.0, 0.0),
                     ).into_iter()
                         .chain(Segment::arc_with_direction(
-                            P2::new(CONTROL_POINT_HANDLE_RADIUS, 0.0),
+                            P2::new(CONTROL_POINT_HANDLE_RADIUS / 2.0, 0.0),
                             V2::new(0.0, -1.0),
-                            P2::new(-CONTROL_POINT_HANDLE_RADIUS, 0.0),
+                            P2::new(-CONTROL_POINT_HANDLE_RADIUS / 2.0, 0.0),
                         ))
                         .collect(),
                 ).unwrap(),
