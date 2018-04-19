@@ -1,18 +1,16 @@
-use kay::{World, MachineID, Fate, TypedID, ActorSystem};
 use compact::{CHashMap, CVec};
 use descartes::{N, P2, V2, Band, Segment, Path, FiniteCurve, Shape, SimpleShape, clipper,
-                Intersect, WithUniqueOrthogonal, RoughlyComparable, Curve, Into2d};
-use monet::{RendererID, Instance, Geometry};
-use stagemaster::user_interface::{UserInterfaceID, Interactable3d, Interactable3dID, Event3d};
-use stagemaster::geometry::{band_to_geometry, AnyShape, CPath, CShape, dash_path};
+                Intersect, WithUniqueOrthogonal, RoughlyComparable};
+use stagemaster::geometry::{CPath, CShape};
 use itertools::Itertools;
-use style::colors;
 use ordered_float::OrderedFloat;
 
-use ui_layers::GESTURE_LAYER;
+use planning_new::{Plan, GestureIntent, Prototype, GestureID};
 
-use planning_new::{Plan, GestureIntent, PlanResult, Prototype, GestureID, PlanManagerID};
-use planning_new::interaction::{GestureInteractable, GestureInteractableID};
+mod intersection_connections;
+mod smooth_path;
+pub mod interaction;
+pub use self::interaction::setup;
 
 #[derive(Copy, Clone)]
 pub struct RoadIntent {
@@ -99,73 +97,9 @@ fn gesture_intent_smooth_paths(plan: &Plan) -> Vec<(GestureID, RoadIntent, CPath
         .pairs()
         .filter_map(|(gesture_id, gesture)| match gesture.intent {
             GestureIntent::Road(ref road_intent) if gesture.points.len() >= 2 => {
-
-                let center_points = gesture
-                    .points
-                    .windows(2)
-                    .map(|point_pair| {
-                        P2::from_coordinates((point_pair[0].coords + point_pair[1].coords) / 2.0)
-                    })
-                    .collect::<Vec<_>>();
-
-                // for each straight line segment, we have first: a point called END,
-                // marking the end of the circular arc that smoothes the first corner of
-                // this line segment and then second: a point called START,
-                // marking the beginning of the circular arc that smoothes the second corner
-                // of this line segments. Also, we remember the direction of the line segment
-
-                let mut end_start_directions = Vec::new();
-
-                for (i, point_pair) in gesture.points.windows(2).enumerate() {
-                    let first_corner = point_pair[0];
-                    let second_corner = point_pair[1];
-                    let previous_center_point = if i < 1 {
-                        &first_corner
-                    } else {
-                        &center_points[i - 1]
-                    };
-                    let this_center_point = center_points[i];
-                    let next_center_point = center_points.get(i + 1).unwrap_or(&second_corner);
-                    let line_direction = (second_corner - first_corner).normalize();
-
-                    let shorter_distance_to_first_corner =
-                        (first_corner - previous_center_point).norm().min(
-                            (first_corner - this_center_point).norm(),
-                        );
-                    let shorter_distance_to_second_corner =
-                        (second_corner - this_center_point).norm().min(
-                            (second_corner - next_center_point).norm(),
-                        );
-
-                    let end = first_corner + line_direction * shorter_distance_to_first_corner;
-                    let start = second_corner - line_direction * shorter_distance_to_second_corner;
-
-                    end_start_directions.push((end, start, line_direction));
-                }
-
-                let mut segments = Vec::new();
-                let mut previous_point = gesture.points[0];
-                let mut previous_direction = (gesture.points[1] - gesture.points[0]).normalize();
-
-                for (end, start, direction) in end_start_directions {
-                    if let Some(valid_incoming_arc) =
-                        Segment::arc_with_direction(previous_point, previous_direction, end)
-                    {
-                        segments.push(valid_incoming_arc);
-                    }
-
-                    if let Some(valid_connecting_line) = Segment::line(end, start) {
-                        segments.push(valid_connecting_line);
-                    }
-
-                    previous_point = start;
-                    previous_direction = direction;
-                }
-
-                CPath::new(segments).ok().map(|path| {
+                smooth_path::smooth_path_from(&gesture.points).map(|path| {
                     (*gesture_id, *road_intent, path)
                 })
-
             }
             _ => None,
         })
@@ -452,427 +386,69 @@ pub fn calculate_prototypes(plan: &Plan) -> Vec<Prototype> {
             })
             .collect::<Vec<_>>();
 
-        right_lane_paths_and_bands.into_iter().cartesian_product(left_lane_paths_and_bands).flat_map(|((right_path, right_band), (left_path, left_band))| {
-            let mut intersections = (&right_band.outline(), &left_band.outline()).intersect();
+        right_lane_paths_and_bands
+            .into_iter()
+            .cartesian_product(left_lane_paths_and_bands)
+            .flat_map(|((right_path, right_band), (left_path, left_band))| {
+                let mut intersections = (&right_band.outline(), &left_band.outline()).intersect();
 
-            if intersections.len() < 2 {
-                vec![]
-            } else {
-                intersections.sort_by_key(|intersection| OrderedFloat(right_band.outline_distance_to_path_distance(intersection.along_a)));
+                if intersections.len() < 2 {
+                    vec![]
+                } else {
+                    intersections.sort_by_key(|intersection| {
+                        OrderedFloat(right_band.outline_distance_to_path_distance(
+                            intersection.along_a,
+                        ))
+                    });
 
-                intersections.windows(2).filter_map(|intersection_pair| {
-                        let first_along_right = right_band.outline_distance_to_path_distance(intersection_pair[0].along_a);
-                        let second_along_right = right_band.outline_distance_to_path_distance(intersection_pair[1].along_a);
-                        let first_along_left = left_band.outline_distance_to_path_distance(intersection_pair[0].along_b);
-                        let second_along_left = left_band.outline_distance_to_path_distance(intersection_pair[1].along_b);
-                        // intersecting subsections go in the same direction on both lanes?
-                        if first_along_left < second_along_left {
-                            // are the midpoints of subsections on each side still in range?
-                            if right_path.along((first_along_right + second_along_right) / 2.0).is_roughly_within(left_path.along((first_along_left + second_along_left)/ 2.0), TRANSFER_LANE_DISTANCE_TOLERANCE) {
-                                right_path.subsection(first_along_right, second_along_right)
+                    intersections
+                        .windows(2)
+                        .filter_map(|intersection_pair| {
+                            let first_along_right = right_band.outline_distance_to_path_distance(
+                                intersection_pair[0].along_a,
+                            );
+                            let second_along_right = right_band.outline_distance_to_path_distance(
+                                intersection_pair[1].along_a,
+                            );
+                            let first_along_left = left_band.outline_distance_to_path_distance(
+                                intersection_pair[0].along_b,
+                            );
+                            let second_along_left = left_band.outline_distance_to_path_distance(
+                                intersection_pair[1].along_b,
+                            );
+                            // intersecting subsections go in the same direction on both lanes?
+                            if first_along_left < second_along_left {
+                                // are the midpoints of subsections on each side still in range?
+                                if right_path
+                                    .along((first_along_right + second_along_right) / 2.0)
+                                    .is_roughly_within(
+                                        left_path.along(
+                                            (first_along_left + second_along_left) / 2.0,
+                                        ),
+                                        TRANSFER_LANE_DISTANCE_TOLERANCE,
+                                    )
+                                {
+                                    right_path.subsection(first_along_right, second_along_right)
+                                } else {
+                                    None
+                                }
                             } else {
                                 None
                             }
-                        } else {
-                            None
-                        }
-                }).coalesce(|prev_subsection, next_subsection|
-                    prev_subsection.concat(&next_subsection).map_err(|_| (prev_subsection, next_subsection))
-                ).collect()
-            }
-        })
+                        })
+                        .coalesce(|prev_subsection, next_subsection| {
+                            prev_subsection.concat(&next_subsection).map_err(|_| {
+                                (prev_subsection, next_subsection)
+                            })
+                        })
+                        .collect()
+                }
+            })
     };
 
     for prototype in &mut intersection_prototypes {
         if let Prototype::Road(RoadPrototype::Intersection(ref mut intersection)) = *prototype {
-            // sort intersection connectors from inner to outer lanes
-            for incoming_group in intersection.incoming.values_mut() {
-                let base_position = incoming_group[0].position;
-                let direction_right = incoming_group[0].direction.orthogonal();
-                incoming_group.sort_by_key(|connector| {
-                    OrderedFloat((connector.position - base_position).dot(&direction_right))
-                });
-            }
-
-            for outgoing_group in intersection.outgoing.values_mut() {
-                let base_position = outgoing_group[0].position;
-                let direction_right = outgoing_group[0].direction.orthogonal();
-                outgoing_group.sort_by_key(|connector| {
-                    OrderedFloat((connector.position - base_position).dot(&direction_right))
-                });
-            }
-
-            const STRAIGHT_ANGLE_THRESHOLD: f32 = ::std::f32::consts::FRAC_PI_6;
-
-            fn role_between_groups(
-                incoming: &[IntersectionConnector],
-                outgoing: &[IntersectionConnector],
-            ) -> ConnectionRole {
-                let straight = incoming[0].direction;
-                let connection_direction = outgoing[0].position - incoming[0].position;
-
-                if ::descartes::angle_to(straight, connection_direction).abs() <
-                    STRAIGHT_ANGLE_THRESHOLD
-                {
-                    ConnectionRole {
-                        straight: true,
-                        inner_turn: false,
-                        u_turn: false,
-                        outer_turn: false,
-                    }
-                } else {
-                    let is_right_of = connection_direction.dot(&straight.orthogonal()) > 0.0;
-
-                    if is_right_of {
-                        ConnectionRole {
-                            straight: false,
-                            inner_turn: false,
-                            u_turn: false,
-                            outer_turn: true,
-                        }
-                    } else {
-                        let is_uturn = outgoing[0].position.is_roughly_within(
-                            incoming[0].position,
-                            LANE_DISTANCE * 4.0,
-                        ) &&
-                            outgoing[0].direction.is_roughly_within(
-                                -incoming[0].direction,
-                                0.1,
-                            );
-
-                        if is_uturn {
-                            ConnectionRole {
-                                straight: false,
-                                inner_turn: false,
-                                u_turn: true,
-                                outer_turn: false,
-                            }
-                        } else {
-                            ConnectionRole {
-                                straight: false,
-                                inner_turn: true,
-                                u_turn: false,
-                                outer_turn: false,
-                            }
-                        }
-                    }
-                }
-            }
-
-            // assign roles to connectors
-            {
-                for incoming_group in intersection.incoming.values_mut() {
-                    let n_lanes = incoming_group.len();
-
-                    let has_inner_turn = intersection.outgoing.values().any(|outgoing_group| {
-                        role_between_groups(incoming_group, outgoing_group).inner_turn
-                    });
-                    let has_straight = intersection.outgoing.values().any(|outgoing_group| {
-                        role_between_groups(incoming_group, outgoing_group).straight
-                    });
-                    let has_outer_turn = intersection.outgoing.values().any(|outgoing_group| {
-                        role_between_groups(incoming_group, outgoing_group).outer_turn
-                    });
-
-                    let (n_inner_turn_lanes, n_outer_turn_lanes) =
-                        match (has_inner_turn, has_straight, has_outer_turn) {
-                            (true, true, true) => ((n_lanes / 4).max(1), (n_lanes / 4).max(1)),
-                            (false, true, true) => (0, (n_lanes / 3).max(1)),
-                            (true, true, false) => ((n_lanes / 3).max(1), 0),
-                            (false, _, false) => (0, 0),
-                            (true, false, false) => (n_lanes, 0),
-                            (false, false, true) => (0, n_lanes),
-                            (true, false, true) => ((n_lanes / 2).max(1), (n_lanes / 2).max(1)),
-                        };
-
-                    for (l, incoming_lane) in incoming_group.iter_mut().enumerate() {
-                        if l == 0 && has_inner_turn {
-                            incoming_lane.role.u_turn = true;
-                        }
-                        if l < n_inner_turn_lanes {
-                            incoming_lane.role.inner_turn = true;
-                        }
-                        if n_lanes < 3 ||
-                            (l >= n_inner_turn_lanes && l < n_lanes - n_outer_turn_lanes)
-                        {
-                            incoming_lane.role.straight = true;
-                        }
-                        if l >= n_lanes - n_outer_turn_lanes {
-                            incoming_lane.role.outer_turn = true;
-                        }
-                    }
-                }
-
-                for outgoing_group in intersection.outgoing.values_mut() {
-                    let n_lanes = outgoing_group.len();
-
-                    let has_inner_turn = intersection.incoming.values().any(|incoming_group| {
-                        role_between_groups(incoming_group, outgoing_group).inner_turn
-                    });
-                    let has_straight = intersection.incoming.values().any(|incoming_group| {
-                        role_between_groups(incoming_group, outgoing_group).straight
-                    });
-                    let has_outer_turn = intersection.incoming.values().any(|incoming_group| {
-                        role_between_groups(incoming_group, outgoing_group).outer_turn
-                    });
-
-                    let (n_inner_turn_lanes, n_outer_turn_lanes) =
-                        match (has_inner_turn, has_straight, has_outer_turn) {
-                            (true, true, true) => ((n_lanes / 4).max(1), (n_lanes / 4).max(1)),
-                            (false, true, true) => (0, (n_lanes / 3).max(1)),
-                            (true, true, false) => ((n_lanes / 3).max(1), 0),
-                            (false, _, false) => (0, 0),
-                            (true, false, false) => (n_lanes, 0),
-                            (false, false, true) => (0, n_lanes),
-                            (true, false, true) => ((n_lanes / 2).max(1), (n_lanes / 2).max(1)),
-                        };
-
-                    for (l, incoming_lane) in outgoing_group.iter_mut().enumerate() {
-                        if l == 0 && has_inner_turn {
-                            incoming_lane.role.u_turn = true;
-                        }
-                        if l < n_inner_turn_lanes {
-                            incoming_lane.role.inner_turn = true;
-                        }
-                        if n_lanes < 3 ||
-                            l >= n_inner_turn_lanes && l < n_lanes - n_outer_turn_lanes
-                        {
-                            incoming_lane.role.straight = true;
-                        }
-                        if l >= n_lanes - n_outer_turn_lanes {
-                            incoming_lane.role.outer_turn = true;
-                        }
-                    }
-                }
-
-                let mut connecting_lane_bundles = intersection
-                    .incoming
-                    .pairs()
-                    .flat_map(|(incoming_gesture_side_id, incoming_group)| {
-                        intersection
-                            .outgoing
-                            .pairs()
-                            .map(|(outgoing_gesture_side_id, outgoing_group)| {
-                                let role = role_between_groups(incoming_group, outgoing_group);
-
-                                let relevant_incoming_connectors = incoming_group
-                                    .iter()
-                                    .filter(|connector| {
-                                        (role.u_turn && connector.role.u_turn) ||
-                                            (role.inner_turn && connector.role.inner_turn) ||
-                                            (role.straight && connector.role.straight) ||
-                                            (role.outer_turn && connector.role.outer_turn)
-                                    })
-                                    .collect::<Vec<_>>();
-                                let relevant_incoming_len = relevant_incoming_connectors.len();
-
-                                let relevant_outgoing_connectors = outgoing_group
-                                    .iter()
-                                    .filter(|connector| {
-                                        (role.u_turn && connector.role.u_turn) ||
-                                            (role.inner_turn && connector.role.inner_turn) ||
-                                            (role.straight && connector.role.straight) ||
-                                            (role.outer_turn && connector.role.outer_turn)
-                                    })
-                                    .collect::<Vec<_>>();
-                                let relevant_outgoing_len = relevant_outgoing_connectors.len();
-
-                                let lanes =
-                                    if relevant_incoming_len > 0 && relevant_outgoing_len > 0 {
-                                        (0..relevant_incoming_len.max(relevant_outgoing_len))
-                                            .into_iter()
-                                            .filter_map(|l| {
-                                                let start = relevant_incoming_connectors[l.min(
-                                                    relevant_incoming_len -
-                                                        1,
-                                                )];
-                                                let end = relevant_outgoing_connectors[l.min(
-                                                    relevant_outgoing_len -
-                                                        1,
-                                                )];
-                                                let path = CPath::new(Segment::biarc(
-                                                    start.position,
-                                                    start.direction,
-                                                    end.position,
-                                                    end.direction,
-                                                )?).ok()?;
-
-                                                Some(LanePrototype(path, CVec::new()))
-                                            })
-                                            .collect::<Vec<_>>()
-                                    } else {
-                                        vec![]
-                                    };
-
-                                (
-                                    (role, *incoming_gesture_side_id, *outgoing_gesture_side_id),
-                                    lanes,
-                                )
-                            })
-                            .collect::<Vec<_>>()
-                    })
-                    .collect::<Vec<_>>();
-
-                // find traffic light timings
-                let mut phases = Vec::<(Vec<(GestureSideID, GestureSideID)>, usize)>::new();
-
-                let mut unused_connecting_bundles = connecting_lane_bundles.clone();
-
-                intersection.connecting_lanes = connecting_lane_bundles
-                    .iter()
-                    .map(|&((_, incoming_id, outgoing_id), ref lanes)| {
-                        ((incoming_id, outgoing_id), lanes.clone().into())
-                    })
-                    .collect();
-
-                fn compatible(lanes_a: &[LanePrototype], lanes_b: &[LanePrototype]) -> bool {
-                    lanes_a.iter().cartesian_product(lanes_b).all(
-                        |(&LanePrototype(ref path_a, _), &LanePrototype(ref path_b, _))| {
-                            path_a.start().is_roughly_within(path_b.start(), 0.1) ||
-                                (!path_a.end().is_roughly_within(path_b.end(), 0.1) &&
-                                     (path_a, path_b).intersect().is_empty())
-                        },
-                    )
-                }
-
-                let mut iteration = 0;
-                while !unused_connecting_bundles.is_empty() {
-                    let mut current_lanes = vec![];
-                    phases.push((Vec::new(), 0));
-
-                    {
-                        let mut pop_unused_compatible_where =
-                            |role_check: fn(ConnectionRole) -> bool,
-                             current_lanes: &mut Vec<LanePrototype>,
-                             iteration: usize| {
-                                unused_connecting_bundles.retain(|&((role,
-                                    incoming_id,
-                                    outgoing_id),
-                                   ref lanes)| if role_check(role) &&
-                                    compatible(
-                                        lanes,
-                                        current_lanes,
-                                    )
-                                {
-                                    current_lanes.extend(lanes.iter().cloned());
-                                    phases[iteration].0.push((incoming_id, outgoing_id));
-                                    false
-                                } else {
-                                    true
-                                });
-                            };
-
-                        if iteration % 2 == 0 {
-                            // straight phase: consider nonconflicting straights, then outer, then inner/u turns
-                            pop_unused_compatible_where(
-                                |role| role.straight,
-                                &mut current_lanes,
-                                iteration,
-                            );
-                            pop_unused_compatible_where(
-                                |role| role.outer_turn,
-                                &mut current_lanes,
-                                iteration,
-                            );
-                            pop_unused_compatible_where(
-                                |role| (role.inner_turn || role.u_turn),
-                                &mut current_lanes,
-                                iteration,
-                            );
-                        } else {
-                            // inner phase: consider nonconflicting inner/u turns, then outer turns, then straights
-                            pop_unused_compatible_where(
-                                |role| (role.inner_turn || role.u_turn),
-                                &mut current_lanes,
-                                iteration,
-                            );
-                            pop_unused_compatible_where(
-                                |role| role.outer_turn,
-                                &mut current_lanes,
-                                iteration,
-                            );
-                            pop_unused_compatible_where(
-                                |role| role.straight,
-                                &mut current_lanes,
-                                iteration,
-                            );
-                        }
-                    }
-
-                    {
-                        let mut reuse_compatible_where =
-                            |role_check: fn(ConnectionRole) -> bool,
-                             current_lanes: &mut Vec<LanePrototype>,
-                             iteration: usize| {
-                                for &((role, incoming_id, outgoing_id), ref lanes) in
-                                    &connecting_lane_bundles
-                                {
-                                    if role_check(role) && compatible(lanes, current_lanes) {
-                                        current_lanes.extend(lanes.iter().cloned());
-                                        phases[iteration].0.push((incoming_id, outgoing_id));
-                                    }
-                                }
-                            };
-
-                        if iteration % 2 == 0 {
-                            // straight phase: consider nonconflicting straights, then outer, then inner/u turns
-                            reuse_compatible_where(
-                                |role| role.straight,
-                                &mut current_lanes,
-                                iteration,
-                            );
-                            reuse_compatible_where(
-                                |role| role.outer_turn,
-                                &mut current_lanes,
-                                iteration,
-                            );
-                            reuse_compatible_where(
-                                |role| (role.inner_turn || role.u_turn),
-                                &mut current_lanes,
-                                iteration,
-                            );
-                        } else {
-                            // inner phase: consider nonconflicting inner/u turns, then outer turns, then straights
-                            reuse_compatible_where(
-                                |role| (role.inner_turn || role.u_turn),
-                                &mut current_lanes,
-                                iteration,
-                            );
-                            reuse_compatible_where(
-                                |role| role.outer_turn,
-                                &mut current_lanes,
-                                iteration,
-                            );
-                            reuse_compatible_where(
-                                |role| role.straight,
-                                &mut current_lanes,
-                                iteration,
-                            );
-                        }
-                    }
-
-                    phases[iteration].1 = current_lanes.len();
-
-                    iteration += 1;
-                }
-
-                for ((incoming_id, outgoing_id), ref mut lanes) in
-                    intersection.connecting_lanes.pairs_mut()
-                {
-                    let timings: CVec<bool> = phases
-                        .iter()
-                        .flat_map(|&(ref connections_in_phase, duration)| {
-                            let in_phase =
-                                connections_in_phase.contains(&(incoming_id, outgoing_id));
-                            vec![in_phase; duration]
-                        })
-                        .collect();
-
-                    for &mut LanePrototype(_, ref mut lane_timings) in lanes.iter_mut() {
-                        *lane_timings = timings.clone()
-                    }
-                }
-            }
+            intersection_connections::create_connecting_lanes(intersection);
         } else {
             unreachable!()
         }
@@ -888,240 +464,3 @@ pub fn calculate_prototypes(plan: &Plan) -> Vec<Prototype> {
         }))
         .collect()
 }
-
-pub fn render_preview(
-    result_preview: &PlanResult,
-    renderer_id: RendererID,
-    scene_id: usize,
-    frame: usize,
-    world: &mut World,
-) {
-    let mut lane_geometry = Geometry::empty();
-    let mut transfer_lane_geometry = Geometry::empty();
-    let mut intersection_geometry = Geometry::empty();
-
-    for prototype in &result_preview.prototypes {
-        match *prototype {
-            Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
-                lane_geometry +=
-                    band_to_geometry(&Band::new(lane_path.clone(), LANE_WIDTH * 0.7), 0.1);
-
-
-            }
-            Prototype::Road(RoadPrototype::TransferLane(TransferLanePrototype(ref lane_path))) => {
-                for dash in dash_path(lane_path, 2.0, 4.0) {
-                    transfer_lane_geometry += band_to_geometry(
-                        &Band::new(dash, LANE_DISTANCE - LANE_WIDTH),
-                        0.1,
-                    );
-                }
-            }
-            Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
-                                                            ref shape,
-                                                            ref connecting_lanes,
-                                                            ..
-                                                        })) => {
-                intersection_geometry +=
-                    band_to_geometry(&Band::new(shape.outline().clone(), 0.1), 0.1);
-
-                for &LanePrototype(ref lane_path, ref timings) in
-                    connecting_lanes.values().flat_map(|lanes| lanes)
-                {
-                    lane_geometry +=
-                        band_to_geometry(&Band::new(lane_path.clone(), LANE_WIDTH * 0.7), 0.1);
-                    if timings[(frame / 10) % timings.len()] {
-                        intersection_geometry +=
-                            band_to_geometry(&Band::new(lane_path.clone(), 0.1), 0.1);
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-
-    renderer_id.update_individual(
-        scene_id,
-        18_000,
-        lane_geometry,
-        Instance::with_color(colors::STROKE_BASE),
-        true,
-        world,
-    );
-
-    renderer_id.update_individual(
-        scene_id,
-        18_001,
-        transfer_lane_geometry,
-        Instance::with_color(colors::STROKE_BASE),
-        true,
-        world,
-    );
-
-    renderer_id.update_individual(
-        scene_id,
-        18_002,
-        intersection_geometry,
-        Instance::with_color(colors::SELECTION_STROKE),
-        true,
-        world,
-    );
-}
-
-#[derive(Compact, Clone)]
-pub struct LaneCountInteractable {
-    id: LaneCountInteractableID,
-    plan_manager: PlanManagerID,
-    for_machine: MachineID,
-    proposal_id: usize,
-    gesture_id: GestureID,
-    forward: bool,
-    path: CPath,
-    initial_intent: RoadIntent,
-}
-
-impl LaneCountInteractable {
-    #[allow(too_many_arguments)]
-    pub fn spawn(
-        id: LaneCountInteractableID,
-        user_interface: UserInterfaceID,
-        plan_manager: PlanManagerID,
-        proposal_id: usize,
-        gesture_id: GestureID,
-        forward: bool,
-        path: &CPath,
-        initial_intent: RoadIntent,
-        world: &mut World,
-    ) -> Self {
-        user_interface.add(
-            GESTURE_LAYER,
-            id.into(),
-            AnyShape::Band(Band::new(path.clone(), 3.0)),
-            1,
-            world,
-        );
-
-        LaneCountInteractable {
-            id,
-            for_machine: user_interface.as_raw().machine,
-            plan_manager,
-            proposal_id,
-            gesture_id,
-            forward,
-            path: path.clone(),
-            initial_intent,
-        }
-    }
-}
-
-impl GestureInteractable for LaneCountInteractable {
-    fn remove(&self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(GESTURE_LAYER, self.id.into(), world);
-        Fate::Die
-    }
-}
-
-impl Interactable3d for LaneCountInteractable {
-    fn on_event(&mut self, event: Event3d, world: &mut World) {
-
-        if let Some((from, to, is_drag_finished)) =
-            match event {
-                Event3d::DragOngoing { from, to, .. } => Some((from, to, false)),
-                Event3d::DragFinished { from, to, .. } => Some((from, to, true)),
-                _ => None,
-            }
-        {
-            if let Some(closest_point_along) =
-                self.path.project_with_tolerance(from.into_2d(), 3.0)
-            {
-                let closest_point = self.path.along(closest_point_along);
-                let closest_point_direction = self.path.direction_along(closest_point_along);
-
-                let n_lanes_delta =
-                    ((to.into_2d() - closest_point).dot(&closest_point_direction.orthogonal())) /
-                        LANE_DISTANCE;
-
-                let new_intent = if self.forward {
-                    RoadIntent {
-                        n_lanes_forward: (self.initial_intent.n_lanes_forward as isize +
-                                              n_lanes_delta as isize)
-                            .max(0) as u8,
-                        n_lanes_backward: self.initial_intent.n_lanes_backward,
-                    }
-                } else {
-                    RoadIntent {
-                        n_lanes_backward: (self.initial_intent.n_lanes_backward as isize +
-                                               n_lanes_delta as isize)
-                            .max(0) as u8,
-                        n_lanes_forward: self.initial_intent.n_lanes_forward,
-                    }
-                };
-
-                self.plan_manager.set_intent(
-                    self.proposal_id,
-                    self.gesture_id,
-                    GestureIntent::Road(new_intent),
-                    is_drag_finished,
-                    world,
-                );
-            }
-        }
-    }
-}
-
-pub fn spawn_gesture_interactables(
-    plan: &Plan,
-    user_interface: UserInterfaceID,
-    plan_manager: PlanManagerID,
-    proposal_id: usize,
-    world: &mut World,
-) -> Vec<GestureInteractableID> {
-    let gesture_intent_smooth_paths = gesture_intent_smooth_paths(plan);
-
-    gesture_intent_smooth_paths
-        .into_iter()
-        .flat_map(|(gesture_id, road_intent, path)| {
-            path.shift_orthogonally(
-                CENTER_LANE_DISTANCE / 2.0 +
-                    (f32::from(road_intent.n_lanes_forward) - 0.5) * LANE_DISTANCE,
-            ).map(|shifted_path_forward| {
-                    LaneCountInteractableID::spawn(
-                        user_interface,
-                        plan_manager,
-                        proposal_id,
-                        gesture_id,
-                        true,
-                        shifted_path_forward,
-                        road_intent,
-                        world,
-                    ).into()
-                })
-                .into_iter()
-                .chain(
-                    path.shift_orthogonally(
-                        -(CENTER_LANE_DISTANCE / 2.0 +
-                              (f32::from(road_intent.n_lanes_backward) - 0.5) * LANE_DISTANCE),
-                    ).map(|shifted_path_backward| {
-                            LaneCountInteractableID::spawn(
-                                user_interface,
-                                plan_manager,
-                                proposal_id,
-                                gesture_id,
-                                false,
-                                shifted_path_backward.reverse(),
-                                road_intent,
-                                world,
-                            ).into()
-                        }),
-                )
-        })
-        .collect()
-}
-
-pub fn setup(system: &mut ActorSystem) {
-    system.register::<LaneCountInteractable>();
-
-    auto_setup(system);
-}
-
-pub mod kay_auto;
-pub use self::kay_auto::*;

@@ -143,7 +143,7 @@ impl PlanManager {
                     .collect::<Vec<_>>()
                     .into_iter()
                     .chain(
-                        ::transport::transport_planning_new::spawn_gesture_interactables(
+                        ::transport::transport_planning_new::interaction::spawn_gesture_interactables(
                             preview,
                             user_interface,
                             self.id,

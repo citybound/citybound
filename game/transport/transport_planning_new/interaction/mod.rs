@@ -1,0 +1,250 @@
+use kay::{World, MachineID, Fate, TypedID, ActorSystem};
+use descartes::{Band, Path, FiniteCurve, SimpleShape, WithUniqueOrthogonal, Curve, Into2d};
+use monet::{RendererID, Instance, Geometry};
+use stagemaster::user_interface::{UserInterfaceID, Interactable3d, Interactable3dID, Event3d};
+use stagemaster::geometry::{band_to_geometry, AnyShape, CPath, dash_path};
+use style::colors;
+
+use ui_layers::GESTURE_LAYER;
+
+use planning_new::{Plan, GestureIntent, PlanResult, Prototype, GestureID, PlanManagerID};
+use planning_new::interaction::{GestureInteractable, GestureInteractableID};
+
+use super::{RoadIntent, RoadPrototype, LanePrototype, TransferLanePrototype,
+            IntersectionPrototype, LANE_WIDTH, LANE_DISTANCE, CENTER_LANE_DISTANCE,
+            gesture_intent_smooth_paths};
+
+pub fn render_preview(
+    result_preview: &PlanResult,
+    renderer_id: RendererID,
+    scene_id: usize,
+    frame: usize,
+    world: &mut World,
+) {
+    let mut lane_geometry = Geometry::empty();
+    let mut transfer_lane_geometry = Geometry::empty();
+    let mut intersection_geometry = Geometry::empty();
+
+    for prototype in &result_preview.prototypes {
+        match *prototype {
+            Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
+                lane_geometry +=
+                    band_to_geometry(&Band::new(lane_path.clone(), LANE_WIDTH * 0.7), 0.1);
+
+
+            }
+            Prototype::Road(RoadPrototype::TransferLane(TransferLanePrototype(ref lane_path))) => {
+                for dash in dash_path(lane_path, 2.0, 4.0) {
+                    transfer_lane_geometry +=
+                        band_to_geometry(&Band::new(dash, LANE_DISTANCE - LANE_WIDTH), 0.1);
+                }
+            }
+            Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
+                                                            ref shape,
+                                                            ref connecting_lanes,
+                                                            ..
+                                                        })) => {
+                intersection_geometry +=
+                    band_to_geometry(&Band::new(shape.outline().clone(), 0.1), 0.1);
+
+                for &LanePrototype(ref lane_path, ref timings) in
+                    connecting_lanes.values().flat_map(|lanes| lanes)
+                {
+                    lane_geometry +=
+                        band_to_geometry(&Band::new(lane_path.clone(), LANE_WIDTH * 0.7), 0.1);
+                    if timings[(frame / 10) % timings.len()] {
+                        intersection_geometry +=
+                            band_to_geometry(&Band::new(lane_path.clone(), 0.1), 0.1);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    renderer_id.update_individual(
+        scene_id,
+        18_000,
+        lane_geometry,
+        Instance::with_color(colors::STROKE_BASE),
+        true,
+        world,
+    );
+
+    renderer_id.update_individual(
+        scene_id,
+        18_001,
+        transfer_lane_geometry,
+        Instance::with_color(colors::STROKE_BASE),
+        true,
+        world,
+    );
+
+    renderer_id.update_individual(
+        scene_id,
+        18_002,
+        intersection_geometry,
+        Instance::with_color(colors::SELECTION_STROKE),
+        true,
+        world,
+    );
+}
+
+#[derive(Compact, Clone)]
+pub struct LaneCountInteractable {
+    id: LaneCountInteractableID,
+    plan_manager: PlanManagerID,
+    for_machine: MachineID,
+    proposal_id: usize,
+    gesture_id: GestureID,
+    forward: bool,
+    path: CPath,
+    initial_intent: RoadIntent,
+}
+
+impl LaneCountInteractable {
+    #[allow(too_many_arguments)]
+    pub fn spawn(
+        id: LaneCountInteractableID,
+        user_interface: UserInterfaceID,
+        plan_manager: PlanManagerID,
+        proposal_id: usize,
+        gesture_id: GestureID,
+        forward: bool,
+        path: &CPath,
+        initial_intent: RoadIntent,
+        world: &mut World,
+    ) -> Self {
+        user_interface.add(
+            GESTURE_LAYER,
+            id.into(),
+            AnyShape::Band(Band::new(path.clone(), 3.0)),
+            1,
+            world,
+        );
+
+        LaneCountInteractable {
+            id,
+            for_machine: user_interface.as_raw().machine,
+            plan_manager,
+            proposal_id,
+            gesture_id,
+            forward,
+            path: path.clone(),
+            initial_intent,
+        }
+    }
+}
+
+impl GestureInteractable for LaneCountInteractable {
+    fn remove(&self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
+        user_interface.remove(GESTURE_LAYER, self.id.into(), world);
+        Fate::Die
+    }
+}
+
+impl Interactable3d for LaneCountInteractable {
+    fn on_event(&mut self, event: Event3d, world: &mut World) {
+
+        if let Some((from, to, is_drag_finished)) =
+            match event {
+                Event3d::DragOngoing { from, to, .. } => Some((from, to, false)),
+                Event3d::DragFinished { from, to, .. } => Some((from, to, true)),
+                _ => None,
+            }
+        {
+            if let Some(closest_point_along) =
+                self.path.project_with_tolerance(from.into_2d(), 3.0)
+            {
+                let closest_point = self.path.along(closest_point_along);
+                let closest_point_direction = self.path.direction_along(closest_point_along);
+
+                let n_lanes_delta =
+                    ((to.into_2d() - closest_point).dot(&closest_point_direction.orthogonal())) /
+                        LANE_DISTANCE;
+
+                let new_intent = if self.forward {
+                    RoadIntent {
+                        n_lanes_forward: (self.initial_intent.n_lanes_forward as isize +
+                                              n_lanes_delta as isize)
+                            .max(0) as u8,
+                        n_lanes_backward: self.initial_intent.n_lanes_backward,
+                    }
+                } else {
+                    RoadIntent {
+                        n_lanes_backward: (self.initial_intent.n_lanes_backward as isize +
+                                               n_lanes_delta as isize)
+                            .max(0) as u8,
+                        n_lanes_forward: self.initial_intent.n_lanes_forward,
+                    }
+                };
+
+                self.plan_manager.set_intent(
+                    self.proposal_id,
+                    self.gesture_id,
+                    GestureIntent::Road(new_intent),
+                    is_drag_finished,
+                    world,
+                );
+            }
+        }
+    }
+}
+
+pub fn spawn_gesture_interactables(
+    plan: &Plan,
+    user_interface: UserInterfaceID,
+    plan_manager: PlanManagerID,
+    proposal_id: usize,
+    world: &mut World,
+) -> Vec<GestureInteractableID> {
+    let gesture_intent_smooth_paths = gesture_intent_smooth_paths(plan);
+
+    gesture_intent_smooth_paths
+        .into_iter()
+        .flat_map(|(gesture_id, road_intent, path)| {
+            path.shift_orthogonally(
+                CENTER_LANE_DISTANCE / 2.0 +
+                    (f32::from(road_intent.n_lanes_forward) - 0.5) * LANE_DISTANCE,
+            ).map(|shifted_path_forward| {
+                    LaneCountInteractableID::spawn(
+                        user_interface,
+                        plan_manager,
+                        proposal_id,
+                        gesture_id,
+                        true,
+                        shifted_path_forward,
+                        road_intent,
+                        world,
+                    ).into()
+                })
+                .into_iter()
+                .chain(
+                    path.shift_orthogonally(
+                        -(CENTER_LANE_DISTANCE / 2.0 +
+                              (f32::from(road_intent.n_lanes_backward) - 0.5) * LANE_DISTANCE),
+                    ).map(|shifted_path_backward| {
+                            LaneCountInteractableID::spawn(
+                                user_interface,
+                                plan_manager,
+                                proposal_id,
+                                gesture_id,
+                                false,
+                                shifted_path_backward.reverse(),
+                                road_intent,
+                                world,
+                            ).into()
+                        }),
+                )
+        })
+        .collect()
+}
+
+pub fn setup(system: &mut ActorSystem) {
+    system.register::<LaneCountInteractable>();
+
+    auto_setup(system);
+}
+
+pub mod kay_auto;
+pub use self::kay_auto::*;

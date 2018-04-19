@@ -47,7 +47,7 @@ impl Renderable for PlanManager {
         let (preview, result_preview) =
             self.ensure_preview(renderer_id.as_raw().machine, proposal_id);
 
-        super::transport_planning_new::render_preview(
+        super::transport_planning_new::interaction::render_preview(
             result_preview,
             renderer_id,
             scene_id,
