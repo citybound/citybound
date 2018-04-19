@@ -92,7 +92,7 @@ impl Simulation {
 use stagemaster::{Interactable2d, Interactable2dID};
 
 impl Interactable2d for Simulation {
-    fn draw(&mut self, world: &mut World, ui: &::imgui::Ui<'static>) {
+    fn draw(&mut self, _world: &mut World, ui: &::imgui::Ui<'static>) {
         ui.window(im_str!("Controls")).build(|| {
             ui.text(im_str!("Simulation"));
             ui.separator();

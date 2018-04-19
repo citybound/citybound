@@ -1,6 +1,6 @@
 use kay::{World, MachineID, ActorSystem};
 use compact::{CVec, CHashMap};
-use descartes::{N, P2, Into2d, Circle, Path};
+use descartes::P2;
 use stagemaster::UserInterfaceID;
 use uuid::Uuid;
 
@@ -115,7 +115,7 @@ pub enum Prototype {
 
 impl Plan {
     pub fn calculate_result(&self) -> PlanResult {
-        let lane_prototypes = transport_planning_new::calculate_prototypes(&self);
+        let lane_prototypes = transport_planning_new::calculate_prototypes(self);
 
         PlanResult { prototypes: lane_prototypes.into() }
     }

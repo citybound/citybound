@@ -178,14 +178,14 @@ pub fn calculate_prototypes(plan: &Plan) -> Vec<Prototype> {
             let right_path = if road_intent.n_lanes_forward == 0 {
                 path.clone()
             } else {
-                path.shift_orthogonally(road_intent.n_lanes_forward as f32 * LANE_DISTANCE + 0.4 * LANE_DISTANCE)
+                path.shift_orthogonally(f32::from(road_intent.n_lanes_forward) * LANE_DISTANCE + 0.4 * LANE_DISTANCE)
                     .unwrap_or_else(|| path.clone())
                     .reverse()
             };
             let left_path = if road_intent.n_lanes_backward == 0 {
                 path.clone()
             } else {
-                path.shift_orthogonally(-(road_intent.n_lanes_backward as f32 * LANE_DISTANCE + 0.4 * LANE_DISTANCE))
+                path.shift_orthogonally(-(f32::from(road_intent.n_lanes_backward) * LANE_DISTANCE + 0.4 * LANE_DISTANCE))
                     .unwrap_or_else(|| path.clone())
             };
 
@@ -235,9 +235,9 @@ pub fn calculate_prototypes(plan: &Plan) -> Vec<Prototype> {
             .map(|&(point, direction)| {
                 let orthogonal = direction.orthogonal();
                 let half_depth = direction * END_INTERSECTION_DEPTH / 2.0;
-                let width_backward = orthogonal * (road_intent.n_lanes_backward as f32 *
+                let width_backward = orthogonal * (f32::from(road_intent.n_lanes_backward) *
                     LANE_DISTANCE + 0.4 * LANE_DISTANCE);
-                let width_forward = orthogonal * (road_intent.n_lanes_forward as f32 * LANE_DISTANCE + 0.4 * LANE_DISTANCE);
+                let width_forward = orthogonal * (f32::from(road_intent.n_lanes_forward) * LANE_DISTANCE + 0.4 * LANE_DISTANCE);
                 CShape::new(
                     CPath::new(vec![
                         Segment::line(
@@ -314,11 +314,11 @@ pub fn calculate_prototypes(plan: &Plan) -> Vec<Prototype> {
                 (0..road_intent.n_lanes_forward)
                     .into_iter()
                     .map(|lane_i| {
-                        CENTER_LANE_DISTANCE / 2.0 + lane_i as f32 * LANE_DISTANCE
+                        CENTER_LANE_DISTANCE / 2.0 + f32::from(lane_i) * LANE_DISTANCE
                     })
                     .chain((0..road_intent.n_lanes_backward).into_iter().map(
                         |lane_i| {
-                            -(CENTER_LANE_DISTANCE / 2.0 + lane_i as f32 * LANE_DISTANCE)
+                            -(CENTER_LANE_DISTANCE / 2.0 + f32::from(lane_i) * LANE_DISTANCE)
                         },
                     ))
                     .filter_map(|offset| {
@@ -830,7 +830,7 @@ pub fn render_preview(
     let mut lane_geometry = Geometry::empty();
     let mut intersection_geometry = Geometry::empty();
 
-    for (i, prototype) in result_preview.prototypes.iter().enumerate() {
+    for prototype in &result_preview.prototypes {
         match *prototype {
             Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
                 lane_geometry +=
@@ -892,6 +892,7 @@ pub struct LaneCountInteractable {
 }
 
 impl LaneCountInteractable {
+    #[allow(too_many_arguments)]
     pub fn spawn(
         id: LaneCountInteractableID,
         user_interface: UserInterfaceID,
@@ -993,7 +994,7 @@ pub fn spawn_gesture_interactables(
         .flat_map(|(gesture_id, road_intent, path)| {
             path.shift_orthogonally(
                 CENTER_LANE_DISTANCE / 2.0 +
-                    (road_intent.n_lanes_forward as f32 - 0.5) * LANE_DISTANCE,
+                    (f32::from(road_intent.n_lanes_forward) - 0.5) * LANE_DISTANCE,
             ).map(|shifted_path_forward| {
                     LaneCountInteractableID::spawn(
                         user_interface,
@@ -1010,7 +1011,7 @@ pub fn spawn_gesture_interactables(
                 .chain(
                     path.shift_orthogonally(
                         -(CENTER_LANE_DISTANCE / 2.0 +
-                              (road_intent.n_lanes_backward as f32 - 0.5) * LANE_DISTANCE),
+                              (f32::from(road_intent.n_lanes_backward) - 0.5) * LANE_DISTANCE),
                     ).map(|shifted_path_backward| {
                             LaneCountInteractableID::spawn(
                                 user_interface,

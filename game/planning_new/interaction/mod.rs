@@ -1,6 +1,6 @@
 use kay::{World, MachineID, Fate, TypedID, ActorSystem};
 use compact::{CVec, COption};
-use descartes::{N, P2, Into2d, Circle, Path};
+use descartes::{N, P2, Into2d, Circle};
 use stagemaster::{UserInterfaceID, Interactable3d, Interactable3dID};
 use stagemaster::geometry::AnyShape;
 use ui_layers::GESTURE_LAYER;
@@ -386,6 +386,7 @@ pub struct ControlPointInteractable {
 pub const CONTROL_POINT_HANDLE_RADIUS: N = 2.0;
 
 impl ControlPointInteractable {
+    #[allow(too_many_arguments)]
     pub fn spawn(
         id: ControlPointInteractableID,
         user_interface: UserInterfaceID,
@@ -434,7 +435,7 @@ impl Interactable3d for ControlPointInteractable {
             _ => None,
         };
 
-        if let Some((from, to, is_finished)) = drag_info {
+        if let Some((_from, to, is_finished)) = drag_info {
             self.plan_manager.move_control_point(
                 self.proposal_id,
                 self.gesture_id,

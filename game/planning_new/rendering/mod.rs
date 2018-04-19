@@ -113,5 +113,4 @@ impl Renderable for PlanManager {
 }
 
 pub mod kay_auto;
-use self::kay_auto::*;
 pub use self::kay_auto::auto_setup;
