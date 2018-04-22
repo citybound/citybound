@@ -115,7 +115,7 @@ pub enum ShapeError {
     NotClosed,
 }
 
-pub trait SimpleShape {
+pub trait SimpleShape: Clone {
     type P: Path;
     fn outline(&self) -> &Self::P;
     fn new(outline: Self::P) -> Result<Self, ShapeError>

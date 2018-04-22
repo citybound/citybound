@@ -4,8 +4,8 @@ use descartes::P2;
 use stagemaster::UserInterfaceID;
 use uuid::Uuid;
 
-use transport::transport_planning_new;
 use transport::transport_planning_new::{RoadIntent, RoadPrototype};
+use land_use::zone_planning_new::{ZoneIntent, LotIntent, LotPrototype};
 
 pub mod rendering;
 pub mod interaction;
@@ -27,6 +27,7 @@ impl Gesture {
 pub enum GestureIntent {
     Road(RoadIntent),
     Zone(ZoneIntent),
+    Lot(LotIntent),
 }
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq)]
@@ -110,14 +111,23 @@ pub struct PlanResult {
 #[derive(Compact, Clone)]
 pub enum Prototype {
     Road(RoadPrototype),
-    Zone,
+    Lot(LotPrototype),
 }
 
 impl Plan {
     pub fn calculate_result(&self) -> PlanResult {
-        let lane_prototypes = transport_planning_new::calculate_prototypes(self);
+        let mut result = PlanResult { prototypes: CVec::new() };
 
-        PlanResult { prototypes: lane_prototypes.into() }
+        for prototype_fn in &[
+            ::transport::transport_planning_new::calculate_prototypes,
+            ::land_use::zone_planning_new::calculate_prototypes,
+        ]
+        {
+            let new_prototypes = prototype_fn(self, &result);
+            result.prototypes.extend(new_prototypes);
+        }
+
+        result
     }
 }
 
@@ -155,25 +165,6 @@ impl PlanManager {
             .next()
             .expect("Expected gesture (that point should be added to) to exist!")
     }
-}
-
-// Specific stuff
-
-#[derive(Compact, Clone)]
-pub enum ZoneIntent {
-    LandUse(LandUse),
-    MaxHeight(u8),
-    SetBack(u8),
-}
-
-#[derive(Copy, Clone)]
-pub enum LandUse {
-    Residential,
-    Commercial,
-    Industrial,
-    Agricultural,
-    Recreational,
-    Official,
 }
 
 pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) {

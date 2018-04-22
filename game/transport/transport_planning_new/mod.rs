@@ -5,7 +5,7 @@ use stagemaster::geometry::{CPath, CShape};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
-use planning_new::{Plan, GestureIntent, Prototype, GestureID};
+use planning_new::{Plan, PlanResult, GestureIntent, Prototype, GestureID};
 
 mod intersection_connections;
 mod smooth_path;
@@ -29,6 +29,7 @@ pub enum RoadPrototype {
     Lane(LanePrototype),
     TransferLane(TransferLanePrototype),
     Intersection(IntersectionPrototype),
+    PavedArea(CShape),
 }
 
 #[derive(Compact, Clone)]
@@ -107,7 +108,7 @@ fn gesture_intent_smooth_paths(plan: &Plan) -> Vec<(GestureID, RoadIntent, CPath
 }
 
 #[allow(cyclomatic_complexity)]
-pub fn calculate_prototypes(plan: &Plan) -> Vec<Prototype> {
+pub fn calculate_prototypes(plan: &Plan, _current_result: &PlanResult) -> Vec<Prototype> {
     let gesture_intent_smooth_paths = gesture_intent_smooth_paths(plan);
 
     let gesture_shapes_for_intersection = gesture_intent_smooth_paths
@@ -461,6 +462,9 @@ pub fn calculate_prototypes(plan: &Plan) -> Vec<Prototype> {
         }))
         .chain(transfer_lane_paths.into_iter().map(|path| {
             Prototype::Road(RoadPrototype::TransferLane(TransferLanePrototype(path)))
+        }))
+        .chain(gesture_shapes_for_intersection.into_iter().map(|shape| {
+            Prototype::Road(RoadPrototype::PavedArea(shape))
         }))
         .collect()
 }

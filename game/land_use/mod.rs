@@ -5,6 +5,7 @@ use planning_old::materialized_reality::MaterializedRealityID;
 
 pub mod buildings;
 pub mod zone_planning_old;
+pub mod zone_planning_new;
 
 pub fn setup(
     system: &mut ActorSystem,

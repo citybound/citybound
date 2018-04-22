@@ -63,6 +63,7 @@ pub enum ClipError {
     InvalidSegmentBetweenIntersections,
     InvalidResultPath(PathError),
     InvalidResultShape(ShapeError),
+    UnimplementedComplexResult,
     InfiniteLoop,
 }
 
@@ -104,7 +105,51 @@ pub fn clip<S: SimpleShape>(
     if raw_intersections.len() < 2 {
         // TODO: handle full containment
         // TODO: handle full containment with single intersection that touches
-        return Ok(Vec::new());
+
+        let all_subject_in_clip = subject_shape
+            .outline()
+            .segments()
+            .iter()
+            .map(|segment| segment.start())
+            .all(|point| clip_shape.contains(point));
+
+        let all_clip_in_subject = clip_shape
+            .outline()
+            .segments()
+            .iter()
+            .map(|segment| segment.start())
+            .all(|point| subject_shape.contains(point));
+
+        return match mode {
+            Mode::Union => {
+                if all_subject_in_clip {
+                    Ok(vec![clip_shape.clone()])
+                } else if all_clip_in_subject {
+                    Ok(vec![subject_shape.clone()])
+                } else {
+                    Err(ClipError::UnimplementedComplexResult)
+                }
+            }
+            Mode::Intersection => {
+                if all_subject_in_clip {
+                    Ok(vec![subject_shape.clone()])
+                } else if all_clip_in_subject {
+                    Ok(vec![clip_shape.clone()])
+                } else {
+                    Ok(vec![])
+                }
+            }
+            Mode::Difference => {
+                if all_subject_in_clip {
+                    Ok(vec![])
+                } else if all_clip_in_subject {
+                    Err(ClipError::UnimplementedComplexResult)
+                } else {
+                    Ok(vec![subject_shape.clone()])
+                }
+            }
+            _ => Err(ClipError::UnimplementedComplexResult),
+        };
     }
 
     let mut intersections = Vec::<Intersection>::with_capacity(raw_intersections.len());

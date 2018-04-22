@@ -1,12 +1,15 @@
 use kay::{World, MachineID, Fate, TypedID, ActorSystem};
 use compact::{CVec, COption};
 use descartes::{N, P2, Into2d, Circle};
-use stagemaster::{UserInterfaceID, Interactable3d, Interactable3dID};
+use stagemaster::{UserInterfaceID, Interactable3d, Interactable3dID, Interactable2d,
+                  Interactable2dID};
 use stagemaster::geometry::AnyShape;
 use ui_layers::GESTURE_LAYER;
+use imgui::ImGuiSetCond_FirstUseEver;
 
 use super::{Plan, PlanResult, GestureID, PlanManager, PlanManagerID, Gesture, GestureIntent};
-use super::transport_planning_new::RoadIntent;
+use transport::transport_planning_new::RoadIntent;
+use land_use::zone_planning_new::{ZoneIntent, LandUse};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ControlPointRef(pub GestureID, pub usize);
@@ -209,13 +212,11 @@ impl PlanManager {
         proposal_id: usize,
         machine_id: MachineID,
         new_gesture_id: GestureID,
+        intent: &GestureIntent,
         start: P2,
         world: &mut World,
     ) {
-        let new_gesture = Gesture::new(
-            vec![start].into(),
-            GestureIntent::Road(RoadIntent::new(2, 2)),
-        );
+        let new_gesture = Gesture::new(vec![start].into(), intent.clone());
 
         let new_step = Plan { gestures: Some((new_gesture_id, new_gesture)).into_iter().collect() };
 
@@ -464,6 +465,7 @@ pub struct GestureCanvas {
     proposal_id: usize,
     last_point: COption<P2>,
     current_mode: GestureCanvasMode,
+    current_intent: GestureIntent,
 }
 
 #[derive(Compact, Clone)]
@@ -482,6 +484,7 @@ impl GestureCanvas {
         world: &mut World,
     ) -> Self {
         user_interface.add(GESTURE_LAYER, id.into(), AnyShape::Everywhere, 0, world);
+        user_interface.add_2d(id.into(), world);
 
         GestureCanvas {
             id,
@@ -490,11 +493,13 @@ impl GestureCanvas {
             proposal_id,
             last_point: COption(None),
             current_mode: GestureCanvasMode::StartNewGesture,
+            current_intent: GestureIntent::Road(RoadIntent::new(2, 2)),
         }
     }
 
     pub fn remove(&self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
         user_interface.remove(GESTURE_LAYER, self.id.into(), world);
+        user_interface.remove_2d(self.id.into(), world);
         Fate::Die
     }
 }
@@ -537,6 +542,9 @@ impl Interactable3d for GestureCanvas {
                                 self.proposal_id,
                                 self.for_machine,
                                 new_gesture_id,
+                                // GestureIntent::Road(RoadIntent::new(2, 2)),
+                                //GestureIntent::Zone(ZoneIntent::LandUse(LandUse::Residential)),
+                                self.current_intent.clone(),
                                 position.into_2d(),
                                 world,
                             );
@@ -567,6 +575,23 @@ impl Interactable3d for GestureCanvas {
                 }
             }
         }
+    }
+}
+
+impl Interactable2d for GestureCanvas {
+    fn draw(&mut self, world: &mut World, ui: &::imgui::Ui<'static>) {
+        ui.window(im_str!("Canvas Mode"))
+            .size((200.0, 50.0), ImGuiSetCond_FirstUseEver)
+            .collapsible(false)
+            .build(|| {
+                if ui.small_button(im_str!("Road")) {
+                    self.current_intent = GestureIntent::Road(RoadIntent::new(2, 2));
+                }
+                if ui.small_button(im_str!("Zone")) {
+                    self.current_intent =
+                        GestureIntent::Zone(ZoneIntent::LandUse(LandUse::Residential));
+                }
+            });
     }
 }
 
