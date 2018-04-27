@@ -33,10 +33,10 @@ pub enum RoadPrototype {
 }
 
 #[derive(Compact, Clone)]
-pub struct LanePrototype(CPath, CVec<bool>);
+pub struct LanePrototype(pub CPath, pub CVec<bool>);
 
 #[derive(Compact, Clone)]
-pub struct TransferLanePrototype(CPath);
+pub struct TransferLanePrototype(pub CPath);
 
 #[derive(Copy, Clone)]
 pub struct ConnectionRole {
@@ -69,7 +69,7 @@ impl IntersectionConnector {
 }
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq)]
-struct GestureSideID(isize);
+pub struct GestureSideID(isize);
 
 impl GestureSideID {
     pub fn new_forward(gesture_idx: usize) -> Self {
@@ -86,7 +86,7 @@ pub struct IntersectionPrototype {
     shape: CShape,
     incoming: CHashMap<GestureSideID, CVec<IntersectionConnector>>,
     outgoing: CHashMap<GestureSideID, CVec<IntersectionConnector>>,
-    connecting_lanes: CHashMap<(GestureSideID, GestureSideID), CVec<LanePrototype>>,
+    pub connecting_lanes: CHashMap<(GestureSideID, GestureSideID), CVec<LanePrototype>>,
 }
 
 const LANE_WIDTH: N = 6.0;

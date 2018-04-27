@@ -3,7 +3,6 @@ pub mod construction;
 pub mod microtraffic;
 pub mod rendering;
 
-pub mod transport_planning_old;
 pub mod transport_planning_new;
 pub mod pathfinding;
 
@@ -16,6 +15,5 @@ pub fn setup(system: &mut ActorSystem, simulation: SimulationID) {
     self::microtraffic::setup(system);
     self::pathfinding::setup(system, simulation);
     self::rendering::setup(system);
-    self::transport_planning_old::setup(system);
     self::transport_planning_new::setup(system);
 }

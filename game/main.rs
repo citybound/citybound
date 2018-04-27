@@ -37,7 +37,6 @@ pub const ENV: &Environment = &Environment {
 
 mod core;
 mod transport;
-mod planning_old;
 mod planning_new;
 mod construction;
 mod economy;
@@ -50,7 +49,6 @@ use compact::CVec;
 use monet::Grouper;
 use transport::lane::{Lane, TransferLane};
 use transport::rendering::LaneRenderer;
-use planning_old::plan_manager::PlanManager;
 use economy::households::family::Family;
 use economy::households::grocery_shop::GroceryShop;
 use economy::households::grain_farm::GrainFarm;
@@ -59,10 +57,7 @@ use economy::households::mill::Mill;
 use economy::households::bakery::Bakery;
 use economy::households::neighboring_town_trade::NeighboringTownTrade;
 use economy::households::tasks::TaskEndScheduler;
-use land_use::buildings::BuildingSpawner;
 use land_use::buildings::rendering::BuildingRenderer;
-use land_use::zone_planning_old::rendering::ZoneRenderer;
-use land_use::zone_planning_old::plan_manager::interaction::ZoneCanvas;
 use planning_new::PlanManager as PlanManagerNew;
 
 fn main() {
@@ -88,18 +83,14 @@ fn main() {
             Bakery::local_broadcast(world).into(),
             NeighboringTownTrade::local_broadcast(world).into(),
             TaskEndScheduler::local_first(world).into(),
-            BuildingSpawner::local_first(world).into(),
         ];
         let simulation = core::simulation::setup(&mut system, simulatables);
 
         let renderables: CVec<_> = vec![
             LaneRenderer::global_broadcast(world).into(),
             Grouper::global_broadcast(world).into(),
-            PlanManager::global_broadcast(world).into(),
             BuildingRenderer::global_broadcast(&mut system.world())
                 .into(),
-            ZoneRenderer::global_broadcast(&mut system.world()).into(),
-            ZoneCanvas::global_broadcast(&mut system.world()).into(),
             PlanManagerNew::global_first(&mut system.world()).into(),
         ].into();
 
@@ -118,15 +109,9 @@ fn main() {
 
         core::init::set_error_hook(user_interface, system.world());
 
-        let materialized_reality = planning_old::setup(&mut system, user_interface, renderer);
         transport::setup(&mut system, simulation);
         economy::setup(&mut system);
-        land_use::setup(
-            &mut system,
-            user_interface,
-            simulation,
-            materialized_reality,
-        );
+        land_use::setup(&mut system, user_interface, simulation);
 
         planning_new::setup(&mut system, user_interface);
 

@@ -4,25 +4,26 @@ use planning_new::{PlanResult, PrototypeID, Prototype};
 use core::simulation::{Simulatable, SimulatableID, Instant};
 
 pub trait Constructable {
-    fn morph(&mut self, new_prototype: Prototype, world: &mut World);
-    fn destruct(&mut self, world: &mut World) -> Fate;
+    fn morph(&mut self, new_prototype: &Prototype, report_to: ConstructionID, world: &mut World);
+    fn destruct(&mut self, report_to: ConstructionID, world: &mut World) -> Fate;
 }
 
 impl Prototype {
-    fn construct(&self, world: &mut World) -> CVec<ConstructableID> {
+    fn construct(&self, report_to: ConstructionID, world: &mut World) -> CVec<ConstructableID> {
         match *self {
-            Prototype::Road(road_prototype) => road_prototype.construct(world),
-            Prototype::Lot(lot_prototype) => lot_prototype.construct(world),
+            Prototype::Road(ref road_prototype) => road_prototype.construct(report_to, world),
+            Prototype::Lot(ref lot_prototype) => unimplemented!(),//lot_prototype.construct(world),
         }
     }
 
     fn morphable_from(&self, other: &Self) -> bool {
-        match (*self, *other) {
-            (Prototype::Lot(self_lot), Prototype::Lot(other_lot)) => {
-                self_lot.morphable_from(other_lot)
-            }
-            _ => false,
-        }
+        // match (*self, *other) {
+        //     // (Prototype::Lot(self_lot), Prototype::Lot(other_lot)) => {
+        //     //     self_lot.morphable_from(other_lot)
+        //     // }
+        //     (_, _) => false,
+        // }
+        false
     }
 }
 
@@ -54,7 +55,7 @@ impl Construction {
     fn start_action(&mut self, action: Action, world: &mut World) {
         let new_pending_constructables = match action {
             Action::Construct(prototype_id, prototype) => {
-                let ids = prototype.construct(world);
+                let ids = prototype.construct(self.id, world);
                 self.constructed.insert(prototype_id, ids.clone());
                 self.current_prototypes.insert(
                     prototype_id,
@@ -66,8 +67,8 @@ impl Construction {
                 let ids = self.constructed.remove(old_protoype_id).expect(
                     "Tried to morph non-constructed prototype",
                 );
-                for id in ids {
-                    id.morph(new_prototype.clone(), world);
+                for id in &ids {
+                    id.morph(new_prototype.clone(), self.id, world);
                 }
                 self.constructed.insert(new_prototype_id, ids.clone());
                 self.current_prototypes.remove(old_protoype_id);
@@ -81,8 +82,8 @@ impl Construction {
                 let ids = self.constructed.remove(prototype_id).expect(
                     "Tried to destruct non-constructed prototype",
                 );
-                for id in ids {
-                    id.destruct(world);
+                for id in &ids {
+                    id.destruct(self.id, world);
                 }
                 self.current_prototypes.remove(prototype_id);
                 ids
@@ -95,19 +96,23 @@ impl Construction {
     }
 
     fn actions_to_implement(&self, new_result: &PlanResult) -> CVec<CVec<Action>> {
+        // TODO: compare this not to the currently constructed state
+        // but to the current construction GOAL!!
         let mut unmatched_existing = self.current_prototypes.clone();
         let mut to_be_morphed = CVec::new();
         let mut to_be_constructed = CVec::new();
 
         for (new_prototype_id, new_prototype) in new_result.prototypes.pairs() {
-            if let Some((morphable_id, _)) =
-                unmatched_existing.pairs().find(|&(_, other_prototype)| {
+            let maybe_morphable_id = unmatched_existing
+                .pairs()
+                .find(|&(_, other_prototype)| {
                     new_prototype.morphable_from(other_prototype)
                 })
-            {
-                unmatched_existing.remove(*morphable_id);
+                .map(|(id, _)| *id);
+            if let Some(morphable_id) = maybe_morphable_id {
+                unmatched_existing.remove(morphable_id);
                 to_be_morphed.push(Action::Morph(
-                    *morphable_id,
+                    morphable_id,
                     *new_prototype_id,
                     new_prototype.clone(),
                 ));
@@ -124,10 +129,9 @@ impl Construction {
         vec![to_be_destructed, to_be_morphed, to_be_constructed].into()
     }
 
-    pub fn implement(&self, new_result: &PlanResult, world: &mut World) {
-        self.queued_actions.extend(
-            self.actions_to_implement(new_result),
-        );
+    pub fn implement(&mut self, new_result: &PlanResult, world: &mut World) {
+        let actions_to_implement = self.actions_to_implement(new_result);
+        self.queued_actions.extend(actions_to_implement);
     }
 }
 
@@ -143,4 +147,4 @@ impl Simulatable for Construction {
 }
 
 mod kay_auto;
-use self::kay_auto::*;
+pub use self::kay_auto::*;
