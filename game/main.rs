@@ -39,6 +39,7 @@ mod core;
 mod transport;
 mod planning_old;
 mod planning_new;
+mod construction;
 mod economy;
 mod land_use;
 mod ui_layers;

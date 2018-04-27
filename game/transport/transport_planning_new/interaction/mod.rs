@@ -25,7 +25,7 @@ pub fn render_preview(
     let mut transfer_lane_geometry = Geometry::empty();
     let mut intersection_geometry = Geometry::empty();
 
-    for prototype in &result_preview.prototypes {
+    for prototype in result_preview.prototypes.values() {
         match *prototype {
             Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
                 lane_geometry +=

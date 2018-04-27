@@ -49,7 +49,7 @@ pub enum LotOccupancy {
 }
 
 pub fn calculate_prototypes(plan: &Plan, current_result: &PlanResult) -> Vec<Prototype> {
-    let paved_area_shapes = current_result.prototypes.iter().filter_map(|prototype| {
+    let paved_area_shapes = current_result.prototypes.values().filter_map(|prototype| {
         if let Prototype::Road(RoadPrototype::PavedArea(ref shape)) = *prototype {
             Some(shape)
         } else {

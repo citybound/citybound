@@ -105,7 +105,7 @@ impl Proposal {
 
 #[derive(Compact, Clone)]
 pub struct PlanResult {
-    pub prototypes: CVec<Prototype>,
+    pub prototypes: CHashMap<PrototypeID, Prototype>,
 }
 
 #[derive(Compact, Clone)]
@@ -114,9 +114,18 @@ pub enum Prototype {
     Lot(LotPrototype),
 }
 
+#[derive(Copy, Clone, Hash, PartialEq, Eq)]
+pub struct PrototypeID(Uuid);
+
+impl PrototypeID {
+    pub fn new() -> PrototypeID {
+        PrototypeID(Uuid::new_v4())
+    }
+}
+
 impl Plan {
     pub fn calculate_result(&self) -> PlanResult {
-        let mut result = PlanResult { prototypes: CVec::new() };
+        let mut result = PlanResult { prototypes: CHashMap::new() };
 
         for prototype_fn in &[
             ::transport::transport_planning_new::calculate_prototypes,
@@ -124,7 +133,13 @@ impl Plan {
         ]
         {
             let new_prototypes = prototype_fn(self, &result);
-            result.prototypes.extend(new_prototypes);
+
+            for (id, prototype) in new_prototypes.into_iter().map(|prototype| {
+                (PrototypeID::new(), prototype)
+            })
+            {
+                result.prototypes.insert(id, prototype);
+            }
         }
 
         result

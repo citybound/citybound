@@ -17,7 +17,7 @@ pub fn render_preview(
     let mut lot_geometry = Geometry::empty();
     let mut lot_outline_geometry = Geometry::empty();
 
-    for prototype in &result_preview.prototypes {
+    for prototype in result_preview.prototypes.values() {
         if let Prototype::Lot(LotPrototype { ref shape, .. }) = *prototype {
             lot_geometry += Geometry::from_shape(shape);
 
