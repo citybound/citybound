@@ -1,14 +1,17 @@
 use kay::World;
+use compact::CVec;
 use descartes::{Band, SimpleShape};
 use stagemaster::geometry::band_to_geometry;
 use monet::{RendererID, Geometry, Instance};
 use planning_new::{PlanResult, Prototype};
+use construction::Action;
 use style::colors;
 
 use super::LotPrototype;
 
 pub fn render_preview(
     result_preview: &PlanResult,
+    maybe_action_preview: &Option<CVec<CVec<Action>>>,
     renderer_id: RendererID,
     scene_id: usize,
     frame: usize,

@@ -59,6 +59,7 @@ use economy::households::neighboring_town_trade::NeighboringTownTrade;
 use economy::households::tasks::TaskEndScheduler;
 use land_use::buildings::rendering::BuildingRenderer;
 use planning_new::PlanManager as PlanManagerNew;
+use construction::Construction;
 
 fn main() {
     core::init::ensure_crossplatform_proper_thread(|| {
@@ -83,6 +84,7 @@ fn main() {
             Bakery::local_broadcast(world).into(),
             NeighboringTownTrade::local_broadcast(world).into(),
             TaskEndScheduler::local_first(world).into(),
+            Construction::global_first(world).into(),
         ];
         let simulation = core::simulation::setup(&mut system, simulatables);
 
@@ -114,6 +116,7 @@ fn main() {
         land_use::setup(&mut system, user_interface, simulation);
 
         planning_new::setup(&mut system, user_interface);
+        construction::setup(&mut system);
 
         core::init::print_version(user_interface, world);
 

@@ -1,6 +1,6 @@
-use kay::{World, Fate};
+use kay::{World, Fate, ActorSystem};
 use compact::{CVec, CHashMap};
-use planning_new::{PlanResult, PrototypeID, Prototype};
+use planning_new::{PlanResult, PrototypeID, Prototype, PlanManagerID, ProposalID};
 use core::simulation::{Simulatable, SimulatableID, Instant};
 
 pub trait Constructable {
@@ -17,13 +17,15 @@ impl Prototype {
     }
 
     fn morphable_from(&self, other: &Self) -> bool {
-        // match (*self, *other) {
-        //     // (Prototype::Lot(self_lot), Prototype::Lot(other_lot)) => {
-        //     //     self_lot.morphable_from(other_lot)
-        //     // }
-        //     (_, _) => false,
-        // }
-        false
+        match (self, other) {
+            // (Prototype::Lot(self_lot), Prototype::Lot(other_lot)) => {
+            //     self_lot.morphable_from(other_lot)
+            // }
+            (&Prototype::Road(ref self_road), &Prototype::Road(ref other_road)) => {
+                self_road.morphable_from(other_road)
+            }
+            _ => false,
+        }
     }
 }
 
@@ -44,6 +46,16 @@ pub enum Action {
 }
 
 impl Construction {
+    pub fn spawn(id: ConstructionID, world: &mut World) -> Construction {
+        Construction {
+            id,
+            constructed: CHashMap::new(),
+            current_prototypes: CHashMap::new(),
+            pending_constructables: CVec::new(),
+            queued_actions: CVec::new(),
+        }
+    }
+
     pub fn action_done(&mut self, id: ConstructableID, world: &mut World) {
         self.pending_constructables.retain(
             |pending_constructable| {
@@ -133,6 +145,16 @@ impl Construction {
         let actions_to_implement = self.actions_to_implement(new_result);
         self.queued_actions.extend(actions_to_implement);
     }
+
+    pub fn simulate(
+        &mut self,
+        result: &PlanResult,
+        plan_manager: PlanManagerID,
+        proposal_id: ProposalID,
+        world: &mut World,
+    ) {
+        plan_manager.on_simulated_actions(proposal_id, self.actions_to_implement(result), world);
+    }
 }
 
 impl Simulatable for Construction {
@@ -144,6 +166,13 @@ impl Simulatable for Construction {
             }
         }
     }
+}
+
+pub fn setup(system: &mut ActorSystem) {
+    system.register::<Construction>();
+    auto_setup(system);
+
+    ConstructionID::spawn(&mut system.world());
 }
 
 mod kay_auto;

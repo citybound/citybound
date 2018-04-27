@@ -65,8 +65,8 @@ impl RoadPrototype {
 }
 
 impl Constructable for Lane {
-    fn morph(&mut self, new_prototype: &Prototype, report_to: ConstructionID, world: &mut World) {
-        unimplemented!()
+    fn morph(&mut self, _new_prototype: &Prototype, report_to: ConstructionID, world: &mut World) {
+        report_to.action_done(self.id_as(), world);
     }
     fn destruct(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
         self.unbuild(report_to, world);
@@ -75,8 +75,8 @@ impl Constructable for Lane {
 }
 
 impl Constructable for TransferLane {
-    fn morph(&mut self, new_prototype: &Prototype, report_to: ConstructionID, world: &mut World) {
-        unimplemented!()
+    fn morph(&mut self, _new_prototype: &Prototype, report_to: ConstructionID, world: &mut World) {
+        report_to.action_done(self.id_as(), world);
     }
     fn destruct(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
         self.unbuild(report_to, world);

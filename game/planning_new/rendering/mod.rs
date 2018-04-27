@@ -44,15 +44,22 @@ impl Renderable for PlanManager {
             .get(renderer_id.as_raw().machine)
             .expect("should have ui state for this renderer")
             .current_proposal;
-        let (preview, result_preview) =
-            self.ensure_preview(renderer_id.as_raw().machine, proposal_id);
+        let (preview, result_preview, maybe_actions_preview) =
+            self.ensure_preview(renderer_id.as_raw().machine, proposal_id, world);
 
         for render_fn in &[
             ::transport::transport_planning_new::interaction::render_preview,
             ::land_use::zone_planning_new::interaction::render_preview,
         ]
         {
-            render_fn(result_preview, renderer_id, scene_id, frame, world);
+            render_fn(
+                result_preview,
+                maybe_actions_preview,
+                renderer_id,
+                scene_id,
+                frame,
+                world,
+            );
         }
 
         for (i, gesture) in preview.gestures.values().enumerate() {

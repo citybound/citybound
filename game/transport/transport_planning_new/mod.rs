@@ -32,11 +32,49 @@ pub enum RoadPrototype {
     PavedArea(CShape),
 }
 
+impl RoadPrototype {
+    pub fn morphable_from(&self, other: &RoadPrototype) -> bool {
+        match (self, other) {
+            (&RoadPrototype::Lane(ref lane_1), &RoadPrototype::Lane(ref lane_2)) => {
+                lane_1.morphable_from(lane_2)
+            }
+            (&RoadPrototype::TransferLane(ref lane_1),
+             &RoadPrototype::TransferLane(ref lane_2)) => lane_1.morphable_from(lane_2),
+            (&RoadPrototype::Intersection(ref intersection_1),
+             &RoadPrototype::Intersection(ref intersection_2)) => {
+                intersection_1.morphable_from(intersection_2)
+            }
+            _ => false,
+        }
+    }
+}
+
 #[derive(Compact, Clone)]
 pub struct LanePrototype(pub CPath, pub CVec<bool>);
 
+impl LanePrototype {
+    pub fn morphable_from(&self, other: &LanePrototype) -> bool {
+        match (self, other) {
+            (&LanePrototype(ref path_1, ref timings_1),
+             &LanePrototype(ref path_2, ref timings_2)) => {
+                path_1.is_roughly_within(path_2, 0.05) && timings_1[..] == timings_2[..]
+            }
+        }
+    }
+}
+
 #[derive(Compact, Clone)]
 pub struct TransferLanePrototype(pub CPath);
+
+impl TransferLanePrototype {
+    pub fn morphable_from(&self, other: &TransferLanePrototype) -> bool {
+        match (self, other) {
+            (&TransferLanePrototype(ref path_1), &TransferLanePrototype(ref path_2)) => {
+                path_1.is_roughly_within(path_2, 0.05)
+            }
+        }
+    }
+}
 
 #[derive(Copy, Clone)]
 pub struct ConnectionRole {
@@ -89,9 +127,19 @@ pub struct IntersectionPrototype {
     pub connecting_lanes: CHashMap<(GestureSideID, GestureSideID), CVec<LanePrototype>>,
 }
 
+impl IntersectionPrototype {
+    pub fn morphable_from(&self, other: &IntersectionPrototype) -> bool {
+        // TODO: make this better!!
+        self.shape.outline().is_roughly_within(
+            other.shape.outline(),
+            0.1,
+        )
+    }
+}
+
 const LANE_WIDTH: N = 6.0;
 const LANE_DISTANCE: N = 0.8 * LANE_WIDTH;
-const CENTER_LANE_DISTANCE: N = LANE_DISTANCE;
+const CENTER_LANE_DISTANCE: N = LANE_DISTANCE * 1.1;
 
 fn gesture_intent_smooth_paths(plan: &Plan) -> Vec<(GestureID, RoadIntent, CPath)> {
     plan.gestures

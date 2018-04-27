@@ -1,4 +1,4 @@
-use kay::{World, MachineID, Fate, TypedID, ActorSystem};
+use kay::{World, MachineID, Fate, TypedID, ActorSystem, Actor};
 use compact::{CVec, COption};
 use descartes::{N, P2, Into2d, Circle};
 use stagemaster::{UserInterfaceID, Interactable3d, Interactable3dID, Interactable2d,
@@ -7,40 +7,46 @@ use stagemaster::geometry::AnyShape;
 use ui_layers::GESTURE_LAYER;
 use imgui::ImGuiSetCond_FirstUseEver;
 
-use super::{Plan, PlanResult, GestureID, PlanManager, PlanManagerID, Gesture, GestureIntent};
+use super::{Plan, PlanResult, GestureID, ProposalID, PlanManager, PlanManagerID, Gesture,
+            GestureIntent};
 use transport::transport_planning_new::RoadIntent;
 use land_use::zone_planning_new::{ZoneIntent, LandUse};
+use construction::{Construction, Action};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ControlPointRef(pub GestureID, pub usize);
 
 #[derive(Compact, Clone)]
 pub struct PlanManagerUIState {
-    pub current_proposal: usize,
+    pub current_proposal: ProposalID,
     canvas: GestureCanvasID,
     gesture_ongoing: bool,
     gesture_interactables: CVec<GestureInteractableID>,
     pub selected_points: CVec<ControlPointRef>,
     current_preview: COption<Plan>,
     current_result_preview: COption<PlanResult>,
-    user_interface: UserInterfaceID,
+    current_action_preview: COption<CVec<CVec<Action>>>,
+    pub user_interface: UserInterfaceID,
 }
 
 impl PlanManager {
     pub fn switch_to(
         &mut self,
         user_interface: UserInterfaceID,
-        proposal_id: usize,
+        proposal_id: ProposalID,
         world: &mut World,
     ) {
         let machine = user_interface.as_raw().machine;
 
-        if let Some(current_canvas) =
-            self.ui_state.get_mut(machine).map(
-                |ui_state| ui_state.canvas,
-            )
+        if let Some((current_canvas, current_interactables)) =
+            self.ui_state.get_mut(machine).map(|ui_state| {
+                (ui_state.canvas, &mut ui_state.gesture_interactables)
+            })
         {
             current_canvas.remove(user_interface, world);
+            for gesture_interactable in current_interactables.drain() {
+                gesture_interactable.remove(user_interface, world);
+            }
         };
 
         self.ui_state.insert(
@@ -53,6 +59,7 @@ impl PlanManager {
                 selected_points: CVec::new(),
                 current_preview: COption(None),
                 current_result_preview: COption(None),
+                current_action_preview: COption(None),
                 user_interface,
             },
         );
@@ -60,13 +67,14 @@ impl PlanManager {
         self.recreate_gesture_interactables_on_machine(machine, world);
     }
 
-    fn clear_previews(&mut self, proposal_id: usize) {
+    fn clear_previews(&mut self, proposal_id: ProposalID) {
         for state in self.ui_state.values_mut().filter(|state| {
             state.current_proposal == proposal_id
         })
         {
             state.current_preview = COption(None);
             state.current_result_preview = COption(None);
+            state.current_action_preview = COption(None);
         }
     }
 
@@ -74,8 +82,9 @@ impl PlanManager {
     pub fn ensure_preview(
         &self,
         machine_id: MachineID,
-        proposal_id: usize,
-    ) -> (&Plan, &PlanResult) {
+        proposal_id: ProposalID,
+        world: &mut World,
+    ) -> (&Plan, &PlanResult, &Option<CVec<CVec<Action>>>) {
         let ui_state = self.ui_state.get(machine_id).expect(
             "Should already have a ui state for this machine",
         );
@@ -88,10 +97,18 @@ impl PlanManager {
             }
 
             if ui_state.current_preview.is_none() {
-                let preview_plan = self.proposals[proposal_id].apply_to(&self.master_plan);
+                let preview_plan = self.proposals.get(proposal_id).unwrap().apply_to(
+                    &self.master_plan,
+                );
                 let preview_plan_result = preview_plan.calculate_result();
 
                 ui_state_mut.current_preview = COption(Some(preview_plan));
+                Construction::global_first(world).simulate(
+                    preview_plan_result.clone(),
+                    self.id,
+                    proposal_id,
+                    world,
+                );
                 ui_state_mut.current_result_preview = COption(Some(preview_plan_result));
             }
         }
@@ -99,7 +116,23 @@ impl PlanManager {
         (
             ui_state.current_preview.as_ref().unwrap(),
             ui_state.current_result_preview.as_ref().unwrap(),
+            &*ui_state.current_action_preview,
         )
+    }
+
+    pub fn on_simulated_actions(
+        &mut self,
+        proposal_id: ProposalID,
+        actions: &CVec<CVec<Action>>,
+        _: &mut World,
+    ) {
+        for state in self.ui_state.values_mut().filter(|state| {
+            state.current_proposal == proposal_id
+        })
+        {
+            // TODO: avoid clone
+            state.current_action_preview = COption(Some(actions.clone()));
+        }
     }
 
     fn recreate_gesture_interactables_on_machine(
@@ -120,7 +153,7 @@ impl PlanManager {
             if gesture_ongoing {
                 CVec::new()
             } else {
-                let (preview, _) = self.ensure_preview(machine_id, proposal_id);
+                let (preview, _, _) = self.ensure_preview(machine_id, proposal_id, world);
 
                 preview
                     .gestures
@@ -168,7 +201,7 @@ impl PlanManager {
         state.gesture_interactables = new_gesture_interactables;
     }
 
-    fn recreate_gesture_interactables(&mut self, proposal_id: usize, world: &mut World) {
+    fn recreate_gesture_interactables(&mut self, proposal_id: ProposalID, world: &mut World) {
         let machines_with_this_proposal = self.ui_state
             .pairs()
             .filter(|&(_, state)| state.current_proposal == proposal_id)
@@ -209,7 +242,7 @@ impl PlanManager {
 
     pub fn start_new_gesture(
         &mut self,
-        proposal_id: usize,
+        proposal_id: ProposalID,
         machine_id: MachineID,
         new_gesture_id: GestureID,
         intent: &GestureIntent,
@@ -220,8 +253,14 @@ impl PlanManager {
 
         let new_step = Plan { gestures: Some((new_gesture_id, new_gesture)).into_iter().collect() };
 
-        self.proposals[proposal_id].set_ongoing_step(new_step);
-        self.proposals[proposal_id].start_new_step();
+        self.proposals
+            .get_mut(proposal_id)
+            .unwrap()
+            .set_ongoing_step(new_step);
+        self.proposals
+            .get_mut(proposal_id)
+            .unwrap()
+            .start_new_step();
 
         self.ui_state
             .get_mut(machine_id)
@@ -242,7 +281,7 @@ impl PlanManager {
 
     pub fn add_control_point(
         &mut self,
-        proposal_id: usize,
+        proposal_id: ProposalID,
         gesture_id: GestureID,
         new_point: P2,
         add_to_end: bool,
@@ -284,10 +323,16 @@ impl PlanManager {
             Plan { gestures: Some((gesture_id, changed_gesture)).into_iter().collect() }
         };
 
-        self.proposals[proposal_id].set_ongoing_step(new_step);
+        self.proposals
+            .get_mut(proposal_id)
+            .unwrap()
+            .set_ongoing_step(new_step);
 
         if commit {
-            self.proposals[proposal_id].start_new_step();
+            self.proposals
+                .get_mut(proposal_id)
+                .unwrap()
+                .start_new_step();
         }
 
         self.clear_previews(proposal_id);
@@ -296,7 +341,7 @@ impl PlanManager {
 
     pub fn move_control_point(
         &mut self,
-        proposal_id: usize,
+        proposal_id: ProposalID,
         gesture_id: GestureID,
         point_index: usize,
         new_position: P2,
@@ -318,21 +363,27 @@ impl PlanManager {
             Plan { gestures: Some((gesture_id, new_gesture)).into_iter().collect() }
         };
 
-        self.proposals[proposal_id].set_ongoing_step(current_change);
+        self.proposals
+            .get_mut(proposal_id)
+            .unwrap()
+            .set_ongoing_step(current_change);
 
         // TODO: can we update only part of the preview
         // for better rendering performance while dragging?
         self.clear_previews(proposal_id);
 
         if is_move_finished {
-            self.proposals[proposal_id].start_new_step();
+            self.proposals
+                .get_mut(proposal_id)
+                .unwrap()
+                .start_new_step();
             self.recreate_gesture_interactables(proposal_id, world);
         }
     }
 
     pub fn set_intent(
         &mut self,
-        proposal_id: usize,
+        proposal_id: ProposalID,
         gesture_id: GestureID,
         new_intent: &GestureIntent,
         is_move_finished: bool,
@@ -350,24 +401,30 @@ impl PlanManager {
             Plan { gestures: Some((gesture_id, new_gesture)).into_iter().collect() }
         };
 
-        self.proposals[proposal_id].set_ongoing_step(current_change);
+        self.proposals
+            .get_mut(proposal_id)
+            .unwrap()
+            .set_ongoing_step(current_change);
 
         // TODO: can we update only part of the preview
         // for better rendering performance while dragging?
         self.clear_previews(proposal_id);
 
         if is_move_finished {
-            self.proposals[proposal_id].start_new_step();
+            self.proposals
+                .get_mut(proposal_id)
+                .unwrap()
+                .start_new_step();
             self.recreate_gesture_interactables(proposal_id, world);
         }
     }
 
-    pub fn undo(&mut self, proposal_id: usize, _: &mut World) {
-        self.proposals[proposal_id].undo();
+    pub fn undo(&mut self, proposal_id: ProposalID, _: &mut World) {
+        self.proposals.get_mut(proposal_id).unwrap().undo();
     }
 
-    pub fn redo(&mut self, proposal_id: usize, _: &mut World) {
-        self.proposals[proposal_id].redo();
+    pub fn redo(&mut self, proposal_id: ProposalID, _: &mut World) {
+        self.proposals.get_mut(proposal_id).unwrap().redo();
     }
 }
 
@@ -379,7 +436,7 @@ pub trait GestureInteractable {
 pub struct ControlPointInteractable {
     id: ControlPointInteractableID,
     plan_manager: PlanManagerID,
-    proposal_id: usize,
+    proposal_id: ProposalID,
     gesture_id: GestureID,
     point_index: usize,
 }
@@ -392,7 +449,7 @@ impl ControlPointInteractable {
         id: ControlPointInteractableID,
         user_interface: UserInterfaceID,
         plan_manager: PlanManagerID,
-        proposal_id: usize,
+        proposal_id: ProposalID,
         gesture_id: GestureID,
         point_index: usize,
         position: P2,
@@ -462,7 +519,7 @@ pub struct GestureCanvas {
     id: GestureCanvasID,
     plan_manager: PlanManagerID,
     for_machine: MachineID,
-    proposal_id: usize,
+    proposal_id: ProposalID,
     last_point: COption<P2>,
     current_mode: GestureCanvasMode,
     current_intent: GestureIntent,
@@ -480,7 +537,7 @@ impl GestureCanvas {
         id: GestureCanvasID,
         user_interface: UserInterfaceID,
         plan_manager: PlanManagerID,
-        proposal_id: usize,
+        proposal_id: ProposalID,
         world: &mut World,
     ) -> Self {
         user_interface.add(GESTURE_LAYER, id.into(), AnyShape::Everywhere, 0, world);
@@ -590,6 +647,9 @@ impl Interactable2d for GestureCanvas {
                 if ui.small_button(im_str!("Zone")) {
                     self.current_intent =
                         GestureIntent::Zone(ZoneIntent::LandUse(LandUse::Residential));
+                }
+                if ui.small_button(im_str!("Implement")) {
+                    self.plan_manager.implement(self.proposal_id, world);
                 }
             });
     }

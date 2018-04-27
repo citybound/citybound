@@ -1,4 +1,4 @@
-use kay::{World, MachineID, ActorSystem};
+use kay::{World, MachineID, ActorSystem, Actor};
 use compact::{CVec, CHashMap};
 use descartes::P2;
 use stagemaster::UserInterfaceID;
@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use transport::transport_planning_new::{RoadIntent, RoadPrototype};
 use land_use::zone_planning_new::{ZoneIntent, LotIntent, LotPrototype};
+use construction::Construction;
 
 pub mod rendering;
 pub mod interaction;
@@ -148,28 +149,45 @@ impl Plan {
 
 use self::interaction::PlanManagerUIState;
 
+#[derive(Copy, Clone, Hash, PartialEq, Eq)]
+pub struct ProposalID(Uuid);
+
+impl ProposalID {
+    pub fn new() -> ProposalID {
+        ProposalID(Uuid::new_v4())
+    }
+}
+
 #[derive(Compact, Clone)]
 pub struct PlanManager {
     id: PlanManagerID,
     master_plan: Plan,
-    proposals: CVec<Proposal>,
-    implemented_proposals: CVec<Proposal>,
+    proposals: CHashMap<ProposalID, Proposal>,
+    implemented_proposals: CHashMap<ProposalID, Proposal>,
     ui_state: CHashMap<MachineID, PlanManagerUIState>,
 }
 
 impl PlanManager {
-    pub fn spawn(id: PlanManagerID, _: &mut World) -> PlanManager {
+    pub fn spawn(id: PlanManagerID, initial_proposal_id: ProposalID, _: &mut World) -> PlanManager {
         PlanManager {
             id,
             master_plan: Plan::default(),
-            proposals: vec![Proposal::default()].into(),
-            implemented_proposals: CVec::new(),
+            proposals: Some((initial_proposal_id, Proposal::default()))
+                .into_iter()
+                .collect(),
+            implemented_proposals: CHashMap::new(),
             ui_state: CHashMap::new(),
         }
     }
 
-    pub fn get_current_version_of(&self, gesture_id: GestureID, proposal_id: usize) -> &Gesture {
-        self.proposals[proposal_id]
+    pub fn get_current_version_of(
+        &self,
+        gesture_id: GestureID,
+        proposal_id: ProposalID,
+    ) -> &Gesture {
+        self.proposals
+            .get(proposal_id)
+            .expect("Expected proposal to exist")
             .current_history()
             .iter()
             .rfold(None, |found, step| {
@@ -180,6 +198,33 @@ impl PlanManager {
             .next()
             .expect("Expected gesture (that point should be added to) to exist!")
     }
+
+    pub fn implement(&mut self, proposal_id: ProposalID, world: &mut World) {
+        let proposal = self.proposals.remove(proposal_id).expect(
+            "Proposal should exist",
+        );
+
+        self.master_plan = self.master_plan.merge(proposal.current_history());
+
+        Construction::global_first(world).implement(self.master_plan.calculate_result(), world);
+
+        self.implemented_proposals.insert(proposal_id, proposal);
+
+        let potentially_affected_ui_states = self.ui_state
+            .values()
+            .map(|state| (state.current_proposal, state.user_interface))
+            .collect::<Vec<_>>();
+
+        for (current_proposal, user_interface) in potentially_affected_ui_states {
+            if current_proposal == proposal_id {
+                let new_proposal_id = ProposalID::new();
+
+                self.proposals.insert(new_proposal_id, Proposal::new());
+
+                self.switch_to(user_interface, new_proposal_id, world);
+            }
+        }
+    }
 }
 
 pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) {
@@ -188,8 +233,9 @@ pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) {
     rendering::auto_setup(system);
     interaction::setup(system);
 
-    let plan_manager = PlanManagerID::spawn(&mut system.world());
-    plan_manager.switch_to(user_interface, 0, &mut system.world());
+    let initial_proposal_id = ProposalID::new();
+    let plan_manager = PlanManagerID::spawn(initial_proposal_id, &mut system.world());
+    plan_manager.switch_to(user_interface, initial_proposal_id, &mut system.world());
 }
 
 pub mod kay_auto;

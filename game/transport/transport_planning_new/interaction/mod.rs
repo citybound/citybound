@@ -1,4 +1,5 @@
 use kay::{World, MachineID, Fate, TypedID, ActorSystem};
+use compact::CVec;
 use descartes::{Band, Path, FiniteCurve, SimpleShape, WithUniqueOrthogonal, Curve, Into2d};
 use monet::{RendererID, Instance, Geometry};
 use stagemaster::user_interface::{UserInterfaceID, Interactable3d, Interactable3dID, Event3d};
@@ -7,8 +8,10 @@ use style::colors;
 
 use ui_layers::GESTURE_LAYER;
 
-use planning_new::{Plan, GestureIntent, PlanResult, Prototype, GestureID, PlanManagerID};
+use planning_new::{Plan, GestureIntent, PlanResult, Prototype, GestureID, ProposalID,
+                   PlanManagerID};
 use planning_new::interaction::{GestureInteractable, GestureInteractableID};
+use construction::Action;
 
 use super::{RoadIntent, RoadPrototype, LanePrototype, TransferLanePrototype,
             IntersectionPrototype, LANE_WIDTH, LANE_DISTANCE, CENTER_LANE_DISTANCE,
@@ -16,6 +19,7 @@ use super::{RoadIntent, RoadPrototype, LanePrototype, TransferLanePrototype,
 
 pub fn render_preview(
     result_preview: &PlanResult,
+    maybe_action_preview: &Option<CVec<CVec<Action>>>,
     renderer_id: RendererID,
     scene_id: usize,
     frame: usize,
@@ -25,40 +29,54 @@ pub fn render_preview(
     let mut transfer_lane_geometry = Geometry::empty();
     let mut intersection_geometry = Geometry::empty();
 
-    for prototype in result_preview.prototypes.values() {
-        match *prototype {
-            Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
-                lane_geometry +=
-                    band_to_geometry(&Band::new(lane_path.clone(), LANE_WIDTH * 0.7), 0.1);
-
-
-            }
-            Prototype::Road(RoadPrototype::TransferLane(TransferLanePrototype(ref lane_path))) => {
-                for dash in dash_path(lane_path, 2.0, 4.0) {
-                    transfer_lane_geometry +=
-                        band_to_geometry(&Band::new(dash, LANE_DISTANCE - LANE_WIDTH), 0.1);
-                }
-            }
-            Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
-                                                            ref shape,
-                                                            ref connecting_lanes,
-                                                            ..
-                                                        })) => {
-                intersection_geometry +=
-                    band_to_geometry(&Band::new(shape.outline().clone(), 0.1), 0.1);
-
-                for &LanePrototype(ref lane_path, ref timings) in
-                    connecting_lanes.values().flat_map(|lanes| lanes)
-                {
-                    lane_geometry +=
-                        band_to_geometry(&Band::new(lane_path.clone(), LANE_WIDTH * 0.7), 0.1);
-                    if timings[(frame / 10) % timings.len()] {
-                        intersection_geometry +=
-                            band_to_geometry(&Band::new(lane_path.clone(), 0.1), 0.1);
+    if let &Some(ref action_preview) = maybe_action_preview {
+        for (prototype_id, prototype) in result_preview.prototypes.pairs() {
+            if action_preview.iter().any(|action_group| {
+                action_group.iter().any(|action| match *action {
+                    Action::Construct(constructed_prototype_id, _) => {
+                        constructed_prototype_id == *prototype_id
                     }
+                    _ => false,
+                })
+            })
+            {
+                match *prototype {
+                    Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
+                        lane_geometry +=
+                            band_to_geometry(&Band::new(lane_path.clone(), LANE_WIDTH * 0.7), 0.1);
+
+
+                    }
+                    Prototype::Road(RoadPrototype::TransferLane(TransferLanePrototype(ref lane_path))) => {
+                        for dash in dash_path(lane_path, 2.0, 4.0) {
+                            transfer_lane_geometry +=
+                                band_to_geometry(&Band::new(dash, LANE_DISTANCE - LANE_WIDTH), 0.1);
+                        }
+                    }
+                    Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
+                                                                    ref shape,
+                                                                    ref connecting_lanes,
+                                                                    ..
+                                                                })) => {
+                        intersection_geometry +=
+                            band_to_geometry(&Band::new(shape.outline().clone(), 0.1), 0.1);
+
+                        for &LanePrototype(ref lane_path, ref timings) in
+                            connecting_lanes.values().flat_map(|lanes| lanes)
+                        {
+                            lane_geometry += band_to_geometry(
+                                &Band::new(lane_path.clone(), LANE_WIDTH * 0.7),
+                                0.1,
+                            );
+                            if timings[(frame / 10) % timings.len()] {
+                                intersection_geometry +=
+                                    band_to_geometry(&Band::new(lane_path.clone(), 0.1), 0.1);
+                            }
+                        }
+                    }
+                    _ => {}
                 }
             }
-            _ => {}
         }
     }
 
@@ -95,7 +113,7 @@ pub struct LaneCountInteractable {
     id: LaneCountInteractableID,
     plan_manager: PlanManagerID,
     for_machine: MachineID,
-    proposal_id: usize,
+    proposal_id: ProposalID,
     gesture_id: GestureID,
     forward: bool,
     path: CPath,
@@ -108,7 +126,7 @@ impl LaneCountInteractable {
         id: LaneCountInteractableID,
         user_interface: UserInterfaceID,
         plan_manager: PlanManagerID,
-        proposal_id: usize,
+        proposal_id: ProposalID,
         gesture_id: GestureID,
         forward: bool,
         path: &CPath,
@@ -195,7 +213,7 @@ pub fn spawn_gesture_interactables(
     plan: &Plan,
     user_interface: UserInterfaceID,
     plan_manager: PlanManagerID,
-    proposal_id: usize,
+    proposal_id: ProposalID,
     world: &mut World,
 ) -> Vec<GestureInteractableID> {
     let gesture_intent_smooth_paths = gesture_intent_smooth_paths(plan);
