@@ -169,7 +169,7 @@ pub fn setup(system: &mut ActorSystem) {
     control::auto_setup(system);
     movement::auto_setup(system);
     project::auto_setup(system);
-    super::geometry::setup(system);
+    super::geometry_actors::setup(system);
 }
 
 mod kay_auto;

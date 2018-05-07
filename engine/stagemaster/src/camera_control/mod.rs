@@ -52,7 +52,8 @@ pub struct CameraControl {
     last_cursor_3d: P3,
 }
 
-use user_interface::{Event3d, Interactable3d, Interactable3dID, UserInterfaceID};
+use user_interface::{Event3d, Interactable3d, Interactable3dID, UserInterfaceID,
+                     UserInterfaceLayer};
 
 impl CameraControl {
     pub fn spawn(
@@ -62,7 +63,13 @@ impl CameraControl {
         env: Environment,
         world: &mut World,
     ) -> Self {
-        ui_id.add(id.into(), super::geometry::AnyShape::Everywhere, 0, world);
+        ui_id.add(
+            UserInterfaceLayer(0),
+            id.into(),
+            super::geometry::AnyShape::Everywhere,
+            0,
+            world,
+        );
         ui_id.focus(id.into(), world);
         ui_id.add_2d(id.into(), world);
 
@@ -196,14 +203,7 @@ use imgui_sys::ImGuiSetCond_FirstUseEver;
 
 impl Interactable2d for CameraControl {
     /// Critical
-    fn draw_ui_2d(
-        &mut self,
-        imgui_ui: &External<::imgui::Ui<'static>>,
-        return_to: UserInterfaceID,
-        world: &mut World,
-    ) {
-        let ui = imgui_ui.steal();
-
+    fn draw(&mut self, _: &mut World, ui: &::imgui::Ui<'static>) {
         let mut settings_changed = false;
 
         ui.window(im_str!("Controls"))
@@ -235,8 +235,6 @@ impl Interactable2d for CameraControl {
         if settings_changed {
             self.env.write_settings("Camera Control", &*self.settings);
         }
-
-        return_to.ui_drawn(ui, world);
     }
 }
 

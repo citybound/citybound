@@ -168,7 +168,7 @@ impl<K: Copy, V: Compact> Compact for Entry<K, V> {
     default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
         (*dest).hash = (*source).hash;
         (*dest).tombstoned = (*source).tombstoned;
-        (*dest).inner = (*source).inner.clone();
+        ::std::ptr::copy_nonoverlapping(&mut (*source).inner, &mut (*dest).inner, 1);
         if (*dest).inner.is_some() {
             Compact::compact(
                 &mut (*source).inner.as_mut().unwrap().1,
@@ -576,6 +576,15 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)> + 'a {
         self.entries.iter().filter(|e| e.alive()).map(|e| {
             (e.key(), e.value())
+        })
+    }
+
+    pub fn pairs_mut<'a>(&'a mut self) -> impl Iterator<Item = (K, &'a mut V)> + 'a
+    where
+        K: Copy,
+    {
+        self.entries.iter_mut().filter(|e| e.alive()).map(|e| {
+            (*e.key(), e.mut_value())
         })
     }
 

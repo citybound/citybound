@@ -1,9 +1,9 @@
 use kay::{ActorSystem, World, TypedID, Actor};
-use core::simulation::{TimeOfDay, TimeOfDayRange, Duration, SimulationID, Ticks};
+use simulation::{TimeOfDay, TimeOfDayRange, Duration, SimulationID, Ticks};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
-use economy::buildings::BuildingID;
+use land_use::buildings::BuildingID;
 
 use super::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer};
 
@@ -184,8 +184,7 @@ impl EvaluationRequester for GroceryShop {
     }
 }
 
-use core::simulation::{Simulatable, SimulatableID, Sleeper, SleeperID, Instant,
-                       TICKS_PER_SIM_SECOND};
+use simulation::{Simulatable, SimulatableID, Sleeper, SleeperID, Instant, TICKS_PER_SIM_SECOND};
 const UPDATE_EVERY_N_SECS: usize = 4;
 
 impl Simulatable for GroceryShop {

@@ -1,10 +1,19 @@
-use super::{Shape, N, P2, THICKNESS, Curve, FiniteCurve};
+use super::{Shape, N, P2, THICKNESS, Curve, FiniteCurve, PointOnShapeLocation};
 use super::path::Path;
 use super::primitives::{Circle, Segment};
+use PointOnShapeLocation::*;
 
 impl Shape for Circle {
-    fn contains(&self, point: P2) -> bool {
-        (point - self.center).norm() <= self.radius + THICKNESS / 2.0
+    fn location_of(&self, point: P2) -> PointOnShapeLocation {
+        let distance = (point - self.center).norm();
+
+        if distance < self.radius - THICKNESS / 2.0 {
+            Inside
+        } else if distance < self.radius + THICKNESS / 2.0 {
+            OnEdge
+        } else {
+            Outside
+        }
     }
 }
 
@@ -43,7 +52,7 @@ impl<P: Path> Band<P> {
                     .chain(&[connector2])
                     .cloned()
                     .collect(),
-            )
+            ).unwrap()
         } else {
             self.path.clone()
         }
@@ -81,12 +90,55 @@ impl<P: Path> Band<P> {
 }
 
 impl<P: Path> Shape for Band<P> {
-    fn contains(&self, point: P2) -> bool {
+    fn location_of(&self, point: P2) -> PointOnShapeLocation {
         if let Some(along) = self.path.project(point) {
             let distance = (point - self.path.along(along)).norm();
-            distance < self.width / 2.0 + THICKNESS / 2.0
+            if distance < self.width / 2.0 - THICKNESS / 2.0 {
+                if along < THICKNESS || along > self.path.length() - THICKNESS {
+                    OnEdge
+                } else {
+                    Inside
+                }
+            } else if distance < self.width / 2.0 + THICKNESS / 2.0 {
+                OnEdge
+            } else {
+                Outside
+            }
         } else {
-            false
+            Outside
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ShapeError {
+    NotClosed,
+}
+
+pub trait SimpleShape: Clone {
+    type P: Path;
+    fn outline(&self) -> &Self::P;
+    fn new(outline: Self::P) -> Result<Self, ShapeError>
+    where
+        Self: Sized,
+    {
+        if !outline.is_closed() {
+            Result::Err(ShapeError::NotClosed)
+        } else {
+            Result::Ok(Self::new_unchecked(outline))
+        }
+    }
+    fn new_unchecked(outline: Self::P) -> Self;
+}
+
+impl<S: SimpleShape> Shape for S {
+    fn location_of(&self, point: P2) -> PointOnShapeLocation {
+        if self.outline().includes(point) {
+            OnEdge
+        } else if self.outline().contains(point) {
+            Inside
+        } else {
+            Outside
         }
     }
 }

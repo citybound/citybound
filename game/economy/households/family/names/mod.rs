@@ -1,6 +1,6 @@
 use super::FamilyID;
 use super::super::MemberIdx;
-use core::random::{seed, Rng};
+use util::random::{seed, Rng};
 
 // names taken from https://github.com/icebob/fakerator
 

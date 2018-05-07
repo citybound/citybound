@@ -10,17 +10,86 @@ use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
 use super::microtraffic::LaneLikeID;
 
-use planning::materialized_reality::MaterializedRealityID;
-use super::planning::materialized_roads::BuildableRef;
+use planning::Prototype;
+use construction::{ConstructionID, Constructable, ConstructableID};
+use super::transport_planning::{RoadPrototype, LanePrototype, TransferLanePrototype,
+                                IntersectionPrototype};
 
 const CONNECTION_TOLERANCE: f32 = 0.1;
+
+impl RoadPrototype {
+    pub fn construct(&self, report_to: ConstructionID, world: &mut World) -> CVec<ConstructableID> {
+        match *self {
+            RoadPrototype::Lane(LanePrototype(ref path, _)) => {
+                vec![
+                    LaneID::spawn_and_connect(path.clone(), false, CVec::new(), report_to, world)
+                        .into(),
+                ].into()
+            }
+            RoadPrototype::TransferLane(TransferLanePrototype(ref path)) => {
+                vec![
+                    TransferLaneID::spawn_and_connect(path.clone(), report_to, world).into(),
+                ].into()
+            }
+            RoadPrototype::Intersection(IntersectionPrototype { ref connecting_lanes, .. }) => {
+                let ids = connecting_lanes
+                    .values()
+                    .flat_map(|group| {
+                        group
+                            .iter()
+                            .map(|&LanePrototype(ref path, ref timings)| {
+                                LaneID::spawn_and_connect(
+                                    path.clone(),
+                                    true,
+                                    timings.clone(),
+                                    report_to,
+                                    world,
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>();
+
+                for id in &ids {
+                    id.start_connecting_overlaps(
+                        ids.iter().filter(|&other| other != id).cloned().collect(),
+                        world,
+                    )
+                }
+
+                ids.into_iter().map(|lane_id| lane_id.into()).collect()
+            }
+            RoadPrototype::PavedArea(_) => CVec::new(),
+        }
+    }
+}
+
+impl Constructable for Lane {
+    fn morph(&mut self, _new_prototype: &Prototype, report_to: ConstructionID, world: &mut World) {
+        report_to.action_done(self.id_as(), world);
+    }
+    fn destruct(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
+        self.unbuild(report_to, world);
+        Fate::Live
+    }
+}
+
+impl Constructable for TransferLane {
+    fn morph(&mut self, _new_prototype: &Prototype, report_to: ConstructionID, world: &mut World) {
+        report_to.action_done(self.id_as(), world);
+    }
+    fn destruct(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
+        self.unbuild(report_to, world);
+        Fate::Live
+    }
+}
 
 #[derive(Compact, Clone)]
 pub struct ConstructionInfo {
     pub length: f32,
     pub path: CPath,
     pub progress: f32,
-    unbuilding_for: Option<MaterializedRealityID>,
+    unbuilding_for: Option<ConstructionID>,
     disconnects_remaining: u8,
 }
 
@@ -38,7 +107,7 @@ impl ConstructionInfo {
 
 pub trait Unbuildable {
     fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World);
-    fn unbuild(&mut self, report_to: MaterializedRealityID, world: &mut World) -> Fate;
+    fn unbuild(&mut self, report_to: ConstructionID, world: &mut World) -> Fate;
     fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate;
 }
 
@@ -51,23 +120,28 @@ thread_local! (
 );
 
 impl Lane {
-    pub fn start_connecting_and_report(
-        &mut self,
-        report_to: MaterializedRealityID,
-        report_as: BuildableRef,
+    pub fn spawn_and_connect(
+        id: LaneID,
+        path: &CPath,
+        on_intersection: bool,
+        timings: &CVec<bool>,
+        report_to: ConstructionID,
         world: &mut World,
-    ) {
+    ) -> Lane {
         Lane::global_broadcast(world).connect(
-            self.id,
-            self.construction.path.start(),
-            self.construction.path.end(),
-            self.construction.path.length(),
+            id,
+            path.start(),
+            path.end(),
+            path.length(),
             true,
             world,
         );
-        TransferLane::global_broadcast(world)
-            .connect_transfer_to_normal(self.id, self.construction.path.clone(), world);
-        report_to.on_lane_built(self.id_as(), report_as, world);
+        if !on_intersection {
+            TransferLane::global_broadcast(world)
+                .connect_transfer_to_normal(id, path.clone(), world);
+        }
+        report_to.action_done(id.into(), world);
+        Lane::spawn(id, path, on_intersection, timings, world)
     }
 
     pub fn start_connecting_overlaps(&mut self, lanes: &CVec<LaneID>, world: &mut World) {
@@ -316,7 +390,7 @@ impl Unbuildable for Lane {
         other_id.on_confirm_disconnect(world);
     }
 
-    fn unbuild(&mut self, report_to: MaterializedRealityID, world: &mut World) -> Fate {
+    fn unbuild(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
         let mut disconnects_remaining = 0;
         for id in self.connectivity
             .interactions
@@ -361,8 +435,8 @@ impl Unbuildable for Lane {
 }
 
 impl Lane {
-    fn finalize(&self, report_to: MaterializedRealityID, world: &mut World) {
-        report_to.on_lane_unbuilt(self.id_as(), world);
+    fn finalize(&self, report_to: ConstructionID, world: &mut World) {
+        report_to.action_done(self.id_as(), world);
 
         for car in &self.microtraffic.cars {
             car.trip.finish(
@@ -378,45 +452,10 @@ impl Lane {
     }
 }
 
-use economy::buildings::{Lot, BuildingID, BuildingSpawnerID, MIN_LANE_BUILDING_DISTANCE,
-                         MIN_ROAD_LENGTH_TO_TOWN};
-use rand::Rng;
+use land_use::buildings::{BuildingID, MIN_LANE_BUILDING_DISTANCE};
 use transport::pathfinding::PreciseLocation;
 
 impl Lane {
-    // TODO: this is a horrible hack
-    pub fn find_lot(&mut self, requester: BuildingSpawnerID, world: &mut World) {
-        const BUILDING_DISTANCE: f32 = 16.0;
-
-        if let Some(location) = self.pathfinding.location {
-            if !self.connectivity.on_intersection {
-                let path = &self.construction.path;
-                let mut offset = ::rand::thread_rng().next_f32() * path.length();
-                let mut position = path.along(offset) +
-                    (1.0 + ::rand::thread_rng().next_f32() * 1.0) * BUILDING_DISTANCE *
-                        path.direction_along(offset).orthogonal();
-
-                // hacky: spawn location for neighboring towns: only at road ends
-                if offset > MIN_ROAD_LENGTH_TO_TOWN {
-                    offset = path.length();
-                    position = path.end() + 150.0 * path.end_direction()
-                }
-
-                let orientation = path.direction_along(offset);
-
-                requester.found_lot(
-                    Lot {
-                        position,
-                        orientation,
-                        location: Some(PreciseLocation { location, offset: offset }),
-                        adjacent_lane_position: path.along(offset),
-                    },
-                    world,
-                );
-            }
-        }
-    }
-
     pub fn try_reconnect_building(
         &mut self,
         building: BuildingID,
@@ -450,15 +489,20 @@ impl Lane {
 }
 
 impl TransferLane {
-    pub fn start_connecting_and_report(
-        &mut self,
-        report_to: MaterializedRealityID,
-        report_as: BuildableRef,
+    pub fn spawn_and_connect(
+        id: TransferLaneID,
+        path: &CPath,
+        report_to: ConstructionID,
         world: &mut World,
-    ) {
-        Lane::global_broadcast(world).connect_to_transfer(self.id, world);
-        report_to.on_lane_built(self.id_as(), report_as, world);
-        super::rendering::on_build_transfer(self, world);
+    ) -> TransferLane {
+        Lane::global_broadcast(world).connect_to_transfer(id, world);
+
+        let lane = TransferLane::spawn(id, path, world);
+        super::rendering::on_build_transfer(&lane, world);
+
+        report_to.action_done(id.into(), world);
+
+        lane
     }
 
     pub fn connect_transfer_to_normal(
@@ -558,7 +602,7 @@ impl Unbuildable for TransferLane {
         other_id.on_confirm_disconnect(world);
     }
 
-    fn unbuild(&mut self, report_to: MaterializedRealityID, world: &mut World) -> Fate {
+    fn unbuild(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
         if let Some((left_id, _)) = self.connectivity.left {
             Into::<UnbuildableID>::into(left_id).disconnect(self.id_as(), world);
         }
@@ -597,8 +641,8 @@ impl Unbuildable for TransferLane {
 }
 
 impl TransferLane {
-    fn finalize(&self, report_to: MaterializedRealityID, world: &mut World) {
-        report_to.on_lane_unbuilt(self.id_as(), world);
+    fn finalize(&self, report_to: ConstructionID, world: &mut World) {
+        report_to.action_done(self.id_as(), world);
 
         for car in &self.microtraffic.cars {
             car.trip.finish(

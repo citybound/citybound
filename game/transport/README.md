@@ -36,7 +36,7 @@
 ## Parts
 
 * Planning
-   * [Road Planning](planning/README.md) (40% alpha)
+   * [Road Planning](transport_planning/README.md) (40% alpha)
 * Construction
    * [Road Construction](construction/README.md) (50% alpha)
 * Traffic

@@ -135,7 +135,7 @@ impl DerefMut for TransferringLaneCar {
     }
 }
 
-use core::simulation::Instant;
+use simulation::Instant;
 
 pub trait LaneLike {
     fn add_car(
@@ -150,7 +150,7 @@ pub trait LaneLike {
 
 use self::pathfinding::RoutingInfo;
 
-use core::simulation::{Simulatable, SimulatableID};
+use simulation::{Simulatable, SimulatableID};
 
 const TRAFFIC_LOGIC_THROTTLING: usize = 10;
 const PATHFINDING_THROTTLING: usize = 10;

@@ -3,7 +3,7 @@ use kay::{ActorSystem, World, TypedID, Actor};
 use descartes::{P2, FiniteCurve};
 use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
-use core::simulation::Instant;
+use simulation::Instant;
 
 // TODO: MAKE TRANSFER LANE NOT PARTICIPATE AT ALL IN PATHFINDING -> MUCH SIMPLER
 
@@ -683,7 +683,7 @@ impl Lane {
     }
 }
 
-use core::simulation::SimulationID;
+use simulation::SimulationID;
 
 pub fn setup(system: &mut ActorSystem, simulation: SimulationID) {
     trip::setup(system, simulation);

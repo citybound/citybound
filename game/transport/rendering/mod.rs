@@ -4,6 +4,7 @@ use kay::{ActorSystem, World, Actor, TypedID};
 use monet::{Instance, Vertex, Geometry, Renderer, RendererID};
 use stagemaster::geometry::{band_to_geometry, dash_path};
 use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
+use style::colors;
 use itertools::Itertools;
 
 #[path = "./resources/car.rs"]
@@ -43,15 +44,12 @@ impl Renderable for Lane {
                     instance_position: [position2d.x, position2d.y, 0.0],
                     instance_direction: [direction.x, direction.y],
                     instance_color: if DEBUG_VIEW_LANDMARKS {
-                        ::core::colors::RANDOM_COLORS[car.destination
-                                                          .landmark
-                                                          .as_raw()
-                                                          .instance_id as
-                                                          usize %
-                                                          ::core::colors::RANDOM_COLORS.len()]
+                        colors::RANDOM_COLORS[car.destination.landmark.as_raw().instance_id as
+                                                  usize %
+                                                  colors::RANDOM_COLORS.len()]
                     } else {
-                        ::core::colors::RANDOM_COLORS[car.trip.as_raw().instance_id as usize %
-                                                          ::core::colors::RANDOM_COLORS.len()]
+                        colors::RANDOM_COLORS[car.trip.as_raw().instance_id as usize %
+                                                  colors::RANDOM_COLORS.len()]
                     },
                 })
             }
@@ -213,9 +211,9 @@ impl Renderable for Lane {
 
         if DEBUG_VIEW_LANDMARKS && self.pathfinding.routes_changed {
             let (random_color, is_landmark) = if let Some(location) = self.pathfinding.location {
-                let random_color: [f32; 3] = ::core::colors::RANDOM_COLORS
-                    [location.landmark.as_raw().instance_id as usize %
-                    ::core::colors::RANDOM_COLORS.len()];
+                let random_color: [f32; 3] =
+                    colors::RANDOM_COLORS[location.landmark.as_raw().instance_id as usize %
+                                              colors::RANDOM_COLORS.len()];
                 let weaker_random_color = [
                     (random_color[0] + 1.0) / 2.0,
                     (random_color[1] + 1.0) / 2.0,
@@ -249,9 +247,9 @@ impl Renderable for Lane {
             if !self.pathfinding.debug_highlight_for.is_empty() {
                 let (random_color, is_landmark) =
                     if let Some(location) = self.pathfinding.location {
-                        let random_color: [f32; 3] = ::core::colors::RANDOM_COLORS
+                        let random_color: [f32; 3] = colors::RANDOM_COLORS
                             [location.landmark.as_raw().instance_id as usize %
-                            ::core::colors::RANDOM_COLORS.len()];
+                            colors::RANDOM_COLORS.len()];
                         (random_color, location.is_landmark())
                     } else {
                         ([1.0, 1.0, 1.0], false)
@@ -375,15 +373,12 @@ impl Renderable for TransferLane {
                     instance_position: [shifted_position2d.x, shifted_position2d.y, 0.0],
                     instance_direction: [rotated_direction.x, rotated_direction.y],
                     instance_color: if DEBUG_VIEW_LANDMARKS {
-                        ::core::colors::RANDOM_COLORS[car.destination
-                                                          .landmark
-                                                          .as_raw()
-                                                          .instance_id as
-                                                          usize %
-                                                          ::core::colors::RANDOM_COLORS.len()]
+                        colors::RANDOM_COLORS[car.destination.landmark.as_raw().instance_id as
+                                                  usize %
+                                                  colors::RANDOM_COLORS.len()]
                     } else {
-                        ::core::colors::RANDOM_COLORS[car.trip.as_raw().instance_id as usize %
-                                                          ::core::colors::RANDOM_COLORS.len()]
+                        colors::RANDOM_COLORS[car.trip.as_raw().instance_id as usize %
+                                                  colors::RANDOM_COLORS.len()]
                     },
                 })
             }
@@ -525,21 +520,21 @@ pub fn setup(system: &mut ActorSystem) {
     auto_setup(system);
 
     let asphalt_group = GrouperID::spawn(
-        [0.7, 0.7, 0.7],
+        colors::ASPHALT,
         LANE_ASPHALT_THING_ID,
         false,
         &mut system.world(),
     );
 
     let marker_group = GrouperID::spawn(
-        [1.0, 1.0, 1.0],
+        colors::ROAD_MARKER,
         LANE_MARKER_THING_ID,
         true,
         &mut system.world(),
     );
 
     let gaps_group = GrouperID::spawn(
-        [0.7, 0.7, 0.7],
+        colors::ASPHALT,
         LANE_MARKER_GAPS_THING_ID,
         true,
         &mut system.world(),

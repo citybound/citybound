@@ -2,6 +2,7 @@
 
 * [Reporting bugs](#reporting-bugs)
 * [Contributing to the Design Doc](#contributing-to-the-design-doc)
+* [Compiling Citybound yourself](#compiling-citybound-yourself)
 * [Contributing to the code](#contributing-code)
 
 # Reporting Bugs
@@ -50,14 +51,11 @@ You can make suggestions of every kind:
      * we identify a compromise of a subset of the proposed changes and merge that, or:
      * if our disagreement is too large, the pull request gets closed, but with a thorough explanation from my side
 
-# Contributing Code
-
-* **Make sure to <a href="https://www.clahub.com/agreements/citybound/citybound">sign the Contributor License Agreement</a>.**
-* **[Have a look at the documentation](http://citybound.github.io/citybound)**
-
-## Compiling Citybound from source 
+## Compiling Citybound yourself
 
 Currently Citybound is built with Rust `nightly-2017-12-12'
+
+**If you want a working version of Citybound,** compile a commit that corresponds to a [release](https://github.com/citybound/citybound/releases), since master might temporarily break or represents work-in-progress state.
 
 Recommended setup:
 * Install [rustup](https://rustup.rs/) and [git](https://git-scm.com/)
@@ -72,6 +70,15 @@ Recommended setup:
   * `rustup override add nightly-2017-12-12-x86_64-unknown-linux-gnu`
   * `sudo apt install build-essential` (for Ubuntu)
 * `cargo run --release` (Debug mode is generally too slow to interact with)
+
+# Contributing Code
+
+## Guidelines
+
+* **Make sure to <a href="https://www.clahub.com/agreements/citybound/citybound">sign the Contributor License Agreement</a>.**
+* **[Have a look at the documentation](http://citybound.github.io/citybound)**
+* **Citybound uses trunk-based development,** meaning a very recent work-in-progress state of the code is always in the master branch. The repository owner usually commits directly to master, or uses short-lived feature branches. Contributors use the common fork/pull-request flow and everyone involved tries to get the changes into master as quickly as possible. The newest commits in master might sometimes be broken and not run.
+
 
 ## Getting the recommended dev environment
 
@@ -108,9 +115,3 @@ Recommended setup:
 ## Have a question? Want to discuss something?
 
 Join me and the other contributors in the [Gitter community for Citybound](https://gitter.im/citybound/Lobby) and ask/discuss away!
-
-## State of the code & organization
-
-The code is in a pretty messy state after a rushed first release, but will become much more modular and well-documented over time.
-Issues are categorized into levels of difficulty amongst other properties, but the ones flagged with "Assistance Welcome" are most likely to be tackleable by outside contributors.
-Pull requests of any kind are welcome, but there is no defined process or acceptance criteria yet, we'll just figure it out along the way.
