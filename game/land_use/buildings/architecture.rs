@@ -2,7 +2,7 @@ use descartes::{N, P2, WithUniqueOrthogonal};
 use rand::Rng;
 use monet::{Vertex, Geometry};
 
-use super::Lot;
+use super::{Lot, BuildingStyle};
 
 #[derive(Compact, Clone)]
 pub struct BuildingGeometry {
@@ -12,21 +12,14 @@ pub struct BuildingGeometry {
     pub field: Geometry,
 }
 
-#[derive(Copy, Clone)]
-pub enum BuildingStyle {
-    FamilyHouse,
-    GroceryShop,
-    Field,
-    Mill,
-    Bakery,
-    NeihboringTownConnection,
-}
-
 pub fn build_building<R: Rng>(
     lot: &Lot,
     building_type: BuildingStyle,
     rng: &mut R,
 ) -> BuildingGeometry {
+    let building_position = lot.center_point;
+    let building_orientation = (lot.connection_point - lot.center_point).normalize();
+
     let (main_footprint, entrance_footprint) = generate_house_footprint(lot, rng);
 
     match building_type {
@@ -103,15 +96,15 @@ pub fn build_building<R: Rng>(
                 field: Geometry::empty(),
             }
         }
-        BuildingStyle::NeihboringTownConnection => {
+        BuildingStyle::NeighboringTownConnection => {
             let length = 100.0;
-            let orientation_orth = lot.orientation.orthogonal();
+            let building_orientation_orth = building_orientation.orthogonal();
 
             let vertices = vec![
-                lot.position - length / 4.0 * orientation_orth,
-                lot.position + length / 2.0 * lot.orientation,
-                lot.position + length / 4.0 * orientation_orth,
-                lot.position - length / 2.0 * lot.orientation,
+                building_position - length / 4.0 * building_orientation_orth,
+                building_position + length / 2.0 * building_orientation,
+                building_position + length / 4.0 * building_orientation_orth,
+                building_position - length / 2.0 * building_orientation,
             ].into_iter()
                 .map(|v| Vertex { position: [v.x, v.y, 3.0] })
                 .collect();
@@ -235,37 +228,39 @@ impl Footprint {
 }
 
 pub fn generate_house_footprint<R: Rng>(lot: &Lot, rng: &mut R) -> (Footprint, Footprint) {
-    let orientation_orth = lot.orientation.orthogonal();
+    let building_position = lot.center_point;
+    let building_orientation = (lot.connection_point - lot.center_point).normalize();
+    let building_orientation_orth = building_orientation.orthogonal();
 
     let footprint_width = 10.0 + rng.next_f32() * 7.0;
     let footprint_depth = 7.0 + rng.next_f32() * 5.0;
 
-    let entrance_position = lot.position +
-        lot.orientation * (0.5 - 1.0 * rng.next_f32()) * footprint_width -
-        orientation_orth * (rng.next_f32() * 0.3 + 0.1) * footprint_depth;
+    let entrance_position = building_position +
+        building_orientation * (0.5 - 1.0 * rng.next_f32()) * footprint_width -
+        building_orientation_orth * (rng.next_f32() * 0.3 + 0.1) * footprint_depth;
     let entrance_width = 5.0 + rng.next_f32() * 4.0;
     let entrance_depth = 3.0 + rng.next_f32() * 3.0;
 
     (
         Footprint {
-            back_right: lot.position + lot.orientation * footprint_width / 2.0 -
-                orientation_orth * footprint_depth / 2.0,
-            back_left: lot.position - lot.orientation * footprint_width / 2.0 -
-                orientation_orth * footprint_depth / 2.0,
-            front_left: lot.position - lot.orientation * footprint_width / 2.0 +
-                orientation_orth * footprint_depth / 2.0,
-            front_right: lot.position + lot.orientation * footprint_width / 2.0 +
-                orientation_orth * footprint_depth / 2.0,
+            back_right: building_position + building_orientation * footprint_width / 2.0 -
+                building_orientation_orth * footprint_depth / 2.0,
+            back_left: building_position - building_orientation * footprint_width / 2.0 -
+                building_orientation_orth * footprint_depth / 2.0,
+            front_left: building_position - building_orientation * footprint_width / 2.0 +
+                building_orientation_orth * footprint_depth / 2.0,
+            front_right: building_position + building_orientation * footprint_width / 2.0 +
+                building_orientation_orth * footprint_depth / 2.0,
         },
         Footprint {
-            back_right: entrance_position + orientation_orth * entrance_width / 2.0 +
-                lot.orientation * entrance_depth / 2.0,
-            back_left: entrance_position - orientation_orth * entrance_width / 2.0 +
-                lot.orientation * entrance_depth / 2.0,
-            front_left: entrance_position - orientation_orth * entrance_width / 2.0 -
-                lot.orientation * entrance_depth / 2.0,
-            front_right: entrance_position + orientation_orth * entrance_width / 2.0 -
-                lot.orientation * entrance_depth / 2.0,
+            back_right: entrance_position + building_orientation_orth * entrance_width / 2.0 +
+                building_orientation * entrance_depth / 2.0,
+            back_left: entrance_position - building_orientation_orth * entrance_width / 2.0 +
+                building_orientation * entrance_depth / 2.0,
+            front_left: entrance_position - building_orientation_orth * entrance_width / 2.0 -
+                building_orientation * entrance_depth / 2.0,
+            front_right: entrance_position + building_orientation_orth * entrance_width / 2.0 -
+                building_orientation * entrance_depth / 2.0,
         },
     )
 }

@@ -8,11 +8,11 @@ use stagemaster::{UserInterface, UserInterfaceID, Event3d, Interactable3d, Inter
                   Interactable2d, Interactable2dID};
 use imgui::ImGuiSetCond_FirstUseEver;
 
-use super::{Building, Lot, BuildingID, BuildingPlanResultDelta};
+use super::{Building, Lot, BuildingID, BuildingPlanResultDelta, BuildingStyle};
 use economy::households::HouseholdID;
 use style::colors;
 
-use super::architecture::{BuildingStyle, BuildingGeometry, build_building};
+use super::architecture::{BuildingGeometry, build_building};
 
 #[derive(Compact, Clone)]
 pub struct BuildingInspector {
@@ -305,7 +305,9 @@ pub fn on_add(id: BuildingID, lot: &Lot, building_type: BuildingStyle, world: &m
     UserInterface::local_first(world).add(
         ::ui_layers::INFO_LAYER,
         id.into(),
-        AnyShape::Circle(Circle { center: lot.position, radius: 5.0 }),
+        AnyShape::Circle(
+            Circle { center: lot.center_point, radius: 5.0 },
+        ),
         10,
         world,
     );

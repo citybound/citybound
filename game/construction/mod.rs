@@ -12,17 +12,17 @@ impl Prototype {
     fn construct(&self, report_to: ConstructionID, world: &mut World) -> CVec<ConstructableID> {
         match *self {
             Prototype::Road(ref road_prototype) => road_prototype.construct(report_to, world),
-            Prototype::Lot(ref lot_prototype) => unimplemented!(),//lot_prototype.construct(world),
+            Prototype::Lot(ref lot_prototype) => lot_prototype.construct(report_to, world),
         }
     }
 
     fn morphable_from(&self, other: &Self) -> bool {
         match (self, other) {
-            // (Prototype::Lot(self_lot), Prototype::Lot(other_lot)) => {
-            //     self_lot.morphable_from(other_lot)
-            // }
             (&Prototype::Road(ref self_road), &Prototype::Road(ref other_road)) => {
                 self_road.morphable_from(other_road)
+            }
+            (&Prototype::Lot(ref self_lot), &Prototype::Lot(ref other_lot)) => {
+                self_lot.morphable_from(other_lot)
             }
             _ => false,
         }

@@ -7,7 +7,7 @@ use planning_new::{PlanResult, Prototype};
 use construction::Action;
 use style::colors;
 
-use super::LotPrototype;
+use super::{LotPrototype, Lot, LotOccupancy};
 
 pub fn render_preview(
     result_preview: &PlanResult,
@@ -21,10 +21,14 @@ pub fn render_preview(
     let mut lot_outline_geometry = Geometry::empty();
 
     for prototype in result_preview.prototypes.values() {
-        if let Prototype::Lot(LotPrototype { ref shape, .. }) = *prototype {
-            lot_geometry += Geometry::from_shape(shape);
+        if let Prototype::Lot(LotPrototype { lot: Lot { ref shape, .. }, occupancy }) = *prototype {
+            if occupancy == LotOccupancy::Vacant {
+                lot_outline_geometry +=
+                    band_to_geometry(&Band::new(shape.outline().clone(), 2.0), 0.1);
+            } else {
+                lot_geometry += Geometry::from_shape(shape);
+            }
 
-            lot_outline_geometry += band_to_geometry(&Band::new(shape.outline().clone(), 2.0), 0.1);
         }
     }
 

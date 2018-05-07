@@ -5,7 +5,7 @@ use stagemaster::UserInterfaceID;
 use uuid::Uuid;
 
 use transport::transport_planning_new::{RoadIntent, RoadPrototype};
-use land_use::zone_planning_new::{ZoneIntent, LotIntent, LotPrototype};
+use land_use::zone_planning_new::{ZoneIntent, BuildingIntent, LotPrototype};
 use construction::Construction;
 
 pub mod rendering;
@@ -28,7 +28,7 @@ impl Gesture {
 pub enum GestureIntent {
     Road(RoadIntent),
     Zone(ZoneIntent),
-    Lot(LotIntent),
+    Building(BuildingIntent),
 }
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq)]
@@ -68,6 +68,13 @@ pub struct Proposal {
 impl Proposal {
     pub fn new() -> Proposal {
         Proposal::default()
+    }
+
+    pub fn from_plan(plan: Plan) -> Proposal {
+        Proposal {
+            undoable_history: vec![plan].into(),
+            redoable_history: CVec::new(),
+        }
     }
 
     pub fn start_new_step(&mut self) {
@@ -224,10 +231,24 @@ impl PlanManager {
                 self.switch_to(user_interface, new_proposal_id, world);
             }
         }
+
+        let all_proposal_ids = self.proposals.keys().cloned().collect::<Vec<_>>();
+        for old_proposal_id in all_proposal_ids {
+            if old_proposal_id != proposal_id {
+                self.clear_previews(old_proposal_id);
+                self.recreate_gesture_interactables(old_proposal_id, world);
+            }
+        }
+    }
+
+    pub fn implement_artificial_proposal(&mut self, proposal: &Proposal, world: &mut World) {
+        let proposal_id = ProposalID::new();
+        self.proposals.insert(proposal_id, proposal.clone());
+        self.implement(proposal_id, world);
     }
 }
 
-pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) {
+pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) -> PlanManagerID {
     system.register::<PlanManager>();
     auto_setup(system);
     rendering::auto_setup(system);
@@ -236,6 +257,7 @@ pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) {
     let initial_proposal_id = ProposalID::new();
     let plan_manager = PlanManagerID::spawn(initial_proposal_id, &mut system.world());
     plan_manager.switch_to(user_interface, initial_proposal_id, &mut system.world());
+    plan_manager
 }
 
 pub mod kay_auto;

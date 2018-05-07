@@ -67,7 +67,7 @@ impl PlanManager {
         self.recreate_gesture_interactables_on_machine(machine, world);
     }
 
-    fn clear_previews(&mut self, proposal_id: ProposalID) {
+    pub fn clear_previews(&mut self, proposal_id: ProposalID) {
         for state in self.ui_state.values_mut().filter(|state| {
             state.current_proposal == proposal_id
         })
@@ -201,7 +201,7 @@ impl PlanManager {
         state.gesture_interactables = new_gesture_interactables;
     }
 
-    fn recreate_gesture_interactables(&mut self, proposal_id: ProposalID, world: &mut World) {
+    pub fn recreate_gesture_interactables(&mut self, proposal_id: ProposalID, world: &mut World) {
         let machines_with_this_proposal = self.ui_state
             .pairs()
             .filter(|&(_, state)| state.current_proposal == proposal_id)

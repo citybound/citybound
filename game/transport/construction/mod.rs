@@ -452,44 +452,11 @@ impl Lane {
     }
 }
 
-use land_use::buildings::{Lot, BuildingID, MIN_LANE_BUILDING_DISTANCE, MIN_ROAD_LENGTH_TO_TOWN};
+use land_use::buildings::{BuildingID, MIN_LANE_BUILDING_DISTANCE};
 use rand::Rng;
 use transport::pathfinding::PreciseLocation;
 
 impl Lane {
-    // TODO: this is a horrible hack
-    // pub fn find_lot(&mut self, requester: BuildingSpawnerID, world: &mut World) {
-    //     const BUILDING_DISTANCE: f32 = 16.0;
-
-    //     if let Some(location) = self.pathfinding.location {
-    //         if !self.connectivity.on_intersection {
-    //             let path = &self.construction.path;
-    //             let mut offset = ::rand::thread_rng().next_f32() * path.length();
-    //             let mut position = path.along(offset) +
-    //                 (1.0 + ::rand::thread_rng().next_f32() * 1.0) * BUILDING_DISTANCE *
-    //                     path.direction_along(offset).orthogonal();
-
-    //             // hacky: spawn location for neighboring towns: only at road ends
-    //             if offset > MIN_ROAD_LENGTH_TO_TOWN {
-    //                 offset = path.length();
-    //                 position = path.end() + 150.0 * path.end_direction()
-    //             }
-
-    //             let orientation = path.direction_along(offset);
-
-    //             requester.found_lot(
-    //                 Lot {
-    //                     position,
-    //                     orientation,
-    //                     location: Some(PreciseLocation { location, offset: offset }),
-    //                     adjacent_lane_position: path.along(offset),
-    //                 },
-    //                 world,
-    //             );
-    //         }
-    //     }
-    // }
-
     pub fn try_reconnect_building(
         &mut self,
         building: BuildingID,

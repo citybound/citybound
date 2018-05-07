@@ -111,12 +111,12 @@ fn main() {
 
         core::init::set_error_hook(user_interface, system.world());
 
-        transport::setup(&mut system, simulation);
-        economy::setup(&mut system);
-        land_use::setup(&mut system, user_interface, simulation);
-
-        planning_new::setup(&mut system, user_interface);
+        let plan_manager = planning_new::setup(&mut system, user_interface);
         construction::setup(&mut system);
+
+        transport::setup(&mut system, simulation);
+        economy::setup(&mut system, simulation, plan_manager);
+        land_use::setup(&mut system, user_interface, simulation);
 
         core::init::print_version(user_interface, world);
 
