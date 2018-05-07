@@ -298,7 +298,7 @@ pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) -> Build
     BuildingRendererID::spawn(&mut system.world())
 }
 
-use core::random::seed;
+use util::random::seed;
 
 pub fn on_add(id: BuildingID, lot: &Lot, building_type: BuildingStyle, world: &mut World) {
     // TODO: not sure if correct

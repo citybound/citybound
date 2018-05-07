@@ -4,9 +4,9 @@ use stagemaster::geometry::{CShape, CPath};
 use land_use::buildings::BuildingStyle;
 use itertools::Itertools;
 
-use transport::transport_planning_new::RoadPrototype;
+use transport::transport_planning::RoadPrototype;
 
-use planning_new::{Plan, PlanResult, Prototype, GestureIntent};
+use planning::{Plan, PlanResult, Prototype, GestureIntent};
 
 pub mod interaction;
 

@@ -1,7 +1,7 @@
 use kay::World;
 use compact::CVec;
 use descartes::Shape;
-use land_use::zone_planning_new::{LotPrototype, LotOccupancy, Lot};
+use land_use::zone_planning::{LotPrototype, LotOccupancy};
 use land_use::vacant_lots::VacantLotID;
 use land_use::buildings::BuildingID;
 use construction::{ConstructionID, ConstructableID};

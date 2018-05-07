@@ -10,10 +10,10 @@ use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
 use super::microtraffic::LaneLikeID;
 
-use planning_new::Prototype;
+use planning::Prototype;
 use construction::{ConstructionID, Constructable, ConstructableID};
-use super::transport_planning_new::{RoadPrototype, LanePrototype, TransferLanePrototype,
-                                    IntersectionPrototype};
+use super::transport_planning::{RoadPrototype, LanePrototype, TransferLanePrototype,
+                                IntersectionPrototype};
 
 const CONNECTION_TOLERANCE: f32 = 0.1;
 
@@ -453,7 +453,6 @@ impl Lane {
 }
 
 use land_use::buildings::{BuildingID, MIN_LANE_BUILDING_DISTANCE};
-use rand::Rng;
 use transport::pathfinding::PreciseLocation;
 
 impl Lane {

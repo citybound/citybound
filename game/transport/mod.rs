@@ -3,11 +3,11 @@ pub mod construction;
 pub mod microtraffic;
 pub mod rendering;
 
-pub mod transport_planning_new;
+pub mod transport_planning;
 pub mod pathfinding;
 
 use kay::ActorSystem;
-use core::simulation::SimulationID;
+use simulation::SimulationID;
 
 pub fn setup(system: &mut ActorSystem, simulation: SimulationID) {
     self::lane::setup(system);
@@ -15,5 +15,5 @@ pub fn setup(system: &mut ActorSystem, simulation: SimulationID) {
     self::microtraffic::setup(system);
     self::pathfinding::setup(system, simulation);
     self::rendering::setup(system);
-    self::transport_planning_new::setup(system);
+    self::transport_planning::setup(system);
 }

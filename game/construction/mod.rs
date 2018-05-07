@@ -1,7 +1,7 @@
 use kay::{World, Fate, ActorSystem};
 use compact::{CVec, CHashMap};
-use planning_new::{PlanResult, PrototypeID, Prototype, PlanManagerID, ProposalID};
-use core::simulation::{Simulatable, SimulatableID, Instant};
+use planning::{PlanResult, PrototypeID, Prototype, PlanManagerID, ProposalID};
+use simulation::{Simulatable, SimulatableID, Instant};
 
 pub trait Constructable {
     fn morph(&mut self, new_prototype: &Prototype, report_to: ConstructionID, world: &mut World);
@@ -46,7 +46,7 @@ pub enum Action {
 }
 
 impl Construction {
-    pub fn spawn(id: ConstructionID, world: &mut World) -> Construction {
+    pub fn spawn(id: ConstructionID, _world: &mut World) -> Construction {
         Construction {
             id,
             constructed: CHashMap::new(),
@@ -56,7 +56,7 @@ impl Construction {
         }
     }
 
-    pub fn action_done(&mut self, id: ConstructableID, world: &mut World) {
+    pub fn action_done(&mut self, id: ConstructableID, _world: &mut World) {
         self.pending_constructables.retain(
             |pending_constructable| {
                 *pending_constructable != id
@@ -133,7 +133,7 @@ impl Construction {
             }
         }
 
-        let mut to_be_destructed = unmatched_existing
+        let to_be_destructed = unmatched_existing
             .keys()
             .map(|unmatched_id| Action::Destruct(*unmatched_id))
             .collect();
@@ -141,7 +141,7 @@ impl Construction {
         vec![to_be_destructed, to_be_morphed, to_be_constructed].into()
     }
 
-    pub fn implement(&mut self, new_result: &PlanResult, world: &mut World) {
+    pub fn implement(&mut self, new_result: &PlanResult, _world: &mut World) {
         let actions_to_implement = self.actions_to_implement(new_result);
         self.queued_actions.extend(actions_to_implement);
     }

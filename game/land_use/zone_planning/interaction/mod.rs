@@ -3,7 +3,7 @@ use compact::CVec;
 use descartes::{Band, SimpleShape};
 use stagemaster::geometry::band_to_geometry;
 use monet::{RendererID, Geometry, Instance};
-use planning_new::{PlanResult, Prototype};
+use planning::{PlanResult, Prototype};
 use construction::Action;
 use style::colors;
 
@@ -11,10 +11,10 @@ use super::{LotPrototype, Lot, LotOccupancy};
 
 pub fn render_preview(
     result_preview: &PlanResult,
-    maybe_action_preview: &Option<CVec<CVec<Action>>>,
+    _maybe_action_preview: &Option<CVec<CVec<Action>>>,
     renderer_id: RendererID,
     scene_id: usize,
-    frame: usize,
+    _frame: usize,
     world: &mut World,
 ) {
     let mut lot_geometry = Geometry::empty();

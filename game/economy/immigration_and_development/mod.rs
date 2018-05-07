@@ -1,8 +1,8 @@
 use kay::{World, Actor, ActorSystem};
-use compact::{COption, CVec};
+use compact::COption;
 use land_use::buildings::{UnitType, Building, BuildingID, UnitIdx};
-use core::simulation::{Sleeper, SleeperID, Instant, SimulationID, Duration};
-use core::random::{seed, Rng};
+use simulation::{Sleeper, SleeperID, Instant, SimulationID, Duration};
+use util::random::{seed, Rng};
 
 use economy::households::family::FamilyID;
 use economy::households::grocery_shop::GroceryShopID;
@@ -14,8 +14,8 @@ use economy::households::bakery::BakeryID;
 use economy::households::neighboring_town_trade::NeighboringTownTradeID;
 use land_use::buildings::BuildingStyle;
 use land_use::vacant_lots::VacantLot;
-use land_use::zone_planning_new::BuildingIntent;
-use planning_new::{PlanManagerID, Proposal, Plan, GestureID, Gesture, GestureIntent, Prototype};
+use land_use::zone_planning::BuildingIntent;
+use planning::{PlanManagerID, Proposal, Plan, GestureID, Gesture, GestureIntent};
 
 // TODO: somehow get rid of this horrible duplication by having something like
 // a pointer to an abstract Household trait...
@@ -36,8 +36,8 @@ pub fn unit_type_for(household_type: HouseholdTypeToSpawn) -> UnitType {
     match household_type {
         HouseholdTypeToSpawn::Family => UnitType::Dwelling,
         HouseholdTypeToSpawn::GroceryShop => UnitType::Retail,
-        HouseholdTypeToSpawn::GrainFarm => UnitType::Agriculture,
-        HouseholdTypeToSpawn::CowFarm => UnitType::Agriculture,
+        HouseholdTypeToSpawn::GrainFarm |
+        HouseholdTypeToSpawn::CowFarm |
         HouseholdTypeToSpawn::VegetableFarm => UnitType::Agriculture,
         HouseholdTypeToSpawn::Mill => UnitType::Mill,
         HouseholdTypeToSpawn::Bakery => UnitType::Bakery,
@@ -49,9 +49,9 @@ pub fn building_style_for(household_type: HouseholdTypeToSpawn) -> BuildingStyle
     match household_type {
         HouseholdTypeToSpawn::Family => BuildingStyle::FamilyHouse,
         HouseholdTypeToSpawn::GroceryShop => BuildingStyle::GroceryShop,
-        HouseholdTypeToSpawn::GrainFarm => BuildingStyle::FamilyHouse,
-        HouseholdTypeToSpawn::CowFarm => BuildingStyle::FamilyHouse,
-        HouseholdTypeToSpawn::VegetableFarm => BuildingStyle::FamilyHouse,
+        HouseholdTypeToSpawn::GrainFarm |
+        HouseholdTypeToSpawn::CowFarm |
+        HouseholdTypeToSpawn::VegetableFarm => BuildingStyle::Field,
         HouseholdTypeToSpawn::Mill => BuildingStyle::Mill,
         HouseholdTypeToSpawn::Bakery => BuildingStyle::Bakery,
         HouseholdTypeToSpawn::NeighboringTownTrade => BuildingStyle::NeighboringTownConnection,
@@ -150,7 +150,12 @@ impl Sleeper for ImmigrationManager {
             }
             ImmigrationManagerState::FindingBuilding(household_type_to_spawn) => {
                 // didn't find a building in time
-                self.development_manager.try_develop(building_style_for(household_type_to_spawn), world);
+                self.development_manager.try_develop(
+                    building_style_for(
+                        household_type_to_spawn,
+                    ),
+                    world,
+                );
 
                 self.simulation.wake_up_in(
                     Duration::from_minutes(10).into(),
@@ -227,7 +232,7 @@ impl DevelopmentManager {
         id: DevelopmentManagerID,
         simulation: SimulationID,
         plan_manager: PlanManagerID,
-        world: &mut World,
+        _world: &mut World,
     ) -> DevelopmentManager {
         DevelopmentManager {
             id,
@@ -274,7 +279,7 @@ impl DevelopmentManager {
 }
 
 impl Sleeper for DevelopmentManager {
-    fn wake(&mut self, _: Instant, world: &mut World) {
+    fn wake(&mut self, _: Instant, _world: &mut World) {
         self.building_to_develop = COption(None);
     }
 }

@@ -1,25 +1,12 @@
-use kay::{ActorSystem, World, External, TypedID, Actor, Fate};
+use kay::{ActorSystem, World, Actor, Fate};
 use compact::{CVec, COption};
-use descartes::{P2, V2, Curve};
-use stagemaster::combo::{Bindings, Combo2};
-use stagemaster::{UserInterfaceID, Event3d, Interactable3d, Interactable3dID, UserInterfaceLayer};
-use stagemaster::combo::Button::*;
-use stagemaster::geometry::{AnyShape, CShape};
+use descartes::P2;
+use stagemaster::UserInterfaceID;
+
 use transport::lane::{Lane, LaneID};
-
-use economy::households::family::FamilyID;
-use economy::households::grocery_shop::GroceryShopID;
-use economy::households::cow_farm::CowFarmID;
-use economy::households::grain_farm::GrainFarmID;
-use economy::households::vegetable_farm::VegetableFarmID;
-use economy::households::mill::MillID;
-use economy::households::bakery::BakeryID;
-use economy::households::neighboring_town_trade::NeighboringTownTradeID;
-use core::simulation::Ticks;
-use core::random::{seed, Rng};
-
+use simulation::Ticks;
 use construction::{ConstructionID, Constructable, ConstructableID};
-use planning_new::Prototype;
+use planning::Prototype;
 
 pub mod rendering;
 pub mod architecture;
@@ -27,7 +14,7 @@ pub mod architecture;
 use economy::households::HouseholdID;
 use transport::pathfinding::PreciseLocation;
 use economy::immigration_and_development::ImmigrationManagerID;
-use land_use::zone_planning_new::Lot;
+use land_use::zone_planning::Lot;
 
 #[derive(Copy, Clone)]
 pub struct Unit(Option<HouseholdID>, UnitType);
@@ -167,7 +154,7 @@ impl Constructable for Building {
 }
 
 use transport::pathfinding::{Location, Attachee, AttacheeID};
-use core::simulation::{Simulation, SimulationID, Sleeper, SleeperID, Duration};
+use simulation::{Simulation, Sleeper, SleeperID, Duration};
 
 impl Attachee for Building {
     fn location_changed(
@@ -235,7 +222,7 @@ impl Building {
 }
 
 use transport::pathfinding::{RoughLocation, RoughLocationID, RoughLocationResolve};
-use core::simulation::Instant;
+use simulation::Instant;
 
 impl RoughLocation for Building {
     fn resolve(&self) -> RoughLocationResolve {
@@ -278,7 +265,7 @@ pub struct BuildingPlanResultDelta {
 pub struct MaterializedBuildings {
     buildings: CVec<(P2, BuildingID, LaneID)>,
 }
-pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID, simulation: SimulationID) {
+pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) {
     system.register::<Building>();
     rendering::setup(system, user_interface);
 

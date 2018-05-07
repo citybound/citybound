@@ -5,7 +5,7 @@ use stagemaster::geometry::{CPath, CShape};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
-use planning_new::{Plan, PlanResult, GestureIntent, Prototype, GestureID};
+use planning::{Plan, PlanResult, GestureIntent, Prototype, GestureID};
 
 mod intersection_connections;
 mod smooth_path;

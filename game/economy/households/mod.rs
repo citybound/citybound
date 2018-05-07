@@ -1,9 +1,9 @@
 use kay::{ActorSystem, World, Actor, TypedID, Fate};
 use compact::{CVec, CDict, COption, CString};
-use core::simulation::{Duration, TimeOfDay, Instant, Ticks, Simulation, TICKS_PER_SIM_SECOND,
+use simulation::{Duration, TimeOfDay, Instant, Ticks, Simulation, TICKS_PER_SIM_SECOND,
                        Sleeper, Simulatable};
-use core::async_counter::AsyncCounter;
-use core::random::{seed, Rng};
+use util::async_counter::AsyncCounter;
+use util::random::{seed, Rng};
 use ordered_float::OrderedFloat;
 
 pub mod tasks;

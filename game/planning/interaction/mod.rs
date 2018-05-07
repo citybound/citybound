@@ -9,8 +9,8 @@ use imgui::ImGuiSetCond_FirstUseEver;
 
 use super::{Plan, PlanResult, GestureID, ProposalID, PlanManager, PlanManagerID, Gesture,
             GestureIntent};
-use transport::transport_planning_new::RoadIntent;
-use land_use::zone_planning_new::{ZoneIntent, LandUse};
+use transport::transport_planning::RoadIntent;
+use land_use::zone_planning::{ZoneIntent, LandUse};
 use construction::{Construction, Action};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -179,7 +179,7 @@ impl PlanManager {
                     .collect::<Vec<_>>()
                     .into_iter()
                     .chain(
-                        ::transport::transport_planning_new::interaction::spawn_gesture_interactables(
+                        ::transport::transport_planning::interaction::spawn_gesture_interactables(
                             preview,
                             user_interface,
                             self.id,

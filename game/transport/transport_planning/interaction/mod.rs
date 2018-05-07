@@ -1,6 +1,6 @@
 use kay::{World, MachineID, Fate, TypedID, ActorSystem};
 use compact::CVec;
-use descartes::{Band, Path, FiniteCurve, SimpleShape, WithUniqueOrthogonal, Curve, Into2d};
+use descartes::{Band, FiniteCurve, SimpleShape, WithUniqueOrthogonal, Curve, Into2d};
 use monet::{RendererID, Instance, Geometry};
 use stagemaster::user_interface::{UserInterfaceID, Interactable3d, Interactable3dID, Event3d};
 use stagemaster::geometry::{band_to_geometry, AnyShape, CPath, dash_path};
@@ -8,9 +8,8 @@ use style::colors;
 
 use ui_layers::GESTURE_LAYER;
 
-use planning_new::{Plan, GestureIntent, PlanResult, Prototype, GestureID, ProposalID,
-                   PlanManagerID};
-use planning_new::interaction::{GestureInteractable, GestureInteractableID};
+use planning::{Plan, GestureIntent, PlanResult, Prototype, GestureID, ProposalID, PlanManagerID};
+use planning::interaction::{GestureInteractable, GestureInteractableID};
 use construction::Action;
 
 use super::{RoadIntent, RoadPrototype, LanePrototype, TransferLanePrototype,
@@ -29,17 +28,18 @@ pub fn render_preview(
     let mut transfer_lane_geometry = Geometry::empty();
     let mut intersection_geometry = Geometry::empty();
 
-    if let &Some(ref action_preview) = maybe_action_preview {
+    if let Some(ref action_preview) = *maybe_action_preview {
         for (prototype_id, prototype) in result_preview.prototypes.pairs() {
-            if action_preview.iter().any(|action_group| {
-                action_group.iter().any(|action| match *action {
-                    Action::Construct(constructed_prototype_id, _) => {
-                        constructed_prototype_id == *prototype_id
-                    }
-                    _ => false,
-                })
-            })
-            {
+            let corresponding_construction_action_exists =
+                action_preview.iter().any(|action_group| {
+                    action_group.iter().any(|action| match *action {
+                        Action::Construct(constructed_prototype_id, _) => {
+                            constructed_prototype_id == *prototype_id
+                        }
+                        _ => false,
+                    })
+                });
+            if corresponding_construction_action_exists {
                 match *prototype {
                     Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
                         lane_geometry +=

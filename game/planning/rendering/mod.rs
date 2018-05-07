@@ -48,8 +48,8 @@ impl Renderable for PlanManager {
             self.ensure_preview(renderer_id.as_raw().machine, proposal_id, world);
 
         for render_fn in &[
-            ::transport::transport_planning_new::interaction::render_preview,
-            ::land_use::zone_planning_new::interaction::render_preview,
+            ::transport::transport_planning::interaction::render_preview,
+            ::land_use::zone_planning::interaction::render_preview,
         ]
         {
             render_fn(

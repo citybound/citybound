@@ -42,7 +42,7 @@ impl Lane {
             super::pathfinding::trip::DEBUG_MANUALLY_SPAWN_CARS
         {
             UserInterface::local_first(world).add(
-                ::ui_layers::ROAD_LAYER,
+                ::ui_layers::DEBUG_LAYER,
                 id.into(),
                 AnyShape::Band(Band::new(path.clone(), 3.0)),
                 5,

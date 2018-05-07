@@ -4,8 +4,8 @@ use descartes::P2;
 use stagemaster::UserInterfaceID;
 use uuid::Uuid;
 
-use transport::transport_planning_new::{RoadIntent, RoadPrototype};
-use land_use::zone_planning_new::{ZoneIntent, BuildingIntent, LotPrototype};
+use transport::transport_planning::{RoadIntent, RoadPrototype};
+use land_use::zone_planning::{ZoneIntent, BuildingIntent, LotPrototype};
 use construction::Construction;
 
 pub mod rendering;
@@ -136,8 +136,8 @@ impl Plan {
         let mut result = PlanResult { prototypes: CHashMap::new() };
 
         for prototype_fn in &[
-            ::transport::transport_planning_new::calculate_prototypes,
-            ::land_use::zone_planning_new::calculate_prototypes,
+            ::transport::transport_planning::calculate_prototypes,
+            ::land_use::zone_planning::calculate_prototypes,
         ]
         {
             let new_prototypes = prototype_fn(self, &result);

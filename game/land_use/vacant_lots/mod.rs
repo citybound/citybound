@@ -1,12 +1,10 @@
 use kay::{World, Fate, ActorSystem};
-use compact::CVec;
-use stagemaster::geometry::CShape;
-use land_use::zone_planning_new::{LandUse, Lot, BuildingIntent};
+use land_use::zone_planning::{Lot, BuildingIntent};
 use land_use::buildings::BuildingStyle;
 use economy::immigration_and_development::DevelopmentManagerID;
 
 use construction::{ConstructionID, Constructable, ConstructableID};
-use planning_new::Prototype;
+use planning::Prototype;
 
 #[derive(Compact, Clone)]
 pub struct VacantLot {
@@ -15,7 +13,7 @@ pub struct VacantLot {
 }
 
 impl VacantLot {
-    pub fn spawn(id: VacantLotID, lot: &Lot, world: &mut World) -> VacantLot {
+    pub fn spawn(id: VacantLotID, lot: &Lot, _world: &mut World) -> VacantLot {
         VacantLot { id, lot: lot.clone() }
     }
 
@@ -34,7 +32,7 @@ impl VacantLot {
 }
 
 impl Constructable for VacantLot {
-    fn morph(&mut self, _: &Prototype, report_to: ConstructionID, world: &mut World) {
+    fn morph(&mut self, _: &Prototype, _report_to: ConstructionID, _world: &mut World) {
         unreachable!()
     }
 

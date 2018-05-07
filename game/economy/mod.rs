@@ -1,7 +1,7 @@
 use kay::ActorSystem;
 
-use core::simulation::SimulationID;
-use planning_new::PlanManagerID;
+use simulation::SimulationID;
+use planning::PlanManagerID;
 
 pub mod resources;
 pub mod market;
