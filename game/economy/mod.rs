@@ -1,16 +1,15 @@
 use kay::ActorSystem;
 
+use simulation::SimulationID;
+use planning::PlanManagerID;
+
 pub mod resources;
 pub mod market;
 pub mod households;
-pub mod buildings;
+pub mod immigration_and_development;
 
-use stagemaster::UserInterfaceID;
-use core::simulation::SimulationID;
-
-pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID, simulation: SimulationID) {
-    resources::setup();
+pub fn setup(system: &mut ActorSystem, simulation: SimulationID, plan_manager: PlanManagerID) {
     market::setup(system);
     households::setup(system);
-    buildings::setup(system, user_interface, simulation);
+    immigration_and_development::setup(system, simulation, plan_manager);
 }

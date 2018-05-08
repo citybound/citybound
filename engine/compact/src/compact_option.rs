@@ -3,7 +3,7 @@ use super::compact::Compact;
 /// A wrapper to make an `Option` of a nontrivial `Compact` possible.
 /// Unfortunately, we can't blanket-`impl` that, since that overlaps
 /// (for the compiler) with the `impl` for trivial `Copy` types...
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct CompactOption<T: Compact + Clone>(pub Option<T>);
 
 impl<T: Compact + Clone> ::std::ops::Deref for CompactOption<T> {
@@ -33,7 +33,7 @@ impl<T: Clone + Compact> Compact for CompactOption<T> {
 
     unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
         if let CompactOption(Some(ref mut s)) = *source {
-            ::std::ptr::write(dest, CompactOption(Some(::std::mem::uninitialized())));
+            ::std::ptr::copy_nonoverlapping(source, dest, 1);
             if let CompactOption(Some(ref mut d)) = *dest {
                 Compact::compact(s, d, new_dynamic_part);
             } else {

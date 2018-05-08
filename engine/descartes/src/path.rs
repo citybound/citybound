@@ -1,4 +1,4 @@
-use super::{N, P2, V2, Norm, Curve, FiniteCurve, RoughlyComparable, THICKNESS};
+use super::{N, P2, V2, Curve, FiniteCurve, RoughlyComparable, THICKNESS};
 use super::primitives::Segment;
 use super::intersect::{Intersect, Intersection};
 use ordered_float::OrderedFloat;
@@ -10,9 +10,79 @@ type ScanIter<'a> = ::std::iter::Scan<
     ScannerFn<'a>,
 >;
 
+#[derive(Debug)]
+pub enum PathError {
+    EmptyPath,
+    NotContinuous,
+}
+
 pub trait Path: Sized + Clone {
     fn segments(&self) -> &[Segment];
-    fn new(vec: Vec<Segment>) -> Self;
+    fn new_unchecked(segments: Vec<Segment>) -> Self;
+    fn new(segments: Vec<Segment>) -> Result<Self, PathError> {
+        if segments.is_empty() {
+            Result::Err(PathError::EmptyPath)
+        } else {
+            let continuous = segments.windows(2).all(|seg_pair| {
+                seg_pair[0].end().is_roughly_within(
+                    seg_pair[1].start(),
+                    THICKNESS,
+                )
+            });
+
+            if !continuous {
+                Result::Err(PathError::NotContinuous)
+            } else {
+                Result::Ok(Self::new_unchecked(segments))
+            }
+        }
+
+    }
+
+    fn new_welded(mut segments: Vec<Segment>) -> Result<Self, PathError> {
+        if segments.is_empty() {
+            Result::Err(PathError::EmptyPath)
+        } else {
+            let probably_closed = segments.last().unwrap().end().is_roughly_within(
+                segments
+                    .first()
+                    .unwrap()
+                    .start(),
+                THICKNESS * 3.0,
+            );
+
+            let original_length = segments.len();
+
+            if probably_closed {
+                let first_again = segments[0].clone();
+                segments.push(first_again);
+            }
+
+            let mut welded_segments: Vec<Segment> = segments
+                .windows(2)
+                .filter_map(|seg_pair| if seg_pair[0].is_linear() {
+                    Segment::line(seg_pair[0].start(), seg_pair[1].start())
+                } else {
+                    Segment::arc_with_direction(
+                        seg_pair[0].start(),
+                        seg_pair[0].start_direction(),
+                        seg_pair[1].start(),
+                    )
+                })
+                .collect();
+
+            if !probably_closed {
+                welded_segments.push(segments.last().cloned().unwrap())
+            }
+
+            if welded_segments.len() < original_length {
+                // some welding resulted in an invalid segment, weld again
+                Self::new_welded(welded_segments)
+            } else {
+                Self::new(welded_segments)
+            }
+        }
+    }
 
     fn scan_segments<'a>(
         start_offset: &mut StartOffsetState,
@@ -44,8 +114,9 @@ pub trait Path: Sized + Clone {
 
     // TODO: move this to shape
     fn contains(&self, point: P2) -> bool {
-        let ray = Segment::line(point, P2::new(point.x + 10000000000.0, point.y));
-        (self, &Self::new(vec![ray].into())).intersect().len() % 2 == 1
+        let ray = Segment::line(point, P2::new(point.x + 10000000000.0, point.y))
+            .expect("Ray should be valid");
+        (self, &Self::new_unchecked(vec![ray])).intersect().len() % 2 == 1
     }
 
     fn self_intersections(&self) -> Vec<Intersection> {
@@ -85,6 +156,37 @@ pub trait Path: Sized + Clone {
                     .collect::<Vec<_>>()
             })
             .collect()
+    }
+
+    fn is_closed(&self) -> bool {
+        self.segments().last().unwrap().end().is_roughly_within(
+            self.segments()
+                .first()
+                .unwrap()
+                .start(),
+            THICKNESS,
+        )
+    }
+
+
+    fn concat(&self, other: &Self) -> Result<Self, PathError> {
+        // TODO: somehow change this to move self and other into here
+        // but then segments would have to return [Segment], possible?
+        if self.end().is_roughly_within(other.start(), THICKNESS) {
+            Ok(Self::new_unchecked(
+                self.segments()
+                    .iter()
+                    .chain(other.segments())
+                    .cloned()
+                    .collect(),
+            ))
+        } else {
+            Err(PathError::NotContinuous)
+        }
+    }
+
+    fn to_svg(&self) -> String {
+        self.segments().iter().map(Segment::to_svg).collect()
     }
 }
 
@@ -141,26 +243,39 @@ impl<T: Path> FiniteCurve for T {
     }
 
     fn reverse(&self) -> Self {
-        Self::new(self.segments().iter().rev().map(Segment::reverse).collect())
+        Self::new_unchecked(self.segments().iter().rev().map(Segment::reverse).collect())
     }
 
     fn subsection(&self, start: N, end: N) -> Option<T> {
-        let segments = self.segments_with_start_offsets()
-            .filter_map(|pair: (&Segment, N)| {
-                let (segment, start_offset) = pair;
-                let end_offset = start_offset + segment.length;
-                if start_offset > end || end_offset < start {
-                    None
-                } else {
-                    segment.subsection(start - start_offset, end - start_offset)
+        if start > end + THICKNESS && self.is_closed() {
+            let maybe_first_half = self.subsection(start, self.length());
+            let maybe_second_half = self.subsection(0.0, end);
+
+            match (maybe_first_half, maybe_second_half) {
+                (Some(first_half), Some(second_half)) => {
+                    Some(first_half.concat(&second_half).expect(
+                        "Closed path, should always be continous",
+                    ))
                 }
-            })
-            .collect::<Vec<_>>();
-        if segments.is_empty() {
-            None
+                (Some(first_half), None) => Some(first_half),
+                (None, Some(second_half)) => Some(second_half),
+                _ => None,
+            }
         } else {
-            Some(T::new(segments))
+            let segments = self.segments_with_start_offsets()
+                .filter_map(|pair: (&Segment, N)| {
+                    let (segment, start_offset) = pair;
+                    let end_offset = start_offset + segment.length;
+                    if start_offset > end || end_offset < start {
+                        None
+                    } else {
+                        segment.subsection(start - start_offset, end - start_offset)
+                    }
+                })
+                .collect::<Vec<_>>();
+            T::new(segments).ok()
         }
+
     }
 
     fn shift_orthogonally(&self, shift_to_right: N) -> Option<Self> {
@@ -174,8 +289,12 @@ impl<T: Path> FiniteCurve for T {
             glued_segments.push(*segment);
             match window_segments_iter.peek() {
                 Some(next_segment) => {
-                    if !segment.end().is_roughly_within(next_segment.start(), 0.1) {
-                        glued_segments.push(Segment::line(segment.end(), next_segment.start()));
+                    if !segment.end().is_roughly_within(
+                        next_segment.start(),
+                        THICKNESS,
+                    )
+                    {
+                        glued_segments.push(Segment::line(segment.end(), next_segment.start())?);
                     }
                 }
                 None => break,
@@ -184,13 +303,13 @@ impl<T: Path> FiniteCurve for T {
         if glued_segments.is_empty() {
             None
         } else {
-            let was_closed = self.end().is_roughly_within(self.start(), 0.1);
+            let was_closed = self.end().is_roughly_within(self.start(), THICKNESS);
             let new_end = glued_segments.last().unwrap().end();
             let new_start = glued_segments[0].start();
-            if was_closed && !new_end.is_roughly_within(new_start, 0.1) {
-                glued_segments.push(Segment::line(new_end, new_start));
+            if was_closed && !new_end.is_roughly_within(new_start, THICKNESS) {
+                glued_segments.push(Segment::line(new_end, new_start)?);
             }
-            Some(Self::new(glued_segments))
+            Some(Self::new(glued_segments).unwrap())
         }
     }
 }
@@ -251,9 +370,22 @@ pub fn convex_hull<P: Path>(points: &[P2]) -> P {
                 if point_1.is_roughly_within(point_2, ::primitives::MIN_START_TO_END) {
                     None
                 } else {
-                    Some(Segment::line(point_1, point_2))
+                    Segment::line(point_1, point_2)
                 }
             })
             .collect(),
-    )
+    ).unwrap()
+}
+
+#[derive(Clone)]
+pub struct VecPath(Vec<Segment>);
+
+impl Path for VecPath {
+    fn segments(&self) -> &[Segment] {
+        &self.0
+    }
+
+    fn new_unchecked(vec: Vec<Segment>) -> Self {
+        VecPath(vec)
+    }
 }

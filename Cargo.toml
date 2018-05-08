@@ -1,6 +1,6 @@
 [package]
 name = "citybound"
-version = "0.1.2"
+version = "0.3.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 license = "AGPL-3.0"
 build = "./game/build.rs"
@@ -12,7 +12,7 @@ path = "./game/main.rs"
 [workspace]
 members = [
     "./engine/allocators",
-    "./engine/chunked",
+    "./engine/chunky",
     "./engine/compact",
     "./engine/compact_macros",
     "./engine/descartes",
@@ -24,8 +24,8 @@ members = [
 
 [dependencies]
 ordered-float = "0.5.0"
-itertools = "0.6.3"
-clippy = { version = "0.0.165", optional = true }
+itertools = "0.7.6"
+clippy = { version = "0.0.175", optional = true }
 rand = "0.3"
 fnv = "1.0.5"
 roaring = "0.5.2"
@@ -33,7 +33,8 @@ open = "1.2.1"
 serde = "1.0"
 serde_derive = "1.0"
 imgui = "0.0.15"
-pulldown-cmark = "0.0.15"
+backtrace = "0.3"
+uuid = { version = "0.6", features = ["v4"] }
 
 [dependencies.compact]
 path = "./engine/compact/"

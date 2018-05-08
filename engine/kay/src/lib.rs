@@ -20,7 +20,7 @@
 #![feature(box_syntax)]
 #![feature(nonzero)]
 #![feature(tcpstream_connect_timeout)]
-extern crate chunked;
+extern crate chunky;
 extern crate compact;
 #[macro_use]
 extern crate compact_macros;
@@ -38,7 +38,7 @@ mod networking;
 mod external;
 
 pub use self::messaging::{Message, Packet, Fate};
-pub use self::id::ID;
-pub use self::actor_system::{Actor, ActorSystem, World};
+pub use self::id::{RawID, TypedID, MachineID};
+pub use self::actor_system::{Actor, ActorSystem, World, TraitIDFrom};
 pub use self::networking::Networking;
 pub use self::external::External;

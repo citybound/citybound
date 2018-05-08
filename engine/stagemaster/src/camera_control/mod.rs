@@ -53,7 +53,7 @@ pub struct CameraControl {
 }
 
 use user_interface::{Event3d, Interactable3d, Interactable3dID, UserInterfaceID,
-                     MSG_Interactable3d_on_event};
+                     UserInterfaceLayer};
 
 impl CameraControl {
     pub fn spawn(
@@ -63,7 +63,13 @@ impl CameraControl {
         env: Environment,
         world: &mut World,
     ) -> Self {
-        ui_id.add(id.into(), super::geometry::AnyShape::Everywhere, 0, world);
+        ui_id.add(
+            UserInterfaceLayer(0),
+            id.into(),
+            super::geometry::AnyShape::Everywhere,
+            0,
+            world,
+        );
         ui_id.focus(id.into(), world);
         ui_id.add_2d(id.into(), world);
 
@@ -86,6 +92,7 @@ impl CameraControl {
 }
 
 impl Interactable3d for CameraControl {
+    /// Critical
     fn on_event(&mut self, event: Event3d, world: &mut World) {
         match event {
             Event3d::Combos(combos) => {
@@ -99,6 +106,7 @@ impl Interactable3d for CameraControl {
                 self.pitch_modifier = self.settings.bindings["Pitch"].is_in(&combos);
             }
             Event3d::MouseMove(cursor_2d) => {
+                let old_cursor_2d = self.last_cursor_2d;
                 let delta = cursor_2d - self.last_cursor_2d;
                 self.last_cursor_2d = cursor_2d;
 
@@ -121,20 +129,20 @@ impl Interactable3d for CameraControl {
                         world,
                     );
                 }
-            }
-            Event3d::MouseMove3d(cursor_3d) => {
-                let delta = cursor_3d - self.last_cursor_3d;
-                self.last_cursor_3d = cursor_3d;
 
                 if self.pan_modifier {
                     self.renderer_id.move_eye(
                         0,
-                        Movement::ShiftAbsolute(-delta),
+                        Movement::ShiftProjected(
+                            old_cursor_2d,
+                            cursor_2d,
+                        ),
                         world,
-                    );
-                    // predict next movement to avoid jitter
-                    self.last_cursor_3d -= delta;
+                    )
                 }
+            }
+            Event3d::MouseMove3d(cursor_3d) => {
+                self.last_cursor_3d = cursor_3d;
             }
             Event3d::Scroll(delta) => {
                 self.renderer_id.move_eye(
@@ -190,32 +198,30 @@ impl Interactable3d for CameraControl {
     }
 }
 
-use user_interface::{Interactable2d, Interactable2dID, MSG_Interactable2d_draw_ui_2d};
+use user_interface::{Interactable2d, Interactable2dID};
 use imgui_sys::ImGuiSetCond_FirstUseEver;
 
 impl Interactable2d for CameraControl {
-    fn draw_ui_2d(
-        &mut self,
-        imgui_ui: &External<::imgui::Ui<'static>>,
-        return_to: UserInterfaceID,
-        world: &mut World,
-    ) {
-        let ui = imgui_ui.steal();
-
+    /// Critical
+    fn draw(&mut self, _: &mut World, ui: &::imgui::Ui<'static>) {
         let mut settings_changed = false;
 
         ui.window(im_str!("Controls"))
-            .size((600.0, 200.0), ImGuiSetCond_FirstUseEver)
-            .collapsible(false)
+            .size((400.0, 200.0), ImGuiSetCond_FirstUseEver)
+            .position((250.0, 10.0), ImGuiSetCond_FirstUseEver)
             .build(|| {
                 ui.text(im_str!("Camera Movement"));
                 ui.separator();
 
                 ui.text(im_str!("Move Speed"));
-                ui.same_line(150.0);
+                ui.same_line(130.0);
                 settings_changed = settings_changed ||
-                    ui.slider_float(im_str!(""), &mut self.settings.move_speed, 0.1, 10.0)
-                        .build();
+                    ui.slider_float(
+                        im_str!("##camera-speed"),
+                        &mut self.settings.move_speed,
+                        0.1,
+                        10.0,
+                    ).build();
 
                 settings_changed = settings_changed ||
                     ui.checkbox(im_str!("Invert Y"), &mut self.settings.invert_y);
@@ -229,8 +235,6 @@ impl Interactable2d for CameraControl {
         if settings_changed {
             self.env.write_settings("Camera Control", &*self.settings);
         }
-
-        return_to.ui_drawn(ui, world);
     }
 }
 

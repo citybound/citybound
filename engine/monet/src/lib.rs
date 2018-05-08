@@ -11,20 +11,20 @@ extern crate compact;
 extern crate compact_macros;
 extern crate fnv;
 extern crate itertools;
+extern crate lyon_tessellation;
 
 mod geometry;
+mod geometry_actors;
 mod renderer;
 mod render_context;
 mod scene;
 
 pub use glium::backend::glutin::Display;
 
-pub use geometry::{Geometry, Batch, Vertex, Instance, GrouperID, GrouperIndividual,
-                   GrouperIndividualID, MSG_GrouperIndividual_render_to_grouper};
+pub use geometry::{Geometry, Batch, Vertex, Instance};
+pub use geometry_actors::{Grouper, GrouperID, GrouperIndividual, GrouperIndividualID};
 pub use renderer::{setup, Renderer, RendererID, Renderable, RenderableID, TargetProvider,
-                   TargetProviderID, MSG_TargetProvider_submitted, Movement, EyeListener,
-                   EyeListenerID, MSG_EyeListener_eye_moved, MSG_Renderable_setup_in_scene,
-                   MSG_Renderable_render_to_scene, ProjectionRequester, ProjectionRequesterID,
-                   MSG_ProjectionRequester_projected_3d};
+                   TargetProviderID, Movement, EyeListener, EyeListenerID, ProjectionRequester,
+                   ProjectionRequesterID};
 pub use render_context::RenderContext;
 pub use scene::{Eye, Scene, SceneDescription};

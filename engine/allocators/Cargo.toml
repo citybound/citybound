@@ -4,4 +4,4 @@ version = "0.1.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
-clippy = { version = "0.0.165", optional = true }
+clippy = { version = "0.0.175", optional = true }

@@ -1,6 +1,4 @@
-
-pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
-                    WithUniqueOrthogonal, Inverse, Rotate};
+pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, Into2d, Into3d, WithUniqueOrthogonal};
 use kay::World;
 
 use {Renderer, RendererID, Eye};
@@ -9,6 +7,7 @@ use {Renderer, RendererID, Eye};
 pub enum Movement {
     Shift(V3),
     ShiftAbsolute(V3),
+    ShiftProjected(P2, P2),
     Zoom(N, P3),
     Yaw(N),
     Pitch(N),
@@ -24,6 +23,9 @@ impl Renderer {
         match movement {
             Movement::Shift(delta) => self.movement_shift(scene_id, delta),
             Movement::ShiftAbsolute(delta) => self.movement_shift_absolute(scene_id, delta),
+            Movement::ShiftProjected(source_2d, target_2d) => {
+                self.movement_shift_projected(scene_id, source_2d, target_2d)
+            }
             Movement::Zoom(delta, mouse_position) => {
                 self.movement_zoom(scene_id, delta, mouse_position)
             }
@@ -57,6 +59,11 @@ impl Renderer {
         eye.target += delta;
     }
 
+    fn movement_shift_projected(&mut self, scene_id: usize, source_2d: P2, target_2d: P2) {
+        let difference_3d = self.project(scene_id, source_2d) - self.project(scene_id, target_2d);
+        self.movement_shift_absolute(scene_id, difference_3d);
+    }
+
     fn movement_zoom(&mut self, scene_id: usize, delta: N, zoom_point: P3) {
         let eye = &mut self.scenes[scene_id].eye;
 
@@ -73,16 +80,17 @@ impl Renderer {
 
         // Scale the distance from eye.target to zoom_point
         // with the scale between zoom distances
-        eye.target = ((new_zoom_distance * (eye.target - zoom_point)) / zoom_distance +
-                          zoom_point.to_vector())
-            .to_point();
+        eye.target = P3::from_coordinates(
+            (new_zoom_distance * (eye.target - zoom_point)) / zoom_distance +
+                zoom_point.coords,
+        );
     }
 
     fn movement_yaw(&mut self, scene_id: usize, delta: N) {
         let eye = &mut self.scenes[scene_id].eye;
         let relative_eye_position = eye.position - eye.target;
         let iso = Iso3::new(V3::new(0.0, 0.0, 0.0), V3::new(0.0, 0.0, delta));
-        let rotated_relative_eye_position = iso.rotate(&relative_eye_position);
+        let rotated_relative_eye_position = iso * relative_eye_position;
 
         eye.position = eye.target + rotated_relative_eye_position;
     }

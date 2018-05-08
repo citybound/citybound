@@ -1,6 +1,5 @@
-
-pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
-                    WithUniqueOrthogonal, Inverse, Rotate};
+pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, Into2d, Into3d, WithUniqueOrthogonal,
+                    try_inverse};
 use kay::World;
 
 use {Renderer, RendererID};
@@ -18,6 +17,10 @@ impl Renderer {
         requester: ProjectionRequesterID,
         world: &mut World,
     ) {
+        requester.projected_3d(self.project(scene_id, position_2d), world);
+    }
+
+    pub fn project(&self, scene_id: usize, position_2d: P2) -> P3 {
         let eye = &self.scenes[scene_id].eye;
         let frame_size = self.render_context.window.get_framebuffer_dimensions();
 
@@ -31,15 +34,15 @@ impl Renderer {
 
         let inverse_view = Iso3::look_at_rh(&eye.position, &eye.target, &eye.up)
             .to_homogeneous()
-            .inverse()
+            .try_inverse()
             .unwrap();
         let inverse_perspective = Persp3::new(
             frame_size.0 as f32 / frame_size.1 as f32,
             eye.field_of_view,
             0.1,
             1000.0,
-        ).to_matrix()
-            .inverse()
+        ).as_matrix()
+            .try_inverse()
             .unwrap();
 
         // converts from frustum to position relative to camera
@@ -57,9 +60,8 @@ impl Renderer {
         // / direction_into_world.w;
 
         let distance = -eye.position.z / direction_into_world_3d.z;
-        let position_in_world = eye.position + distance * direction_into_world_3d;
-
-        requester.projected_3d(position_in_world, world);
+        // position in world
+        eye.position + distance * direction_into_world_3d
     }
 }
 

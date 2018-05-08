@@ -3,9 +3,10 @@
 extern crate nalgebra;
 extern crate ncollide_transformation;
 extern crate ordered_float;
+extern crate itertools;
 
-use nalgebra::{Vector2, Point2, Vector3, Vector4, Point3, Isometry3, Perspective3, Matrix4};
-pub use nalgebra::{Dot, ToHomogeneous, Norm, Inverse, Rotate};
+use nalgebra::{Vector2, Point2, Vector3, Vector4, Point3, Isometry3, Perspective3, Matrix4, dot};
+pub use nalgebra::try_inverse;
 use std::f32::consts::PI;
 
 pub type N = f32;
@@ -26,6 +27,7 @@ mod primitives;
 mod path;
 mod intersect;
 mod shapes;
+pub mod clipper;
 
 pub use self::primitives::*;
 pub use self::path::{Path, convex_hull};
@@ -33,7 +35,7 @@ pub use self::intersect::*;
 pub use self::shapes::*;
 
 pub fn angle_to(a: V2, b: V2) -> N {
-    let theta: N = a.dot(&b) / (a.norm() * b.norm());
+    let theta: N = dot(&a, &b) / (a.norm() * b.norm());
     theta.min(1.0).max(-1.0).acos()
 }
 
@@ -161,6 +163,9 @@ pub trait Curve: Sized {
 pub trait FiniteCurve: Curve {
     fn length(&self) -> N;
     fn along(&self, distance: N) -> P2;
+    fn midpoint(&self) -> P2 {
+        self.along(self.length() / 2.0)
+    }
     fn direction_along(&self, distance: N) -> V2;
     fn start(&self) -> P2;
     fn start_direction(&self) -> V2 {
@@ -175,8 +180,18 @@ pub trait FiniteCurve: Curve {
     fn shift_orthogonally(&self, shift_to_right: N) -> Option<Self>;
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum PointOnShapeLocation {
+    Inside,
+    OnEdge,
+    Outside,
+}
+
 pub trait Shape {
-    fn contains(&self, point: P2) -> bool;
+    fn contains(&self, point: P2) -> bool {
+        self.location_of(point) != PointOnShapeLocation::Outside
+    }
+    fn location_of(&self, point: P2) -> PointOnShapeLocation;
 }
 
 #[derive(Copy, Clone)]

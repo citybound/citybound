@@ -1,18 +1,17 @@
 use super::compact::Compact;
+use super::chunky;
 use super::messaging::{Packet, Message};
-use super::chunked::{MemChunker, ChunkedQueue};
 use super::type_registry::{ShortTypeId, TypeRegistry};
 
 pub struct Inbox {
-    queue: ChunkedQueue,
+    queue: chunky::Queue<chunky::HeapHandler>,
 }
 
-const CHUNK_SIZE: usize = 4096 * 4096 * 4; // 64MB
+const CHUNK_SIZE: usize = 1024 * 1024 * 4; // 64MB
 
 impl Inbox {
-    pub fn new() -> Self {
-        let chunker = MemChunker::from_settings("", CHUNK_SIZE);
-        Inbox { queue: ChunkedQueue::new(chunker) }
+    pub fn new(ident: &chunky::Ident) -> Self {
+        Inbox { queue: chunky::Queue::new(ident, CHUNK_SIZE) }
     }
 
     pub fn put<M: Message>(&mut self, mut packet: Packet<M>, message_registry: &TypeRegistry) {
@@ -52,7 +51,7 @@ impl Inbox {
 }
 
 pub struct InboxIterator<'a> {
-    queue: &'a mut ChunkedQueue,
+    queue: &'a mut chunky::Queue<chunky::HeapHandler>,
     n_messages_to_read: usize,
 }
 
@@ -87,11 +86,5 @@ impl<'a> Iterator for InboxIterator<'a> {
 impl<'a> Drop for InboxIterator<'a> {
     fn drop(&mut self) {
         unsafe { self.queue.drop_old_chunks() };
-    }
-}
-
-impl Default for Inbox {
-    fn default() -> Self {
-        Self::new()
     }
 }

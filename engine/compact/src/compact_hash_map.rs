@@ -63,7 +63,10 @@ struct QuadraticProbingMutIterator<'a, K: 'a, V: 'a, A: 'a + Allocator = Default
 /// that can be stored in compact sequential storage and
 /// automatically spills over into free heap storage using `Allocator`.
 pub struct OpenAddressingMap<K, V, A: Allocator = DefaultHeap> {
-    size: usize,
+    // TODO: this seems to represent something else than actual number of items
+    //       figure out what and how it can be merged with len again
+    internal_size: usize,
+    len: usize,
     entries: CompactArray<Entry<K, V>, A>,
 }
 
@@ -124,8 +127,8 @@ impl<K: Eq, V: Clone> Entry<K, V> {
         self.inner.as_mut().map(|kv| &mut kv.1)
     }
 
-    fn is_this(&self, key: K) -> bool {
-        self.inner.as_ref().map_or(false, |kv| kv.0 == key)
+    fn is_this(&self, key: &K) -> bool {
+        self.inner.as_ref().map_or(false, |kv| &kv.0 == key)
     }
 
     fn into_tuple(self) -> (K, V) {
@@ -165,7 +168,7 @@ impl<K: Copy, V: Compact> Compact for Entry<K, V> {
     default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
         (*dest).hash = (*source).hash;
         (*dest).tombstoned = (*source).tombstoned;
-        (*dest).inner = (*source).inner.clone();
+        ::std::ptr::copy_nonoverlapping(&mut (*source).inner, &mut (*dest).inner, 1);
         if (*dest).inner.is_some() {
             Compact::compact(
                 &mut (*source).inner.as_mut().unwrap().1,
@@ -224,6 +227,7 @@ impl<T: Default, A: Allocator> CompactArray<T, A> {
     }
 
     /// Create a new, empty vector
+    #[allow(new_without_default_derive)]
     pub fn new() -> CompactArray<T, A> {
         CompactArray {
             ptr: PointerToMaybeCompact::default(),
@@ -511,18 +515,19 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     pub fn with_capacity(l: usize) -> Self {
         OpenAddressingMap {
             entries: CompactArray::with_capacity(Self::find_prime_larger_than(l)),
-            size: 0,
+            internal_size: 0,
+            len: 0,
         }
     }
 
     /// Amount of entries in the dictionary
     pub fn len(&self) -> usize {
-        self.size
+        self.len
     }
 
     /// Is the dictionary empty?
     pub fn is_empty(&self) -> bool {
-        self.size == 0
+        self.len == 0
     }
 
     /// Look up the value for key `query`, if it exists
@@ -574,6 +579,15 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
         })
     }
 
+    pub fn pairs_mut<'a>(&'a mut self) -> impl Iterator<Item = (K, &'a mut V)> + 'a
+    where
+        K: Copy,
+    {
+        self.entries.iter_mut().filter(|e| e.alive()).map(|e| {
+            (*e.key(), e.mut_value())
+        })
+    }
+
     fn hash(key: K) -> u32 {
         let mut hasher = DefaultHasher::new();
         key.hash(&mut hasher);
@@ -588,7 +602,8 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     fn insert_inner(&mut self, query: K, value: V) -> Option<V> {
         let res = self.insert_inner_inner(query, value);
         if res.is_none() {
-            self.size += 1;
+            self.internal_size += 1;
+            self.len += 1;
         }
         res
     }
@@ -599,7 +614,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
             if entry.free() {
                 entry.make_used(hash, query, value);
                 return None;
-            } else if entry.is_this(query) {
+            } else if entry.is_this(&query) {
                 return entry.replace_value(value);
             }
         }
@@ -608,13 +623,17 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     fn remove_inner(&mut self, query: K) -> Option<V> {
         // remove inner does not alter the size because of tombstones
-        self.remove_inner_inner(query)
+        let old = self.remove_inner_inner(query);
+        if old.is_some() {
+            self.len -= 1;
+        }
+        old
     }
 
     fn remove_inner_inner(&mut self, query: K) -> Option<V> {
         let hash = Self::hash(query);
         for entry in self.quadratic_iterator_mut(hash) {
-            if entry.is_this(query) {
+            if entry.is_this(&query) {
                 return entry.remove();
             }
         }
@@ -622,12 +641,12 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     }
 
     fn ensure_capacity(&mut self) {
-        if self.size > self.entries.capacity() / 2 {
+        if self.internal_size > self.entries.capacity() / 2 {
             let old_entries = self.entries.clone();
             self.entries = CompactArray::with_capacity(
                 Self::find_prime_larger_than(old_entries.capacity() * 2),
             );
-            self.size = 0;
+            self.internal_size = 0;
             for entry in old_entries {
                 if entry.alive() {
                     let tuple = entry.into_tuple();
@@ -639,7 +658,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     fn find_used(&self, query: K) -> Option<&Entry<K, V>> {
         for entry in self.quadratic_iterator(query) {
-            if entry.is_this(query) {
+            if entry.is_this(&query) {
                 return Some(entry);
             }
         }
@@ -649,7 +668,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     fn find_used_mut(&mut self, query: K) -> Option<&mut Entry<K, V>> {
         let h = Self::hash(query);
         for entry in self.quadratic_iterator_mut(h) {
-            if entry.is_this(query) {
+            if entry.is_this(&query) {
                 return Some(entry);
             }
         }
@@ -670,8 +689,8 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     fn display(&self) -> String {
         let mut res = String::new();
-        writeln!(&mut res, "size: {:?}", self.size).unwrap();
-        let mut size_left: isize = self.size as isize;
+        writeln!(&mut res, "size: {:?}", self.internal_size).unwrap();
+        let mut size_left: isize = self.internal_size as isize;
         for entry in self.entries.iter() {
             if entry.used() {
                 size_left -= 1;
@@ -693,7 +712,8 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> Compact for OpenAddressingMa
     }
 
     default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
-        (*dest).size = (*source).size;
+        (*dest).internal_size = (*source).internal_size;
+        (*dest).len = (*source).len;
         Compact::compact(
             &mut (*source).entries,
             &mut (*dest).entries,
@@ -705,7 +725,8 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> Compact for OpenAddressingMa
     unsafe fn decompact(source: *const Self) -> OpenAddressingMap<K, V, A> {
         OpenAddressingMap {
             entries: Compact::decompact(&(*source).entries),
-            size: (*source).size,
+            internal_size: (*source).internal_size,
+            len: (*source).len,
         }
     }
 }
@@ -714,7 +735,8 @@ impl<K: Copy, V: Clone, A: Allocator> Clone for OpenAddressingMap<K, V, A> {
     fn clone(&self) -> Self {
         OpenAddressingMap {
             entries: self.entries.clone(),
-            size: self.size,
+            internal_size: self.internal_size,
+            len: self.len,
         }
     }
 }
@@ -746,7 +768,8 @@ impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator>
     /// Push a value onto the `CompactVec` at the key `query`
     pub fn push_at(&mut self, query: K, item: I) {
         if self.push_at_inner(query, item) {
-            self.size += 1;
+            self.internal_size += 1;
+            self.len += 1;
         }
     }
 
@@ -755,7 +778,7 @@ impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator>
         self.ensure_capacity();
         let hash = Self::hash(query);
         for entry in self.quadratic_iterator_mut(hash) {
-            if entry.is_this(query) {
+            if entry.is_this(&query) {
                 entry.mut_value().push(item);
                 return false;
             } else if !entry.used() {

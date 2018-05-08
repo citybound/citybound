@@ -1,5 +1,5 @@
-use kay::{ActorSystem, External, World};
-use compact::CVec;
+use kay::{ActorSystem, External, World, Actor};
+use compact::{CVec, CString};
 use descartes::{N, P2, V2, P3, Into2d, Shape};
 use monet::{RendererID, RenderableID, SceneDescription, Display};
 use monet::glium::glutin::{ContextBuilder, Event, WindowBuilder, WindowEvent, MouseScrollDelta,
@@ -54,7 +54,15 @@ pub trait Interactable2d {
         imgui_ui: &External<::imgui::Ui<'static>>,
         return_to: UserInterfaceID,
         world: &mut World,
-    );
+    ) {
+        let ui = imgui_ui.steal();
+        self.draw(world, &*ui);
+        return_to.ui_drawn(ui, world);
+    }
+
+    fn draw(&mut self, _world: &mut World, _ui: &::imgui::Ui<'static>) {
+        unimplemented!()
+    }
 }
 
 #[derive(Compact, Clone)]
@@ -62,6 +70,9 @@ pub struct UserInterface {
     id: UserInterfaceID,
     inner: External<UserInterfaceInner>,
 }
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+pub struct UserInterfaceLayer(pub usize);
 
 pub struct UserInterfaceInner {
     events_loop: EventsLoop,
@@ -74,10 +85,11 @@ pub struct UserInterfaceInner {
     cursor_3d: P3,
     drag_start_2d: Option<P2>,
     drag_start_3d: Option<P3>,
-    interactables: HashMap<Interactable3dID, (AnyShape, usize)>,
+    interactables: HashMap<UserInterfaceLayer, HashMap<Interactable3dID, (AnyShape, usize)>>,
     hovered_interactable: Option<Interactable3dID>,
     active_interactable: Option<Interactable3dID>,
     focused_interactables: HashSet<Interactable3dID>,
+    current_layer: Option<UserInterfaceLayer>,
     interactables_2d: Vec<Interactable2dID>,
     interactables_2d_todo: Vec<Interactable2dID>,
     parked_frame: Option<Box<::monet::glium::Frame>>,
@@ -87,6 +99,7 @@ pub struct UserInterfaceInner {
     imgui_renderer: ImguiRenderer,
     debug_text: BTreeMap<String, (String, [f32; 4])>,
     persistent_debug_text: BTreeMap<String, (String, [f32; 4])>,
+    panicked: bool,
 }
 
 impl ::std::ops::Deref for UserInterface {
@@ -113,7 +126,7 @@ impl UserInterface {
         world: &mut World,
     ) -> UserInterface {
         let mut imgui = ImGui::init();
-        let default_font = im_str!("game/assets/ClearSans-Regular.ttf\0");
+        let default_font = include_bytes!("../../../../game/assets/ClearSans-Regular.ttf");
 
         unsafe {
             let atlas = (*::imgui_sys::igGetIO()).fonts;
@@ -121,10 +134,12 @@ impl UserInterface {
             ImFontConfig_DefaultConstructor(&mut config);
             config.oversample_h = 2;
             config.oversample_v = 2;
-            ::imgui_sys::ImFontAtlas_AddFontFromFileTTF(
+            config.font_data_owned_by_atlas = false;
+            ::imgui_sys::ImFontAtlas_AddFontFromMemoryTTF(
                 atlas,
-                default_font.as_ptr(),
-                24.0,
+                ::std::mem::transmute(default_font.as_ptr()),
+                default_font.len() as i32,
+                16.0,
                 &config,
                 ::std::ptr::null(),
             );
@@ -194,6 +209,7 @@ impl UserInterface {
                 hovered_interactable: None,
                 active_interactable: None,
                 focused_interactables: HashSet::new(),
+                current_layer: None,
                 interactables_2d: Vec::new(),
                 interactables_2d_todo: Vec::new(),
                 parked_frame: None,
@@ -203,6 +219,7 @@ impl UserInterface {
                 imgui_renderer: imgui_renderer,
                 debug_text: BTreeMap::new(),
                 persistent_debug_text: BTreeMap::new(),
+                panicked: false,
             }),
         }
     }
@@ -213,7 +230,7 @@ impl UserInterface {
         res
     }
 
-    /// critical
+    /// Critical
     pub fn process_events(&mut self, world: &mut World) {
         let scale = self.imgui.display_framebuffer_scale();
         let events = self.poll_events();
@@ -221,7 +238,7 @@ impl UserInterface {
         for event in events {
             if let Event::WindowEvent { event: ref window_event, .. } = event {
                 match *window_event {
-                    WindowEvent::Closed => ::std::process::exit(0),
+                    WindowEvent::Closed => world.shutdown(),
 
                     WindowEvent::MouseWheel { delta, .. } => {
                         let v = match delta {
@@ -253,7 +270,7 @@ impl UserInterface {
                         self.renderer_id.project_2d_to_3d(
                             0,
                             self.cursor_2d,
-                            self.id.into(),
+                            self.id_as(),
                             world,
                         );
                     }
@@ -387,21 +404,76 @@ impl UserInterface {
             }
         }
 
-        for interactable in self.interactables.keys() {
+        for interactable in self.interactables.values().flat_map(|layer| layer.keys()) {
             interactable.on_event(Event3d::Frame, world)
         }
     }
 
-    pub fn add(&mut self, id: Interactable3dID, shape: &AnyShape, z_index: usize, _: &mut World) {
-        self.interactables.insert(id, (shape.clone(), z_index));
+    pub fn add(
+        &mut self,
+        layer: UserInterfaceLayer,
+        id: Interactable3dID,
+        shape: &AnyShape,
+        z_index: usize,
+        world: &mut World,
+    ) {
+        self.interactables
+            .entry(layer)
+            .or_insert_with(HashMap::default)
+            .insert(id, (shape.clone(), z_index));
+
+        self.find_hovered_interactable(world);
     }
 
-    pub fn remove(&mut self, id: Interactable3dID, _: &mut World) {
-        self.interactables.remove(&id);
+    pub fn remove(&mut self, layer: UserInterfaceLayer, id: Interactable3dID, world: &mut World) {
+        if let Some(layer) = self.interactables.get_mut(&layer) {
+            layer.remove(&id);
+        }
+        self.find_hovered_interactable(world);
     }
 
     pub fn focus(&mut self, id: Interactable3dID, _: &mut World) {
         self.focused_interactables.insert(id);
+    }
+
+    pub fn set_current_layer(&mut self, layer: Option<UserInterfaceLayer>, _: &mut World) {
+        self.current_layer = layer;
+    }
+
+    pub fn find_hovered_interactable(&mut self, world: &mut World) {
+        self.hovered_interactable =
+            if let Some(layer) = self.current_layer.and_then(|l| self.interactables.get(&l)) {
+                let new_hovered_interactable = layer
+                    .iter()
+                    .filter(|&(_id, &(ref shape, _z_index))| {
+                        shape.contains(self.cursor_3d.into_2d())
+                    })
+                    .max_by_key(|&(_id, &(ref _shape, z_index))| z_index)
+                    .map(|(id, _shape)| *id);
+
+                if self.hovered_interactable != new_hovered_interactable {
+                    if let Some(previous) = self.hovered_interactable {
+                        previous.on_event(Event3d::HoverStopped, world);
+                    }
+                    if let Some(next) = new_hovered_interactable {
+                        next.on_event(
+                            Event3d::HoverStarted { at: self.cursor_3d, at2d: self.cursor_2d },
+                            world,
+                        );
+                    }
+                } else if let Some(hovered_interactable) = self.hovered_interactable {
+                    hovered_interactable.on_event(
+                        Event3d::HoverOngoing {
+                            at: self.cursor_3d,
+                            at2d: self.cursor_2d,
+                        },
+                        world,
+                    );
+                }
+                new_hovered_interactable
+            } else {
+                None
+            }
     }
 
     pub fn add_2d(&mut self, id: Interactable2dID, _: &mut World) {
@@ -416,14 +488,16 @@ impl UserInterface {
         }
     }
 
-    /// critical
+    /// Critical
     pub fn on_panic(&mut self, _: &mut World) {
         // so we don't wait forever for crashed actors to render UI
         let cc_id = self.camera_control_id.into();
         self.interactables_2d.retain(|id| *id == cc_id);
         self.interactables_2d_todo.retain(|id| *id == cc_id);
+        self.panicked = true;
     }
 
+    /// Critical
     pub fn start_frame(&mut self, world: &mut World) {
         if self.parked_frame.is_some() {
             let target = ::std::mem::replace(&mut self.parked_frame, None).expect(
@@ -434,11 +508,11 @@ impl UserInterface {
 
         let target = External::new(self.window.draw());
 
-        self.renderer_id.submit(target, self.id.into(), world);
+        self.renderer_id.submit(target, self.id_as(), world);
     }
 }
 
-use monet::{ProjectionRequester, ProjectionRequesterID, MSG_ProjectionRequester_projected_3d};
+use monet::{ProjectionRequester, ProjectionRequesterID};
 
 impl ProjectionRequester for UserInterface {
     fn projected_3d(&mut self, position_3d: P3, world: &mut World) {
@@ -458,34 +532,7 @@ impl ProjectionRequester for UserInterface {
                 world,
             );
         } else {
-            let new_hovered_interactable = self.interactables
-                .iter()
-                .filter(|&(_id, &(ref shape, _z_index))| {
-                    shape.contains(position_3d.into_2d())
-                })
-                .max_by_key(|&(_id, &(ref _shape, z_index))| z_index)
-                .map(|(id, _shape)| *id);
-
-            if self.hovered_interactable != new_hovered_interactable {
-                if let Some(previous) = self.hovered_interactable {
-                    previous.on_event(Event3d::HoverStopped, world);
-                }
-                if let Some(next) = new_hovered_interactable {
-                    next.on_event(
-                        Event3d::HoverStarted { at: self.cursor_3d, at2d: self.cursor_2d },
-                        world,
-                    );
-                }
-            } else if let Some(hovered_interactable) = self.hovered_interactable {
-                hovered_interactable.on_event(
-                    Event3d::HoverOngoing {
-                        at: self.cursor_3d,
-                        at2d: self.cursor_2d,
-                    },
-                    world,
-                );
-            }
-            self.hovered_interactable = new_hovered_interactable;
+            self.find_hovered_interactable(world);
         }
 
         for interactable in &self.focused_interactables {
@@ -494,10 +541,12 @@ impl ProjectionRequester for UserInterface {
     }
 }
 
-use monet::{TargetProvider, TargetProviderID, MSG_TargetProvider_submitted};
+use monet::{TargetProvider, TargetProviderID};
 use monet::glium::Frame;
 
+#[allow(useless_format)]
 impl TargetProvider for UserInterface {
+    /// Critical
     fn submitted(&mut self, target: &External<Frame>, world: &mut World) {
         self.parked_frame = Some(target.steal().into_box());
 
@@ -525,10 +574,17 @@ impl TargetProvider for UserInterface {
 
         imgui_ui
             .window(im_str!("Debug Info"))
-            .size((600.0, 200.0), ImGuiSetCond_FirstUseEver)
-            .collapsible(false)
+            .size((230.0, 200.0), ImGuiSetCond_FirstUseEver)
+            .collapsible(!self.panicked)
+            .position((10.0, 10.0), ImGuiSetCond_FirstUseEver)
             .build(|| for (ref key, (ref text, ref color)) in texts {
-                imgui_ui.text_colored(*color, im_str!("{}:\n{}", key, text));
+                if text.lines().count() > 3 {
+                    imgui_ui.tree_node(im_str!("{}", key)).build(|| {
+                        imgui_ui.text_colored(*color, im_str!("{}", text));
+                    });
+                } else {
+                    imgui_ui.text_colored(*color, im_str!("{}\n{}", key, text));
+                }
             });
 
         self.interactables_2d_todo = self.interactables_2d.clone();
@@ -537,7 +593,7 @@ impl TargetProvider for UserInterface {
 }
 
 impl UserInterface {
-    /// critical
+    /// Critical
     pub fn ui_drawn(&mut self, imgui_ui: &External<::imgui::Ui<'static>>, world: &mut World) {
         if let Some(interactable_2d) = self.interactables_2d_todo.pop() {
             interactable_2d.draw_ui_2d(imgui_ui.steal(), self.id, world);
@@ -554,11 +610,11 @@ impl UserInterface {
         }
     }
 
-    /// critical
+    /// Critical
     pub fn add_debug_text(
         &mut self,
-        key: &CVec<char>,
-        text: &CVec<char>,
+        key: &CString,
+        text: &CString,
         color: &[f32; 4],
         persistent: bool,
         _: &mut World,
@@ -568,10 +624,7 @@ impl UserInterface {
         } else {
             &mut self.debug_text
         };
-        target.insert(key.iter().cloned().collect(), (
-            text.iter().cloned().collect(),
-            *color,
-        ));
+        target.insert(key.to_string(), (text.to_string(), *color));
     }
 }
 
@@ -600,6 +653,10 @@ pub fn setup(
         clear_color,
         &mut system.world(),
     );
+
+    unsafe {
+        super::geometry::DEBUG_RENDERER = Some(renderer_id);
+    }
 
     let ui_id = UserInterfaceID::spawn(
         External::new(window),

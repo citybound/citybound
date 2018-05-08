@@ -1,6 +1,6 @@
 use compact::CVec;
-use kay::{ActorSystem, World, Fate};
-use descartes::{N, P2, Dot, Band, Curve, FiniteCurve, Path, RoughlyComparable, Intersect,
+use kay::{ActorSystem, World, Fate, Actor, TypedID};
+use descartes::{N, P2, Band, Curve, FiniteCurve, Path, RoughlyComparable, Intersect,
                 WithUniqueOrthogonal};
 use itertools::Itertools;
 use stagemaster::geometry::CPath;
@@ -10,17 +10,86 @@ use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
 use super::microtraffic::LaneLikeID;
 
-pub mod materialized_reality;
-use self::materialized_reality::{MaterializedRealityID, BuildableRef};
+use planning::Prototype;
+use construction::{ConstructionID, Constructable, ConstructableID};
+use super::transport_planning::{RoadPrototype, LanePrototype, TransferLanePrototype,
+                                IntersectionPrototype};
 
 const CONNECTION_TOLERANCE: f32 = 0.1;
+
+impl RoadPrototype {
+    pub fn construct(&self, report_to: ConstructionID, world: &mut World) -> CVec<ConstructableID> {
+        match *self {
+            RoadPrototype::Lane(LanePrototype(ref path, _)) => {
+                vec![
+                    LaneID::spawn_and_connect(path.clone(), false, CVec::new(), report_to, world)
+                        .into(),
+                ].into()
+            }
+            RoadPrototype::TransferLane(TransferLanePrototype(ref path)) => {
+                vec![
+                    TransferLaneID::spawn_and_connect(path.clone(), report_to, world).into(),
+                ].into()
+            }
+            RoadPrototype::Intersection(IntersectionPrototype { ref connecting_lanes, .. }) => {
+                let ids = connecting_lanes
+                    .values()
+                    .flat_map(|group| {
+                        group
+                            .iter()
+                            .map(|&LanePrototype(ref path, ref timings)| {
+                                LaneID::spawn_and_connect(
+                                    path.clone(),
+                                    true,
+                                    timings.clone(),
+                                    report_to,
+                                    world,
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>();
+
+                for id in &ids {
+                    id.start_connecting_overlaps(
+                        ids.iter().filter(|&other| other != id).cloned().collect(),
+                        world,
+                    )
+                }
+
+                ids.into_iter().map(|lane_id| lane_id.into()).collect()
+            }
+            RoadPrototype::PavedArea(_) => CVec::new(),
+        }
+    }
+}
+
+impl Constructable for Lane {
+    fn morph(&mut self, _new_prototype: &Prototype, report_to: ConstructionID, world: &mut World) {
+        report_to.action_done(self.id_as(), world);
+    }
+    fn destruct(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
+        self.unbuild(report_to, world);
+        Fate::Live
+    }
+}
+
+impl Constructable for TransferLane {
+    fn morph(&mut self, _new_prototype: &Prototype, report_to: ConstructionID, world: &mut World) {
+        report_to.action_done(self.id_as(), world);
+    }
+    fn destruct(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
+        self.unbuild(report_to, world);
+        Fate::Live
+    }
+}
 
 #[derive(Compact, Clone)]
 pub struct ConstructionInfo {
     pub length: f32,
     pub path: CPath,
     pub progress: f32,
-    unbuilding_for: Option<MaterializedRealityID>,
+    unbuilding_for: Option<ConstructionID>,
     disconnects_remaining: u8,
 }
 
@@ -38,7 +107,7 @@ impl ConstructionInfo {
 
 pub trait Unbuildable {
     fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World);
-    fn unbuild(&mut self, report_to: MaterializedRealityID, world: &mut World) -> Fate;
+    fn unbuild(&mut self, report_to: ConstructionID, world: &mut World) -> Fate;
     fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate;
 }
 
@@ -51,23 +120,28 @@ thread_local! (
 );
 
 impl Lane {
-    pub fn start_connecting_and_report(
-        &mut self,
-        report_to: MaterializedRealityID,
-        report_as: BuildableRef,
+    pub fn spawn_and_connect(
+        id: LaneID,
+        path: &CPath,
+        on_intersection: bool,
+        timings: &CVec<bool>,
+        report_to: ConstructionID,
         world: &mut World,
-    ) {
-        LaneID::global_broadcast(world).connect(
-            self.id,
-            self.construction.path.start(),
-            self.construction.path.end(),
-            self.construction.path.length(),
+    ) -> Lane {
+        Lane::global_broadcast(world).connect(
+            id,
+            path.start(),
+            path.end(),
+            path.length(),
             true,
             world,
         );
-        TransferLaneID::global_broadcast(world)
-            .connect_transfer_to_normal(self.id, self.construction.path.clone(), world);
-        report_to.on_lane_built(self.id.into(), report_as, world);
+        if !on_intersection {
+            TransferLane::global_broadcast(world)
+                .connect_transfer_to_normal(id, path.clone(), world);
+        }
+        report_to.action_done(id.into(), world);
+        Lane::spawn(id, path, on_intersection, timings, world)
     }
 
     pub fn start_connecting_overlaps(&mut self, lanes: &CVec<LaneID>, world: &mut World) {
@@ -85,7 +159,7 @@ impl Lane {
         reply_needed: bool,
         world: &mut World,
     ) {
-        if other_id == self.id.into() {
+        if other_id == self.id {
             return;
         };
 
@@ -164,7 +238,7 @@ impl Lane {
         MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
             let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
             let &(ref lane_band, ref lane_outline) = memoized_bands_outlines
-                .entry(self.id.into())
+                .entry(self.id_as())
                 .or_insert_with(|| {
                     let band = Band::new(self.construction.path.clone(), 4.5);
                     let outline = band.outline();
@@ -246,12 +320,7 @@ impl Lane {
 
 
             if reply_needed {
-                other_id.connect_overlaps(
-                    self.id.into(),
-                    self.construction.path.clone(),
-                    false,
-                    world,
-                );
+                other_id.connect_overlaps(self.id, self.construction.path.clone(), false, world);
             }
         });
     }
@@ -271,37 +340,57 @@ impl Lane {
     }
 }
 
+use transport::pathfinding::trip::{TripResult, TripFate};
+
 impl Unbuildable for Lane {
     fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World) {
         let interaction_indices_to_remove = self.connectivity
             .interactions
             .iter()
             .enumerate()
-            // TODO: ugly: untyped ID shenanigans
-            .filter_map(|(i, interaction)| if interaction.partner_lane._raw_id == other_id._raw_id {
+            // TODO: ugly: untyped RawID shenanigans
+            .filter_map(|(i, inter)| if inter.partner_lane.as_raw() == other_id.as_raw() {
                 Some(i)
             } else {
                 None
             })
             .collect::<Vec<_>>();
-        // TODO: Cancel trip
-        self.microtraffic.cars.retain(|car| {
-            !interaction_indices_to_remove.contains(&(car.next_hop_interaction as usize))
-        });
+
+        let self_as_rough_location = self.id_as();
+        self.microtraffic.cars.retain(
+            |car| if let Some(hop_interaction) =
+                car.next_hop_interaction
+            {
+                if interaction_indices_to_remove.contains(&(hop_interaction as usize)) {
+                    car.trip.finish(
+                        TripResult {
+                            location_now: Some(self_as_rough_location),
+                            fate: TripFate::HopDisconnected,
+                        },
+                        world,
+                    );
+                    false
+                } else {
+                    true
+                }
+            } else {
+                true
+            },
+        );
         self.microtraffic.obstacles.retain(|&(_obstacle, from_id)| {
-            // TODO: ugly: untyped ID shenanigans
-            from_id._raw_id != other_id._raw_id
+            // TODO: ugly: untyped RawID shenanigans
+            from_id.as_raw() != other_id.as_raw()
         });
         for idx in interaction_indices_to_remove.into_iter().rev() {
             self.connectivity.interactions.remove(idx);
         }
-        // TODO: untyped ID shenanigans
-        let other_as_lanelike = LaneLikeID { _raw_id: other_id._raw_id };
+        // TODO: untyped RawID shenanigans
+        let other_as_lanelike = unsafe { LaneLikeID::from_raw(other_id.as_raw()) };
         super::pathfinding::on_disconnect(self, other_as_lanelike);
         other_id.on_confirm_disconnect(world);
     }
 
-    fn unbuild(&mut self, report_to: MaterializedRealityID, world: &mut World) -> Fate {
+    fn unbuild(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
         let mut disconnects_remaining = 0;
         for id in self.connectivity
             .interactions
@@ -309,18 +398,18 @@ impl Unbuildable for Lane {
             .map(|interaction| interaction.partner_lane)
             .unique()
         {
-            // TODO: untyped ID shenanigans
-            let id_as_unbuildable = UnbuildableID { _raw_id: id._raw_id };
-            id_as_unbuildable.disconnect(self.id.into(), world);
+            // TODO: untyped RawID shenanigans
+            let id_as_unbuildable = unsafe { UnbuildableID::from_raw(id.as_raw()) };
+            id_as_unbuildable.disconnect(self.id_as(), world);
             disconnects_remaining += 1;
         }
         super::rendering::on_unbuild(self, world);
         MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
             let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
-            memoized_bands_outlines.remove(&self.id.into())
+            memoized_bands_outlines.remove(&self.id_as())
         });
         if disconnects_remaining == 0 {
-            report_to.on_lane_unbuilt(Some(self.id.into()), world);
+            self.finalize(report_to, world);
             Fate::Die
         } else {
             self.construction.disconnects_remaining = disconnects_remaining;
@@ -332,10 +421,12 @@ impl Unbuildable for Lane {
     fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate {
         self.construction.disconnects_remaining -= 1;
         if self.construction.disconnects_remaining == 0 {
-            self.construction
-                .unbuilding_for
-                .expect("should be unbuilding")
-                .on_lane_unbuilt(Some(self.id.into()), world);
+            self.finalize(
+                self.construction.unbuilding_for.expect(
+                    "should be unbuilding",
+                ),
+                world,
+            );
             Fate::Die
         } else {
             Fate::Live
@@ -343,44 +434,75 @@ impl Unbuildable for Lane {
     }
 }
 
-use economy::buildings::{Lot, BuildingSpawnerID};
-use rand::Rng;
-
 impl Lane {
-    // TODO: this is a horrible hack
-    pub fn find_lot(&mut self, requester: BuildingSpawnerID, world: &mut World) {
-        const BUILDING_DISTANCE: f32 = 15.0;
+    fn finalize(&self, report_to: ConstructionID, world: &mut World) {
+        report_to.action_done(self.id_as(), world);
 
-        if !self.connectivity.on_intersection {
-            let path = &self.construction.path;
-            let distance = ::rand::thread_rng().next_f32() * path.length();
-            let position = path.along(distance) +
-                (1.0 + ::rand::thread_rng().next_f32() * 1.0) * BUILDING_DISTANCE *
-                    path.direction_along(distance).orthogonal();
-            let orientation = path.direction_along(distance);
-
-            requester.found_lot(
-                Lot {
-                    position,
-                    orientation,
-                    adjacent_lane: self.id,
+        for car in &self.microtraffic.cars {
+            car.trip.finish(
+                TripResult {
+                    location_now: None,
+                    fate: TripFate::LaneUnbuilt,
                 },
                 world,
             );
+        }
+
+        super::pathfinding::on_unbuild(self, world);
+    }
+}
+
+use land_use::buildings::{BuildingID, MIN_LANE_BUILDING_DISTANCE};
+use transport::pathfinding::PreciseLocation;
+
+impl Lane {
+    pub fn try_reconnect_building(
+        &mut self,
+        building: BuildingID,
+        lot_position: P2,
+        world: &mut World,
+    ) {
+        if let Some(location) = self.pathfinding.location {
+            if !self.connectivity.on_intersection {
+                let path = &self.construction.path;
+                let distance = path.distance_to(lot_position);
+
+                if distance >= MIN_LANE_BUILDING_DISTANCE &&
+                    distance <= 1.7 * MIN_LANE_BUILDING_DISTANCE
+                {
+                    if let Some(offset) = path.project_with_max_distance(
+                        lot_position,
+                        1.7 * MIN_LANE_BUILDING_DISTANCE,
+                        0.5,
+                    )
+                    {
+                        building.reconnect(
+                            PreciseLocation { location, offset },
+                            path.along(offset),
+                            world,
+                        );
+                    }
+                }
+            }
         }
     }
 }
 
 impl TransferLane {
-    pub fn start_connecting_and_report(
-        &mut self,
-        report_to: MaterializedRealityID,
-        report_as: BuildableRef,
+    pub fn spawn_and_connect(
+        id: TransferLaneID,
+        path: &CPath,
+        report_to: ConstructionID,
         world: &mut World,
-    ) {
-        LaneID::global_broadcast(world).connect_to_transfer(self.id, world);
-        report_to.on_lane_built(self.id.into(), report_as, world);
-        super::rendering::on_build_transfer(self, world);
+    ) -> TransferLane {
+        Lane::global_broadcast(world).connect_to_transfer(id, world);
+
+        let lane = TransferLane::spawn(id, path, world);
+        super::rendering::on_build_transfer(&lane, world);
+
+        report_to.action_done(id.into(), world);
+
+        lane
     }
 
     pub fn connect_transfer_to_normal(
@@ -407,7 +529,7 @@ impl TransferLane {
                 {
                     other_id.add_transfer_lane_interaction(
                         Interaction {
-                            partner_lane: self.id.into(),
+                            partner_lane: self.id_as(),
                             start: lane_start_on_other_distance,
                             partner_start: 0.0,
                             kind: InteractionKind::Overlap {
@@ -457,19 +579,20 @@ impl TransferLane {
 
 impl Unbuildable for TransferLane {
     fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World) {
-        self.connectivity.left =
-            self.connectivity.left.and_then(
-                // TODO: ugly: untyped ID shenanigans
-                |(left_id, left_start)| if left_id._raw_id == other_id._raw_id {
-                    None
-                } else {
-                    Some((left_id, left_start))
-                },
-            );
+        self.connectivity.left = self.connectivity.left.and_then(
+            // TODO: ugly: untyped RawID shenanigans
+            |(left_id, left_start)| if left_id.as_raw() ==
+                other_id.as_raw()
+            {
+                None
+            } else {
+                Some((left_id, left_start))
+            },
+        );
         self.connectivity.right = self.connectivity.right.and_then(
-            // TODO: ugly: untyped ID shenanigans
-            |(right_id, right_start)| if right_id._raw_id ==
-                other_id._raw_id
+            // TODO: ugly: untyped RawID shenanigans
+            |(right_id, right_start)| if right_id.as_raw() ==
+                other_id.as_raw()
             {
                 None
             } else {
@@ -479,16 +602,16 @@ impl Unbuildable for TransferLane {
         other_id.on_confirm_disconnect(world);
     }
 
-    fn unbuild(&mut self, report_to: MaterializedRealityID, world: &mut World) -> Fate {
+    fn unbuild(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
         if let Some((left_id, _)) = self.connectivity.left {
-            Into::<UnbuildableID>::into(left_id).disconnect(self.id.into(), world);
+            Into::<UnbuildableID>::into(left_id).disconnect(self.id_as(), world);
         }
         if let Some((right_id, _)) = self.connectivity.right {
-            Into::<UnbuildableID>::into(right_id).disconnect(self.id.into(), world);
+            Into::<UnbuildableID>::into(right_id).disconnect(self.id_as(), world);
         }
         super::rendering::on_unbuild_transfer(self, world);
         if self.connectivity.left.is_none() && self.connectivity.right.is_none() {
-            report_to.on_lane_unbuilt(Some(self.id.into()), world);
+            self.finalize(report_to, world);
             Fate::Die
         } else {
             self.construction.disconnects_remaining = self.connectivity
@@ -504,10 +627,12 @@ impl Unbuildable for TransferLane {
     fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate {
         self.construction.disconnects_remaining -= 1;
         if self.construction.disconnects_remaining == 0 {
-            self.construction
-                .unbuilding_for
-                .expect("should be unbuilding")
-                .on_lane_unbuilt(Some(self.id.into()), world);
+            self.finalize(
+                self.construction.unbuilding_for.expect(
+                    "should be unbuilding",
+                ),
+                world,
+            );
             Fate::Die
         } else {
             Fate::Live
@@ -515,9 +640,24 @@ impl Unbuildable for TransferLane {
     }
 }
 
-pub fn setup(system: &mut ActorSystem) -> MaterializedRealityID {
+impl TransferLane {
+    fn finalize(&self, report_to: ConstructionID, world: &mut World) {
+        report_to.action_done(self.id_as(), world);
+
+        for car in &self.microtraffic.cars {
+            car.trip.finish(
+                TripResult {
+                    location_now: None,
+                    fate: TripFate::LaneUnbuilt,
+                },
+                world,
+            );
+        }
+    }
+}
+
+pub fn setup(system: &mut ActorSystem) {
     auto_setup(system);
-    self::materialized_reality::setup(system)
 }
 
 mod kay_auto;

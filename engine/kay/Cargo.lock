@@ -2,7 +2,7 @@
 name = "kay"
 version = "0.1.0"
 dependencies = [
- "chunked 0.1.0",
+ "chunky 0.1.0",
  "clippy 0.0.106 (registry+https://github.com/rust-lang/crates.io-index)",
  "compact 0.1.0",
  "random 0.12.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -13,7 +13,7 @@ name = "allocators"
 version = "0.1.0"
 
 [[package]]
-name = "chunked"
+name = "chunky"
 version = "0.1.0"
 dependencies = [
  "allocators 0.1.0",

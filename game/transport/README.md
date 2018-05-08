@@ -35,7 +35,7 @@
 ## Parts
 
 * Planning
-   * [Road Planning](planning/README.md) (40% alpha)
+   * [Transport Planning](transport_planning/README.md) (40% alpha)
    * ~~[Rail & Tram Planning]()~~ (0% alpha)
    * ~~[Channel/Waterway Planning]()~~ (0% alpha)
    * ~~[Airport Planning]()~~ (0% alpha)

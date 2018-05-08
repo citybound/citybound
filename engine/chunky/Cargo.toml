@@ -1,0 +1,17 @@
+[package]
+name = "chunky"
+version = "0.1.0"
+authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
+
+[dependencies]
+clippy = { version = "0.0.175", optional = true }
+
+[dependencies.allocators]
+path = "../allocators/"
+
+[features]
+enable-clippy = [
+	"clippy"
+	, "allocators/clippy"
+]
+

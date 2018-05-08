@@ -1,14 +1,14 @@
 use compact::CVec;
-use kay::{ActorSystem, World};
-use descartes::{N, FiniteCurve};
-use stagemaster::geometry::CPath;
+use kay::{ActorSystem, World, Actor};
+use descartes::{N, Band};
+use stagemaster::geometry::{CPath, AnyShape};
 
 use super::construction::ConstructionInfo;
 pub mod connectivity;
 use self::connectivity::{ConnectivityInfo, TransferConnectivityInfo};
 use super::microtraffic::{Microtraffic, TransferringMicrotraffic};
 use super::pathfinding::PathfindingInfo;
-
+use stagemaster::{UserInterface, Event3d, Interactable3d, Interactable3dID};
 
 #[derive(Compact, Clone)]
 pub struct Lane {
@@ -17,11 +17,10 @@ pub struct Lane {
     pub connectivity: ConnectivityInfo,
     pub microtraffic: Microtraffic,
     pub pathfinding: PathfindingInfo,
-    pub hovered: bool,
-    pub last_spawn_position: N,
 }
 
 impl Lane {
+    #[allow(eq_op)]
     pub fn spawn(
         id: LaneID,
         path: &CPath,
@@ -31,15 +30,25 @@ impl Lane {
     ) -> Self {
         let lane = Lane {
             id,
-            last_spawn_position: path.length() / 2.0,
             construction: ConstructionInfo::from_path(path.clone()),
             connectivity: ConnectivityInfo::new(on_intersection),
             microtraffic: Microtraffic::new(timings.clone()),
             pathfinding: PathfindingInfo::default(),
-            hovered: false,
         };
 
         super::rendering::on_build(&lane, world);
+
+        if super::pathfinding::DEBUG_VIEW_CONNECTIVITY ||
+            super::pathfinding::trip::DEBUG_MANUALLY_SPAWN_CARS
+        {
+            UserInterface::local_first(world).add(
+                ::ui_layers::DEBUG_LAYER,
+                id.into(),
+                AnyShape::Band(Band::new(path.clone(), 3.0)),
+                5,
+                world,
+            );
+        }
 
         lane
     }
@@ -53,6 +62,7 @@ pub struct TransferLane {
     pub microtraffic: TransferringMicrotraffic,
 }
 
+
 impl TransferLane {
     pub fn spawn(id: TransferLaneID, path: &CPath, _: &mut World) -> TransferLane {
         TransferLane {
@@ -63,12 +73,18 @@ impl TransferLane {
         }
     }
 
-    pub fn other_side(&self, side: LaneID) -> LaneID {
-        if side == self.connectivity.left.expect("should have a left lane").0 {
-            self.connectivity.right.expect("should have a right lane").0
-        } else {
-            self.connectivity.left.expect("should have a left lane").0
-        }
+    pub fn other_side(&self, side: LaneID) -> Option<LaneID> {
+        if let Some((left, _)) = self.connectivity.left {
+            if side == left {
+                return self.connectivity.right.map(|(right, _)| right);
+            }
+        };
+        if let Some((right, _)) = self.connectivity.right {
+            if side == right {
+                return self.connectivity.left.map(|(left, _)| left);
+            }
+        };
+        None
     }
 
     #[allow(needless_range_loop)]
@@ -118,6 +134,17 @@ impl TransferLane {
             }
         }
         map.last().unwrap().1 - map.last().unwrap().0
+    }
+}
+
+impl Interactable3d for Lane {
+    fn on_event(&mut self, event: Event3d, world: &mut World) {
+        match event {
+            Event3d::HoverStarted { .. } => self.start_debug_connectivity(world),
+            Event3d::HoverStopped { .. } => self.stop_debug_connectivity(world),
+            Event3d::DragFinished { .. } => self.manually_spawn_car_add_lane(world),
+            _ => {}
+        };
     }
 }
 

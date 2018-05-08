@@ -1,8 +1,7 @@
 
 use glium;
 
-pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
-                    WithUniqueOrthogonal, Inverse, Rotate};
+pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, Into2d, Into3d, WithUniqueOrthogonal};
 
 use glium::Surface;
 use glium::backend::glutin::Display;
@@ -18,9 +17,9 @@ pub struct RenderContext {
 
 impl RenderContext {
     #[allow(redundant_closure)]
-    pub fn new(window: External<Display>, clear_color: (f32, f32, f32, f32)) -> RenderContext {
+    pub fn new(window: &External<Display>, clear_color: (f32, f32, f32, f32)) -> RenderContext {
         RenderContext {
-            batch_program: program!(&*window, 140 => {
+            batch_program: program!(&**window, 140 => {
                 vertex: include_str!("shader/solid_140.glslv"),
                 fragment: include_str!("shader/solid_140.glslf")
             }).unwrap(),
@@ -40,7 +39,7 @@ impl RenderContext {
             scene.eye.field_of_view,
             0.1,
             50000.0,
-        ).to_matrix()
+        ).as_matrix()
             .as_ref();
 
         let uniforms =

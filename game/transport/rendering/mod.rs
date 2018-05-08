@@ -1,9 +1,10 @@
-use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Norm, Path, Dot, RoughlyComparable};
+use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Path, RoughlyComparable};
 use compact::CVec;
-use kay::{ActorSystem, World};
-use monet::{Instance, Vertex, Geometry, RendererID};
+use kay::{ActorSystem, World, Actor, TypedID};
+use monet::{Instance, Vertex, Geometry, Renderer, RendererID};
 use stagemaster::geometry::{band_to_geometry, dash_path};
 use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
+use style::colors;
 use itertools::Itertools;
 
 #[path = "./resources/car.rs"]
@@ -12,8 +13,7 @@ mod car;
 #[path = "./resources/traffic_light.rs"]
 mod traffic_light;
 
-use monet::{Renderable, RenderableID, GrouperID, GrouperIndividual, GrouperIndividualID,
-            MSG_GrouperIndividual_render_to_grouper, MSG_Renderable_setup_in_scene};
+use monet::{Renderable, RenderableID, GrouperID, GrouperIndividual, GrouperIndividualID};
 
 const LANE_ASPHALT_THING_ID: u16 = 2000;
 const LANE_MARKER_THING_ID: u16 = 2200;
@@ -22,6 +22,7 @@ const LANE_MARKER_GAPS_THING_ID: u16 = 2400;
 impl Renderable for Lane {
     fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}
 
+    #[allow(cyclomatic_complexity)]
     fn render_to_scene(
         &mut self,
         renderer_id: RendererID,
@@ -43,15 +44,12 @@ impl Renderable for Lane {
                     instance_position: [position2d.x, position2d.y, 0.0],
                     instance_direction: [direction.x, direction.y],
                     instance_color: if DEBUG_VIEW_LANDMARKS {
-                        ::core::colors::RANDOM_COLORS[car.destination
-                                                          .landmark
-                                                          ._raw_id
-                                                          .instance_id as
-                                                          usize %
-                                                          ::core::colors::RANDOM_COLORS.len()]
+                        colors::RANDOM_COLORS[car.destination.landmark.as_raw().instance_id as
+                                                  usize %
+                                                  colors::RANDOM_COLORS.len()]
                     } else {
-                        ::core::colors::RANDOM_COLORS[car.trip._raw_id.instance_id as usize %
-                                                          ::core::colors::RANDOM_COLORS.len()]
+                        colors::RANDOM_COLORS[car.trip.as_raw().instance_id as usize %
+                                                  colors::RANDOM_COLORS.len()]
                     },
                 })
             }
@@ -165,7 +163,7 @@ impl Renderable for Lane {
             });
             renderer_id.update_individual(
                 scene_id,
-                4000 + self.id._raw_id.instance_id as u16,
+                4000 + self.id.as_raw().instance_id as u16,
                 geometry,
                 instance,
                 true,
@@ -213,9 +211,9 @@ impl Renderable for Lane {
 
         if DEBUG_VIEW_LANDMARKS && self.pathfinding.routes_changed {
             let (random_color, is_landmark) = if let Some(location) = self.pathfinding.location {
-                let random_color: [f32; 3] = ::core::colors::RANDOM_COLORS
-                    [location.landmark._raw_id.instance_id as usize %
-                    ::core::colors::RANDOM_COLORS.len()];
+                let random_color: [f32; 3] =
+                    colors::RANDOM_COLORS[location.landmark.as_raw().instance_id as usize %
+                                              colors::RANDOM_COLORS.len()];
                 let weaker_random_color = [
                     (random_color[0] + 1.0) / 2.0,
                     (random_color[1] + 1.0) / 2.0,
@@ -235,12 +233,53 @@ impl Renderable for Lane {
             );
             renderer_id.update_individual(
                 scene_id,
-                4000 + self.id._raw_id.instance_id as u16,
+                4000 + self.id.as_raw().instance_id as u16,
                 instance,
                 Instance::with_color(random_color),
                 true,
                 world,
             );
+        }
+
+        use super::pathfinding::DEBUG_VIEW_CONNECTIVITY;
+
+        if DEBUG_VIEW_CONNECTIVITY {
+            if !self.pathfinding.debug_highlight_for.is_empty() {
+                let (random_color, is_landmark) =
+                    if let Some(location) = self.pathfinding.location {
+                        let random_color: [f32; 3] = colors::RANDOM_COLORS
+                            [location.landmark.as_raw().instance_id as usize %
+                            colors::RANDOM_COLORS.len()];
+                        (random_color, location.is_landmark())
+                    } else {
+                        ([1.0, 1.0, 1.0], false)
+                    };
+
+                let geometry = band_to_geometry(
+                    &Band::new(
+                        self.construction.path.clone(),
+                        if is_landmark { 2.5 } else { 1.0 },
+                    ),
+                    0.4,
+                );
+                renderer_id.update_individual(
+                    scene_id,
+                    40_000 + self.id.as_raw().instance_id as u16,
+                    geometry,
+                    Instance::with_color(random_color),
+                    true,
+                    world,
+                );
+            } else {
+                renderer_id.update_individual(
+                    scene_id,
+                    40_000 + self.id.as_raw().instance_id as u16,
+                    Geometry::empty(),
+                    Instance::with_color([0.0, 0.0, 0.0]),
+                    true,
+                    world,
+                );
+            }
         }
     }
 }
@@ -265,7 +304,7 @@ impl GrouperIndividual for Lane {
         };
         if base_individual_id == LANE_ASPHALT_THING_ID {
             grouper.update(
-                self.id.into(),
+                self.id_as(),
                 maybe_path
                     .map(|path| {
                         band_to_geometry(
@@ -277,30 +316,30 @@ impl GrouperIndividual for Lane {
                             },
                         )
                     })
-                    .unwrap_or_else(|| Geometry::new(vec![], vec![])),
+                    .unwrap_or_else(Geometry::empty),
                 world,
             );
             if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
                 self.construction.length
             {
-                grouper.freeze(self.id.into(), world);
+                grouper.freeze(self.id_as(), world);
             }
         } else {
             let left_marker = maybe_path
                 .clone()
                 .and_then(|path| path.shift_orthogonally(2.5))
                 .map(|path| band_to_geometry(&Band::new(path, 0.6), 0.1))
-                .unwrap_or_else(|| Geometry::new(vec![], vec![]));
+                .unwrap_or_else(Geometry::empty);
 
             let right_marker = maybe_path
                 .and_then(|path| path.shift_orthogonally(-2.5))
                 .map(|path| band_to_geometry(&Band::new(path, 0.6), 0.1))
-                .unwrap_or_else(|| Geometry::new(vec![], vec![]));
-            grouper.update(self.id.into(), left_marker + right_marker, world);
+                .unwrap_or_else(Geometry::empty);
+            grouper.update(self.id_as(), left_marker + right_marker, world);
             if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
                 self.construction.length
             {
-                grouper.freeze(self.id.into(), world);
+                grouper.freeze(self.id_as(), world);
             }
         }
     }
@@ -334,15 +373,12 @@ impl Renderable for TransferLane {
                     instance_position: [shifted_position2d.x, shifted_position2d.y, 0.0],
                     instance_direction: [rotated_direction.x, rotated_direction.y],
                     instance_color: if DEBUG_VIEW_LANDMARKS {
-                        ::core::colors::RANDOM_COLORS[car.destination
-                                                          .landmark
-                                                          ._raw_id
-                                                          .instance_id as
-                                                          usize %
-                                                          ::core::colors::RANDOM_COLORS.len()]
+                        colors::RANDOM_COLORS[car.destination.landmark.as_raw().instance_id as
+                                                  usize %
+                                                  colors::RANDOM_COLORS.len()]
                     } else {
-                        ::core::colors::RANDOM_COLORS[car.trip._raw_id.instance_id as usize %
-                                                          ::core::colors::RANDOM_COLORS.len()]
+                        colors::RANDOM_COLORS[car.trip.as_raw().instance_id as usize %
+                                                  colors::RANDOM_COLORS.len()]
                     },
                 })
             }
@@ -458,7 +494,7 @@ impl GrouperIndividual for TransferLane {
         };
 
         grouper.update(
-            self.id.into(),
+            self.id_as(),
             maybe_path
                 .map(|path| {
                     dash_path(&path, 2.0, 4.0)
@@ -466,13 +502,13 @@ impl GrouperIndividual for TransferLane {
                         .map(|dash| band_to_geometry(&Band::new(dash, 0.8), 0.2))
                         .sum()
                 })
-                .unwrap_or_else(|| Geometry::new(vec![], vec![])),
+                .unwrap_or_else(Geometry::empty),
             world,
         );
         if self.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY >
             self.construction.length
         {
-            grouper.freeze(self.id.into(), world);
+            grouper.freeze(self.id_as(), world);
         }
     }
 }
@@ -484,21 +520,21 @@ pub fn setup(system: &mut ActorSystem) {
     auto_setup(system);
 
     let asphalt_group = GrouperID::spawn(
-        [0.7, 0.7, 0.7],
+        colors::ASPHALT,
         LANE_ASPHALT_THING_ID,
         false,
         &mut system.world(),
     );
 
     let marker_group = GrouperID::spawn(
-        [1.0, 1.0, 1.0],
+        colors::ROAD_MARKER,
         LANE_MARKER_THING_ID,
         true,
         &mut system.world(),
     );
 
     let gaps_group = GrouperID::spawn(
-        [0.7, 0.7, 0.7],
+        colors::ASPHALT,
         LANE_MARKER_GAPS_THING_ID,
         true,
         &mut system.world(),
@@ -508,8 +544,6 @@ pub fn setup(system: &mut ActorSystem) {
 }
 
 const CONSTRUCTION_ANIMATION_DELAY: f32 = 120.0;
-
-use monet::MSG_Renderable_render_to_scene;
 
 const DEBUG_VIEW_LANDMARKS: bool = false;
 const DEBUG_VIEW_SIGNALS: bool = false;
@@ -555,10 +589,23 @@ impl Renderable for LaneRenderer {
         frame: usize,
         world: &mut World,
     ) {
-        let lanes_as_renderables: RenderableID = LaneID::local_broadcast(world).into();
+        // Render a single invisible car to clean all instances every frame
+        renderer_id.add_instance(
+            scene_id,
+            8000,
+            frame,
+            Instance {
+                instance_position: [-1000000.0, -1000000.0, -1000000.0],
+                instance_direction: [0.0, 0.0],
+                instance_color: [0.0, 0.0, 0.0],
+            },
+            world,
+        );
+
+        let lanes_as_renderables: RenderableID = Lane::local_broadcast(world).into();
         lanes_as_renderables.render_to_scene(renderer_id, scene_id, frame, world);
 
-        let transfer_lanes_as_renderables: RenderableID = TransferLaneID::local_broadcast(world)
+        let transfer_lanes_as_renderables: RenderableID = TransferLane::local_broadcast(world)
             .into();
         transfer_lanes_as_renderables.render_to_scene(renderer_id, scene_id, frame, world);
     }
@@ -616,8 +663,8 @@ impl LaneRenderer {
 }
 
 pub fn on_build(lane: &Lane, world: &mut World) {
-    LaneRendererID::local_first(world).on_build(
-        lane.id.into(),
+    LaneRenderer::local_first(world).on_build(
+        lane.id_as(),
         lane.connectivity
             .on_intersection,
         world,
@@ -625,12 +672,12 @@ pub fn on_build(lane: &Lane, world: &mut World) {
 }
 
 pub fn on_build_transfer(lane: &TransferLane, world: &mut World) {
-    LaneRendererID::local_first(world).on_build_transfer(lane.id.into(), world);
+    LaneRenderer::local_first(world).on_build_transfer(lane.id_as(), world);
 }
 
 pub fn on_unbuild(lane: &Lane, world: &mut World) {
-    LaneRendererID::local_first(world).on_unbuild(
-        lane.id.into(),
+    LaneRenderer::local_first(world).on_unbuild(
+        lane.id_as(),
         lane.connectivity
             .on_intersection,
         world,
@@ -638,10 +685,10 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
 
     if DEBUG_VIEW_LANDMARKS {
         // TODO: move this to LaneRenderer
-        RendererID::local_first(world).update_individual(
+        Renderer::local_first(world).update_individual(
             0,
-            4000 + lane.id._raw_id.instance_id as u16,
-            Geometry::new(vec![], vec![]),
+            4000 + lane.id.as_raw().instance_id as u16,
+            Geometry::empty(),
             Instance::with_color([0.0, 0.0, 0.0]),
             true,
             world,
@@ -649,10 +696,10 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
     }
 
     if DEBUG_VIEW_SIGNALS {
-        RendererID::local_first(world).update_individual(
+        Renderer::local_first(world).update_individual(
             0,
-            4000 + lane.id._raw_id.instance_id as u16,
-            Geometry::new(vec![], vec![]),
+            4000 + lane.id.as_raw().instance_id as u16,
+            Geometry::empty(),
             Instance::with_color([0.0, 0.0, 0.0]),
             true,
             world,
@@ -661,7 +708,7 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
 }
 
 pub fn on_unbuild_transfer(lane: &TransferLane, world: &mut World) {
-    LaneRendererID::local_first(world).on_unbuild_transfer(lane.id.into(), world);
+    LaneRenderer::local_first(world).on_unbuild_transfer(lane.id_as(), world);
 }
 
 mod kay_auto;

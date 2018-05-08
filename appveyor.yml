@@ -11,7 +11,7 @@ environment:
   # don't need
   matrix:
     # Current actual version
-    - RUST_VERSION: nightly-2017-09-28
+    - RUST_VERSION: nightly-2017-12-12
 
     # fresh nightly version
     - RUST_VERSION: nightly

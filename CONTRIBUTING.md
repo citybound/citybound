@@ -2,11 +2,29 @@
 
 * [Reporting bugs](#reporting-bugs)
 * [Contributing to the Design Doc](#contributing-to-the-design-doc)
+* [Compiling Citybound yourself](#compiling-citybound-yourself)
 * [Contributing to the code](#contributing-code)
 
 # Reporting Bugs
 
-Make sure you read: [how to report bugs](https://github.com/citybound/citybound/wiki/How-to-report-bugs)
+If the game stops working, it usually displays a red `SIMULATION BROKE :(` message.
+
+More details should be visible in the editor that automatically opens, or in a `cb_last_error.txt` file in your system's temporary directory.
+
+**First look if your issue has already been reported:**
+* [as a Bug](https://github.com/citybound/citybound/issues?utf8=✓&q=is%3Aissue%20label%3A%22P%20Bug%22%20)
+* [as Not Fun](https://github.com/citybound/citybound/issues?utf8=✓&q=is%3Aissue%20label%3A%22P%20Not%20Fun%22%20)
+* [as an Annoyance](https://github.com/citybound/citybound/issues?q=is%3Aissue+label%3A%22P+Annoyance%22)
+
+If not, [create a new issue](https://github.com/aeickhoff/citybound/issues/new).
+
+* Please provide details
+    * what platform you're on
+    * what you were trying to do or what you expected to happen
+    * what actually happened
+    * the detailed error information
+* Ideally: If the game is still running, take one or several screenshots (camera controls continue to work in many cases)
+* Perfect: Provide precise instructions on how to reproduce the problem (if possible)
 
 # Contributing to the Design Doc
 
@@ -33,27 +51,34 @@ You can make suggestions of every kind:
      * we identify a compromise of a subset of the proposed changes and merge that, or:
      * if our disagreement is too large, the pull request gets closed, but with a thorough explanation from my side
 
-# Contributing Code
+## Compiling Citybound yourself
 
-* **Make sure to <a href="https://www.clahub.com/agreements/citybound/citybound">sign the Contributor License Agreement</a>.**
-* **[Have a look at the documentation](http://citybound.github.io/citybound)**
+Currently Citybound is built with Rust `nightly-2017-12-12'
 
-## Compiling Citybound from source 
-
-Currently Citybound is built with Rust `nightly-2017-09-28'
+**If you want a working version of Citybound,** compile a commit that corresponds to a [release](https://github.com/citybound/citybound/releases), since master might temporarily break or represents work-in-progress state.
 
 Recommended setup:
 * Install [rustup](https://rustup.rs/) and [git](https://git-scm.com/)
 * `git clone https://github.com/citybound/citybound.git`
 * `cd citybound`
 * Windows:
-  * `rustup override add nightly-2017-09-28-x86_64-pc-windows-msvc`
+  * `rustup override add nightly-2017-12-12-x86_64-pc-windows-msvc`
   * Install the [Visual C++ 2015 Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools), unless you have Visual Studio 2015
 * MacOS:
-  * `rustup override add nightly-2017-09-28-x86_64-apple-darwin`
+  * `rustup override add nightly-2017-12-12-x86_64-apple-darwin`
 * Linux:
-  * `rustup override add nightly-2017-09-28-x86_64-unknown-linux-gnu`
+  * `rustup override add nightly-2017-12-12-x86_64-unknown-linux-gnu`
+  * `sudo apt install build-essential` (for Ubuntu)
 * `cargo run --release` (Debug mode is generally too slow to interact with)
+
+# Contributing Code
+
+## Guidelines
+
+* **Make sure to <a href="https://www.clahub.com/agreements/citybound/citybound">sign the Contributor License Agreement</a>.**
+* **[Have a look at the documentation](http://citybound.github.io/citybound)**
+* **Citybound uses trunk-based development,** meaning a very recent work-in-progress state of the code is always in the master branch. The repository owner usually commits directly to master, or uses short-lived feature branches. Contributors use the common fork/pull-request flow and everyone involved tries to get the changes into master as quickly as possible. The newest commits in master might sometimes be broken and not run.
+
 
 ## Getting the recommended dev environment
 
@@ -68,9 +93,15 @@ Recommended setup:
     * Add the following user settings in VSCode
       * `"rust.cargoHomePath": "C:\\firstname\\.cargo"`,
       * `"rust.racerPath": "C:\\firstname\\.cargo\\bin\\racer.exe"`,
-      * `"rust.rustLangSrcPath": "C:\\firstname\\.rustup\\toolchains\\nightly-2017-09-28-x86_64-pc-windows-msvc\\lib\\rustlib\\src\\rust\\src"`
+      * `"rust.rustLangSrcPath": "C:\\firstname\\.rustup\\toolchains\\nightly-2017-12-12-x86_64-pc-windows-msvc\\lib\\rustlib\\src\\rust\\src"`
   * Otherwise it "should just work"
-* For debugging (Linux/MacOS): Install the [LLDB Debugger Extension](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb)
+* For debugging 
+  * Linux/MacOS: 
+    * Install the [LLDB Debugger Extension](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb)
+  * Windows:
+    * Install the [C/C++ Extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools)
+    * Select the "(Windows) Debug" Configuration when running the debug program in VS Code
+
 * Now everything should just work! (fingers crossed)
 
 ## Conforming to style
@@ -84,9 +115,3 @@ Recommended setup:
 ## Have a question? Want to discuss something?
 
 Join me and the other contributors in the [Gitter community for Citybound](https://gitter.im/citybound/Lobby) and ask/discuss away!
-
-## State of the code & organization
-
-The code is in a pretty messy state after a rushed first release, but will become much more modular and well-documented over time.
-Issues are categorized into levels of difficulty amongst other properties, but the ones flagged with "Assistance Welcome" are most likely to be tackleable by outside contributors.
-Pull requests of any kind are welcome, but there is no defined process or acceptance criteria yet, we'll just figure it out along the way.

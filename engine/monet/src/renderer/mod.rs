@@ -1,6 +1,5 @@
 
-pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, ToHomogeneous, Norm, Into2d, Into3d,
-                    WithUniqueOrthogonal, Inverse, Rotate};
+pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, Into2d, Into3d, WithUniqueOrthogonal};
 use compact::CVec;
 use kay::{World, ActorSystem, External};
 
@@ -12,10 +11,9 @@ mod control;
 pub mod movement;
 mod project;
 
-pub use self::control::{TargetProvider, TargetProviderID, MSG_TargetProvider_submitted};
-pub use self::movement::{Movement, EyeListener, EyeListenerID, MSG_EyeListener_eye_moved};
-pub use self::project::{ProjectionRequester, ProjectionRequesterID,
-                        MSG_ProjectionRequester_projected_3d};
+pub use self::control::{TargetProvider, TargetProviderID};
+pub use self::movement::{Movement, EyeListener, EyeListenerID};
+pub use self::project::{ProjectionRequester, ProjectionRequesterID};
 
 #[derive(Compact, Clone)]
 pub struct Renderer {
@@ -60,7 +58,7 @@ impl Renderer {
                     .iter()
                     .map(|description| description.to_scene())
                     .collect(),
-                render_context: RenderContext::new(window.clone(), clear_color),
+                render_context: RenderContext::new(window, clear_color),
             }),
         }
     }
@@ -80,7 +78,7 @@ impl Renderer {
         prototype: &Geometry,
         _: &mut World,
     ) {
-        let batch = Batch::new(prototype.clone(), &self.render_context.window);
+        let batch = Batch::new(prototype, &self.render_context.window);
         self.scenes[scene_id].batches.insert(batch_id, batch);
     }
 
@@ -95,7 +93,7 @@ impl Renderer {
         _: &mut World,
     ) {
         let individual = Batch::new_individual(
-            geometry.clone(),
+            geometry,
             *instance_info,
             is_decal,
             &self.render_context.window,
@@ -171,7 +169,7 @@ pub fn setup(system: &mut ActorSystem) {
     control::auto_setup(system);
     movement::auto_setup(system);
     project::auto_setup(system);
-    super::geometry::setup(system);
+    super::geometry_actors::setup(system);
 }
 
 mod kay_auto;

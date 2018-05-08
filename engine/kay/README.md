@@ -20,10 +20,10 @@ It offers...
    - [X] Actor instances across networked computers
 - [X] A `Recipient<Message>` trait in which a user implements message handling for each message type that an Actor can receive
 - [X] `Swarm`s - collections of large numbers of instances of identical behaviour
-   - [X] Compact and efficiently managed memory storage for dynamically-sized instance state, supplied by `chunked`
+   - [X] Compact and efficiently managed memory storage for dynamically-sized instance state, supplied by `chunky`
    - [X] Dispatch of messages to individual instances
    - [X] Very efficient broadcasting of a message to all instances
-- [ ] Serialisation-free persistence, snapshotting and loading of actor and system state using memory-mapped files, implemented by `chunked`
+- [ ] Serialisation-free persistence, snapshotting and loading of actor and system state using memory-mapped files, implemented by `chunky`
 - [ ] Future-like abstractions for awaiting and aggregating asynchronous responses from other actors
 - [X] *"Essential"* message types that are handled even after a panic occurs in an Actor, allowing interactive inspection of the whole panicked system
 
