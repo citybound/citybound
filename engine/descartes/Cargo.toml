@@ -5,7 +5,6 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
 nalgebra = "0.13.1"
-ncollide_transformation = "0.8.0"
 ordered-float = "0.5.0"
 itertools = "0.7.6"
 clippy = { version = "0.0.175", optional = true }

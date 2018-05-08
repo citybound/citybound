@@ -47,7 +47,8 @@ pub fn render_preview(
 
 
                     }
-                    Prototype::Road(RoadPrototype::TransferLane(TransferLanePrototype(ref lane_path))) => {
+                    Prototype::Road(RoadPrototype::TransferLane(
+                        TransferLanePrototype(ref lane_path))) => {
                         for dash in dash_path(lane_path, 2.0, 4.0) {
                             transfer_lane_geometry +=
                                 band_to_geometry(&Band::new(dash, LANE_DISTANCE - LANE_WIDTH), 0.1);

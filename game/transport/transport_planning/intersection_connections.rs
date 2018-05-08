@@ -274,7 +274,8 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                 };
 
                 if iteration % 2 == 0 {
-                    // straight phase: consider nonconflicting straights, then outer, then inner/u turns
+                    // straight phase: consider nonconflicting straights,
+                    // then outer, then inner/u turns
                     pop_unused_compatible_where(
                         |role| role.straight,
                         &mut current_lanes,
@@ -291,7 +292,8 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                         iteration,
                     );
                 } else {
-                    // inner phase: consider nonconflicting inner/u turns, then outer turns, then straights
+                    // inner phase: consider nonconflicting inner/u turns,
+                    // then outer turns, then straights
                     pop_unused_compatible_where(
                         |role| (role.inner_turn || role.u_turn),
                         &mut current_lanes,
@@ -323,7 +325,8 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                 };
 
                 if iteration % 2 == 0 {
-                    // straight phase: consider nonconflicting straights, then outer, then inner/u turns
+                    // straight phase: consider nonconflicting straights,
+                    // then outer, then inner/u turns
                     reuse_compatible_where(|role| role.straight, &mut current_lanes, iteration);
                     reuse_compatible_where(|role| role.outer_turn, &mut current_lanes, iteration);
                     reuse_compatible_where(
@@ -332,7 +335,8 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                         iteration,
                     );
                 } else {
-                    // inner phase: consider nonconflicting inner/u turns, then outer turns, then straights
+                    // inner phase: consider nonconflicting inner/u turns,
+                    // then outer turns, then straights
                     reuse_compatible_where(
                         |role| (role.inner_turn || role.u_turn),
                         &mut current_lanes,

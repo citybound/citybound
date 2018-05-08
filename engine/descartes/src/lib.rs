@@ -1,7 +1,6 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 extern crate nalgebra;
-extern crate ncollide_transformation;
 extern crate ordered_float;
 extern crate itertools;
 
@@ -30,7 +29,7 @@ mod shapes;
 pub mod clipper;
 
 pub use self::primitives::*;
-pub use self::path::{Path, convex_hull};
+pub use self::path::Path;
 pub use self::intersect::*;
 pub use self::shapes::*;
 

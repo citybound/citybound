@@ -78,23 +78,26 @@ pub fn clip<S: SimpleShape>(
     if DEBUG_PRINT {
         println!(
             r#"
-            <svg width="320" height="320" viewbox="-0.5 -0.5 2.5 2.5" xmlns="http://www.w3.org/2000/svg">
-                <g fill="none" stroke="rgba(0, 0, 255, 0.3)" stroke-width="0.02" marker-end="url(#subj_marker)">
-                    <marker id="subj_marker" viewBox="0 0 6 6" refX="6" refY="3" markerUnits="strokeWidth" orient="auto">
-                        <path d="M 0 0 L 6 3 L 0 6 z" fill="rgba(0, 0, 255, 0.3)"/>
-                    </marker>
-                    <path d="{}"/>
-                </g>
-                <g fill="none" stroke="rgba(255, 0, 0, 0.3)" stroke-width="0.02" marker-end="url(#clip_marker)">
-                    <marker id="clip_marker" viewBox="0 0 6 6" refX="6" refY="3" markerUnits="strokeWidth" orient="auto">
-                        <path d="M 0 0 L 6 3 L 0 6 z" fill="rgba(255, 0, 0, 0.3)"/>
-                    </marker>
-                    <path d="{}"/>
-                </g>
-            
+<svg width="320" height="320" viewbox="-0.5 -0.5 2.5 2.5" xmlns="http://www.w3.org/2000/svg">
+    <g fill="none" stroke="rgba(0, 0, 255, 0.3)"
+       stroke-width="0.02" marker-end="url(#subj_marker)">
+        <marker id="subj_marker" viewBox="0 0 6 6"
+                refX="6" refY="3" markerUnits="strokeWidth" orient="auto">
+            <path d="M 0 0 L 6 3 L 0 6 z" fill="rgba(0, 0, 255, 0.3)"/>
+        </marker>
+        <path d="{}"/>
+    </g>
+    <g fill="none" stroke="rgba(255, 0, 0, 0.3)"
+       stroke-width="0.02" marker-end="url(#clip_marker)">
+        <marker id="clip_marker" viewBox="0 0 6 6"
+                refX="6" refY="3" markerUnits="strokeWidth" orient="auto">
+            <path d="M 0 0 L 6 3 L 0 6 z" fill="rgba(255, 0, 0, 0.3)"/>
+        </marker>
+        <path d="{}"/>
+    </g>
         "#,
-        shapes[SUBJECT].outline().to_svg(),
-        shapes[CLIP].outline().to_svg()
+            shapes[SUBJECT].outline().to_svg(),
+            shapes[CLIP].outline().to_svg()
         );
     }
 
@@ -560,15 +563,16 @@ pub fn clip<S: SimpleShape>(
             if DEBUG_PRINT {
                 println!(
                 r#"
-                    <g fill="none" stroke="rgba(0, 0, 0, 0.2)" stroke-width="0.05" marker-end="url(#result_marker)">
-                        <marker id="result_marker" viewBox="0 0 6 6" refX="6" refY="3" markerUnits="strokeWidth" orient="auto">
+                    <g fill="none" stroke="rgba(0, 0, 0, 0.2)" stroke-width="0.05"
+                       marker-end="url(#result_marker)">
+                        <marker id="result_marker" viewBox="0 0 6 6" refX="6" refY="3"
+                                markerUnits="strokeWidth" orient="auto">
                             <path d="M 0 0 L 6 3 L 0 6 z" fill="rgba(0, 0, 0, 0.1)"/>
                         </marker>
                         <path d="{}"/>
                     </g>
             "#,
                 path.to_svg(),
-                
             );
             }
 

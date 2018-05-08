@@ -356,27 +356,6 @@ impl<'a, T: Path> RoughlyComparable for &'a T {
     }
 }
 
-use ncollide_transformation::convex_hull2_idx;
-
-pub fn convex_hull<P: Path>(points: &[P2]) -> P {
-    let mut hull_indices = convex_hull2_idx(points);
-    let first_index = hull_indices[0];
-    hull_indices.push(first_index);
-    P::new(
-        hull_indices
-            .windows(2)
-            .filter_map(|idx_window| {
-                let (point_1, point_2) = (points[idx_window[0]], points[idx_window[1]]);
-                if point_1.is_roughly_within(point_2, ::primitives::MIN_START_TO_END) {
-                    None
-                } else {
-                    Segment::line(point_1, point_2)
-                }
-            })
-            .collect(),
-    ).unwrap()
-}
-
 #[derive(Clone)]
 pub struct VecPath(Vec<Segment>);
 

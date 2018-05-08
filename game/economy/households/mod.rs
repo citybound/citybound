@@ -1,7 +1,7 @@
 use kay::{ActorSystem, World, Actor, TypedID, Fate};
 use compact::{CVec, CDict, COption, CString};
-use simulation::{Duration, TimeOfDay, Instant, Ticks, Simulation, TICKS_PER_SIM_SECOND,
-                       Sleeper, Simulatable};
+use simulation::{Duration, TimeOfDay, Instant, Ticks, Simulation, TICKS_PER_SIM_SECOND, Sleeper,
+                 Simulatable};
 use util::async_counter::AsyncCounter;
 use util::random::{seed, Rng};
 use ordered_float::OrderedFloat;
