@@ -1,6 +1,6 @@
 # Car Microtraffic
 
-## Design Philosophy & Decisions
+## Philosophy & Decisions
 
 * See [Transport](../README.md)
 

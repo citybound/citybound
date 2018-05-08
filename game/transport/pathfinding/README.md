@@ -1,8 +1,8 @@
 # Car Trips & Pathfinding
 
-## Design Philosophy
+## Philosophy
 
-## Design Decisions
+## Decisions
 
 ## Implementation Philosophy
 
