@@ -4,6 +4,17 @@ use monet::{Vertex, Geometry};
 
 use super::{Lot, BuildingStyle};
 
+pub fn ideal_lot_shape(building_style: BuildingStyle) -> (f32, f32) {
+    match building_style {
+        BuildingStyle::FamilyHouse => (15.0, 40.0),
+        BuildingStyle::GroceryShop => (10.0, 30.0),
+        BuildingStyle::Bakery => (15.0, 30.0),
+        BuildingStyle::Mill => (15.0, 30.0),
+        BuildingStyle::Field => (50.0, 100.0),
+        BuildingStyle::NeighboringTownConnection => (5.0, 5.0),
+    }
+}
+
 #[derive(Compact, Clone)]
 pub struct BuildingGeometry {
     pub wall: Geometry,
