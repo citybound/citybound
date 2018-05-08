@@ -24,7 +24,7 @@ impl RenderContext {
                 fragment: include_str!("shader/solid_140.glslf")
             }).unwrap(),
             window: window.steal(),
-            clear_color: clear_color,
+            clear_color,
         }
     }
 

@@ -14,7 +14,7 @@ impl GridAccelerator {
         GridAccelerator {
             cells: FnvHashMap::default(),
             cells_of: FnvHashMap::default(),
-            cell_size: cell_size,
+            cell_size,
             colocated_pairs: Vec::default(),
         }
     }

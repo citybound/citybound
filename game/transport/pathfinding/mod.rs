@@ -79,7 +79,7 @@ impl ::std::ops::DerefMut for PreciseLocation {
 
 impl Location {
     fn landmark(landmark: NodeID) -> Self {
-        Location { landmark: landmark, node: landmark }
+        Location { landmark, node: landmark }
     }
     pub fn is_landmark(&self) -> bool {
         self.landmark == self.node
@@ -391,11 +391,11 @@ impl Node for Lane {
             self.pathfinding = PathfindingInfo {
                 location: Some(join_as),
                 learned_landmark_from: Some(from),
-                hops_from_landmark: hops_from_landmark,
+                hops_from_landmark,
                 routes: CHashMap::new(),
                 routes_changed: true,
                 query_routes_next_tick: true,
-                tell_to_forget_next_tick: tell_to_forget_next_tick,
+                tell_to_forget_next_tick,
                 routing_timeout: ROUTING_TIMEOUT_AFTER_CHANGE,
                 attachees: self.pathfinding.attachees.clone(),
                 debug_highlight_for: self.pathfinding.debug_highlight_for.clone(),

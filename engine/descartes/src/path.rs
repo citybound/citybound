@@ -54,7 +54,7 @@ pub trait Path: Sized + Clone {
             let original_length = segments.len();
 
             if probably_closed {
-                let first_again = segments[0].clone();
+                let first_again = segments[0];
                 segments.push(first_again);
             }
 
@@ -114,7 +114,7 @@ pub trait Path: Sized + Clone {
 
     // TODO: move this to shape
     fn contains(&self, point: P2) -> bool {
-        let ray = Segment::line(point, P2::new(point.x + 10000000000.0, point.y))
+        let ray = Segment::line(point, P2::new(point.x + 10_000_000_000.0, point.y))
             .expect("Ray should be valid");
         (self, &Self::new_unchecked(vec![ray])).intersect().len() % 2 == 1
     }
@@ -402,8 +402,7 @@ impl<'a, T: Path> RoughlyComparable for &'a T {
                 // since the paths are *not* exactly equal
                 self.segments().iter().all(|segment_1| {
                     other.segments().iter().any(|segment_2| {
-                        let same = segment_1.is_roughly_within(segment_2, tolerance);
-                        same
+                        segment_1.is_roughly_within(segment_2, tolerance)
                     })
                 })
             } else {

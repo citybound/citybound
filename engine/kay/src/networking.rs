@@ -297,6 +297,7 @@ impl Connection {
                             if *bytes_read == packet_buffer.len() {
                                 // let message_type_id =
                                 //               (&buf[0] as *const u8) as *const ShortTypeId;
+                                #[allow(cast_ptr_alignment)]
                                 let recipient_type_id =
                                     (&packet_buffer[::std::mem::size_of::<ShortTypeId>()] as
                                          *const u8) as

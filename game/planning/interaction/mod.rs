@@ -91,7 +91,8 @@ impl PlanManager {
 
         // super ugly of course, maybe we can use a cell or similar in the future
         unsafe {
-            let ui_state_mut: &mut PlanManagerUIState = ::std::mem::transmute(ui_state);
+            let ui_state_mut: &mut PlanManagerUIState =
+                &mut *(ui_state as *const PlanManagerUIState as *mut PlanManagerUIState);
             if ui_state.current_proposal != proposal_id {
                 ui_state_mut.current_preview = COption(None);
             }

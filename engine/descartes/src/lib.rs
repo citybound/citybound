@@ -22,7 +22,7 @@ pub type Persp3 = Perspective3<N>;
 
 // Thickness radius
 const THICKNESS: N = 0.001;
-const ROUGH_TOLERANCE: N = 0.0000001;
+const ROUGH_TOLERANCE: N = 0.000_000_1;
 
 mod primitives;
 mod path;

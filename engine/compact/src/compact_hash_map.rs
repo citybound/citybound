@@ -168,7 +168,7 @@ impl<K: Copy, V: Compact> Compact for Entry<K, V> {
     default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
         (*dest).hash = (*source).hash;
         (*dest).tombstoned = (*source).tombstoned;
-        ::std::ptr::copy_nonoverlapping(&mut (*source).inner, &mut (*dest).inner, 1);
+        ::std::ptr::copy_nonoverlapping(&(*source).inner, &mut (*dest).inner, 1);
         if (*dest).inner.is_some() {
             Compact::compact(
                 &mut (*source).inner.as_mut().unwrap().1,
@@ -240,7 +240,7 @@ impl<T: Default, A: Allocator> CompactArray<T, A> {
     pub fn with_capacity(cap: usize) -> CompactArray<T, A> {
         let mut vec = CompactArray {
             ptr: PointerToMaybeCompact::default(),
-            cap: cap,
+            cap,
             _alloc: PhantomData,
         };
 
@@ -269,7 +269,7 @@ impl<T, A: Allocator> From<Vec<T>> for CompactArray<T, A> {
 
         CompactArray {
             ptr: PointerToMaybeCompact::new_free(p),
-            cap: cap,
+            cap,
             _alloc: PhantomData,
         }
     }
@@ -458,12 +458,7 @@ impl<'a, K, V, A: Allocator> QuadraticProbingIterator<'a, K, V, A> {
         map: &'a OpenAddressingMap<K, V, A>,
         hash: u32,
     ) -> QuadraticProbingIterator<K, V, A> {
-        QuadraticProbingIterator {
-            i: 0,
-            len: map.entries.cap,
-            hash: hash,
-            map: map,
-        }
+        QuadraticProbingIterator { i: 0, len: map.entries.cap, hash, map }
     }
 }
 
@@ -472,12 +467,7 @@ impl<'a, K, V, A: Allocator> QuadraticProbingMutIterator<'a, K, V, A> {
         map: &'a mut OpenAddressingMap<K, V, A>,
         hash: u32,
     ) -> QuadraticProbingMutIterator<K, V, A> {
-        QuadraticProbingMutIterator {
-            i: 0,
-            len: map.entries.cap,
-            hash: hash,
-            map: map,
-        }
+        QuadraticProbingMutIterator { i: 0, len: map.entries.cap, hash, map }
     }
 }
 
@@ -502,7 +492,9 @@ impl<'a, K, V, A: Allocator> Iterator for QuadraticProbingMutIterator<'a, K, V, 
         }
         let index = (self.hash as usize + self.i * self.i) % self.len;
         self.i += 1;
-        Some(unsafe { std::mem::transmute(&mut self.map.entries[index]) })
+        Some(unsafe {
+            &mut *(&mut self.map.entries[index] as *mut Entry<K, V>)
+        })
     }
 }
 

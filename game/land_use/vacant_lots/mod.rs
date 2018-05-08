@@ -1,7 +1,7 @@
 use kay::{World, Fate, ActorSystem};
 use descartes::{P2, V2, Shape, SimpleShape, WithUniqueOrthogonal, Path, FiniteCurve, Segment};
 use descartes::clipper;
-use stagemaster::geometry::{CShape, CPath, add_debug_path};
+use stagemaster::geometry::{CShape, CPath};
 use ordered_float::OrderedFloat;
 
 use land_use::zone_planning::{Lot, BuildingIntent};

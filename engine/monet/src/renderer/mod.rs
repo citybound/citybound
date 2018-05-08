@@ -51,7 +51,7 @@ impl Renderer {
     ) -> Renderer {
         id.setup(world);
         Renderer {
-            id: id,
+            id,
             inner: External::new(RendererState {
                 current_frame: 0,
                 scene: scene_description.to_scene(),

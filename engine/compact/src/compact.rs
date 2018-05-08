@@ -1,5 +1,4 @@
 use std::mem;
-use std::mem::transmute;
 
 /// A trait for objects with a statically-sized part and a potential dynamically-sized part
 /// that can be stored both compactly in consecutive memory or freely on the heap
@@ -22,7 +21,7 @@ pub trait Compact: Sized + Clone {
 
     /// Get a pointer to behind the static part of `self` (commonly used place for the dynamic part)
     unsafe fn behind(ptr: *mut Self) -> *mut u8 {
-        transmute(ptr.offset(1))
+        ptr.offset(1) as *mut u8
     }
 
     /// Like `compact` with `new_dynamic_part` set to `dest.behind()`

@@ -76,7 +76,7 @@ impl CameraControl {
             id,
             renderer_id,
             settings: External::new(env.load_settings("Camera Control")),
-            env: env,
+            env,
             forward: false,
             backward: false,
             left: false,

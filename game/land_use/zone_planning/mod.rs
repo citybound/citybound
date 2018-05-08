@@ -115,7 +115,7 @@ pub fn calculate_prototypes(plan: &Plan, current_result: &PlanResult) -> Vec<Pro
                 }
 
                 Some(Prototype::Lot(LotPrototype {
-                    lot: Lot { shape: shape, ..lot.clone() },
+                    lot: Lot { shape, ..lot.clone() },
                     occupancy: LotOccupancy::Occupied(building_style),
                 }))
             } else {

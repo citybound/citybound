@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 use std::intrinsics::{type_id, type_name};
 use std::convert::From;
-use core::nonzero::NonZero;
+use std::num::NonZeroU16;
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq)]
-pub struct ShortTypeId(NonZero<u16>);
+pub struct ShortTypeId(NonZeroU16);
 
 impl ShortTypeId {
     pub fn new(id: u16) -> Option<Self> {
-        NonZero::new(id).map(ShortTypeId)
+        NonZeroU16::new(id).map(ShortTypeId)
     }
 
     pub fn as_usize(&self) -> usize {

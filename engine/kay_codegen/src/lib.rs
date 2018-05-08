@@ -1,5 +1,4 @@
 #![recursion_limit="256"]
-#![feature(conservative_impl_trait)]
 
 #[cfg(test)]
 #[macro_use]

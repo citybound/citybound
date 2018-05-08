@@ -1,6 +1,7 @@
-#![feature(conservative_impl_trait)]
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
+// temporary fix for https://github.com/glium/glium/issues/1620
+#![cfg_attr(feature="clippy", allow(forget_copy))]
 
 extern crate descartes;
 #[macro_use]

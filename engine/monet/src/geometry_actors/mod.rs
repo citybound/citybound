@@ -60,8 +60,8 @@ impl Grouper {
             id,
             inner: External::new(GrouperInner {
                 instance_color: *instance_color,
-                base_individual_id: base_individual_id,
-                is_decal: is_decal,
+                base_individual_id,
+                is_decal,
                 living_individuals: HashMap::new(),
                 frozen_individuals: HashMap::new(),
                 living_groups: Vec::new(),

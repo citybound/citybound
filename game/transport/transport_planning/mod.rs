@@ -38,8 +38,9 @@ impl RoadPrototype {
             (&RoadPrototype::Lane(ref lane_1), &RoadPrototype::Lane(ref lane_2)) => {
                 lane_1.morphable_from(lane_2)
             }
-            (&RoadPrototype::SwitchLane(ref lane_1),
-             &RoadPrototype::SwitchLane(ref lane_2)) => lane_1.morphable_from(lane_2),
+            (&RoadPrototype::SwitchLane(ref lane_1), &RoadPrototype::SwitchLane(ref lane_2)) => {
+                lane_1.morphable_from(lane_2)
+            }
             (&RoadPrototype::Intersection(ref intersection_1),
              &RoadPrototype::Intersection(ref intersection_2)) => {
                 intersection_1.morphable_from(intersection_2)
@@ -289,7 +290,7 @@ pub fn calculate_prototypes(plan: &Plan, _current_result: &PlanResult) -> Vec<Pr
         .into_iter()
         .map(|shape| {
             Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
-                shape: shape,
+                shape,
                 incoming: CHashMap::new(),
                 outgoing: CHashMap::new(),
                 connecting_lanes: CHashMap::new(),

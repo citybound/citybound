@@ -159,6 +159,7 @@ impl<D: Into<Duration>> ::std::ops::Add<D> for TimeOfDay {
 }
 
 impl<D: Into<Duration>> ::std::ops::AddAssign<D> for TimeOfDay {
+    #[allow(suspicious_op_assign_impl)]
     fn add_assign(&mut self, rhs: D) {
         self.minutes_of_day += (rhs.into().0 / 60) as u16
     }
@@ -173,6 +174,7 @@ impl<D: Into<Duration>> ::std::ops::Sub<D> for TimeOfDay {
 }
 
 impl<D: Into<Duration>> ::std::ops::SubAssign<D> for TimeOfDay {
+    #[allow(suspicious_op_assign_impl)]
     fn sub_assign(&mut self, rhs: D) {
         self.minutes_of_day -= (rhs.into().0 / 60) as u16
     }

@@ -16,7 +16,6 @@
 #![warn(missing_docs)]
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
-#![feature(conservative_impl_trait)]
 #![feature(specialization)]
 #![feature(optin_builtin_traits)]
 
