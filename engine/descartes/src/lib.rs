@@ -4,7 +4,8 @@ extern crate nalgebra;
 extern crate ordered_float;
 extern crate itertools;
 
-use nalgebra::{Vector2, Point2, Vector3, Vector4, Point3, Isometry3, Perspective3, Matrix4, dot};
+use nalgebra::{Vector2, Point2, Vector3, Vector4, Point3, Isometry3, Affine3, Perspective3,
+               Matrix4, dot};
 pub use nalgebra::try_inverse;
 use std::f32::consts::PI;
 
@@ -16,6 +17,7 @@ pub type V4 = Vector4<N>;
 pub type P3 = Point3<N>;
 pub type M4 = Matrix4<N>;
 pub type Iso3 = Isometry3<N>;
+pub type Aff3 = Affine3<N>;
 pub type Persp3 = Perspective3<N>;
 
 // Thickness radius
