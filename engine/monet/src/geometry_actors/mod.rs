@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use itertools::Itertools;
 
 pub trait GrouperIndividual {
-    fn render_to_grouper(&mut self, grouper: GrouperID, base_individual_id: u16, world: &mut World);
+    fn render_to_grouper(&mut self, grouper: GrouperID, base_individual_id: u32, world: &mut World);
 }
 
 #[derive(Clone)]
@@ -18,7 +18,7 @@ struct GrouperRendererState {
 
 pub struct GrouperInner {
     instance_color: [f32; 3],
-    base_individual_id: u16,
+    base_individual_id: u32,
     is_decal: bool,
     living_individuals: HashMap<GrouperIndividualID, Geometry>,
     frozen_individuals: HashMap<GrouperIndividualID, Geometry>,
@@ -52,7 +52,7 @@ impl Grouper {
     pub fn spawn(
         id: GrouperID,
         instance_color: &[f32; 3],
-        base_individual_id: u16,
+        base_individual_id: u32,
         is_decal: bool,
         _: &mut World,
     ) -> Grouper {
@@ -182,9 +182,9 @@ impl Renderable for Grouper {
         );
 
         for (i, living_group) in self.living_groups.iter().enumerate() {
-            if (i as u16) < FROZEN_OFFSET {
+            if (i as u32) < FROZEN_OFFSET {
                 renderer_id.update_individual(
-                    self.base_individual_id + i as u16,
+                    self.base_individual_id + i as u32,
                     living_group.clone(),
                     Instance {
                         instance_position: [0.0, 0.0, -0.1],
@@ -201,7 +201,7 @@ impl Renderable for Grouper {
             ::std::cmp::min(new_renderer_state.n_living_groups, FROZEN_OFFSET as usize)
         {
             renderer_id.update_individual(
-                self.base_individual_id + i as u16,
+                self.base_individual_id + i as u32,
                 Geometry::empty(),
                 Instance::with_color([0.0, 0.0, 0.0]),
                 self.is_decal,
@@ -211,12 +211,12 @@ impl Renderable for Grouper {
 
         new_renderer_state.n_living_groups = self.living_groups.len();
 
-        const FROZEN_OFFSET: u16 = 100;
+        const FROZEN_OFFSET: u32 = 100;
 
         if !new_renderer_state.frozen_up_to_date {
             for (i, frozen_group) in self.frozen_groups.iter().enumerate() {
                 renderer_id.update_individual(
-                    self.base_individual_id + FROZEN_OFFSET + i as u16,
+                    self.base_individual_id + FROZEN_OFFSET + i as u32,
                     frozen_group.clone(),
                     Instance {
                         instance_position: [0.0, 0.0, -0.1],
@@ -230,7 +230,7 @@ impl Renderable for Grouper {
 
             for i in self.frozen_groups.len()..new_renderer_state.n_frozen_groups {
                 renderer_id.update_individual(
-                    self.base_individual_id + FROZEN_OFFSET + i as u16,
+                    self.base_individual_id + FROZEN_OFFSET + i as u32,
                     Geometry::empty(),
                     Instance::with_color([0.0, 0.0, 0.0]),
                     self.is_decal,

@@ -68,7 +68,7 @@ impl Renderer {
     }
 
     /// Critical
-    pub fn add_batch(&mut self, batch_id: u16, prototype: &Geometry, _: &mut World) {
+    pub fn add_batch(&mut self, batch_id: u32, prototype: &Geometry, _: &mut World) {
         let batch = Batch::new(prototype, &self.render_context.window);
         self.scene.batches.insert(batch_id, batch);
     }
@@ -76,7 +76,7 @@ impl Renderer {
     /// Critical
     pub fn update_individual(
         &mut self,
-        individual_id: u16,
+        individual_id: u32,
         geometry: &Geometry,
         instance_info: &Instance,
         is_decal: bool,
@@ -94,7 +94,7 @@ impl Renderer {
     /// Critical
     pub fn add_instance(
         &mut self,
-        batch_id: u16,
+        batch_id: u32,
         frame: usize,
         instance_info: Instance,
         _: &mut World,
@@ -116,7 +116,7 @@ impl Renderer {
     /// Critical
     pub fn add_several_instances(
         &mut self,
-        batch_id: u16,
+        batch_id: u32,
         frame: usize,
         instances: &CVec<Instance>,
         _: &mut World,

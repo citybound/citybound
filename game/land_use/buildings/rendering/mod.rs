@@ -11,6 +11,7 @@ use imgui::ImGuiSetCond_FirstUseEver;
 use super::{Building, Lot, BuildingID, BuildingPlanResultDelta, BuildingStyle};
 use economy::households::HouseholdID;
 use style::colors;
+use render_layers::RenderLayers;
 
 use super::architecture::{BuildingGeometry, build_building};
 
@@ -128,10 +129,30 @@ impl BuildingRenderer {
     pub fn spawn(id: BuildingRendererID, world: &mut World) -> BuildingRenderer {
         BuildingRenderer {
             id,
-            wall_grouper: GrouperID::spawn(colors::WALL, 5000, false, world),
-            flat_roof_grouper: GrouperID::spawn(colors::FLAT_ROOF, 5100, false, world),
-            brick_roof_grouper: GrouperID::spawn(colors::BRICK_ROOF, 5200, false, world),
-            field_grouper: GrouperID::spawn(colors::FIELD, 5300, false, world),
+            wall_grouper: GrouperID::spawn(
+                colors::WALL,
+                RenderLayers::BuildingWall as u32,
+                false,
+                world,
+            ),
+            flat_roof_grouper: GrouperID::spawn(
+                colors::FLAT_ROOF,
+                RenderLayers::BuildingFlatRoof as u32,
+                false,
+                world,
+            ),
+            brick_roof_grouper: GrouperID::spawn(
+                colors::BRICK_ROOF,
+                RenderLayers::BuildingBrickRoof as u32,
+                false,
+                world,
+            ),
+            field_grouper: GrouperID::spawn(
+                colors::FIELD,
+                RenderLayers::BuildingField as u32,
+                false,
+                world,
+            ),
             current_n_buildings_to_be_destroyed: CDict::new(),
         }
     }
@@ -192,7 +213,7 @@ impl BuildingRenderer {
             .unwrap_or(0);
         for i in new_buildings_to_be_destroyed.len()..existing_n_to_be_destroyed {
             renderer_id.update_individual(
-                37_000 + i as u16,
+                RenderLayers::BuildingToBeDestroyed as u32 + i as u32,
                 Geometry::empty(),
                 Instance::with_color([1.0, 0.0, 0.0]),
                 true,
@@ -226,7 +247,7 @@ impl Renderable for BuildingRenderer {
         //     ),
         // ]);
         // let building_circle = band_to_geometry(&Band::new(band_path, 2.0), 0.0);
-        // renderer_id.add_batch(11_111, building_circle, world);
+        // renderer_id.add_batch(RenderLayers::DebugBuildingConnector as u32, building_circle, world);
         Into::<RenderableID>::into(self.wall_grouper).setup_in_scene(renderer_id, world);
         Into::<RenderableID>::into(self.flat_roof_grouper).setup_in_scene(renderer_id, world);
         Into::<RenderableID>::into(self.brick_roof_grouper).setup_in_scene(renderer_id, world);
@@ -260,7 +281,7 @@ impl Renderable for BuildingRenderer {
 //             GroceryShopID::local_broadcast(world).as_raw();
 //         renderer_id.add_instance(
 //             scene_id,
-//             11_111,
+//             RenderLayers::DebugBuildingConnector as u32,
 //             frame,
 //             Instance {
 //                 instance_position: [self.lot.position.x, self.lot.position.y, 0.0],
@@ -333,7 +354,7 @@ impl Building {
             geometries.field;
 
         renderer_id.update_individual(
-            37_000 + building_index as u16,
+            RenderLayers::BuildingToBeDestroyed as u32 + building_index as u32,
             combined_geometry,
             Instance::with_color([1.0, 0.0, 0.0]),
             true,

@@ -46,7 +46,7 @@ impl SceneDescription {
 pub struct Scene {
     description: SceneDescription,
     pub eye_listeners: CVec<EyeListenerID>,
-    pub batches: FnvHashMap<u16, Batch>,
+    pub batches: FnvHashMap<u32, Batch>,
 }
 
 impl ::std::ops::Deref for Scene {

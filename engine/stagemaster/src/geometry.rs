@@ -191,7 +191,7 @@ pub fn dash_path<P: Path>(path: &P, dash_length: f32, gap_length: f32) -> Vec<P>
     dashes
 }
 
-static mut LAST_DEBUG_THING: u16 = 0;
+static mut LAST_DEBUG_THING: u32 = 0;
 pub static mut DEBUG_RENDERER: Option<RendererID> = None;
 
 use kay::World;
@@ -206,7 +206,7 @@ pub fn add_debug_line(from: P2, to: P2, color: [f32; 3], z: f32, world: &mut Wor
 pub fn add_debug_path(path: CPath, color: [f32; 3], z: f32, world: &mut World) {
     if let Some(renderer) = unsafe { DEBUG_RENDERER } {
         renderer.update_individual(
-            50_000 + unsafe { LAST_DEBUG_THING },
+            4_000_000_000 + unsafe { LAST_DEBUG_THING },
             band_to_geometry(&Band::new(path, 0.2), z),
             Instance::with_color(color),
             true,
@@ -228,7 +228,7 @@ pub fn add_debug_point(point: P2, color: [f32; 3], z: f32, world: &mut World) {
             vec![0, 1, 2, 2, 3, 0],
         );
         renderer.update_individual(
-            50_000 + unsafe { LAST_DEBUG_THING },
+            4_000_000_000 + unsafe { LAST_DEBUG_THING },
             geometry,
             Instance::with_color(color),
             true,

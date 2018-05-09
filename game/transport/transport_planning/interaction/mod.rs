@@ -5,6 +5,7 @@ use monet::{RendererID, Instance, Geometry};
 use stagemaster::user_interface::{UserInterfaceID, Interactable3d, Interactable3dID, Event3d};
 use stagemaster::geometry::{band_to_geometry, AnyShape, CPath, dash_path};
 use style::colors;
+use render_layers::RenderLayers;
 
 use ui_layers::UILayer;
 
@@ -81,7 +82,7 @@ pub fn render_preview(
     }
 
     renderer_id.update_individual(
-        18_000,
+        RenderLayers::PlanningLane as u32,
         lane_geometry,
         Instance::with_color(colors::STROKE_BASE),
         true,
@@ -89,7 +90,7 @@ pub fn render_preview(
     );
 
     renderer_id.update_individual(
-        18_001,
+        RenderLayers::PlanningTransferLane as u32,
         transfer_lane_geometry,
         Instance::with_color(colors::STROKE_BASE),
         true,
@@ -97,7 +98,7 @@ pub fn render_preview(
     );
 
     renderer_id.update_individual(
-        18_002,
+        RenderLayers::PlanningIntersection as u32,
         intersection_geometry,
         Instance::with_color(colors::SELECTION_STROKE),
         true,

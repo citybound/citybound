@@ -3,6 +3,7 @@ use descartes::{P2, V2, Band, Segment, Path};
 use monet::{RendererID, Renderable, RenderableID, Instance, Geometry};
 use stagemaster::geometry::{band_to_geometry, CPath};
 use style::colors;
+use render_layers::RenderLayers;
 
 use super::{PlanManager, PlanManagerID};
 use super::interaction::{ControlPointRef, CONTROL_POINT_HANDLE_RADIUS};
@@ -29,7 +30,11 @@ impl Renderable for PlanManager {
             1.0,
         );
 
-        renderer_id.add_batch(20_000, dot_geometry, world);
+        renderer_id.add_batch(
+            RenderLayers::PlanningGestureDots as u32,
+            dot_geometry,
+            world,
+        );
     }
 
     fn render_to_scene(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
@@ -70,7 +75,7 @@ impl Renderable for PlanManager {
                     Geometry::empty()
                 };
                 renderer_id.update_individual(
-                    19_000 + i as u16,
+                    RenderLayers::PlanningGestureLines as u32 + i as u32,
                     line_geometry,
                     Instance::with_color(colors::GESTURE_LINES),
                     true,
@@ -107,7 +112,12 @@ impl Renderable for PlanManager {
             })
             .collect();
 
-        renderer_id.add_several_instances(20_000, frame, control_point_instances, world);
+        renderer_id.add_several_instances(
+            RenderLayers::PlanningGestureDots as u32,
+            frame,
+            control_point_instances,
+            world,
+        );
     }
 }
 

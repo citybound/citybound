@@ -6,6 +6,7 @@ use monet::{RendererID, Geometry, Instance};
 use planning::{PlanResult, Prototype};
 use construction::Action;
 use style::colors;
+use render_layers::RenderLayers;
 
 use super::{LotPrototype, Lot, LotOccupancy};
 
@@ -33,7 +34,7 @@ pub fn render_preview(
     }
 
     renderer_id.update_individual(
-        18_003,
+        RenderLayers::PlanningLot as u32,
         lot_geometry,
         Instance::with_color(colors::RESIDENTIAL),
         true,
@@ -41,7 +42,7 @@ pub fn render_preview(
     );
 
     renderer_id.update_individual(
-        18_004,
+        RenderLayers::PlanningLotOutline as u32,
         lot_outline_geometry,
         Instance::with_color(colors::CONTROL_POINT_SELECTED),
         true,

@@ -43,6 +43,7 @@ mod construction;
 mod economy;
 mod land_use;
 mod ui_layers;
+mod render_layers;
 mod style;
 
 use kay::Actor;
