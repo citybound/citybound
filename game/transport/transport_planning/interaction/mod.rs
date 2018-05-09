@@ -6,7 +6,7 @@ use stagemaster::user_interface::{UserInterfaceID, Interactable3d, Interactable3
 use stagemaster::geometry::{band_to_geometry, AnyShape, CPath, dash_path};
 use style::colors;
 
-use ui_layers::GESTURE_LAYER;
+use ui_layers::UILayer;
 
 use planning::{Plan, GestureIntent, PlanResult, Prototype, GestureID, ProposalID, PlanManagerID};
 use planning::interaction::{GestureInteractable, GestureInteractableID};
@@ -131,7 +131,7 @@ impl LaneCountInteractable {
         world: &mut World,
     ) -> Self {
         user_interface.add(
-            GESTURE_LAYER,
+            UILayer::Gesture as usize,
             id.into(),
             AnyShape::Band(Band::new(path.clone(), 3.0)),
             1,
@@ -153,7 +153,7 @@ impl LaneCountInteractable {
 
 impl GestureInteractable for LaneCountInteractable {
     fn remove(&self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(GESTURE_LAYER, self.id.into(), world);
+        user_interface.remove(UILayer::Gesture as usize, self.id.into(), world);
         Fate::Die
     }
 }

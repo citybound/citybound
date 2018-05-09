@@ -52,8 +52,7 @@ pub struct CameraControl {
     last_cursor_3d: P3,
 }
 
-use user_interface::{Event3d, Interactable3d, Interactable3dID, UserInterfaceID,
-                     UserInterfaceLayer};
+use user_interface::{Event3d, Interactable3d, Interactable3dID, UserInterfaceID};
 
 impl CameraControl {
     pub fn spawn(
@@ -64,7 +63,7 @@ impl CameraControl {
         world: &mut World,
     ) -> Self {
         ui_id.add(
-            UserInterfaceLayer(0),
+            0,
             id.into(),
             super::geometry::AnyShape::Everywhere,
             0,

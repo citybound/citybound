@@ -1,12 +1,14 @@
 use kay::{Actor, ActorSystem, World};
-use stagemaster::{Interactable2d, Interactable2dID, UserInterface, UserInterfaceID,
-                  UserInterfaceLayer};
+use stagemaster::{Interactable2d, Interactable2dID, UserInterface, UserInterfaceID};
 use imgui::ImGuiSetCond_FirstUseEver;
 
-pub const BASE_LAYER: UserInterfaceLayer = UserInterfaceLayer(0);
-pub const GESTURE_LAYER: UserInterfaceLayer = UserInterfaceLayer(1);
-pub const INFO_LAYER: UserInterfaceLayer = UserInterfaceLayer(2);
-pub const DEBUG_LAYER: UserInterfaceLayer = UserInterfaceLayer(999);
+#[repr(usize)]
+pub enum UILayer {
+    Base,
+    Gesture,
+    Info,
+    Debug,
+}
 
 #[derive(Compact, Clone)]
 pub struct LayerSelection {
@@ -32,10 +34,20 @@ impl Interactable2d for LayerSelection {
             .build(|| {
 
                 if ui.small_button(im_str!("Planning")) {
-                    UserInterface::local_first(world).set_current_layer(Some(GESTURE_LAYER), world);
+                    UserInterface::local_first(world).set_current_layer(
+                        Some(
+                            UILayer::Gesture as usize,
+                        ),
+                        world,
+                    );
                 }
                 if ui.small_button(im_str!("Info")) {
-                    UserInterface::local_first(world).set_current_layer(Some(INFO_LAYER), world);
+                    UserInterface::local_first(world).set_current_layer(
+                        Some(
+                            UILayer::Info as usize,
+                        ),
+                        world,
+                    );
                 }
             });
     }

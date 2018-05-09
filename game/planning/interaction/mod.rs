@@ -4,7 +4,7 @@ use descartes::{N, P2, Into2d, Circle};
 use stagemaster::{UserInterfaceID, Interactable3d, Interactable3dID, Interactable2d,
                   Interactable2dID};
 use stagemaster::geometry::AnyShape;
-use ui_layers::GESTURE_LAYER;
+use ui_layers::UILayer;
 use imgui::ImGuiSetCond_FirstUseEver;
 
 use super::{Plan, PlanResult, GestureID, ProposalID, PlanManager, PlanManagerID, Gesture,
@@ -456,7 +456,7 @@ impl ControlPointInteractable {
         world: &mut World,
     ) -> Self {
         user_interface.add(
-            GESTURE_LAYER,
+            UILayer::Gesture as usize,
             id.into(),
             AnyShape::Circle(Circle {
                 center: position,
@@ -478,7 +478,7 @@ impl ControlPointInteractable {
 
 impl GestureInteractable for ControlPointInteractable {
     fn remove(&self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(GESTURE_LAYER, self.id.into(), world);
+        user_interface.remove(UILayer::Gesture as usize, self.id.into(), world);
         Fate::Die
     }
 }
@@ -540,7 +540,13 @@ impl GestureCanvas {
         proposal_id: ProposalID,
         world: &mut World,
     ) -> Self {
-        user_interface.add(GESTURE_LAYER, id.into(), AnyShape::Everywhere, 0, world);
+        user_interface.add(
+            UILayer::Gesture as usize,
+            id.into(),
+            AnyShape::Everywhere,
+            0,
+            world,
+        );
         user_interface.add_2d(id.into(), world);
 
         GestureCanvas {
@@ -555,7 +561,7 @@ impl GestureCanvas {
     }
 
     pub fn remove(&self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
-        user_interface.remove(GESTURE_LAYER, self.id.into(), world);
+        user_interface.remove(UILayer::Gesture as usize, self.id.into(), world);
         user_interface.remove_2d(self.id.into(), world);
         Fate::Die
     }

@@ -71,8 +71,7 @@ pub struct UserInterface {
     inner: External<UserInterfaceInner>,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct UserInterfaceLayer(pub usize);
+pub type UserInterfaceLayer = usize;
 
 pub struct UserInterfaceInner {
     events_loop: EventsLoop,
