@@ -3,7 +3,7 @@ use compact::CVec;
 use kay::{ActorSystem, World, Actor, TypedID};
 use monet::{Instance, Vertex, Geometry, Renderer, RendererID};
 use stagemaster::geometry::{band_to_geometry, dash_path};
-use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
+use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
 use render_layers::RenderLayers;
 
 use style::colors;
@@ -345,7 +345,7 @@ impl GrouperIndividual for Lane {
     }
 }
 
-impl Renderable for TransferLane {
+impl Renderable for SwitchLane {
     fn setup_in_scene(&mut self, _renderer_id: RendererID, _: &mut World) {}
 
     fn render_to_scene(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
@@ -360,9 +360,9 @@ impl Renderable for TransferLane {
                 let position2d = segment.along(*car.position - current_offset);
                 let direction = segment.direction_along(*car.position - current_offset);
                 let rotated_direction =
-                    (direction + 0.3 * car.transfer_velocity * direction.orthogonal()).normalize();
+                    (direction + 0.3 * car.switch_velocity * direction.orthogonal()).normalize();
                 let shifted_position2d = position2d +
-                    2.5 * direction.orthogonal() * car.transfer_position;
+                    2.5 * direction.orthogonal() * car.switch_position;
                 car_instances.push(Instance {
                     instance_position: [shifted_position2d.x, shifted_position2d.y, 0.0],
                     instance_direction: [rotated_direction.x, rotated_direction.y],
@@ -471,7 +471,7 @@ impl Renderable for TransferLane {
     }
 }
 
-impl GrouperIndividual for TransferLane {
+impl GrouperIndividual for SwitchLane {
     fn render_to_grouper(
         &mut self,
         grouper: GrouperID,
@@ -610,9 +610,8 @@ impl Renderable for LaneRenderer {
         let lanes_as_renderables: RenderableID = Lane::local_broadcast(world).into();
         lanes_as_renderables.render_to_scene(renderer_id, frame, world);
 
-        let transfer_lanes_as_renderables: RenderableID = TransferLane::local_broadcast(world)
-            .into();
-        transfer_lanes_as_renderables.render_to_scene(renderer_id, frame, world);
+        let switch_lanes_as_renderables: RenderableID = SwitchLane::local_broadcast(world).into();
+        switch_lanes_as_renderables.render_to_scene(renderer_id, frame, world);
     }
 }
 
@@ -645,7 +644,7 @@ impl LaneRenderer {
         }
     }
 
-    pub fn on_build_transfer(&mut self, lane: GrouperIndividualID, world: &mut World) {
+    pub fn on_build_switch(&mut self, lane: GrouperIndividualID, world: &mut World) {
         self.gaps_grouper.initial_add(lane, world);
     }
 
@@ -662,7 +661,7 @@ impl LaneRenderer {
         }
     }
 
-    pub fn on_unbuild_transfer(&mut self, lane: GrouperIndividualID, world: &mut World) {
+    pub fn on_unbuild_switch(&mut self, lane: GrouperIndividualID, world: &mut World) {
         self.gaps_grouper.remove(lane, world);
     }
 }
@@ -676,8 +675,8 @@ pub fn on_build(lane: &Lane, world: &mut World) {
     );
 }
 
-pub fn on_build_transfer(lane: &TransferLane, world: &mut World) {
-    LaneRenderer::local_first(world).on_build_transfer(lane.id_as(), world);
+pub fn on_build_switch(lane: &SwitchLane, world: &mut World) {
+    LaneRenderer::local_first(world).on_build_switch(lane.id_as(), world);
 }
 
 pub fn on_unbuild(lane: &Lane, world: &mut World) {
@@ -712,8 +711,8 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
     }
 }
 
-pub fn on_unbuild_transfer(lane: &TransferLane, world: &mut World) {
-    LaneRenderer::local_first(world).on_unbuild_transfer(lane.id_as(), world);
+pub fn on_unbuild_switch(lane: &SwitchLane, world: &mut World) {
+    LaneRenderer::local_first(world).on_unbuild_switch(lane.id_as(), world);
 }
 
 mod kay_auto;

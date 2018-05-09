@@ -4,7 +4,7 @@ use ordered_float::OrderedFloat;
 use std::f32::INFINITY;
 use std::ops::{Deref, DerefMut};
 
-use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
+use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
 use super::pathfinding;
 
@@ -115,9 +115,9 @@ impl DerefMut for LaneCar {
 #[derive(Copy, Clone)]
 pub struct TransferringLaneCar {
     as_lane_car: LaneCar,
-    pub transfer_position: f32,
-    pub transfer_velocity: f32,
-    pub transfer_acceleration: f32,
+    pub switch_position: f32,
+    pub switch_velocity: f32,
+    pub switch_acceleration: f32,
     cancelling: bool,
 }
 
@@ -505,7 +505,7 @@ impl Simulatable for Lane {
     }
 }
 
-impl LaneLike for TransferLane {
+impl LaneLike for SwitchLane {
     fn add_car(
         &mut self,
         car: LaneCar,
@@ -513,7 +513,7 @@ impl LaneLike for TransferLane {
         _tick: Instant,
         _: &mut World,
     ) {
-        let from = maybe_from.expect("car has to come from somewhere on transfer lane");
+        let from = maybe_from.expect("car has to come from somewhere on switch lane");
 
         let from_left = from ==
             self.connectivity
@@ -525,9 +525,9 @@ impl LaneLike for TransferLane {
         let offset = self.interaction_to_self_offset(*car.position, from_left);
         self.microtraffic.cars.push(TransferringLaneCar {
             as_lane_car: car.offset_by(offset),
-            transfer_position: 1.0 * side_multiplier,
-            transfer_velocity: 0.0,
-            transfer_acceleration: 0.3 * -side_multiplier,
+            switch_position: 1.0 * side_multiplier,
+            switch_velocity: 0.0,
+            switch_acceleration: 0.3 * -side_multiplier,
             cancelling: false,
         });
         // TODO: optimize using BinaryHeap?
@@ -561,12 +561,12 @@ impl LaneLike for TransferLane {
                     .collect();
             };
         } else {
-            println!("transfer lane not connected for obstacles yet");
+            println!("switch lane not connected for obstacles yet");
         }
     }
 }
 
-impl Simulatable for TransferLane {
+impl Simulatable for SwitchLane {
     fn tick(&mut self, dt: f32, current_instant: Instant, world: &mut World) {
         let dt = dt / MICROTRAFFIC_UNREALISTIC_SLOWDOWN;
 
@@ -594,7 +594,7 @@ impl Simulatable for TransferLane {
                         .map(|other_car| &other_car.as_obstacle);
 
                     let maybe_next_left_obstacle =
-                        if car.transfer_position < 0.3 || car.transfer_acceleration < 0.0 {
+                        if car.switch_position < 0.3 || car.switch_acceleration < 0.0 {
                             self.microtraffic.left_obstacles.iter().find(|obstacle| {
                                 *obstacle.position + 5.0 > *car.position
                             })
@@ -603,7 +603,7 @@ impl Simulatable for TransferLane {
                         };
 
                     let maybe_next_right_obstacle =
-                        if car.transfer_position > -0.3 || car.transfer_acceleration > 0.0 {
+                        if car.switch_position > -0.3 || car.switch_acceleration > 0.0 {
                             self.microtraffic.right_obstacles.iter().find(|obstacle| {
                                 *obstacle.position + 5.0 > *car.position
                             })
@@ -626,13 +626,12 @@ impl Simulatable for TransferLane {
                         .min()
                         .unwrap();
 
-                    let transfer_before_end_velocity =
+                    let switch_before_end_velocity =
                         (self.construction.length + 1.0 - *car.position) / 1.5;
-                    let transfer_before_end_acceleration = transfer_before_end_velocity -
-                        car.velocity;
+                    let switch_before_end_acceleration = switch_before_end_velocity - car.velocity;
 
                     (
-                        next_obstacle_acceleration.min(transfer_before_end_acceleration),
+                        next_obstacle_acceleration.min(switch_before_end_acceleration),
                         dangerous,
                     )
                 };
@@ -641,7 +640,7 @@ impl Simulatable for TransferLane {
                 car.acceleration = acceleration;
 
                 if dangerous && !car.cancelling {
-                    car.transfer_acceleration = -car.transfer_acceleration;
+                    car.switch_acceleration = -car.switch_acceleration;
                     car.cancelling = true;
                 }
             }
@@ -652,10 +651,10 @@ impl Simulatable for TransferLane {
             car.velocity = (car.velocity + dt * car.acceleration)
                 .min(car.max_velocity)
                 .max(0.0);
-            car.transfer_position += dt * car.transfer_velocity;
-            car.transfer_velocity += dt * car.transfer_acceleration;
-            if car.transfer_velocity.abs() > car.velocity / 12.0 {
-                car.transfer_velocity = car.velocity / 12.0 * car.transfer_velocity.signum();
+            car.switch_position += dt * car.switch_velocity;
+            car.switch_velocity += dt * car.switch_acceleration;
+            if car.switch_velocity.abs() > car.velocity / 12.0 {
+                car.switch_velocity = car.velocity / 12.0 * car.switch_velocity.signum();
             }
         }
 
@@ -682,9 +681,9 @@ impl Simulatable for TransferLane {
             let mut i = 0;
             loop {
                 let (should_remove, done) = if let Some(car) = self.microtraffic.cars.get(i) {
-                    if car.transfer_position > 1.0 ||
+                    if car.switch_position > 1.0 ||
                         (*car.position > self.construction.length &&
-                             car.transfer_acceleration > 0.0)
+                            car.switch_acceleration > 0.0)
                     {
                         let right_as_lane: LaneLikeID = right.into();
                         right_as_lane.add_car(
@@ -700,9 +699,9 @@ impl Simulatable for TransferLane {
                             world,
                         );
                         (true, false)
-                    } else if car.transfer_position < -1.0 ||
+                    } else if car.switch_position < -1.0 ||
                                (*car.position > self.construction.length &&
-                                    car.transfer_acceleration <= 0.0)
+                                    car.switch_acceleration <= 0.0)
                     {
                         let left_as_lane: LaneLikeID = left.into();
                         left_as_lane.add_car(
@@ -739,8 +738,8 @@ impl Simulatable for TransferLane {
                 let obstacles = self.microtraffic
                     .cars
                     .iter()
-                    .filter_map(|car| if car.transfer_position < 0.3 ||
-                        car.transfer_acceleration < 0.0
+                    .filter_map(|car| if car.switch_position < 0.3 ||
+                        car.switch_acceleration < 0.0
                     {
                         Some(car.as_obstacle.offset_by(
                             left_start +
@@ -763,8 +762,8 @@ impl Simulatable for TransferLane {
                 let obstacles = self.microtraffic
                     .cars
                     .iter()
-                    .filter_map(|car| if car.transfer_position > -0.3 ||
-                        car.transfer_acceleration > 0.0
+                    .filter_map(|car| if car.switch_position > -0.3 ||
+                        car.switch_acceleration > 0.0
                     {
                         Some(car.as_obstacle.offset_by(
                             right_start +

@@ -55,17 +55,17 @@ impl Lane {
 }
 
 #[derive(Compact, Clone)]
-pub struct TransferLane {
-    pub id: TransferLaneID,
+pub struct SwitchLane {
+    pub id: SwitchLaneID,
     pub construction: ConstructionInfo,
     pub connectivity: TransferConnectivityInfo,
     pub microtraffic: TransferringMicrotraffic,
 }
 
 
-impl TransferLane {
-    pub fn spawn(id: TransferLaneID, path: &CPath, _: &mut World) -> TransferLane {
-        TransferLane {
+impl SwitchLane {
+    pub fn spawn(id: SwitchLaneID, path: &CPath, _: &mut World) -> SwitchLane {
+        SwitchLane {
             id,
             construction: ConstructionInfo::from_path(path.clone()),
             connectivity: TransferConnectivityInfo::default(),
@@ -150,7 +150,7 @@ impl Interactable3d for Lane {
 
 pub fn setup(system: &mut ActorSystem) {
     system.register::<Lane>();
-    system.register::<TransferLane>();
+    system.register::<SwitchLane>();
 
     auto_setup(system);
 }

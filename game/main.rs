@@ -49,7 +49,7 @@ mod style;
 use kay::Actor;
 use compact::CVec;
 use monet::Grouper;
-use transport::lane::{Lane, TransferLane};
+use transport::lane::{Lane, SwitchLane};
 use transport::rendering::LaneRenderer;
 use economy::households::family::Family;
 use economy::households::grocery_shop::GroceryShop;
@@ -77,7 +77,7 @@ fn main() {
 
         let simulatables = vec![
             Lane::local_broadcast(world).into(),
-            TransferLane::local_broadcast(world).into(),
+            SwitchLane::local_broadcast(world).into(),
             Family::local_broadcast(world).into(),
             GroceryShop::local_broadcast(world).into(),
             GrainFarm::local_broadcast(world).into(),

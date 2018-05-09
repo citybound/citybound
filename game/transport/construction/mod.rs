@@ -6,13 +6,13 @@ use itertools::Itertools;
 use stagemaster::geometry::CPath;
 use ordered_float::OrderedFloat;
 
-use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
+use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
 use super::microtraffic::LaneLikeID;
 
 use planning::Prototype;
 use construction::{ConstructionID, Constructable, ConstructableID};
-use super::transport_planning::{RoadPrototype, LanePrototype, TransferLanePrototype,
+use super::transport_planning::{RoadPrototype, LanePrototype, SwitchLanePrototype,
                                 IntersectionPrototype};
 
 const CONNECTION_TOLERANCE: f32 = 0.1;
@@ -26,9 +26,9 @@ impl RoadPrototype {
                         .into(),
                 ].into()
             }
-            RoadPrototype::TransferLane(TransferLanePrototype(ref path)) => {
+            RoadPrototype::SwitchLane(SwitchLanePrototype(ref path)) => {
                 vec![
-                    TransferLaneID::spawn_and_connect(path.clone(), report_to, world).into(),
+                    SwitchLaneID::spawn_and_connect(path.clone(), report_to, world).into(),
                 ].into()
             }
             RoadPrototype::Intersection(IntersectionPrototype { ref connecting_lanes, .. }) => {
@@ -74,7 +74,7 @@ impl Constructable for Lane {
     }
 }
 
-impl Constructable for TransferLane {
+impl Constructable for SwitchLane {
     fn morph(&mut self, _new_prototype: &Prototype, report_to: ConstructionID, world: &mut World) {
         report_to.action_done(self.id_as(), world);
     }
@@ -137,8 +137,7 @@ impl Lane {
             world,
         );
         if !on_intersection {
-            TransferLane::global_broadcast(world)
-                .connect_transfer_to_normal(id, path.clone(), world);
+            SwitchLane::global_broadcast(world).connect_switch_to_normal(id, path.clone(), world);
         }
         report_to.action_done(id.into(), world);
         Lane::spawn(id, path, on_intersection, timings, world)
@@ -325,11 +324,11 @@ impl Lane {
         });
     }
 
-    pub fn connect_to_transfer(&mut self, other_id: TransferLaneID, world: &mut World) {
-        other_id.connect_transfer_to_normal(self.id, self.construction.path.clone(), world);
+    pub fn connect_to_switch(&mut self, other_id: SwitchLaneID, world: &mut World) {
+        other_id.connect_switch_to_normal(self.id, self.construction.path.clone(), world);
     }
 
-    pub fn add_transfer_lane_interaction(&mut self, interaction: Interaction, _: &mut World) {
+    pub fn add_switch_lane_interaction(&mut self, interaction: Interaction, _: &mut World) {
         let already_a_partner = self.connectivity.interactions.iter().any(|existing| {
             existing.partner_lane == interaction.partner_lane
         });
@@ -488,24 +487,24 @@ impl Lane {
     }
 }
 
-impl TransferLane {
+impl SwitchLane {
     pub fn spawn_and_connect(
-        id: TransferLaneID,
+        id: SwitchLaneID,
         path: &CPath,
         report_to: ConstructionID,
         world: &mut World,
-    ) -> TransferLane {
-        Lane::global_broadcast(world).connect_to_transfer(id, world);
+    ) -> SwitchLane {
+        Lane::global_broadcast(world).connect_to_switch(id, world);
 
-        let lane = TransferLane::spawn(id, path, world);
-        super::rendering::on_build_transfer(&lane, world);
+        let lane = SwitchLane::spawn(id, path, world);
+        super::rendering::on_build_switch(&lane, world);
 
         report_to.action_done(id.into(), world);
 
         lane
     }
 
-    pub fn connect_transfer_to_normal(
+    pub fn connect_switch_to_normal(
         &mut self,
         other_id: LaneID,
         other_path: &CPath,
@@ -527,7 +526,7 @@ impl TransferLane {
                 if lane_start_on_other.is_roughly_within(self.construction.path.start(), 3.0) &&
                     lane_end_on_other.is_roughly_within(self.construction.path.end(), 3.0)
                 {
-                    other_id.add_transfer_lane_interaction(
+                    other_id.add_switch_lane_interaction(
                         Interaction {
                             partner_lane: self.id_as(),
                             start: lane_start_on_other_distance,
@@ -550,7 +549,7 @@ impl TransferLane {
                             distance_covered += segment.length();
                             let segment_end_on_other_distance =
                                 other_path.project(segment.end()).expect(
-                                    "should contain transfer lane segment end",
+                                    "should contain switch lane segment end",
                                 );
                             (
                                 distance_covered,
@@ -577,7 +576,7 @@ impl TransferLane {
     }
 }
 
-impl Unbuildable for TransferLane {
+impl Unbuildable for SwitchLane {
     fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World) {
         self.connectivity.left = self.connectivity.left.and_then(
             // TODO: ugly: untyped RawID shenanigans
@@ -609,7 +608,7 @@ impl Unbuildable for TransferLane {
         if let Some((right_id, _)) = self.connectivity.right {
             Into::<UnbuildableID>::into(right_id).disconnect(self.id_as(), world);
         }
-        super::rendering::on_unbuild_transfer(self, world);
+        super::rendering::on_unbuild_switch(self, world);
         if self.connectivity.left.is_none() && self.connectivity.right.is_none() {
             self.finalize(report_to, world);
             Fate::Die
@@ -640,7 +639,7 @@ impl Unbuildable for TransferLane {
     }
 }
 
-impl TransferLane {
+impl SwitchLane {
     fn finalize(&self, report_to: ConstructionID, world: &mut World) {
         report_to.action_done(self.id_as(), world);
 

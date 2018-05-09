@@ -13,9 +13,8 @@ use planning::{Plan, GestureIntent, PlanResult, Prototype, GestureID, ProposalID
 use planning::interaction::{GestureInteractable, GestureInteractableID};
 use construction::Action;
 
-use super::{RoadIntent, RoadPrototype, LanePrototype, TransferLanePrototype,
-            IntersectionPrototype, LANE_WIDTH, LANE_DISTANCE, CENTER_LANE_DISTANCE,
-            gesture_intent_smooth_paths};
+use super::{RoadIntent, RoadPrototype, LanePrototype, SwitchLanePrototype, IntersectionPrototype,
+            LANE_WIDTH, LANE_DISTANCE, CENTER_LANE_DISTANCE, gesture_intent_smooth_paths};
 
 pub fn render_preview(
     result_preview: &PlanResult,
@@ -25,7 +24,7 @@ pub fn render_preview(
     world: &mut World,
 ) {
     let mut lane_geometry = Geometry::empty();
-    let mut transfer_lane_geometry = Geometry::empty();
+    let mut switch_lane_geometry = Geometry::empty();
     let mut intersection_geometry = Geometry::empty();
 
     if let Some(ref action_preview) = *maybe_action_preview {
@@ -47,10 +46,10 @@ pub fn render_preview(
 
 
                     }
-                    Prototype::Road(RoadPrototype::TransferLane(
-                        TransferLanePrototype(ref lane_path))) => {
+                    Prototype::Road(RoadPrototype::SwitchLane(
+                        SwitchLanePrototype(ref lane_path))) => {
                         for dash in dash_path(lane_path, 2.0, 4.0) {
-                            transfer_lane_geometry +=
+                            switch_lane_geometry +=
                                 band_to_geometry(&Band::new(dash, LANE_DISTANCE - LANE_WIDTH), 0.1);
                         }
                     }
@@ -90,8 +89,8 @@ pub fn render_preview(
     );
 
     renderer_id.update_individual(
-        RenderLayers::PlanningTransferLane as u32,
-        transfer_lane_geometry,
+        RenderLayers::PlanningSwitchLane as u32,
+        switch_lane_geometry,
         Instance::with_color(colors::STROKE_BASE),
         true,
         world,

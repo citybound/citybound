@@ -27,7 +27,7 @@ impl RoadIntent {
 #[derive(Compact, Clone)]
 pub enum RoadPrototype {
     Lane(LanePrototype),
-    TransferLane(TransferLanePrototype),
+    SwitchLane(SwitchLanePrototype),
     Intersection(IntersectionPrototype),
     PavedArea(CShape),
 }
@@ -38,8 +38,8 @@ impl RoadPrototype {
             (&RoadPrototype::Lane(ref lane_1), &RoadPrototype::Lane(ref lane_2)) => {
                 lane_1.morphable_from(lane_2)
             }
-            (&RoadPrototype::TransferLane(ref lane_1),
-             &RoadPrototype::TransferLane(ref lane_2)) => lane_1.morphable_from(lane_2),
+            (&RoadPrototype::SwitchLane(ref lane_1),
+             &RoadPrototype::SwitchLane(ref lane_2)) => lane_1.morphable_from(lane_2),
             (&RoadPrototype::Intersection(ref intersection_1),
              &RoadPrototype::Intersection(ref intersection_2)) => {
                 intersection_1.morphable_from(intersection_2)
@@ -64,12 +64,12 @@ impl LanePrototype {
 }
 
 #[derive(Compact, Clone)]
-pub struct TransferLanePrototype(pub CPath);
+pub struct SwitchLanePrototype(pub CPath);
 
-impl TransferLanePrototype {
-    pub fn morphable_from(&self, other: &TransferLanePrototype) -> bool {
+impl SwitchLanePrototype {
+    pub fn morphable_from(&self, other: &SwitchLanePrototype) -> bool {
         match (self, other) {
-            (&TransferLanePrototype(ref path_1), &TransferLanePrototype(ref path_2)) => {
+            (&SwitchLanePrototype(ref path_1), &SwitchLanePrototype(ref path_2)) => {
                 path_1.is_roughly_within(path_2, 0.05)
             }
         }
@@ -405,7 +405,7 @@ pub fn calculate_prototypes(plan: &Plan, _current_result: &PlanResult) -> Vec<Pr
             .collect::<Vec<_>>()
     };
 
-    let transfer_lane_paths = {
+    let switch_lane_paths = {
         const TRANSFER_LANE_DISTANCE_TOLERANCE: N = 0.3;
         let right_lane_paths_and_bands = intersected_lane_paths
             .iter()
@@ -508,8 +508,8 @@ pub fn calculate_prototypes(plan: &Plan, _current_result: &PlanResult) -> Vec<Pr
         .chain(intersected_lane_paths.into_iter().map(|path| {
             Prototype::Road(RoadPrototype::Lane(LanePrototype(path, CVec::new())))
         }))
-        .chain(transfer_lane_paths.into_iter().map(|path| {
-            Prototype::Road(RoadPrototype::TransferLane(TransferLanePrototype(path)))
+        .chain(switch_lane_paths.into_iter().map(|path| {
+            Prototype::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(path)))
         }))
         .chain(gesture_shapes_for_intersection.into_iter().map(|shape| {
             Prototype::Road(RoadPrototype::PavedArea(shape))

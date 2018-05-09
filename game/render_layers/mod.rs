@@ -8,7 +8,7 @@ pub enum RenderLayers {
     LaneMarkerGaps = 220_000_000,
 
     PlanningLane = 300_000_000,
-    PlanningTransferLane = 310_000_000,
+    PlanningSwitchLane = 310_000_000,
     PlanningIntersection = 320_000_000,
 
     Car = 400_000_000,
