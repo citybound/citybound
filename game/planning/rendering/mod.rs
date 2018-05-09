@@ -8,7 +8,7 @@ use super::{PlanManager, PlanManagerID};
 use super::interaction::{ControlPointRef, CONTROL_POINT_HANDLE_RADIUS};
 
 impl Renderable for PlanManager {
-    fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
+    fn setup_in_scene(&mut self, renderer_id: RendererID, world: &mut World) {
         let dot_geometry = band_to_geometry(
             &Band::new(
                 CPath::new(
@@ -29,16 +29,10 @@ impl Renderable for PlanManager {
             1.0,
         );
 
-        renderer_id.add_batch(scene_id, 20_000, dot_geometry, world);
+        renderer_id.add_batch(20_000, dot_geometry, world);
     }
 
-    fn render_to_scene(
-        &mut self,
-        renderer_id: RendererID,
-        scene_id: usize,
-        frame: usize,
-        world: &mut World,
-    ) {
+    fn render_to_scene(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         // TODO: clean up this mess
         let proposal_id = self.ui_state
             .get(renderer_id.as_raw().machine)
@@ -56,7 +50,6 @@ impl Renderable for PlanManager {
                 result_preview,
                 maybe_actions_preview,
                 renderer_id,
-                scene_id,
                 frame,
                 world,
             );
@@ -77,7 +70,6 @@ impl Renderable for PlanManager {
                     Geometry::empty()
                 };
                 renderer_id.update_individual(
-                    scene_id,
                     19_000 + i as u16,
                     line_geometry,
                     Instance::with_color(colors::GESTURE_LINES),
@@ -115,7 +107,7 @@ impl Renderable for PlanManager {
             })
             .collect();
 
-        renderer_id.add_several_instances(scene_id, 20_000, frame, control_point_instances, world);
+        renderer_id.add_several_instances(20_000, frame, control_point_instances, world);
     }
 }
 

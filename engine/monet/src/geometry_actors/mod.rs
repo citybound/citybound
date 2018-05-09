@@ -133,15 +133,9 @@ impl Grouper {
 use {Renderable, RendererID, RenderableID};
 
 impl Renderable for Grouper {
-    fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}
+    fn setup_in_scene(&mut self, _renderer_id: RendererID, _: &mut World) {}
 
-    fn render_to_scene(
-        &mut self,
-        renderer_id: RendererID,
-        scene_id: usize,
-        _frame: usize,
-        world: &mut World,
-    ) {
+    fn render_to_scene(&mut self, renderer_id: RendererID, _frame: usize, world: &mut World) {
 
         // kinda ugly way to enforce only one update per "global" frame
         if renderer_id.as_raw().machine == self.id.as_raw().machine {
@@ -190,7 +184,6 @@ impl Renderable for Grouper {
         for (i, living_group) in self.living_groups.iter().enumerate() {
             if (i as u16) < FROZEN_OFFSET {
                 renderer_id.update_individual(
-                    scene_id,
                     self.base_individual_id + i as u16,
                     living_group.clone(),
                     Instance {
@@ -208,7 +201,6 @@ impl Renderable for Grouper {
             ::std::cmp::min(new_renderer_state.n_living_groups, FROZEN_OFFSET as usize)
         {
             renderer_id.update_individual(
-                scene_id,
                 self.base_individual_id + i as u16,
                 Geometry::empty(),
                 Instance::with_color([0.0, 0.0, 0.0]),
@@ -224,7 +216,6 @@ impl Renderable for Grouper {
         if !new_renderer_state.frozen_up_to_date {
             for (i, frozen_group) in self.frozen_groups.iter().enumerate() {
                 renderer_id.update_individual(
-                    scene_id,
                     self.base_individual_id + FROZEN_OFFSET + i as u16,
                     frozen_group.clone(),
                     Instance {
@@ -239,7 +230,6 @@ impl Renderable for Grouper {
 
             for i in self.frozen_groups.len()..new_renderer_state.n_frozen_groups {
                 renderer_id.update_individual(
-                    scene_id,
                     self.base_individual_id + FROZEN_OFFSET + i as u16,
                     Geometry::empty(),
                     Instance::with_color([0.0, 0.0, 0.0]),

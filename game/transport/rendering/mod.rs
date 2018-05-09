@@ -20,16 +20,10 @@ const LANE_MARKER_THING_ID: u16 = 2200;
 const LANE_MARKER_GAPS_THING_ID: u16 = 2400;
 
 impl Renderable for Lane {
-    fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}
+    fn setup_in_scene(&mut self, _renderer_id: RendererID, _: &mut World) {}
 
     #[allow(cyclomatic_complexity)]
-    fn render_to_scene(
-        &mut self,
-        renderer_id: RendererID,
-        scene_id: usize,
-        frame: usize,
-        world: &mut World,
-    ) {
+    fn render_to_scene(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         let mut cars_iter = self.microtraffic.cars.iter();
         let mut current_offset = 0.0;
         let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
@@ -76,7 +70,7 @@ impl Renderable for Lane {
         }
 
         if !car_instances.is_empty() {
-            renderer_id.add_several_instances(scene_id, 8000, frame, car_instances, world);
+            renderer_id.add_several_instances(8000, frame, car_instances, world);
         }
         // no traffic light for u-turn
         if self.connectivity.on_intersection &&
@@ -114,7 +108,7 @@ impl Renderable for Lane {
                 instance_direction: [direction.x, direction.y],
                 instance_color: [0.1, 0.1, 0.1],
             };
-            renderer_id.add_instance(scene_id, 8001, frame, instance, world);
+            renderer_id.add_instance(8001, frame, instance, world);
 
             if self.microtraffic.yellow_to_red && self.microtraffic.green {
                 let instance = Instance {
@@ -122,14 +116,14 @@ impl Renderable for Lane {
                     instance_direction: [direction.x, direction.y],
                     instance_color: [1.0, 0.8, 0.0],
                 };
-                renderer_id.add_instance(scene_id, batch_id, frame, instance, world)
+                renderer_id.add_instance(batch_id, frame, instance, world)
             } else if self.microtraffic.green {
                 let instance = Instance {
                     instance_position: [position.x, position.y, 6.1],
                     instance_direction: [direction.x, direction.y],
                     instance_color: [0.0, 1.0, 0.2],
                 };
-                renderer_id.add_instance(scene_id, batch_id, frame, instance, world)
+                renderer_id.add_instance(batch_id, frame, instance, world)
             }
 
             if !self.microtraffic.green {
@@ -138,7 +132,7 @@ impl Renderable for Lane {
                     instance_direction: [direction.x, direction.y],
                     instance_color: [1.0, 0.0, 0.0],
                 };
-                renderer_id.add_instance(scene_id, batch_id, frame, instance, world);
+                renderer_id.add_instance(batch_id, frame, instance, world);
 
                 if self.microtraffic.yellow_to_green {
                     let instance = Instance {
@@ -146,7 +140,7 @@ impl Renderable for Lane {
                         instance_direction: [direction.x, direction.y],
                         instance_color: [1.0, 0.8, 0.0],
                     };
-                    renderer_id.add_instance(scene_id, batch_id, frame, instance, world)
+                    renderer_id.add_instance(batch_id, frame, instance, world)
                 }
             }
         }
@@ -162,7 +156,6 @@ impl Renderable for Lane {
                 [1.0, 0.0, 0.0]
             });
             renderer_id.update_individual(
-                scene_id,
                 4000 + self.id.as_raw().instance_id as u16,
                 geometry,
                 instance,
@@ -187,7 +180,7 @@ impl Renderable for Lane {
         //         instance_direction: [1.0, 0.0],
         //         instance_color: [1.0, 0.0, 0.0],
         //     };
-        //     renderer_id.add_instance(scene_id, 1333, frame, instance, world);
+        //     renderer_id.add_instance( 1333, frame, instance, world);
         // }
 
         // let has_previous = self.connectivity.interactions.iter().any(|inter| {
@@ -206,7 +199,7 @@ impl Renderable for Lane {
         //         instance_direction: [1.0, 0.0],
         //         instance_color: [0.0, 1.0, 0.0],
         //     };
-        //     renderer_id.add_instance(scene_id, 1333, frame, instance, world);
+        //     renderer_id.add_instance( 1333, frame, instance, world);
         // }
 
         if DEBUG_VIEW_LANDMARKS && self.pathfinding.routes_changed {
@@ -232,7 +225,6 @@ impl Renderable for Lane {
                 0.4,
             );
             renderer_id.update_individual(
-                scene_id,
                 4000 + self.id.as_raw().instance_id as u16,
                 instance,
                 Instance::with_color(random_color),
@@ -263,7 +255,6 @@ impl Renderable for Lane {
                     0.4,
                 );
                 renderer_id.update_individual(
-                    scene_id,
                     40_000 + self.id.as_raw().instance_id as u16,
                     geometry,
                     Instance::with_color(random_color),
@@ -272,7 +263,6 @@ impl Renderable for Lane {
                 );
             } else {
                 renderer_id.update_individual(
-                    scene_id,
                     40_000 + self.id.as_raw().instance_id as u16,
                     Geometry::empty(),
                     Instance::with_color([0.0, 0.0, 0.0]),
@@ -346,15 +336,9 @@ impl GrouperIndividual for Lane {
 }
 
 impl Renderable for TransferLane {
-    fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}
+    fn setup_in_scene(&mut self, _renderer_id: RendererID, _: &mut World) {}
 
-    fn render_to_scene(
-        &mut self,
-        renderer_id: RendererID,
-        scene_id: usize,
-        frame: usize,
-        world: &mut World,
-    ) {
+    fn render_to_scene(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         let mut cars_iter = self.microtraffic.cars.iter();
         let mut current_offset = 0.0;
         let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
@@ -432,7 +416,7 @@ impl Renderable for TransferLane {
         }
 
         if !car_instances.is_empty() {
-            renderer_id.add_several_instances(scene_id, 8000, frame, car_instances, world);
+            renderer_id.add_several_instances(8000, frame, car_instances, world);
         }
 
         if self.connectivity.left.is_none() {
@@ -442,7 +426,6 @@ impl Renderable for TransferLane {
                     .direction_along(self.construction.length / 2.0)
                     .orthogonal();
             renderer_id.add_instance(
-                scene_id,
                 1333,
                 frame,
                 Instance {
@@ -460,7 +443,6 @@ impl Renderable for TransferLane {
                     .direction_along(self.construction.length / 2.0)
                     .orthogonal();
             renderer_id.add_instance(
-                scene_id,
                 1333,
                 frame,
                 Instance {
@@ -559,15 +541,14 @@ pub struct LaneRenderer {
 }
 
 impl Renderable for LaneRenderer {
-    fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
-        renderer_id.add_batch(scene_id, 8000, car::create(), world);
-        renderer_id.add_batch(scene_id, 8001, traffic_light::create(), world);
-        renderer_id.add_batch(scene_id, 8002, traffic_light::create_light(), world);
-        renderer_id.add_batch(scene_id, 8003, traffic_light::create_light_left(), world);
-        renderer_id.add_batch(scene_id, 8004, traffic_light::create_light_right(), world);
+    fn setup_in_scene(&mut self, renderer_id: RendererID, world: &mut World) {
+        renderer_id.add_batch(8000, car::create(), world);
+        renderer_id.add_batch(8001, traffic_light::create(), world);
+        renderer_id.add_batch(8002, traffic_light::create_light(), world);
+        renderer_id.add_batch(8003, traffic_light::create_light_left(), world);
+        renderer_id.add_batch(8004, traffic_light::create_light_right(), world);
 
         renderer_id.add_batch(
-            scene_id,
             1333,
             Geometry::new(
                 vec![
@@ -582,16 +563,9 @@ impl Renderable for LaneRenderer {
         );
     }
 
-    fn render_to_scene(
-        &mut self,
-        renderer_id: RendererID,
-        scene_id: usize,
-        frame: usize,
-        world: &mut World,
-    ) {
+    fn render_to_scene(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         // Render a single invisible car to clean all instances every frame
         renderer_id.add_instance(
-            scene_id,
             8000,
             frame,
             Instance {
@@ -603,11 +577,11 @@ impl Renderable for LaneRenderer {
         );
 
         let lanes_as_renderables: RenderableID = Lane::local_broadcast(world).into();
-        lanes_as_renderables.render_to_scene(renderer_id, scene_id, frame, world);
+        lanes_as_renderables.render_to_scene(renderer_id, frame, world);
 
         let transfer_lanes_as_renderables: RenderableID = TransferLane::local_broadcast(world)
             .into();
-        transfer_lanes_as_renderables.render_to_scene(renderer_id, scene_id, frame, world);
+        transfer_lanes_as_renderables.render_to_scene(renderer_id, frame, world);
     }
 }
 
@@ -686,7 +660,6 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
     if DEBUG_VIEW_LANDMARKS {
         // TODO: move this to LaneRenderer
         Renderer::local_first(world).update_individual(
-            0,
             4000 + lane.id.as_raw().instance_id as u16,
             Geometry::empty(),
             Instance::with_color([0.0, 0.0, 0.0]),
@@ -697,7 +670,6 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
 
     if DEBUG_VIEW_SIGNALS {
         Renderer::local_first(world).update_individual(
-            0,
             4000 + lane.id.as_raw().instance_id as u16,
             Geometry::empty(),
             Instance::with_color([0.0, 0.0, 0.0]),

@@ -20,7 +20,6 @@ pub fn render_preview(
     result_preview: &PlanResult,
     maybe_action_preview: &Option<CVec<CVec<Action>>>,
     renderer_id: RendererID,
-    scene_id: usize,
     frame: usize,
     world: &mut World,
 ) {
@@ -82,7 +81,6 @@ pub fn render_preview(
     }
 
     renderer_id.update_individual(
-        scene_id,
         18_000,
         lane_geometry,
         Instance::with_color(colors::STROKE_BASE),
@@ -91,7 +89,6 @@ pub fn render_preview(
     );
 
     renderer_id.update_individual(
-        scene_id,
         18_001,
         transfer_lane_geometry,
         Instance::with_color(colors::STROKE_BASE),
@@ -100,7 +97,6 @@ pub fn render_preview(
     );
 
     renderer_id.update_individual(
-        scene_id,
         18_002,
         intersection_geometry,
         Instance::with_color(colors::SELECTION_STROKE),

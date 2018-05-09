@@ -13,7 +13,6 @@ pub fn render_preview(
     result_preview: &PlanResult,
     _maybe_action_preview: &Option<CVec<CVec<Action>>>,
     renderer_id: RendererID,
-    scene_id: usize,
     _frame: usize,
     world: &mut World,
 ) {
@@ -34,7 +33,6 @@ pub fn render_preview(
     }
 
     renderer_id.update_individual(
-        scene_id,
         18_003,
         lot_geometry,
         Instance::with_color(colors::RESIDENTIAL),
@@ -43,7 +41,6 @@ pub fn render_preview(
     );
 
     renderer_id.update_individual(
-        scene_id,
         18_004,
         lot_outline_geometry,
         Instance::with_color(colors::CONTROL_POINT_SELECTED),

@@ -19,29 +19,27 @@ pub trait EyeListener {
 
 impl Renderer {
     /// Critical
-    pub fn move_eye(&mut self, scene_id: usize, movement: Movement, world: &mut World) {
+    pub fn move_eye(&mut self, movement: Movement, world: &mut World) {
         match movement {
-            Movement::Shift(delta) => self.movement_shift(scene_id, delta),
-            Movement::ShiftAbsolute(delta) => self.movement_shift_absolute(scene_id, delta),
+            Movement::Shift(delta) => self.movement_shift(delta),
+            Movement::ShiftAbsolute(delta) => self.movement_shift_absolute(delta),
             Movement::ShiftProjected(source_2d, target_2d) => {
-                self.movement_shift_projected(scene_id, source_2d, target_2d)
+                self.movement_shift_projected(source_2d, target_2d)
             }
-            Movement::Zoom(delta, mouse_position) => {
-                self.movement_zoom(scene_id, delta, mouse_position)
-            }
-            Movement::Yaw(delta) => self.movement_yaw(scene_id, delta),
-            Movement::Pitch(delta) => self.movement_pitch(scene_id, delta),
+            Movement::Zoom(delta, mouse_position) => self.movement_zoom(delta, mouse_position),
+            Movement::Yaw(delta) => self.movement_yaw(delta),
+            Movement::Pitch(delta) => self.movement_pitch(delta),
         }
 
-        for listener in &self.scenes[scene_id].eye_listeners {
-            listener.eye_moved(self.scenes[scene_id].eye, movement, world);
+        for listener in &self.scene.eye_listeners {
+            listener.eye_moved(self.scene.eye, movement, world);
         }
     }
 }
 
 impl Renderer {
-    fn movement_shift(&mut self, scene_id: usize, delta: V3) {
-        let eye = &mut self.scenes[scene_id].eye;
+    fn movement_shift(&mut self, delta: V3) {
+        let eye = &mut self.scene.eye;
         let eye_direction_2d = (eye.target - eye.position).into_2d().normalize();
         let absolute_delta = delta.x * eye_direction_2d.into_3d() +
             delta.y * eye_direction_2d.orthogonal().into_3d() +
@@ -53,19 +51,19 @@ impl Renderer {
         eye.target += absolute_delta * (dist_to_target / 500.0);
     }
 
-    fn movement_shift_absolute(&mut self, scene_id: usize, delta: V3) {
-        let eye = &mut self.scenes[scene_id].eye;
+    fn movement_shift_absolute(&mut self, delta: V3) {
+        let eye = &mut self.scene.eye;
         eye.position += delta;
         eye.target += delta;
     }
 
-    fn movement_shift_projected(&mut self, scene_id: usize, source_2d: P2, target_2d: P2) {
-        let difference_3d = self.project(scene_id, source_2d) - self.project(scene_id, target_2d);
-        self.movement_shift_absolute(scene_id, difference_3d);
+    fn movement_shift_projected(&mut self, source_2d: P2, target_2d: P2) {
+        let difference_3d = self.project(source_2d) - self.project(target_2d);
+        self.movement_shift_absolute(difference_3d);
     }
 
-    fn movement_zoom(&mut self, scene_id: usize, delta: N, zoom_point: P3) {
-        let eye = &mut self.scenes[scene_id].eye;
+    fn movement_zoom(&mut self, delta: N, zoom_point: P3) {
+        let eye = &mut self.scene.eye;
 
         // Cache common calculations
         let zoom_direction = (zoom_point - eye.position).normalize();
@@ -86,8 +84,8 @@ impl Renderer {
         );
     }
 
-    fn movement_yaw(&mut self, scene_id: usize, delta: N) {
-        let eye = &mut self.scenes[scene_id].eye;
+    fn movement_yaw(&mut self, delta: N) {
+        let eye = &mut self.scene.eye;
         let relative_eye_position = eye.position - eye.target;
         let iso = Iso3::new(V3::new(0.0, 0.0, 0.0), V3::new(0.0, 0.0, delta));
         let rotated_relative_eye_position = iso * relative_eye_position;
@@ -95,8 +93,8 @@ impl Renderer {
         eye.position = eye.target + rotated_relative_eye_position;
     }
 
-    fn movement_pitch(&mut self, scene_id: usize, delta: N) {
-        let eye = &mut self.scenes[scene_id].eye;
+    fn movement_pitch(&mut self, delta: N) {
+        let eye = &mut self.scene.eye;
         let relative_eye_position = eye.position - eye.target;
 
         // Convert relative eye position to spherical coordinates

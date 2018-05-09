@@ -182,7 +182,6 @@ impl BuildingRenderer {
     pub fn update_buildings_to_be_destroyed(
         &mut self,
         renderer_id: RendererID,
-        scene_id: usize,
         building_plan_result_delta: &BuildingPlanResultDelta,
         world: &mut World,
     ) {
@@ -193,7 +192,6 @@ impl BuildingRenderer {
             .unwrap_or(0);
         for i in new_buildings_to_be_destroyed.len()..existing_n_to_be_destroyed {
             renderer_id.update_individual(
-                scene_id,
                 37_000 + i as u16,
                 Geometry::empty(),
                 Instance::with_color([1.0, 0.0, 0.0]),
@@ -203,7 +201,7 @@ impl BuildingRenderer {
         }
 
         for (i, building) in new_buildings_to_be_destroyed.iter().enumerate() {
-            building.render_as_destroyed(renderer_id, scene_id, i, world);
+            building.render_as_destroyed(renderer_id, i, world);
         }
 
         self.current_n_buildings_to_be_destroyed.insert(
@@ -214,7 +212,7 @@ impl BuildingRenderer {
 }
 
 impl Renderable for BuildingRenderer {
-    fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World) {
+    fn setup_in_scene(&mut self, renderer_id: RendererID, world: &mut World) {
         // let band_path = CPath::new(vec![
         //     Segment::arc_with_direction(
         //         P2::new(5.0, 0.0),
@@ -228,32 +226,22 @@ impl Renderable for BuildingRenderer {
         //     ),
         // ]);
         // let building_circle = band_to_geometry(&Band::new(band_path, 2.0), 0.0);
-        // renderer_id.add_batch(scene_id, 11_111, building_circle, world);
-        Into::<RenderableID>::into(self.wall_grouper).setup_in_scene(renderer_id, scene_id, world);
-        Into::<RenderableID>::into(self.flat_roof_grouper)
-            .setup_in_scene(renderer_id, scene_id, world);
-        Into::<RenderableID>::into(self.brick_roof_grouper)
-            .setup_in_scene(renderer_id, scene_id, world);
-        Into::<RenderableID>::into(self.field_grouper).setup_in_scene(renderer_id, scene_id, world);
+        // renderer_id.add_batch(11_111, building_circle, world);
+        Into::<RenderableID>::into(self.wall_grouper).setup_in_scene(renderer_id, world);
+        Into::<RenderableID>::into(self.flat_roof_grouper).setup_in_scene(renderer_id, world);
+        Into::<RenderableID>::into(self.brick_roof_grouper).setup_in_scene(renderer_id, world);
+        Into::<RenderableID>::into(self.field_grouper).setup_in_scene(renderer_id, world);
     }
 
-    fn render_to_scene(
-        &mut self,
-        renderer_id: RendererID,
-        scene_id: usize,
-        frame: usize,
-        world: &mut World,
-    ) {
+    fn render_to_scene(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         // let renderable_buildings: RenderableID = BuildingID::local_broadcast(world).into();
-        // renderable_buildings.render_to_scene(renderer_id, scene_id, frame, world);
-        Into::<RenderableID>::into(self.wall_grouper)
-            .render_to_scene(renderer_id, scene_id, frame, world);
+        // renderable_buildings.render_to_scene(renderer_id, frame, world);
+        Into::<RenderableID>::into(self.wall_grouper).render_to_scene(renderer_id, frame, world);
         Into::<RenderableID>::into(self.flat_roof_grouper)
-            .render_to_scene(renderer_id, scene_id, frame, world);
+            .render_to_scene(renderer_id, frame, world);
         Into::<RenderableID>::into(self.brick_roof_grouper)
-            .render_to_scene(renderer_id, scene_id, frame, world);
-        Into::<RenderableID>::into(self.field_grouper)
-            .render_to_scene(renderer_id, scene_id, frame, world);
+            .render_to_scene(renderer_id, frame, world);
+        Into::<RenderableID>::into(self.field_grouper).render_to_scene(renderer_id, frame, world);
     }
 }
 
@@ -332,7 +320,6 @@ impl Building {
     pub fn render_as_destroyed(
         &mut self,
         renderer_id: RendererID,
-        scene_id: usize,
         building_index: usize,
         world: &mut World,
     ) {
@@ -342,7 +329,6 @@ impl Building {
             geometries.field;
 
         renderer_id.update_individual(
-            scene_id,
             37_000 + building_index as u16,
             combined_geometry,
             Instance::with_color([1.0, 0.0, 0.0]),

@@ -268,7 +268,6 @@ impl UserInterface {
                         }
 
                         self.renderer_id.project_2d_to_3d(
-                            0,
                             self.cursor_2d,
                             self.id_as(),
                             world,
@@ -649,7 +648,7 @@ pub fn setup(
     scene.eye.position *= 30.0;
     let renderer_id = RendererID::spawn(
         External::new(window.clone()),
-        vec![scene].into(),
+        scene,
         clear_color,
         &mut system.world(),
     );

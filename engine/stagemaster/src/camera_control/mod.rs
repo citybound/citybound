@@ -112,7 +112,6 @@ impl Interactable3d for CameraControl {
 
                 if self.yaw_modifier {
                     self.renderer_id.move_eye(
-                        0,
                         Movement::Yaw(-delta.x * self.settings.rotation_speed / 300.0),
                         world,
                     );
@@ -120,7 +119,6 @@ impl Interactable3d for CameraControl {
 
                 if self.pitch_modifier {
                     self.renderer_id.move_eye(
-                        0,
                         Movement::Pitch(
                             -delta.y * self.settings.rotation_speed *
                                 if self.settings.invert_y { -1.0 } else { 1.0 } /
@@ -132,7 +130,6 @@ impl Interactable3d for CameraControl {
 
                 if self.pan_modifier {
                     self.renderer_id.move_eye(
-                        0,
                         Movement::ShiftProjected(
                             old_cursor_2d,
                             cursor_2d,
@@ -146,7 +143,6 @@ impl Interactable3d for CameraControl {
             }
             Event3d::Scroll(delta) => {
                 self.renderer_id.move_eye(
-                    0,
                     Movement::Zoom(
                         delta.y * self.settings.zoom_speed,
                         self.last_cursor_3d,
@@ -157,7 +153,6 @@ impl Interactable3d for CameraControl {
             Event3d::Frame => {
                 if self.forward {
                     self.renderer_id.move_eye(
-                        0,
                         Movement::Shift(
                             V3::new(5.0 * self.settings.move_speed, 0.0, 0.0),
                         ),
@@ -167,7 +162,6 @@ impl Interactable3d for CameraControl {
                 }
                 if self.backward {
                     self.renderer_id.move_eye(
-                        0,
                         Movement::Shift(
                             V3::new(-5.0 * self.settings.move_speed, 0.0, 0.0),
                         ),
@@ -176,7 +170,6 @@ impl Interactable3d for CameraControl {
                 }
                 if self.left {
                     self.renderer_id.move_eye(
-                        0,
                         Movement::Shift(
                             V3::new(0.0, -5.0 * self.settings.move_speed, 0.0),
                         ),
@@ -185,7 +178,6 @@ impl Interactable3d for CameraControl {
                 }
                 if self.right {
                     self.renderer_id.move_eye(
-                        0,
                         Movement::Shift(
                             V3::new(0.0, 5.0 * self.settings.move_speed, 0.0),
                         ),

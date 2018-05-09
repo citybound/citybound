@@ -12,16 +12,15 @@ impl Renderer {
     /// Critical
     pub fn project_2d_to_3d(
         &mut self,
-        scene_id: usize,
         position_2d: P2,
         requester: ProjectionRequesterID,
         world: &mut World,
     ) {
-        requester.projected_3d(self.project(scene_id, position_2d), world);
+        requester.projected_3d(self.project(position_2d), world);
     }
 
-    pub fn project(&self, scene_id: usize, position_2d: P2) -> P3 {
-        let eye = &self.scenes[scene_id].eye;
+    pub fn project(&self, position_2d: P2) -> P3 {
+        let eye = &self.scene.eye;
         let frame_size = self.render_context.window.get_framebuffer_dimensions();
 
         // mouse is on the close plane of the frustum
