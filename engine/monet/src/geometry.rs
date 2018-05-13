@@ -161,6 +161,8 @@ impl GeometryBuilder<FillVertex> for Geometry {
     }
 }
 
+const CURVE_LINEARIZATION_MAX_ANGLE: f32 = 0.03;
+
 impl Geometry {
     pub fn from_shape<S: SimpleShape>(shape: &S) -> Geometry {
         let path_iterator =
@@ -179,16 +181,28 @@ impl Geometry {
                     let segment = segment_with_position.into_inner();
 
                     if segment.is_linear() {
-                        initial_move.into_iter().chain(Some(PathEvent::LineTo(
-                            point(segment.end().x, segment.end().y),
-                        )))
+                        initial_move
+                            .into_iter()
+                            .chain(Some(
+                                PathEvent::LineTo(point(segment.end().x, segment.end().y)),
+                            ))
+                            .collect::<Vec<_>>()
                     } else {
-                        initial_move.into_iter().chain(Some(PathEvent::Arc(
-                            point(segment.center().x, segment.center().y),
-                            vector(segment.radius(), segment.radius()),
-                            Angle::radians(segment.signed_angle()),
-                            Angle::radians(0.0),
-                        )))
+                        let angle_span = segment.length / segment.radius();
+                        let subdivisions = (angle_span / CURVE_LINEARIZATION_MAX_ANGLE)
+                            .max(1.0)
+                            .floor() as usize;
+                        let distance_per_subdivision = segment.length / (subdivisions as f32);
+
+                        (0..subdivisions)
+                            .into_iter()
+                            .map(|subdivision| {
+                                let distance = (subdivision + 1) as f32 * distance_per_subdivision;
+                                let position = segment.along(distance);
+
+                                PathEvent::LineTo(point(position.x, position.y))
+                            })
+                            .collect::<Vec<_>>()
                     }
                 },
             ));
