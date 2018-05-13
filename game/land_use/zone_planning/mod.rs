@@ -1,5 +1,6 @@
 use compact::CVec;
-use descartes::{P2, V2, Segment, clipper, SimpleShape, Shape, Path, FiniteCurve};
+use descartes::{P2, V2, Segment, clipper, SimpleShape, Shape, Path, FiniteCurve,
+                WithUniqueOrthogonal};
 use stagemaster::geometry::{CShape, CPath};
 use land_use::buildings::BuildingStyle;
 use itertools::Itertools;
@@ -33,8 +34,21 @@ pub struct Lot {
     pub land_uses: CVec<LandUse>,
     pub max_height: u8,
     pub set_back: u8,
-    pub center_point: P2,
-    pub connection_point: P2,
+    pub connection_points: CVec<(P2, V2)>,
+}
+
+impl Lot {
+    pub fn center_point(&self) -> P2 {
+        P2::from_coordinates(
+            self.shape.outline().segments().iter().fold(
+                V2::new(0.0, 0.0),
+                |sum_point,
+                 segment| {
+                    sum_point + segment.start().coords
+                },
+            ) / self.shape.outline().segments().len() as f32,
+        )
+    }
 }
 
 #[derive(Compact, Clone)]
@@ -86,7 +100,7 @@ pub fn calculate_prototypes(plan: &Plan, current_result: &PlanResult) -> Vec<Pro
                     )
                     {
                         if let Some(main_piece) = clip_results.into_iter().find(|piece| {
-                            piece.contains(lot.center_point)
+                            piece.contains(lot.center_point())
                         })
                         {
                             shape = main_piece;
@@ -173,44 +187,45 @@ pub fn calculate_prototypes(plan: &Plan, current_result: &PlanResult) -> Vec<Pro
         land_use_shapes
             .into_iter()
             .filter_map(|(land_use, shape)| {
-                let maybe_shape = shape
+                let connection_points = shape
                     .outline()
                     .segments()
                     .iter()
-                    .map(|segment| segment.midpoint())
-                    .find(|midpoint| {
+                    .flat_map(|segment| {
+                        let length = segment.length();
+                        (&[0.25, 0.5, 0.75])
+                            .iter()
+                            .map(|ratio| {
+                                (
+                                    segment.along(length * ratio),
+                                    -segment.direction_along(length * ratio).orthogonal(),
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .filter(|&(point, _dir)| {
                         // TODO: this is a horribly slow way to find connection points
                         paved_area_shapes.iter().any(|paved_area| {
-                            paved_area.contains(*midpoint)
+                            paved_area.contains(point)
                         })
                     })
-                    .map(|connection_point| {
-                        Prototype::Lot(LotPrototype {
-                            lot: Lot {
-                                land_uses: vec![land_use].into(),
-                                max_height: 0,
-                                set_back: 0,
-                                center_point: P2::from_coordinates(
-                                    shape.outline().segments().iter().fold(
-                                        V2::new(0.0, 0.0),
-                                        |sum_point, segment| {
-                                            sum_point + segment.start().coords
-                                        },
-                                    ) /
-                                        shape.outline().segments().len() as f32,
-                                ),
-                                connection_point,
-                                shape,
-                            },
-                            occupancy: LotOccupancy::Vacant,
-                        })
-                    });
+                    .collect::<CVec<_>>();
 
-                if maybe_shape.is_none() {
+                if connection_points.is_empty() {
                     println!("No connection point found");
+                    None
+                } else {
+                    Some(Prototype::Lot(LotPrototype {
+                        lot: Lot {
+                            land_uses: vec![land_use].into(),
+                            max_height: 0,
+                            set_back: 0,
+                            connection_points,
+                            shape,
+                        },
+                        occupancy: LotOccupancy::Vacant,
+                    }))
                 }
-
-                maybe_shape
             })
             .collect::<Vec<_>>()
     };

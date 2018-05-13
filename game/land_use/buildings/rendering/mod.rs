@@ -315,7 +315,7 @@ pub fn on_add(id: BuildingID, lot: &Lot, building_type: BuildingStyle, world: &m
         ::ui_layers::UILayer::Info as usize,
         id.into(),
         AnyShape::Circle(
-            Circle { center: lot.center_point, radius: 5.0 },
+            Circle { center: lot.center_point(), radius: 5.0 },
         ),
         10,
         world,

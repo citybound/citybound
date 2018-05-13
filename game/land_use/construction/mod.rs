@@ -21,6 +21,6 @@ impl LotPrototype {
     pub fn morphable_from(&self, other: &LotPrototype) -> bool {
         // TODO: improve this
         (self.occupancy != LotOccupancy::Vacant) && (other.occupancy != LotOccupancy::Vacant) &&
-            other.lot.shape.contains(self.lot.center_point)
+            other.lot.shape.contains(self.lot.center_point())
     }
 }

@@ -192,7 +192,7 @@ impl Sleeper for Building {
         } else {
             Lane::global_broadcast(world).try_reconnect_building(
                 self.id,
-                self.lot.center_point,
+                self.lot.center_point(),
                 world,
             );
             Simulation::local_first(world).wake_up_in(
@@ -226,7 +226,7 @@ use simulation::Instant;
 
 impl RoughLocation for Building {
     fn resolve(&self) -> RoughLocationResolve {
-        RoughLocationResolve::Done(self.location, self.lot.center_point)
+        RoughLocationResolve::Done(self.location, self.lot.center_point())
     }
 }
 

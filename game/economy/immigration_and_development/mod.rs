@@ -264,7 +264,7 @@ impl DevelopmentManager {
                         gestures: Some((
                             GestureID::new(),
                             Gesture::new(
-                                vec![building_intent.lot.center_point].into(),
+                                vec![building_intent.lot.center_point()].into(),
                                 GestureIntent::Building(building_intent.clone()),
                             ),
                         )).into_iter()
