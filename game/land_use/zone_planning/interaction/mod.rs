@@ -26,7 +26,7 @@ pub fn render_preview(
                 lot_outline_geometry +=
                     band_to_geometry(&Band::new(shape.outline().clone(), 2.0), 0.1);
             } else {
-                lot_geometry += band_to_geometry(&Band::new(shape.outline().clone(), 2.0), 0.1);
+                lot_geometry += band_to_geometry(&Band::new(shape.outline().clone(), 1.0), 0.1);
                 //Geometry::from_shape(shape);
             }
 

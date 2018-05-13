@@ -82,7 +82,7 @@ impl Lot {
                 let width_ratio = width / needed_shape.0;
                 let length_ratio = height / needed_shape.1;
 
-                width_ratio > 0.75 && width_ratio < 1.5 && length_ratio > 0.75 && length_ratio < 1.5
+                width_ratio > 0.5 && width_ratio < 2.0 && length_ratio > 0.5 && length_ratio < 2.0
             },
         );
 
@@ -93,68 +93,79 @@ impl Lot {
                 ..self.clone()
             })
         } else {
-            let maybe_too_wide_connection_point = width_height_per_connection_point.iter().find(
-                |&&(_point, _direction, width, height)| {
+            let maybe_too_wide_connection_points = width_height_per_connection_point
+                .iter()
+                .filter(|&&(_point, _direction, width, height)| {
                     let width_ratio = width / needed_shape.0;
                     let length_ratio = height / needed_shape.1;
 
-                    width_ratio > 1.6 && length_ratio > 0.75 && length_ratio < 1.5
-                },
-            );
+                    width_ratio > 2.0 && length_ratio > 0.5 && length_ratio < 2.0
+                });
 
-            if let Some(&(point, direction, _, _)) = maybe_too_wide_connection_point {
-                let orthogonal = direction.orthogonal();
+            maybe_too_wide_connection_points
+                .filter_map(|&(point, direction, _, _)| {
+                    let orthogonal = direction.orthogonal();
 
-                let corners = (
-                    point + 100.0 * direction,
-                    point + 100.0 * direction + 200.0 * orthogonal,
-                    point - 100.0 * direction + 200.0 * orthogonal,
-                    point - 100.0 * direction,
-                );
-
-                let splitting_shape = CShape::new(
-                    CPath::new(vec![
-                        Segment::line(corners.0, corners.1).unwrap(),
-                        Segment::line(corners.1, corners.2).unwrap(),
-                        Segment::line(corners.2, corners.3).unwrap(),
-                        Segment::line(corners.3, corners.0).unwrap(),
-                    ]).unwrap(),
-                ).unwrap();
-
-                add_debug_path(
-                    splitting_shape.outline().clone(),
-                    [1.0, 0.0, 0.0],
-                    0.5,
-                    world,
-                );
-
-                println!("Attempting width split");
-
-                clipper::clip(clipper::Mode::Intersection, &self.shape, &splitting_shape).ok().into_iter().chain(
-                    clipper::clip(clipper::Mode::Difference, &self.shape, &splitting_shape).ok()
-                ).flat_map(|sub_results| sub_results).filter_map(|split_shape| {
-                    add_debug_path(
-                        split_shape.outline().clone(),
-                        [0.0, 0.1, 0.0],
-                        0.7,
-                        world,
+                    let corners = (
+                        point + 500.0 * direction,
+                        point + 500.0 * direction + 1_000.0 * orthogonal,
+                        point - 500.0 * direction + 1_000.0 * orthogonal,
+                        point - 500.0 * direction,
                     );
 
-                    let split_lot = Lot {
-                        connection_points: self.connection_points.clone().into_iter().filter(|&(other_point, _)|
-                            point != other_point && split_shape.contains(other_point)
-                        ).collect(),
-                        shape: split_shape,
-                        ..self.clone()
-                    };
-                    
-                    // recurse!
-                    println!("Got split lot, checking suitability");
-                    split_lot.split_for(building_style, world)
-                }).next()
-            } else {
-                None
-            }
+                    let splitting_shape = CShape::new(
+                        CPath::new(vec![
+                            Segment::line(corners.0, corners.1).unwrap(),
+                            Segment::line(corners.1, corners.2).unwrap(),
+                            Segment::line(corners.2, corners.3).unwrap(),
+                            Segment::line(corners.3, corners.0).unwrap(),
+                        ]).unwrap(),
+                    ).unwrap();
+
+                    // add_debug_path(
+                    //     splitting_shape.outline().clone(),
+                    //     [1.0, 0.0, 0.0],
+                    //     0.5,
+                    //     world,
+                    // );
+
+                    println!("Attempting width split");
+
+                    clipper::clip(clipper::Mode::Intersection, &self.shape, &splitting_shape)
+                        .ok()
+                        .into_iter()
+                        .chain(
+                            clipper::clip(clipper::Mode::Difference, &self.shape, &splitting_shape)
+                                .ok(),
+                        )
+                        .flat_map(|sub_results| sub_results)
+                        .filter_map(|split_shape| {
+                            // add_debug_path(
+                            //     split_shape.outline().clone(),
+                            //     [0.0, 0.1, 0.0],
+                            //     0.7,
+                            //     world,
+                            // );
+
+                            let split_lot = Lot {
+                                connection_points: self.connection_points
+                                    .clone()
+                                    .into_iter()
+                                    .filter(|&(other_point, _)| {
+                                        point != other_point && split_shape.contains(other_point)
+                                    })
+                                    .collect(),
+                                shape: split_shape,
+                                ..self.clone()
+                            };
+
+                            // recurse!
+                            println!("Got split lot, checking suitability");
+                            split_lot.split_for(building_style, world)
+                        })
+                        .next()
+                })
+                .next()
         }
     }
 }
