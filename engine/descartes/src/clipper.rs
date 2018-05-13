@@ -4,7 +4,7 @@
 /// by Dae Hyun Kima & Myoung-Jun Kim
 
 use super::shapes::SimpleShape;
-use super::{N, Shape, Segment, Path, FiniteCurve};
+use super::{N, Shape, Segment, Path, FiniteCurve, RoughlyComparable};
 use super::path::PathError;
 use super::shapes::ShapeError;
 use super::PointOnShapeLocation::*;
@@ -78,9 +78,9 @@ pub fn clip<S: SimpleShape>(
     if DEBUG_PRINT {
         println!(
             r#"
-<svg width="320" height="320" viewbox="-0.5 -0.5 2.5 2.5" xmlns="http://www.w3.org/2000/svg">
+<svg width="1000" height="1000" viewbox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
     <g fill="none" stroke="rgba(0, 0, 255, 0.3)"
-       stroke-width="0.02" marker-end="url(#subj_marker)">
+       stroke-width="1" marker-end="url(#subj_marker)">
         <marker id="subj_marker" viewBox="0 0 6 6"
                 refX="6" refY="3" markerUnits="strokeWidth" orient="auto">
             <path d="M 0 0 L 6 3 L 0 6 z" fill="rgba(0, 0, 255, 0.3)"/>
@@ -88,7 +88,7 @@ pub fn clip<S: SimpleShape>(
         <path d="{}"/>
     </g>
     <g fill="none" stroke="rgba(255, 0, 0, 0.3)"
-       stroke-width="0.02" marker-end="url(#clip_marker)">
+       stroke-width="1" marker-end="url(#clip_marker)">
         <marker id="clip_marker" viewBox="0 0 6 6"
                 refX="6" refY="3" markerUnits="strokeWidth" orient="auto">
             <path d="M 0 0 L 6 3 L 0 6 z" fill="rgba(255, 0, 0, 0.3)"/>
@@ -294,10 +294,10 @@ pub fn clip<S: SimpleShape>(
     if DEBUG_PRINT {
         println!(
             r#"
-                <g font-size="0.1" fill="rgba(0, 0, 255, 0.3)">
+                <g font-size="5" fill="rgba(0, 0, 255, 0.3)">
                     {}
                 </g>
-                <g font-size="0.1" fill="rgba(255, 0, 0, 0.3)">
+                <g font-size="5" fill="rgba(255, 0, 0, 0.3)">
                     {}
                 </g>
         "#,
@@ -321,7 +321,7 @@ pub fn clip<S: SimpleShape>(
                     format!(
                         r#"<text x="{}" y={}>{:?} {} {:.2}</text> "#,
                         shapes[CLIP].outline().along(intersection.along[CLIP]).x,
-                        shapes[CLIP].outline().along(intersection.along[CLIP]).y + 0.1,
+                        shapes[CLIP].outline().along(intersection.along[CLIP]).y + 5.0,
                         intersection.role[CLIP],
                         "?",//intersection.n[CLIP],
                         intersection.along[CLIP]
@@ -549,48 +549,58 @@ pub fn clip<S: SimpleShape>(
 
         // TODO: maybe this can be caught earlier
         if !segments.is_empty() {
-            if DEBUG_PRINT {
-                println!(r#"<!-- SEGMENTS {:?} -->"#, segments);
-            }
-
-            let path = match S::P::new_welded(segments) {
-                Ok(path) => path,
-                Err(err) => {
-                    return Err(ClipError::InvalidResultPath(err));
-                }
-            };
-
-            if DEBUG_PRINT {
-                println!(
-                r#"
-                    <g fill="none" stroke="rgba(0, 0, 0, 0.2)" stroke-width="0.05"
-                       marker-end="url(#result_marker)">
-                        <marker id="result_marker" viewBox="0 0 6 6" refX="6" refY="3"
-                                markerUnits="strokeWidth" orient="auto">
-                            <path d="M 0 0 L 6 3 L 0 6 z" fill="rgba(0, 0, 0, 0.1)"/>
-                        </marker>
-                        <path d="{}"/>
-                    </g>
-            "#,
-                path.to_svg(),
-            );
-            }
-
-            result_shapes.push(match SimpleShape::new(path) {
-                Ok(shape) => shape,
-                Err(err) => {
-                    return Err(ClipError::InvalidResultShape(err));
-                }
+            // TODO: find a cleaner way to detect this, or to prevent it entirely
+            let is_zero_area_shape = segments.iter().all(|segment| {
+                segments.iter().any(|other_segment| {
+                    !other_segment.start().is_roughly(segment.start()) &&
+                        !other_segment.end().is_roughly(segment.end()) &&
+                        other_segment.midpoint().is_roughly(segment.midpoint())
+                })
             });
+
+            if !is_zero_area_shape {
+                if DEBUG_PRINT {
+                    println!(r#"<!-- SEGMENTS {:?} -->"#, segments);
+                }
+
+                let path = match S::P::new_welded(segments) {
+                    Ok(path) => path,
+                    Err(err) => {
+                        return Err(ClipError::InvalidResultPath(err));
+                    }
+                };
+
+                if DEBUG_PRINT {
+                    println!(
+                    r#"
+                        <g fill="none" stroke="rgba(0, 0, 0, 0.2)" stroke-width="3"
+                        marker-end="url(#result_marker)">
+                            <marker id="result_marker" viewBox="0 0 6 6" refX="6" refY="3"
+                                    markerUnits="strokeWidth" orient="auto">
+                                <path d="M 0 0 L 6 3 L 0 6 z" fill="rgba(0, 0, 0, 0.1)"/>
+                            </marker>
+                            <path d="{}"/>
+                        </g>
+                "#,
+                    path.to_svg(),
+                );
+                }
+
+                result_shapes.push(match SimpleShape::new(path) {
+                    Ok(shape) => shape,
+                    Err(err) => {
+                        return Err(ClipError::InvalidResultShape(err));
+                    }
+                });
+            }
         }
     }
 
     Ok(result_shapes)
 }
 
-
 #[test]
-fn test() {
+fn svg_tests() {
     use super::P2;
     use super::path::VecPath;
 
@@ -611,48 +621,86 @@ fn test() {
         }
     }
 
-    let subject = TestShape::new(
-        VecPath::new(vec![
-            Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0))
-                .unwrap(),
-            Segment::line(P2::new(1.0, 0.0), P2::new(1.0, 1.0))
-                .unwrap(),
-            Segment::line(P2::new(1.0, 1.0), P2::new(0.0, 1.0))
-                .unwrap(),
-            Segment::line(P2::new(0.0, 1.0), P2::new(0.0, 0.0))
-                .unwrap(),
-        ]).unwrap(),
-    ).unwrap();
+    use std::fs;
+    use std::io::Read;
+    use std::collections::HashMap;
+    use {THICKNESS, RoughlyComparable};
 
-    let clip = TestShape::new(
-        VecPath::new(vec![
-            Segment::line(P2::new(0.5, 0.5), P2::new(1.5, 0.5))
-                .unwrap(),
-            Segment::line(P2::new(1.5, 0.5), P2::new(1.5, 1.5))
-                .unwrap(),
-            Segment::line(P2::new(1.5, 1.5), P2::new(0.5, 1.5))
-                .unwrap(),
-            Segment::line(P2::new(0.5, 1.5), P2::new(0.5, 0.5))
-                .unwrap(),
-        ]).unwrap(),
-    ).unwrap();
+    for dir_entry in fs::read_dir("./src/clipper_testcases").unwrap() {
+        let path = dir_entry.unwrap().path();
+        let path_str = path.to_str().unwrap();
 
-    self::clip(Mode::Union, &subject, &clip);
-    self::clip(Mode::Intersection, &subject, &clip);
-    self::clip(Mode::Difference, &subject, &clip);
+        if !path_str.ends_with(".svg") {
+            continue;
+        }
 
-    let disecting_clip = TestShape::new(
-        VecPath::new(vec![
-            Segment::line(P2::new(-0.5, 0.25), P2::new(1.5, 0.25))
-                .unwrap(),
-            Segment::line(P2::new(1.5, 0.25), P2::new(1.5, 0.75))
-                .unwrap(),
-            Segment::line(P2::new(1.5, 0.75), P2::new(-0.5, 0.75))
-                .unwrap(),
-            Segment::line(P2::new(-0.5, 0.75), P2::new(-0.5, 0.25))
-                .unwrap(),
-        ]).unwrap(),
-    ).unwrap();
+        println!("Testing svg case {}", path.display());
 
-    self::clip(Mode::Difference, &subject, &disecting_clip);
+        let mut file = fs::File::open(path.clone()).unwrap();
+
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+
+        let mut clip_shape = None;
+        let mut subject_shape = None;
+        let mut expected_result_shapes = Vec::new();
+
+        let path_substrs = contents.split("<path").filter(
+            |string| string.contains("d="),
+        );
+
+        for path_substr in path_substrs {
+            let path_commands_idx = path_substr.find(" d=").unwrap();
+            let path_commands = path_substr[path_commands_idx + 4..]
+                .splitn(2, '"')
+                .next()
+                .unwrap();
+
+            let id_idx = path_substr.find(" id=").unwrap();
+            let id = path_substr[id_idx + 5..].splitn(2, '"').next().unwrap();
+
+            println!("Found path {} with id {}", path_commands, id);
+
+            let shape = TestShape::new(VecPath::from_svg(path_commands).unwrap()).unwrap();
+
+            if id == "subject" {
+                subject_shape = Some(shape);
+            } else if id == "clip" {
+                clip_shape = Some(shape);
+            } else if id.starts_with("result") {
+                expected_result_shapes.push(shape);
+            }
+        }
+
+        let mode = if path_str.ends_with("intersection.svg") {
+            Mode::Intersection
+        } else if path_str.ends_with("union.svg") {
+            Mode::Union
+        } else if path_str.ends_with("difference.svg") {
+            Mode::Difference
+        } else if path_str.ends_with("not.svg") {
+            Mode::Not
+        } else if path_str.ends_with("split.svg") {
+            Mode::Split
+        } else {
+            panic!("unsupported file ending");
+        };
+
+        let results = clip(
+            mode,
+            &subject_shape.expect("should have subject"),
+            &clip_shape.expect("should have clip"),
+        ).unwrap();
+
+        assert_eq!(expected_result_shapes.len(), results.len());
+
+        for expected_result_shape in expected_result_shapes {
+            assert!(results.iter().any(|result_shape| {
+                result_shape.outline().is_roughly_within(
+                    expected_result_shape.outline(),
+                    THICKNESS,
+                )
+            }));
+        }
+    }
 }

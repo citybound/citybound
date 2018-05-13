@@ -1,0 +1,6 @@
+<svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+  <defs></defs>
+  <path d="M 161.585 161.585 L 338.415 161.585 L 338.415 338.415 L 161.585 338.415 L 161.585 161.585 Z" style="fill: rgba(255, 0, 0, 0.5);" id="clip"></path>
+  <path d="M 222.214 161.585 L 307.957 161.585 L 368.585 222.216 L 368.585 307.954 L 307.957 368.585 L 222.214 368.585 L 161.585 307.956 L 161.585 222.215 Z" style="stroke-width: 6; fill-opacity: 0.5; fill: rgb(0, 0, 255);" id="subject"></path>
+  <path d="M 338.415 338.125 L 338.126 338.415 L 192.044 338.415 L 161.585 307.956 L 161.585 222.215 L 222.214 161.585 L 307.957 161.585 L 338.415 192.045 Z" style="stroke-width: 6; fill-opacity: 0.5; fill: none; stroke: rgb(0, 255, 0);" id="result"></path>
+</svg>

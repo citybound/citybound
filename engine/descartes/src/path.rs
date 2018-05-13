@@ -188,6 +188,52 @@ pub trait Path: Sized + Clone {
     fn to_svg(&self) -> String {
         self.segments().iter().map(Segment::to_svg).collect()
     }
+
+    fn from_svg(string: &str) -> Result<Self, PathError> {
+        let mut tokens = string.split_whitespace();
+        let mut position = P2::new(0.0, 0.0);
+        let mut first_position = None;
+        let mut segments = Vec::new();
+
+        while let Some(command) = tokens.next() {
+            if command == "M" || command == "L" {
+                let x: f32 = tokens
+                    .next()
+                    .expect("Expected 1st token after M/L")
+                    .parse()
+                    .expect("Can't parse 1st token after M/L");
+                let y: f32 = tokens
+                    .next()
+                    .expect("Expected 2nd token after M/L")
+                    .parse()
+                    .expect("Can't parse 2nd token after M/L");
+
+                let next_position = P2::new(x, y);
+
+                if command == "L" {
+                    segments.push(Segment::line(position, next_position).expect(
+                        "Invalid Segment",
+                    ));
+                }
+
+                position = next_position;
+                if first_position.is_none() {
+                    first_position = Some(next_position);
+                }
+            } else if command == "Z" {
+                if let Some(closing_segment) =
+                    Segment::line(
+                        position,
+                        first_position.expect("Should have first_position"),
+                    )
+                {
+                    segments.push(closing_segment);
+                }
+            }
+        }
+
+        Self::new(segments)
+    }
 }
 
 pub struct StartOffsetState(N);
@@ -350,9 +396,22 @@ impl<T: Path> Curve for T {
 impl<'a, T: Path> RoughlyComparable for &'a T {
     fn is_roughly_within(&self, other: &T, tolerance: N) -> bool {
         self.segments().len() == other.segments().len() &&
-            self.segments().iter().zip(other.segments().iter()).all(
-                |(segment_1, segment_2)| segment_1.is_roughly_within(segment_2, tolerance),
-            )
+            if self.is_closed() && other.is_closed() {
+                // TODO: this is strictly too loose
+                // and maybe this should be moved to shape instead,
+                // since the paths are *not* exactly equal
+                self.segments().iter().all(|segment_1| {
+                    other.segments().iter().any(|segment_2| {
+                        let same = segment_1.is_roughly_within(segment_2, tolerance);
+                        same
+                    })
+                })
+            } else {
+                self.segments().iter().zip(other.segments().iter()).all(
+                    |(segment_1, segment_2)| segment_1.is_roughly_within(segment_2, tolerance),
+                )
+            }
+
     }
 }
 

@@ -435,11 +435,12 @@ impl Curve for Segment {
 
 impl<'a> RoughlyComparable for &'a Segment {
     fn is_roughly_within(&self, other: &Segment, tolerance: N) -> bool {
-        self.start.is_roughly_within(other.start, tolerance)
-        && self.end.is_roughly_within(other.end, tolerance)
-        // much stricter tolerance here!
-        && self.start_direction().is_roughly(other.start_direction()) &&
-            self.end_direction().is_roughly(other.end_direction())
+        self.start.is_roughly_within(other.start, tolerance) &&
+            self.end.is_roughly_within(other.end, tolerance) &&
+            self.midpoint().is_roughly_within(
+                other.midpoint(),
+                tolerance,
+            )
     }
 }
 
