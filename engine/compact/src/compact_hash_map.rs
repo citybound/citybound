@@ -6,6 +6,8 @@ use super::pointer_to_maybe_compact::PointerToMaybeCompact;
 use super::compact_vec::CompactVec;
 use std::iter::Iterator;
 use std::collections::hash_map::DefaultHasher;
+#[cfg(test)]
+use std::collections::HashMap;
 use std::hash::Hasher;
 use std::hash::Hash;
 
@@ -46,14 +48,14 @@ pub struct IntoIter<T, A: Allocator> {
 
 struct QuadraticProbingIterator<'a, K: 'a, V: 'a, A: 'a + Allocator = DefaultHeap> {
     i: usize,
-    len: usize,
+    number_used: usize,
     hash: u32,
     map: &'a OpenAddressingMap<K, V, A>,
 }
 
 struct QuadraticProbingMutIterator<'a, K: 'a, V: 'a, A: 'a + Allocator = DefaultHeap> {
     i: usize,
-    len: usize,
+    number_used: usize,
     hash: u32,
     map: &'a mut OpenAddressingMap<K, V, A>,
 }
@@ -63,10 +65,8 @@ struct QuadraticProbingMutIterator<'a, K: 'a, V: 'a, A: 'a + Allocator = Default
 /// that can be stored in compact sequential storage and
 /// automatically spills over into free heap storage using `Allocator`.
 pub struct OpenAddressingMap<K, V, A: Allocator = DefaultHeap> {
-    // TODO: this seems to represent something else than actual number of items
-    //       figure out what and how it can be merged with len again
-    internal_size: usize,
-    len: usize,
+    number_alive: usize,
+    number_used: usize,
     entries: CompactArray<Entry<K, V>, A>,
 }
 
@@ -458,7 +458,12 @@ impl<'a, K, V, A: Allocator> QuadraticProbingIterator<'a, K, V, A> {
         map: &'a OpenAddressingMap<K, V, A>,
         hash: u32,
     ) -> QuadraticProbingIterator<K, V, A> {
-        QuadraticProbingIterator { i: 0, len: map.entries.cap, hash, map }
+        QuadraticProbingIterator {
+            i: 0,
+            number_used: map.entries.cap,
+            hash: hash,
+            map: map,
+        }
     }
 }
 
@@ -467,7 +472,12 @@ impl<'a, K, V, A: Allocator> QuadraticProbingMutIterator<'a, K, V, A> {
         map: &'a mut OpenAddressingMap<K, V, A>,
         hash: u32,
     ) -> QuadraticProbingMutIterator<K, V, A> {
-        QuadraticProbingMutIterator { i: 0, len: map.entries.cap, hash, map }
+        QuadraticProbingMutIterator {
+            i: 0,
+            number_used: map.entries.cap,
+            hash: hash,
+            map: map,
+        }
     }
 }
 
@@ -475,10 +485,10 @@ impl<'a, K, V, A: Allocator> Iterator for QuadraticProbingIterator<'a, K, V, A> 
     type Item = &'a Entry<K, V>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.i >= self.len {
+        if self.i >= self.number_used {
             return None;
         }
-        let index = (self.hash as usize + self.i * self.i) % self.len;
+        let index = (self.hash as usize + self.i * self.i) % self.number_used;
         self.i += 1;
         Some(&self.map.entries[index])
     }
@@ -487,10 +497,10 @@ impl<'a, K, V, A: Allocator> Iterator for QuadraticProbingIterator<'a, K, V, A> 
 impl<'a, K, V, A: Allocator> Iterator for QuadraticProbingMutIterator<'a, K, V, A> {
     type Item = &'a mut Entry<K, V>;
     fn next(&mut self) -> Option<&'a mut Entry<K, V>> {
-        if self.i >= self.len {
+        if self.i >= self.number_used {
             return None;
         }
-        let index = (self.hash as usize + self.i * self.i) % self.len;
+        let index = (self.hash as usize + self.i * self.i) % self.number_used;
         self.i += 1;
         Some(unsafe {
             &mut *(&mut self.map.entries[index] as *mut Entry<K, V>)
@@ -507,19 +517,31 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     pub fn with_capacity(l: usize) -> Self {
         OpenAddressingMap {
             entries: CompactArray::with_capacity(Self::find_prime_larger_than(l)),
-            internal_size: 0,
-            len: 0,
+            number_alive: 0,
+            number_used: 0,
         }
     }
 
     /// Amount of entries in the dictionary
     pub fn len(&self) -> usize {
-        self.len
+        self.number_alive
+    }
+
+    /// Amount of used entries in the dictionary
+    #[cfg(test)]
+    pub fn len_used(&self) -> usize {
+        self.number_used
+    }
+
+    /// Capacity of the dictionary
+    #[cfg(test)]
+    pub fn capacity(&self) -> usize {
+        self.entries.capacity()
     }
 
     /// Is the dictionary empty?
     pub fn is_empty(&self) -> bool {
-        self.len == 0
+        self.number_alive == 0
     }
 
     /// Look up the value for key `query`, if it exists
@@ -594,8 +616,8 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     fn insert_inner(&mut self, query: K, value: V) -> Option<V> {
         let res = self.insert_inner_inner(query, value);
         if res.is_none() {
-            self.internal_size += 1;
-            self.len += 1;
+            self.number_alive += 1;
+            self.number_used += 1;
         }
         res
     }
@@ -617,7 +639,7 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
         // remove inner does not alter the size because of tombstones
         let old = self.remove_inner_inner(query);
         if old.is_some() {
-            self.len -= 1;
+            self.number_alive -= 1;
         }
         old
     }
@@ -633,12 +655,21 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     }
 
     fn ensure_capacity(&mut self) {
-        if self.internal_size > self.entries.capacity() / 2 {
+        if self.number_used > self.entries.capacity() / 2 {
             let old_entries = self.entries.clone();
-            self.entries = CompactArray::with_capacity(
-                Self::find_prime_larger_than(old_entries.capacity() * 2),
-            );
-            self.internal_size = 0;
+
+            let mut new_capacity = Self::find_prime_larger_than(old_entries.capacity() * 2);
+
+            // if there are lots of dead entries we do not need to double
+            // we are going to just garbage collect them
+            let number_dead = self.entries.capacity() - self.number_alive;
+            if number_dead > self.entries.capacity() / 2 {
+                new_capacity = old_entries.capacity();
+            }
+
+            self.entries = CompactArray::with_capacity(new_capacity);
+            self.number_alive = 0;
+            self.number_used = 0;
             for entry in old_entries {
                 if entry.alive() {
                     let tuple = entry.into_tuple();
@@ -681,8 +712,8 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     fn display(&self) -> String {
         let mut res = String::new();
-        writeln!(&mut res, "size: {:?}", self.internal_size).unwrap();
-        let mut size_left: isize = self.internal_size as isize;
+        writeln!(&mut res, "size: {:?}", self.number_alive).unwrap();
+        let mut size_left: isize = self.number_alive as isize;
         for entry in self.entries.iter() {
             if entry.used() {
                 size_left -= 1;
@@ -704,8 +735,8 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> Compact for OpenAddressingMa
     }
 
     default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
-        (*dest).internal_size = (*source).internal_size;
-        (*dest).len = (*source).len;
+        (*dest).number_alive = (*source).number_alive;
+        (*dest).number_used = (*source).number_used;
         Compact::compact(
             &mut (*source).entries,
             &mut (*dest).entries,
@@ -717,8 +748,8 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> Compact for OpenAddressingMa
     unsafe fn decompact(source: *const Self) -> OpenAddressingMap<K, V, A> {
         OpenAddressingMap {
             entries: Compact::decompact(&(*source).entries),
-            internal_size: (*source).internal_size,
-            len: (*source).len,
+            number_alive: (*source).number_alive,
+            number_used: (*source).number_used,
         }
     }
 }
@@ -727,8 +758,8 @@ impl<K: Copy, V: Clone, A: Allocator> Clone for OpenAddressingMap<K, V, A> {
     fn clone(&self) -> Self {
         OpenAddressingMap {
             entries: self.entries.clone(),
-            internal_size: self.internal_size,
-            len: self.len,
+            number_alive: self.number_alive,
+            number_used: self.number_used,
         }
     }
 }
@@ -760,8 +791,8 @@ impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator>
     /// Push a value onto the `CompactVec` at the key `query`
     pub fn push_at(&mut self, query: K, item: I) {
         if self.push_at_inner(query, item) {
-            self.internal_size += 1;
-            self.len += 1;
+            self.number_alive += 1;
+            self.number_used += 1;
         }
     }
 
@@ -807,7 +838,7 @@ impl<T: Hash> Hash for CompactVec<T> {
     }
 }
 
-#[test]
+#[cfg(test)]
 fn elem(n: usize) -> usize {
     (n * n) as usize
 }
@@ -1100,4 +1131,59 @@ fn compact_copy() {
         assert_fun(&decompacted, 449);
         DefaultHeap::deallocate(storage, bytes);
     }
+}
+
+#[test]
+fn map_len_is_the_amount_of_inserted_and_not_removed_items() {
+    type Map = OpenAddressingMap<usize, usize>;
+    let mut map: Map = OpenAddressingMap::new();
+    for n in 0..1000 {
+        map.insert(n, elem(n));
+    }
+    for n in 0..10 {
+        map.remove(n);
+    }
+    assert_eq!(990, map.len());
+}
+
+#[test]
+fn when_there_are_lots_of_dead_tombstoned_entries_capacity_is_not_doubled() {
+    type Map = OpenAddressingMap<usize, usize>;
+    let mut map: Map = OpenAddressingMap::new();
+    for n in 0..1000 {
+        map.insert(n, elem(n));
+    }
+    for n in 0..600 {
+        map.remove(n);
+    }
+    println!("self {}", map.capacity());
+    assert_eq!(400, map.len());
+    assert_eq!(1000, map.len_used());
+    assert_eq!(3203, map.capacity());
+    for n in 0..1000 {
+        map.insert(10000 + n, elem(n));
+    }
+    assert_eq!(1400, map.len());
+    assert_eq!(3203, map.capacity());
+}
+
+#[test]
+fn when_there_are_lots_of_few_tombstoned_entries_capacity_is_doubled() {
+    type Map = OpenAddressingMap<usize, usize>;
+    let mut map: Map = OpenAddressingMap::new();
+    for n in 0..1000 {
+        map.insert(n, elem(n));
+    }
+    for n in 0..60 {
+        map.remove(n);
+    }
+    println!("self {}", map.capacity());
+    assert_eq!(940, map.len());
+    assert_eq!(1000, map.len_used());
+    assert_eq!(3203, map.capacity());
+    for n in 0..1000 {
+        map.insert(10000 + n, elem(n));
+    }
+    assert_eq!(1940, map.len());
+    assert_eq!(6421, map.capacity());
 }
