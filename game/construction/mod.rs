@@ -159,11 +159,20 @@ impl Construction {
 
 impl Simulatable for Construction {
     fn tick(&mut self, _dt: f32, _current_instant: Instant, world: &mut World) {
-        if self.pending_constructables.is_empty() && !self.queued_actions.is_empty() {
-            let next_action_group = self.queued_actions.remove(0);
-            for action in next_action_group {
-                self.start_action(action, world);
+        if self.pending_constructables.is_empty() {
+            if !self.queued_actions.is_empty() {
+                let next_action_group = self.queued_actions.remove(0);
+                for action in next_action_group {
+                    self.start_action(action, world);
+                }
             }
+        } else {
+            println!(
+                "Construction pending: {} - queued groups: {}",
+                self.pending_constructables.len(),
+                self.queued_actions.len()
+            );
+            println!("Pending ids: {:?}", self.pending_constructables);
         }
     }
 }
