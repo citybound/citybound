@@ -10,7 +10,7 @@ pub struct Circle {
 
 impl Curve for Circle {
     fn project_with_tolerance(&self, point: P2, _tolerance: N) -> Option<N> {
-        let angle = angle_along_to(V2::new(1.0, 0.0), V2::new(0.0, 1.0), (point - self.center));
+        let angle = angle_along_to(V2::new(1.0, 0.0), V2::new(0.0, 1.0), point - self.center);
         Some(self.radius * angle)
     }
 
@@ -60,9 +60,9 @@ impl Segment {
             None
         } else {
             Some(Segment {
-                start: start,
+                start,
                 center_or_direction: (end - start).normalize(),
-                end: end,
+                end,
                 length: (end - start).norm(),
                 signed_radius: 0.0,
             })
@@ -83,11 +83,11 @@ impl Segment {
             let center = start + signed_radius * direction.orthogonal();
             let angle_span = angle_along_to(start - center, direction, end - center);
             Some(Segment {
-                start: start,
+                start,
                 center_or_direction: center.coords,
-                end: end,
+                end,
                 length: angle_span * signed_radius.abs(),
-                signed_radius: signed_radius,
+                signed_radius,
             })
         }
     }
@@ -119,7 +119,7 @@ impl Segment {
             Some(vec![Segment::line(start, end)?])
         } else {
             let maybe_linear_intersection = (
-                &Line { start: start, direction: start_direction },
+                &Line { start, direction: start_direction },
                 &Line { start: end, direction: -end_direction },
             ).intersect()
                 .into_iter()

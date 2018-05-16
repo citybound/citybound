@@ -55,7 +55,7 @@ impl Trip {
         }
 
         Trip {
-            id: id,
+            id,
             rough_source,
             rough_destination,
             listener,
@@ -139,7 +139,7 @@ impl LocationRequester for Trip {
                             max_velocity: 8.0,
                         },
                         acceleration: 0.0,
-                        destination: destination,
+                        destination,
                         next_hop_interaction: None,
                     },
                     None,

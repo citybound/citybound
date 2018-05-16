@@ -16,7 +16,6 @@
 #![feature(core_intrinsics)]
 #![feature(optin_builtin_traits)]
 #![feature(specialization)]
-#![feature(conservative_impl_trait)]
 #![feature(box_syntax)]
 #![feature(nonzero)]
 #![feature(tcpstream_connect_timeout)]

@@ -83,10 +83,7 @@ impl Compact for AnyShape {
     unsafe fn decompact(source: *const Self) -> AnyShape {
         match *source {
             AnyShape::Band(Band { ref path, width }) => {
-                AnyShape::Band(Band {
-                    path: Compact::decompact(path),
-                    width: width,
-                })
+                AnyShape::Band(Band { path: Compact::decompact(path), width })
             }
             AnyShape::Circle(circle) => AnyShape::Circle(circle),
             AnyShape::Everywhere => AnyShape::Everywhere,

@@ -172,6 +172,7 @@ impl ActorSystem {
         //          unsafe { ::std::intrinsics::type_name::<M>() });
 
 
+        #[allow(cast_ptr_alignment)]
         let swarm_ptr = self.swarms[actor_id.as_usize()].expect("Actor not added yet") as
             *mut Swarm<A>;
 
@@ -184,7 +185,7 @@ impl ActorSystem {
                 // TODO: not sure if this is the best place to drop the message
                 ::std::ptr::drop_in_place(packet_ptr as *mut Packet<M>);
             }),
-            critical: critical,
+            critical,
         });
     }
 
@@ -201,6 +202,7 @@ impl ActorSystem {
         //          unsafe { ::std::intrinsics::type_name::<M>() });
 
 
+        #[allow(cast_ptr_alignment)]
         let swarm_ptr = self.swarms[actor_id.as_usize()].expect("Actor not added yet") as
             *mut Swarm<A>;
 
@@ -216,7 +218,7 @@ impl ActorSystem {
                 // TODO: not sure if this is the best place to drop the message
                 ::std::ptr::drop_in_place(packet_ptr as *mut Packet<M>);
             }),
-            critical: critical,
+            critical,
         });
     }
 
@@ -225,10 +227,7 @@ impl ActorSystem {
     /// Inside actor message handlers you always have access to a
     /// [`World`](struct.World.html) that allows you to send messages.
     pub fn send<M: Message>(&mut self, recipient: RawID, message: M) {
-        let packet = Packet {
-            recipient_id: recipient,
-            message: message,
-        };
+        let packet = Packet { recipient_id: recipient, message };
 
         let to_here = recipient.machine == self.networking.machine_id;
         let global = recipient.is_global_broadcast();
@@ -413,6 +412,7 @@ impl World {
     pub fn allocate_instance_id<A: 'static + Actor>(&mut self) -> RawID {
         let system: &mut ActorSystem = unsafe { &mut *self.0 };
         let swarm = unsafe {
+            #[allow(cast_ptr_alignment)]
             &mut *(system.swarms[system.actor_registry.get::<A>().as_usize()]
                        .expect("Subactor type not found.") as *mut Swarm<A>)
         };

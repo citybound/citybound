@@ -6,7 +6,7 @@ build = "src/build.rs"
 
 [dependencies]
 glium = "0.17.0"
-clippy = { version = "0.0.175", optional = true }
+clippy = { version = "0.0.197", optional = true }
 fnv = "1.0.3"
 itertools = "0.7.6"
 lyon_tessellation = "0.9.1"

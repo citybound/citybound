@@ -18,6 +18,7 @@ impl Inbox {
         let packet_size = packet.total_size_bytes();
         let total_size = ::std::mem::size_of::<ShortTypeId>() + packet_size;
 
+        #[allow(cast_ptr_alignment)]
         unsafe {
 
             // "Allocate" the space in the queue
@@ -67,6 +68,7 @@ impl<'a> Iterator for InboxIterator<'a> {
         if self.n_messages_to_read == 0 {
             None
         } else {
+            #[allow(cast_ptr_alignment)]
             unsafe {
                 let ptr = self.queue.dequeue().expect(
                     "should have something left for sure",
@@ -75,7 +77,7 @@ impl<'a> Iterator for InboxIterator<'a> {
                 let payload_ptr = ptr.offset(::std::mem::size_of::<ShortTypeId>() as isize);
                 self.n_messages_to_read -= 1;
                 Some(DispatchablePacket {
-                    message_type: message_type,
+                    message_type,
                     packet_ptr: payload_ptr as *const (),
                 })
             }

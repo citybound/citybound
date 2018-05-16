@@ -1,4 +1,4 @@
-#![feature(custom_derive, conservative_impl_trait, iter_rfold)]
+#![feature(custom_derive, iter_rfold)]
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 #![allow(dead_code)]

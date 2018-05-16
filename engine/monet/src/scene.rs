@@ -30,7 +30,7 @@ impl SceneDescription {
                 up: V3::new(0.0, 0.0, 1.0),
                 field_of_view: 0.3 * ::std::f32::consts::PI,
             },
-            renderables: renderables,
+            renderables,
         }
     }
 

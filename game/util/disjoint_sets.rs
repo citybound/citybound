@@ -104,8 +104,8 @@ impl<T> DisjointSets<T> {
                 current_start_index = next_start_index;
             }
 
-            let mut new_elements = Vec::with_capacity(self.elements.len());
-            let mut new_ranks = Vec::with_capacity(self.elements.len());
+            let mut new_elements: Vec<T> = Vec::with_capacity(self.elements.len());
+            let mut new_ranks: Vec<usize> = Vec::with_capacity(self.elements.len());
             let mut old_to_new_idx_map = vec![0; self.elements.len()];
             let mut new_to_old_idx_map = vec![0; self.elements.len()];
 

@@ -10,10 +10,8 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 #![feature(vec_resize_default)]
-#![feature(conservative_impl_trait)]
 
 use std::mem;
-use std::mem::transmute;
 use std::ptr;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
@@ -336,8 +334,8 @@ impl<Item: Clone, H: Handler> Vector<Item, H> {
             None
         } else {
             unsafe {
-                let item_ptr: *const Item =
-                    transmute(self.arena.at(ArenaIndex(*self.arena.len - 1)));
+                let item_ptr: *const Item = self.arena.at(ArenaIndex(*self.arena.len - 1)) as
+                    *const Item;
                 let item = Some(ptr::read(item_ptr));
                 self.arena.pop_away();
                 item
@@ -413,6 +411,7 @@ impl<H: Handler> Queue<H> {
     ///
     /// This is handled like this so items of heterogeneous types can be enqueued.
     // TODO: return done_guard to mark as concurrently readable
+    #[allow(cast_ptr_alignment)]
     pub unsafe fn enqueue(&mut self, size: usize) -> *mut u8 {
         enum EnqueueResult {
             Success(*mut u8),
@@ -464,6 +463,7 @@ impl<H: Handler> Queue<H> {
 
     /// Dequeue an item. Returns a pointer to the item in the queue, unless the queue is empty.
     // TODO: return done_guard to mark as droppable
+    #[allow(cast_ptr_alignment)]
     pub unsafe fn dequeue(&mut self) -> Option<*const u8> {
         enum DequeueResult {
             Empty,

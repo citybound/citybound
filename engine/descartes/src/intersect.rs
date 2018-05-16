@@ -35,7 +35,7 @@ impl<'a> Intersect for (&'a Line, &'a Line) {
             let along_a = (delta.y * b.direction.x - delta.x * b.direction.y) / det;
             vec![
                 Intersection {
-                    along_a: along_a,
+                    along_a,
                     along_b: (delta.y * a.direction.x - delta.x * a.direction.y) / det,
                     position: a.start + a.direction * along_a,
                 },

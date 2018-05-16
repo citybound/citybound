@@ -32,12 +32,7 @@ pub fn broadcast_machine_id() -> MachineID {
 impl RawID {
     /// Create a new `RawID`
     pub fn new(type_id: ShortTypeId, instance_id: u32, machine: MachineID, version: u8) -> Self {
-        RawID {
-            type_id: type_id,
-            machine: machine,
-            version: version,
-            instance_id: instance_id,
-        }
+        RawID { type_id, machine, version, instance_id }
     }
 
     /// Get a version of an actor `RawID` that signals that a message
