@@ -1,6 +1,6 @@
 <img src="cb.png" alt="Citybound" width="192"/>
 
-Citybound is an independently developed city building game, open source and funded though Patreon.
+Citybound is an independently developed city building game, open source and funded through Patreon.
 
 * [Homepage](http://cityboundsim.com)
 * [Latest game releases](https://github.com/aeickhoff/citybound/releases)
