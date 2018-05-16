@@ -136,6 +136,8 @@ impl Constructable for Building {
     fn morph(&mut self, new_prototype: &Prototype, report_to: ConstructionID, world: &mut World) {
         if let Prototype::Lot(ref lot_prototype) = *new_prototype {
             self.lot = lot_prototype.lot.clone();
+            rendering::on_destroy(self.id, world);
+            rendering::on_add(self.id, &self.lot, self.style, world);
             report_to.action_done(self.id.into(), world);
         } else {
             unreachable!()
@@ -143,13 +145,17 @@ impl Constructable for Building {
     }
 
     fn destruct(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
-        for household in &self.all_households() {
-            household.destroy(world);
-        }
-
         self.being_destroyed_for = COption(Some(report_to));
 
-        Fate::Live
+        if self.all_households().is_empty() {
+            self.finally_destroy(world)
+        } else {
+            for household in &self.all_households() {
+                household.destroy(world);
+            }
+
+            Fate::Live
+        }
     }
 }
 
