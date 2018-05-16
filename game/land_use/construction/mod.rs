@@ -9,7 +9,9 @@ use construction::{ConstructionID, ConstructableID};
 impl LotPrototype {
     pub fn construct(&self, report_to: ConstructionID, world: &mut World) -> CVec<ConstructableID> {
         let id = match self.occupancy {
-            LotOccupancy::Vacant => VacantLotID::spawn(self.lot.clone(), world).into(),
+            LotOccupancy::Vacant => {
+                VacantLotID::spawn(self.lot.clone(), self.based_on, world).into()
+            }
             LotOccupancy::Occupied(building_style) => {
                 BuildingID::spawn(building_style, self.lot.clone(), world).into()
             }

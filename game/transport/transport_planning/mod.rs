@@ -5,7 +5,7 @@ use stagemaster::geometry::{CPath, CShape};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
-use planning::{Plan, PlanResult, GestureIntent, Prototype, GestureID};
+use planning::{Plan, PlanResult, GestureIntent, Prototype, GestureID, Version};
 
 mod intersection_connections;
 mod smooth_path;
@@ -156,7 +156,7 @@ fn gesture_intent_smooth_paths(plan: &Plan) -> Vec<(GestureID, RoadIntent, CPath
 }
 
 #[allow(cyclomatic_complexity)]
-pub fn calculate_prototypes(plan: &Plan, _current_result: &PlanResult) -> Vec<Prototype> {
+pub fn calculate_prototypes(plan: &Plan, _current_result: &PlanResult, _based_on: Version) -> Vec<Prototype> {
     let gesture_intent_smooth_paths = gesture_intent_smooth_paths(plan);
 
     let gesture_shapes_for_intersection = gesture_intent_smooth_paths

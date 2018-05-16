@@ -7,7 +7,7 @@ use itertools::Itertools;
 
 use transport::transport_planning::RoadPrototype;
 
-use planning::{Plan, PlanResult, Prototype, GestureIntent};
+use planning::{Plan, PlanResult, Prototype, GestureIntent, Version};
 
 pub mod interaction;
 
@@ -61,6 +61,7 @@ pub struct BuildingIntent {
 pub struct LotPrototype {
     pub lot: Lot,
     pub occupancy: LotOccupancy,
+    pub based_on: Version,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -69,7 +70,11 @@ pub enum LotOccupancy {
     Occupied(BuildingStyle),
 }
 
-pub fn calculate_prototypes(plan: &Plan, current_result: &PlanResult) -> Vec<Prototype> {
+pub fn calculate_prototypes(
+    plan: &Plan,
+    current_result: &PlanResult,
+    based_on: Version,
+) -> Vec<Prototype> {
     println!("Calculating protos");
     let paved_area_shapes = current_result
         .prototypes
@@ -117,6 +122,7 @@ pub fn calculate_prototypes(plan: &Plan, current_result: &PlanResult) -> Vec<Pro
                 Some(Prototype::Lot(LotPrototype {
                     lot: Lot { shape: shape, ..lot.clone() },
                     occupancy: LotOccupancy::Occupied(building_style),
+                    based_on,
                 }))
             } else {
                 None
@@ -130,6 +136,7 @@ pub fn calculate_prototypes(plan: &Plan, current_result: &PlanResult) -> Vec<Pro
             .filter_map(|prototype| if let Prototype::Lot(LotPrototype {
                                                   occupancy: LotOccupancy::Occupied(_),
                                                   lot: Lot { ref shape, .. },
+                                                  based_on,
                                               }) = *prototype
             {
                 Some(shape)
@@ -224,6 +231,7 @@ pub fn calculate_prototypes(plan: &Plan, current_result: &PlanResult) -> Vec<Pro
                             shape,
                         },
                         occupancy: LotOccupancy::Vacant,
+                        based_on,
                     }))
                 }
             })

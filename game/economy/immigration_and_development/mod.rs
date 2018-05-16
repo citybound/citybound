@@ -15,7 +15,7 @@ use economy::households::neighboring_town_trade::NeighboringTownTradeID;
 use land_use::buildings::BuildingStyle;
 use land_use::vacant_lots::VacantLot;
 use land_use::zone_planning::BuildingIntent;
-use planning::{PlanManagerID, Proposal, Plan, GestureID, Gesture, GestureIntent};
+use planning::{PlanManagerID, Proposal, Version, Plan, GestureID, Gesture, GestureIntent};
 
 // TODO: somehow get rid of this horrible duplication by having something like
 // a pointer to an abstract Household trait...
@@ -255,7 +255,12 @@ impl DevelopmentManager {
         }
     }
 
-    pub fn on_suggested_lot(&mut self, building_intent: &BuildingIntent, world: &mut World) {
+    pub fn on_suggested_lot(
+        &mut self,
+        building_intent: &BuildingIntent,
+        based_on: Version,
+        world: &mut World,
+    ) {
         if let Some(building_to_develop) = *self.building_to_develop {
             if building_to_develop == building_intent.building_style {
                 println!("Adding to plan {:?}", building_intent.building_style);
@@ -270,6 +275,7 @@ impl DevelopmentManager {
                         )).into_iter()
                             .collect(),
                     }),
+                    based_on,
                     world,
                 );
                 self.building_to_develop = COption(None);

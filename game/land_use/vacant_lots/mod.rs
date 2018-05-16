@@ -11,12 +11,13 @@ use economy::immigration_and_development::DevelopmentManagerID;
 use itertools::{Itertools, MinMaxResult};
 
 use construction::{ConstructionID, Constructable, ConstructableID};
-use planning::Prototype;
+use planning::{Prototype, Version};
 
 #[derive(Compact, Clone)]
 pub struct VacantLot {
     pub id: VacantLotID,
     pub lot: Lot,
+    based_on: Version,
 }
 
 impl Lot {
@@ -171,8 +172,8 @@ impl Lot {
 }
 
 impl VacantLot {
-    pub fn spawn(id: VacantLotID, lot: &Lot, _world: &mut World) -> VacantLot {
-        VacantLot { id, lot: lot.clone() }
+    pub fn spawn(id: VacantLotID, lot: &Lot, based_on: Version, _world: &mut World) -> VacantLot {
+        VacantLot { id, based_on, lot: lot.clone() }
     }
 
     pub fn suggest_lot(
@@ -183,7 +184,11 @@ impl VacantLot {
     ) {
         println!("Trying suggest");
         if let Some(suitable_lot) = self.lot.split_for(building_style, world) {
-            requester.on_suggested_lot(BuildingIntent { lot: suitable_lot, building_style }, world)
+            requester.on_suggested_lot(
+                BuildingIntent { lot: suitable_lot, building_style },
+                self.based_on,
+                world,
+            )
         }
     }
 }

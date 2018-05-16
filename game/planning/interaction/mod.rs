@@ -100,7 +100,7 @@ impl PlanManager {
                 let preview_plan = self.proposals.get(proposal_id).unwrap().apply_to(
                     &self.master_plan,
                 );
-                let preview_plan_result = preview_plan.calculate_result();
+                let preview_plan_result = preview_plan.calculate_result(self.master_version);
 
                 ui_state_mut.current_preview = COption(Some(preview_plan));
                 Construction::global_first(world).simulate(

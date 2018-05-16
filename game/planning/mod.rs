@@ -132,7 +132,7 @@ impl PrototypeID {
 }
 
 impl Plan {
-    pub fn calculate_result(&self) -> PlanResult {
+    pub fn calculate_result(&self, based_on: Version) -> PlanResult {
         let mut result = PlanResult { prototypes: CHashMap::new() };
 
         for prototype_fn in &[
@@ -140,7 +140,7 @@ impl Plan {
             ::land_use::zone_planning::calculate_prototypes,
         ]
         {
-            let new_prototypes = prototype_fn(self, &result);
+            let new_prototypes = prototype_fn(self, &result, based_on);
 
             for (id, prototype) in new_prototypes.into_iter().map(|prototype| {
                 (PrototypeID::new(), prototype)
@@ -165,10 +165,14 @@ impl ProposalID {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub struct Version(ProposalID);
+
 #[derive(Compact, Clone)]
 pub struct PlanManager {
     id: PlanManagerID,
     master_plan: Plan,
+    master_version: Version,
     proposals: CHashMap<ProposalID, Proposal>,
     implemented_proposals: CHashMap<ProposalID, Proposal>,
     ui_state: CHashMap<MachineID, PlanManagerUIState>,
@@ -179,6 +183,7 @@ impl PlanManager {
         PlanManager {
             id,
             master_plan: Plan::default(),
+            master_version: Version(ProposalID::new()),
             proposals: Some((initial_proposal_id, Proposal::default()))
                 .into_iter()
                 .collect(),
@@ -212,8 +217,12 @@ impl PlanManager {
         );
 
         self.master_plan = self.master_plan.merge(proposal.current_history());
+        self.master_version = Version(proposal_id);
 
-        Construction::global_first(world).implement(self.master_plan.calculate_result(), world);
+        Construction::global_first(world).implement(
+            self.master_plan.calculate_result(self.master_version),
+            world,
+        );
 
         self.implemented_proposals.insert(proposal_id, proposal);
 
@@ -241,10 +250,17 @@ impl PlanManager {
         }
     }
 
-    pub fn implement_artificial_proposal(&mut self, proposal: &Proposal, world: &mut World) {
-        let proposal_id = ProposalID::new();
-        self.proposals.insert(proposal_id, proposal.clone());
-        self.implement(proposal_id, world);
+    pub fn implement_artificial_proposal(
+        &mut self,
+        proposal: &Proposal,
+        based_on: Version,
+        world: &mut World,
+    ) {
+        if based_on == self.master_version {
+            let proposal_id = ProposalID::new();
+            self.proposals.insert(proposal_id, proposal.clone());
+            self.implement(proposal_id, world);
+        }
     }
 }
 

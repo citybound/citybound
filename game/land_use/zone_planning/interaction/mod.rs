@@ -21,7 +21,9 @@ pub fn render_preview(
     let mut lot_outline_geometry = Geometry::empty();
 
     for prototype in result_preview.prototypes.values() {
-        if let Prototype::Lot(LotPrototype { lot: Lot { ref shape, .. }, occupancy }) = *prototype {
+        if let Prototype::Lot(LotPrototype { lot: Lot { ref shape, .. }, occupancy, .. }) =
+            *prototype
+        {
             if occupancy == LotOccupancy::Vacant {
                 lot_outline_geometry +=
                     band_to_geometry(&Band::new(shape.outline().clone(), 2.0), 0.1);
