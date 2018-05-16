@@ -62,7 +62,13 @@ impl CameraControl {
         env: Environment,
         world: &mut World,
     ) -> Self {
-        ui_id.add(id.into(), super::geometry::AnyShape::Everywhere, 0, world);
+        ui_id.add(
+            0,
+            id.into(),
+            super::geometry::AnyShape::Everywhere,
+            0,
+            world,
+        );
         ui_id.focus(id.into(), world);
         ui_id.add_2d(id.into(), world);
 
@@ -70,7 +76,7 @@ impl CameraControl {
             id,
             renderer_id,
             settings: External::new(env.load_settings("Camera Control")),
-            env: env,
+            env,
             forward: false,
             backward: false,
             left: false,
@@ -105,7 +111,6 @@ impl Interactable3d for CameraControl {
 
                 if self.yaw_modifier {
                     self.renderer_id.move_eye(
-                        0,
                         Movement::Yaw(-delta.x * self.settings.rotation_speed / 300.0),
                         world,
                     );
@@ -113,7 +118,6 @@ impl Interactable3d for CameraControl {
 
                 if self.pitch_modifier {
                     self.renderer_id.move_eye(
-                        0,
                         Movement::Pitch(
                             -delta.y * self.settings.rotation_speed *
                                 if self.settings.invert_y { -1.0 } else { 1.0 } /
@@ -125,7 +129,6 @@ impl Interactable3d for CameraControl {
 
                 if self.pan_modifier {
                     self.renderer_id.move_eye(
-                        0,
                         Movement::ShiftProjected(
                             old_cursor_2d,
                             cursor_2d,
@@ -139,7 +142,6 @@ impl Interactable3d for CameraControl {
             }
             Event3d::Scroll(delta) => {
                 self.renderer_id.move_eye(
-                    0,
                     Movement::Zoom(
                         delta.y * self.settings.zoom_speed,
                         self.last_cursor_3d,
@@ -150,7 +152,6 @@ impl Interactable3d for CameraControl {
             Event3d::Frame => {
                 if self.forward {
                     self.renderer_id.move_eye(
-                        0,
                         Movement::Shift(
                             V3::new(5.0 * self.settings.move_speed, 0.0, 0.0),
                         ),
@@ -160,7 +161,6 @@ impl Interactable3d for CameraControl {
                 }
                 if self.backward {
                     self.renderer_id.move_eye(
-                        0,
                         Movement::Shift(
                             V3::new(-5.0 * self.settings.move_speed, 0.0, 0.0),
                         ),
@@ -169,7 +169,6 @@ impl Interactable3d for CameraControl {
                 }
                 if self.left {
                     self.renderer_id.move_eye(
-                        0,
                         Movement::Shift(
                             V3::new(0.0, -5.0 * self.settings.move_speed, 0.0),
                         ),
@@ -178,7 +177,6 @@ impl Interactable3d for CameraControl {
                 }
                 if self.right {
                     self.renderer_id.move_eye(
-                        0,
                         Movement::Shift(
                             V3::new(0.0, 5.0 * self.settings.move_speed, 0.0),
                         ),
@@ -196,14 +194,7 @@ use imgui_sys::ImGuiSetCond_FirstUseEver;
 
 impl Interactable2d for CameraControl {
     /// Critical
-    fn draw_ui_2d(
-        &mut self,
-        imgui_ui: &External<::imgui::Ui<'static>>,
-        return_to: UserInterfaceID,
-        world: &mut World,
-    ) {
-        let ui = imgui_ui.steal();
-
+    fn draw(&mut self, _: &mut World, ui: &::imgui::Ui<'static>) {
         let mut settings_changed = false;
 
         ui.window(im_str!("Controls"))
@@ -235,8 +226,6 @@ impl Interactable2d for CameraControl {
         if settings_changed {
             self.env.write_settings("Camera Control", &*self.settings);
         }
-
-        return_to.ui_drawn(ui, world);
     }
 }
 

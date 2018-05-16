@@ -10,7 +10,7 @@ pub struct Circle {
 
 impl Curve for Circle {
     fn project_with_tolerance(&self, point: P2, _tolerance: N) -> Option<N> {
-        let angle = angle_along_to(V2::new(1.0, 0.0), V2::new(0.0, 1.0), (point - self.center));
+        let angle = angle_along_to(V2::new(1.0, 0.0), V2::new(0.0, 1.0), point - self.center);
         Some(self.radius * angle)
     }
 
@@ -31,11 +31,11 @@ impl Curve for Line {
     }
 
     fn distance_to(&self, point: P2) -> N {
-        (point - self.start).dot(&self.direction.orthogonal())
+        (point - self.start).dot(&self.direction.orthogonal()).abs()
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub struct Segment {
     pub start: P2,
     pub center_or_direction: V2,
@@ -48,16 +48,21 @@ const DIRECTION_TOLERANCE: f32 = 0.01;
 pub const MIN_START_TO_END: f32 = 0.01;
 const MAX_SIMPLE_LINE_LENGTH: f32 = 0.5;
 
+fn start_end_invalid(start: P2, end: P2) -> bool {
+    start.x.is_nan() || start.y.is_nan() || end.x.is_nan() || end.y.is_nan() ||
+        start.is_roughly_within(end, MIN_START_TO_END)
+}
+
 impl Segment {
     pub fn line(start: P2, end: P2) -> Option<Segment> {
-        if start.is_roughly_within(end, MIN_START_TO_END) {
+        if start_end_invalid(start, end) {
             //panic!("invalid segment!");
             None
         } else {
             Some(Segment {
-                start: start,
+                start,
                 center_or_direction: (end - start).normalize(),
-                end: end,
+                end,
                 length: (end - start).norm(),
                 signed_radius: 0.0,
             })
@@ -65,7 +70,7 @@ impl Segment {
     }
 
     pub fn arc_with_direction(start: P2, direction: V2, end: P2) -> Option<Segment> {
-        if start.is_roughly_within(end, MIN_START_TO_END) {
+        if start_end_invalid(start, end) {
             //panic!("invalid segment!");
             None
         } else if direction.is_roughly_within((end - start).normalize(), DIRECTION_TOLERANCE) {
@@ -78,11 +83,11 @@ impl Segment {
             let center = start + signed_radius * direction.orthogonal();
             let angle_span = angle_along_to(start - center, direction, end - center);
             Some(Segment {
-                start: start,
+                start,
                 center_or_direction: center.coords,
-                end: end,
+                end,
                 length: angle_span * signed_radius.abs(),
-                signed_radius: signed_radius,
+                signed_radius,
             })
         }
     }
@@ -93,7 +98,7 @@ impl Segment {
         end: P2,
         end_direction: V2,
     ) -> Option<Vec<Segment>> {
-        if start.is_roughly_within(end, MIN_START_TO_END) {
+        if start_end_invalid(start, end) {
             return None;
             // panic!(
             //     "invalid biarc! {:?}, {:?} -> {:?}, {:?}",
@@ -114,7 +119,7 @@ impl Segment {
             Some(vec![Segment::line(start, end)?])
         } else {
             let maybe_linear_intersection = (
-                &Line { start: start, direction: start_direction },
+                &Line { start, direction: start_direction },
                 &Line { start: end, direction: -end_direction },
             ).intersect()
                 .into_iter()
@@ -232,6 +237,38 @@ impl Segment {
 
     pub fn radius(&self) -> N {
         self.signed_radius.abs()
+    }
+
+    pub fn signed_angle(&self) -> N {
+        self.length / self.signed_radius
+    }
+
+    pub fn to_svg(&self) -> String {
+        if self.is_linear() {
+            format!(
+                "M {} {} L {} {}",
+                self.start.x,
+                self.start.y,
+                self.end.x,
+                self.end.y
+            )
+        } else {
+            format!(
+                "M {} {} A {} {} 0 {} {} {} {}",
+                self.start.x,
+                self.start.y,
+                self.radius(),
+                self.radius(),
+                if self.length / self.radius() > ::std::f32::consts::PI {
+                    1
+                } else {
+                    0
+                },
+                if self.signed_radius < 0.0 { 1 } else { 0 },
+                self.end.x,
+                self.end.y
+            )
+        }
     }
 }
 
@@ -398,11 +435,12 @@ impl Curve for Segment {
 
 impl<'a> RoughlyComparable for &'a Segment {
     fn is_roughly_within(&self, other: &Segment, tolerance: N) -> bool {
-        self.start.is_roughly_within(other.start, tolerance)
-        && self.end.is_roughly_within(other.end, tolerance)
-        // much stricter tolerance here!
-        && self.start_direction().is_roughly(other.start_direction()) &&
-            self.end_direction().is_roughly(other.end_direction())
+        self.start.is_roughly_within(other.start, tolerance) &&
+            self.end.is_roughly_within(other.end, tolerance) &&
+            self.midpoint().is_roughly_within(
+                other.midpoint(),
+                tolerance,
+            )
     }
 }
 
@@ -419,6 +457,32 @@ impl HasBoundingBox for Segment {
                 min: self.center() - half_diagonal,
                 max: self.center() + half_diagonal,
             }
+        }
+    }
+}
+
+impl ::std::fmt::Debug for Segment {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
+        if self.is_linear() {
+            write!(
+                f,
+                "LineSeg({:.2}, {:.2} to {:.2}, {:.2})",
+                self.start().x,
+                self.start().y,
+                self.end().x,
+                self.end().y
+            )
+        } else {
+            write!(
+                f,
+                "ArcSeg({:.2}, {:.2} around {:.2}, {:.2} to {:.2}, {:.2})",
+                self.start().x,
+                self.start().y,
+                self.center().x,
+                self.center().y,
+                self.end().x,
+                self.end().y
+            )
         }
     }
 }

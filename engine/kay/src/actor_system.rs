@@ -2,7 +2,7 @@ use compact::Compact;
 use std::mem::size_of;
 use super::messaging::{Message, Packet, Fate};
 use super::inbox::{Inbox, DispatchablePacket};
-use super::id::{RawID, TypedID};
+use super::id::{RawID, TypedID, MachineID};
 use super::type_registry::{ShortTypeId, TypeRegistry};
 use super::swarm::Swarm;
 use super::networking::Networking;
@@ -172,6 +172,7 @@ impl ActorSystem {
         //          unsafe { ::std::intrinsics::type_name::<M>() });
 
 
+        #[allow(cast_ptr_alignment)]
         let swarm_ptr = self.swarms[actor_id.as_usize()].expect("Actor not added yet") as
             *mut Swarm<A>;
 
@@ -184,7 +185,7 @@ impl ActorSystem {
                 // TODO: not sure if this is the best place to drop the message
                 ::std::ptr::drop_in_place(packet_ptr as *mut Packet<M>);
             }),
-            critical: critical,
+            critical,
         });
     }
 
@@ -201,6 +202,7 @@ impl ActorSystem {
         //          unsafe { ::std::intrinsics::type_name::<M>() });
 
 
+        #[allow(cast_ptr_alignment)]
         let swarm_ptr = self.swarms[actor_id.as_usize()].expect("Actor not added yet") as
             *mut Swarm<A>;
 
@@ -216,7 +218,7 @@ impl ActorSystem {
                 // TODO: not sure if this is the best place to drop the message
                 ::std::ptr::drop_in_place(packet_ptr as *mut Packet<M>);
             }),
-            critical: critical,
+            critical,
         });
     }
 
@@ -225,10 +227,7 @@ impl ActorSystem {
     /// Inside actor message handlers you always have access to a
     /// [`World`](struct.World.html) that allows you to send messages.
     pub fn send<M: Message>(&mut self, recipient: RawID, message: M) {
-        let packet = Packet {
-            recipient_id: recipient,
-            message: message,
-        };
+        let packet = Packet { recipient_id: recipient, message };
 
         let to_here = recipient.machine == self.networking.machine_id;
         let global = recipient.is_global_broadcast();
@@ -335,7 +334,7 @@ impl ActorSystem {
     }
 
     /// The machine index of this machine within the network of peers
-    pub fn networking_machine_id(&self) -> u8 {
+    pub fn networking_machine_id(&self) -> MachineID {
         self.networking.machine_id
     }
 
@@ -394,7 +393,7 @@ impl World {
     /// Get the RawID of the first instance of an actor on machine 0
     pub fn global_first<A: Actor>(&mut self) -> RawID {
         let mut id = unsafe { &mut *self.0 }.id::<A>();
-        id.machine = 0;
+        id.machine = MachineID(0);
         id
     }
 
@@ -413,6 +412,7 @@ impl World {
     pub fn allocate_instance_id<A: 'static + Actor>(&mut self) -> RawID {
         let system: &mut ActorSystem = unsafe { &mut *self.0 };
         let swarm = unsafe {
+            #[allow(cast_ptr_alignment)]
             &mut *(system.swarms[system.actor_registry.get::<A>().as_usize()]
                        .expect("Subactor type not found.") as *mut Swarm<A>)
         };
@@ -420,7 +420,7 @@ impl World {
     }
 
     /// Get the id of the machine that we're currently in
-    pub fn local_machine_id(&mut self) -> u8 {
+    pub fn local_machine_id(&mut self) -> MachineID {
         let system: &mut ActorSystem = unsafe { &mut *self.0 };
         system.networking.machine_id
     }

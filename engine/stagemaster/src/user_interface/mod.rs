@@ -54,7 +54,15 @@ pub trait Interactable2d {
         imgui_ui: &External<::imgui::Ui<'static>>,
         return_to: UserInterfaceID,
         world: &mut World,
-    );
+    ) {
+        let ui = imgui_ui.steal();
+        self.draw(world, &*ui);
+        return_to.ui_drawn(ui, world);
+    }
+
+    fn draw(&mut self, _world: &mut World, _ui: &::imgui::Ui<'static>) {
+        unimplemented!()
+    }
 }
 
 #[derive(Compact, Clone)]
@@ -62,6 +70,8 @@ pub struct UserInterface {
     id: UserInterfaceID,
     inner: External<UserInterfaceInner>,
 }
+
+pub type UserInterfaceLayer = usize;
 
 pub struct UserInterfaceInner {
     events_loop: EventsLoop,
@@ -74,10 +84,11 @@ pub struct UserInterfaceInner {
     cursor_3d: P3,
     drag_start_2d: Option<P2>,
     drag_start_3d: Option<P3>,
-    interactables: HashMap<Interactable3dID, (AnyShape, usize)>,
+    interactables: HashMap<UserInterfaceLayer, HashMap<Interactable3dID, (AnyShape, usize)>>,
     hovered_interactable: Option<Interactable3dID>,
     active_interactable: Option<Interactable3dID>,
     focused_interactables: HashSet<Interactable3dID>,
+    current_layer: Option<UserInterfaceLayer>,
     interactables_2d: Vec<Interactable2dID>,
     interactables_2d_todo: Vec<Interactable2dID>,
     parked_frame: Option<Box<::monet::glium::Frame>>,
@@ -125,7 +136,7 @@ impl UserInterface {
             config.font_data_owned_by_atlas = false;
             ::imgui_sys::ImFontAtlas_AddFontFromMemoryTTF(
                 atlas,
-                ::std::mem::transmute(default_font.as_ptr()),
+                default_font.as_ptr() as *mut _,
                 default_font.len() as i32,
                 16.0,
                 &config,
@@ -185,7 +196,7 @@ impl UserInterface {
             inner: External::new(UserInterfaceInner {
                 window: *window.steal().into_box(),
                 events_loop: *events_loop.steal().into_box(),
-                renderer_id: renderer_id,
+                renderer_id,
                 camera_control_id: CameraControlID::spawn(renderer_id, id, env, world),
                 mouse_button_state: [false; 5],
                 combo_listener: ::combo::ComboListener::default(),
@@ -197,13 +208,14 @@ impl UserInterface {
                 hovered_interactable: None,
                 active_interactable: None,
                 focused_interactables: HashSet::new(),
+                current_layer: None,
                 interactables_2d: Vec::new(),
                 interactables_2d_todo: Vec::new(),
                 parked_frame: None,
-                imgui: imgui,
+                imgui,
                 imgui_capture_keyboard: false,
                 imgui_capture_mouse: false,
-                imgui_renderer: imgui_renderer,
+                imgui_renderer,
                 debug_text: BTreeMap::new(),
                 persistent_debug_text: BTreeMap::new(),
                 panicked: false,
@@ -255,7 +267,6 @@ impl UserInterface {
                         }
 
                         self.renderer_id.project_2d_to_3d(
-                            0,
                             self.cursor_2d,
                             self.id_as(),
                             world,
@@ -391,21 +402,76 @@ impl UserInterface {
             }
         }
 
-        for interactable in self.interactables.keys() {
+        for interactable in self.interactables.values().flat_map(|layer| layer.keys()) {
             interactable.on_event(Event3d::Frame, world)
         }
     }
 
-    pub fn add(&mut self, id: Interactable3dID, shape: &AnyShape, z_index: usize, _: &mut World) {
-        self.interactables.insert(id, (shape.clone(), z_index));
+    pub fn add(
+        &mut self,
+        layer: UserInterfaceLayer,
+        id: Interactable3dID,
+        shape: &AnyShape,
+        z_index: usize,
+        world: &mut World,
+    ) {
+        self.interactables
+            .entry(layer)
+            .or_insert_with(HashMap::default)
+            .insert(id, (shape.clone(), z_index));
+
+        self.find_hovered_interactable(world);
     }
 
-    pub fn remove(&mut self, id: Interactable3dID, _: &mut World) {
-        self.interactables.remove(&id);
+    pub fn remove(&mut self, layer: UserInterfaceLayer, id: Interactable3dID, world: &mut World) {
+        if let Some(layer) = self.interactables.get_mut(&layer) {
+            layer.remove(&id);
+        }
+        self.find_hovered_interactable(world);
     }
 
     pub fn focus(&mut self, id: Interactable3dID, _: &mut World) {
         self.focused_interactables.insert(id);
+    }
+
+    pub fn set_current_layer(&mut self, layer: Option<UserInterfaceLayer>, _: &mut World) {
+        self.current_layer = layer;
+    }
+
+    pub fn find_hovered_interactable(&mut self, world: &mut World) {
+        self.hovered_interactable =
+            if let Some(layer) = self.current_layer.and_then(|l| self.interactables.get(&l)) {
+                let new_hovered_interactable = layer
+                    .iter()
+                    .filter(|&(_id, &(ref shape, _z_index))| {
+                        shape.contains(self.cursor_3d.into_2d())
+                    })
+                    .max_by_key(|&(_id, &(ref _shape, z_index))| z_index)
+                    .map(|(id, _shape)| *id);
+
+                if self.hovered_interactable != new_hovered_interactable {
+                    if let Some(previous) = self.hovered_interactable {
+                        previous.on_event(Event3d::HoverStopped, world);
+                    }
+                    if let Some(next) = new_hovered_interactable {
+                        next.on_event(
+                            Event3d::HoverStarted { at: self.cursor_3d, at2d: self.cursor_2d },
+                            world,
+                        );
+                    }
+                } else if let Some(hovered_interactable) = self.hovered_interactable {
+                    hovered_interactable.on_event(
+                        Event3d::HoverOngoing {
+                            at: self.cursor_3d,
+                            at2d: self.cursor_2d,
+                        },
+                        world,
+                    );
+                }
+                new_hovered_interactable
+            } else {
+                None
+            }
     }
 
     pub fn add_2d(&mut self, id: Interactable2dID, _: &mut World) {
@@ -464,34 +530,7 @@ impl ProjectionRequester for UserInterface {
                 world,
             );
         } else {
-            let new_hovered_interactable = self.interactables
-                .iter()
-                .filter(|&(_id, &(ref shape, _z_index))| {
-                    shape.contains(position_3d.into_2d())
-                })
-                .max_by_key(|&(_id, &(ref _shape, z_index))| z_index)
-                .map(|(id, _shape)| *id);
-
-            if self.hovered_interactable != new_hovered_interactable {
-                if let Some(previous) = self.hovered_interactable {
-                    previous.on_event(Event3d::HoverStopped, world);
-                }
-                if let Some(next) = new_hovered_interactable {
-                    next.on_event(
-                        Event3d::HoverStarted { at: self.cursor_3d, at2d: self.cursor_2d },
-                        world,
-                    );
-                }
-            } else if let Some(hovered_interactable) = self.hovered_interactable {
-                hovered_interactable.on_event(
-                    Event3d::HoverOngoing {
-                        at: self.cursor_3d,
-                        at2d: self.cursor_2d,
-                    },
-                    world,
-                );
-            }
-            self.hovered_interactable = new_hovered_interactable;
+            self.find_hovered_interactable(world);
         }
 
         for interactable in &self.focused_interactables {
@@ -608,7 +647,7 @@ pub fn setup(
     scene.eye.position *= 30.0;
     let renderer_id = RendererID::spawn(
         External::new(window.clone()),
-        vec![scene].into(),
+        scene,
         clear_color,
         &mut system.world(),
     );

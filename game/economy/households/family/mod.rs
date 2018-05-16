@@ -1,12 +1,12 @@
 use kay::{ActorSystem, World, Actor};
-use core::random::{seed, Rng};
+use util::random::{seed, Rng};
 
-use core::simulation::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, SimulationID,
-                       Simulatable, SimulatableID};
+use simulation::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, SimulationID, Simulatable,
+                 SimulatableID};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
-use economy::buildings::BuildingID;
+use land_use::buildings::BuildingID;
 use transport::pathfinding::trip::{TripResult, TripListenerID};
 use transport::pathfinding::RoughLocationID;
 
@@ -57,7 +57,7 @@ impl Family {
     }
 }
 
-use core::simulation::{Sleeper, SleeperID};
+use simulation::{Sleeper, SleeperID};
 
 impl Sleeper for Family {
     fn wake(&mut self, current_instant: Instant, world: &mut World) {

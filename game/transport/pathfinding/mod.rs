@@ -1,9 +1,9 @@
 use compact::{CDict, CVec, CHashMap};
 use kay::{ActorSystem, World, TypedID, Actor};
 use descartes::{P2, FiniteCurve};
-use super::lane::{Lane, LaneID, TransferLane, TransferLaneID};
+use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
-use core::simulation::Instant;
+use simulation::Instant;
 
 // TODO: MAKE TRANSFER LANE NOT PARTICIPATE AT ALL IN PATHFINDING -> MUCH SIMPLER
 
@@ -12,7 +12,7 @@ use self::trip::{TripResult, TripFate};
 
 pub trait Node {
     fn update_routes(&mut self, world: &mut World);
-    fn query_routes(&mut self, requester: NodeID, is_transfer: bool, world: &mut World);
+    fn query_routes(&mut self, requester: NodeID, is_switch: bool, world: &mut World);
     fn on_routes(
         &mut self,
         new_routes: &CDict<Location, (f32, u8)>,
@@ -79,7 +79,7 @@ impl ::std::ops::DerefMut for PreciseLocation {
 
 impl Location {
     fn landmark(landmark: NodeID) -> Self {
-        Location { landmark: landmark, node: landmark }
+        Location { landmark, node: landmark }
     }
     pub fn is_landmark(&self) -> bool {
         self.landmark == self.node
@@ -190,8 +190,8 @@ impl Node for Lane {
             }
 
             if self.pathfinding.routes_changed {
-                for (_, predecessor, is_transfer) in predecessors(self) {
-                    let self_cost = if is_transfer {
+                for (_, predecessor, is_switch) in predecessors(self) {
+                    let self_cost = if is_switch {
                         0.0
                     } else {
                         self.construction.length
@@ -228,8 +228,8 @@ impl Node for Lane {
         }
     }
 
-    fn query_routes(&mut self, requester: NodeID, is_transfer: bool, world: &mut World) {
-        let self_cost = if is_transfer {
+    fn query_routes(&mut self, requester: NodeID, is_switch: bool, world: &mut World) {
+        let self_cost = if is_switch {
             0.0
         } else {
             self.construction.length
@@ -391,11 +391,11 @@ impl Node for Lane {
             self.pathfinding = PathfindingInfo {
                 location: Some(join_as),
                 learned_landmark_from: Some(from),
-                hops_from_landmark: hops_from_landmark,
+                hops_from_landmark,
                 routes: CHashMap::new(),
                 routes_changed: true,
                 query_routes_next_tick: true,
-                tell_to_forget_next_tick: tell_to_forget_next_tick,
+                tell_to_forget_next_tick,
                 routing_timeout: ROUTING_TIMEOUT_AFTER_CHANGE,
                 attachees: self.pathfinding.attachees.clone(),
                 debug_highlight_for: self.pathfinding.debug_highlight_for.clone(),
@@ -501,10 +501,10 @@ impl RoughLocation for Lane {
     }
 }
 
-impl Node for TransferLane {
+impl Node for SwitchLane {
     fn update_routes(&mut self, _: &mut World) {}
 
-    fn query_routes(&mut self, requester: NodeID, _is_transfer: bool, world: &mut World) {
+    fn query_routes(&mut self, requester: NodeID, _is_switch: bool, world: &mut World) {
         // TODO: ugly: untyped RawID shenanigans
         let requester_lane = unsafe { LaneID::from_raw(requester.as_raw()) };
         if let Some(other_lane) = self.other_side(requester_lane) {
@@ -683,7 +683,7 @@ impl Lane {
     }
 }
 
-use core::simulation::SimulationID;
+use simulation::SimulationID;
 
 pub fn setup(system: &mut ActorSystem, simulation: SimulationID) {
     trip::setup(system, simulation);

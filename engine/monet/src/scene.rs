@@ -30,7 +30,7 @@ impl SceneDescription {
                 up: V3::new(0.0, 0.0, 1.0),
                 field_of_view: 0.3 * ::std::f32::consts::PI,
             },
-            renderables: renderables,
+            renderables,
         }
     }
 
@@ -46,7 +46,7 @@ impl SceneDescription {
 pub struct Scene {
     description: SceneDescription,
     pub eye_listeners: CVec<EyeListenerID>,
-    pub batches: FnvHashMap<u16, Batch>,
+    pub batches: FnvHashMap<u32, Batch>,
 }
 
 impl ::std::ops::Deref for Scene {

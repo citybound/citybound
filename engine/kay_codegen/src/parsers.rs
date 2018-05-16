@@ -134,7 +134,15 @@ fn handler_from(
         let returns_fate = match sig.decl.output {
             FunctionRetTy::Default => false,
             FunctionRetTy::Ty(Ty::Path(_, Path { ref segments, .. })) => {
-                segments.iter().any(|s| s.ident.as_ref() == "Fate")
+                if segments.iter().any(|s| s.ident.as_ref() == "Fate") {
+                    true
+                } else {
+                    if scope == HandlerType::Init {
+                        false
+                    } else {
+                        return None;
+                    }
+                }
             }
             _ => return None,
         };

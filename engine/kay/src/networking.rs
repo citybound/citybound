@@ -3,7 +3,7 @@ use std::io::{Read, Write, ErrorKind, BufReader};
 use std::thread;
 use std::time::Duration;
 use super::inbox::Inbox;
-use super::id::{RawID, broadcast_machine_id};
+use super::id::{RawID, broadcast_machine_id, MachineID};
 use super::type_registry::ShortTypeId;
 use super::messaging::{Message, Packet};
 use byteorder::{LittleEndian, WriteBytesExt, ByteOrder};
@@ -13,7 +13,7 @@ use compact::Compact;
 /// of an `ActorSystem`
 pub struct Networking {
     /// The machine index of this machine within the network of peers
-    pub machine_id: u8,
+    pub machine_id: MachineID,
     /// The current network turn this machine is in. Used to keep track
     /// if this machine lags behind or runs fast compared to its peers
     pub n_turns: usize,
@@ -26,7 +26,7 @@ impl Networking {
     /// and all peer addresses (including this machine)
     pub fn new(machine_id: u8, network: Vec<SocketAddr>) -> Networking {
         Networking {
-            machine_id,
+            machine_id: MachineID(machine_id),
             n_turns: 0,
             network_connections: (0..network.len()).into_iter().map(|_| None).collect(),
             network,
@@ -35,11 +35,11 @@ impl Networking {
 
     /// Connect to all peers in the network
     pub fn connect(&mut self) {
-        let listener = TcpListener::bind(self.network[self.machine_id as usize]).unwrap();
+        let listener = TcpListener::bind(self.network[self.machine_id.0 as usize]).unwrap();
 
         // first wait for all smaller machine_ids to connect
         for (machine_id, _address) in self.network.iter().enumerate() {
-            if machine_id < self.machine_id as usize {
+            if machine_id < self.machine_id.0 as usize {
                 self.network_connections[machine_id] =
                     Some(Connection::new(listener.accept().unwrap().0))
             }
@@ -49,7 +49,7 @@ impl Networking {
 
         // then try to connecto to all larger machine_ids
         for (machine_id, address) in self.network.iter().enumerate() {
-            if machine_id > self.machine_id as usize {
+            if machine_id > self.machine_id.0 as usize {
                 self.network_connections[machine_id] =
                     Some(Connection::new(TcpStream::connect(address).unwrap()))
             }
@@ -134,7 +134,7 @@ impl Networking {
         } else {
             vec![
                 self.network_connections
-                    .get_mut(machine_id as usize)
+                    .get_mut(machine_id.0 as usize)
                     .expect("Expected machine index to exist")
                     .as_mut()
                     .expect("Expected connection to exist for machine"),
@@ -195,7 +195,7 @@ impl Networking {
                 format!(
                     "{}: {}",
                     i,
-                    if i == usize::from(self.machine_id) {
+                    if i == usize::from(self.machine_id.0) {
                         self.n_turns
                     } else {
                         connection.as_ref().unwrap().n_turns
@@ -297,6 +297,7 @@ impl Connection {
                             if *bytes_read == packet_buffer.len() {
                                 // let message_type_id =
                                 //               (&buf[0] as *const u8) as *const ShortTypeId;
+                                #[allow(cast_ptr_alignment)]
                                 let recipient_type_id =
                                     (&packet_buffer[::std::mem::size_of::<ShortTypeId>()] as
                                          *const u8) as

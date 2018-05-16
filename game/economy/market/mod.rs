@@ -2,7 +2,7 @@ use kay::{ActorSystem, Fate, World, Actor};
 use compact::{CVec, CDict};
 use super::resources::{Inventory, Entry, Resource, ResourceAmount};
 use super::households::OfferID;
-use core::simulation::{TimeOfDayRange, Duration, Instant};
+use simulation::{TimeOfDayRange, Duration, Instant};
 use transport::pathfinding::{RoughLocationID, LocationRequesterID};
 
 #[derive(Compact, Clone)]
@@ -234,7 +234,7 @@ pub fn setup(system: &mut ActorSystem) {
 
     kay_auto::auto_setup(system);
 
-    if system.networking_machine_id() == 0 {
+    if system.networking_machine_id().0 == 0 {
         MarketID::spawn(&mut system.world());
     }
 }

@@ -1,5 +1,8 @@
 use super::type_registry::ShortTypeId;
 
+#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Debug)]
+pub struct MachineID(pub u8);
+
 /// A `RawID` uniquely identifies an `Actor`, or even a `Actor` within a `Swarm`
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct RawID {
@@ -8,7 +11,7 @@ pub struct RawID {
     pub type_id: ShortTypeId,
     /// ID of the machine (in a computing cluster or multiplayer environment)
     /// that the identified `Actor` lives on
-    pub machine: u8,
+    pub machine: MachineID,
     /// Allows safe reuse of a `RawID` after `Actor`/`Actor` death.
     /// The version is incremented to make the new (otherwise identical) `RawID`
     /// distinguishable from erroneous references to the `Actor`/`Actor` previously identified
@@ -22,19 +25,14 @@ pub fn broadcast_instance_id() -> u32 {
     u32::max_value()
 }
 
-pub fn broadcast_machine_id() -> u8 {
-    u8::max_value()
+pub fn broadcast_machine_id() -> MachineID {
+    MachineID(u8::max_value())
 }
 
 impl RawID {
     /// Create a new `RawID`
-    pub fn new(type_id: ShortTypeId, instance_id: u32, machine: u8, version: u8) -> Self {
-        RawID {
-            type_id: type_id,
-            machine: machine,
-            version: version,
-            instance_id: instance_id,
-        }
+    pub fn new(type_id: ShortTypeId, instance_id: u32, machine: MachineID, version: u8) -> Self {
+        RawID { type_id, machine, version, instance_id }
     }
 
     /// Get a version of an actor `RawID` that signals that a message
@@ -74,7 +72,7 @@ impl ::std::fmt::Debug for RawID {
             u16::from(self.type_id),
             self.instance_id,
             self.version,
-            self.machine,
+            self.machine.0,
         )
     }
 }

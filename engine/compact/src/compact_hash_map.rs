@@ -168,7 +168,7 @@ impl<K: Copy, V: Compact> Compact for Entry<K, V> {
     default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
         (*dest).hash = (*source).hash;
         (*dest).tombstoned = (*source).tombstoned;
-        (*dest).inner = (*source).inner.clone();
+        ::std::ptr::copy_nonoverlapping(&(*source).inner, &mut (*dest).inner, 1);
         if (*dest).inner.is_some() {
             Compact::compact(
                 &mut (*source).inner.as_mut().unwrap().1,
@@ -240,7 +240,7 @@ impl<T: Default, A: Allocator> CompactArray<T, A> {
     pub fn with_capacity(cap: usize) -> CompactArray<T, A> {
         let mut vec = CompactArray {
             ptr: PointerToMaybeCompact::default(),
-            cap: cap,
+            cap,
             _alloc: PhantomData,
         };
 
@@ -269,7 +269,7 @@ impl<T, A: Allocator> From<Vec<T>> for CompactArray<T, A> {
 
         CompactArray {
             ptr: PointerToMaybeCompact::new_free(p),
-            cap: cap,
+            cap,
             _alloc: PhantomData,
         }
     }
@@ -502,7 +502,9 @@ impl<'a, K, V, A: Allocator> Iterator for QuadraticProbingMutIterator<'a, K, V, 
         }
         let index = (self.hash as usize + self.i * self.i) % self.number_used;
         self.i += 1;
-        Some(unsafe { std::mem::transmute(&mut self.map.entries[index]) })
+        Some(unsafe {
+            &mut *(&mut self.map.entries[index] as *mut Entry<K, V>)
+        })
     }
 }
 
@@ -588,6 +590,15 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)> + 'a {
         self.entries.iter().filter(|e| e.alive()).map(|e| {
             (e.key(), e.value())
+        })
+    }
+
+    pub fn pairs_mut<'a>(&'a mut self) -> impl Iterator<Item = (K, &'a mut V)> + 'a
+    where
+        K: Copy,
+    {
+        self.entries.iter_mut().filter(|e| e.alive()).map(|e| {
+            (*e.key(), e.mut_value())
         })
     }
 

@@ -23,7 +23,7 @@ pub struct Renderer {
 
 pub struct RendererState {
     pub current_frame: usize,
-    pub scenes: Vec<Scene>,
+    pub scene: Scene,
     pub render_context: RenderContext,
 }
 
@@ -45,19 +45,16 @@ impl Renderer {
     pub fn spawn(
         id: RendererID,
         window: &External<Display>,
-        scenes: &CVec<SceneDescription>,
+        scene_description: &SceneDescription,
         clear_color: (f32, f32, f32, f32),
         world: &mut World,
     ) -> Renderer {
         id.setup(world);
         Renderer {
-            id: id,
+            id,
             inner: External::new(RendererState {
                 current_frame: 0,
-                scenes: scenes
-                    .iter()
-                    .map(|description| description.to_scene())
-                    .collect(),
+                scene: scene_description.to_scene(),
                 render_context: RenderContext::new(window, clear_color),
             }),
         }
@@ -66,27 +63,20 @@ impl Renderer {
 
 impl Renderer {
     /// Critical
-    pub fn add_eye_listener(&mut self, scene_id: usize, listener: EyeListenerID, _: &mut World) {
-        self.scenes[scene_id].eye_listeners.push(listener);
+    pub fn add_eye_listener(&mut self, listener: EyeListenerID, _: &mut World) {
+        self.scene.eye_listeners.push(listener);
     }
 
     /// Critical
-    pub fn add_batch(
-        &mut self,
-        scene_id: usize,
-        batch_id: u16,
-        prototype: &Geometry,
-        _: &mut World,
-    ) {
+    pub fn add_batch(&mut self, batch_id: u32, prototype: &Geometry, _: &mut World) {
         let batch = Batch::new(prototype, &self.render_context.window);
-        self.scenes[scene_id].batches.insert(batch_id, batch);
+        self.scene.batches.insert(batch_id, batch);
     }
 
     /// Critical
     pub fn update_individual(
         &mut self,
-        scene_id: usize,
-        individual_id: u16,
+        individual_id: u32,
         geometry: &Geometry,
         instance_info: &Instance,
         is_decal: bool,
@@ -98,22 +88,18 @@ impl Renderer {
             is_decal,
             &self.render_context.window,
         );
-        self.scenes[scene_id].batches.insert(
-            individual_id,
-            individual,
-        );
+        self.scene.batches.insert(individual_id, individual);
     }
 
     /// Critical
     pub fn add_instance(
         &mut self,
-        scene_id: usize,
-        batch_id: u16,
+        batch_id: u32,
         frame: usize,
         instance_info: Instance,
         _: &mut World,
     ) {
-        let batch = self.scenes[scene_id].batches.get_mut(&batch_id).unwrap();
+        let batch = self.scene.batches.get_mut(&batch_id).unwrap();
 
         if batch.clear_every_frame && batch.frame < frame {
             if let Some(end) = batch.full_frame_instance_end {
@@ -130,13 +116,12 @@ impl Renderer {
     /// Critical
     pub fn add_several_instances(
         &mut self,
-        scene_id: usize,
-        batch_id: u16,
+        batch_id: u32,
         frame: usize,
         instances: &CVec<Instance>,
         _: &mut World,
     ) {
-        let batch = self.scenes[scene_id].batches.get_mut(&batch_id).unwrap();
+        let batch = self.scene.batches.get_mut(&batch_id).unwrap();
 
         if batch.clear_every_frame && batch.frame < frame {
             if let Some(end) = batch.full_frame_instance_end {
@@ -152,14 +137,8 @@ impl Renderer {
 }
 
 pub trait Renderable {
-    fn setup_in_scene(&mut self, renderer_id: RendererID, scene_id: usize, world: &mut World);
-    fn render_to_scene(
-        &mut self,
-        renderer_id: RendererID,
-        scene_id: usize,
-        frame: usize,
-        world: &mut World,
-    );
+    fn setup_in_scene(&mut self, renderer_id: RendererID, world: &mut World);
+    fn render_to_scene(&mut self, renderer_id: RendererID, frame: usize, world: &mut World);
 }
 
 
@@ -169,7 +148,7 @@ pub fn setup(system: &mut ActorSystem) {
     control::auto_setup(system);
     movement::auto_setup(system);
     project::auto_setup(system);
-    super::geometry::setup(system);
+    super::geometry_actors::setup(system);
 }
 
 mod kay_auto;

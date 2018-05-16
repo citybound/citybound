@@ -1,4 +1,4 @@
-use descartes::{Path, Band, Segment, P2, N, FiniteCurve, WithUniqueOrthogonal};
+use descartes::{SimpleShape, Path, Band, Segment, P2, N, FiniteCurve, WithUniqueOrthogonal};
 use compact::{CVec, Compact};
 use monet::{Geometry, Vertex, RendererID, Instance};
 
@@ -12,8 +12,25 @@ impl Path for CPath {
         &self.segments
     }
 
-    fn new(vec: Vec<Segment>) -> Self {
+    fn new_unchecked(vec: Vec<Segment>) -> Self {
         CPath { segments: vec.into() }
+    }
+}
+
+#[derive(Compact, Clone)]
+pub struct CShape {
+    outline: CPath,
+}
+
+impl SimpleShape for CShape {
+    type P = CPath;
+
+    fn outline(&self) -> &CPath {
+        &self.outline
+    }
+
+    fn new_unchecked(outline: CPath) -> Self {
+        CShape { outline }
     }
 }
 
@@ -25,11 +42,11 @@ pub enum AnyShape {
 }
 
 impl ::descartes::Shape for AnyShape {
-    fn contains(&self, point: P2) -> bool {
+    fn location_of(&self, point: P2) -> ::descartes::PointOnShapeLocation {
         match *self {
-            AnyShape::Circle(circle) => circle.contains(point),
-            AnyShape::Band(ref band) => band.contains(point),
-            AnyShape::Everywhere => true,
+            AnyShape::Circle(circle) => circle.location_of(point),
+            AnyShape::Band(ref band) => band.location_of(point),
+            AnyShape::Everywhere => ::descartes::PointOnShapeLocation::Inside,
         }
     }
 }
@@ -66,10 +83,7 @@ impl Compact for AnyShape {
     unsafe fn decompact(source: *const Self) -> AnyShape {
         match *source {
             AnyShape::Band(Band { ref path, width }) => {
-                AnyShape::Band(Band {
-                    path: Compact::decompact(path),
-                    width: width,
-                })
+                AnyShape::Band(Band { path: Compact::decompact(path), width })
             }
             AnyShape::Circle(circle) => AnyShape::Circle(circle),
             AnyShape::Everywhere => AnyShape::Everywhere,
@@ -174,14 +188,14 @@ pub fn dash_path<P: Path>(path: &P, dash_length: f32, gap_length: f32) -> Vec<P>
     dashes
 }
 
-static mut LAST_DEBUG_THING: u16 = 0;
+static mut LAST_DEBUG_THING: u32 = 0;
 pub static mut DEBUG_RENDERER: Option<RendererID> = None;
 
 use kay::World;
 
 pub fn add_debug_line(from: P2, to: P2, color: [f32; 3], z: f32, world: &mut World) {
     if let Some(line) = Segment::line(from, to) {
-        let path = CPath::new(vec![line]);
+        let path = CPath::new(vec![line]).unwrap();
         add_debug_path(path, color, z, world);
     }
 }
@@ -189,8 +203,7 @@ pub fn add_debug_line(from: P2, to: P2, color: [f32; 3], z: f32, world: &mut Wor
 pub fn add_debug_path(path: CPath, color: [f32; 3], z: f32, world: &mut World) {
     if let Some(renderer) = unsafe { DEBUG_RENDERER } {
         renderer.update_individual(
-            0,
-            50_000 + unsafe { LAST_DEBUG_THING },
+            4_000_000_000 + unsafe { LAST_DEBUG_THING },
             band_to_geometry(&Band::new(path, 0.2), z),
             Instance::with_color(color),
             true,
@@ -212,8 +225,7 @@ pub fn add_debug_point(point: P2, color: [f32; 3], z: f32, world: &mut World) {
             vec![0, 1, 2, 2, 3, 0],
         );
         renderer.update_individual(
-            0,
-            50_000 + unsafe { LAST_DEBUG_THING },
+            4_000_000_000 + unsafe { LAST_DEBUG_THING },
             geometry,
             Instance::with_color(color),
             true,

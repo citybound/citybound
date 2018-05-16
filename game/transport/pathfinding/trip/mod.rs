@@ -1,7 +1,7 @@
 use kay::{World, ActorSystem, Fate, TypedID, Actor};
 use compact::CVec;
 use ordered_float::OrderedFloat;
-use core::simulation::Instant;
+use simulation::Instant;
 
 use transport::lane::LaneID;
 use super::{PreciseLocation, RoughLocationID, LocationRequester, LocationRequesterID};
@@ -55,7 +55,7 @@ impl Trip {
         }
 
         Trip {
-            id: id,
+            id,
             rough_source,
             rough_destination,
             listener,
@@ -139,7 +139,7 @@ impl LocationRequester for Trip {
                             max_velocity: 8.0,
                         },
                         acceleration: 0.0,
-                        destination: destination,
+                        destination,
                         next_hop_interaction: None,
                     },
                     None,
@@ -163,8 +163,8 @@ impl LocationRequester for Trip {
     }
 }
 
-use core::simulation::{SimulationID, Sleeper, SleeperID};
-use core::simulation::Ticks;
+use simulation::{SimulationID, Sleeper, SleeperID};
+use simulation::Ticks;
 use super::super::microtraffic::{LaneLikeID, LaneCar, Obstacle};
 
 pub trait TripListener {

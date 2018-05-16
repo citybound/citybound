@@ -8,10 +8,8 @@ use super::{Renderer, RendererID};
 impl Renderer {
     /// Critical
     pub fn setup(&mut self, world: &mut World) {
-        for (scene_id, scene) in self.scenes.iter().enumerate() {
-            for renderable in &scene.renderables {
-                renderable.setup_in_scene(self.id, scene_id, world);
-            }
+        for renderable in &self.scene.renderables {
+            renderable.setup_in_scene(self.id, world);
         }
     }
 
@@ -19,10 +17,8 @@ impl Renderer {
     pub fn render(&mut self, world: &mut World) {
         let self_id = self.id;
         let current_frame = self.current_frame;
-        for (scene_id, scene) in self.scenes.iter_mut().enumerate() {
-            for renderable in &scene.renderables {
-                renderable.render_to_scene(self_id, scene_id, current_frame, world);
-            }
+        for renderable in &self.scene.renderables {
+            renderable.render_to_scene(self_id, current_frame, world);
         }
         self.current_frame += 1;
     }
@@ -35,9 +31,7 @@ impl Renderer {
         world: &mut World,
     ) {
         let mut target = given_target.steal();
-        for scene in &self.scenes {
-            self.render_context.submit(scene, &mut *target);
-        }
+        self.render_context.submit(&self.scene, &mut *target);
 
         return_to.submitted(target, world);
     }

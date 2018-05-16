@@ -1,9 +1,9 @@
 use kay::{ActorSystem, World, Actor, TypedID, Fate};
 use compact::{CVec, CDict, COption, CString};
-use core::simulation::{Duration, TimeOfDay, Instant, Ticks, Simulation, TICKS_PER_SIM_SECOND,
-                       Sleeper, Simulatable};
-use core::async_counter::AsyncCounter;
-use core::random::{seed, Rng};
+use simulation::{Duration, TimeOfDay, Instant, Ticks, Simulation, TICKS_PER_SIM_SECOND, Sleeper,
+                 Simulatable};
+use util::async_counter::AsyncCounter;
+use util::random::{seed, Rng};
 use ordered_float::OrderedFloat;
 
 pub mod tasks;
@@ -26,7 +26,7 @@ use kay::External;
 
 use super::market::{Market, Deal, EvaluatedDeal, EvaluationRequester, EvaluationRequesterID,
                     TripCostEstimatorID, EvaluatedSearchResult};
-use super::buildings::rendering::BuildingInspectorID;
+use land_use::buildings::rendering::BuildingInspectorID;
 use super::resources::{Resource, ResourceAmount, ResourceMap, Entry, Inventory};
 use transport::pathfinding::{RoughLocationID, RoughLocation};
 use transport::pathfinding::trip::{TripListener, TripID, TripResult, TripFate};

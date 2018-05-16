@@ -8,7 +8,7 @@ sudo: required
 
 # TODO This is the Rust channel that build jobs will use by default but can be
 # overridden on a case by case basis down below
-rust: nightly-2017-12-12
+rust: nightly-2018-05-07
 osx_image: xcode8.2
 
 env:
@@ -61,8 +61,6 @@ before_cache:
   # Travis can't cache files that are not readable by "others"
   - chmod -R a+r $HOME/.cargo
 
-#branches:
-#  only:
-    # release tags
-#    - /^v\d+\.\d+\.\d+.*$/
-#    - master
+branches:
+  except:
+    - /design-doc.*/

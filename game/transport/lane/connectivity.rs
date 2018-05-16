@@ -12,7 +12,7 @@ impl ConnectivityInfo {
     pub fn new(on_intersection: bool) -> Self {
         ConnectivityInfo {
             interactions: CVec::new(),
-            on_intersection: on_intersection,
+            on_intersection,
         }
     }
 }

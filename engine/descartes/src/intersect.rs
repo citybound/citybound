@@ -35,7 +35,7 @@ impl<'a> Intersect for (&'a Line, &'a Line) {
             let along_a = (delta.y * b.direction.x - delta.x * b.direction.y) / det;
             vec![
                 Intersection {
-                    along_a: along_a,
+                    along_a,
                     along_b: (delta.y * a.direction.x - delta.x * a.direction.y) / det,
                     position: a.start + a.direction * along_a,
                 },
@@ -159,9 +159,10 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
                 ).intersect()
                     .iter()
                     .filter(|intersection| {
-                        intersection.along_a >= 0.0 && intersection.along_a <= a.length() &&
-                            intersection.along_b >= 0.0 &&
-                            intersection.along_b <= b.length()
+                        intersection.along_a >= -THICKNESS &&
+                            intersection.along_a <= a.length() + THICKNESS &&
+                            intersection.along_b >= -THICKNESS &&
+                            intersection.along_b <= b.length() + THICKNESS
                     })
                     .cloned()
                     .collect()
@@ -176,7 +177,8 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
                 ).intersect()
                     .iter()
                     .filter(|intersection| {
-                        intersection.along_a >= 0.0 && intersection.along_a <= a.length() &&
+                        intersection.along_a >= -THICKNESS &&
+                            intersection.along_a <= a.length() + THICKNESS &&
                             b.includes(intersection.position)
                     })
                     .map(|intersection| {
