@@ -39,14 +39,14 @@ pub struct Lot {
 
 impl Lot {
     pub fn center_point(&self) -> P2 {
+        let outline = self.shape.outline();
         P2::from_coordinates(
-            self.shape.outline().segments().iter().fold(
+            (0..10u8).into_iter().fold(
                 V2::new(0.0, 0.0),
-                |sum_point,
-                 segment| {
-                    sum_point + segment.start().coords
+                |sum_point, i| {
+                    sum_point + outline.along(f32::from(i) * outline.length() / 10.0).coords
                 },
-            ) / self.shape.outline().segments().len() as f32,
+            ) / 10.0,
         )
     }
 }
