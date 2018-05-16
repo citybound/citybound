@@ -247,7 +247,9 @@ impl Renderable for BuildingRenderer {
         //     ),
         // ]);
         // let building_circle = band_to_geometry(&Band::new(band_path, 2.0), 0.0);
-        // renderer_id.add_batch(RenderLayers::DebugBuildingConnector as u32, building_circle, world);
+        // renderer_id.add_batch(RenderLayers::DebugBuildingConnector as u32,
+        //                       building_circle,
+        //                       world);
         Into::<RenderableID>::into(self.wall_grouper).setup_in_scene(renderer_id, world);
         Into::<RenderableID>::into(self.flat_roof_grouper).setup_in_scene(renderer_id, world);
         Into::<RenderableID>::into(self.brick_roof_grouper).setup_in_scene(renderer_id, world);

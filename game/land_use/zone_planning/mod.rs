@@ -120,7 +120,7 @@ pub fn calculate_prototypes(
                 }
 
                 Some(Prototype::Lot(LotPrototype {
-                    lot: Lot { shape: shape, ..lot.clone() },
+                    lot: Lot { shape, ..lot.clone() },
                     occupancy: LotOccupancy::Occupied(building_style),
                     based_on,
                 }))

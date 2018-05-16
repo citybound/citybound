@@ -44,7 +44,7 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
         let mut vec = CompactVec {
             ptr: PointerToMaybeCompact::default(),
             len: 0,
-            cap: cap,
+            cap,
             _alloc: PhantomData,
         };
 
@@ -57,8 +57,8 @@ impl<T: Compact + Clone, A: Allocator> CompactVec<T, A> {
     pub unsafe fn from_raw_parts(ptr: *mut T, len: usize, cap: usize) -> CompactVec<T, A> {
         CompactVec {
             ptr: PointerToMaybeCompact::new_free(ptr),
-            len: len,
-            cap: cap,
+            len,
+            cap,
             _alloc: PhantomData,
         }
     }

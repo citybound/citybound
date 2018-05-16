@@ -28,7 +28,7 @@ impl Microtraffic {
         Microtraffic {
             obstacles: CVec::new(),
             cars: CVec::new(),
-            timings: timings,
+            timings,
             green: false,
             yellow_to_green: false,
             yellow_to_red: false,
@@ -263,7 +263,7 @@ impl Lane {
                 },
             )
         {
-            interaction.kind = InteractionKind::Next { green: green }
+            interaction.kind = InteractionKind::Next { green }
         } else {
             println!("Lane doesn't know about next lane yet");
         }

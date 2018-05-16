@@ -6,6 +6,7 @@ use glium::backend::glutin::Display;
 
 use compact::CVec;
 
+#[allow(forget_copy)]
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
     pub position: [f32; 3],
@@ -13,6 +14,7 @@ pub struct Vertex {
 
 implement_vertex!(Vertex, position);
 
+#[allow(forget_copy)]
 #[derive(Copy, Clone)]
 pub struct Instance {
     pub instance_position: [f32; 3],
@@ -261,7 +263,7 @@ impl Batch {
             instances: vec![instance],
             clear_every_frame: false,
             full_frame_instance_end: None,
-            is_decal: is_decal,
+            is_decal,
             frame: 0,
         }
     }

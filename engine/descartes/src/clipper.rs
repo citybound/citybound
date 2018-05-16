@@ -176,7 +176,7 @@ pub fn clip<S: SimpleShape>(
 
         for raw_intersection in &raw_intersections[1..] {
             let along = [raw_intersection.along_a, raw_intersection.along_b];
-            let mut next = first.clone();
+            let mut next = first;
             let mut prev = [START_SENTINEL, START_SENTINEL];
 
             let self_i = intersections.len();
@@ -478,11 +478,11 @@ pub fn clip<S: SimpleShape>(
 
                 if DEBUG_PRINT {
                     println!(
-                        "<!-- {:?} {:?} {} {} -> {:?} {:?} -->",
+                        "<!-- {:?} {:?} {} ? -> {:?} {:?} -->",
                         current_intersection.role[focus],
                         direction,
                         if focus == SUBJECT { "S" } else { "C" },
-                        "?", //current_intersection.n[focus],
+                        // "?", //current_intersection.n[focus],
                         new_direction,
                         new_role
                     );

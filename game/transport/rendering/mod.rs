@@ -187,7 +187,10 @@ impl Renderable for Lane {
         //         instance_direction: [1.0, 0.0],
         //         instance_color: [1.0, 0.0, 0.0],
         //     };
-        //     renderer_id.add_instance( RenderLayers::DebugConnectivity as u32, frame, instance, world);
+        //     renderer_id.add_instance( RenderLayers::DebugConnectivity as u32,
+        //                               frame,
+        //                               instance,
+        //                               world);
         // }
 
         // let has_previous = self.connectivity.interactions.iter().any(|inter| {
@@ -206,7 +209,10 @@ impl Renderable for Lane {
         //         instance_direction: [1.0, 0.0],
         //         instance_color: [0.0, 1.0, 0.0],
         //     };
-        //     renderer_id.add_instance( RenderLayers::DebugConnectivity as u32, frame, instance, world);
+        //     renderer_id.add_instance( RenderLayers::DebugConnectivity as u32,
+        //                               frame,
+        //                               instance,
+        //                               world);
         // }
 
         if DEBUG_VIEW_LANDMARKS && self.pathfinding.routes_changed {
@@ -600,7 +606,7 @@ impl Renderable for LaneRenderer {
             RenderLayers::Car as u32,
             frame,
             Instance {
-                instance_position: [-1000000.0, -1000000.0, -1000000.0],
+                instance_position: [-1_000_000.0, -1_000_000.0, -1_000_000.0],
                 instance_direction: [0.0, 0.0],
                 instance_color: [0.0, 0.0, 0.0],
             },

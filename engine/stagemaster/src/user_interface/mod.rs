@@ -136,7 +136,7 @@ impl UserInterface {
             config.font_data_owned_by_atlas = false;
             ::imgui_sys::ImFontAtlas_AddFontFromMemoryTTF(
                 atlas,
-                ::std::mem::transmute(default_font.as_ptr()),
+                default_font.as_ptr() as *mut _,
                 default_font.len() as i32,
                 16.0,
                 &config,
@@ -196,7 +196,7 @@ impl UserInterface {
             inner: External::new(UserInterfaceInner {
                 window: *window.steal().into_box(),
                 events_loop: *events_loop.steal().into_box(),
-                renderer_id: renderer_id,
+                renderer_id,
                 camera_control_id: CameraControlID::spawn(renderer_id, id, env, world),
                 mouse_button_state: [false; 5],
                 combo_listener: ::combo::ComboListener::default(),
@@ -212,10 +212,10 @@ impl UserInterface {
                 interactables_2d: Vec::new(),
                 interactables_2d_todo: Vec::new(),
                 parked_frame: None,
-                imgui: imgui,
+                imgui,
                 imgui_capture_keyboard: false,
                 imgui_capture_mouse: false,
-                imgui_renderer: imgui_renderer,
+                imgui_renderer,
                 debug_text: BTreeMap::new(),
                 persistent_debug_text: BTreeMap::new(),
                 panicked: false,

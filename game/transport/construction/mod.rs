@@ -97,7 +97,7 @@ impl ConstructionInfo {
     pub fn from_path(path: CPath) -> Self {
         ConstructionInfo {
             length: path.length(),
-            path: path,
+            path,
             progress: 0.0,
             unbuilding_for: None,
             disconnects_remaining: 0,

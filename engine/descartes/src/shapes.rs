@@ -25,7 +25,7 @@ pub struct Band<P: Path> {
 
 impl<P: Path> Band<P> {
     pub fn new(path: P, width: N) -> Band<P> {
-        Band { path: path, width: width }
+        Band { path, width }
     }
 
     pub fn outline(&self) -> P {

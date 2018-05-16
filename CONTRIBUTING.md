@@ -53,7 +53,7 @@ You can make suggestions of every kind:
 
 ## Compiling Citybound yourself
 
-Currently Citybound is built with Rust `nightly-2017-12-12'
+Currently Citybound is built with Rust `nightly-2018-05-07'
 
 **If you want a working version of Citybound,** compile a commit that corresponds to a [release](https://github.com/citybound/citybound/releases), since master might temporarily break or represents work-in-progress state.
 
@@ -62,12 +62,12 @@ Recommended setup:
 * `git clone https://github.com/citybound/citybound.git`
 * `cd citybound`
 * Windows:
-  * `rustup override add nightly-2017-12-12-x86_64-pc-windows-msvc`
+  * `rustup override add nightly-2018-05-07-x86_64-pc-windows-msvc`
   * Install the [Visual C++ 2015 Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools), unless you have Visual Studio 2015
 * MacOS:
-  * `rustup override add nightly-2017-12-12-x86_64-apple-darwin`
+  * `rustup override add nightly-2018-05-07-x86_64-apple-darwin`
 * Linux:
-  * `rustup override add nightly-2017-12-12-x86_64-unknown-linux-gnu`
+  * `rustup override add nightly-2018-05-07-x86_64-unknown-linux-gnu`
   * `sudo apt install build-essential` (for Ubuntu)
 * `cargo run --release` (Debug mode is generally too slow to interact with)
 
@@ -93,7 +93,7 @@ Recommended setup:
     * Add the following user settings in VSCode
       * `"rust.cargoHomePath": "C:\\firstname\\.cargo"`,
       * `"rust.racerPath": "C:\\firstname\\.cargo\\bin\\racer.exe"`,
-      * `"rust.rustLangSrcPath": "C:\\firstname\\.rustup\\toolchains\\nightly-2017-12-12-x86_64-pc-windows-msvc\\lib\\rustlib\\src\\rust\\src"`
+      * `"rust.rustLangSrcPath": "C:\\firstname\\.rustup\\toolchains\\nightly-2018-05-07-x86_64-pc-windows-msvc\\lib\\rustlib\\src\\rust\\src"`
   * Otherwise it "should just work"
 * For debugging 
   * Linux/MacOS: 
