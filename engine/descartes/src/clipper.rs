@@ -131,7 +131,7 @@ pub fn clip<S: SimpleShape>(
                 } else if all_clip_in_subject {
                     Ok(vec![subject_shape.clone()])
                 } else {
-                    Err(ClipError::UnimplementedComplexResult)
+                    Ok(vec![subject_shape.clone(), clip_shape.clone()])
                 }
             }
             Mode::Intersection => {
