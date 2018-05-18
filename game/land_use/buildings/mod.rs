@@ -19,7 +19,7 @@ use land_use::zone_planning::Lot;
 #[derive(Copy, Clone)]
 pub struct Unit(Option<HouseholdID>, UnitType);
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum UnitType {
     Dwelling,
     Retail,
@@ -86,13 +86,23 @@ impl Building {
         requester: ImmigrationManagerID,
         world: &mut World,
     ) {
+        println!(
+            "{:?} got offer request for {:?}",
+            self.style,
+            required_unit_type
+        );
         if self.being_destroyed_for.is_none() {
             if let Some(idx) = self.units.iter().position(|&Unit(household, unit_type)| {
                 household.is_none() && unit_type == required_unit_type
             })
             {
                 requester.on_unit_offer(self.id, UnitIdx(idx), world);
+                println!("...and responded positively!!!!");
+            } else {
+                println!("...but doesn't have the unit type");
             }
+        } else {
+            println!("...but is being destroyed");
         }
     }
 

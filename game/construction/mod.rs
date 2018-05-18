@@ -67,6 +67,7 @@ impl Construction {
     fn start_action(&mut self, action: Action, world: &mut World) {
         let new_pending_constructables = match action {
             Action::Construct(prototype_id, prototype) => {
+                print!("C ");
                 let ids = prototype.construct(self.id, world);
                 self.constructed.insert(prototype_id, ids.clone());
                 self.current_prototypes.insert(
@@ -76,6 +77,7 @@ impl Construction {
                 ids
             }
             Action::Morph(old_protoype_id, new_prototype_id, new_prototype) => {
+                print!("M ");
                 let ids = self.constructed.remove(old_protoype_id).expect(
                     "Tried to morph non-constructed prototype",
                 );
@@ -91,6 +93,7 @@ impl Construction {
                 ids
             }
             Action::Destruct(prototype_id) => {
+                print!("D ");
                 let ids = self.constructed.remove(prototype_id).expect(
                     "Tried to destruct non-constructed prototype",
                 );
@@ -161,10 +164,12 @@ impl Simulatable for Construction {
     fn tick(&mut self, _dt: f32, _current_instant: Instant, world: &mut World) {
         if self.pending_constructables.is_empty() {
             if !self.queued_actions.is_empty() {
+                println!("Starting construction group:");
                 let next_action_group = self.queued_actions.remove(0);
                 for action in next_action_group {
                     self.start_action(action, world);
                 }
+                println!("\nFinished construction group:");
             }
         } else {
             println!(
@@ -172,7 +177,6 @@ impl Simulatable for Construction {
                 self.pending_constructables.len(),
                 self.queued_actions.len()
             );
-            println!("Pending ids: {:?}", self.pending_constructables);
         }
     }
 }

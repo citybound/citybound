@@ -140,12 +140,6 @@ impl Sleeper for ImmigrationManager {
                     world,
                 );
 
-                self.simulation.wake_up_in(
-                    Duration::from_minutes(10).into(),
-                    self.id.into(),
-                    world,
-                );
-
                 ImmigrationManagerState::FindingBuilding(household_type_to_spawn)
             }
             ImmigrationManagerState::FindingBuilding(household_type_to_spawn) => {
@@ -157,20 +151,21 @@ impl Sleeper for ImmigrationManager {
                     world,
                 );
 
-                self.simulation.wake_up_in(
-                    Duration::from_minutes(10).into(),
-                    self.id.into(),
-                    world,
-                );
-
                 ImmigrationManagerState::Idle
             }
-        }
+        };
+
+        self.simulation.wake_up_in(
+            Duration::from_minutes(10).into(),
+            self.id.into(),
+            world,
+        );
     }
 }
 
 impl ImmigrationManager {
     pub fn on_unit_offer(&mut self, building_id: BuildingID, unit_idx: UnitIdx, world: &mut World) {
+        println!("Got offer");
         self.state = match self.state {
             ImmigrationManagerState::FindingBuilding(household_type_to_spawn) => {
                 println!("Moving in");
@@ -204,12 +199,6 @@ impl ImmigrationManager {
                 };
 
                 building_id.add_household(household_id, unit_idx, world);
-
-                self.simulation.wake_up_in(
-                    Duration::from_minutes(10).into(),
-                    self.id.into(),
-                    world,
-                );
 
                 ImmigrationManagerState::Idle
             }

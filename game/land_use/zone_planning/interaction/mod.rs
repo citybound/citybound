@@ -38,7 +38,7 @@ pub fn render_preview(
     renderer_id.update_individual(
         RenderLayers::PlanningLot as u32,
         lot_geometry,
-        Instance::with_color(colors::RESIDENTIAL),
+        Instance::with_color(colors::CONTROL_POINT),
         true,
         world,
     );

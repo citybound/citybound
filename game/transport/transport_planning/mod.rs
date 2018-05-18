@@ -272,11 +272,15 @@ pub fn calculate_prototypes(
                 &intersection_shapes[j],
             ) {
                 Ok(results) => {
-                    if results.len() >= 1 {
+                    if results.len() == 1 {
                         intersection_shapes[i] = results[0].clone();
                         intersection_shapes.remove(j);
                         advance = false;
                         break;
+                    } else if results.len() == 2 {
+                        // intersection shapes do not overlap
+                    } else {
+                        println!("Intersection combining clipping weirdness: got 0 union shapes");
                     }
                 }
                 Err(err) => {
