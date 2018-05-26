@@ -16,6 +16,7 @@ pub enum PathError {
     NotContinuous,
 }
 
+#[cfg_attr(feature = "compact_containers", derive(Compact))]
 #[derive(Clone)]
 pub struct Path {
     pub segments: VecLike<Segment>,
@@ -197,7 +198,7 @@ impl Path {
         let mut tokens = string.split_whitespace();
         let mut position = P2::new(0.0, 0.0);
         let mut first_position = None;
-        let mut segments = Vec::new();
+        let mut segments = VecLike::new();
 
         while let Some(command) = tokens.next() {
             if command == "M" || command == "L" {

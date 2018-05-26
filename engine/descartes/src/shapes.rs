@@ -9,6 +9,8 @@ pub struct UnclosedPathError;
 
 // represents a filled area bounded by a clockwise boundary
 // everything "right of" the boundary is considered "inside"
+#[derive(Clone)]
+#[cfg_attr(feature = "compact_containers", derive(Compact))]
 pub struct PrimitiveArea {
     pub boundary: Path,
 }
@@ -33,8 +35,10 @@ impl PrimitiveArea {
             let ray = Segment::line(point, P2::new(point.x + 10_000_000_000.0, point.y))
                 .expect("Ray should be valid");
 
-            let n_intersections = (&Path::new_unchecked(vec![ray]), &self.boundary)
-                .intersect()
+            let n_intersections = (
+                &Path::new_unchecked(Some(ray).into_iter().collect()),
+                &self.boundary,
+            ).intersect()
                 .len();
 
             if n_intersections % 2 == 1 {
@@ -69,6 +73,8 @@ fn other_subject(subject: usize) -> usize {
     }
 }
 
+#[derive(Clone)]
+#[cfg_attr(feature = "compact_containers", derive(Compact))]
 pub struct Area {
     pub primitives: VecLike<PrimitiveArea>,
 }
@@ -92,8 +98,10 @@ impl Area {
             let mut n_intersections = 0;
 
             for primitive in &self.primitives {
-                n_intersections += (&Path::new_unchecked(vec![ray]), &primitive.boundary)
-                    .intersect()
+                n_intersections += (
+                    &Path::new_unchecked(Some(ray).into_iter().collect()),
+                    &primitive.boundary,
+                ).intersect()
                     .len();
             }
 
@@ -203,12 +211,16 @@ impl<'a> RoughlyComparable for &'a Area {
     }
 }
 
+#[derive(Clone)]
+#[cfg_attr(feature = "compact_containers", derive(Compact))]
 pub struct BoundaryPiece {
     path: Path,
     left_inside: [bool; 2],
     right_inside: [bool; 2],
 }
 
+#[derive(Clone)]
+#[cfg_attr(feature = "compact_containers", derive(Compact))]
 pub struct AreaSplitResult {
     pieces: VecLike<BoundaryPiece>,
 }

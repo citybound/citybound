@@ -4,11 +4,22 @@ extern crate nalgebra;
 extern crate ordered_float;
 extern crate itertools;
 
+#[cfg(feature = "compact_containers")]
+extern crate compact;
+
+#[cfg(feature = "compact_containers")]
+#[macro_use]
+extern crate compact_macros;
+
 use nalgebra::{Vector2, Point2, Vector3, Vector4, Point3, Isometry3, Affine3, Perspective3,
                Matrix4, dot};
 pub use nalgebra::try_inverse;
 use std::f32::consts::PI;
 
+#[cfg(feature = "compact_containers")]
+pub type VecLike<T> = compact::CVec<T>;
+
+#[cfg(not(feature = "compact_containers"))]
 pub type VecLike<T> = Vec<T>;
 
 pub type N = f32;
@@ -51,6 +62,11 @@ pub fn angle_along_to(a: V2, a_direction: V2, b: V2) -> N {
         2.0 * PI - simple_angle
     }
 }
+
+//
+//  DESCARTES ASSUMES
+//  A LEFT HAND COORDINATE SYSTEM
+//
 
 pub trait WithUniqueOrthogonal {
     fn orthogonal(&self) -> Self;

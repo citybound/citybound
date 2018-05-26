@@ -8,9 +8,15 @@ nalgebra = "0.13.1"
 ordered-float = "0.5.0"
 itertools = "0.7.6"
 clippy = { version = "0.0.197", optional = true }
-compact = {version = "0.1.0", path = "../compact", optional = true }
 
+[dependencies.compact]
+path = "../compact/"
+optional = true
+
+[dependencies.compact_macros]
+path = "../compact_macros/"
+optional = true
 
 [features]
 default = []
-compact_containers = ["compact"]
+compact_containers = ["compact", "compact_macros"]
