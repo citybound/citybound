@@ -1,6 +1,6 @@
 use super::{N, P2, RoughlyComparable, Curve, FiniteCurve, THICKNESS, WithUniqueOrthogonal,
             HasBoundingBox};
-use super::primitives::{Line, Circle, Segment};
+use super::curves::{Line, Circle, Segment};
 use super::path::Path;
 
 #[derive(Copy, Clone, Debug)]

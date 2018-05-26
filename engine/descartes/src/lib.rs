@@ -24,13 +24,12 @@ pub type Persp3 = Perspective3<N>;
 const THICKNESS: N = 0.001;
 const ROUGH_TOLERANCE: N = 0.000_000_1;
 
-mod primitives;
+mod curves;
 mod path;
 mod intersect;
 mod shapes;
-pub mod clipper;
 
-pub use self::primitives::*;
+pub use self::curves::*;
 pub use self::path::Path;
 pub use self::intersect::*;
 pub use self::shapes::*;
@@ -137,62 +136,6 @@ impl RoughlyComparable for V2 {
     fn is_roughly_within(&self, other: V2, tolerance: N) -> bool {
         (*self - other).norm() <= tolerance
     }
-}
-
-pub trait Curve: Sized {
-    fn project_with_max_distance(&self, point: P2, max_distance: N, tolerance: N) -> Option<N> {
-        self.project_with_tolerance(point, tolerance).and_then(
-            |offset| {
-                if self.distance_to(point) < max_distance {
-                    Some(offset)
-                } else {
-                    None
-                }
-            },
-        )
-    }
-    fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<N>;
-    fn project(&self, point: P2) -> Option<N> {
-        self.project_with_tolerance(point, THICKNESS)
-    }
-    fn includes(&self, point: P2) -> bool {
-        self.distance_to(point) < THICKNESS / 2.0
-    }
-    fn distance_to(&self, point: P2) -> N;
-}
-
-pub trait FiniteCurve: Curve {
-    fn length(&self) -> N;
-    fn along(&self, distance: N) -> P2;
-    fn midpoint(&self) -> P2 {
-        self.along(self.length() / 2.0)
-    }
-    fn direction_along(&self, distance: N) -> V2;
-    fn start(&self) -> P2;
-    fn start_direction(&self) -> V2 {
-        self.direction_along(0.0)
-    }
-    fn end(&self) -> P2;
-    fn end_direction(&self) -> V2 {
-        self.direction_along(self.length())
-    }
-    fn reverse(&self) -> Self;
-    fn subsection(&self, start: N, end: N) -> Option<Self>;
-    fn shift_orthogonally(&self, shift_to_right: N) -> Option<Self>;
-}
-
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum PointOnShapeLocation {
-    Inside,
-    OnEdge,
-    Outside,
-}
-
-pub trait Shape {
-    fn contains(&self, point: P2) -> bool {
-        self.location_of(point) != PointOnShapeLocation::Outside
-    }
-    fn location_of(&self, point: P2) -> PointOnShapeLocation;
 }
 
 #[derive(Copy, Clone)]

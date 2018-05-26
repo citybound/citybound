@@ -1,6 +1,51 @@
-use super::{N, P2, V2, Curve, FiniteCurve, WithUniqueOrthogonal, angle_along_to,
-            RoughlyComparable, Intersect, Intersection, HasBoundingBox, BoundingBox};
+use super::{N, P2, V2, WithUniqueOrthogonal, angle_along_to, RoughlyComparable, Intersect,
+            Intersection, HasBoundingBox, BoundingBox, THICKNESS};
 use nalgebra::Rotation2;
+
+pub trait Curve: Sized {
+    fn project_with_max_distance(&self, point: P2, max_distance: N, tolerance: N) -> Option<N> {
+        self.project_with_tolerance(point, tolerance).and_then(
+            |offset| {
+                if self.distance_to(point) < max_distance {
+                    Some(offset)
+                } else {
+                    None
+                }
+            },
+        )
+    }
+    fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<N>;
+    fn project(&self, point: P2) -> Option<N> {
+        self.project_with_tolerance(point, THICKNESS)
+    }
+    fn includes(&self, point: P2) -> bool {
+        self.distance_to(point) < THICKNESS / 2.0
+    }
+    fn distance_to(&self, point: P2) -> N;
+}
+
+pub trait FiniteCurve: Curve {
+    fn length(&self) -> N;
+    fn along(&self, distance: N) -> P2;
+    fn direction_along(&self, distance: N) -> V2;
+    fn start(&self) -> P2;
+    fn start_direction(&self) -> V2 {
+        self.direction_along(0.0)
+    }
+    fn end(&self) -> P2;
+    fn end_direction(&self) -> V2 {
+        self.direction_along(self.length())
+    }
+    fn midpoint(&self) -> P2 {
+        self.along(self.length() / 2.0)
+    }
+    fn midpoint_direction(&self) -> V2 {
+        self.direction_along(self.length() / 2.0)
+    }
+    fn reverse(&self) -> Self;
+    fn subsection(&self, start: N, end: N) -> Option<Self>;
+    fn shift_orthogonally(&self, shift_to_right: N) -> Option<Self>;
+}
 
 #[derive(Copy, Clone, Debug)]
 pub struct Circle {

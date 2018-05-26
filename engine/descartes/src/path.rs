@@ -1,5 +1,5 @@
-use super::{N, P2, V2, Curve, FiniteCurve, RoughlyComparable, THICKNESS};
-use super::primitives::Segment;
+use super::{N, P2, V2, RoughlyComparable, THICKNESS};
+use super::curves::{Curve, FiniteCurve, Segment};
 use super::intersect::{Intersect, Intersection};
 use ordered_float::OrderedFloat;
 
