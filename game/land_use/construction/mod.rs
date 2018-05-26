@@ -1,6 +1,6 @@
 use kay::World;
 use compact::CVec;
-use descartes::Shape;
+use descartes::PointContainer;
 use land_use::zone_planning::{LotPrototype, LotOccupancy};
 use land_use::vacant_lots::VacantLotID;
 use land_use::buildings::BuildingID;
@@ -23,6 +23,6 @@ impl LotPrototype {
     pub fn morphable_from(&self, other: &LotPrototype) -> bool {
         // TODO: improve this
         (self.occupancy != LotOccupancy::Vacant) && (other.occupancy != LotOccupancy::Vacant) &&
-            other.lot.shape.contains(self.lot.center_point())
+            other.lot.area.contains(self.lot.center_point())
     }
 }

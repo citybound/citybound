@@ -26,6 +26,7 @@ path = "../compact_macros"
 
 [dependencies.descartes]
 path = "../descartes"
+features = ["compact_containers"]
 
 [dependencies.monet]
 path = "../monet"

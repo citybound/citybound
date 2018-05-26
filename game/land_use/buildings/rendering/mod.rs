@@ -1,9 +1,7 @@
-use descartes::Circle;
-use compact::{CVec, CDict};
+use compact::{CVec, CDict, COption};
 use kay::{ActorSystem, World, External, TypedID, Actor};
 use monet::{RendererID, Renderable, RenderableID, GrouperID, GrouperIndividualID, Geometry,
             Instance};
-use stagemaster::geometry::AnyShape;
 use stagemaster::{UserInterface, UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
                   Interactable2d, Interactable2dID};
 use imgui::ImGuiSetCond_FirstUseEver;
@@ -316,9 +314,7 @@ pub fn on_add(id: BuildingID, lot: &Lot, building_type: BuildingStyle, world: &m
     UserInterface::local_first(world).add(
         ::ui_layers::UILayer::Info as usize,
         id.into(),
-        AnyShape::Circle(
-            Circle { center: lot.center_point(), radius: 5.0 },
-        ),
+        COption(Some(lot.area.clone())),
         10,
         world,
     );

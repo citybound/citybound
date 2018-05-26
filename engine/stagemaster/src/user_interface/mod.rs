@@ -1,6 +1,6 @@
 use kay::{ActorSystem, External, World, Actor};
-use compact::{CVec, CString};
-use descartes::{N, P2, V2, P3, Into2d, Shape};
+use compact::{CVec, CString, COption};
+use descartes::{N, P2, V2, P3, Into2d, Area, PointContainer};
 use monet::{RendererID, RenderableID, SceneDescription, Display};
 use monet::glium::glutin::{ContextBuilder, Event, WindowBuilder, WindowEvent, MouseScrollDelta,
                            ElementState, MouseButton, KeyboardInput};
@@ -12,7 +12,6 @@ use imgui_sys::{ImFontConfig, ImGuiCol, ImFontConfig_DefaultConstructor};
 use imgui_glium_renderer::Renderer as ImguiRenderer;
 use std::collections::BTreeMap;
 
-use geometry::AnyShape;
 use camera_control::CameraControlID;
 use environment::Environment;
 
@@ -84,7 +83,7 @@ pub struct UserInterfaceInner {
     cursor_3d: P3,
     drag_start_2d: Option<P2>,
     drag_start_3d: Option<P3>,
-    interactables: HashMap<UserInterfaceLayer, HashMap<Interactable3dID, (AnyShape, usize)>>,
+    interactables: HashMap<UserInterfaceLayer, HashMap<Interactable3dID, (Option<Area>, usize)>>,
     hovered_interactable: Option<Interactable3dID>,
     active_interactable: Option<Interactable3dID>,
     focused_interactables: HashSet<Interactable3dID>,
@@ -411,14 +410,14 @@ impl UserInterface {
         &mut self,
         layer: UserInterfaceLayer,
         id: Interactable3dID,
-        shape: &AnyShape,
+        area: &COption<Area>,
         z_index: usize,
         world: &mut World,
     ) {
         self.interactables
             .entry(layer)
             .or_insert_with(HashMap::default)
-            .insert(id, (shape.clone(), z_index));
+            .insert(id, (area.0.clone(), z_index));
 
         self.find_hovered_interactable(world);
     }
@@ -443,11 +442,15 @@ impl UserInterface {
             if let Some(layer) = self.current_layer.and_then(|l| self.interactables.get(&l)) {
                 let new_hovered_interactable = layer
                     .iter()
-                    .filter(|&(_id, &(ref shape, _z_index))| {
-                        shape.contains(self.cursor_3d.into_2d())
+                    .filter(|&(_id, &(ref area, _z_index))| if let Some(actual_area) =
+                        area.as_ref()
+                    {
+                        actual_area.contains(self.cursor_3d.into_2d())
+                    } else {
+                        true
                     })
-                    .max_by_key(|&(_id, &(ref _shape, z_index))| z_index)
-                    .map(|(id, _shape)| *id);
+                    .max_by_key(|&(_id, &(ref _area, z_index))| z_index)
+                    .map(|(id, _area)| *id);
 
                 if self.hovered_interactable != new_hovered_interactable {
                     if let Some(previous) = self.hovered_interactable {

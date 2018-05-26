@@ -1,5 +1,5 @@
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, Into2d, Into3d, WithUniqueOrthogonal,
-                    Path, SimpleShape, FiniteCurve};
+                    Path, Area, FiniteCurve};
 
 use glium::{self, index};
 use glium::backend::glutin::Display;
@@ -166,10 +166,14 @@ impl GeometryBuilder<FillVertex> for Geometry {
 const CURVE_LINEARIZATION_MAX_ANGLE: f32 = 0.03;
 
 impl Geometry {
-    pub fn from_shape<S: SimpleShape>(shape: &S) -> Geometry {
-        let path_iterator =
-            PathIter::new(shape.outline().segments().iter().with_position().flat_map(
-                |segment_with_position| {
+    pub fn from_area(area: &Area) -> Geometry {
+        let path_iterator = PathIter::new(area.primitives.iter().flat_map(|primitive| {
+            primitive
+                .boundary
+                .segments
+                .iter()
+                .with_position()
+                .flat_map(|segment_with_position| {
                     let initial_move = match segment_with_position {
                         Position::First(segment) |
                         Position::Only(segment) => {
@@ -206,8 +210,8 @@ impl Geometry {
                             })
                             .collect::<Vec<_>>()
                     }
-                },
-            ));
+                })
+        }));
 
         let mut tesselator = FillTessellator::new();
         let mut output = Geometry::empty();

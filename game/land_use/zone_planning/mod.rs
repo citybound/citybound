@@ -1,7 +1,5 @@
 use compact::CVec;
-use descartes::{P2, V2, Segment, clipper, SimpleShape, Shape, Path, FiniteCurve,
-                WithUniqueOrthogonal};
-use stagemaster::geometry::{CShape, CPath};
+use descartes::{P2, V2, Segment, Area, Path, FiniteCurve, WithUniqueOrthogonal, PointContainer};
 use land_use::buildings::BuildingStyle;
 use itertools::Itertools;
 
@@ -30,7 +28,7 @@ pub enum LandUse {
 
 #[derive(Compact, Clone)]
 pub struct Lot {
-    pub shape: CShape,
+    pub area: Area,
     pub land_uses: CVec<LandUse>,
     pub max_height: u8,
     pub set_back: u8,
@@ -39,7 +37,7 @@ pub struct Lot {
 
 impl Lot {
     pub fn center_point(&self) -> P2 {
-        let outline = self.shape.outline();
+        let outline = &self.area.primitives[0].boundary;
         P2::from_coordinates(
             (0..10u8).into_iter().fold(
                 V2::new(0.0, 0.0),
@@ -76,7 +74,7 @@ pub fn calculate_prototypes(
     based_on: Version,
 ) -> Vec<Prototype> {
     println!("Calculating protos");
-    let paved_area_shapes = current_result
+    let paved_area_areas = current_result
         .prototypes
         .values()
         .filter_map(|prototype| {
@@ -88,64 +86,56 @@ pub fn calculate_prototypes(
         })
         .collect::<Vec<_>>();
 
-    let building_prototypes = plan.gestures
-        .values()
-        .filter_map(|gesture| {
-            if let GestureIntent::Building(BuildingIntent { ref lot, building_style }) =
-                gesture.intent
-            {
-                let mut shape = lot.shape.clone();
+    let building_prototypes =
+        plan.gestures
+            .values()
+            .filter_map(|gesture| {
+                if let GestureIntent::Building(BuildingIntent { ref lot, building_style }) =
+                    gesture.intent
+                {
+                    let mut area = lot.area.clone();
 
-                for paved_area_shape in &paved_area_shapes {
+                    for paved_area_shape in &paved_area_areas {
+                        let split = area.split(&paved_area_shape);
 
-                    if let Ok(clip_results) = clipper::clip(
-                        clipper::Mode::Difference,
-                        &shape,
-                        paved_area_shape,
-                    )
-                    {
-                        if let Some(main_piece) = clip_results.into_iter().find(|piece| {
-                            piece.contains(lot.center_point())
-                        })
+                        if let Some(main_piece) = split.a_minus_b().disjoint().into_iter().find(
+                            |piece| piece.contains(lot.center_point()),
+                        )
                         {
-                            shape = main_piece;
+                            area = main_piece;
                         } else {
                             println!("No piece contains center");
                             return None;
                         }
-                    } else {
-                        println!("Building lot clip error");
-                        return None;
                     }
-                }
 
-                Some(Prototype::Lot(LotPrototype {
-                    lot: Lot { shape, ..lot.clone() },
-                    occupancy: LotOccupancy::Occupied(building_style),
-                    based_on,
-                }))
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>();
+                    Some(Prototype::Lot(LotPrototype {
+                        lot: Lot { area, ..lot.clone() },
+                        occupancy: LotOccupancy::Occupied(building_style),
+                        based_on,
+                    }))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
 
     let vacant_lot_prototypes = {
-        let building_shapes = building_prototypes
+        let building_areas = building_prototypes
             .iter()
             .filter_map(|prototype| if let Prototype::Lot(LotPrototype {
                                                   occupancy: LotOccupancy::Occupied(_),
-                                                  lot: Lot { ref shape, .. },
+                                                  lot: Lot { ref area, .. },
                                                   based_on,
                                               }) = *prototype
             {
-                Some(shape)
+                Some(area)
             } else {
                 None
             })
             .collect::<Vec<_>>();
 
-        let mut land_use_shapes = plan.gestures
+        let mut land_use_areas = plan.gestures
             .values()
             .filter_map(|gesture| {
                 if let GestureIntent::Zone(ZoneIntent::LandUse(land_use)) = gesture.intent {
@@ -157,7 +147,7 @@ pub fn calculate_prototypes(
             .filter_map(|(land_use, points)| {
                 Some((
                     land_use,
-                    CShape::new(CPath::new(
+                    Area::new_simple(Path::new(
                         points
                             .iter()
                             .chain(points.first())
@@ -169,34 +159,29 @@ pub fn calculate_prototypes(
             })
             .collect::<Vec<_>>();
 
-        for paved_area_or_building_shape in paved_area_shapes.iter().chain(building_shapes.iter()) {
-            land_use_shapes = land_use_shapes
+        for paved_area_or_building_shape in paved_area_areas.iter().chain(building_areas.iter()) {
+            land_use_areas = land_use_areas
                 .into_iter()
                 .flat_map(|(land_use, shape)| {
-                    clipper::clip(
-                        clipper::Mode::Difference,
-                        &shape,
-                        paved_area_or_building_shape,
-                    ).ok()
-                        .map(|cut_shapes| {
-                            cut_shapes
-                                .into_iter()
-                                .map(|cut_shape| (land_use, cut_shape))
-                                .collect()
-                        })
-                        .unwrap_or_else(Vec::new)
+                    shape
+                        .split(paved_area_or_building_shape)
+                        .a_minus_b()
+                        .disjoint()
+                        .into_iter()
+                        .map(|cut_shape| (land_use, cut_shape))
+                        .collect::<Vec<_>>()
                 })
                 .collect()
         }
 
-        println!("{} land use shapes", land_use_shapes.len());
+        println!("{} land use shapes", land_use_areas.len());
 
-        land_use_shapes
+        land_use_areas
             .into_iter()
-            .filter_map(|(land_use, shape)| {
-                let connection_points = shape
-                    .outline()
-                    .segments()
+            .filter_map(|(land_use, area)| {
+                let connection_points = area.primitives[0]
+                    .boundary
+                    .segments
                     .iter()
                     .flat_map(|segment| {
                         let length = segment.length();
@@ -212,7 +197,7 @@ pub fn calculate_prototypes(
                     })
                     .filter(|&(point, _dir)| {
                         // TODO: this is a horribly slow way to find connection points
-                        paved_area_shapes.iter().any(|paved_area| {
+                        paved_area_areas.iter().any(|paved_area| {
                             paved_area.contains(point)
                         })
                     })
@@ -228,7 +213,7 @@ pub fn calculate_prototypes(
                             max_height: 0,
                             set_back: 0,
                             connection_points,
-                            shape,
+                            area,
                         },
                         occupancy: LotOccupancy::Vacant,
                         based_on,

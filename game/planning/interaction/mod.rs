@@ -1,9 +1,8 @@
 use kay::{World, MachineID, Fate, TypedID, ActorSystem, Actor};
 use compact::{CVec, COption};
-use descartes::{N, P2, Into2d, Circle};
+use descartes::{N, P2, Into2d, Circle, AsArea};
 use stagemaster::{UserInterfaceID, Interactable3d, Interactable3dID, Interactable2d,
                   Interactable2dID};
-use stagemaster::geometry::AnyShape;
 use ui_layers::UILayer;
 use imgui::ImGuiSetCond_FirstUseEver;
 
@@ -459,10 +458,12 @@ impl ControlPointInteractable {
         user_interface.add(
             UILayer::Gesture as usize,
             id.into(),
-            AnyShape::Circle(Circle {
-                center: position,
-                radius: CONTROL_POINT_HANDLE_RADIUS,
-            }),
+            COption(Some(
+                Circle {
+                    center: position,
+                    radius: CONTROL_POINT_HANDLE_RADIUS,
+                }.as_area(),
+            )),
             1,
             world,
         );
@@ -544,7 +545,7 @@ impl GestureCanvas {
         user_interface.add(
             UILayer::Gesture as usize,
             id.into(),
-            AnyShape::Everywhere,
+            COption(None),
             0,
             world,
         );

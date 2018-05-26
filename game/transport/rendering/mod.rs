@@ -1,4 +1,4 @@
-use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, Path, RoughlyComparable};
+use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, RoughlyComparable};
 use compact::CVec;
 use kay::{ActorSystem, World, Actor, TypedID};
 use monet::{Instance, Vertex, Geometry, Renderer, RendererID};
@@ -25,7 +25,7 @@ impl Renderable for Lane {
         let mut cars_iter = self.microtraffic.cars.iter();
         let mut current_offset = 0.0;
         let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
-        for segment in self.construction.path.segments().iter() {
+        for segment in self.construction.path.segments.iter() {
             for car in cars_iter.take_while_ref(|car| {
                 *car.position - current_offset < segment.length()
             })
@@ -358,7 +358,7 @@ impl Renderable for SwitchLane {
         let mut cars_iter = self.microtraffic.cars.iter();
         let mut current_offset = 0.0;
         let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
-        for segment in self.construction.path.segments().iter() {
+        for segment in self.construction.path.segments.iter() {
             for car in cars_iter.take_while_ref(|car| {
                 *car.position - current_offset < segment.length()
             })

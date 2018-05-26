@@ -1,4 +1,5 @@
 use kay::{ActorSystem, World, External};
+use compact::COption;
 use monet::{RendererID, Movement};
 use descartes::{P2, P3, V3};
 use combo::Button::*;
@@ -62,13 +63,7 @@ impl CameraControl {
         env: Environment,
         world: &mut World,
     ) -> Self {
-        ui_id.add(
-            0,
-            id.into(),
-            super::geometry::AnyShape::Everywhere,
-            0,
-            world,
-        );
+        ui_id.add(0, id.into(), COption(None), 0, world);
         ui_id.focus(id.into(), world);
         ui_id.add_2d(id.into(), world);
 

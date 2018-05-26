@@ -1,11 +1,19 @@
-use {P2, N, THICKNESS, RoughlyComparable, VecLike};
-use curves::{Segment, Curve, FiniteCurve};
+use {P2, V2, N, THICKNESS, RoughlyComparable, VecLike};
+use curves::{Segment, Curve, FiniteCurve, Circle};
 use path::Path;
 use intersect::Intersect;
 use ordered_float::OrderedFloat;
 
 #[derive(Debug)]
 pub struct UnclosedPathError;
+
+pub trait PointContainer {
+    fn location_of(&self, point: P2) -> AreaLocation;
+
+    fn contains(&self, point: P2) -> bool {
+        self.location_of(point) != AreaLocation::Outside
+    }
+}
 
 // represents a filled area bounded by a clockwise boundary
 // everything "right of" the boundary is considered "inside"
@@ -28,7 +36,16 @@ impl PrimitiveArea {
         }
     }
 
-    pub fn location_of(&self, point: P2) -> AreaLocation {
+    pub fn fully_contains(&self, other: &PrimitiveArea) -> bool {
+        (&self.boundary, &other.boundary).intersect().is_empty() &&
+            self.boundary.segments.iter().all(|self_segment| {
+                other.contains(self_segment.start())
+            })
+    }
+}
+
+impl PointContainer for PrimitiveArea {
+    fn location_of(&self, point: P2) -> AreaLocation {
         if self.boundary.includes(point) {
             AreaLocation::Boundary
         } else {
@@ -56,6 +73,7 @@ impl<'a> RoughlyComparable for &'a PrimitiveArea {
     }
 }
 
+#[derive(PartialEq)]
 pub enum AreaLocation {
     Inside,
     Boundary,
@@ -84,33 +102,10 @@ impl Area {
         Area { primitives }
     }
 
-    pub fn location_of(&self, point: P2) -> AreaLocation {
-        if self.primitives.iter().any(|primitive| {
-            primitive.boundary.includes(point)
+    pub fn new_simple(boundary: Path) -> Result<Self, UnclosedPathError> {
+        Ok(Area {
+            primitives: Some(PrimitiveArea::new(boundary)?).into_iter().collect(),
         })
-        {
-            AreaLocation::Boundary
-        } else {
-            let ray = Segment::line(point, P2::new(point.x + 10_000_000_000.0, point.y))
-                .expect("Ray should be valid");
-
-            // TODO: allow for ccw holes by checking intersection direction
-            let mut n_intersections = 0;
-
-            for primitive in &self.primitives {
-                n_intersections += (
-                    &Path::new_unchecked(Some(ray).into_iter().collect()),
-                    &primitive.boundary,
-                ).intersect()
-                    .len();
-            }
-
-            if n_intersections % 2 == 1 {
-                AreaLocation::Inside
-            } else {
-                AreaLocation::Outside
-            }
-        }
     }
 
     pub fn split(&self, b: &Self) -> AreaSplitResult {
@@ -132,14 +127,20 @@ impl Area {
 
         let boundary_pieces = SUBJECTS.iter().flat_map(|&subject| {
 
-            for primitive_distances in &mut intersection_distances[subject] {
-                primitive_distances.sort_unstable_by_key(|&along|
-                    OrderedFloat(along)
-                );
+            for (primitive_i, primitive_distances) in intersection_distances[subject].iter_mut().enumerate() {
+                if primitive_distances.len() <= 1 {
+                    primitive_distances.clear();
+                    primitive_distances.push(0.0);
+                    primitive_distances.push(ab[subject].primitives[primitive_i].boundary.length());
+                } else {
+                    primitive_distances.sort_unstable_by_key(|&along|
+                        OrderedFloat(along)
+                    );
 
-                // to close the loop when taking piece-cutting windows
-                let first = primitive_distances[0];
-                primitive_distances.push(first);
+                    // to close the loop when taking piece-cutting windows
+                    let first = primitive_distances[0];
+                    primitive_distances.push(first);
+                }
             }
 
             let mut boundary_pieces_initial = intersection_distances[subject].iter().enumerate().flat_map(|(primitive_i, primitive_distances)|
@@ -197,6 +198,61 @@ impl Area {
         }).collect();
 
         AreaSplitResult { pieces: boundary_pieces }
+    }
+
+    pub fn disjoint(&self) -> Vec<Area> {
+        let mut groups = Vec::<VecLike<PrimitiveArea>>::new();
+
+        for primitive in self.primitives.iter().cloned() {
+            if let Some(surrounding_group_i) =
+                groups.iter().position(
+                    |group| group[0].fully_contains(&primitive),
+                )
+            {
+                groups[surrounding_group_i].push(primitive);
+            } else if let Some(surrounded_group_i) =
+                groups.iter().position(
+                    |group| primitive.fully_contains(&group[0]),
+                )
+            {
+                groups[surrounded_group_i].insert(0, primitive);
+            } else {
+                groups.push(Some(primitive).into_iter().collect());
+            }
+        }
+
+        groups.into_iter().map(|group| Area::new(group)).collect()
+    }
+}
+
+impl PointContainer for Area {
+    fn location_of(&self, point: P2) -> AreaLocation {
+        if self.primitives.iter().any(|primitive| {
+            primitive.boundary.includes(point)
+        })
+        {
+            AreaLocation::Boundary
+        } else {
+            let ray = Segment::line(point, P2::new(point.x + 10_000_000_000.0, point.y))
+                .expect("Ray should be valid");
+
+            // TODO: allow for ccw holes by checking intersection direction
+            let mut n_intersections = 0;
+
+            for primitive in &self.primitives {
+                n_intersections += (
+                    &Path::new_unchecked(Some(ray).into_iter().collect()),
+                    &primitive.boundary,
+                ).intersect()
+                    .len();
+            }
+
+            if n_intersections % 2 == 1 {
+                AreaLocation::Inside
+            } else {
+                AreaLocation::Outside
+            }
+        }
     }
 }
 
@@ -298,7 +354,13 @@ impl AreaSplitResult {
 
                     paths[after_i] = extended_path;
                 }
-                (None, None) => paths.push(oriented_path),
+                (None, None) => {
+                    if oriented_path.is_closed() {
+                        complete_paths.push(oriented_path)
+                    } else {
+                        paths.push(oriented_path)
+                    }
+                }
             }
         }
 
@@ -515,5 +577,110 @@ fn svg_tests() {
             &expected_result_area,
             THICKNESS,
         ));
+    }
+}
+
+pub trait AsArea {
+    fn as_area(&self) -> Area;
+}
+
+#[derive(Clone)]
+#[cfg_attr(feature = "compact_containers", derive(Compact))]
+pub struct Band {
+    pub path: Path,
+    pub width_left: N,
+    pub width_right: N,
+}
+
+impl Band {
+    pub fn new(path: Path, width: N) -> Band {
+        Band {
+            path,
+            width_left: width / 2.0,
+            width_right: width / 2.0,
+        }
+    }
+
+    pub fn new_asymmetric(path: Path, width_left: N, width_right: N) -> Band {
+        Band { path, width_left, width_right }
+    }
+
+    pub fn outline(&self) -> Path {
+        let left_path = self.path
+            .shift_orthogonally(-self.width_left)
+            .unwrap_or_else(|| self.path.clone());
+        let right_path = self.path
+            .shift_orthogonally(self.width_right)
+            .unwrap_or_else(|| self.path.clone())
+            .reverse();
+
+        let end_connector = Segment::line(left_path.end(), right_path.start());
+        let start_connector = Segment::line(right_path.end(), left_path.start());
+
+        Path::new(
+            left_path
+                .segments
+                .into_iter()
+                .chain(end_connector)
+                .chain(right_path.segments.into_iter())
+                .chain(start_connector)
+                .collect(),
+        ).expect("Band path should always be valid")
+    }
+
+    pub fn outline_distance_to_path_distance(&self, distance: N) -> N {
+        let full_width = self.width_left + self.width_right;
+
+        if let (Some(left_path_length), Some(right_path_length)) =
+            (
+                self.path.shift_orthogonally(-self.width_left).map(
+                    |p| p.length(),
+                ),
+                self.path.shift_orthogonally(self.width_right).map(
+                    |p| p.length(),
+                ),
+            )
+        {
+            if distance > left_path_length + full_width + right_path_length {
+                // on connector2
+                0.0
+            } else if distance > left_path_length + full_width {
+                // on right side
+                (1.0 - (distance - left_path_length - full_width) / right_path_length) *
+                    self.path.length()
+            } else if distance > left_path_length {
+                // on connector1
+                self.path.length()
+            } else {
+                // on left side
+                (distance / left_path_length) * self.path.length()
+            }
+        } else {
+            distance
+        }
+    }
+}
+
+impl AsArea for Band {
+    fn as_area(&self) -> Area {
+        Area::new_simple(self.outline()).expect("Band boundary should always be valid")
+    }
+}
+
+impl AsArea for Circle {
+    fn as_area(&self) -> Area {
+        let top = self.center + V2::new(0.0, self.radius);
+        let bottom = self.center + V2::new(0.0, -self.radius);
+        let right_segment = Segment::arc_with_direction(top, V2::new(1.0, 0.0), bottom)
+            .expect("Circle too small");
+        let left_segment = Segment::arc_with_direction(bottom, V2::new(-1.0, 0.0), top)
+            .expect("Circle too small");
+
+        Area::new_simple(Path::new_unchecked(
+            Some(right_segment)
+                .into_iter()
+                .chain(Some(left_segment))
+                .collect(),
+        )).expect("Circle is always closed")
     }
 }

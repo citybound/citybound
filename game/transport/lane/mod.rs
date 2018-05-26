@@ -1,7 +1,6 @@
-use compact::CVec;
+use compact::{CVec, COption};
 use kay::{ActorSystem, World, Actor};
-use descartes::{N, Band};
-use stagemaster::geometry::{CPath, AnyShape};
+use descartes::{N, Band, Path, AsArea};
 
 use super::construction::ConstructionInfo;
 pub mod connectivity;
@@ -23,7 +22,7 @@ impl Lane {
     #[allow(eq_op)]
     pub fn spawn(
         id: LaneID,
-        path: &CPath,
+        path: &Path,
         on_intersection: bool,
         timings: &CVec<bool>,
         world: &mut World,
@@ -44,7 +43,7 @@ impl Lane {
             UserInterface::local_first(world).add(
                 ::ui_layers::UILayer::Debug as usize,
                 id.into(),
-                AnyShape::Band(Band::new(path.clone(), 3.0)),
+                COption(Some(Band::new(path.clone(), 3.0).as_area())),
                 5,
                 world,
             );
@@ -64,7 +63,7 @@ pub struct SwitchLane {
 
 
 impl SwitchLane {
-    pub fn spawn(id: SwitchLaneID, path: &CPath, _: &mut World) -> SwitchLane {
+    pub fn spawn(id: SwitchLaneID, path: &Path, _: &mut World) -> SwitchLane {
         SwitchLane {
             id,
             construction: ConstructionInfo::from_path(path.clone()),

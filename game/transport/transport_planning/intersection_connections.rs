@@ -1,6 +1,5 @@
 use compact::CVec;
 use descartes::{Segment, Path, FiniteCurve, Intersect, WithUniqueOrthogonal, RoughlyComparable};
-use stagemaster::geometry::CPath;
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
@@ -206,12 +205,12 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                                         relevant_outgoing_len -
                                             1,
                                     )];
-                                    let path = CPath::new(Segment::biarc(
+                                    let path = Path::new(Segment::biarc(
                                         start.position,
                                         start.direction,
                                         end.position,
                                         end.direction,
-                                    )?).ok()?;
+                                    )?.into()).ok()?;
 
                                     Some(LanePrototype(path, CVec::new()))
                                 })

@@ -47,6 +47,7 @@ path = "./engine/kay/"
 
 [dependencies.descartes]
 path = "./engine/descartes/"
+features = ["compact_containers"]
 
 [dependencies.monet]
 path = "./engine/monet/"

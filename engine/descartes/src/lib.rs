@@ -40,12 +40,12 @@ const ROUGH_TOLERANCE: N = 0.000_000_1;
 mod curves;
 mod path;
 mod intersect;
-mod shapes;
+mod areas;
 
 pub use self::curves::*;
 pub use self::path::Path;
 pub use self::intersect::*;
-pub use self::shapes::*;
+pub use self::areas::*;
 
 pub fn angle_to(a: V2, b: V2) -> N {
     let theta: N = dot(&a, &b) / (a.norm() * b.norm());

@@ -1,7 +1,7 @@
 use kay::{World, TypedID};
 use descartes::{P2, V2, Band, Segment, Path};
 use monet::{RendererID, Renderable, RenderableID, Instance, Geometry};
-use stagemaster::geometry::{band_to_geometry, CPath};
+use stagemaster::geometry::band_to_geometry;
 use style::colors;
 use render_layers::RenderLayers;
 
@@ -12,7 +12,7 @@ impl Renderable for PlanManager {
     fn setup_in_scene(&mut self, renderer_id: RendererID, world: &mut World) {
         let dot_geometry = band_to_geometry(
             &Band::new(
-                CPath::new(
+                Path::new(
                     Segment::arc_with_direction(
                         P2::new(-CONTROL_POINT_HANDLE_RADIUS / 2.0, 0.0),
                         V2::new(0.0, 1.0),
@@ -62,7 +62,7 @@ impl Renderable for PlanManager {
 
         for (i, gesture) in preview.gestures.values().enumerate() {
             if gesture.points.len() >= 2 {
-                let line_geometry = if let Ok(line_path) = CPath::new(
+                let line_geometry = if let Ok(line_path) = Path::new(
                     gesture
                         .points
                         .windows(2)

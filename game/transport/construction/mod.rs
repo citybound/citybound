@@ -3,7 +3,6 @@ use kay::{ActorSystem, World, Fate, Actor, TypedID};
 use descartes::{N, P2, Band, Curve, FiniteCurve, Path, RoughlyComparable, Intersect,
                 WithUniqueOrthogonal};
 use itertools::Itertools;
-use stagemaster::geometry::CPath;
 use ordered_float::OrderedFloat;
 
 use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
@@ -87,14 +86,14 @@ impl Constructable for SwitchLane {
 #[derive(Compact, Clone)]
 pub struct ConstructionInfo {
     pub length: f32,
-    pub path: CPath,
+    pub path: Path,
     pub progress: f32,
     unbuilding_for: Option<ConstructionID>,
     disconnects_remaining: u8,
 }
 
 impl ConstructionInfo {
-    pub fn from_path(path: CPath) -> Self {
+    pub fn from_path(path: Path) -> Self {
         ConstructionInfo {
             length: path.length(),
             path,
@@ -115,14 +114,14 @@ use fnv::FnvHashMap;
 use std::cell::UnsafeCell;
 thread_local! (
     static MEMOIZED_BANDS_OUTLINES: UnsafeCell<
-        FnvHashMap<LaneLikeID, (Band<CPath>, CPath)>
+        FnvHashMap<LaneLikeID, (Band, Path)>
         > = UnsafeCell::new(FnvHashMap::default());
 );
 
 impl Lane {
     pub fn spawn_and_connect(
         id: LaneID,
-        path: &CPath,
+        path: &Path,
         on_intersection: bool,
         timings: &CVec<bool>,
         report_to: ConstructionID,
@@ -230,7 +229,7 @@ impl Lane {
     pub fn connect_overlaps(
         &mut self,
         other_id: LaneID,
-        other_path: &CPath,
+        other_path: &Path,
         reply_needed: bool,
         world: &mut World,
     ) {
@@ -242,7 +241,7 @@ impl Lane {
                     let band = Band::new(self.construction.path.clone(), 4.5);
                     let outline = band.outline();
                     (band, outline)
-                }) as &(Band<CPath>, CPath);
+                }) as &(Band, Path);
 
             let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
             let &(ref other_band, ref other_outline) = memoized_bands_outlines
@@ -251,7 +250,7 @@ impl Lane {
                     let band = Band::new(other_path.clone(), 4.5);
                     let outline = band.outline();
                     (band, outline)
-                }) as &(Band<CPath>, CPath);
+                }) as &(Band, Path);
 
             let intersections = (lane_outline, other_outline).intersect();
             if intersections.len() >= 2 {
@@ -490,7 +489,7 @@ impl Lane {
 impl SwitchLane {
     pub fn spawn_and_connect(
         id: SwitchLaneID,
-        path: &CPath,
+        path: &Path,
         report_to: ConstructionID,
         world: &mut World,
     ) -> SwitchLane {
@@ -507,7 +506,7 @@ impl SwitchLane {
     pub fn connect_switch_to_normal(
         &mut self,
         other_id: LaneID,
-        other_path: &CPath,
+        other_path: &Path,
         world: &mut World,
     ) {
         let projections = (
@@ -543,7 +542,7 @@ impl SwitchLane {
                     let mut distance_covered = 0.0;
                     let distance_map = self.construction
                         .path
-                        .segments()
+                        .segments
                         .iter()
                         .map(|segment| {
                             distance_covered += segment.length();

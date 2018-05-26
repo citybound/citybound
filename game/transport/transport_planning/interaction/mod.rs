@@ -1,9 +1,9 @@
 use kay::{World, MachineID, Fate, TypedID, ActorSystem};
-use compact::CVec;
-use descartes::{Band, FiniteCurve, SimpleShape, WithUniqueOrthogonal, Curve, Into2d};
+use compact::{CVec, COption};
+use descartes::{Band, FiniteCurve, Path, AsArea, WithUniqueOrthogonal, Curve, Into2d};
 use monet::{RendererID, Instance, Geometry};
 use stagemaster::user_interface::{UserInterfaceID, Interactable3d, Interactable3dID, Event3d};
-use stagemaster::geometry::{band_to_geometry, AnyShape, CPath, dash_path};
+use stagemaster::geometry::{band_to_geometry, dash_path};
 use style::colors;
 use render_layers::RenderLayers;
 
@@ -54,12 +54,15 @@ pub fn render_preview(
                         }
                     }
                     Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
-                                                                    ref shape,
+                                                                    ref area,
                                                                     ref connecting_lanes,
                                                                     ..
                                                                 })) => {
                         intersection_geometry +=
-                            band_to_geometry(&Band::new(shape.outline().clone(), 0.1), 0.1);
+                            band_to_geometry(
+                                &Band::new(area.primitives[0].boundary.clone(), 0.1),
+                                0.1,
+                            );
 
                         for &LanePrototype(ref lane_path, ref timings) in
                             connecting_lanes.values().flat_map(|lanes| lanes)
@@ -113,7 +116,7 @@ pub struct LaneCountInteractable {
     proposal_id: ProposalID,
     gesture_id: GestureID,
     forward: bool,
-    path: CPath,
+    path: Path,
     initial_intent: RoadIntent,
 }
 
@@ -126,14 +129,14 @@ impl LaneCountInteractable {
         proposal_id: ProposalID,
         gesture_id: GestureID,
         forward: bool,
-        path: &CPath,
+        path: &Path,
         initial_intent: RoadIntent,
         world: &mut World,
     ) -> Self {
         user_interface.add(
             UILayer::Gesture as usize,
             id.into(),
-            AnyShape::Band(Band::new(path.clone(), 3.0)),
+            COption(Some(Band::new(path.clone(), 3.0).as_area())),
             1,
             world,
         );

@@ -1,7 +1,7 @@
 use descartes::{P2, Segment, Path};
-use stagemaster::geometry::CPath;
+use compact::CVec;
 
-pub fn smooth_path_from(points: &[P2]) -> Option<CPath> {
+pub fn smooth_path_from(points: &[P2]) -> Option<Path> {
     let center_points = points
         .windows(2)
         .map(|point_pair| {
@@ -42,7 +42,7 @@ pub fn smooth_path_from(points: &[P2]) -> Option<CPath> {
         end_start_directions.push((end, start, line_direction));
     }
 
-    let mut segments = Vec::new();
+    let mut segments = CVec::new();
     let mut previous_point = points[0];
     let mut previous_direction = (points[1] - points[0]).normalize();
 
@@ -61,6 +61,6 @@ pub fn smooth_path_from(points: &[P2]) -> Option<CPath> {
         previous_direction = direction;
     }
 
-    CPath::new(segments).ok()
+    Path::new(segments).ok()
 
 }

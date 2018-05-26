@@ -1,7 +1,5 @@
 use kay::{World, Fate, ActorSystem};
-use descartes::{P2, V2, Shape, SimpleShape, WithUniqueOrthogonal, Path, FiniteCurve, Segment};
-use descartes::clipper;
-use stagemaster::geometry::{CShape, CPath};
+use descartes::{P2, V2, Area, WithUniqueOrthogonal, Path, FiniteCurve, Segment, PointContainer};
 use ordered_float::OrderedFloat;
 
 use land_use::zone_planning::{Lot, BuildingIntent};
@@ -22,11 +20,14 @@ pub struct VacantLot {
 
 impl Lot {
     pub fn width_depth_per_connection_point(&self) -> Vec<(P2, V2, f32, f32)> {
-        let midpoints = self.shape
-            .outline()
-            .segments()
+        let midpoints = self.area
+            .primitives
             .iter()
-            .map(|segment| segment.midpoint())
+            .flat_map(|primitive| {
+                primitive.boundary.segments.iter().map(|segment| {
+                    segment.midpoint()
+                })
+            })
             .collect::<Vec<_>>();
 
         self.connection_points
@@ -119,69 +120,68 @@ impl Lot {
                         point - 500.0 * direction,
                     );
 
-                    let splitting_shape = CShape::new(
-                        CPath::new(vec![
-                            Segment::line(corners.0, corners.1).unwrap(),
-                            Segment::line(corners.1, corners.2).unwrap(),
-                            Segment::line(corners.2, corners.3).unwrap(),
-                            Segment::line(corners.3, corners.0).unwrap(),
-                        ]).unwrap(),
+                    let splitting_area = Area::new_simple(
+                        Path::new(
+                            vec![
+                                Segment::line(corners.0, corners.1).unwrap(),
+                                Segment::line(corners.1, corners.2).unwrap(),
+                                Segment::line(corners.2, corners.3).unwrap(),
+                                Segment::line(corners.3, corners.0).unwrap(),
+                            ].into(),
+                        ).unwrap(),
                     ).unwrap();
 
                     println!("Attempting width split");
 
+                    let split = self.area.split(&splitting_area);
+
                     if allow_right_split {
-                        clipper::clip(clipper::Mode::Intersection, &self.shape, &splitting_shape)
-                            .ok()
-                            .and_then(|right_splits| {
-                                right_splits
-                                    .into_iter()
-                                    .filter_map(|right_split| {
-                                        let split_lot = Lot {
-                                            connection_points: self.connection_points
-                                                .clone()
-                                                .into_iter()
-                                                .filter(|&(other_point, _)| {
-                                                    point != other_point &&
-                                                        right_split.contains(other_point)
-                                                })
-                                                .collect(),
-                                            shape: right_split,
-                                            ..self.clone()
-                                        };
+                        split
+                            .intersection()
+                            .disjoint()
+                            .into_iter()
+                            .filter_map(|right_split| {
+                                let split_lot = Lot {
+                                    connection_points: self.connection_points
+                                        .clone()
+                                        .into_iter()
+                                        .filter(|&(other_point, _)| {
+                                            point != other_point &&
+                                                right_split.contains(other_point)
+                                        })
+                                        .collect(),
+                                    area: right_split,
+                                    ..self.clone()
+                                };
 
-                                        // recurse!
-                                        println!("Got right split lot, checking suitability");
-                                        split_lot.split_for(building_style, false, true)
-                                    })
-                                    .next()
+                                // recurse!
+                                println!("Got right split lot, checking suitability");
+                                split_lot.split_for(building_style, false, true)
                             })
+                            .next()
                     } else if allow_left_split {
-                        clipper::clip(clipper::Mode::Difference, &self.shape, &splitting_shape)
-                            .ok()
-                            .and_then(|left_splits| {
-                                left_splits
-                                    .into_iter()
-                                    .filter_map(|left_split| {
-                                        let split_lot = Lot {
-                                            connection_points: self.connection_points
-                                                .clone()
-                                                .into_iter()
-                                                .filter(|&(other_point, _)| {
-                                                    point != other_point &&
-                                                        left_split.contains(other_point)
-                                                })
-                                                .collect(),
-                                            shape: left_split,
-                                            ..self.clone()
-                                        };
+                        split
+                            .a_minus_b()
+                            .disjoint()
+                            .into_iter()
+                            .filter_map(|left_split| {
+                                let split_lot = Lot {
+                                    connection_points: self.connection_points
+                                        .clone()
+                                        .into_iter()
+                                        .filter(|&(other_point, _)| {
+                                            point != other_point && left_split.contains(other_point)
+                                        })
+                                        .collect(),
+                                    area: left_split,
+                                    ..self.clone()
+                                };
 
-                                        // recurse!
-                                        println!("Got right split lot, checking suitability");
-                                        split_lot.split_for(building_style, true, false)
-                                    })
-                                    .next()
+                                // recurse!
+                                println!("Got right split lot, checking suitability");
+                                split_lot.split_for(building_style, true, false)
                             })
+                            .next()
                     } else {
                         None
                     }

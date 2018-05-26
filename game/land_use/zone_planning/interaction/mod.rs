@@ -1,6 +1,6 @@
 use kay::World;
 use compact::CVec;
-use descartes::{Band, SimpleShape};
+use descartes::Band;
 use stagemaster::geometry::band_to_geometry;
 use monet::{RendererID, Geometry, Instance};
 use planning::{PlanResult, Prototype};
@@ -21,14 +21,19 @@ pub fn render_preview(
     let mut lot_outline_geometry = Geometry::empty();
 
     for prototype in result_preview.prototypes.values() {
-        if let Prototype::Lot(LotPrototype { lot: Lot { ref shape, .. }, occupancy, .. }) =
+        if let Prototype::Lot(LotPrototype { lot: Lot { ref area, .. }, occupancy, .. }) =
             *prototype
         {
             if occupancy == LotOccupancy::Vacant {
-                lot_outline_geometry +=
-                    band_to_geometry(&Band::new(shape.outline().clone(), 2.0), 0.1);
+                for primitive in &area.primitives {
+                    lot_outline_geometry +=
+                        band_to_geometry(&Band::new(primitive.boundary.clone(), 2.0), 0.1);
+                }
             } else {
-                lot_geometry += band_to_geometry(&Band::new(shape.outline().clone(), 1.0), 0.1);
+                for primitive in &area.primitives {
+                    lot_geometry +=
+                        band_to_geometry(&Band::new(primitive.boundary.clone(), 1.0), 0.1);
+                }
                 //Geometry::from_shape(shape);
             }
 

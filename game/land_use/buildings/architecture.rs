@@ -70,7 +70,7 @@ pub fn build_building<R: Rng>(
                 wall: Geometry::empty(),
                 brick_roof: Geometry::empty(),
                 flat_roof: Geometry::empty(),
-                field: Geometry::from_shape(&lot.shape),
+                field: Geometry::from_area(&lot.area),
             }
         }
         BuildingStyle::Mill => {

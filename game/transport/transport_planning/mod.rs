@@ -1,7 +1,6 @@
 use compact::{CHashMap, CVec};
-use descartes::{N, P2, V2, Band, Segment, Path, FiniteCurve, Shape, SimpleShape, clipper,
-                Intersect, WithUniqueOrthogonal, RoughlyComparable};
-use stagemaster::geometry::{CPath, CShape};
+use descartes::{N, P2, V2, Band, Segment, AsArea, Path, FiniteCurve, Area, Intersect,
+                WithUniqueOrthogonal, RoughlyComparable, PointContainer};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
@@ -29,7 +28,7 @@ pub enum RoadPrototype {
     Lane(LanePrototype),
     SwitchLane(SwitchLanePrototype),
     Intersection(IntersectionPrototype),
-    PavedArea(CShape),
+    PavedArea(Area),
 }
 
 impl RoadPrototype {
@@ -51,7 +50,7 @@ impl RoadPrototype {
 }
 
 #[derive(Compact, Clone)]
-pub struct LanePrototype(pub CPath, pub CVec<bool>);
+pub struct LanePrototype(pub Path, pub CVec<bool>);
 
 impl LanePrototype {
     pub fn morphable_from(&self, other: &LanePrototype) -> bool {
@@ -65,7 +64,7 @@ impl LanePrototype {
 }
 
 #[derive(Compact, Clone)]
-pub struct SwitchLanePrototype(pub CPath);
+pub struct SwitchLanePrototype(pub Path);
 
 impl SwitchLanePrototype {
     pub fn morphable_from(&self, other: &SwitchLanePrototype) -> bool {
@@ -122,7 +121,7 @@ impl GestureSideID {
 
 #[derive(Compact, Clone)]
 pub struct IntersectionPrototype {
-    shape: CShape,
+    area: Area,
     incoming: CHashMap<GestureSideID, CVec<IntersectionConnector>>,
     outgoing: CHashMap<GestureSideID, CVec<IntersectionConnector>>,
     pub connecting_lanes: CHashMap<(GestureSideID, GestureSideID), CVec<LanePrototype>>,
@@ -131,10 +130,7 @@ pub struct IntersectionPrototype {
 impl IntersectionPrototype {
     pub fn morphable_from(&self, other: &IntersectionPrototype) -> bool {
         // TODO: make this better!!
-        self.shape.outline().is_roughly_within(
-            other.shape.outline(),
-            0.1,
-        )
+        (&self.area).is_roughly_within(&other.area, 0.1)
     }
 }
 
@@ -142,7 +138,7 @@ const LANE_WIDTH: N = 6.0;
 const LANE_DISTANCE: N = 0.8 * LANE_WIDTH;
 const CENTER_LANE_DISTANCE: N = LANE_DISTANCE * 1.1;
 
-fn gesture_intent_smooth_paths(plan: &Plan) -> Vec<(GestureID, RoadIntent, CPath)> {
+fn gesture_intent_smooth_paths(plan: &Plan) -> Vec<(GestureID, RoadIntent, Path)> {
     plan.gestures
         .pairs()
         .filter_map(|(gesture_id, gesture)| match gesture.intent {
@@ -164,63 +160,32 @@ pub fn calculate_prototypes(
 ) -> Vec<Prototype> {
     let gesture_intent_smooth_paths = gesture_intent_smooth_paths(plan);
 
-    let gesture_shapes_for_intersection = gesture_intent_smooth_paths
+    let gesture_areas_for_intersection = gesture_intent_smooth_paths
         .iter()
         .map(|&(_, road_intent, ref path)| {
-            let right_path = if road_intent.n_lanes_forward == 0 {
-                path.clone()
-            } else {
-                path.shift_orthogonally(
-                    f32::from(road_intent.n_lanes_forward) * LANE_DISTANCE + 0.4 * LANE_DISTANCE,
-                ).unwrap_or_else(|| path.clone())
-                    .reverse()
-            };
-            let left_path = if road_intent.n_lanes_backward == 0 {
-                path.clone()
-            } else {
-                path.shift_orthogonally(
-                        -(f32::from(road_intent.n_lanes_backward) * LANE_DISTANCE +
-                              0.4 * LANE_DISTANCE),
-                    ).unwrap_or_else(|| path.clone())
-            };
-
-            let outline_segments = left_path
-                .segments()
-                .iter()
-                .cloned()
-                .chain(Segment::line(left_path.end(), right_path.start()))
-                .chain(right_path.segments().iter().cloned())
-                .chain(Segment::line(right_path.end(), left_path.start()))
-                .collect();
-
-            CShape::new(CPath::new(outline_segments).expect(
-                "Road outline path should be valid",
-            )).expect("Road outline shape should be valid")
+            Band::new_asymmetric(
+                path.clone(),
+                f32::from(road_intent.n_lanes_backward) * LANE_DISTANCE + 0.4 * LANE_DISTANCE,
+                f32::from(road_intent.n_lanes_forward) * LANE_DISTANCE + 0.4 * LANE_DISTANCE,
+            ).as_area()
         })
         .collect::<Vec<_>>();
 
-    let mut intersection_shapes = gesture_shapes_for_intersection
+    let mut intersection_areas = gesture_areas_for_intersection
         .iter()
         .enumerate()
-        .cartesian_product(gesture_shapes_for_intersection.iter().enumerate())
+        .cartesian_product(gesture_areas_for_intersection.iter().enumerate())
         .flat_map(|((i_a, shape_a), (i_b, shape_b))| if i_a == i_b {
             vec![]
         } else {
-            match clipper::clip(clipper::Mode::Intersection, shape_a, shape_b) {
-                Ok(shapes) => shapes,
-                Err(err) => {
-                    println!("Intersection clipping error: {:?}", err);
-                    vec![]
-                }
-            }
-
+            shape_a.split(shape_b).intersection().disjoint()
         })
         .collect::<Vec<_>>();
 
     // add intersections at the starts and ends of gestures
     const END_INTERSECTION_DEPTH: N = 15.0;
 
-    intersection_shapes.extend(gesture_intent_smooth_paths.iter().flat_map(|&(_,
+    intersection_areas.extend(gesture_intent_smooth_paths.iter().flat_map(|&(_,
        road_intent,
        ref path)| {
         [
@@ -234,25 +199,27 @@ pub fn calculate_prototypes(
                     (f32::from(road_intent.n_lanes_backward) * LANE_DISTANCE + 0.4 * LANE_DISTANCE);
                 let width_forward = orthogonal *
                     (f32::from(road_intent.n_lanes_forward) * LANE_DISTANCE + 0.4 * LANE_DISTANCE);
-                CShape::new(
-                    CPath::new(vec![
-                        Segment::line(
-                            point - half_depth - width_backward,
-                            point + half_depth - width_backward
-                        ).unwrap(),
-                        Segment::line(
-                            point + half_depth - width_backward,
-                            point + half_depth + width_forward
-                        ).unwrap(),
-                        Segment::line(
-                            point + half_depth + width_forward,
-                            point - half_depth + width_forward
-                        ).unwrap(),
-                        Segment::line(
-                            point - half_depth + width_forward,
-                            point - half_depth - width_backward
-                        ).unwrap(),
-                    ]).expect("End intersection path should be valid"),
+                Area::new_simple(
+                    Path::new(
+                        vec![
+                            Segment::line(
+                                point - half_depth - width_backward,
+                                point + half_depth - width_backward
+                            ).unwrap(),
+                            Segment::line(
+                                point + half_depth - width_backward,
+                                point + half_depth + width_forward
+                            ).unwrap(),
+                            Segment::line(
+                                point + half_depth + width_forward,
+                                point - half_depth + width_forward
+                            ).unwrap(),
+                            Segment::line(
+                                point - half_depth + width_forward,
+                                point - half_depth - width_backward
+                            ).unwrap(),
+                        ].into(),
+                    ).expect("End intersection path should be valid"),
                 ).expect("End intersection shape should be valid")
             })
             .collect::<Vec<_>>()
@@ -262,30 +229,26 @@ pub fn calculate_prototypes(
 
     let mut i = 0;
 
-    while i < intersection_shapes.len() {
+    while i < intersection_areas.len() {
         let mut advance = true;
 
-        for j in (i + 1)..intersection_shapes.len() {
-            match clipper::clip(
-                clipper::Mode::Union,
-                &intersection_shapes[i],
-                &intersection_shapes[j],
-            ) {
-                Ok(results) => {
-                    if results.len() == 1 {
-                        intersection_shapes[i] = results[0].clone();
-                        intersection_shapes.remove(j);
-                        advance = false;
-                        break;
-                    } else if results.len() == 2 {
-                        // intersection shapes do not overlap
-                    } else {
-                        println!("Intersection combining clipping weirdness: got 0 union shapes");
-                    }
-                }
-                Err(err) => {
-                    println!("Intersection combining clipping error: {:?}", err);
-                }
+        for j in (i + 1)..intersection_areas.len() {
+            let split = intersection_areas[i]
+                .split(&intersection_areas[j]);
+            let results = split
+                .union()
+                .disjoint();
+
+            if results.len() == 1 {
+                intersection_areas[i] = results[0].clone();
+                intersection_areas.remove(j);
+                advance = false;
+                break;
+            } else if results.len() == 2 {
+                // intersection shapes do not overlap
+            } else {
+                println!("Intersection combining clipping weirdness: got {} union shapes", results.len());
+                println!("{}", split.debug_svg());
             }
         }
 
@@ -294,11 +257,11 @@ pub fn calculate_prototypes(
         }
     }
 
-    let mut intersection_prototypes: Vec<_> = intersection_shapes
+    let mut intersection_prototypes: Vec<_> = intersection_areas
         .into_iter()
-        .map(|shape| {
+        .map(|area| {
             Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
-                shape,
+                area,
                 incoming: CHashMap::new(),
                 outgoing: CHashMap::new(),
                 connecting_lanes: CHashMap::new(),
@@ -343,8 +306,8 @@ pub fn calculate_prototypes(
                     if let Prototype::Road(RoadPrototype::Intersection(ref mut intersection)) =
                         *intersection
                     {
-                        let intersection_points = (&raw_lane_path, intersection.shape.outline())
-                            .intersect();
+                        let intersection_points =
+                            (&raw_lane_path, &intersection.area.primitives[0].boundary).intersect();
                         if intersection_points.len() >= 2 {
                             let entry_distance = intersection_points
                                 .iter()
@@ -372,7 +335,7 @@ pub fn calculate_prototypes(
                             );
                             cuts.push((*entry_distance, *exit_distance));
                         } else if intersection_points.len() == 1 {
-                            if intersection.shape.contains(raw_lane_path.start()) {
+                            if intersection.area.contains(raw_lane_path.start()) {
                                 let exit_distance = intersection_points[0].along_a;
                                 intersection.outgoing.push_at(
                                     gesture_side_id,
@@ -382,7 +345,7 @@ pub fn calculate_prototypes(
                                     ),
                                 );
                                 start_trim = start_trim.max(exit_distance);
-                            } else if intersection.shape.contains(raw_lane_path.end()) {
+                            } else if intersection.area.contains(raw_lane_path.end()) {
                                 let entry_distance = intersection_points[0].along_a;
                                 intersection.incoming.push_at(
                                     gesture_side_id,
@@ -520,7 +483,7 @@ pub fn calculate_prototypes(
         .chain(switch_lane_paths.into_iter().map(|path| {
             Prototype::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(path)))
         }))
-        .chain(gesture_shapes_for_intersection.into_iter().map(|shape| {
+        .chain(gesture_areas_for_intersection.into_iter().map(|shape| {
             Prototype::Road(RoadPrototype::PavedArea(shape))
         }))
         .collect()
