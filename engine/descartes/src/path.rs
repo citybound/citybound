@@ -1,4 +1,4 @@
-use super::{N, P2, V2, RoughlyComparable, THICKNESS};
+use super::{N, P2, V2, RoughlyComparable, THICKNESS, VecLike};
 use super::curves::{Curve, FiniteCurve, Segment};
 use super::intersect::{Intersect, Intersection};
 use ordered_float::OrderedFloat;
@@ -16,10 +16,17 @@ pub enum PathError {
     NotContinuous,
 }
 
-pub trait Path: Sized + Clone {
-    fn segments(&self) -> &[Segment];
-    fn new_unchecked(segments: Vec<Segment>) -> Self;
-    fn new(segments: Vec<Segment>) -> Result<Self, PathError> {
+#[derive(Clone)]
+pub struct Path {
+    pub segments: VecLike<Segment>,
+}
+
+impl Path {
+    pub fn new_unchecked(segments: VecLike<Segment>) -> Self {
+        Path { segments }
+    }
+
+    pub fn new(segments: VecLike<Segment>) -> Result<Self, PathError> {
         if segments.is_empty() {
             Result::Err(PathError::EmptyPath)
         } else {
@@ -39,7 +46,7 @@ pub trait Path: Sized + Clone {
 
     }
 
-    fn new_welded(mut segments: Vec<Segment>) -> Result<Self, PathError> {
+    pub fn new_welded(mut segments: VecLike<Segment>) -> Result<Self, PathError> {
         if segments.is_empty() {
             Result::Err(PathError::EmptyPath)
         } else {
@@ -58,7 +65,7 @@ pub trait Path: Sized + Clone {
                 segments.push(first_again);
             }
 
-            let mut welded_segments: Vec<Segment> = segments
+            let mut welded_segments: VecLike<Segment> = segments
                 .windows(2)
                 .filter_map(|seg_pair| if seg_pair[0].is_linear() {
                     Segment::line(seg_pair[0].start(), seg_pair[1].start())
@@ -84,7 +91,7 @@ pub trait Path: Sized + Clone {
         }
     }
 
-    fn scan_segments<'a>(
+    pub fn scan_segments<'a>(
         start_offset: &mut StartOffsetState,
         segment: &'a Segment,
     ) -> Option<(&'a Segment, N)> {
@@ -93,16 +100,16 @@ pub trait Path: Sized + Clone {
         Some(pair)
     }
 
-    fn segments_with_start_offsets(&self) -> ScanIter {
-        self.segments().into_iter().scan(
+    pub fn segments_with_start_offsets(&self) -> ScanIter {
+        self.segments.iter().scan(
             StartOffsetState(0.0),
             Self::scan_segments,
         )
     }
 
-    fn find_on_segment(&self, distance: N) -> Option<(&Segment, N)> {
+    pub fn find_on_segment(&self, distance: N) -> Option<(&Segment, N)> {
         let mut distance_covered = 0.0;
-        for segment in self.segments().iter() {
+        for segment in self.segments.iter() {
             let new_distance_covered = distance_covered + segment.length();
             if new_distance_covered > distance {
                 return Some((segment, distance - distance_covered));
@@ -112,14 +119,7 @@ pub trait Path: Sized + Clone {
         None
     }
 
-    // TODO: move this to shape
-    fn contains(&self, point: P2) -> bool {
-        let ray = Segment::line(point, P2::new(point.x + 10_000_000_000.0, point.y))
-            .expect("Ray should be valid");
-        (self, &Self::new_unchecked(vec![ray])).intersect().len() % 2 == 1
-    }
-
-    fn self_intersections(&self) -> Vec<Intersection> {
+    pub fn self_intersections(&self) -> Vec<Intersection> {
         self.segments_with_start_offsets()
             .enumerate()
             .flat_map(|(i, (segment_a, offset_a))| {
@@ -158,9 +158,9 @@ pub trait Path: Sized + Clone {
             .collect()
     }
 
-    fn is_closed(&self) -> bool {
-        self.segments().last().unwrap().end().is_roughly_within(
-            self.segments()
+    pub fn is_closed(&self) -> bool {
+        self.segments.last().unwrap().end().is_roughly_within(
+            self.segments
                 .first()
                 .unwrap()
                 .start(),
@@ -169,14 +169,14 @@ pub trait Path: Sized + Clone {
     }
 
 
-    fn concat(&self, other: &Self) -> Result<Self, PathError> {
+    pub fn concat(&self, other: &Self) -> Result<Self, PathError> {
         // TODO: somehow change this to move self and other into here
         // but then segments would have to return [Segment], possible?
         if self.end().is_roughly_within(other.start(), THICKNESS) {
             Ok(Self::new_unchecked(
-                self.segments()
+                self.segments
                     .iter()
-                    .chain(other.segments())
+                    .chain(other.segments.iter())
                     .cloned()
                     .collect(),
             ))
@@ -185,11 +185,15 @@ pub trait Path: Sized + Clone {
         }
     }
 
-    fn to_svg(&self) -> String {
-        self.segments().iter().map(Segment::to_svg).collect()
+    pub fn to_svg(&self) -> String {
+        self.segments
+            .iter()
+            .map(Segment::to_svg)
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 
-    fn from_svg(string: &str) -> Result<Self, PathError> {
+    pub fn from_svg(string: &str) -> Result<Self, PathError> {
         let mut tokens = string.split_whitespace();
         let mut position = P2::new(0.0, 0.0);
         let mut first_position = None;
@@ -238,12 +242,12 @@ pub trait Path: Sized + Clone {
 
 pub struct StartOffsetState(N);
 
-impl<T: Path> FiniteCurve for T {
+impl FiniteCurve for Path {
     fn length(&self) -> N {
-        self.segments()
-            .into_iter()
-            .map(|segment| segment.length())
-            .fold(0.0, ::std::ops::Add::add)
+        self.segments.iter().map(|segment| segment.length()).fold(
+            0.0,
+            ::std::ops::Add::add,
+        )
     }
 
     fn along(&self, distance: N) -> P2 {
@@ -251,9 +255,9 @@ impl<T: Path> FiniteCurve for T {
             Some((segment, distance_on_segment)) => segment.along(distance_on_segment),
             None => {
                 if distance < 0.0 {
-                    self.segments()[0].start
+                    self.segments[0].start
                 } else {
-                    self.segments().last().unwrap().end
+                    self.segments.last().unwrap().end
                 }
             }
         }
@@ -264,35 +268,35 @@ impl<T: Path> FiniteCurve for T {
             Some((segment, distance_on_segment)) => segment.direction_along(distance_on_segment),
             None => {
                 if distance < 0.0 {
-                    self.segments()[0].start_direction()
+                    self.segments[0].start_direction()
                 } else {
-                    self.segments().last().unwrap().end_direction()
+                    self.segments.last().unwrap().end_direction()
                 }
             }
         }
     }
 
     fn start(&self) -> P2 {
-        self.segments()[0].start()
+        self.segments[0].start()
     }
 
     fn start_direction(&self) -> V2 {
-        self.segments()[0].start_direction()
+        self.segments[0].start_direction()
     }
 
     fn end(&self) -> P2 {
-        self.segments().last().unwrap().end()
+        self.segments.last().unwrap().end()
     }
 
     fn end_direction(&self) -> V2 {
-        self.segments().last().unwrap().end_direction()
+        self.segments.last().unwrap().end_direction()
     }
 
     fn reverse(&self) -> Self {
-        Self::new_unchecked(self.segments().iter().rev().map(Segment::reverse).collect())
+        Self::new_unchecked(self.segments.iter().rev().map(Segment::reverse).collect())
     }
 
-    fn subsection(&self, start: N, end: N) -> Option<T> {
+    fn subsection(&self, start: N, end: N) -> Option<Path> {
         if start > end + THICKNESS && self.is_closed() {
             let maybe_first_half = self.subsection(start, self.length());
             let maybe_second_half = self.subsection(0.0, end);
@@ -318,18 +322,18 @@ impl<T: Path> FiniteCurve for T {
                         segment.subsection(start - start_offset, end - start_offset)
                     }
                 })
-                .collect::<Vec<_>>();
-            T::new(segments).ok()
+                .collect();
+            Path::new(segments).ok()
         }
 
     }
 
-    fn shift_orthogonally(&self, shift_to_right: N) -> Option<Self> {
-        let segments = self.segments()
+    fn shift_orthogonally(&self, shift_to_right: N) -> Option<Path> {
+        let segments = self.segments
             .iter()
             .filter_map(|segment| segment.shift_orthogonally(shift_to_right))
             .collect::<Vec<_>>();
-        let mut glued_segments = Vec::new();
+        let mut glued_segments = VecLike::new();
         let mut window_segments_iter = segments.iter().peekable();
         while let Some(segment) = window_segments_iter.next() {
             glued_segments.push(*segment);
@@ -360,7 +364,7 @@ impl<T: Path> FiniteCurve for T {
     }
 }
 
-impl<T: Path> Curve for T {
+impl Curve for Path {
     // TODO: this can be really buggy/unexpected
     fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<N> {
         self.segments_with_start_offsets()
@@ -376,9 +380,7 @@ impl<T: Path> Curve for T {
     }
 
     fn includes(&self, point: P2) -> bool {
-        self.segments().into_iter().any(
-            |segment| segment.includes(point),
-        )
+        self.segments.iter().any(|segment| segment.includes(point))
     }
 
     fn distance_to(&self, point: P2) -> N {
@@ -393,20 +395,20 @@ impl<T: Path> Curve for T {
     }
 }
 
-impl<'a, T: Path> RoughlyComparable for &'a T {
-    fn is_roughly_within(&self, other: &T, tolerance: N) -> bool {
-        self.segments().len() == other.segments().len() &&
+impl<'a> RoughlyComparable for &'a Path {
+    fn is_roughly_within(&self, other: &Path, tolerance: N) -> bool {
+        self.segments.len() == other.segments.len() &&
             if self.is_closed() && other.is_closed() {
                 // TODO: this is strictly too loose
                 // and maybe this should be moved to shape instead,
                 // since the paths are *not* exactly equal
-                self.segments().iter().all(|segment_1| {
-                    other.segments().iter().any(|segment_2| {
+                self.segments.iter().all(|segment_1| {
+                    other.segments.iter().any(|segment_2| {
                         segment_1.is_roughly_within(segment_2, tolerance)
                     })
                 })
             } else {
-                self.segments().iter().zip(other.segments().iter()).all(
+                self.segments.iter().zip(other.segments.iter()).all(
                     |(segment_1, segment_2)| segment_1.is_roughly_within(segment_2, tolerance),
                 )
             }
@@ -414,15 +416,8 @@ impl<'a, T: Path> RoughlyComparable for &'a T {
     }
 }
 
-#[derive(Clone)]
-pub struct VecPath(Vec<Segment>);
-
-impl Path for VecPath {
-    fn segments(&self) -> &[Segment] {
-        &self.0
-    }
-
-    fn new_unchecked(vec: Vec<Segment>) -> Self {
-        VecPath(vec)
+impl ::std::fmt::Debug for Path {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
+        write!(f, "Path({:?})", &*self.segments)
     }
 }

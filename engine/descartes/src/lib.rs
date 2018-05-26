@@ -9,6 +9,8 @@ use nalgebra::{Vector2, Point2, Vector3, Vector4, Point3, Isometry3, Affine3, Pe
 pub use nalgebra::try_inverse;
 use std::f32::consts::PI;
 
+pub type VecLike<T> = Vec<T>;
+
 pub type N = f32;
 pub type V2 = Vector2<N>;
 pub type P2 = Point2<N>;

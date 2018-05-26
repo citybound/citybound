@@ -164,7 +164,13 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
                             intersection.along_b >= -THICKNESS &&
                             intersection.along_b <= b.length() + THICKNESS
                     })
-                    .cloned()
+                    .map(|intersection| {
+                        Intersection {
+                            along_a: 0.0f32.max(intersection.along_a).min(a.length()),
+                            along_b: 0.0f32.max(intersection.along_b).min(b.length()),
+                            position: intersection.position,
+                        }
+                    })
                     .collect()
             }
             (true, false) => {
@@ -183,8 +189,9 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
                     })
                     .map(|intersection| {
                         Intersection {
+                            along_a: 0.0f32.max(intersection.along_a).min(a.length()),
                             along_b: b.project(intersection.position).unwrap(),
-                            ..*intersection
+                            position: intersection.position,
                         }
                     })
                     .collect()
@@ -209,7 +216,7 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
                         Intersection {
                             along_a: a.project(intersection.position).unwrap(),
                             along_b: b.project(intersection.position).unwrap(),
-                            ..*intersection
+                            position: intersection.position,
                         }
                     })
                     .collect()
@@ -218,7 +225,7 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
     }
 }
 
-impl<'a, P: Path> Intersect for (&'a P, &'a P) {
+impl<'a> Intersect for (&'a Path, &'a Path) {
     fn intersect(&self) -> Vec<Intersection> {
         let (a, b) = *self;
         let mut intersection_list = Vec::new();

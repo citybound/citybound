@@ -283,6 +283,7 @@ name = "descartes"
 version = "0.1.0"
 dependencies = [
  "clippy 0.0.197 (registry+https://github.com/rust-lang/crates.io-index)",
+ "compact 0.1.0",
  "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "nalgebra 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ordered-float 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
