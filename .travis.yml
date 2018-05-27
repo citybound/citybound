@@ -37,6 +37,7 @@ install:
 
 script:
   - cargo build --verbose
+  - cargo clippy --all --verbose
   - bash ci/script.sh
 
 after_script: set +e
