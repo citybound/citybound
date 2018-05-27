@@ -18,7 +18,7 @@ impl Inbox {
         let packet_size = packet.total_size_bytes();
         let total_size = ::std::mem::size_of::<ShortTypeId>() + packet_size;
 
-        #[allow(cast_ptr_alignment)]
+        #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
         unsafe {
 
             // "Allocate" the space in the queue
@@ -68,7 +68,7 @@ impl<'a> Iterator for InboxIterator<'a> {
         if self.n_messages_to_read == 0 {
             None
         } else {
-            #[allow(cast_ptr_alignment)]
+            #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
             unsafe {
                 let ptr = self.queue.dequeue().expect(
                     "should have something left for sure",

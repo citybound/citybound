@@ -1,6 +1,4 @@
 #![feature(custom_derive, iter_rfold)]
-#![cfg_attr(feature="clippy", feature(plugin))]
-#![cfg_attr(feature="clippy", plugin(clippy))]
 #![allow(dead_code)]
 // Enable this for memory tracking with Instruments/MacOS
 // and for much better stacktraces for memory issues

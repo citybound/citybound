@@ -1,4 +1,4 @@
-#![allow(cast_lossless)]
+#![cfg_attr(feature = "cargo-clippy", allow(cast_lossless))]
 
 // TRANSPORT PLANNING
 

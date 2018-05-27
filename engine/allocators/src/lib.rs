@@ -4,8 +4,6 @@
 //! when decompacting from their compact form.
 
 #![warn(missing_docs)]
-#![cfg_attr(feature="clippy", feature(plugin))]
-#![cfg_attr(feature="clippy", plugin(clippy))]
 use std::mem;
 
 /// A trait for all allocators that collections can be generic about

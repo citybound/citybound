@@ -152,7 +152,7 @@ fn gesture_intent_smooth_paths(plan: &Plan) -> Vec<(GestureID, RoadIntent, Path)
         .collect::<Vec<_>>()
 }
 
-#[allow(cyclomatic_complexity)]
+#[cfg_attr(feature = "cargo-clippy", allow(cyclomatic_complexity))]
 pub fn calculate_prototypes(
     plan: &Plan,
     _current_result: &PlanResult,

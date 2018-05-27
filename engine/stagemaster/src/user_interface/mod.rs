@@ -545,7 +545,7 @@ impl ProjectionRequester for UserInterface {
 use monet::{TargetProvider, TargetProviderID};
 use monet::glium::Frame;
 
-#[allow(useless_format)]
+#[cfg_attr(feature = "cargo-clippy", allow(useless_format))]
 impl TargetProvider for UserInterface {
     /// Critical
     fn submitted(&mut self, target: &External<Frame>, world: &mut World) {

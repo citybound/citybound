@@ -33,6 +33,7 @@ install:
   - sh ci/install.sh
   - source ~/.cargo/env || true
   - cargo install -f rustfmt --vers 0.9.0 || true
+  - cargo install -f clippy --vers 0.0.197
 
 script:
   - cargo build --verbose

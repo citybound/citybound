@@ -14,8 +14,6 @@
 //!     such as actors, threads and the network
 
 #![warn(missing_docs)]
-#![cfg_attr(feature="clippy", feature(plugin))]
-#![cfg_attr(feature="clippy", plugin(clippy))]
 #![feature(specialization)]
 #![feature(optin_builtin_traits)]
 

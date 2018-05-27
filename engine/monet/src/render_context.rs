@@ -16,7 +16,7 @@ pub struct RenderContext {
 }
 
 impl RenderContext {
-    #[allow(redundant_closure)]
+    #[cfg_attr(feature = "cargo-clippy", allow(redundant_closure))]
     pub fn new(window: &External<Display>, clear_color: (f32, f32, f32, f32)) -> RenderContext {
         RenderContext {
             batch_program: program!(&**window, 140 => {

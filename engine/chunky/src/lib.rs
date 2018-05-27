@@ -7,8 +7,6 @@
 //! mmap'ed memory used for both runtime and savegames.
 
 #![warn(missing_docs)]
-#![cfg_attr(feature="clippy", feature(plugin))]
-#![cfg_attr(feature="clippy", plugin(clippy))]
 #![feature(vec_resize_default)]
 
 use std::mem;
@@ -411,7 +409,7 @@ impl<H: Handler> Queue<H> {
     ///
     /// This is handled like this so items of heterogeneous types can be enqueued.
     // TODO: return done_guard to mark as concurrently readable
-    #[allow(cast_ptr_alignment)]
+    #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
     pub unsafe fn enqueue(&mut self, size: usize) -> *mut u8 {
         enum EnqueueResult {
             Success(*mut u8),
@@ -463,7 +461,6 @@ impl<H: Handler> Queue<H> {
 
     /// Dequeue an item. Returns a pointer to the item in the queue, unless the queue is empty.
     // TODO: return done_guard to mark as droppable
-    #[allow(cast_ptr_alignment)]
     pub unsafe fn dequeue(&mut self) -> Option<*const u8> {
         enum DequeueResult {
             Empty,
@@ -478,6 +475,7 @@ impl<H: Handler> Queue<H> {
             let chunk = &self.chunks[0];
             let entry_ptr = chunk.ptr.offset(offset as isize);
 
+            #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
             match *(entry_ptr as *mut NextItemRef) {
                 NextItemRef::NextChunk => {
                     *self.first_chunk_at += chunk.size;

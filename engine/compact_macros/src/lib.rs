@@ -214,14 +214,14 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
             quote! {
                 // generated
                 impl #impl_generics ::compact::Compact for #name #ty_generics #where_clause {
-                    #[allow(match_same_arms)]
+                    #[cfg_attr(feature = "cargo-clippy", allow(match_same_arms))]
                     fn is_still_compact(&self) -> bool {
                         match *self {
                             #(#variants_still_compact),*
                         }
                     }
 
-                    #[allow(match_same_arms)]
+                    #[cfg_attr(feature = "cargo-clippy", allow(match_same_arms))]
                     fn dynamic_size_bytes(&self) -> usize {
                         match *self {
                             #(#variants_dynamic_size),*
@@ -229,7 +229,7 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                     }
 
                     #[allow(unused_assignments)]
-                    #[allow(match_same_arms)]
+                    #[cfg_attr(feature = "cargo-clippy", allow(match_same_arms))]
                     unsafe fn compact(
                         source: *mut Self,
                         dest: *mut Self,
@@ -241,7 +241,7 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                         }
                     }
 
-                    #[allow(match_same_arms)]
+                    #[cfg_attr(feature = "cargo-clippy", allow(match_same_arms))]
                     unsafe fn decompact(source: *const Self) -> Self {
                         match *source {
                             #(#variants_decompact),*
