@@ -227,35 +227,18 @@ pub fn calculate_prototypes(
 
     // union overlapping intersections
 
-    let mut i = 0;
+    let intersection_areas = if intersection_areas.is_empty() {
+        intersection_areas
+    } else {
+        let mut unioned_intersection_area = intersection_areas[0].clone();
 
-    while i < intersection_areas.len() {
-        let mut advance = true;
-
-        for j in (i + 1)..intersection_areas.len() {
-            let split = intersection_areas[i]
-                .split(&intersection_areas[j]);
-            let results = split
-                .union()
-                .disjoint();
-
-            if results.len() == 1 {
-                intersection_areas[i] = results[0].clone();
-                intersection_areas.remove(j);
-                advance = false;
-                break;
-            } else if results.len() == 2 {
-                // intersection shapes do not overlap
-            } else {
-                println!("Intersection combining clipping weirdness: got {} union shapes", results.len());
-                println!("{}", split.debug_svg());
-            }
+        for intersection_area in &intersection_areas[1..] {
+            let split = unioned_intersection_area.split(intersection_area);
+            unioned_intersection_area = split.union();
         }
 
-        if advance {
-            i += 1;
-        }
-    }
+        unioned_intersection_area.disjoint()
+    };
 
     let mut intersection_prototypes: Vec<_> = intersection_areas
         .into_iter()
