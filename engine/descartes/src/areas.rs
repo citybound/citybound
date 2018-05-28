@@ -37,9 +37,9 @@ impl PrimitiveArea {
     }
 
     pub fn fully_contains(&self, other: &PrimitiveArea) -> bool {
-        (&self.boundary, &other.boundary).intersect().is_empty() &&
-            self.boundary.segments.iter().all(|self_segment| {
-                other.contains(self_segment.start())
+        (&self.boundary, &other.boundary).intersect().len() <= 1 &&
+            other.boundary.segments.iter().all(|other_segment| {
+                self.contains(other_segment.start())
             })
     }
 }
@@ -171,42 +171,13 @@ impl Area {
                             })
                             .collect::<Vec<_>>()
                     })
-                        } else {
-                            None
-                        }
-                }).collect::<Vec<_>>()
-            ).collect::<Vec<_>>();
+                    .collect::<Vec<_>>();
 
-            for boundary_piece in &mut boundary_pieces_initial{
-                let midpoint = boundary_piece.path.midpoint();
+                for boundary_piece in &mut boundary_pieces_initial {
+                    let midpoint = boundary_piece.path.midpoint();
 
-                match ab[other_subject(subject)].location_of(midpoint) {
-                    AreaLocation::Inside => {
-                        boundary_piece.left_inside[other_subject(subject)] = true;
-                        boundary_piece.right_inside[other_subject(subject)] = true;
-                    }
-                    AreaLocation::Outside => {
-                        // already correctly initialized
-                    }
-                    AreaLocation::Boundary => {
-                        // both boundary pieces are coincident, but might be opposed
-                        let coincident_primitive_path = ab[other_subject(subject)].primitives.iter()
-                            .map(|primitive| &primitive.boundary)
-                            .find(|boundary| boundary.includes(midpoint))
-                            .expect("Since the midpoint was reported as on boundary, it should be on one!");
-
-                        let midpoint_distance = coincident_primitive_path.project(midpoint)
-                            .expect("Since the midpoint was reported as on boundary, it should have a projection");
-
-                        let start_distance = coincident_primitive_path.project(boundary_piece.path.start())
-                            .expect("Since the midpoint was reported as on boundary, start should also be");
-
-                            let end_distance = coincident_primitive_path.project(boundary_piece.path.end())
-                            .expect("Since the midpoint was reported as on boundary, end should also be");
-
-                        if coincident_primitive_path.is_ordered_along(start_distance, midpoint_distance, end_distance) {
-                            boundary_piece.right_inside[other_subject(subject)] = true;
-                        } else {
+                    match ab[other_subject(subject)].location_of(midpoint) {
+                        AreaLocation::Inside => {
                             boundary_piece.left_inside[other_subject(subject)] = true;
                             boundary_piece.right_inside[other_subject(subject)] = true;
                         }
@@ -215,28 +186,34 @@ impl Area {
                         }
                         AreaLocation::Boundary => {
                             // both boundary pieces are coincident, but might be opposed
+                            let coincident_primitive_path =
+                                ab[other_subject(subject)]
+                                    .primitives
+                                    .iter()
+                                    .map(|primitive| &primitive.boundary)
+                                    .find(|boundary| boundary.includes(midpoint))
+                                    .expect("Since midpoint is on boundary, it should be on one!");
 
-                            let coincident_boundary = ab[other_subject(subject)]
-                                .primitives
-                                .iter()
-                                .map(|primitive| &primitive.boundary)
-                                .find(|boundary| boundary.includes(midpoint))
-                                .expect(
-                                    "Since the midpoint was reported as on boundary, \
-                                    it should be on one!",
+                            let midpoint_distance =
+                                coincident_primitive_path.project(midpoint).expect(
+                                    "Since midpoint is on boundary, it should have a projection",
                                 );
 
-                            let distance = coincident_boundary.project(midpoint).expect(
-                                "Since the midpoint was reported as on boundary, \
-                                    it should have a projection",
-                            );
+                            let start_distance =
+                                coincident_primitive_path
+                                    .project(boundary_piece.path.start())
+                                    .expect("Since midpoint is on boundary, start should also be");
 
-                            let coincident_direction =
-                                coincident_boundary.direction_along(distance);
+                            let end_distance =
+                                coincident_primitive_path
+                                    .project(boundary_piece.path.end())
+                                    .expect("Since midpoint is on boundary, end should also be");
 
-                            if boundary_piece.path.midpoint_direction().dot(
-                                &coincident_direction,
-                            ) > 0.0
+                            if coincident_primitive_path.is_ordered_along(
+                                start_distance,
+                                midpoint_distance,
+                                end_distance,
+                            )
                             {
                                 boundary_piece.right_inside[other_subject(subject)] = true;
                             } else {
@@ -248,12 +225,52 @@ impl Area {
 
                 boundary_pieces_initial
             })
-            .collect();
+            .collect::<Vec<_>>();
 
-        AreaSplitResult { pieces: boundary_pieces }
+        let mut unique_boundary_pieces = VecLike::<BoundaryPiece>::new();
+
+        for boundary_piece in boundary_pieces {
+            // TODO: detect if several pieces are equivalent to one longer one
+            //       - maybe we need to simplify paths sometimes to prevent this?
+            // TODO: any way to not make this O(n^2) ?
+            let equivalent_exists = unique_boundary_pieces.iter().any(|other_piece| {
+                let forward_equivalent = other_piece.path.start().is_roughly_within(
+                    boundary_piece.path.start(),
+                    THICKNESS,
+                ) &&
+                    other_piece.path.end().is_roughly_within(
+                        boundary_piece.path.end(),
+                        THICKNESS,
+                    ) &&
+                    other_piece.path.midpoint().is_roughly_within(
+                        boundary_piece.path.midpoint(),
+                        THICKNESS,
+                    );
+                let backward_equivalent = other_piece.path.start().is_roughly_within(
+                    boundary_piece.path.end(),
+                    THICKNESS,
+                ) &&
+                    other_piece.path.end().is_roughly_within(
+                        boundary_piece.path.start(),
+                        THICKNESS,
+                    ) &&
+                    other_piece.path.midpoint().is_roughly_within(
+                        boundary_piece.path.midpoint(),
+                        THICKNESS,
+                    );
+                forward_equivalent || backward_equivalent
+            });
+
+            if !equivalent_exists {
+                unique_boundary_pieces.push(boundary_piece);
+            }
+        }
+
+        AreaSplitResult { pieces: unique_boundary_pieces }
     }
 
     pub fn disjoint(&self) -> Vec<Area> {
+        // TODO: this is not quite correct yet
         let mut groups = Vec::<VecLike<PrimitiveArea>>::new();
 
         for primitive in self.primitives.iter().cloned() {
@@ -415,6 +432,17 @@ impl AreaSplitResult {
                     }
                 }
             }
+        }
+
+        if !paths.is_empty() {
+            println!("{} left over paths", paths.len());
+            // println!("{}", self.debug_svg());
+            // for path in &paths {
+            //     println!(
+            //         r#"<path d="{}" stroke="rgba(0, 255, 0, 0.8)"/>"#,
+            //         path.to_svg()
+            //     );
+            // }
         }
 
         Area::new(
