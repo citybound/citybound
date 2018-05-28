@@ -161,7 +161,7 @@ impl Area {
                 }).collect::<Vec<_>>()
             ).collect::<Vec<_>>();
 
-            for boundary_piece in boundary_pieces_initial.iter_mut() {
+            for boundary_piece in &mut boundary_pieces_initial{
                 let midpoint = boundary_piece.path.midpoint();
 
                 match ab[other_subject(subject)].location_of(midpoint) {
@@ -264,16 +264,16 @@ impl Area {
             }
         }
 
-        groups.into_iter().map(|group| Area::new(group)).collect()
+        groups.into_iter().map(Area::new).collect()
     }
 }
 
 impl PointContainer for Area {
     fn location_of(&self, point: P2) -> AreaLocation {
-        if self.primitives.iter().any(|primitive| {
+        let point_on_primitive = self.primitives.iter().any(|primitive| {
             primitive.boundary.includes(point)
-        })
-        {
+        });
+        if point_on_primitive {
             AreaLocation::Boundary
         } else {
             let ray = Segment::line(point, P2::new(point.x + 10_000_000_000.0, point.y))
@@ -331,7 +331,7 @@ pub enum PieceRole {
 }
 
 impl AreaSplitResult {
-    pub fn into_area<F: Fn(&BoundaryPiece) -> PieceRole>(&self, piece_filter: F) -> Area {
+    pub fn get_area<F: Fn(&BoundaryPiece) -> PieceRole>(&self, piece_filter: F) -> Area {
         let mut paths = Vec::<Path>::new();
         let mut complete_paths = Vec::<Path>::new();
 
@@ -427,7 +427,7 @@ impl AreaSplitResult {
     }
 
     pub fn intersection(&self) -> Area {
-        self.into_area(|piece| if piece.right_inside[SUBJECT_A] &&
+        self.get_area(|piece| if piece.right_inside[SUBJECT_A] &&
             piece.right_inside[SUBJECT_B]
         {
             PieceRole::Forward
@@ -437,7 +437,7 @@ impl AreaSplitResult {
     }
 
     pub fn union(&self) -> Area {
-        self.into_area(
+        self.get_area(
             |piece| if (piece.right_inside[SUBJECT_A] || piece.right_inside[SUBJECT_B]) &&
                 !(piece.left_inside[SUBJECT_A] || piece.left_inside[SUBJECT_B])
             {
@@ -449,7 +449,7 @@ impl AreaSplitResult {
     }
 
     pub fn a_minus_b(&self) -> Area {
-        self.into_area(|piece| if piece.right_inside[SUBJECT_A] &&
+        self.get_area(|piece| if piece.right_inside[SUBJECT_A] &&
             !piece.right_inside[SUBJECT_B]
         {
             PieceRole::Forward
@@ -461,7 +461,7 @@ impl AreaSplitResult {
     }
 
     pub fn b_minus_a(&self) -> Area {
-        self.into_area(|piece| if piece.right_inside[SUBJECT_B] &&
+        self.get_area(|piece| if piece.right_inside[SUBJECT_B] &&
             !piece.right_inside[SUBJECT_A]
         {
             PieceRole::Forward

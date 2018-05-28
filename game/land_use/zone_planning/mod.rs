@@ -126,7 +126,7 @@ pub fn calculate_prototypes(
             .filter_map(|prototype| if let Prototype::Lot(LotPrototype {
                                                   occupancy: LotOccupancy::Occupied(_),
                                                   lot: Lot { ref area, .. },
-                                                  based_on,
+                                                  ..
                                               }) = *prototype
             {
                 Some(area)

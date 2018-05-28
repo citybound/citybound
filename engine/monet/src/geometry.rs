@@ -138,7 +138,7 @@ use lyon_tessellation::{FillTessellator, FillOptions, FillVertex, GeometryBuilde
 use lyon_tessellation::geometry_builder::{VertexId, Count};
 use lyon_tessellation::path::iterator::PathIter;
 use lyon_tessellation::path::PathEvent;
-use lyon_tessellation::math::{point, vector, Angle};
+use lyon_tessellation::math::point;
 
 impl GeometryBuilder<FillVertex> for Geometry {
     fn begin_geometry(&mut self) {}
