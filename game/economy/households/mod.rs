@@ -919,7 +919,7 @@ pub trait Household
         }
     }
 
-    #[allow(useless_format)]
+    #[cfg_attr(feature = "cargo-clippy", allow(useless_format))]
     fn inspect(
         &mut self,
         imgui_ui: &External<Ui<'static>>,

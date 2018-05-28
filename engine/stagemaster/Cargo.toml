@@ -8,7 +8,6 @@ build = "./src/build.rs"
 imgui = "0.0.15"
 imgui-sys = "0.0.15"
 imgui-glium-renderer = "0.0.15"
-clippy = { version = "0.0.197", optional = true }
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
@@ -33,13 +32,4 @@ path = "../monet"
 
 [build-dependencies]
 kay_codegen = {path = "../kay_codegen/"}
-
-[features]
-enable-clippy = [
-	"clippy",
-	"kay/enable-clippy",
-	"compact/enable-clippy",
-	"descartes/clippy",
-	"monet/enable-clippy"
-]
 

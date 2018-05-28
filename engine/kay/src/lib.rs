@@ -11,8 +11,6 @@
 //! * Can't deal with messages to dead actors (undefined, often very confusing behaviour)
 
 #![warn(missing_docs)]
-#![cfg_attr(feature="clippy", feature(plugin))]
-#![cfg_attr(feature="clippy", plugin(clippy))]
 #![feature(core_intrinsics)]
 #![feature(optin_builtin_traits)]
 #![feature(specialization)]

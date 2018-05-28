@@ -4,7 +4,6 @@ version = "0.1.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 
 [dependencies]
-clippy = { version = "0.0.197", optional = true }
 byteorder = "1"
 
 [dependencies.compact]
@@ -16,9 +15,3 @@ path = "../compact_macros/"
 [dependencies.chunky]
 path = "../chunky/"
 
-[features]
-enable-clippy = [
-	"clippy",
-	"compact/enable-clippy",
-	"chunky/enable-clippy"
-]

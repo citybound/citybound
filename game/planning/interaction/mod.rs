@@ -444,7 +444,7 @@ pub struct ControlPointInteractable {
 pub const CONTROL_POINT_HANDLE_RADIUS: N = 2.0;
 
 impl ControlPointInteractable {
-    #[allow(too_many_arguments)]
+    #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
     pub fn spawn(
         id: ControlPointInteractableID,
         user_interface: UserInterfaceID,

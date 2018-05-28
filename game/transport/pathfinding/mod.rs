@@ -431,7 +431,7 @@ impl Node for Lane {
 }
 
 
-#[allow(needless_lifetimes)]
+#[cfg_attr(feature = "cargo-clippy", allow(needless_lifetimes))]
 fn successors<'a>(lane: &'a Lane) -> impl Iterator<Item = NodeID> + 'a {
     lane.connectivity.interactions.iter().filter_map(
         |interaction| {
@@ -453,7 +453,7 @@ fn successors<'a>(lane: &'a Lane) -> impl Iterator<Item = NodeID> + 'a {
     )
 }
 
-#[allow(needless_lifetimes)]
+#[cfg_attr(feature = "cargo-clippy", allow(needless_lifetimes))]
 fn predecessors<'a>(lane: &'a Lane) -> impl Iterator<Item = (u8, NodeID, bool)> + 'a {
     lane.connectivity
         .interactions

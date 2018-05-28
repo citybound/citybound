@@ -172,7 +172,7 @@ impl ActorSystem {
         //          unsafe { ::std::intrinsics::type_name::<M>() });
 
 
-        #[allow(cast_ptr_alignment)]
+        #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
         let swarm_ptr = self.swarms[actor_id.as_usize()].expect("Actor not added yet") as
             *mut Swarm<A>;
 
@@ -202,7 +202,7 @@ impl ActorSystem {
         //          unsafe { ::std::intrinsics::type_name::<M>() });
 
 
-        #[allow(cast_ptr_alignment)]
+        #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
         let swarm_ptr = self.swarms[actor_id.as_usize()].expect("Actor not added yet") as
             *mut Swarm<A>;
 
@@ -412,7 +412,7 @@ impl World {
     pub fn allocate_instance_id<A: 'static + Actor>(&mut self) -> RawID {
         let system: &mut ActorSystem = unsafe { &mut *self.0 };
         let swarm = unsafe {
-            #[allow(cast_ptr_alignment)]
+            #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
             &mut *(system.swarms[system.actor_registry.get::<A>().as_usize()]
                        .expect("Subactor type not found.") as *mut Swarm<A>)
         };

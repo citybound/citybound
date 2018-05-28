@@ -227,7 +227,7 @@ impl<T: Default, A: Allocator> CompactArray<T, A> {
     }
 
     /// Create a new, empty vector
-    #[allow(new_without_default_derive)]
+    #[cfg_attr(feature = "cargo-clippy", allow(new_without_default_derive))]
     pub fn new() -> CompactArray<T, A> {
         CompactArray {
             ptr: PointerToMaybeCompact::default(),

@@ -24,7 +24,7 @@ const CHUNK_SIZE: usize = 1024 * 1024 * 16;
 
 impl<A: Actor + Clone> Swarm<A> {
     /// Create an empty `Swarm`.
-    #[allow(new_without_default)]
+    #[cfg_attr(feature = "cargo-clippy", allow(new_without_default))]
     pub fn new() -> Self {
         let ident: chunky::Ident = unsafe { ::std::intrinsics::type_name::<A>().into() };
         Swarm {

@@ -20,7 +20,7 @@ use monet::{Renderable, RenderableID, GrouperID, GrouperIndividual, GrouperIndiv
 impl Renderable for Lane {
     fn setup_in_scene(&mut self, _renderer_id: RendererID, _: &mut World) {}
 
-    #[allow(cyclomatic_complexity)]
+    #[cfg_attr(feature = "cargo-clippy", allow(cyclomatic_complexity))]
     fn render_to_scene(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         let mut cars_iter = self.microtraffic.cars.iter();
         let mut current_offset = 0.0;

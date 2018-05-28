@@ -82,7 +82,7 @@ impl<T> DisjointSets<T> {
         }
     }
 
-    #[allow(needless_range_loop)]
+    #[cfg_attr(feature = "cargo-clippy", allow(needless_range_loop))]
     fn ensure_sorted(&mut self) {
         if !self.is_sorted {
             // counting sort
