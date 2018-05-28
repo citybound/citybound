@@ -169,6 +169,14 @@ impl Path {
         )
     }
 
+    pub fn is_ordered_along(&self, start: N, mid: N, end: N) -> bool {
+        if self.is_closed() {
+            (start <= mid && mid < end) || (end < start && mid >= start) ||
+                (end < start && mid < end)
+        } else {
+            start < mid && mid < end
+        }
+    }
 
     pub fn concat(&self, other: &Self) -> Result<Self, PathError> {
         // TODO: somehow change this to move self and other into here
@@ -326,7 +334,6 @@ impl FiniteCurve for Path {
                 .collect();
             Path::new(segments).ok()
         }
-
     }
 
     fn shift_orthogonally(&self, shift_to_right: N) -> Option<Path> {

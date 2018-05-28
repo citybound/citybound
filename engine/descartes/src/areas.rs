@@ -174,21 +174,21 @@ impl Area {
                     }
                     AreaLocation::Boundary => {
                         // both boundary pieces are coincident, but might be opposed
-
-                        // TODO: THIS IS STILL UNSTABLE AS ^*&?#
-
-                        let coincident_boundary = ab[other_subject(subject)].primitives.iter()
+                        let coincident_primitive_path = ab[other_subject(subject)].primitives.iter()
                             .map(|primitive| &primitive.boundary)
                             .find(|boundary| boundary.includes(midpoint))
                             .expect("Since the midpoint was reported as on boundary, it should be on one!");
 
-                        let midpoint_distance = coincident_boundary.project(midpoint)
+                        let midpoint_distance = coincident_primitive_path.project(midpoint)
                             .expect("Since the midpoint was reported as on boundary, it should have a projection");
 
-                        let start_distance = coincident_boundary.project(boundary_piece.path.start())
+                        let start_distance = coincident_primitive_path.project(boundary_piece.path.start())
                             .expect("Since the midpoint was reported as on boundary, start should also be");
 
-                        if midpoint_distance > start_distance {
+                            let end_distance = coincident_primitive_path.project(boundary_piece.path.end())
+                            .expect("Since the midpoint was reported as on boundary, end should also be");
+
+                        if coincident_primitive_path.is_ordered_along(start_distance, midpoint_distance, end_distance) {
                             boundary_piece.right_inside[other_subject(subject)] = true;
                         } else {
                             boundary_piece.left_inside[other_subject(subject)] = true;
@@ -500,50 +500,31 @@ impl AreaSplitResult {
                     let mut side_paths = vec![];
 
                     if piece.left_inside[SUBJECT_A] {
-                        side_paths.push(format!(
-                            r#"<path d="{}" stroke="rgba(0, 0, 255, 0.3)"/>"#,
-                            piece
-                                .path
-                                .shift_orthogonally(-1.0)
-                                .expect("should be able to shift")
-                                .to_svg()
-                        ))
+                        side_paths.push((-1.0, "rgba(0, 0, 255, 0.3)"));
                     }
 
                     if piece.left_inside[SUBJECT_B] {
-                        side_paths.push(format!(
-                            r#"<path d="{}" stroke="rgba(255, 0, 0, 0.3)"/>"#,
-                            piece
-                                .path
-                                .shift_orthogonally(-1.0)
-                                .expect("should be able to shift")
-                                .to_svg()
-                        ))
+                        side_paths.push((-1.0, "rgba(255, 0, 0, 0.3)"));
                     }
 
                     if piece.right_inside[SUBJECT_A] {
-                        side_paths.push(format!(
-                            r#"<path d="{}" stroke="rgba(0, 0, 255, 0.3)"/>"#,
-                            piece
-                                .path
-                                .shift_orthogonally(1.0)
-                                .expect("should be able to shift")
-                                .to_svg()
-                        ))
+                        side_paths.push((1.0, "rgba(0, 0, 255, 0.3)"));
                     }
 
                     if piece.right_inside[SUBJECT_B] {
-                        side_paths.push(format!(
-                            r#"<path d="{}" stroke="rgba(255, 0, 0, 0.3)"/>"#,
-                            piece
-                                .path
-                                .shift_orthogonally(1.0)
-                                .expect("should be able to shift")
-                                .to_svg()
-                        ))
+                        side_paths.push((1.0, "rgba(255, 0, 0, 0.3)"));
                     }
 
-                    side_paths
+                    side_paths.into_iter().flat_map(|(shift, color)|
+                        piece.path.segments.iter().filter_map(|segment|
+                            segment.shift_orthogonally(shift)
+                        ).map(|segment|
+                            format!(
+                            r#"<path d="{}" stroke="{}"/>"#,
+                            Path::new_unchecked(Some(segment).into_iter().collect()).to_svg(),
+                            color
+                        )).collect::<Vec<_>>()
+                    ).collect::<Vec<_>>()
                 })
                 .collect::<Vec<_>>()
                 .join(" "),
