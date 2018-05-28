@@ -121,7 +121,7 @@ pub struct LaneCountInteractable {
 }
 
 impl LaneCountInteractable {
-    #[allow(too_many_arguments)]
+    #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
     pub fn spawn(
         id: LaneCountInteractableID,
         user_interface: UserInterfaceID,

@@ -7,7 +7,6 @@ authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 nalgebra = "0.13.1"
 ordered-float = "0.5.0"
 itertools = "0.7.6"
-clippy = { version = "0.0.197", optional = true }
 
 [dependencies.compact]
 path = "../compact/"

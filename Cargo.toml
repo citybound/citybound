@@ -25,7 +25,6 @@ members = [
 [dependencies]
 ordered-float = "0.5.0"
 itertools = "0.7.6"
-clippy = { version = "0.0.197", optional = true }
 rand = "0.3"
 fnv = "1.0.5"
 roaring = "0.5.2"
@@ -65,16 +64,4 @@ codegen-units = 4
 [profile.release]
 debug = true
 codegen-units = 4
-
-[features]
-default = ["enable-clippy"]
-
-enable-clippy = [
-	"clippy",
-	"compact/enable-clippy",
-	"kay/enable-clippy",
-	"descartes/clippy",
-	"monet/enable-clippy",
-	"stagemaster/enable-clippy"
-]
 

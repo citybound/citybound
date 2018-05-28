@@ -205,12 +205,15 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                                         relevant_outgoing_len -
                                             1,
                                     )];
-                                    let path = Path::new(Segment::biarc(
-                                        start.position,
-                                        start.direction,
-                                        end.position,
-                                        end.direction,
-                                    )?.into()).ok()?;
+                                    let path = Path::new(
+                                        Segment::biarc(
+                                            start.position,
+                                            start.direction,
+                                            end.position,
+                                            end.direction,
+                                        )?
+                                            .into(),
+                                    ).ok()?;
 
                                     Some(LanePrototype(path, CVec::new()))
                                 })
