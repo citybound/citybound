@@ -1,6 +1,6 @@
 use descartes::{N, P2, WithUniqueOrthogonal};
 use rand::Rng;
-use monet::{Vertex, Geometry};
+use monet::{Vertex, Mesh};
 
 use super::{Lot, BuildingStyle};
 
@@ -16,18 +16,18 @@ pub fn ideal_lot_shape(building_style: BuildingStyle) -> (f32, f32) {
 }
 
 #[derive(Compact, Clone)]
-pub struct BuildingGeometry {
-    pub wall: Geometry,
-    pub brick_roof: Geometry,
-    pub flat_roof: Geometry,
-    pub field: Geometry,
+pub struct BuildingMesh {
+    pub wall: Mesh,
+    pub brick_roof: Mesh,
+    pub flat_roof: Mesh,
+    pub field: Mesh,
 }
 
 pub fn build_building<R: Rng>(
     lot: &Lot,
     building_type: BuildingStyle,
     rng: &mut R,
-) -> BuildingGeometry {
+) -> BuildingMesh {
     let building_position = lot.center_point();
     let building_orientation = lot.connection_points[0].1;
 
@@ -38,73 +38,73 @@ pub fn build_building<R: Rng>(
             let height = 3.0 + 3.0 * rng.next_f32();
             let entrance_height = 2.0 + rng.next_f32();
 
-            let (roof_brick_geometry, roof_wall_geometry) =
-                main_footprint.open_gable_roof_geometry(height, 0.3);
-            let (entrance_roof_brick_geometry, entrance_roof_wall_geometry) =
-                entrance_footprint.open_gable_roof_geometry(entrance_height, 0.3);
+            let (roof_brick_mesh, roof_wall_mesh) =
+                main_footprint.open_gable_roof_mesh(height, 0.3);
+            let (entrance_roof_brick_mesh, entrance_roof_wall_mesh) =
+                entrance_footprint.open_gable_roof_mesh(entrance_height, 0.3);
 
-            BuildingGeometry {
-                wall: main_footprint.wall_geometry(height) +
-                    entrance_footprint.wall_geometry(entrance_height) +
-                    roof_wall_geometry + entrance_roof_wall_geometry,
-                brick_roof: roof_brick_geometry + entrance_roof_brick_geometry,
-                flat_roof: Geometry::empty(),
-                field: Geometry::empty(),
+            BuildingMesh {
+                wall: main_footprint.wall_mesh(height) +
+                    entrance_footprint.wall_mesh(entrance_height) +
+                    roof_wall_mesh + entrance_roof_wall_mesh,
+                brick_roof: roof_brick_mesh + entrance_roof_brick_mesh,
+                flat_roof: Mesh::empty(),
+                field: Mesh::empty(),
             }
         }
         BuildingStyle::GroceryShop => {
             let height = 3.0 + rng.next_f32();
             let entrance_height = height - 0.7;
 
-            BuildingGeometry {
-                wall: main_footprint.wall_geometry(height) +
-                    entrance_footprint.wall_geometry(entrance_height),
-                brick_roof: Geometry::empty(),
-                flat_roof: main_footprint.flat_roof_geometry(height) +
-                    entrance_footprint.flat_roof_geometry(entrance_height),
-                field: Geometry::empty(),
+            BuildingMesh {
+                wall: main_footprint.wall_mesh(height) +
+                    entrance_footprint.wall_mesh(entrance_height),
+                brick_roof: Mesh::empty(),
+                flat_roof: main_footprint.flat_roof_mesh(height) +
+                    entrance_footprint.flat_roof_mesh(entrance_height),
+                field: Mesh::empty(),
             }
         }
         BuildingStyle::Field => {
-            BuildingGeometry {
-                wall: Geometry::empty(),
-                brick_roof: Geometry::empty(),
-                flat_roof: Geometry::empty(),
-                field: Geometry::from_area(&lot.area),
+            BuildingMesh {
+                wall: Mesh::empty(),
+                brick_roof: Mesh::empty(),
+                flat_roof: Mesh::empty(),
+                field: Mesh::from_area(&lot.area),
             }
         }
         BuildingStyle::Mill => {
             let height = 3.0 + rng.next_f32();
             let tower_height = 5.0 + rng.next_f32();
 
-            let (roof_brick_geometry, roof_wall_geometry) =
-                main_footprint.open_gable_roof_geometry(height, 0.3);
-            let (tower_roof_brick_geometry, tower_roof_wall_geometry) =
-                entrance_footprint.open_gable_roof_geometry(tower_height, 0.3);
+            let (roof_brick_mesh, roof_wall_mesh) =
+                main_footprint.open_gable_roof_mesh(height, 0.3);
+            let (tower_roof_brick_mesh, tower_roof_wall_mesh) =
+                entrance_footprint.open_gable_roof_mesh(tower_height, 0.3);
 
-            BuildingGeometry {
-                wall: main_footprint.wall_geometry(height) +
-                    entrance_footprint.wall_geometry(tower_height) +
-                    roof_wall_geometry + tower_roof_wall_geometry,
-                brick_roof: Geometry::empty(),
-                flat_roof: roof_brick_geometry + tower_roof_brick_geometry,
-                field: Geometry::empty(),
+            BuildingMesh {
+                wall: main_footprint.wall_mesh(height) +
+                    entrance_footprint.wall_mesh(tower_height) +
+                    roof_wall_mesh + tower_roof_wall_mesh,
+                brick_roof: Mesh::empty(),
+                flat_roof: roof_brick_mesh + tower_roof_brick_mesh,
+                field: Mesh::empty(),
             }
         }
         BuildingStyle::Bakery => {
             let height = 3.0 + rng.next_f32();
             let entrance_height = height;
 
-            let (entrance_roof_brick_geometry, entrance_roof_wall_geometry) =
-                entrance_footprint.open_gable_roof_geometry(entrance_height, 0.3);
+            let (entrance_roof_brick_mesh, entrance_roof_wall_mesh) =
+                entrance_footprint.open_gable_roof_mesh(entrance_height, 0.3);
 
-            BuildingGeometry {
-                wall: main_footprint.wall_geometry(height) +
-                    entrance_footprint.wall_geometry(entrance_height) +
-                    entrance_roof_wall_geometry,
-                brick_roof: entrance_roof_brick_geometry,
-                flat_roof: main_footprint.flat_roof_geometry(height),
-                field: Geometry::empty(),
+            BuildingMesh {
+                wall: main_footprint.wall_mesh(height) +
+                    entrance_footprint.wall_mesh(entrance_height) +
+                    entrance_roof_wall_mesh,
+                brick_roof: entrance_roof_brick_mesh,
+                flat_roof: main_footprint.flat_roof_mesh(height),
+                field: Mesh::empty(),
             }
         }
         BuildingStyle::NeighboringTownConnection => {
@@ -122,11 +122,11 @@ pub fn build_building<R: Rng>(
 
             let indices = vec![0, 1, 2, 2, 3, 0];
 
-            BuildingGeometry {
-                wall: Geometry::new(vertices, indices),
-                brick_roof: Geometry::empty(),
-                flat_roof: Geometry::empty(),
-                field: Geometry::empty(),
+            BuildingMesh {
+                wall: Mesh::new(vertices, indices),
+                brick_roof: Mesh::empty(),
+                flat_roof: Mesh::empty(),
+                field: Mesh::empty(),
             }
         }
     }
@@ -140,7 +140,7 @@ pub struct Footprint {
 }
 
 impl Footprint {
-    fn wall_geometry(&self, wall_height: N) -> Geometry {
+    fn wall_mesh(&self, wall_height: N) -> Mesh {
         let vertices =
             vec![
                 Vertex { position: [self.back_right.x, self.back_right.y, 0.0] },
@@ -181,10 +181,10 @@ impl Footprint {
             7,
         ];
 
-        Geometry::new(vertices, indices)
+        Mesh::new(vertices, indices)
     }
 
-    fn flat_roof_geometry(&self, base_height: N) -> Geometry {
+    fn flat_roof_mesh(&self, base_height: N) -> Mesh {
         let vertices =
             vec![
                 Vertex { position: [self.back_right.x, self.back_right.y, base_height] },
@@ -195,10 +195,10 @@ impl Footprint {
 
         let indices = vec![0, 1, 3, 1, 2, 3];
 
-        Geometry::new(vertices, indices)
+        Mesh::new(vertices, indices)
     }
 
-    fn open_gable_roof_geometry(&self, base_height: N, angle: N) -> (Geometry, Geometry) {
+    fn open_gable_roof_mesh(&self, base_height: N, angle: N) -> (Mesh, Mesh) {
         let roof_height = (self.back_right - self.front_right).norm() * angle.sin();
         let mid_right = (self.back_right + self.front_right.coords) / 2.0;
         let mid_left = (self.back_left + self.front_left.coords) / 2.0;
@@ -218,8 +218,8 @@ impl Footprint {
         let wall_indices = vec![1, 2, 3, 4, 5, 0];
 
         (
-            Geometry::new(vertices.clone(), roof_indices),
-            Geometry::new(vertices, wall_indices),
+            Mesh::new(vertices.clone(), roof_indices),
+            Mesh::new(vertices, wall_indices),
         )
     }
 

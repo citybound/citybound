@@ -1,8 +1,8 @@
 use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, RoughEq};
 use compact::CVec;
 use kay::{ActorSystem, World, Actor, TypedID};
-use monet::{Instance, Vertex, Geometry, Renderer, RendererID};
-use stagemaster::geometry::{band_to_geometry, dash_path};
+use monet::{Instance, Vertex, Mesh, Renderer, RendererID};
+use stagemaster::geometry::{band_to_mesh, dash_path};
 use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
 use render_layers::RenderLayers;
 
@@ -156,7 +156,7 @@ impl Renderable for Lane {
         }
 
         if DEBUG_VIEW_SIGNALS && self.connectivity.on_intersection {
-            let geometry = band_to_geometry(
+            let mesh = band_to_mesh(
                 &Band::new(self.construction.path.clone(), 0.3),
                 if self.microtraffic.green { 0.4 } else { 0.2 },
             );
@@ -167,7 +167,7 @@ impl Renderable for Lane {
             });
             renderer_id.update_individual(
                 RenderLayers::DebugSignalState as u32 + self.id.as_raw().instance_id as u32,
-                geometry,
+                mesh,
                 instance,
                 true,
                 world,
@@ -233,7 +233,7 @@ impl Renderable for Lane {
                 ([1.0, 1.0, 1.0], false)
             };
 
-            let instance = band_to_geometry(
+            let instance = band_to_mesh(
                 &Band::new(
                     self.construction.path.clone(),
                     if is_landmark { 2.5 } else { 1.0 },
@@ -264,7 +264,7 @@ impl Renderable for Lane {
                         ([1.0, 1.0, 1.0], false)
                     };
 
-                let geometry = band_to_geometry(
+                let mesh = band_to_mesh(
                     &Band::new(
                         self.construction.path.clone(),
                         if is_landmark { 2.5 } else { 1.0 },
@@ -274,7 +274,7 @@ impl Renderable for Lane {
                 renderer_id.update_individual(
                     RenderLayers::DebugConnectivity as u32 +
                         self.id.as_raw().instance_id as u32,
-                    geometry,
+                    mesh,
                     Instance::with_color(random_color),
                     true,
                     world,
@@ -283,7 +283,7 @@ impl Renderable for Lane {
                 renderer_id.update_individual(
                     RenderLayers::DebugConnectivity as u32 +
                         self.id.as_raw().instance_id as u32,
-                    Geometry::empty(),
+                    Mesh::empty(),
                     Instance::with_color([0.0, 0.0, 0.0]),
                     true,
                     world,
@@ -316,7 +316,7 @@ impl GrouperIndividual for Lane {
                 self.id_as(),
                 maybe_path
                     .map(|path| {
-                        band_to_geometry(
+                        band_to_mesh(
                             &Band::new(path, LANE_WIDTH),
                             if self.connectivity.on_intersection {
                                 0.2
@@ -325,7 +325,7 @@ impl GrouperIndividual for Lane {
                             },
                         )
                     })
-                    .unwrap_or_else(Geometry::empty),
+                    .unwrap_or_else(Mesh::empty),
                 world,
             );
             if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
@@ -338,16 +338,16 @@ impl GrouperIndividual for Lane {
                 .clone()
                 .and_then(|path| path.shift_orthogonally(LANE_DISTANCE / 2.0))
                 .map(|path| {
-                    band_to_geometry(&Band::new(path, LANE_MARKER_WIDTH), 0.1)
+                    band_to_mesh(&Band::new(path, LANE_MARKER_WIDTH), 0.1)
                 })
-                .unwrap_or_else(Geometry::empty);
+                .unwrap_or_else(Mesh::empty);
 
             let right_marker = maybe_path
                 .and_then(|path| path.shift_orthogonally(-LANE_DISTANCE / 2.0))
                 .map(|path| {
-                    band_to_geometry(&Band::new(path, LANE_MARKER_WIDTH), 0.1)
+                    band_to_mesh(&Band::new(path, LANE_MARKER_WIDTH), 0.1)
                 })
-                .unwrap_or_else(Geometry::empty);
+                .unwrap_or_else(Mesh::empty);
             grouper.update(self.id_as(), left_marker + right_marker, world);
             if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
                 self.construction.length
@@ -509,10 +509,10 @@ impl GrouperIndividual for SwitchLane {
                 .map(|path| {
                     dash_path(&path, LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH)
                         .into_iter()
-                        .map(|dash| band_to_geometry(&Band::new(dash, 0.8), 0.2))
+                        .map(|dash| band_to_mesh(&Band::new(dash, 0.8), 0.2))
                         .sum()
                 })
-                .unwrap_or_else(Geometry::empty),
+                .unwrap_or_else(Mesh::empty),
             world,
         );
         if self.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY >
@@ -594,7 +594,7 @@ impl Renderable for LaneRenderer {
 
         renderer_id.add_batch(
             RenderLayers::DebugConnectivity as u32,
-            Geometry::new(
+            Mesh::new(
                 vec![
                     Vertex { position: [-1.0, -1.0, 0.0] },
                     Vertex { position: [1.0, -1.0, 0.0] },
@@ -705,7 +705,7 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
         Renderer::local_first(world).update_individual(
             RenderLayers::DebugLandmarkAssociation as u32 +
                 lane.id.as_raw().instance_id as u32,
-            Geometry::empty(),
+            Mesh::empty(),
             Instance::with_color([0.0, 0.0, 0.0]),
             true,
             world,
@@ -716,7 +716,7 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
         Renderer::local_first(world).update_individual(
             RenderLayers::DebugLandmarkAssociation as u32 +
                 lane.id.as_raw().instance_id as u32,
-            Geometry::empty(),
+            Mesh::empty(),
             Instance::with_color([0.0, 0.0, 0.0]),
             true,
             world,

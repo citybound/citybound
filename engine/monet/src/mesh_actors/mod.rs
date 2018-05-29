@@ -1,5 +1,5 @@
 pub use kay::{External, TypedID};
-pub use super::geometry::{Geometry, Batch, Instance};
+pub use super::mesh::{Mesh, Batch, Instance};
 
 use kay::{ActorSystem, World};
 use std::collections::HashMap;
@@ -20,10 +20,10 @@ pub struct GrouperInner {
     instance_color: [f32; 3],
     base_individual_id: u32,
     is_decal: bool,
-    living_individuals: HashMap<GrouperIndividualID, Geometry>,
-    frozen_individuals: HashMap<GrouperIndividualID, Geometry>,
-    living_groups: Vec<Geometry>,
-    frozen_groups: Vec<Geometry>,
+    living_individuals: HashMap<GrouperIndividualID, Mesh>,
+    frozen_individuals: HashMap<GrouperIndividualID, Mesh>,
+    living_groups: Vec<Mesh>,
+    frozen_groups: Vec<Mesh>,
     frozen_up_to_date: bool,
     renderer_state: HashMap<RendererID, GrouperRendererState>,
 }
@@ -76,14 +76,14 @@ impl Grouper {
         id.render_to_grouper(self.id, self.base_individual_id, world);
     }
 
-    pub fn update(&mut self, id: GrouperIndividualID, geometry: &Geometry, _: &mut World) {
+    pub fn update(&mut self, id: GrouperIndividualID, mesh: &Mesh, _: &mut World) {
         if self.frozen_individuals.get(&id).is_none() {
-            self.living_individuals.insert(id, geometry.clone());
+            self.living_individuals.insert(id, mesh.clone());
         }
     }
 
-    pub fn add_frozen(&mut self, id: GrouperIndividualID, geometry: &Geometry, _: &mut World) {
-        self.frozen_individuals.insert(id, geometry.clone());
+    pub fn add_frozen(&mut self, id: GrouperIndividualID, mesh: &Mesh, _: &mut World) {
+        self.frozen_individuals.insert(id, mesh.clone());
         self.frozen_up_to_date = false;
         for state in self.renderer_state.values_mut() {
             state.frozen_up_to_date = false;
@@ -91,8 +91,8 @@ impl Grouper {
     }
 
     pub fn freeze(&mut self, id: GrouperIndividualID, _: &mut World) {
-        if let Some(geometry) = self.living_individuals.remove(&id) {
-            self.frozen_individuals.insert(id, geometry);
+        if let Some(mesh) = self.living_individuals.remove(&id) {
+            self.frozen_individuals.insert(id, mesh);
             self.frozen_up_to_date = false;
             for state in self.renderer_state.values_mut() {
                 state.frozen_up_to_date = false;
@@ -101,8 +101,8 @@ impl Grouper {
     }
 
     pub fn unfreeze(&mut self, id: GrouperIndividualID, _: &mut World) {
-        if let Some(geometry) = self.frozen_individuals.remove(&id) {
-            self.living_individuals.insert(id, geometry);
+        if let Some(mesh) = self.frozen_individuals.remove(&id) {
+            self.living_individuals.insert(id, mesh);
             self.frozen_up_to_date = false;
             for state in self.renderer_state.values_mut() {
                 state.frozen_up_to_date = false;
@@ -202,7 +202,7 @@ impl Renderable for Grouper {
         {
             renderer_id.update_individual(
                 self.base_individual_id + i as u32,
-                Geometry::empty(),
+                Mesh::empty(),
                 Instance::with_color([0.0, 0.0, 0.0]),
                 self.is_decal,
                 world,
@@ -231,7 +231,7 @@ impl Renderable for Grouper {
             for i in self.frozen_groups.len()..new_renderer_state.n_frozen_groups {
                 renderer_id.update_individual(
                     self.base_individual_id + FROZEN_OFFSET + i as u32,
-                    Geometry::empty(),
+                    Mesh::empty(),
                     Instance::with_color([0.0, 0.0, 0.0]),
                     self.is_decal,
                     world,

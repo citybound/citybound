@@ -1,7 +1,7 @@
 use kay::{World, TypedID};
 use descartes::{P2, Band, Segment, Circle, Path, AsArea};
-use monet::{RendererID, Renderable, RenderableID, Instance, Geometry};
-use stagemaster::geometry::band_to_geometry;
+use monet::{RendererID, Renderable, RenderableID, Instance, Mesh};
+use stagemaster::geometry::band_to_mesh;
 use style::colors;
 use render_layers::RenderLayers;
 
@@ -10,7 +10,7 @@ use super::interaction::{ControlPointRef, CONTROL_POINT_HANDLE_RADIUS};
 
 impl Renderable for PlanManager {
     fn setup_in_scene(&mut self, renderer_id: RendererID, world: &mut World) {
-        let dot_geometry = band_to_geometry(
+        let dot_mesh = band_to_mesh(
             &Band::new(
                 Circle {
                     center: P2::new(0.0, 0.0),
@@ -25,11 +25,7 @@ impl Renderable for PlanManager {
             1.0,
         );
 
-        renderer_id.add_batch(
-            RenderLayers::PlanningGestureDots as u32,
-            dot_geometry,
-            world,
-        );
+        renderer_id.add_batch(RenderLayers::PlanningGestureDots as u32, dot_mesh, world);
     }
 
     fn render_to_scene(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
@@ -57,7 +53,7 @@ impl Renderable for PlanManager {
 
         for (i, gesture) in preview.gestures.values().enumerate() {
             if gesture.points.len() >= 2 {
-                let line_geometry = if let Ok(line_path) = Path::new(
+                let line_mesh = if let Ok(line_path) = Path::new(
                     gesture
                         .points
                         .windows(2)
@@ -65,13 +61,13 @@ impl Renderable for PlanManager {
                         .collect(),
                 )
                 {
-                    band_to_geometry(&Band::new(line_path, 0.3), 1.0)
+                    band_to_mesh(&Band::new(line_path, 0.3), 1.0)
                 } else {
-                    Geometry::empty()
+                    Mesh::empty()
                 };
                 renderer_id.update_individual(
                     RenderLayers::PlanningGestureLines as u32 + i as u32,
-                    line_geometry,
+                    line_mesh,
                     Instance::with_color(colors::GESTURE_LINES),
                     true,
                     world,

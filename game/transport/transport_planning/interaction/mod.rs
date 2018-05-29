@@ -1,9 +1,9 @@
 use kay::{World, MachineID, Fate, TypedID, ActorSystem};
 use compact::{CVec, COption};
 use descartes::{N, Band, FiniteCurve, Path, AsArea, WithUniqueOrthogonal, Curve, Into2d};
-use monet::{RendererID, Instance, Geometry};
+use monet::{RendererID, Instance, Mesh};
 use stagemaster::user_interface::{UserInterfaceID, Interactable3d, Interactable3dID, Event3d};
-use stagemaster::geometry::{band_to_geometry, dash_path};
+use stagemaster::geometry::{band_to_mesh, dash_path};
 use style::colors;
 use render_layers::RenderLayers;
 
@@ -25,9 +25,9 @@ pub fn render_preview(
     frame: usize,
     world: &mut World,
 ) {
-    let mut lane_geometry = Geometry::empty();
-    let mut switch_lane_geometry = Geometry::empty();
-    let mut intersection_geometry = Geometry::empty();
+    let mut lane_mesh = Mesh::empty();
+    let mut switch_lane_mesh = Mesh::empty();
+    let mut intersection_mesh = Mesh::empty();
 
     const EFFECTIVE_LANE_WIDTH: N = LANE_DISTANCE - LANE_MARKER_WIDTH;
 
@@ -45,17 +45,15 @@ pub fn render_preview(
             if corresponding_construction_action_exists {
                 match *prototype {
                     Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
-                        lane_geometry += band_to_geometry(
-                            &Band::new(lane_path.clone(), EFFECTIVE_LANE_WIDTH),
-                            0.1,
-                        );
+                        lane_mesh +=
+                            band_to_mesh(&Band::new(lane_path.clone(), EFFECTIVE_LANE_WIDTH), 0.1);
                     }
                     Prototype::Road(RoadPrototype::SwitchLane(
                         SwitchLanePrototype(ref lane_path))) => {
                         for dash in dash_path(lane_path,
                                 LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH) {
-                            switch_lane_geometry +=
-                                band_to_geometry(&Band::new(dash, LANE_MARKER_WIDTH), 0.1);
+                            switch_lane_mesh +=
+                                band_to_mesh(&Band::new(dash, LANE_MARKER_WIDTH), 0.1);
                         }
                     }
                     Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
@@ -63,22 +61,19 @@ pub fn render_preview(
                                                                     ref connecting_lanes,
                                                                     ..
                                                                 })) => {
-                        intersection_geometry +=
-                            band_to_geometry(
-                                &Band::new(area.primitives[0].boundary.clone(), 0.1),
-                                0.1,
-                            );
+                        intersection_mesh +=
+                            band_to_mesh(&Band::new(area.primitives[0].boundary.clone(), 0.1), 0.1);
 
                         for &LanePrototype(ref lane_path, ref timings) in
                             connecting_lanes.values().flat_map(|lanes| lanes)
                         {
-                            lane_geometry += band_to_geometry(
+                            lane_mesh += band_to_mesh(
                                 &Band::new(lane_path.clone(), EFFECTIVE_LANE_WIDTH),
                                 0.1,
                             );
                             if timings[(frame / 10) % timings.len()] {
-                                intersection_geometry +=
-                                    band_to_geometry(&Band::new(lane_path.clone(), 0.1), 0.1);
+                                intersection_mesh +=
+                                    band_to_mesh(&Band::new(lane_path.clone(), 0.1), 0.1);
                             }
                         }
                     }
@@ -90,7 +85,7 @@ pub fn render_preview(
 
     renderer_id.update_individual(
         RenderLayers::PlanningLane as u32,
-        lane_geometry,
+        lane_mesh,
         Instance::with_color(colors::STROKE_BASE),
         true,
         world,
@@ -98,7 +93,7 @@ pub fn render_preview(
 
     renderer_id.update_individual(
         RenderLayers::PlanningSwitchLane as u32,
-        switch_lane_geometry,
+        switch_lane_mesh,
         Instance::with_color(colors::STROKE_BASE),
         true,
         world,
@@ -106,7 +101,7 @@ pub fn render_preview(
 
     renderer_id.update_individual(
         RenderLayers::PlanningIntersection as u32,
-        intersection_geometry,
+        intersection_mesh,
         Instance::with_color(colors::SELECTION_STROKE),
         true,
         world,

@@ -5,7 +5,7 @@ use kay::{World, ActorSystem, External};
 
 use glium::backend::glutin::Display;
 
-use {Batch, Instance, Scene, SceneDescription, Geometry, RenderContext};
+use {Batch, Instance, Scene, SceneDescription, Mesh, RenderContext};
 
 mod control;
 pub mod movement;
@@ -68,7 +68,7 @@ impl Renderer {
     }
 
     /// Critical
-    pub fn add_batch(&mut self, batch_id: u32, prototype: &Geometry, _: &mut World) {
+    pub fn add_batch(&mut self, batch_id: u32, prototype: &Mesh, _: &mut World) {
         let batch = Batch::new(prototype, &self.render_context.window);
         self.scene.batches.insert(batch_id, batch);
     }
@@ -77,17 +77,13 @@ impl Renderer {
     pub fn update_individual(
         &mut self,
         individual_id: u32,
-        geometry: &Geometry,
+        mesh: &Mesh,
         instance_info: &Instance,
         is_decal: bool,
         _: &mut World,
     ) {
-        let individual = Batch::new_individual(
-            geometry,
-            *instance_info,
-            is_decal,
-            &self.render_context.window,
-        );
+        let individual =
+            Batch::new_individual(mesh, *instance_info, is_decal, &self.render_context.window);
         self.scene.batches.insert(individual_id, individual);
     }
 
@@ -148,7 +144,7 @@ pub fn setup(system: &mut ActorSystem) {
     control::auto_setup(system);
     movement::auto_setup(system);
     project::auto_setup(system);
-    super::geometry_actors::setup(system);
+    super::mesh_actors::setup(system);
 }
 
 mod kay_auto;

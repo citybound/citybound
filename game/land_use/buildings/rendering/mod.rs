@@ -1,7 +1,6 @@
 use compact::{CVec, CDict, COption};
 use kay::{ActorSystem, World, External, TypedID, Actor};
-use monet::{RendererID, Renderable, RenderableID, GrouperID, GrouperIndividualID, Geometry,
-            Instance};
+use monet::{RendererID, Renderable, RenderableID, GrouperID, GrouperIndividualID, Mesh, Instance};
 use stagemaster::{UserInterface, UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
                   Interactable2d, Interactable2dID};
 use imgui::ImGuiSetCond_FirstUseEver;
@@ -11,7 +10,7 @@ use economy::households::HouseholdID;
 use style::colors;
 use render_layers::RenderLayers;
 
-use super::architecture::{BuildingGeometry, build_building};
+use super::architecture::{BuildingMesh, build_building};
 
 #[derive(Compact, Clone)]
 pub struct BuildingInspector {
@@ -155,31 +154,31 @@ impl BuildingRenderer {
         }
     }
 
-    pub fn add_geometry(&mut self, id: BuildingID, geometry: &BuildingGeometry, world: &mut World) {
+    pub fn add_mesh(&mut self, id: BuildingID, mesh: &BuildingMesh, world: &mut World) {
         // TODO: ugly: Building is not really a GrouperIndividual
         self.wall_grouper.add_frozen(
             unsafe { GrouperIndividualID::from_raw(id.as_raw()) },
-            geometry.wall.clone(),
+            mesh.wall.clone(),
             world,
         );
         self.flat_roof_grouper.add_frozen(
             unsafe { GrouperIndividualID::from_raw(id.as_raw()) },
-            geometry.flat_roof.clone(),
+            mesh.flat_roof.clone(),
             world,
         );
         self.brick_roof_grouper.add_frozen(
             unsafe { GrouperIndividualID::from_raw(id.as_raw()) },
-            geometry.brick_roof.clone(),
+            mesh.brick_roof.clone(),
             world,
         );
         self.field_grouper.add_frozen(
             unsafe { GrouperIndividualID::from_raw(id.as_raw()) },
-            geometry.field.clone(),
+            mesh.field.clone(),
             world,
         );
     }
 
-    pub fn remove_geometry(&mut self, building_id: BuildingID, world: &mut World) {
+    pub fn remove_mesh(&mut self, building_id: BuildingID, world: &mut World) {
         self.wall_grouper.remove(
             unsafe { GrouperIndividualID::from_raw(building_id.as_raw()) },
             world,
@@ -212,7 +211,7 @@ impl BuildingRenderer {
         for i in new_buildings_to_be_destroyed.len()..existing_n_to_be_destroyed {
             renderer_id.update_individual(
                 RenderLayers::BuildingToBeDestroyed as u32 + i as u32,
-                Geometry::empty(),
+                Mesh::empty(),
                 Instance::with_color([1.0, 0.0, 0.0]),
                 true,
                 world,
@@ -272,7 +271,7 @@ pub fn on_add(id: BuildingID, lot: &Lot, building_type: BuildingStyle, world: &m
         world,
     );
 
-    BuildingRenderer::local_first(world).add_geometry(
+    BuildingRenderer::local_first(world).add_mesh(
         id,
         build_building(
             lot,
@@ -289,7 +288,7 @@ pub fn on_destroy(building_id: BuildingID, world: &mut World) {
         building_id.into(),
         world,
     );
-    BuildingRenderer::local_first(world).remove_geometry(building_id, world);
+    BuildingRenderer::local_first(world).remove_mesh(building_id, world);
 }
 
 impl Building {
@@ -301,12 +300,12 @@ impl Building {
     ) {
         let geometries = build_building(&self.lot, self.style, &mut seed(self.id));
 
-        let combined_geometry = geometries.brick_roof + geometries.flat_roof + geometries.wall +
+        let combined_mesh = geometries.brick_roof + geometries.flat_roof + geometries.wall +
             geometries.field;
 
         renderer_id.update_individual(
             RenderLayers::BuildingToBeDestroyed as u32 + building_index as u32,
-            combined_geometry,
+            combined_mesh,
             Instance::with_color([1.0, 0.0, 0.0]),
             true,
             world,

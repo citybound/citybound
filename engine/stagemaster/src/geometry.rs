@@ -1,5 +1,5 @@
 use descartes::{Path, Band, Segment, P2, N, FiniteCurve, WithUniqueOrthogonal};
-use monet::{Geometry, Vertex, RendererID, Instance};
+use monet::{Mesh, Vertex, RendererID, Instance};
 
 fn to_vertex(point: P2, z: N) -> Vertex {
     Vertex { position: [point.x, point.y, z] }
@@ -7,7 +7,7 @@ fn to_vertex(point: P2, z: N) -> Vertex {
 
 const CURVE_LINEARIZATION_MAX_ANGLE: f32 = 0.03;
 
-pub fn band_to_geometry(band: &Band, z: N) -> Geometry {
+pub fn band_to_mesh(band: &Band, z: N) -> Mesh {
     let mut vertices = Vec::<Vertex>::new();
     let mut indices = Vec::<u16>::new();
     for segment in &band.path.segments {
@@ -70,7 +70,7 @@ pub fn band_to_geometry(band: &Band, z: N) -> Geometry {
         }
     }
 
-    Geometry::new(vertices, indices)
+    Mesh::new(vertices, indices)
 }
 
 pub fn dash_path(path: &Path, dash_length: f32, gap_length: f32) -> Vec<Path> {
@@ -111,7 +111,7 @@ pub fn add_debug_path(path: Path, color: [f32; 3], z: f32, world: &mut World) {
     if let Some(renderer) = unsafe { DEBUG_RENDERER } {
         renderer.update_individual(
             4_000_000_000 + unsafe { LAST_DEBUG_THING },
-            band_to_geometry(&Band::new(path, 0.2), z),
+            band_to_mesh(&Band::new(path, 0.2), z),
             Instance::with_color(color),
             true,
             world,
@@ -122,7 +122,7 @@ pub fn add_debug_path(path: Path, color: [f32; 3], z: f32, world: &mut World) {
 
 pub fn add_debug_point(point: P2, color: [f32; 3], z: f32, world: &mut World) {
     if let Some(renderer) = unsafe { DEBUG_RENDERER } {
-        let geometry = Geometry::new(
+        let mesh = Mesh::new(
             vec![
                 Vertex { position: [point.x + -0.5, point.y + -0.5, z] },
                 Vertex { position: [point.x + 0.5, point.y + -0.5, z] },
@@ -133,7 +133,7 @@ pub fn add_debug_point(point: P2, color: [f32; 3], z: f32, world: &mut World) {
         );
         renderer.update_individual(
             4_000_000_000 + unsafe { LAST_DEBUG_THING },
-            geometry,
+            mesh,
             Instance::with_color(color),
             true,
             world,

@@ -11,8 +11,8 @@
 
 use monet::Vertex;
 
-pub fn create() -> ::monet::Geometry {
-    ::monet::Geometry::new(
+pub fn create() -> ::monet::Mesh {
+    ::monet::Mesh::new(
         vec![
             Vertex { position: [-2.25, -0.9, 0.00] }, // 0
             Vertex { position: [-2.25, -0.9, 0.80] }, // 1

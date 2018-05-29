@@ -1,8 +1,8 @@
 use kay::World;
 use compact::CVec;
 use descartes::Band;
-use stagemaster::geometry::band_to_geometry;
-use monet::{RendererID, Geometry, Instance};
+use stagemaster::geometry::band_to_mesh;
+use monet::{RendererID, Mesh, Instance};
 use planning::{PlanResult, Prototype};
 use construction::Action;
 use style::colors;
@@ -18,9 +18,9 @@ pub fn render_preview(
     _frame: usize,
     world: &mut World,
 ) {
-    let mut lot_residential_geometry = Geometry::empty();
-    let mut lot_occupied_outline_geometry = Geometry::empty();
-    let mut lot_vacant_outline_geometry = Geometry::empty();
+    let mut lot_residential_mesh = Mesh::empty();
+    let mut lot_occupied_outline_mesh = Mesh::empty();
+    let mut lot_vacant_outline_mesh = Mesh::empty();
 
     for prototype in result_preview.prototypes.values() {
         if let Prototype::Lot(LotPrototype {
@@ -31,16 +31,16 @@ pub fn render_preview(
         {
             if occupancy == LotOccupancy::Vacant {
                 for primitive in &area.primitives {
-                    lot_vacant_outline_geometry +=
-                        band_to_geometry(
+                    lot_vacant_outline_mesh +=
+                        band_to_mesh(
                             &Band::new(primitive.boundary.clone(), LOT_OUTLINE_WIDTH),
                             0.1,
                         );
                 }
             } else {
                 for primitive in &area.primitives {
-                    lot_occupied_outline_geometry +=
-                        band_to_geometry(
+                    lot_occupied_outline_mesh +=
+                        band_to_mesh(
                             &Band::new(primitive.boundary.clone(), LOT_OUTLINE_WIDTH),
                             0.1,
                         );
@@ -49,7 +49,7 @@ pub fn render_preview(
 
             for land_use in land_uses {
                 if *land_use == LandUse::Residential {
-                    lot_residential_geometry += Geometry::from_area(area);
+                    lot_residential_mesh += Mesh::from_area(area);
                 }
             }
         }
@@ -57,7 +57,7 @@ pub fn render_preview(
 
     renderer_id.update_individual(
         RenderLayers::PlanningLotOccupiedOutline as u32,
-        lot_occupied_outline_geometry,
+        lot_occupied_outline_mesh,
         Instance::with_color(colors::LOT_OCCUPIED),
         true,
         world,
@@ -65,7 +65,7 @@ pub fn render_preview(
 
     renderer_id.update_individual(
         RenderLayers::PlanningLotVacantOutline as u32,
-        lot_vacant_outline_geometry,
+        lot_vacant_outline_mesh,
         Instance::with_color(colors::LOT_VACANT),
         true,
         world,
@@ -73,7 +73,7 @@ pub fn render_preview(
 
     renderer_id.update_individual(
         RenderLayers::PlanningLotResidentialArea as u32,
-        lot_residential_geometry,
+        lot_residential_mesh,
         Instance::with_color(colors::RESIDENTIAL),
         true,
         world,

@@ -38,40 +38,40 @@ impl Instance {
 }
 
 #[derive(Compact, Debug)]
-pub struct Geometry {
+pub struct Mesh {
     pub vertices: CVec<Vertex>,
     pub indices: CVec<u16>,
 }
 
-impl Geometry {
-    pub fn new(vertices: Vec<Vertex>, indices: Vec<u16>) -> Geometry {
-        Geometry {
+impl Mesh {
+    pub fn new(vertices: Vec<Vertex>, indices: Vec<u16>) -> Mesh {
+        Mesh {
             vertices: vertices.into(),
             indices: indices.into(),
         }
     }
 
-    pub fn empty() -> Geometry {
-        Geometry {
+    pub fn empty() -> Mesh {
+        Mesh {
             vertices: CVec::new(),
             indices: CVec::new(),
         }
     }
 }
 
-impl Clone for Geometry {
-    fn clone(&self) -> Geometry {
-        Geometry {
+impl Clone for Mesh {
+    fn clone(&self) -> Mesh {
+        Mesh {
             vertices: self.vertices.to_vec().into(),
             indices: self.indices.to_vec().into(),
         }
     }
 }
 
-impl ::std::ops::Add for Geometry {
-    type Output = Geometry;
+impl ::std::ops::Add for Mesh {
+    type Output = Mesh;
 
-    fn add(mut self, rhs: Geometry) -> Geometry {
+    fn add(mut self, rhs: Mesh) -> Mesh {
         let self_n_vertices = self.vertices.len();
         self.vertices.extend_from_copy_slice(&rhs.vertices);
         self.indices.extend(rhs.indices.iter().map(|i| {
@@ -81,8 +81,8 @@ impl ::std::ops::Add for Geometry {
     }
 }
 
-impl ::std::ops::AddAssign for Geometry {
-    fn add_assign(&mut self, rhs: Geometry) {
+impl ::std::ops::AddAssign for Mesh {
+    fn add_assign(&mut self, rhs: Mesh) {
         let self_n_vertices = self.vertices.len();
         for vertex in rhs.vertices.iter().cloned() {
             self.vertices.push(vertex);
@@ -93,21 +93,21 @@ impl ::std::ops::AddAssign for Geometry {
     }
 }
 
-impl ::std::iter::Sum for Geometry {
-    fn sum<I: Iterator<Item = Geometry>>(iter: I) -> Geometry {
-        let mut summed_geometry = Geometry {
+impl ::std::iter::Sum for Mesh {
+    fn sum<I: Iterator<Item = Mesh>>(iter: I) -> Mesh {
+        let mut summed_mesh = Mesh {
             vertices: CVec::new(),
             indices: CVec::new(),
         };
-        for geometry in iter {
-            summed_geometry += geometry;
+        for mesh in iter {
+            summed_mesh += mesh;
         }
-        summed_geometry
+        summed_mesh
     }
 }
 
-impl<'a> ::std::ops::AddAssign<&'a Geometry> for Geometry {
-    fn add_assign(&mut self, rhs: &'a Geometry) {
+impl<'a> ::std::ops::AddAssign<&'a Mesh> for Mesh {
+    fn add_assign(&mut self, rhs: &'a Mesh) {
         let self_n_vertices = self.vertices.len();
         for vertex in rhs.vertices.iter().cloned() {
             self.vertices.push(vertex);
@@ -118,16 +118,16 @@ impl<'a> ::std::ops::AddAssign<&'a Geometry> for Geometry {
     }
 }
 
-impl<'a> ::std::iter::Sum<&'a Geometry> for Geometry {
-    fn sum<I: Iterator<Item = &'a Geometry>>(iter: I) -> Geometry {
-        let mut summed_geometry = Geometry {
+impl<'a> ::std::iter::Sum<&'a Mesh> for Mesh {
+    fn sum<I: Iterator<Item = &'a Mesh>>(iter: I) -> Mesh {
+        let mut summed_mesh = Mesh {
             vertices: CVec::new(),
             indices: CVec::new(),
         };
-        for geometry in iter {
-            summed_geometry += geometry;
+        for mesh in iter {
+            summed_mesh += mesh;
         }
-        summed_geometry
+        summed_mesh
     }
 }
 
@@ -138,7 +138,7 @@ use lyon_tessellation::path::iterator::PathIter;
 use lyon_tessellation::path::PathEvent;
 use lyon_tessellation::math::point;
 
-impl GeometryBuilder<FillVertex> for Geometry {
+impl GeometryBuilder<FillVertex> for Mesh {
     fn begin_geometry(&mut self) {}
     fn end_geometry(&mut self) -> Count {
         Count {
@@ -163,8 +163,8 @@ impl GeometryBuilder<FillVertex> for Geometry {
 
 const CURVE_LINEARIZATION_MAX_ANGLE: f32 = 0.03;
 
-impl Geometry {
-    pub fn from_area(area: &Area) -> Geometry {
+impl Mesh {
+    pub fn from_area(area: &Area) -> Mesh {
         let path_iterator = PathIter::new(area.primitives.iter().flat_map(|primitive| {
             primitive
                 .boundary
@@ -212,7 +212,7 @@ impl Geometry {
         }));
 
         let mut tesselator = FillTessellator::new();
-        let mut output = Geometry::empty();
+        let mut output = Mesh::empty();
 
         tesselator
             .tessellate_path(path_iterator, &FillOptions::default(), &mut output)
@@ -233,7 +233,7 @@ pub struct Batch {
 }
 
 impl Batch {
-    pub fn new(prototype: &Geometry, window: &Display) -> Batch {
+    pub fn new(prototype: &Mesh, window: &Display) -> Batch {
         Batch {
             vertices: glium::VertexBuffer::new(window, &prototype.vertices).unwrap(),
             indices: glium::IndexBuffer::new(
@@ -250,17 +250,17 @@ impl Batch {
     }
 
     pub fn new_individual(
-        geometry: &Geometry,
+        mesh: &Mesh,
         instance: Instance,
         is_decal: bool,
         window: &Display,
     ) -> Batch {
         Batch {
-            vertices: glium::VertexBuffer::new(window, &geometry.vertices).unwrap(),
+            vertices: glium::VertexBuffer::new(window, &mesh.vertices).unwrap(),
             indices: glium::IndexBuffer::new(
                 window,
                 index::PrimitiveType::TrianglesList,
-                &geometry.indices,
+                &mesh.indices,
             ).unwrap(),
             instances: vec![instance],
             clear_every_frame: false,

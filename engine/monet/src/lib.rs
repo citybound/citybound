@@ -12,16 +12,16 @@ extern crate fnv;
 extern crate itertools;
 extern crate lyon_tessellation;
 
-mod geometry;
-mod geometry_actors;
+mod mesh;
+mod mesh_actors;
 mod renderer;
 mod render_context;
 mod scene;
 
 pub use glium::backend::glutin::Display;
 
-pub use geometry::{Geometry, Batch, Vertex, Instance};
-pub use geometry_actors::{Grouper, GrouperID, GrouperIndividual, GrouperIndividualID};
+pub use mesh::{Mesh, Batch, Vertex, Instance};
+pub use mesh_actors::{Grouper, GrouperID, GrouperIndividual, GrouperIndividualID};
 pub use renderer::{setup, Renderer, RendererID, Renderable, RenderableID, TargetProvider,
                    TargetProviderID, Movement, EyeListener, EyeListenerID, ProjectionRequester,
                    ProjectionRequesterID};
