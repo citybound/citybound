@@ -1,5 +1,4 @@
-use super::{N, P2, RoughlyComparable, Curve, FiniteCurve, THICKNESS, WithUniqueOrthogonal,
-            HasBoundingBox};
+use super::{N, P2, RoughEq, Curve, FiniteCurve, THICKNESS, WithUniqueOrthogonal, HasBoundingBox};
 use super::curves::{Line, Circle, Segment};
 use super::path::Path;
 
@@ -30,7 +29,7 @@ impl<'a> Intersect for (&'a Line, &'a Line) {
 
         let det = b.direction.x * a.direction.y - b.direction.y * a.direction.x;
 
-        if !det.is_roughly(0.0) {
+        if !det.rough_eq(0.0) {
             let delta = b.start - a.start;
             let along_a = (delta.y * b.direction.x - delta.x * b.direction.y) / det;
             vec![
@@ -100,7 +99,7 @@ impl<'a> Intersect for (&'a Circle, &'a Circle) {
         let a_to_b = b.center - a.center;
         let a_to_b_dist = a_to_b.norm();
 
-        if (a_to_b_dist.is_roughly(0.0) && a.radius.is_roughly(b.radius)) ||
+        if (a_to_b_dist.rough_eq(0.0) && a.radius.rough_eq(b.radius)) ||
             a_to_b_dist > a.radius + b.radius + THICKNESS ||
             a_to_b_dist < (a.radius - b.radius).abs() - THICKNESS
         {
@@ -123,7 +122,7 @@ impl<'a> Intersect for (&'a Circle, &'a Circle) {
                 position: solution_1_position,
             };
 
-            if (centroid - a.center).norm().is_roughly(a.radius) {
+            if (centroid - a.center).norm().rough_eq(a.radius) {
                 vec![solution_1]
             } else {
                 let solution_2_position = centroid - centroid_to_intersection;
@@ -236,7 +235,7 @@ impl<'a> Intersect for (&'a Path, &'a Path) {
                         intersection_list.iter().any(|previous_intersection| {
                             (previous_intersection as &Intersection)
                                 .position
-                                .is_roughly_within(intersection.position, THICKNESS)
+                                .rough_eq_by(intersection.position, THICKNESS)
                         });
                     if !identical_to_previous {
                         intersection_list.push(Intersection {

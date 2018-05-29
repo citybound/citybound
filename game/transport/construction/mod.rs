@@ -1,7 +1,6 @@
 use compact::CVec;
 use kay::{ActorSystem, World, Fate, Actor, TypedID};
-use descartes::{N, P2, Band, Curve, FiniteCurve, Path, RoughlyComparable, Intersect,
-                WithUniqueOrthogonal};
+use descartes::{N, P2, Band, Curve, FiniteCurve, Path, RoughEq, Intersect, WithUniqueOrthogonal};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
@@ -163,7 +162,7 @@ impl Lane {
 
         let mut connected = false;
 
-        if other_start.is_roughly_within(self.construction.path.end(), CONNECTION_TOLERANCE) {
+        if other_start.rough_eq_by(self.construction.path.end(), CONNECTION_TOLERANCE) {
             connected = true;
 
             let already_a_partner = self.connectivity.interactions.iter().any(|interaction| {
@@ -188,7 +187,7 @@ impl Lane {
             super::pathfinding::on_connect(self);
         }
 
-        if other_end.is_roughly_within(self.construction.path.start(), CONNECTION_TOLERANCE) {
+        if other_end.rough_eq_by(self.construction.path.start(), CONNECTION_TOLERANCE) {
             connected = true;
 
             let already_a_partner = self.connectivity.interactions.iter().any(|interaction| {
@@ -271,35 +270,34 @@ impl Lane {
                     let other_exit_distance =
                         other_band.outline_distance_to_path_distance(exit_intersection.along_b);
 
-                    let overlap_kind = if other_path
-                        .direction_along(other_entry_distance)
-                        .is_roughly_within(
-                            self.construction.path.direction_along(entry_distance),
-                            0.1,
-                        ) ||
-                        other_path
-                            .direction_along(other_exit_distance)
-                            .is_roughly_within(
+                    let overlap_kind =
+                        if other_path
+                            .direction_along(other_entry_distance)
+                            .rough_eq_by(
+                                self.construction.path.direction_along(entry_distance),
+                                0.1,
+                            ) ||
+                            other_path.direction_along(other_exit_distance).rough_eq_by(
                                 self.construction.path.direction_along(exit_distance),
                                 0.1,
                             )
-                    {
-                        // ::stagemaster::geometry::CPath::add_debug_path(
-                        //     self.construction.path
-                        //         .subsection(entry_distance, exit_distance).unwrap(),
-                        //     [1.0, 0.5, 0.0],
-                        //     0.3
-                        // );
-                        OverlapKind::Parallel
-                    } else {
-                        // ::stagemaster::geometry::CPath::add_debug_path(
-                        //     self.construction.path
-                        //         .subsection(entry_distance, exit_distance).unwrap(),
-                        //     [1.0, 0.0, 0.0],
-                        //     0.3
-                        // );
-                        OverlapKind::Conflicting
-                    };
+                        {
+                            // ::stagemaster::geometry::CPath::add_debug_path(
+                            //     self.construction.path
+                            //         .subsection(entry_distance, exit_distance).unwrap(),
+                            //     [1.0, 0.5, 0.0],
+                            //     0.3
+                            // );
+                            OverlapKind::Parallel
+                        } else {
+                            // ::stagemaster::geometry::CPath::add_debug_path(
+                            //     self.construction.path
+                            //         .subsection(entry_distance, exit_distance).unwrap(),
+                            //     [1.0, 0.0, 0.0],
+                            //     0.3
+                            // );
+                            OverlapKind::Conflicting
+                        };
 
                     self.connectivity.interactions.push(Interaction {
                         partner_lane: other_id.into(),
@@ -522,8 +520,8 @@ impl SwitchLane {
                 let lane_start_on_other = other_path.along(lane_start_on_other_distance);
                 let lane_end_on_other = other_path.along(lane_end_on_other_distance);
 
-                if lane_start_on_other.is_roughly_within(self.construction.path.start(), 3.0) &&
-                    lane_end_on_other.is_roughly_within(self.construction.path.end(), 3.0)
+                if lane_start_on_other.rough_eq_by(self.construction.path.start(), 3.0) &&
+                    lane_end_on_other.rough_eq_by(self.construction.path.end(), 3.0)
                 {
                     other_id.add_switch_lane_interaction(
                         Interaction {

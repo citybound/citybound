@@ -1,4 +1,4 @@
-use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, RoughlyComparable};
+use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, RoughEq};
 use compact::CVec;
 use kay::{ActorSystem, World, Actor, TypedID};
 use monet::{Instance, Vertex, Geometry, Renderer, RendererID};
@@ -80,14 +80,14 @@ impl Renderable for Lane {
         }
         // no traffic light for u-turn
         if self.connectivity.on_intersection &&
-            !self.construction.path.end_direction().is_roughly_within(
+            !self.construction.path.end_direction().rough_eq_by(
                 -self.construction.path.start_direction(),
                 0.1,
             )
         {
             let mut position = self.construction.path.start();
             let (position_shift, batch_id) =
-                if !self.construction.path.start_direction().is_roughly_within(
+                if !self.construction.path.start_direction().rough_eq_by(
                     self.construction
                         .path
                         .end_direction(),

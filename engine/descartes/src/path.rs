@@ -1,4 +1,4 @@
-use super::{N, P2, V2, RoughlyComparable, THICKNESS, VecLike};
+use super::{N, P2, V2, RoughEq, THICKNESS, VecLike};
 use super::curves::{Curve, FiniteCurve, Segment};
 use super::intersect::{Intersect, Intersection};
 use ordered_float::OrderedFloat;
@@ -32,7 +32,7 @@ impl Path {
             Result::Err(PathError::EmptyPath)
         } else {
             let continuous = segments.windows(2).all(|seg_pair| {
-                seg_pair[0].end().is_roughly_within(
+                seg_pair[0].end().rough_eq_by(
                     seg_pair[1].start(),
                     THICKNESS,
                 )
@@ -51,7 +51,7 @@ impl Path {
         if segments.is_empty() {
             Result::Err(PathError::EmptyPath)
         } else {
-            let probably_closed = segments.last().unwrap().end().is_roughly_within(
+            let probably_closed = segments.last().unwrap().end().rough_eq_by(
                 segments
                     .first()
                     .unwrap()
@@ -130,28 +130,30 @@ impl Path {
                         (segment_a, segment_b)
                             .intersect()
                             .into_iter()
-                            .filter_map(|intersection| if intersection.along_a.is_roughly_within(
-                                0.0,
-                                THICKNESS,
-                            ) ||
-                                intersection.along_a.is_roughly_within(
-                                    segment_a.length(),
+                            .filter_map(
+                                |intersection| if intersection.along_a.rough_eq_by(
+                                    0.0,
                                     THICKNESS,
                                 ) ||
-                                intersection.along_b.is_roughly_within(0.0, THICKNESS) ||
-                                intersection.along_b.is_roughly_within(
-                                    segment_b.length(),
-                                    THICKNESS,
-                                )
-                            {
-                                None
-                            } else {
-                                Some(Intersection {
-                                    position: intersection.position,
-                                    along_a: offset_a + intersection.along_a,
-                                    along_b: offset_b + intersection.along_b,
-                                })
-                            })
+                                    intersection.along_a.rough_eq_by(
+                                        segment_a.length(),
+                                        THICKNESS,
+                                    ) ||
+                                    intersection.along_b.rough_eq_by(0.0, THICKNESS) ||
+                                    intersection.along_b.rough_eq_by(
+                                        segment_b.length(),
+                                        THICKNESS,
+                                    )
+                                {
+                                    None
+                                } else {
+                                    Some(Intersection {
+                                        position: intersection.position,
+                                        along_a: offset_a + intersection.along_a,
+                                        along_b: offset_b + intersection.along_b,
+                                    })
+                                },
+                            )
                             .collect::<Vec<_>>()
                     })
                     .collect::<Vec<_>>()
@@ -160,7 +162,7 @@ impl Path {
     }
 
     pub fn is_closed(&self) -> bool {
-        self.segments.last().unwrap().end().is_roughly_within(
+        self.segments.last().unwrap().end().rough_eq_by(
             self.segments
                 .first()
                 .unwrap()
@@ -181,7 +183,7 @@ impl Path {
     pub fn concat(&self, other: &Self) -> Result<Self, PathError> {
         // TODO: somehow change this to move self and other into here
         // but then segments would have to return [Segment], possible?
-        if self.end().is_roughly_within(other.start(), THICKNESS) {
+        if self.end().rough_eq_by(other.start(), THICKNESS) {
             Ok(Self::new_unchecked(
                 self.segments
                     .iter()
@@ -347,11 +349,7 @@ impl FiniteCurve for Path {
             glued_segments.push(*segment);
             match window_segments_iter.peek() {
                 Some(next_segment) => {
-                    if !segment.end().is_roughly_within(
-                        next_segment.start(),
-                        THICKNESS,
-                    )
-                    {
+                    if !segment.end().rough_eq_by(next_segment.start(), THICKNESS) {
                         glued_segments.push(Segment::line(segment.end(), next_segment.start())?);
                     }
                 }
@@ -361,10 +359,10 @@ impl FiniteCurve for Path {
         if glued_segments.is_empty() {
             None
         } else {
-            let was_closed = self.end().is_roughly_within(self.start(), THICKNESS);
+            let was_closed = self.end().rough_eq_by(self.start(), THICKNESS);
             let new_end = glued_segments.last().unwrap().end();
             let new_start = glued_segments[0].start();
-            if was_closed && !new_end.is_roughly_within(new_start, THICKNESS) {
+            if was_closed && !new_end.rough_eq_by(new_start, THICKNESS) {
                 glued_segments.push(Segment::line(new_end, new_start)?);
             }
             Some(Self::new(glued_segments).unwrap())
@@ -403,8 +401,8 @@ impl Curve for Path {
     }
 }
 
-impl<'a> RoughlyComparable for &'a Path {
-    fn is_roughly_within(&self, other: &Path, tolerance: N) -> bool {
+impl<'a> RoughEq for &'a Path {
+    fn rough_eq_by(&self, other: &Path, tolerance: N) -> bool {
         self.segments.len() == other.segments.len() &&
             if self.is_closed() && other.is_closed() {
                 // TODO: this is strictly too loose
@@ -412,12 +410,12 @@ impl<'a> RoughlyComparable for &'a Path {
                 // since the paths are *not* exactly equal
                 self.segments.iter().all(|segment_1| {
                     other.segments.iter().any(|segment_2| {
-                        segment_1.is_roughly_within(segment_2, tolerance)
+                        segment_1.rough_eq_by(segment_2, tolerance)
                     })
                 })
             } else {
                 self.segments.iter().zip(other.segments.iter()).all(
-                    |(segment_1, segment_2)| segment_1.is_roughly_within(segment_2, tolerance),
+                    |(segment_1, segment_2)| segment_1.rough_eq_by(segment_2, tolerance),
                 )
             }
 

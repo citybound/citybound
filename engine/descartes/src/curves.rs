@@ -1,5 +1,5 @@
-use super::{N, P2, V2, WithUniqueOrthogonal, angle_along_to, RoughlyComparable, Intersect,
-            Intersection, HasBoundingBox, BoundingBox, THICKNESS};
+use super::{N, P2, V2, WithUniqueOrthogonal, angle_along_to, RoughEq, Intersect, Intersection,
+            HasBoundingBox, BoundingBox, THICKNESS};
 use nalgebra::Rotation2;
 
 pub trait Curve: Sized {
@@ -95,7 +95,7 @@ const MAX_SIMPLE_LINE_LENGTH: f32 = 0.5;
 
 fn start_end_invalid(start: P2, end: P2) -> bool {
     start.x.is_nan() || start.y.is_nan() || end.x.is_nan() || end.y.is_nan() ||
-        start.is_roughly_within(end, MIN_START_TO_END)
+        start.rough_eq_by(end, MIN_START_TO_END)
 }
 
 impl Segment {
@@ -118,7 +118,7 @@ impl Segment {
         if start_end_invalid(start, end) {
             //panic!("invalid segment!");
             None
-        } else if direction.is_roughly_within((end - start).normalize(), DIRECTION_TOLERANCE) {
+        } else if direction.rough_eq_by((end - start).normalize(), DIRECTION_TOLERANCE) {
             Segment::line(start, end)
         } else {
             let signed_radius = {
@@ -154,7 +154,7 @@ impl Segment {
             // );
         }
         let simple_curve = Segment::arc_with_direction(start, start_direction, end)?;
-        if simple_curve.end_direction().is_roughly_within(
+        if simple_curve.end_direction().rough_eq_by(
             end_direction,
             DIRECTION_TOLERANCE,
         )
@@ -200,8 +200,8 @@ impl Segment {
                     let v = end - start;
                     let t = start_direction + end_direction;
                     let same_direction =
-                        start_direction.is_roughly_within(end_direction, DIRECTION_TOLERANCE);
-                    let end_orthogonal_of_start = v.dot(&end_direction).is_roughly(0.0);
+                        start_direction.rough_eq_by(end_direction, DIRECTION_TOLERANCE);
+                    let end_orthogonal_of_start = v.dot(&end_direction).rough_eq(0.0);
 
                     if same_direction && end_orthogonal_of_start {
                         //    __
@@ -239,7 +239,7 @@ impl Segment {
 
                 };
 
-            if start.is_roughly_within(connection_position, MIN_START_TO_END) {
+            if start.rough_eq_by(connection_position, MIN_START_TO_END) {
                 Some(vec![
                     Segment::arc_with_direction(
                         connection_position,
@@ -247,7 +247,7 @@ impl Segment {
                         end
                     )?,
                 ])
-            } else if end.is_roughly_within(connection_position, MIN_START_TO_END) {
+            } else if end.rough_eq_by(connection_position, MIN_START_TO_END) {
                 Some(vec![
                     Segment::arc_with_direction(
                         start,
@@ -384,9 +384,7 @@ impl FiniteCurve for Segment {
 
         if true_end - true_start < MIN_START_TO_END {
             None
-        } else if self.is_linear() || true_end.is_roughly(0.0) ||
-                   true_start.is_roughly(self.length)
-        {
+        } else if self.is_linear() || true_end.rough_eq(0.0) || true_start.rough_eq(self.length) {
             Segment::line(self.along(true_start), self.along(true_end))
         } else {
             Segment::arc_with_direction(
@@ -478,14 +476,11 @@ impl Curve for Segment {
     }
 }
 
-impl<'a> RoughlyComparable for &'a Segment {
-    fn is_roughly_within(&self, other: &Segment, tolerance: N) -> bool {
-        self.start.is_roughly_within(other.start, tolerance) &&
-            self.end.is_roughly_within(other.end, tolerance) &&
-            self.midpoint().is_roughly_within(
-                other.midpoint(),
-                tolerance,
-            )
+impl<'a> RoughEq for &'a Segment {
+    fn rough_eq_by(&self, other: &Segment, tolerance: N) -> bool {
+        self.start.rough_eq_by(other.start, tolerance) &&
+            self.end.rough_eq_by(other.end, tolerance) &&
+            self.midpoint().rough_eq_by(other.midpoint(), tolerance)
     }
 }
 

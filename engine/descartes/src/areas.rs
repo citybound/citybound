@@ -1,4 +1,4 @@
-use {P2, V2, N, THICKNESS, RoughlyComparable, VecLike};
+use {P2, V2, N, THICKNESS, RoughEq, VecLike};
 use curves::{Segment, Curve, FiniteCurve, Circle};
 use path::Path;
 use intersect::Intersect;
@@ -67,9 +67,9 @@ impl PointContainer for PrimitiveArea {
     }
 }
 
-impl<'a> RoughlyComparable for &'a PrimitiveArea {
-    fn is_roughly_within(&self, other: Self, tolerance: N) -> bool {
-        (&self.boundary).is_roughly_within(&other.boundary, tolerance)
+impl<'a> RoughEq for &'a PrimitiveArea {
+    fn rough_eq_by(&self, other: Self, tolerance: N) -> bool {
+        (&self.boundary).rough_eq_by(&other.boundary, tolerance)
     }
 }
 
@@ -206,28 +206,28 @@ impl Area {
                     .iter_mut()
                     .map(|other_piece| {
                         let forward_equivalent =
-                            other_piece.path.start().is_roughly_within(
+                            other_piece.path.start().rough_eq_by(
                                 boundary_piece.path.start(),
                                 THICKNESS,
                             ) &&
-                                other_piece.path.end().is_roughly_within(
+                                other_piece.path.end().rough_eq_by(
                                     boundary_piece.path.end(),
                                     THICKNESS,
                                 ) &&
-                                other_piece.path.midpoint().is_roughly_within(
+                                other_piece.path.midpoint().rough_eq_by(
                                     boundary_piece.path.midpoint(),
                                     THICKNESS,
                                 );
                         let backward_equivalent =
-                            other_piece.path.start().is_roughly_within(
+                            other_piece.path.start().rough_eq_by(
                                 boundary_piece.path.end(),
                                 THICKNESS,
                             ) &&
-                                other_piece.path.end().is_roughly_within(
+                                other_piece.path.end().rough_eq_by(
                                     boundary_piece.path.start(),
                                     THICKNESS,
                                 ) &&
-                                other_piece.path.midpoint().is_roughly_within(
+                                other_piece.path.midpoint().rough_eq_by(
                                     boundary_piece.path.midpoint(),
                                     THICKNESS,
                                 );
@@ -329,12 +329,12 @@ impl PointContainer for Area {
     }
 }
 
-impl<'a> RoughlyComparable for &'a Area {
-    fn is_roughly_within(&self, other: Self, tolerance: N) -> bool {
+impl<'a> RoughEq for &'a Area {
+    fn rough_eq_by(&self, other: Self, tolerance: N) -> bool {
         self.primitives.len() == other.primitives.len() &&
             self.primitives.iter().all(|own_primitive| {
                 other.primitives.iter().any(|other_primitive| {
-                    own_primitive.is_roughly_within(other_primitive, tolerance)
+                    own_primitive.rough_eq_by(other_primitive, tolerance)
                 })
             })
     }
@@ -377,18 +377,10 @@ impl AreaSplitResult {
             let mut maybe_path_after = None;
 
             for (path_i, path) in paths.iter().enumerate() {
-                if path.end().is_roughly_within(
-                    oriented_path.start(),
-                    THICKNESS,
-                )
-                {
+                if path.end().rough_eq_by(oriented_path.start(), THICKNESS) {
                     maybe_path_before = Some(path_i)
                 }
-                if path.start().is_roughly_within(
-                    oriented_path.end(),
-                    THICKNESS,
-                )
-                {
+                if path.start().rough_eq_by(oriented_path.end(), THICKNESS) {
                     maybe_path_after = Some(path_i)
                 }
             }
@@ -566,7 +558,7 @@ impl AreaSplitResult {
 fn svg_tests() {
     use std::fs;
     use std::io::Read;
-    use {THICKNESS, RoughlyComparable};
+    use {THICKNESS, RoughEq};
 
     for dir_entry in fs::read_dir("./src/clipper_testcases").unwrap() {
         let path = dir_entry.unwrap().path();
@@ -640,10 +632,7 @@ fn svg_tests() {
             result_area.primitives.len()
         );
 
-        assert!((&result_area).is_roughly_within(
-            &expected_result_area,
-            THICKNESS,
-        ));
+        assert!((&result_area).rough_eq_by(&expected_result_area, THICKNESS));
     }
 }
 

@@ -1,6 +1,6 @@
 use compact::{CHashMap, CVec};
 use descartes::{N, P2, V2, Band, Segment, AsArea, Path, FiniteCurve, Area, Intersect,
-                WithUniqueOrthogonal, RoughlyComparable, PointContainer};
+                WithUniqueOrthogonal, RoughEq, PointContainer};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
@@ -58,7 +58,7 @@ impl LanePrototype {
         match (self, other) {
             (&LanePrototype(ref path_1, ref timings_1),
              &LanePrototype(ref path_2, ref timings_2)) => {
-                path_1.is_roughly_within(path_2, 0.05) && timings_1[..] == timings_2[..]
+                path_1.rough_eq_by(path_2, 0.05) && timings_1[..] == timings_2[..]
             }
         }
     }
@@ -71,7 +71,7 @@ impl SwitchLanePrototype {
     pub fn morphable_from(&self, other: &SwitchLanePrototype) -> bool {
         match (self, other) {
             (&SwitchLanePrototype(ref path_1), &SwitchLanePrototype(ref path_2)) => {
-                path_1.is_roughly_within(path_2, 0.05)
+                path_1.rough_eq_by(path_2, 0.05)
             }
         }
     }
@@ -131,7 +131,7 @@ pub struct IntersectionPrototype {
 impl IntersectionPrototype {
     pub fn morphable_from(&self, other: &IntersectionPrototype) -> bool {
         // TODO: make this better!!
-        (&self.area).is_roughly_within(&other.area, 0.1)
+        (&self.area).rough_eq_by(&other.area, 0.1)
     }
 }
 
@@ -439,7 +439,7 @@ pub fn calculate_prototypes(
                                 // are the midpoints of subsections on each side still in range?
                                 if right_path
                                     .along((first_along_right + second_along_right) / 2.0)
-                                    .is_roughly_within(
+                                    .rough_eq_by(
                                         left_path.along(
                                             (first_along_left + second_along_left) / 2.0,
                                         ),

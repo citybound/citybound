@@ -1,6 +1,6 @@
 use kay::{World, MachineID, Fate, TypedID, ActorSystem};
 use compact::{CVec, COption};
-use descartes::{Band, FiniteCurve, Path, AsArea, WithUniqueOrthogonal, Curve, Into2d};
+use descartes::{N, Band, FiniteCurve, Path, AsArea, WithUniqueOrthogonal, Curve, Into2d};
 use monet::{RendererID, Instance, Geometry};
 use stagemaster::user_interface::{UserInterfaceID, Interactable3d, Interactable3dID, Event3d};
 use stagemaster::geometry::{band_to_geometry, dash_path};
@@ -29,6 +29,8 @@ pub fn render_preview(
     let mut switch_lane_geometry = Geometry::empty();
     let mut intersection_geometry = Geometry::empty();
 
+    const EFFECTIVE_LANE_WIDTH: N = LANE_DISTANCE - LANE_MARKER_WIDTH;
+
     if let Some(ref action_preview) = *maybe_action_preview {
         for (prototype_id, prototype) in result_preview.prototypes.pairs() {
             let corresponding_construction_action_exists =
@@ -43,15 +45,15 @@ pub fn render_preview(
             if corresponding_construction_action_exists {
                 match *prototype {
                     Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
-                        lane_geometry +=
-                            band_to_geometry(
-                                &Band::new(lane_path.clone(), LANE_DISTANCE - LANE_MARKER_WIDTH),
-                                0.1,
-                            );
+                        lane_geometry += band_to_geometry(
+                            &Band::new(lane_path.clone(), EFFECTIVE_LANE_WIDTH),
+                            0.1,
+                        );
                     }
                     Prototype::Road(RoadPrototype::SwitchLane(
                         SwitchLanePrototype(ref lane_path))) => {
-                        for dash in dash_path(lane_path, LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH) {
+                        for dash in dash_path(lane_path,
+                                LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH) {
                             switch_lane_geometry +=
                                 band_to_geometry(&Band::new(dash, LANE_MARKER_WIDTH), 0.1);
                         }
@@ -70,11 +72,10 @@ pub fn render_preview(
                         for &LanePrototype(ref lane_path, ref timings) in
                             connecting_lanes.values().flat_map(|lanes| lanes)
                         {
-                            lane_geometry +=
-                                band_to_geometry(
-                                    &Band::new(lane_path.clone(), LANE_DISTANCE - LANE_MARKER_WIDTH),
-                                    0.1,
-                                );
+                            lane_geometry += band_to_geometry(
+                                &Band::new(lane_path.clone(), EFFECTIVE_LANE_WIDTH),
+                                0.1,
+                            );
                             if timings[(frame / 10) % timings.len()] {
                                 intersection_geometry +=
                                     band_to_geometry(&Band::new(lane_path.clone(), 0.1), 0.1);

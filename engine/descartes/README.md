@@ -32,7 +32,7 @@ It offers...
 - [ ] Boolean operations between shapes
 - [X] Orthogonal offsets of segments
 - [ ] True Orthogonal offsets of paths (without producing self-intersections)
-- [X] A `RoughlyComparable` Trait for comparing things within a tolerance, with implementations for `P2, P3` and `V2, P3`
+- [X] A `RoughEq` Trait for comparing things within a tolerance, with implementations for `P2, P3` and `V2, P3`
 
 It internally uses...
 

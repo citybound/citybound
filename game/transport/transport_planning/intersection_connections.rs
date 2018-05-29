@@ -1,5 +1,5 @@
 use compact::CVec;
-use descartes::{Segment, Path, FiniteCurve, Intersect, WithUniqueOrthogonal, RoughlyComparable};
+use descartes::{Segment, Path, FiniteCurve, Intersect, WithUniqueOrthogonal, RoughEq};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
@@ -51,11 +51,11 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                     outer_turn: true,
                 }
             } else {
-                let is_uturn = outgoing[0].position.is_roughly_within(
+                let is_uturn = outgoing[0].position.rough_eq_by(
                     incoming[0].position,
                     LANE_DISTANCE * 4.0,
                 ) &&
-                    outgoing[0].direction.is_roughly_within(
+                    outgoing[0].direction.rough_eq_by(
                         -incoming[0].direction,
                         0.1,
                     );
@@ -246,8 +246,8 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
         fn compatible(lanes_a: &[LanePrototype], lanes_b: &[LanePrototype]) -> bool {
             lanes_a.iter().cartesian_product(lanes_b).all(
                 |(&LanePrototype(ref path_a, _), &LanePrototype(ref path_b, _))| {
-                    path_a.start().is_roughly_within(path_b.start(), 0.1) ||
-                        (!path_a.end().is_roughly_within(path_b.end(), 0.1) &&
+                    path_a.start().rough_eq_by(path_b.start(), 0.1) ||
+                        (!path_a.end().rough_eq_by(path_b.end(), 0.1) &&
                              (path_a, path_b).intersect().is_empty())
                 },
             )

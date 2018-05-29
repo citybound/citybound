@@ -129,27 +129,27 @@ impl Into3d for P2 {
     }
 }
 
-pub trait RoughlyComparable: Sized {
-    fn is_roughly(&self, other: Self) -> bool {
-        self.is_roughly_within(other, ROUGH_TOLERANCE)
+pub trait RoughEq: Sized {
+    fn rough_eq(&self, other: Self) -> bool {
+        self.rough_eq_by(other, ROUGH_TOLERANCE)
     }
-    fn is_roughly_within(&self, other: Self, tolerance: N) -> bool;
+    fn rough_eq_by(&self, other: Self, tolerance: N) -> bool;
 }
 
-impl RoughlyComparable for N {
-    fn is_roughly_within(&self, other: N, tolerance: N) -> bool {
+impl RoughEq for N {
+    fn rough_eq_by(&self, other: N, tolerance: N) -> bool {
         (self - other).abs() <= tolerance
     }
 }
 
-impl RoughlyComparable for P2 {
-    fn is_roughly_within(&self, other: P2, tolerance: N) -> bool {
+impl RoughEq for P2 {
+    fn rough_eq_by(&self, other: P2, tolerance: N) -> bool {
         (*self - other).norm() <= tolerance
     }
 }
 
-impl RoughlyComparable for V2 {
-    fn is_roughly_within(&self, other: V2, tolerance: N) -> bool {
+impl RoughEq for V2 {
+    fn rough_eq_by(&self, other: V2, tolerance: N) -> bool {
         (*self - other).norm() <= tolerance
     }
 }
