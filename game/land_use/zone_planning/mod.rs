@@ -16,7 +16,7 @@ pub enum ZoneIntent {
     SetBack(u8),
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum LandUse {
     Residential,
     Commercial,

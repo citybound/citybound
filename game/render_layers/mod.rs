@@ -1,7 +1,8 @@
 #[repr(u32)]
 pub enum RenderLayers {
-    PlanningLot = 100_000_000,
-    PlanningLotOutline = 110_000_000,
+    PlanningLotResidentialArea = 100_000_000,
+    PlanningLotVacantOutline = 180_000_000,
+    PlanningLotOccupiedOutline = 190_000_000,
 
     LaneAsphalt = 200_000_000,
     LaneMarker = 210_000_000,

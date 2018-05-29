@@ -29,12 +29,15 @@ pub const FIELD: [f32; 3] = [0.7, 0.7, 0.2];
 
 // ZONES
 
-pub const INDUSTRIAL: [f32; 3] = [1.0, 0.66, 0.45];
-pub const COMMERCIAL: [f32; 3] = [0.59, 0.71, 0.90];
-pub const RESIDENTIAL: [f32; 3] = [0.46, 0.82, 0.57];
-pub const AGRICULTURAL: [f32; 3] = [1.0, 0.84, 0.42];
-pub const RECREATIONAL: [f32; 3] = [0.47, 0.55, 0.41];
-pub const OFFICIAL: [f32; 3] = [0.45, 0.37, 0.86];
+pub const INDUSTRIAL: [f32; 3] = [0.95, 0.40, 0.17];
+pub const COMMERCIAL: [f32; 3] = [0.35, 0.46, 0.80];
+pub const RESIDENTIAL: [f32; 3] = [0.16, 0.63, 0.28];
+pub const AGRICULTURAL: [f32; 3] = [0.93, 0.68, 0.14];
+pub const RECREATIONAL: [f32; 3] = [0.17, 0.26, 0.14];
+pub const OFFICIAL: [f32; 3] = [0.15, 0.11, 0.72];
+
+pub const LOT_VACANT: [f32; 3] = [0.3, 0.3, 0.3];
+pub const LOT_OCCUPIED: [f32; 3] = [0.1, 0.1, 0.1];
 
 // RANDOM COLORS
 

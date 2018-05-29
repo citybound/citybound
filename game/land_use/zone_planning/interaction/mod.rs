@@ -6,9 +6,10 @@ use monet::{RendererID, Geometry, Instance};
 use planning::{PlanResult, Prototype};
 use construction::Action;
 use style::colors;
+use style::dimensions::LOT_OUTLINE_WIDTH;
 use render_layers::RenderLayers;
 
-use super::{LotPrototype, Lot, LotOccupancy};
+use super::{LotPrototype, Lot, LotOccupancy, LandUse};
 
 pub fn render_preview(
     result_preview: &PlanResult,
@@ -17,41 +18,63 @@ pub fn render_preview(
     _frame: usize,
     world: &mut World,
 ) {
-    let mut lot_geometry = Geometry::empty();
-    let mut lot_outline_geometry = Geometry::empty();
+    let mut lot_residential_geometry = Geometry::empty();
+    let mut lot_occupied_outline_geometry = Geometry::empty();
+    let mut lot_vacant_outline_geometry = Geometry::empty();
 
     for prototype in result_preview.prototypes.values() {
-        if let Prototype::Lot(LotPrototype { lot: Lot { ref area, .. }, occupancy, .. }) =
-            *prototype
+        if let Prototype::Lot(LotPrototype {
+                                  lot: Lot { ref area, ref land_uses, .. },
+                                  occupancy,
+                                  ..
+                              }) = *prototype
         {
             if occupancy == LotOccupancy::Vacant {
                 for primitive in &area.primitives {
-                    lot_outline_geometry +=
-                        band_to_geometry(&Band::new(primitive.boundary.clone(), 2.0), 0.1);
+                    lot_vacant_outline_geometry +=
+                        band_to_geometry(
+                            &Band::new(primitive.boundary.clone(), LOT_OUTLINE_WIDTH),
+                            0.1,
+                        );
                 }
             } else {
                 for primitive in &area.primitives {
-                    lot_geometry +=
-                        band_to_geometry(&Band::new(primitive.boundary.clone(), 1.0), 0.1);
+                    lot_occupied_outline_geometry +=
+                        band_to_geometry(
+                            &Band::new(primitive.boundary.clone(), LOT_OUTLINE_WIDTH),
+                            0.1,
+                        );
                 }
-                //Geometry::from_shape(shape);
             }
 
+            for land_use in land_uses {
+                if *land_use == LandUse::Residential {
+                    lot_residential_geometry += Geometry::from_area(area);
+                }
+            }
         }
     }
 
     renderer_id.update_individual(
-        RenderLayers::PlanningLot as u32,
-        lot_geometry,
-        Instance::with_color(colors::CONTROL_POINT),
+        RenderLayers::PlanningLotOccupiedOutline as u32,
+        lot_occupied_outline_geometry,
+        Instance::with_color(colors::LOT_OCCUPIED),
         true,
         world,
     );
 
     renderer_id.update_individual(
-        RenderLayers::PlanningLotOutline as u32,
-        lot_outline_geometry,
-        Instance::with_color(colors::CONTROL_POINT_SELECTED),
+        RenderLayers::PlanningLotVacantOutline as u32,
+        lot_vacant_outline_geometry,
+        Instance::with_color(colors::LOT_VACANT),
+        true,
+        world,
+    );
+
+    renderer_id.update_individual(
+        RenderLayers::PlanningLotResidentialArea as u32,
+        lot_residential_geometry,
+        Instance::with_color(colors::RESIDENTIAL),
         true,
         world,
     );
