@@ -133,8 +133,8 @@ impl Renderer {
 }
 
 pub trait Renderable {
-    fn setup_in_scene(&mut self, renderer_id: RendererID, world: &mut World);
-    fn render_to_scene(&mut self, renderer_id: RendererID, frame: usize, world: &mut World);
+    fn init(&mut self, renderer_id: RendererID, world: &mut World);
+    fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World);
 }
 
 

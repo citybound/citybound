@@ -21,10 +21,10 @@ mod traffic_light;
 use monet::{Renderable, RenderableID, GrouperID, GrouperIndividual, GrouperIndividualID};
 
 impl Renderable for Lane {
-    fn setup_in_scene(&mut self, _renderer_id: RendererID, _: &mut World) {}
+    fn init(&mut self, _renderer_id: RendererID, _: &mut World) {}
 
     #[cfg_attr(feature = "cargo-clippy", allow(cyclomatic_complexity))]
-    fn render_to_scene(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
+    fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         let mut cars_iter = self.microtraffic.cars.iter();
         let mut current_offset = 0.0;
         let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
@@ -359,9 +359,9 @@ impl GrouperIndividual for Lane {
 }
 
 impl Renderable for SwitchLane {
-    fn setup_in_scene(&mut self, _renderer_id: RendererID, _: &mut World) {}
+    fn init(&mut self, _renderer_id: RendererID, _: &mut World) {}
 
-    fn render_to_scene(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
+    fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         let mut cars_iter = self.microtraffic.cars.iter();
         let mut current_offset = 0.0;
         let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
@@ -569,7 +569,7 @@ pub struct LaneRenderer {
 }
 
 impl Renderable for LaneRenderer {
-    fn setup_in_scene(&mut self, renderer_id: RendererID, world: &mut World) {
+    fn init(&mut self, renderer_id: RendererID, world: &mut World) {
         renderer_id.add_batch(RenderLayers::Car as u32, car::create(), world);
         renderer_id.add_batch(
             RenderLayers::TrafficLightBox as u32,
@@ -607,7 +607,7 @@ impl Renderable for LaneRenderer {
         );
     }
 
-    fn render_to_scene(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
+    fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         // Render a single invisible car to clean all instances every frame
         renderer_id.add_instance(
             RenderLayers::Car as u32,
@@ -621,10 +621,10 @@ impl Renderable for LaneRenderer {
         );
 
         let lanes_as_renderables: RenderableID = Lane::local_broadcast(world).into();
-        lanes_as_renderables.render_to_scene(renderer_id, frame, world);
+        lanes_as_renderables.render(renderer_id, frame, world);
 
         let switch_lanes_as_renderables: RenderableID = SwitchLane::local_broadcast(world).into();
-        switch_lanes_as_renderables.render_to_scene(renderer_id, frame, world);
+        switch_lanes_as_renderables.render(renderer_id, frame, world);
     }
 }
 

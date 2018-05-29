@@ -9,7 +9,7 @@ impl Renderer {
     /// Critical
     pub fn setup(&mut self, world: &mut World) {
         for renderable in &self.scene.renderables {
-            renderable.setup_in_scene(self.id, world);
+            renderable.init(self.id, world);
         }
     }
 
@@ -18,7 +18,7 @@ impl Renderer {
         let self_id = self.id;
         let current_frame = self.current_frame;
         for renderable in &self.scene.renderables {
-            renderable.render_to_scene(self_id, current_frame, world);
+            renderable.render(self_id, current_frame, world);
         }
         self.current_frame += 1;
     }

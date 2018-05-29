@@ -9,7 +9,7 @@ use super::{PlanManager, PlanManagerID};
 use super::interaction::{ControlPointRef, CONTROL_POINT_HANDLE_RADIUS};
 
 impl Renderable for PlanManager {
-    fn setup_in_scene(&mut self, renderer_id: RendererID, world: &mut World) {
+    fn init(&mut self, renderer_id: RendererID, world: &mut World) {
         let dot_mesh = band_to_mesh(
             &Band::new(
                 Circle {
@@ -28,7 +28,7 @@ impl Renderable for PlanManager {
         renderer_id.add_batch(RenderLayers::PlanningGestureDots as u32, dot_mesh, world);
     }
 
-    fn render_to_scene(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
+    fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         // TODO: clean up this mess
         let proposal_id = self.ui_state
             .get(renderer_id.as_raw().machine)

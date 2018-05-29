@@ -133,9 +133,9 @@ impl Grouper {
 use {Renderable, RendererID, RenderableID};
 
 impl Renderable for Grouper {
-    fn setup_in_scene(&mut self, _renderer_id: RendererID, _: &mut World) {}
+    fn init(&mut self, _renderer_id: RendererID, _: &mut World) {}
 
-    fn render_to_scene(&mut self, renderer_id: RendererID, _frame: usize, world: &mut World) {
+    fn render(&mut self, renderer_id: RendererID, _frame: usize, world: &mut World) {
 
         // kinda ugly way to enforce only one update per "global" frame
         if renderer_id.as_raw().machine == self.id.as_raw().machine {

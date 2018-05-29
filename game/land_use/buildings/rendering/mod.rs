@@ -230,22 +230,20 @@ impl BuildingRenderer {
 }
 
 impl Renderable for BuildingRenderer {
-    fn setup_in_scene(&mut self, renderer_id: RendererID, world: &mut World) {
-        Into::<RenderableID>::into(self.wall_grouper).setup_in_scene(renderer_id, world);
-        Into::<RenderableID>::into(self.flat_roof_grouper).setup_in_scene(renderer_id, world);
-        Into::<RenderableID>::into(self.brick_roof_grouper).setup_in_scene(renderer_id, world);
-        Into::<RenderableID>::into(self.field_grouper).setup_in_scene(renderer_id, world);
+    fn init(&mut self, renderer_id: RendererID, world: &mut World) {
+        Into::<RenderableID>::into(self.wall_grouper).init(renderer_id, world);
+        Into::<RenderableID>::into(self.flat_roof_grouper).init(renderer_id, world);
+        Into::<RenderableID>::into(self.brick_roof_grouper).init(renderer_id, world);
+        Into::<RenderableID>::into(self.field_grouper).init(renderer_id, world);
     }
 
-    fn render_to_scene(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
+    fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         // let renderable_buildings: RenderableID = BuildingID::local_broadcast(world).into();
-        // renderable_buildings.render_to_scene(renderer_id, frame, world);
-        Into::<RenderableID>::into(self.wall_grouper).render_to_scene(renderer_id, frame, world);
-        Into::<RenderableID>::into(self.flat_roof_grouper)
-            .render_to_scene(renderer_id, frame, world);
-        Into::<RenderableID>::into(self.brick_roof_grouper)
-            .render_to_scene(renderer_id, frame, world);
-        Into::<RenderableID>::into(self.field_grouper).render_to_scene(renderer_id, frame, world);
+        // renderable_buildings.render(renderer_id, frame, world);
+        Into::<RenderableID>::into(self.wall_grouper).render(renderer_id, frame, world);
+        Into::<RenderableID>::into(self.flat_roof_grouper).render(renderer_id, frame, world);
+        Into::<RenderableID>::into(self.brick_roof_grouper).render(renderer_id, frame, world);
+        Into::<RenderableID>::into(self.field_grouper).render(renderer_id, frame, world);
     }
 }
 
