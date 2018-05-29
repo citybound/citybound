@@ -48,6 +48,8 @@ impl TraitDef {
     }
 }
 
+type TraitHandlersArgs<O> = Vec<Vec<Vec<O>>>;
+
 impl Model {
     pub fn map_handlers<O, F>(&self, origin: HandlerOrigin, map_f: F) -> (Vec<Vec<O>>, Vec<Vec<O>>)
     where
@@ -110,7 +112,10 @@ impl Model {
         (for_instance, for_init)
     }
 
-    pub fn map_trait_handlers_args<O, F>(&self, map_f: F) -> (Vec<Vec<Vec<O>>>, Vec<Vec<Vec<O>>>)
+    pub fn map_trait_handlers_args<O, F>(
+        &self,
+        map_f: F,
+    ) -> (TraitHandlersArgs<O>, TraitHandlersArgs<O>)
     where
         F: Fn(&FnArg) -> O,
     {
@@ -142,10 +147,10 @@ impl Model {
             let msg_prefix = typ_to_message_prefix(actor_name, handler.from_trait.as_ref());
             Ident::new(format!("{}_{}", msg_prefix, handler.name))
         });
-        let (msg_args, init_msg_args) = self.map_handlers_args(OnlyOwn, |arg| match arg {
-            &FnArg::Captured(Pat::Ident(_, ref ident, _), ref ty) => {
-                match ty {
-                    &Ty::Rptr(_, _) => Pat::Ident(ByRef(Immutable), ident.clone(), None),
+        let (msg_args, init_msg_args) = self.map_handlers_args(OnlyOwn, |arg| match *arg {
+            FnArg::Captured(Pat::Ident(_, ref ident, _), ref ty) => {
+                match *ty {
+                    Ty::Rptr(_, _) => Pat::Ident(ByRef(Immutable), ident.clone(), None),
                     _ => Pat::Ident(ByValue(Immutable), ident.clone(), None),
                 }
             }
@@ -154,8 +159,8 @@ impl Model {
         let (handler_names, init_handler_names) =
             self.map_handlers(OnlyOwn, |_, handler| handler.name.clone());
         let (handler_params, init_handler_params) =
-            self.map_handlers_args(OnlyOwn, |arg| match arg {
-                &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
+            self.map_handlers_args(OnlyOwn, |arg| match *arg {
+                FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
                 _ => unimplemented!(),
             });
         let (maybe_fate_returns, _) =
@@ -209,8 +214,8 @@ impl Model {
         let (handler_names_1, _) = self.map_trait_handlers(|_, handler| handler.name.clone());
         let handler_names_2 = handler_names_1.clone();
         let (handler_args, _) = self.map_trait_handlers_args(arg_as_ident_and_type);
-        let (handler_params, _) = self.map_trait_handlers_args(|arg| match arg {
-            &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
+        let (handler_params, _) = self.map_trait_handlers_args(|arg| match *arg {
+            FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
             _ => unimplemented!(),
         });
         let (maybe_fate_returns, _) =
@@ -232,10 +237,10 @@ impl Model {
             } else {
                 quote!(#[derive(Compact, Clone)])
             });
-        let (msg_args, _) = self.map_trait_handlers_args(|arg| match arg {
-            &FnArg::Captured(Pat::Ident(_, ref ident, _), ref ty) => {
-                match ty {
-                    &Ty::Rptr(_, _) => Pat::Ident(ByRef(Immutable), ident.clone(), None),
+        let (msg_args, _) = self.map_trait_handlers_args(|arg| match *arg {
+            FnArg::Captured(Pat::Ident(_, ref ident, _), ref ty) => {
+                match *ty {
+                    Ty::Rptr(_, _) => Pat::Ident(ByRef(Immutable), ident.clone(), None),
                     _ => Pat::Ident(ByValue(Immutable), ident.clone(), None),
                 }
             }
@@ -447,25 +452,25 @@ fn trait_name_to_id(trait_name: &TraitName) -> Ident {
 }
 
 fn arg_as_ident_and_type(arg: &FnArg) -> FnArg {
-    match arg {
-        &FnArg::Captured(ref ident, Ty::Rptr(_, ref ty_box)) => {
+    match *arg {
+        FnArg::Captured(ref ident, Ty::Rptr(_, ref ty_box)) => {
             FnArg::Captured(ident.clone(), ty_box.ty.clone())
         }
-        other => other.clone(),
+        ref other => other.clone(),
     }
 }
 
 fn arg_as_value(arg: &FnArg) -> Ident {
-    match arg {
-        &FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
+    match *arg {
+        FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
         _ => unimplemented!(),
     }
 }
 
 fn arg_as_value_type(arg: &FnArg) -> Ty {
-    match arg {
-        &FnArg::Captured(_, Ty::Rptr(_, ref ty_box)) => ty_box.ty.clone(),
-        &FnArg::Captured(_, ref other) => other.clone(),
+    match *arg {
+        FnArg::Captured(_, Ty::Rptr(_, ref ty_box)) => ty_box.ty.clone(),
+        FnArg::Captured(_, ref other) => other.clone(),
         _ => unimplemented!(),
     }
 }

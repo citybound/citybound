@@ -1,5 +1,5 @@
 use kay::{World, TypedID};
-use descartes::{P2, V2, Band, Segment, Path};
+use descartes::{P2, Band, Segment, Circle, Path, AsArea};
 use monet::{RendererID, Renderable, RenderableID, Instance, Geometry};
 use stagemaster::geometry::band_to_geometry;
 use style::colors;
@@ -12,19 +12,14 @@ impl Renderable for PlanManager {
     fn setup_in_scene(&mut self, renderer_id: RendererID, world: &mut World) {
         let dot_geometry = band_to_geometry(
             &Band::new(
-                Path::new(
-                    Segment::arc_with_direction(
-                        P2::new(-CONTROL_POINT_HANDLE_RADIUS / 2.0, 0.0),
-                        V2::new(0.0, 1.0),
-                        P2::new(CONTROL_POINT_HANDLE_RADIUS / 2.0, 0.0),
-                    ).into_iter()
-                        .chain(Segment::arc_with_direction(
-                            P2::new(CONTROL_POINT_HANDLE_RADIUS / 2.0, 0.0),
-                            V2::new(0.0, -1.0),
-                            P2::new(-CONTROL_POINT_HANDLE_RADIUS / 2.0, 0.0),
-                        ))
-                        .collect(),
-                ).unwrap(),
+                Circle {
+                    center: P2::new(0.0, 0.0),
+                    radius: CONTROL_POINT_HANDLE_RADIUS,
+                }.as_area()
+                    .primitives
+                    [0]
+                    .boundary
+                    .clone(),
                 0.3,
             ),
             1.0,

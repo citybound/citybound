@@ -461,8 +461,8 @@ impl<'a, K, V, A: Allocator> QuadraticProbingIterator<'a, K, V, A> {
         QuadraticProbingIterator {
             i: 0,
             number_used: map.entries.cap,
-            hash: hash,
-            map: map,
+            hash,
+            map,
         }
     }
 }
@@ -475,8 +475,8 @@ impl<'a, K, V, A: Allocator> QuadraticProbingMutIterator<'a, K, V, A> {
         QuadraticProbingMutIterator {
             i: 0,
             number_used: map.entries.cap,
-            hash: hash,
-            map: map,
+            hash,
+            map,
         }
     }
 }
@@ -593,6 +593,8 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
         })
     }
 
+    /// Iterator over all key-value pairs in the dictionary,
+    /// with the value as a mutable reference
     pub fn pairs_mut<'a>(&'a mut self) -> impl Iterator<Item = (K, &'a mut V)> + 'a
     where
         K: Copy,

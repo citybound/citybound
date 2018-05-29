@@ -54,13 +54,13 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
     let name = &ast.ident;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
-    let tokens = match ast.body {
+    match ast.body {
         syn::Body::Struct(ref data) => {
             let fields: Vec<_> = data.fields()
                 .iter()
                 .enumerate()
                 .map(|(i, ref f)| {
-                    f.ident.clone().unwrap_or(format!("{}", i).into())
+                    f.ident.clone().unwrap_or_else(|| format!("{}", i).into())
                 })
                 .collect();
             let fields_ref = &fields;
@@ -250,9 +250,7 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                 }
             }
         }
-    };
-
-    tokens
+    }
 }
 
 #[test]

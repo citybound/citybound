@@ -6,7 +6,7 @@ pub fn parse(file: &str) -> Result<Model, String> {
 
     let parsed = parse_crate(file)?;
 
-    for item in parsed.items.iter() {
+    for item in &parsed.items {
         let ident = &item.ident;
         match item.node {
             ItemKind::Struct(_, _) => {
@@ -26,14 +26,17 @@ pub fn parse(file: &str) -> Result<Model, String> {
                     _ => unimplemented!(),
                 };
                 if let Some(ref trait_name) = *maybe_trait {
-                    let new_actor_handlers =
-                        handlers_from_impl_items(impl_items, Some(trait_name.clone()), actor_path);
+                    let new_actor_handlers = handlers_from_impl_items(
+                        impl_items,
+                        &Some(trait_name.clone()),
+                        &actor_path,
+                    );
                     actor_def.impls.push(trait_name.clone());
                     actor_def.handlers.extend(new_actor_handlers);
                 } else {
                     actor_def.handlers.extend(handlers_from_impl_items(
                         impl_items,
-                        None,
+                        &None,
                         actor_path,
                     ));
                 }
@@ -83,21 +86,21 @@ pub fn parse(file: &str) -> Result<Model, String> {
 
 fn handlers_from_impl_items(
     impl_items: &[ImplItem],
-    with_trait: Option<TraitName>,
+    with_trait: &Option<TraitName>,
     parent_path: &::syn::Path,
 ) -> Vec<Handler> {
     impl_items
         .iter()
-        .filter_map(|impl_item| if let &ImplItem {
+        .filter_map(|impl_item| if let ImplItem {
             ident: ref fn_name,
             ref vis,
             node: ImplItemKind::Method(ref sig, _),
             ref attrs,
             ..
-        } = impl_item
+        } = *impl_item
         {
             if with_trait.is_some() || *vis == Visibility::Public {
-                handler_from(fn_name, sig, attrs, with_trait.clone(), parent_path)
+                handler_from(fn_name, sig, attrs, with_trait, parent_path)
             } else {
                 None
             }
@@ -110,13 +113,13 @@ fn handlers_from_impl_items(
 fn handlers_from_trait_items(trait_items: &[TraitItem], parent_path: &::syn::Path) -> Vec<Handler> {
     trait_items
         .iter()
-        .filter_map(|trait_item| if let &TraitItem {
+        .filter_map(|trait_item| if let TraitItem {
             ident: ref fn_name,
             node: TraitItemKind::Method(ref sig, _),
             ..
-        } = trait_item
+        } = *trait_item
         {
-            handler_from(fn_name, sig, &[], None, parent_path)
+            handler_from(fn_name, sig, &[], &None, parent_path)
         } else {
             None
         })
@@ -127,21 +130,19 @@ fn handler_from(
     fn_name: &Ident,
     sig: &MethodSig,
     attrs: &[Attribute],
-    from_trait: Option<TraitName>,
+    from_trait: &Option<TraitName>,
     parent_path: &::syn::Path,
 ) -> Option<Handler> {
-    check_handler(sig, parent_path.clone()).and_then(|(args, scope)| {
+    check_handler(sig, parent_path).and_then(|(args, scope)| {
         let returns_fate = match sig.decl.output {
             FunctionRetTy::Default => false,
             FunctionRetTy::Ty(Ty::Path(_, Path { ref segments, .. })) => {
                 if segments.iter().any(|s| s.ident.as_ref() == "Fate") {
                     true
+                } else if scope == HandlerType::Init {
+                    false
                 } else {
-                    if scope == HandlerType::Init {
-                        false
-                    } else {
-                        return None;
-                    }
+                    return None;
                 }
             }
             _ => return None,
@@ -155,20 +156,23 @@ fn handler_from(
         Some(Handler {
             name: fn_name.clone(),
             arguments: args.to_vec(),
-            scope: scope,
+            scope,
             critical: is_critical,
-            returns_fate: returns_fate,
+            returns_fate,
             from_trait: from_trait.clone(),
         })
     })
 }
 
-pub fn check_handler(sig: &MethodSig, parent_path: ::syn::Path) -> Option<(&[FnArg], HandlerType)> {
+pub fn check_handler<'a>(
+    sig: &'a MethodSig,
+    parent_path: &::syn::Path,
+) -> Option<(&'a [FnArg], HandlerType)> {
     if let Some(&FnArg::Captured(_, Ty::Rptr(_, ref ty_box))) = sig.decl.inputs.last() {
-        if let &MutTy {
+        if let MutTy {
             mutability: Mutability::Mutable,
             ty: Ty::Path(_, ref path),
-        } = &**ty_box
+        } = **ty_box
         {
             if path.segments.last().unwrap().ident == Ident::new("World") {
                 match sig.decl.inputs.get(0) {
@@ -182,7 +186,7 @@ pub fn check_handler(sig: &MethodSig, parent_path: ::syn::Path) -> Option<(&[FnA
                         match sig.decl.output {
                             FunctionRetTy::Ty(Ty::Path(_, ref ret_ty_path))
                                 if *ret_ty_path == ::syn::Path::from(self_segment) ||
-                                       *ret_ty_path == parent_path => {
+                                       *ret_ty_path == *parent_path => {
                                 let args = &sig.decl.inputs[1..(sig.decl.inputs.len() - 1)];
                                 Some((args, HandlerType::Init))
                             }

@@ -1,5 +1,6 @@
 use super::type_registry::ShortTypeId;
 
+/// Identifies a machine in the network
 #[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Debug)]
 pub struct MachineID(pub u8);
 

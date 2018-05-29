@@ -232,22 +232,6 @@ impl BuildingRenderer {
 
 impl Renderable for BuildingRenderer {
     fn setup_in_scene(&mut self, renderer_id: RendererID, world: &mut World) {
-        // let band_path = CPath::new(vec![
-        //     Segment::arc_with_direction(
-        //         P2::new(5.0, 0.0),
-        //         V2::new(0.0, 1.0),
-        //         P2::new(-5.0, 0.0)
-        //     ),
-        //     Segment::arc_with_direction(
-        //         P2::new(-5.0, 0.0),
-        //         V2::new(0.0, -1.0),
-        //         P2::new(5.0, 0.0)
-        //     ),
-        // ]);
-        // let building_circle = band_to_geometry(&Band::new(band_path, 2.0), 0.0);
-        // renderer_id.add_batch(RenderLayers::DebugBuildingConnector as u32,
-        //                       building_circle,
-        //                       world);
         Into::<RenderableID>::into(self.wall_grouper).setup_in_scene(renderer_id, world);
         Into::<RenderableID>::into(self.flat_roof_grouper).setup_in_scene(renderer_id, world);
         Into::<RenderableID>::into(self.brick_roof_grouper).setup_in_scene(renderer_id, world);
@@ -265,37 +249,6 @@ impl Renderable for BuildingRenderer {
         Into::<RenderableID>::into(self.field_grouper).render_to_scene(renderer_id, frame, world);
     }
 }
-
-// impl Renderable for Building {
-//     fn setup_in_scene(&mut self, _renderer_id: RendererID, _scene_id: usize, _: &mut World) {}
-
-//     fn render_to_scene(
-//         &mut self,
-//         renderer_id: RendererID,
-//         scene_id: usize,
-//         frame: usize,
-//         world: &mut World,
-//     ) {
-//         // TODO: this is super hacky
-//         let is_shop = self.households[0].as_raw().local_broadcast() ==
-//             GroceryShopID::local_broadcast(world).as_raw();
-//         renderer_id.add_instance(
-//             scene_id,
-//             RenderLayers::DebugBuildingConnector as u32,
-//             frame,
-//             Instance {
-//                 instance_position: [self.lot.position.x, self.lot.position.y, 0.0],
-//                 instance_direction: [1.0, 0.0],
-//                 instance_color: if is_shop {
-//                     [0.2, 0.2, 0.8]
-//                 } else {
-//                     [0.3, 0.8, 0.0]
-//                 },
-//             },
-//             world,
-//         );
-//     }
-// }
 
 pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) -> BuildingRendererID {
     system.register::<BuildingInspector>();
