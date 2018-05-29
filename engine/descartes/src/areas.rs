@@ -185,40 +185,8 @@ impl Area {
                             // already correctly initialized
                         }
                         AreaLocation::Boundary => {
-                            // both boundary pieces are coincident, but might be opposed
-                            let coincident_primitive_path =
-                                ab[other_subject(subject)]
-                                    .primitives
-                                    .iter()
-                                    .map(|primitive| &primitive.boundary)
-                                    .find(|boundary| boundary.includes(midpoint))
-                                    .expect("Since midpoint is on boundary, it should be on one!");
-
-                            let midpoint_distance =
-                                coincident_primitive_path.project(midpoint).expect(
-                                    "Since midpoint is on boundary, it should have a projection",
-                                );
-
-                            let start_distance =
-                                coincident_primitive_path
-                                    .project(boundary_piece.path.start())
-                                    .expect("Since midpoint is on boundary, start should also be");
-
-                            let end_distance =
-                                coincident_primitive_path
-                                    .project(boundary_piece.path.end())
-                                    .expect("Since midpoint is on boundary, end should also be");
-
-                            if coincident_primitive_path.is_ordered_along(
-                                start_distance,
-                                midpoint_distance,
-                                end_distance,
-                            )
-                            {
-                                boundary_piece.right_inside[other_subject(subject)] = true;
-                            } else {
-                                boundary_piece.left_inside[other_subject(subject)] = true;
-                            }
+                            // there will be a coincident boundary piece
+                            // we will merge inside info in uniqueness step
                         }
                     }
                 }
@@ -230,38 +198,73 @@ impl Area {
         let mut unique_boundary_pieces = VecLike::<BoundaryPiece>::new();
 
         for boundary_piece in boundary_pieces {
-            // TODO: detect if several pieces are equivalent to one longer one
-            //       - maybe we need to simplify paths sometimes to prevent this?
-            // TODO: any way to not make this O(n^2) ?
-            let equivalent_exists = unique_boundary_pieces.iter().any(|other_piece| {
-                let forward_equivalent = other_piece.path.start().is_roughly_within(
-                    boundary_piece.path.start(),
-                    THICKNESS,
-                ) &&
-                    other_piece.path.end().is_roughly_within(
-                        boundary_piece.path.end(),
-                        THICKNESS,
-                    ) &&
-                    other_piece.path.midpoint().is_roughly_within(
-                        boundary_piece.path.midpoint(),
-                        THICKNESS,
-                    );
-                let backward_equivalent = other_piece.path.start().is_roughly_within(
-                    boundary_piece.path.end(),
-                    THICKNESS,
-                ) &&
-                    other_piece.path.end().is_roughly_within(
-                        boundary_piece.path.start(),
-                        THICKNESS,
-                    ) &&
-                    other_piece.path.midpoint().is_roughly_within(
-                        boundary_piece.path.midpoint(),
-                        THICKNESS,
-                    );
-                forward_equivalent || backward_equivalent
-            });
+            let found_merge = {
+                // TODO: detect if several pieces are equivalent to one longer one
+                //       - maybe we need to simplify paths sometimes to prevent this?
+                // TODO: any way to not make this O(n^2) ?
+                let maybe_equivalent = unique_boundary_pieces
+                    .iter_mut()
+                    .map(|other_piece| {
+                        let forward_equivalent =
+                            other_piece.path.start().is_roughly_within(
+                                boundary_piece.path.start(),
+                                THICKNESS,
+                            ) &&
+                                other_piece.path.end().is_roughly_within(
+                                    boundary_piece.path.end(),
+                                    THICKNESS,
+                                ) &&
+                                other_piece.path.midpoint().is_roughly_within(
+                                    boundary_piece.path.midpoint(),
+                                    THICKNESS,
+                                );
+                        let backward_equivalent =
+                            other_piece.path.start().is_roughly_within(
+                                boundary_piece.path.end(),
+                                THICKNESS,
+                            ) &&
+                                other_piece.path.end().is_roughly_within(
+                                    boundary_piece.path.start(),
+                                    THICKNESS,
+                                ) &&
+                                other_piece.path.midpoint().is_roughly_within(
+                                    boundary_piece.path.midpoint(),
+                                    THICKNESS,
+                                );
+                        (other_piece, forward_equivalent, backward_equivalent)
+                    })
+                    .find(|(_, forward_equivalent, backward_equivalent)| {
+                        *forward_equivalent || *backward_equivalent
+                    });
 
-            if !equivalent_exists {
+
+                if let Some((equivalent_piece, forward_equivalent, _)) = maybe_equivalent {
+                    if forward_equivalent {
+                        equivalent_piece.left_inside[SUBJECT_A] |= boundary_piece.left_inside
+                            [SUBJECT_A];
+                        equivalent_piece.left_inside[SUBJECT_B] |= boundary_piece.left_inside
+                            [SUBJECT_B];
+                        equivalent_piece.right_inside[SUBJECT_A] |= boundary_piece.right_inside
+                            [SUBJECT_A];
+                        equivalent_piece.right_inside[SUBJECT_B] |= boundary_piece.right_inside
+                            [SUBJECT_B];
+                    } else {
+                        equivalent_piece.left_inside[SUBJECT_A] |= boundary_piece.right_inside
+                            [SUBJECT_A];
+                        equivalent_piece.left_inside[SUBJECT_B] |= boundary_piece.right_inside
+                            [SUBJECT_B];
+                        equivalent_piece.right_inside[SUBJECT_A] |= boundary_piece.left_inside
+                            [SUBJECT_A];
+                        equivalent_piece.right_inside[SUBJECT_B] |= boundary_piece.left_inside
+                            [SUBJECT_B];
+                    }
+                    true
+                } else {
+                    false
+                }
+            };
+
+            if !found_merge {
                 unique_boundary_pieces.push(boundary_piece);
             }
         }
