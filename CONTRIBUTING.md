@@ -110,7 +110,8 @@ Recommended setup:
 * run rustfmt on the whole repo:
   `rustfmt --write-mode=overwrite ./game/main.rs ./engine/*/src/lib.rs`
   (using default settings) - if there are any overlong lines it can't fix, please fix them manually.
-* You should also **fix all clippy warnings** properly
+* install clippy: `cargo install -f clippy --vers 0.0.197` **and please make sure to use the same version as noted here** (pinned now, but might change from time to time)
+* Run clippy on the whole repo: `cargo clippy` and adress all warnings in code that you added
 
 ## Have a question? Want to discuss something?
 
