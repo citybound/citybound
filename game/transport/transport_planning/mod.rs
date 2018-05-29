@@ -10,6 +10,7 @@ mod intersection_connections;
 mod smooth_path;
 pub mod interaction;
 pub use self::interaction::setup;
+use style::dimensions::{LANE_DISTANCE, CENTER_LANE_DISTANCE};
 
 #[derive(Copy, Clone)]
 pub struct RoadIntent {
@@ -133,10 +134,6 @@ impl IntersectionPrototype {
         (&self.area).is_roughly_within(&other.area, 0.1)
     }
 }
-
-const LANE_WIDTH: N = 6.0;
-const LANE_DISTANCE: N = 0.8 * LANE_WIDTH;
-const CENTER_LANE_DISTANCE: N = LANE_DISTANCE * 1.1;
 
 fn gesture_intent_smooth_paths(plan: &Plan) -> Vec<(GestureID, RoadIntent, Path)> {
     plan.gestures

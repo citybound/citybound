@@ -7,6 +7,9 @@ use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
 use render_layers::RenderLayers;
 
 use style::colors;
+use style::dimensions::{LANE_DISTANCE, LANE_WIDTH, LANE_MARKER_WIDTH, LANE_MARKER_DASH_GAP,
+                        LANE_MARKER_DASH_LENGTH};
+
 use itertools::Itertools;
 
 #[path = "./resources/car.rs"]
@@ -314,7 +317,7 @@ impl GrouperIndividual for Lane {
                 maybe_path
                     .map(|path| {
                         band_to_geometry(
-                            &Band::new(path, 6.0),
+                            &Band::new(path, LANE_WIDTH),
                             if self.connectivity.on_intersection {
                                 0.2
                             } else {
@@ -333,13 +336,17 @@ impl GrouperIndividual for Lane {
         } else {
             let left_marker = maybe_path
                 .clone()
-                .and_then(|path| path.shift_orthogonally(2.5))
-                .map(|path| band_to_geometry(&Band::new(path, 0.6), 0.1))
+                .and_then(|path| path.shift_orthogonally(LANE_DISTANCE / 2.0))
+                .map(|path| {
+                    band_to_geometry(&Band::new(path, LANE_MARKER_WIDTH), 0.1)
+                })
                 .unwrap_or_else(Geometry::empty);
 
             let right_marker = maybe_path
-                .and_then(|path| path.shift_orthogonally(-2.5))
-                .map(|path| band_to_geometry(&Band::new(path, 0.6), 0.1))
+                .and_then(|path| path.shift_orthogonally(-LANE_DISTANCE / 2.0))
+                .map(|path| {
+                    band_to_geometry(&Band::new(path, LANE_MARKER_WIDTH), 0.1)
+                })
                 .unwrap_or_else(Geometry::empty);
             grouper.update(self.id_as(), left_marker + right_marker, world);
             if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
@@ -500,7 +507,7 @@ impl GrouperIndividual for SwitchLane {
             self.id_as(),
             maybe_path
                 .map(|path| {
-                    dash_path(&path, 2.0, 4.0)
+                    dash_path(&path, LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH)
                         .into_iter()
                         .map(|dash| band_to_geometry(&Band::new(dash, 0.8), 0.2))
                         .sum()

@@ -14,7 +14,9 @@ use planning::interaction::{GestureInteractable, GestureInteractableID};
 use construction::Action;
 
 use super::{RoadIntent, RoadPrototype, LanePrototype, SwitchLanePrototype, IntersectionPrototype,
-            LANE_WIDTH, LANE_DISTANCE, CENTER_LANE_DISTANCE, gesture_intent_smooth_paths};
+            gesture_intent_smooth_paths};
+use style::dimensions::{LANE_DISTANCE, CENTER_LANE_DISTANCE, LANE_MARKER_WIDTH,
+                        LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH};
 
 pub fn render_preview(
     result_preview: &PlanResult,
@@ -42,15 +44,16 @@ pub fn render_preview(
                 match *prototype {
                     Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
                         lane_geometry +=
-                            band_to_geometry(&Band::new(lane_path.clone(), LANE_WIDTH * 0.7), 0.1);
-
-
+                            band_to_geometry(
+                                &Band::new(lane_path.clone(), LANE_DISTANCE - LANE_MARKER_WIDTH),
+                                0.1,
+                            );
                     }
                     Prototype::Road(RoadPrototype::SwitchLane(
                         SwitchLanePrototype(ref lane_path))) => {
-                        for dash in dash_path(lane_path, 2.0, 4.0) {
+                        for dash in dash_path(lane_path, LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH) {
                             switch_lane_geometry +=
-                                band_to_geometry(&Band::new(dash, LANE_DISTANCE - LANE_WIDTH), 0.1);
+                                band_to_geometry(&Band::new(dash, LANE_MARKER_WIDTH), 0.1);
                         }
                     }
                     Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
@@ -67,10 +70,11 @@ pub fn render_preview(
                         for &LanePrototype(ref lane_path, ref timings) in
                             connecting_lanes.values().flat_map(|lanes| lanes)
                         {
-                            lane_geometry += band_to_geometry(
-                                &Band::new(lane_path.clone(), LANE_WIDTH * 0.7),
-                                0.1,
-                            );
+                            lane_geometry +=
+                                band_to_geometry(
+                                    &Band::new(lane_path.clone(), LANE_DISTANCE - LANE_MARKER_WIDTH),
+                                    0.1,
+                                );
                             if timings[(frame / 10) % timings.len()] {
                                 intersection_geometry +=
                                     band_to_geometry(&Band::new(lane_path.clone(), 0.1), 0.1);
