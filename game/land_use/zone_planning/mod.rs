@@ -73,7 +73,6 @@ pub fn calculate_prototypes(
     current_result: &PlanResult,
     based_on: Version,
 ) -> Vec<Prototype> {
-    println!("Calculating protos");
     let paved_area_areas = current_result
         .prototypes
         .values()
@@ -173,8 +172,6 @@ pub fn calculate_prototypes(
                 })
                 .collect()
         }
-
-        println!("{} land use shapes", land_use_areas.len());
 
         land_use_areas
             .into_iter()

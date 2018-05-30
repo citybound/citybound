@@ -62,6 +62,7 @@ impl Plan {
 #[derive(Compact, Clone, Default)]
 pub struct Proposal {
     undoable_history: CVec<Plan>,
+    ongoing: Plan,
     redoable_history: CVec<Plan>,
 }
 
@@ -73,32 +74,32 @@ impl Proposal {
     pub fn from_plan(plan: Plan) -> Proposal {
         Proposal {
             undoable_history: vec![plan].into(),
+            ongoing: Plan::default(),
             redoable_history: CVec::new(),
         }
     }
 
     pub fn start_new_step(&mut self) {
-        self.undoable_history.push(Plan::default());
+        self.undoable_history.push(self.ongoing.clone());
+        self.ongoing = Plan::default();
     }
 
     pub fn set_ongoing_step(&mut self, current_change: Plan) {
-        if self.undoable_history.is_empty() {
-            self.undoable_history.push(current_change);
-        } else {
-            *self.undoable_history.last_mut().unwrap() = current_change;
-        }
+        self.ongoing = current_change;
         self.redoable_history.clear();
     }
 
     pub fn undo(&mut self) {
         if let Some(most_recent_step) = self.undoable_history.pop() {
             self.redoable_history.push(most_recent_step);
+            self.ongoing = Plan::default();
         }
     }
 
     pub fn redo(&mut self) {
         if let Some(next_step_to_redo) = self.redoable_history.pop() {
             self.undoable_history.push(next_step_to_redo);
+            self.ongoing = Plan::default();
         }
     }
 
@@ -108,6 +109,10 @@ impl Proposal {
 
     fn apply_to(&self, base: &Plan) -> Plan {
         base.merge(&self.undoable_history)
+    }
+
+    fn apply_to_with_ongoing(&self, base: &Plan) -> Plan {
+        base.merge(self.undoable_history.iter().chain(Some(&self.ongoing)))
     }
 }
 

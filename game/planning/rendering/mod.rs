@@ -3,10 +3,11 @@ use descartes::{P2, Band, Segment, Circle, Path, AsArea};
 use monet::{RendererID, Renderable, RenderableID, Instance, Mesh};
 use stagemaster::geometry::band_to_mesh;
 use style::colors;
+use style::dimensions::CONTROL_POINT_HANDLE_RADIUS;
 use render_layers::RenderLayers;
 
 use super::{PlanManager, PlanManagerID};
-use super::interaction::{ControlPointRef, CONTROL_POINT_HANDLE_RADIUS};
+use super::interaction::ControlPointRef;
 
 impl Renderable for PlanManager {
     fn init(&mut self, renderer_id: RendererID, world: &mut World) {

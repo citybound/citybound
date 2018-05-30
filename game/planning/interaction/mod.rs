@@ -1,6 +1,6 @@
 use kay::{World, MachineID, Fate, TypedID, ActorSystem, Actor};
 use compact::{CVec, COption};
-use descartes::{N, P2, Into2d, Circle, AsArea};
+use descartes::{P2, Into2d, Circle, AsArea};
 use stagemaster::{UserInterfaceID, Interactable3d, Interactable3dID, Interactable2d,
                   Interactable2dID};
 use ui_layers::UILayer;
@@ -11,6 +11,7 @@ use super::{Plan, PlanResult, GestureID, ProposalID, PlanManager, PlanManagerID,
 use transport::transport_planning::RoadIntent;
 use land_use::zone_planning::{ZoneIntent, LandUse};
 use construction::{Construction, Action};
+use style::dimensions::CONTROL_POINT_HANDLE_RADIUS;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ControlPointRef(pub GestureID, pub usize);
@@ -97,9 +98,10 @@ impl PlanManager {
             }
 
             if ui_state.current_preview.is_none() {
-                let preview_plan = self.proposals.get(proposal_id).unwrap().apply_to(
-                    &self.master_plan,
-                );
+                let preview_plan = self.proposals
+                    .get(proposal_id)
+                    .unwrap()
+                    .apply_to_with_ongoing(&self.master_plan);
                 let preview_plan_result = preview_plan.calculate_result(self.master_version);
 
                 ui_state_mut.current_preview = COption(Some(preview_plan));
@@ -292,13 +294,9 @@ impl PlanManager {
             let current_gesture = self.get_current_version_of(gesture_id, proposal_id);
 
             let changed_gesture = if add_to_end {
-                let end_index = if commit || current_gesture.points.len() == 1 {
-                    current_gesture.points.len()
-                } else {
-                    current_gesture.points.len() - 1
-                };
                 Gesture {
-                    points: current_gesture.points[..end_index]
+                    points: current_gesture
+                        .points
                         .iter()
                         .cloned()
                         .chain(Some(new_point))
@@ -306,15 +304,10 @@ impl PlanManager {
                     ..current_gesture.clone()
                 }
             } else {
-                let start_index = if commit || current_gesture.points.len() == 1 {
-                    0
-                } else {
-                    1
-                };
                 Gesture {
                     points: Some(new_point)
                         .into_iter()
-                        .chain(current_gesture.points[start_index..].iter().cloned())
+                        .chain(current_gesture.points.iter().cloned())
                         .collect(),
                     ..current_gesture.clone()
                 }
@@ -440,8 +433,6 @@ pub struct ControlPointInteractable {
     gesture_id: GestureID,
     point_index: usize,
 }
-
-pub const CONTROL_POINT_HANDLE_RADIUS: N = 2.0;
 
 impl ControlPointInteractable {
     #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
@@ -578,26 +569,23 @@ impl Interactable3d for GestureCanvas {
                 _ => None,
             }
         {
-            let finished = if is_click {
-                if let Some(last_point) = *self.last_point {
-                    if (position.into_2d() - last_point).norm() < CONTROL_POINT_HANDLE_RADIUS {
-                        self.plan_manager.finish_gesture(self.for_machine, world);
-                        self.current_mode = GestureCanvasMode::StartNewGesture;
-                        self.last_point = COption(None);
-                        true
-                    } else {
-                        self.last_point = COption(Some(position.into_2d()));
-                        false
-                    }
-                } else {
-                    self.last_point = COption(Some(position.into_2d()));
-                    false
-                }
+            let hovering_last = if let Some(last_point) = *self.last_point {
+                (position.into_2d() - last_point).norm() < CONTROL_POINT_HANDLE_RADIUS
             } else {
                 false
             };
 
-            if !finished {
+            if is_click {
+                if hovering_last {
+                    self.plan_manager.finish_gesture(self.for_machine, world);
+                    self.current_mode = GestureCanvasMode::StartNewGesture;
+                    self.last_point = COption(None);
+                } else {
+                    self.last_point = COption(Some(position.into_2d()));
+                }
+            }
+
+            if !hovering_last {
                 match self.current_mode {
                     GestureCanvasMode::StartNewGesture => {
                         if is_click {
