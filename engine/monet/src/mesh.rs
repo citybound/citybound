@@ -198,14 +198,14 @@ impl Mesh {
                             .floor() as usize;
                         let distance_per_subdivision = segment.length / (subdivisions as f32);
 
-                        (0..subdivisions)
+                        initial_move
                             .into_iter()
-                            .map(|subdivision| {
+                            .chain((0..subdivisions).into_iter().map(|subdivision| {
                                 let distance = (subdivision + 1) as f32 * distance_per_subdivision;
                                 let position = segment.along(distance);
 
                                 PathEvent::LineTo(point(position.x, position.y))
-                            })
+                            }))
                             .collect::<Vec<_>>()
                     }
                 })
