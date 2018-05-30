@@ -3,7 +3,6 @@ use compact::{CVec, COption};
 use descartes::{N, Band, FiniteCurve, Path, AsArea, WithUniqueOrthogonal, Curve, Into2d};
 use monet::{RendererID, Instance, Mesh};
 use stagemaster::user_interface::{UserInterfaceID, Interactable3d, Interactable3dID, Event3d};
-use stagemaster::geometry::{band_to_mesh, dash_path};
 use style::colors;
 use render_layers::RenderLayers;
 
@@ -45,15 +44,17 @@ pub fn render_preview(
             if corresponding_construction_action_exists {
                 match *prototype {
                     Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
-                        lane_mesh +=
-                            band_to_mesh(&Band::new(lane_path.clone(), EFFECTIVE_LANE_WIDTH), 0.1);
+                        lane_mesh += Mesh::from_band(
+                            &Band::new(lane_path.clone(), EFFECTIVE_LANE_WIDTH),
+                            0.1,
+                        );
                     }
                     Prototype::Road(RoadPrototype::SwitchLane(
                         SwitchLanePrototype(ref lane_path))) => {
-                        for dash in dash_path(lane_path,
+                        for dash in lane_path.dash(
                                 LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH) {
                             switch_lane_mesh +=
-                                band_to_mesh(&Band::new(dash, LANE_MARKER_WIDTH), 0.1);
+                                Mesh::from_band(&Band::new(dash, LANE_MARKER_WIDTH), 0.1);
                         }
                     }
                     Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
@@ -61,19 +62,21 @@ pub fn render_preview(
                                                                     ref connecting_lanes,
                                                                     ..
                                                                 })) => {
-                        intersection_mesh +=
-                            band_to_mesh(&Band::new(area.primitives[0].boundary.clone(), 0.1), 0.1);
+                        intersection_mesh += Mesh::from_band(
+                            &Band::new(area.primitives[0].boundary.clone(), 0.1),
+                            0.1,
+                        );
 
                         for &LanePrototype(ref lane_path, ref timings) in
                             connecting_lanes.values().flat_map(|lanes| lanes)
                         {
-                            lane_mesh += band_to_mesh(
+                            lane_mesh += Mesh::from_band(
                                 &Band::new(lane_path.clone(), EFFECTIVE_LANE_WIDTH),
                                 0.1,
                             );
                             if timings[(frame / 10) % timings.len()] {
                                 intersection_mesh +=
-                                    band_to_mesh(&Band::new(lane_path.clone(), 0.1), 0.1);
+                                    Mesh::from_band(&Band::new(lane_path.clone(), 0.1), 0.1);
                             }
                         }
                     }

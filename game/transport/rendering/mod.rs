@@ -2,7 +2,6 @@ use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, RoughEq};
 use compact::CVec;
 use kay::{ActorSystem, World, Actor, TypedID};
 use monet::{Instance, Vertex, Mesh, Renderer, RendererID};
-use stagemaster::geometry::{band_to_mesh, dash_path};
 use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
 use render_layers::RenderLayers;
 
@@ -154,7 +153,7 @@ impl Renderable for Lane {
         }
 
         if DEBUG_VIEW_SIGNALS && self.connectivity.on_intersection {
-            let mesh = band_to_mesh(
+            let mesh = Mesh::from_band(
                 &Band::new(self.construction.path.clone(), 0.3),
                 if self.microtraffic.green { 0.4 } else { 0.2 },
             );
@@ -231,7 +230,7 @@ impl Renderable for Lane {
                 ([1.0, 1.0, 1.0], false)
             };
 
-            let instance = band_to_mesh(
+            let instance = Mesh::from_band(
                 &Band::new(
                     self.construction.path.clone(),
                     if is_landmark { 2.5 } else { 1.0 },
@@ -262,7 +261,7 @@ impl Renderable for Lane {
                         ([1.0, 1.0, 1.0], false)
                     };
 
-                let mesh = band_to_mesh(
+                let mesh = Mesh::from_band(
                     &Band::new(
                         self.construction.path.clone(),
                         if is_landmark { 2.5 } else { 1.0 },
@@ -314,7 +313,7 @@ impl GrouperIndividual for Lane {
                 self.id_as(),
                 maybe_path
                     .map(|path| {
-                        band_to_mesh(
+                        Mesh::from_band(
                             &Band::new(path, LANE_WIDTH),
                             if self.connectivity.on_intersection {
                                 0.2
@@ -336,14 +335,14 @@ impl GrouperIndividual for Lane {
                 .clone()
                 .and_then(|path| path.shift_orthogonally(LANE_DISTANCE / 2.0))
                 .map(|path| {
-                    band_to_mesh(&Band::new(path, LANE_MARKER_WIDTH), 0.1)
+                    Mesh::from_band(&Band::new(path, LANE_MARKER_WIDTH), 0.1)
                 })
                 .unwrap_or_else(Mesh::empty);
 
             let right_marker = maybe_path
                 .and_then(|path| path.shift_orthogonally(-LANE_DISTANCE / 2.0))
                 .map(|path| {
-                    band_to_mesh(&Band::new(path, LANE_MARKER_WIDTH), 0.1)
+                    Mesh::from_band(&Band::new(path, LANE_MARKER_WIDTH), 0.1)
                 })
                 .unwrap_or_else(Mesh::empty);
             grouper.update(self.id_as(), left_marker + right_marker, world);
@@ -503,9 +502,9 @@ impl GrouperIndividual for SwitchLane {
             self.id_as(),
             maybe_path
                 .map(|path| {
-                    dash_path(&path, LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH)
+                    path.dash(LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH)
                         .into_iter()
-                        .map(|dash| band_to_mesh(&Band::new(dash, 0.8), 0.2))
+                        .map(|dash| Mesh::from_band(&Band::new(dash, 0.8), 0.2))
                         .sum()
                 })
                 .unwrap_or_else(Mesh::empty),

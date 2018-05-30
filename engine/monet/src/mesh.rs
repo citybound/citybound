@@ -1,5 +1,5 @@
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, Into2d, Into3d, WithUniqueOrthogonal,
-                    Path, Area, FiniteCurve};
+                    Path, Area, Band, FiniteCurve};
 
 use glium::{self, index};
 use glium::backend::glutin::Display;
@@ -219,6 +219,76 @@ impl Mesh {
             .unwrap();
 
         output
+    }
+
+    pub fn from_band(band: &Band, z: N) -> Mesh {
+        fn to_vertex(point: P2, z: N) -> Vertex {
+            Vertex { position: [point.x, point.y, z] }
+        }
+
+        let mut vertices = Vec::<Vertex>::new();
+        let mut indices = Vec::<u16>::new();
+        for segment in &band.path.segments {
+            if segment.is_linear() {
+                let first_new_vertex = vertices.len() as u16;
+                let orth_direction = segment.center_or_direction.orthogonal();
+                vertices.push(to_vertex(
+                    segment.start + band.width_right * orth_direction,
+                    z,
+                ));
+                vertices.push(to_vertex(
+                    segment.start - band.width_left * orth_direction,
+                    z,
+                ));
+                vertices.push(to_vertex(
+                    segment.end + band.width_right * orth_direction,
+                    z,
+                ));
+                vertices.push(to_vertex(segment.end - band.width_left * orth_direction, z));
+
+                indices.extend_from_slice(
+                    &[first_new_vertex, first_new_vertex + 1, first_new_vertex + 2],
+                );
+                indices.extend_from_slice(
+                    &[
+                        first_new_vertex + 1,
+                        first_new_vertex + 3,
+                        first_new_vertex + 2,
+                    ],
+                );
+            } else {
+                let angle_span = segment.length / segment.radius();
+                let subdivisions = (angle_span / CURVE_LINEARIZATION_MAX_ANGLE)
+                    .max(1.0)
+                    .floor() as usize;
+                let distance_per_subdivision = segment.length / (subdivisions as f32);
+
+                let position = segment.start;
+                let orth_direction = segment.start_direction().orthogonal();
+
+                vertices.push(to_vertex(position + band.width_right * orth_direction, z));
+                vertices.push(to_vertex(position - band.width_left * orth_direction, z));
+
+                for subdivision in 0..subdivisions {
+                    let first_new_vertex = vertices.len() as u16;
+                    let distance = (subdivision + 1) as f32 * distance_per_subdivision;
+                    let position = segment.along(distance);
+                    let orth_direction = segment.direction_along(distance).orthogonal();
+
+                    vertices.push(to_vertex(position + band.width_right * orth_direction, z));
+                    vertices.push(to_vertex(position - band.width_left * orth_direction, z));
+
+                    indices.extend_from_slice(
+                        &[first_new_vertex - 2, first_new_vertex - 1, first_new_vertex],
+                    );
+                    indices.extend_from_slice(
+                        &[first_new_vertex - 1, first_new_vertex + 1, first_new_vertex],
+                    );
+                }
+            }
+        }
+
+        Mesh::new(vertices, indices)
     }
 }
 

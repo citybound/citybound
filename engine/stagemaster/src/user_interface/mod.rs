@@ -656,7 +656,7 @@ pub fn setup(
     );
 
     unsafe {
-        super::geometry::DEBUG_RENDERER = Some(renderer_id);
+        super::debug::DEBUG_RENDERER = Some(renderer_id);
     }
 
     let ui_id = UserInterfaceID::spawn(

@@ -16,7 +16,7 @@ extern crate serde_json;
 extern crate app_dirs;
 
 pub mod user_interface;
-pub mod geometry;
+pub mod debug;
 pub mod environment;
 pub mod combo;
 pub mod camera_control;

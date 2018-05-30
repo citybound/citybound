@@ -1,7 +1,6 @@
 use kay::{World, TypedID};
 use descartes::{P2, Band, Segment, Circle, Path, AsArea};
 use monet::{RendererID, Renderable, RenderableID, Instance, Mesh};
-use stagemaster::geometry::band_to_mesh;
 use style::colors;
 use style::dimensions::CONTROL_POINT_HANDLE_RADIUS;
 use render_layers::RenderLayers;
@@ -11,7 +10,7 @@ use super::interaction::ControlPointRef;
 
 impl Renderable for PlanManager {
     fn init(&mut self, renderer_id: RendererID, world: &mut World) {
-        let dot_mesh = band_to_mesh(
+        let dot_mesh = Mesh::from_band(
             &Band::new(
                 Circle {
                     center: P2::new(0.0, 0.0),
@@ -70,7 +69,7 @@ impl Renderable for PlanManager {
                         .collect(),
                 )
                 {
-                    band_to_mesh(&Band::new(line_path, 0.3), 1.0)
+                    Mesh::from_band(&Band::new(line_path, 0.3), 1.0)
                 } else {
                     Mesh::empty()
                 };

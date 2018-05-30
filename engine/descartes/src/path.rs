@@ -196,6 +196,28 @@ impl Path {
         }
     }
 
+    pub fn dash(&self, dash_length: N, gap_length: N) -> Vec<Path> {
+        let mut on_dash = true;
+        let mut position = 0.0;
+        let mut dashes = Vec::new();
+
+        while position < self.length() {
+            let old_position = position;
+            if on_dash {
+                position += dash_length;
+                if let Some(dash) = self.subsection(old_position, position) {
+                    dashes.push(dash)
+                }
+            } else {
+                position += gap_length;
+            }
+
+            on_dash = !on_dash;
+        }
+
+        dashes
+    }
+
     pub fn to_svg(&self) -> String {
         self.segments
             .iter()

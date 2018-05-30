@@ -234,7 +234,7 @@ impl Lane {
 }
 
 use super::{PositionRequester, PositionRequesterID};
-use stagemaster::geometry::{add_debug_line, add_debug_point};
+use stagemaster::debug::{add_debug_line, add_debug_point};
 use descartes::{P2, V2};
 
 #[derive(Compact, Clone)]
