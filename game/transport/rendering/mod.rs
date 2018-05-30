@@ -21,8 +21,6 @@ mod traffic_light;
 use monet::{Renderable, RenderableID, GrouperID, GrouperIndividual, GrouperIndividualID};
 
 impl Renderable for Lane {
-    fn init(&mut self, _renderer_id: RendererID, _: &mut World) {}
-
     #[cfg_attr(feature = "cargo-clippy", allow(cyclomatic_complexity))]
     fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         let mut cars_iter = self.microtraffic.cars.iter();
@@ -359,8 +357,6 @@ impl GrouperIndividual for Lane {
 }
 
 impl Renderable for SwitchLane {
-    fn init(&mut self, _renderer_id: RendererID, _: &mut World) {}
-
     fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         let mut cars_iter = self.microtraffic.cars.iter();
         let mut current_offset = 0.0;

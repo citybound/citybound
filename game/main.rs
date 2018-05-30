@@ -139,6 +139,10 @@ fn main() {
 
             system.process_all_messages();
 
+            renderer.prepare_render(world);
+
+            system.process_all_messages();
+
             renderer.render(world);
 
             system.process_all_messages();

@@ -133,8 +133,6 @@ impl Grouper {
 use {Renderable, RendererID, RenderableID};
 
 impl Renderable for Grouper {
-    fn init(&mut self, _renderer_id: RendererID, _: &mut World) {}
-
     fn render(&mut self, renderer_id: RendererID, _frame: usize, world: &mut World) {
 
         // kinda ugly way to enforce only one update per "global" frame

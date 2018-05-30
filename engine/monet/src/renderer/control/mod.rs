@@ -14,6 +14,15 @@ impl Renderer {
     }
 
     /// Critical
+    pub fn prepare_render(&mut self, world: &mut World) {
+        let self_id = self.id;
+        let current_frame = self.current_frame;
+        for renderable in &self.scene.renderables {
+            renderable.prepare_render(self_id, current_frame, world);
+        }
+    }
+
+    /// Critical
     pub fn render(&mut self, world: &mut World) {
         let self_id = self.id;
         let current_frame = self.current_frame;

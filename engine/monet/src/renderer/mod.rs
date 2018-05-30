@@ -133,7 +133,8 @@ impl Renderer {
 }
 
 pub trait Renderable {
-    fn init(&mut self, renderer_id: RendererID, world: &mut World);
+    fn init(&mut self, _renderer_id: RendererID, _world: &mut World) {}
+    fn prepare_render(&mut self, _renderer_id: RendererID, _frame: usize, _world: &mut World) {}
     fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World);
 }
 

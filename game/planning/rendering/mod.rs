@@ -28,6 +28,14 @@ impl Renderable for PlanManager {
         renderer_id.add_batch(RenderLayers::PlanningGestureDots as u32, dot_mesh, world);
     }
 
+    fn prepare_render(&mut self, renderer_id: RendererID, _frame: usize, world: &mut World) {
+        let proposal_id = self.ui_state
+            .get(renderer_id.as_raw().machine)
+            .expect("should have ui state for this renderer")
+            .current_proposal;
+        self.ensure_preview(renderer_id.as_raw().machine, proposal_id, world);
+    }
+
     fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         // TODO: clean up this mess
         let proposal_id = self.ui_state
