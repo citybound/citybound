@@ -702,7 +702,7 @@ impl Interactable2d for GestureCanvas {
                 }
             });
 
-        ui.window(im_str!("Controls")).build(|| {
+        ui.window(im_str!("Settings")).build(|| {
             ui.text(im_str!("Planning"));
             ui.separator();
 

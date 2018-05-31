@@ -1,6 +1,6 @@
 use kay::{ActorSystem, World, Actor};
 use compact::CVec;
-use stagemaster::{UserInterface, UserInterfaceID};
+use stagemaster::UserInterfaceID;
 
 mod time;
 
@@ -60,16 +60,6 @@ impl Simulation {
             }
             self.current_instant += Ticks(1);
         }
-
-        let time = TimeOfDay::from(self.current_instant).hours_minutes();
-
-        UserInterface::local_first(world).add_debug_text(
-            "Time".to_owned().into(),
-            format!("{:02}:{:02}", time.0, time.1).into(),
-            [0.0, 0.0, 0.0, 1.0],
-            false,
-            world,
-        );
     }
 
     pub fn wake_up_in(&mut self, remaining_ticks: Ticks, sleeper_id: SleeperID, _: &mut World) {
@@ -93,9 +83,11 @@ use stagemaster::{Interactable2d, Interactable2dID};
 
 impl Interactable2d for Simulation {
     fn draw(&mut self, _world: &mut World, ui: &::imgui::Ui<'static>) {
-        ui.window(im_str!("Controls")).build(|| {
-            ui.text(im_str!("Simulation"));
-            ui.separator();
+        let time = TimeOfDay::from(self.current_instant).hours_minutes();
+
+        ui.window(im_str!("Simulation")).build(|| {
+            ui.text(im_str!("{:02}:{:02}", time.0, time.1));
+            ui.spacing();
             ui.text(im_str!("Simulation Speed"));
             ui.same_line(130.0);
             let _ = ui.slider_int(im_str!("##simulation-speed"), &mut self.speed, 1, 30)

@@ -192,7 +192,7 @@ impl Interactable2d for CameraControl {
     fn draw(&mut self, _: &mut World, ui: &::imgui::Ui<'static>) {
         let mut settings_changed = false;
 
-        ui.window(im_str!("Controls"))
+        ui.window(im_str!("Settings"))
             .size((400.0, 200.0), ImGuiSetCond_FirstUseEver)
             .position((250.0, 10.0), ImGuiSetCond_FirstUseEver)
             .build(|| {
