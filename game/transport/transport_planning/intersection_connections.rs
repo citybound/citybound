@@ -1,5 +1,6 @@
 use compact::CVec;
-use descartes::{Segment, Path, FiniteCurve, Intersect, WithUniqueOrthogonal, RoughEq};
+use descartes::{Segment, Path, FiniteCurve, Intersect, IntersectionResult, WithUniqueOrthogonal,
+                RoughEq};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
@@ -248,7 +249,10 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                 |(&LanePrototype(ref path_a, _), &LanePrototype(ref path_b, _))| {
                     path_a.start().rough_eq_by(path_b.start(), 0.1) ||
                         (!path_a.end().rough_eq_by(path_b.end(), 0.1) &&
-                             (path_a, path_b).intersect().is_empty())
+                             match (path_a, path_b).intersect() {
+                                 IntersectionResult::Apart => true,
+                                 _ => false,
+                             })
                 },
             )
         }

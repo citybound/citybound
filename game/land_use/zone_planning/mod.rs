@@ -158,20 +158,23 @@ pub fn calculate_prototypes(
             })
             .collect::<Vec<_>>();
 
-        for paved_area_or_building_shape in paved_area_areas.iter().chain(building_areas.iter()) {
-            land_use_areas = land_use_areas
-                .into_iter()
-                .flat_map(|(land_use, shape)| {
-                    shape
-                        .split(paved_area_or_building_shape)
-                        .a_minus_b()
-                        .disjoint()
-                        .into_iter()
-                        .map(|cut_shape| (land_use, cut_shape))
-                        .collect::<Vec<_>>()
-                })
-                .collect()
-        }
+        let paved_or_built_area = paved_area_areas.iter().chain(building_areas.iter()).fold(
+            Area::new(CVec::new()),
+            |union, piece| union.split(piece).union(),
+        );
+
+        land_use_areas = land_use_areas
+            .into_iter()
+            .flat_map(|(land_use, shape)| {
+                shape
+                    .split(&paved_or_built_area)
+                    .a_minus_b()
+                    .disjoint()
+                    .into_iter()
+                    .map(|cut_shape| (land_use, cut_shape))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
 
         land_use_areas
             .into_iter()

@@ -1,6 +1,6 @@
 use compact::{CHashMap, CVec};
 use descartes::{N, P2, V2, Band, Segment, AsArea, Path, FiniteCurve, Area, Intersect,
-                WithUniqueOrthogonal, RoughEq, PointContainer};
+                IntersectionResult, WithUniqueOrthogonal, RoughEq, PointContainer};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
@@ -224,35 +224,43 @@ pub fn calculate_prototypes(
 
     // union overlapping intersections
 
-    let mut i = 0;
+    let mut unioned_intersection_area = Area::new(CVec::new());
 
-    while i < intersection_areas.len() {
-        let mut advance = true;
-
-        for j in (i + 1)..intersection_areas.len() {
-            let split = intersection_areas[i].split(&intersection_areas[j]);
-            let results = split.union().disjoint();
-
-            if results.len() == 1 {
-                intersection_areas[i] = results[0].clone();
-                intersection_areas.remove(j);
-                advance = false;
-                break;
-            } else if results.len() == 2 {
-                // intersection shapes do not overlap
-            } else {
-                println!(
-                    "Intersection combining clipping weirdness: got {} union shapes",
-                    results.len()
-                );
-                println!("{}", split.debug_svg());
-            }
-        }
-
-        if advance {
-            i += 1;
-        }
+    for intersection_area in &intersection_areas {
+        unioned_intersection_area = unioned_intersection_area.split(intersection_area).union();
     }
+
+    let intersection_areas = unioned_intersection_area.disjoint();
+
+    // let mut i = 0;
+
+    // while i < intersection_areas.len() {
+    //     let mut advance = true;
+
+    //     for j in (i + 1)..intersection_areas.len() {
+    //         let split = intersection_areas[i].split(&intersection_areas[j]);
+    //         let results = split.union().disjoint();
+
+    //         if results.len() == 1 {
+    //             intersection_areas[i] = results[0].clone();
+    //             intersection_areas.remove(j);
+    //             advance = false;
+    //             break;
+    //         } else if results.len() == 2 {
+    //             // intersection shapes do not overlap
+    //         } else {
+    //             println!(
+    //                 "Intersection combining clipping weirdness: got {} union shapes",
+    //                 results.len()
+    //             );
+    //             println!("{}", split.debug_svg());
+    //         }
+    //     }
+
+    //     if advance {
+    //         i += 1;
+    //     }
+    // }
 
     let mut intersection_prototypes: Vec<_> = intersection_areas
         .into_iter()
@@ -266,33 +274,34 @@ pub fn calculate_prototypes(
         })
         .collect();
 
-    let intersected_lane_paths = {
-        let raw_lane_paths = gesture_intent_smooth_paths
-            .iter()
-            .enumerate()
-            .flat_map(|(gesture_i, &(_, road_intent, ref path))| {
-                (0..road_intent.n_lanes_forward)
-                    .into_iter()
-                    .map(|lane_i| {
-                        CENTER_LANE_DISTANCE / 2.0 + f32::from(lane_i) * LANE_DISTANCE
-                    })
-                    .chain((0..road_intent.n_lanes_backward).into_iter().map(
-                        |lane_i| {
-                            -(CENTER_LANE_DISTANCE / 2.0 + f32::from(lane_i) * LANE_DISTANCE)
-                        },
-                    ))
-                    .filter_map(|offset| {
-                        path.shift_orthogonally(offset).map(|path| if offset < 0.0 {
-                            (GestureSideID::new_backward(gesture_i), path.reverse())
-                        } else {
-                            (GestureSideID::new_forward(gesture_i), path)
+    let intersected_lane_paths =
+        {
+            let raw_lane_paths = gesture_intent_smooth_paths
+                .iter()
+                .enumerate()
+                .flat_map(|(gesture_i, &(_, road_intent, ref path))| {
+                    (0..road_intent.n_lanes_forward)
+                        .into_iter()
+                        .map(|lane_i| {
+                            CENTER_LANE_DISTANCE / 2.0 + f32::from(lane_i) * LANE_DISTANCE
                         })
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
+                        .chain((0..road_intent.n_lanes_backward).into_iter().map(
+                            |lane_i| {
+                                -(CENTER_LANE_DISTANCE / 2.0 + f32::from(lane_i) * LANE_DISTANCE)
+                            },
+                        ))
+                        .filter_map(|offset| {
+                            path.shift_orthogonally(offset).map(|path| if offset < 0.0 {
+                                (GestureSideID::new_backward(gesture_i), path.reverse())
+                            } else {
+                                (GestureSideID::new_forward(gesture_i), path)
+                            })
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
 
-        raw_lane_paths
+            raw_lane_paths
             .into_iter()
             .flat_map(|(gesture_side_id, raw_lane_path)| {
                 let mut start_trim = 0.0f32;
@@ -303,8 +312,10 @@ pub fn calculate_prototypes(
                     if let Prototype::Road(RoadPrototype::Intersection(ref mut intersection)) =
                         *intersection
                     {
-                        let intersection_points =
+                        let intersection_result =
                             (&raw_lane_path, &intersection.area.primitives[0].boundary).intersect();
+
+                            if let IntersectionResult::Intersecting(intersection_points) = intersection_result {
                         if intersection_points.len() >= 2 {
                             let entry_distance = intersection_points
                                 .iter()
@@ -354,6 +365,7 @@ pub fn calculate_prototypes(
                                 end_trim = end_trim.min(entry_distance);
                             }
                         }
+                            }
                     } else {
                         unreachable!()
                     }
@@ -372,54 +384,57 @@ pub fn calculate_prototypes(
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>()
-    };
+        };
 
-    let switch_lane_paths = {
-        const TRANSFER_LANE_DISTANCE_TOLERANCE: N = 0.3;
-        let right_lane_paths_and_bands = intersected_lane_paths
-            .iter()
-            .filter_map(|path| {
-                path.shift_orthogonally(0.5 * LANE_DISTANCE).map(
-                    |right_path| {
-                        (
-                            right_path.clone(),
-                            Band::new(right_path, TRANSFER_LANE_DISTANCE_TOLERANCE),
-                        )
-                    },
-                )
-            })
-            .collect::<Vec<_>>();
+    let switch_lane_paths =
+        {
+            const TRANSFER_LANE_DISTANCE_TOLERANCE: N = 0.3;
+            let right_lane_paths_and_bands = intersected_lane_paths
+                .iter()
+                .filter_map(|path| {
+                    path.shift_orthogonally(0.5 * LANE_DISTANCE).map(
+                        |right_path| {
+                            (
+                                right_path.clone(),
+                                Band::new(right_path, TRANSFER_LANE_DISTANCE_TOLERANCE),
+                            )
+                        },
+                    )
+                })
+                .collect::<Vec<_>>();
 
-        let left_lane_paths_and_bands = intersected_lane_paths
-            .iter()
-            .filter_map(|path| {
-                path.shift_orthogonally(-0.5 * LANE_DISTANCE).map(
-                    |left_path| {
-                        (
-                            left_path.clone(),
-                            Band::new(left_path, TRANSFER_LANE_DISTANCE_TOLERANCE),
-                        )
-                    },
-                )
-            })
-            .collect::<Vec<_>>();
+            let left_lane_paths_and_bands = intersected_lane_paths
+                .iter()
+                .filter_map(|path| {
+                    path.shift_orthogonally(-0.5 * LANE_DISTANCE).map(
+                        |left_path| {
+                            (
+                                left_path.clone(),
+                                Band::new(left_path, TRANSFER_LANE_DISTANCE_TOLERANCE),
+                            )
+                        },
+                    )
+                })
+                .collect::<Vec<_>>();
 
-        right_lane_paths_and_bands
-            .into_iter()
-            .cartesian_product(left_lane_paths_and_bands)
-            .flat_map(|((right_path, right_band), (left_path, left_band))| {
-                let mut intersections = (&right_band.outline(), &left_band.outline()).intersect();
+            right_lane_paths_and_bands
+                .into_iter()
+                .cartesian_product(left_lane_paths_and_bands)
+                .flat_map(|((right_path, right_band), (left_path, left_band))| {
+                    let intersection_result = (&right_band.outline(), &left_band.outline())
+                        .intersect();
 
-                if intersections.len() < 2 {
-                    vec![]
-                } else {
-                    intersections.sort_by_key(|intersection| {
-                        OrderedFloat(right_band.outline_distance_to_path_distance(
-                            intersection.along_a,
-                        ))
-                    });
+                    if let IntersectionResult::Intersecting(mut intersections) = intersection_result {
+                        if intersections.len() < 2 {
+                            vec![]
+                        } else {
+                            intersections.sort_by_key(|intersection| {
+                                OrderedFloat(right_band.outline_distance_to_path_distance(
+                                    intersection.along_a,
+                                ))
+                            });
 
-                    intersections
+                            intersections
                         .windows(2)
                         .filter_map(|intersection_pair| {
                             let first_along_right = right_band.outline_distance_to_path_distance(
@@ -460,9 +475,12 @@ pub fn calculate_prototypes(
                             })
                         })
                         .collect()
-                }
-            })
-    };
+                        }
+                    } else {
+                        vec![]
+                    }
+                })
+        };
 
     for prototype in &mut intersection_prototypes {
         if let Prototype::Road(RoadPrototype::Intersection(ref mut intersection)) = *prototype {

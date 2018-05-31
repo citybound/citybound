@@ -1,5 +1,5 @@
 use super::{N, P2, V2, WithUniqueOrthogonal, angle_along_to, RoughEq, Intersect, Intersection,
-            HasBoundingBox, BoundingBox, THICKNESS};
+            IntersectionResult, HasBoundingBox, BoundingBox, THICKNESS};
 use nalgebra::Rotation2;
 
 pub trait Curve: Sized {
@@ -163,19 +163,20 @@ impl Segment {
         } else if (end - start).norm() < MAX_SIMPLE_LINE_LENGTH {
             Some(vec![Segment::line(start, end)?])
         } else {
-            let maybe_linear_intersection = (
+            let maybe_linear_intersection = match (
                 &Line { start, direction: start_direction },
                 &Line { start: end, direction: -end_direction },
-            ).intersect()
-                .into_iter()
-                .next()
-                .and_then(|intersection| if intersection.along_a > 0.0 &&
-                    intersection.along_b > 0.0
-                {
-                    Some(intersection)
-                } else {
-                    None
-                });
+            ).intersect() {
+                IntersectionResult::Intersecting(intersections) => {
+                    if intersections[0].along_a > 0.0 && intersections[0].along_b > 0.0 {
+                        Some(intersections[0])
+                    } else {
+                        None
+                    }
+                }
+                IntersectionResult::Apart => None,
+                IntersectionResult::Coincident => unreachable!(),
+            };
 
             let (connection_position, connection_direction) =
                 if let Some(Intersection { position, .. }) = maybe_linear_intersection {

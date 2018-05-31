@@ -1,6 +1,7 @@
 use compact::CVec;
 use kay::{ActorSystem, World, Fate, Actor, TypedID};
-use descartes::{N, P2, Band, Curve, FiniteCurve, Path, RoughEq, Intersect, WithUniqueOrthogonal};
+use descartes::{N, P2, Band, Curve, FiniteCurve, Path, RoughEq, Intersect, IntersectionResult,
+                WithUniqueOrthogonal};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
@@ -251,27 +252,31 @@ impl Lane {
                     (band, outline)
                 }) as &(Band, Path);
 
-            let intersections = (lane_outline, other_outline).intersect();
-            if intersections.len() >= 2 {
-                if let ::itertools::MinMaxResult::MinMax((entry_intersection, entry_distance),
-                                                         (exit_intersection, exit_distance)) =
-                    intersections
-                        .iter()
-                        .map(|intersection| {
-                            (
-                                intersection,
-                                lane_band.outline_distance_to_path_distance(intersection.along_a),
-                            )
-                        })
-                        .minmax_by_key(|&(_, distance)| OrderedFloat(distance))
-                {
-                    let other_entry_distance =
-                        other_band.outline_distance_to_path_distance(entry_intersection.along_b);
-                    let other_exit_distance =
-                        other_band.outline_distance_to_path_distance(exit_intersection.along_b);
+            let intersection_result = (lane_outline, other_outline).intersect();
+            if let IntersectionResult::Intersecting(intersections) = intersection_result {
+                if intersections.len() >= 2 {
+                    if let ::itertools::MinMaxResult::MinMax((entry_intersection,
+                                                              entry_distance),
+                                                             (exit_intersection, exit_distance)) =
+                        intersections
+                            .iter()
+                            .map(|intersection| {
+                                (
+                                    intersection,
+                                    lane_band.outline_distance_to_path_distance(
+                                        intersection.along_a,
+                                    ),
+                                )
+                            })
+                            .minmax_by_key(|&(_, distance)| OrderedFloat(distance))
+                    {
+                        let other_entry_distance = other_band.outline_distance_to_path_distance(
+                            entry_intersection.along_b,
+                        );
+                        let other_exit_distance =
+                            other_band.outline_distance_to_path_distance(exit_intersection.along_b);
 
-                    let overlap_kind =
-                        if other_path
+                        let overlap_kind = if other_path
                             .direction_along(other_entry_distance)
                             .rough_eq_by(
                                 self.construction.path.direction_along(entry_distance),
@@ -299,18 +304,19 @@ impl Lane {
                             OverlapKind::Conflicting
                         };
 
-                    self.connectivity.interactions.push(Interaction {
-                        partner_lane: other_id.into(),
-                        start: entry_distance,
-                        partner_start: other_entry_distance.min(other_exit_distance),
-                        kind: InteractionKind::Overlap {
-                            end: exit_distance,
-                            partner_end: other_exit_distance.max(other_entry_distance),
-                            kind: overlap_kind,
-                        },
-                    });
-                } else {
-                    panic!("both entry and exit should exist")
+                        self.connectivity.interactions.push(Interaction {
+                            partner_lane: other_id.into(),
+                            start: entry_distance,
+                            partner_start: other_entry_distance.min(other_exit_distance),
+                            kind: InteractionKind::Overlap {
+                                end: exit_distance,
+                                partner_end: other_exit_distance.max(other_entry_distance),
+                                kind: overlap_kind,
+                            },
+                        });
+                    } else {
+                        panic!("both entry and exit should exist")
+                    }
                 }
             }
 

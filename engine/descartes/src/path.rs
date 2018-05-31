@@ -1,6 +1,6 @@
 use super::{N, P2, V2, RoughEq, THICKNESS, VecLike};
 use super::curves::{Curve, FiniteCurve, Segment};
-use super::intersect::{Intersect, Intersection};
+use super::intersect::{Intersect, Intersection, IntersectionResult};
 use ordered_float::OrderedFloat;
 
 type ScannerFn<'a> = fn(&mut StartOffsetState, &'a Segment) -> Option<(&'a Segment, N)>;
@@ -47,7 +47,7 @@ impl Path {
 
     }
 
-    pub fn new_welded(mut segments: VecLike<Segment>) -> Result<Self, PathError> {
+    pub fn new_welded(mut segments: VecLike<Segment>, tolerance: N) -> Result<Self, PathError> {
         if segments.is_empty() {
             Result::Err(PathError::EmptyPath)
         } else {
@@ -56,7 +56,7 @@ impl Path {
                     .first()
                     .unwrap()
                     .start(),
-                THICKNESS * 3.0,
+                tolerance,
             );
 
             let original_length = segments.len();
@@ -85,7 +85,7 @@ impl Path {
 
             if welded_segments.len() < original_length {
                 // some welding resulted in an invalid segment, weld again
-                Self::new_welded(welded_segments)
+                Self::new_welded(welded_segments, tolerance)
             } else {
                 Self::new(welded_segments)
             }
@@ -126,12 +126,12 @@ impl Path {
             .flat_map(|(i, (segment_a, offset_a))| {
                 self.segments_with_start_offsets()
                     .skip(i + 1)
-                    .flat_map(|(segment_b, offset_b)| {
-                        (segment_a, segment_b)
-                            .intersect()
-                            .into_iter()
-                            .filter_map(
-                                |intersection| if intersection.along_a.rough_eq_by(
+                    .flat_map(|(segment_b, offset_b)| match (segment_a, segment_b)
+                        .intersect() {
+                        IntersectionResult::Intersecting(intersections) => {
+                            intersections
+                                .into_iter()
+                                .filter_map(|intersection| if intersection.along_a.rough_eq_by(
                                     0.0,
                                     THICKNESS,
                                 ) ||
@@ -152,9 +152,10 @@ impl Path {
                                         along_a: offset_a + intersection.along_a,
                                         along_b: offset_b + intersection.along_b,
                                     })
-                                },
-                            )
-                            .collect::<Vec<_>>()
+                                })
+                                .collect::<Vec<_>>()
+                        }
+                        _ => vec![],
                     })
                     .collect::<Vec<_>>()
             })
@@ -194,6 +195,17 @@ impl Path {
         } else {
             Err(PathError::NotContinuous)
         }
+    }
+
+    pub fn concat_weld(&self, other: &Self, tolerance: N) -> Result<Self, PathError> {
+        Path::new_welded(
+            self.segments
+                .iter()
+                .chain(other.segments.iter())
+                .cloned()
+                .collect(),
+            tolerance,
+        )
     }
 
     pub fn dash(&self, dash_length: N, gap_length: N) -> Vec<Path> {

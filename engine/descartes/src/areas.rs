@@ -1,7 +1,7 @@
 use {P2, V2, N, THICKNESS, RoughEq, VecLike};
 use curves::{Segment, Curve, FiniteCurve, Circle};
 use path::Path;
-use intersect::Intersect;
+use intersect::{Intersect, IntersectionResult};
 use ordered_float::OrderedFloat;
 
 #[derive(Debug)]
@@ -37,7 +37,13 @@ impl PrimitiveArea {
     }
 
     pub fn fully_contains(&self, other: &PrimitiveArea) -> bool {
-        (&self.boundary, &other.boundary).intersect().len() <= 1 &&
+        let n_intersections = match (&self.boundary, &other.boundary).intersect() {
+            IntersectionResult::Apart => 0,
+            IntersectionResult::Intersecting(intersections) => intersections.len(),
+            IntersectionResult::Coincident => unreachable!(),
+        };
+
+        n_intersections <= 1 &&
             other.boundary.segments.iter().all(|other_segment| {
                 self.contains(other_segment.start())
             })
@@ -52,11 +58,14 @@ impl PointContainer for PrimitiveArea {
             let ray = Segment::line(point, P2::new(point.x + 10_000_000_000.0, point.y))
                 .expect("Ray should be valid");
 
-            let n_intersections = (
+            let n_intersections = match (
                 &Path::new_unchecked(Some(ray).into_iter().collect()),
                 &self.boundary,
-            ).intersect()
-                .len();
+            ).intersect() {
+                IntersectionResult::Intersecting(intersections) => intersections.len(),
+                IntersectionResult::Apart => 0,
+                IntersectionResult::Coincident => unreachable!(),
+            };
 
             if n_intersections % 2 == 1 {
                 AreaLocation::Inside
@@ -118,9 +127,13 @@ impl Area {
 
         for (i_a, primitive_a) in self.primitives.iter().enumerate() {
             for (i_b, primitive_b) in b.primitives.iter().enumerate() {
-                for intersection in (&primitive_a.boundary, &primitive_b.boundary).intersect() {
-                    intersection_distances[SUBJECT_A][i_a].push(intersection.along_a);
-                    intersection_distances[SUBJECT_B][i_b].push(intersection.along_b);
+                if let IntersectionResult::Intersecting(intersections) =
+                    (&primitive_a.boundary, &primitive_b.boundary).intersect()
+                {
+                    for intersection in intersections {
+                        intersection_distances[SUBJECT_A][i_a].push(intersection.along_a);
+                        intersection_distances[SUBJECT_B][i_b].push(intersection.along_b);
+                    }
                 }
             }
         }
@@ -313,11 +326,14 @@ impl PointContainer for Area {
             let mut n_intersections = 0;
 
             for primitive in &self.primitives {
-                n_intersections += (
+                n_intersections += match (
                     &Path::new_unchecked(Some(ray).into_iter().collect()),
                     &primitive.boundary,
-                ).intersect()
-                    .len();
+                ).intersect() {
+                    IntersectionResult::Intersecting(intersections) => intersections.len(),
+                    IntersectionResult::Apart => 0,
+                    IntersectionResult::Coincident => unreachable!(),
+                };
             }
 
             if n_intersections % 2 == 1 {
@@ -362,6 +378,8 @@ pub enum PieceRole {
 
 impl AreaSplitResult {
     pub fn get_area<F: Fn(&BoundaryPiece) -> PieceRole>(&self, piece_filter: F) -> Area {
+        const WELDING_TOLERANCE: N = THICKNESS * 1.0;
+
         let mut paths = Vec::<Path>::new();
         let mut complete_paths = Vec::<Path>::new();
 
@@ -377,10 +395,18 @@ impl AreaSplitResult {
             let mut maybe_path_after = None;
 
             for (path_i, path) in paths.iter().enumerate() {
-                if path.end().rough_eq_by(oriented_path.start(), THICKNESS) {
+                if path.end().rough_eq_by(
+                    oriented_path.start(),
+                    WELDING_TOLERANCE,
+                )
+                {
                     maybe_path_before = Some(path_i)
                 }
-                if path.start().rough_eq_by(oriented_path.end(), THICKNESS) {
+                if path.start().rough_eq_by(
+                    oriented_path.end(),
+                    WELDING_TOLERANCE,
+                )
+                {
                     maybe_path_after = Some(path_i)
                 }
             }
@@ -388,17 +414,17 @@ impl AreaSplitResult {
             match (maybe_path_before, maybe_path_after) {
                 (Some(before_i), Some(after_i)) => {
                     if before_i == after_i {
-                        let joined_path = paths[before_i].concat(&oriented_path).expect(
-                            "Concat must work at this point (J1)",
-                        );
+                        let joined_path = paths[before_i]
+                            .concat_weld(&oriented_path, WELDING_TOLERANCE)
+                            .expect("Concat must work at this point (J1)");
 
                         paths.remove(before_i);
                         complete_paths.push(joined_path);
                     } else {
                         let joined_path = paths[before_i]
-                            .concat(&oriented_path)
+                            .concat_weld(&oriented_path, WELDING_TOLERANCE)
                             .expect("Concat must work at this point (J2)")
-                            .concat(&paths[after_i])
+                            .concat_weld(&paths[after_i], WELDING_TOLERANCE)
                             .expect("Concat must work at this point (J3)");
 
                         paths.remove(before_i.max(after_i));
@@ -406,16 +432,16 @@ impl AreaSplitResult {
                     }
                 }
                 (Some(before_i), None) => {
-                    let extended_path = paths[before_i].concat(&oriented_path).expect(
-                        "Concat must work at this point (B)",
-                    );
+                    let extended_path = paths[before_i]
+                        .concat_weld(&oriented_path, WELDING_TOLERANCE)
+                        .expect("Concat must work at this point (B)");
 
                     paths[before_i] = extended_path;
                 }
                 (None, Some(after_i)) => {
-                    let extended_path = oriented_path.concat(&paths[after_i]).expect(
-                        "Concat must work at this point (A)",
-                    );
+                    let extended_path = oriented_path
+                        .concat_weld(&paths[after_i], WELDING_TOLERANCE)
+                        .expect("Concat must work at this point (A)");
 
                     paths[after_i] = extended_path;
                 }
@@ -431,13 +457,13 @@ impl AreaSplitResult {
 
         if !paths.is_empty() {
             println!("{} left over paths", paths.len());
-            // println!("{}", self.debug_svg());
-            // for path in &paths {
-            //     println!(
-            //         r#"<path d="{}" stroke="rgba(0, 255, 0, 0.8)"/>"#,
-            //         path.to_svg()
-            //     );
-            // }
+            println!("{}", self.debug_svg());
+            for path in &paths {
+                println!(
+                    r#"<path d="{}" stroke="rgba(0, 255, 0, 0.8)"/>"#,
+                    path.to_svg()
+                );
+            }
         }
 
         Area::new(
