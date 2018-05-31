@@ -168,6 +168,8 @@ pub fn calculate_prototypes(
         })
         .collect::<Vec<_>>();
 
+
+
     let mut intersection_areas = gesture_areas_for_intersection
         .iter()
         .enumerate()
@@ -175,9 +177,15 @@ pub fn calculate_prototypes(
         .flat_map(|((i_a, shape_a), (i_b, shape_b))| if i_a == i_b {
             vec![]
         } else {
-            shape_a.split(shape_b).intersection().disjoint()
+            println!("Intersection iteration");
+            let split = shape_a.split(shape_b);
+            println!("Intersection iteration done");
+
+            println!("{}", split.debug_svg());
+            split.intersection().disjoint()
         })
         .collect::<Vec<_>>();
+
 
     // add intersections at the starts and ends of gestures
     const END_INTERSECTION_DEPTH: N = 15.0;
@@ -231,36 +239,6 @@ pub fn calculate_prototypes(
     }
 
     let intersection_areas = unioned_intersection_area.disjoint();
-
-    // let mut i = 0;
-
-    // while i < intersection_areas.len() {
-    //     let mut advance = true;
-
-    //     for j in (i + 1)..intersection_areas.len() {
-    //         let split = intersection_areas[i].split(&intersection_areas[j]);
-    //         let results = split.union().disjoint();
-
-    //         if results.len() == 1 {
-    //             intersection_areas[i] = results[0].clone();
-    //             intersection_areas.remove(j);
-    //             advance = false;
-    //             break;
-    //         } else if results.len() == 2 {
-    //             // intersection shapes do not overlap
-    //         } else {
-    //             println!(
-    //                 "Intersection combining clipping weirdness: got {} union shapes",
-    //                 results.len()
-    //             );
-    //             println!("{}", split.debug_svg());
-    //         }
-    //     }
-
-    //     if advance {
-    //         i += 1;
-    //     }
-    // }
 
     let mut intersection_prototypes: Vec<_> = intersection_areas
         .into_iter()
@@ -386,101 +364,103 @@ pub fn calculate_prototypes(
             .collect::<Vec<_>>()
         };
 
-    let switch_lane_paths =
-        {
-            const TRANSFER_LANE_DISTANCE_TOLERANCE: N = 0.3;
-            let right_lane_paths_and_bands = intersected_lane_paths
-                .iter()
-                .filter_map(|path| {
-                    path.shift_orthogonally(0.5 * LANE_DISTANCE).map(
-                        |right_path| {
-                            (
-                                right_path.clone(),
-                                Band::new(right_path, TRANSFER_LANE_DISTANCE_TOLERANCE),
-                            )
-                        },
-                    )
-                })
-                .collect::<Vec<_>>();
+    let switch_lane_paths = {
+        const TRANSFER_LANE_DISTANCE_TOLERANCE: N = 0.3;
+        let right_lane_paths_and_bands = intersected_lane_paths
+            .iter()
+            .filter_map(|path| {
+                path.shift_orthogonally(0.5 * LANE_DISTANCE).map(
+                    |right_path| {
+                        (
+                            right_path.clone(),
+                            Band::new(right_path, TRANSFER_LANE_DISTANCE_TOLERANCE),
+                        )
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
 
-            let left_lane_paths_and_bands = intersected_lane_paths
-                .iter()
-                .filter_map(|path| {
-                    path.shift_orthogonally(-0.5 * LANE_DISTANCE).map(
-                        |left_path| {
-                            (
-                                left_path.clone(),
-                                Band::new(left_path, TRANSFER_LANE_DISTANCE_TOLERANCE),
-                            )
-                        },
-                    )
-                })
-                .collect::<Vec<_>>();
+        let left_lane_paths_and_bands = intersected_lane_paths
+            .iter()
+            .filter_map(|path| {
+                path.shift_orthogonally(-0.5 * LANE_DISTANCE).map(
+                    |left_path| {
+                        (
+                            left_path.clone(),
+                            Band::new(left_path, TRANSFER_LANE_DISTANCE_TOLERANCE),
+                        )
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
 
-            right_lane_paths_and_bands
-                .into_iter()
-                .cartesian_product(left_lane_paths_and_bands)
-                .flat_map(|((right_path, right_band), (left_path, left_band))| {
-                    let intersection_result = (&right_band.outline(), &left_band.outline())
-                        .intersect();
+        right_lane_paths_and_bands
+            .into_iter()
+            .cartesian_product(left_lane_paths_and_bands)
+            .flat_map(|((right_path, right_band), (left_path, left_band))| {
+                let intersection_result = (&right_band.outline(), &left_band.outline()).intersect();
 
-                    if let IntersectionResult::Intersecting(mut intersections) = intersection_result {
-                        if intersections.len() < 2 {
-                            vec![]
-                        } else {
-                            intersections.sort_by_key(|intersection| {
-                                OrderedFloat(right_band.outline_distance_to_path_distance(
-                                    intersection.along_a,
-                                ))
-                            });
+                if let IntersectionResult::Intersecting(mut intersections) = intersection_result {
+                    if intersections.len() < 2 {
+                        vec![]
+                    } else {
+                        intersections.sort_by_key(|intersection| {
+                            OrderedFloat(right_band.outline_distance_to_path_distance(
+                                intersection.along_a,
+                            ))
+                        });
 
-                            intersections
-                        .windows(2)
-                        .filter_map(|intersection_pair| {
-                            let first_along_right = right_band.outline_distance_to_path_distance(
-                                intersection_pair[0].along_a,
-                            );
-                            let second_along_right = right_band.outline_distance_to_path_distance(
-                                intersection_pair[1].along_a,
-                            );
-                            let first_along_left = left_band.outline_distance_to_path_distance(
-                                intersection_pair[0].along_b,
-                            );
-                            let second_along_left = left_band.outline_distance_to_path_distance(
-                                intersection_pair[1].along_b,
-                            );
-                            // intersecting subsections go in the same direction on both lanes?
-                            if first_along_left < second_along_left {
-                                // are the midpoints of subsections on each side still in range?
-                                if right_path
-                                    .along((first_along_right + second_along_right) / 2.0)
-                                    .rough_eq_by(
-                                        left_path.along(
-                                            (first_along_left + second_along_left) / 2.0,
-                                        ),
-                                        TRANSFER_LANE_DISTANCE_TOLERANCE,
-                                    )
-                                {
-                                    right_path.subsection(first_along_right, second_along_right)
+                        intersections
+                            .windows(2)
+                            .filter_map(|intersection_pair| {
+                                let first_along_right =
+                                    right_band.outline_distance_to_path_distance(
+                                        intersection_pair[0].along_a,
+                                    );
+                                let second_along_right =
+                                    right_band.outline_distance_to_path_distance(
+                                        intersection_pair[1].along_a,
+                                    );
+                                let first_along_left =
+                                    left_band.outline_distance_to_path_distance(
+                                        intersection_pair[0].along_b,
+                                    );
+                                let second_along_left =
+                                    left_band.outline_distance_to_path_distance(
+                                        intersection_pair[1].along_b,
+                                    );
+                                // intersecting subsections go in the same direction on both lanes?
+                                if first_along_left < second_along_left {
+                                    // are the midpoints of subsections on each side still in range?
+                                    if right_path
+                                        .along((first_along_right + second_along_right) / 2.0)
+                                        .rough_eq_by(
+                                            left_path.along(
+                                                (first_along_left + second_along_left) / 2.0,
+                                            ),
+                                            TRANSFER_LANE_DISTANCE_TOLERANCE,
+                                        )
+                                    {
+                                        right_path.subsection(first_along_right, second_along_right)
+                                    } else {
+                                        None
+                                    }
                                 } else {
                                     None
                                 }
-                            } else {
-                                None
-                            }
-                        })
-                        .coalesce(|prev_subsection, next_subsection| {
-                            prev_subsection.concat(&next_subsection).map_err(|_| {
-                                (prev_subsection, next_subsection)
                             })
-                        })
-                        .collect()
-                        }
-                    } else {
-                        vec![]
+                            .coalesce(|prev_subsection, next_subsection| {
+                                prev_subsection.concat(&next_subsection).map_err(|_| {
+                                    (prev_subsection, next_subsection)
+                                })
+                            })
+                            .collect()
                     }
-                })
-        };
+                } else {
+                    vec![]
+                }
+            })
+    };
 
     for prototype in &mut intersection_prototypes {
         if let Prototype::Road(RoadPrototype::Intersection(ref mut intersection)) = *prototype {

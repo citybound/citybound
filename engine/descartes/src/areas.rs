@@ -156,6 +156,8 @@ impl Area {
                     } else {
                         primitive_distances.sort_unstable_by_key(|&along| OrderedFloat(along));
 
+                        primitive_distances.dedup_by(|a, b| (*b - *a).abs() < THICKNESS);
+
                         // to close the loop when taking piece-cutting windows
                         let first = primitive_distances[0];
                         primitive_distances.push(first);
@@ -414,17 +416,17 @@ impl AreaSplitResult {
             match (maybe_path_before, maybe_path_after) {
                 (Some(before_i), Some(after_i)) => {
                     if before_i == after_i {
-                        let joined_path = paths[before_i]
-                            .concat_weld(&oriented_path, WELDING_TOLERANCE)
-                            .expect("Concat must work at this point (J1)");
+                        let joined_path = paths[before_i].concat(&oriented_path).expect(
+                            "Concat must work at this point (J1)",
+                        );
 
                         paths.remove(before_i);
                         complete_paths.push(joined_path);
                     } else {
                         let joined_path = paths[before_i]
-                            .concat_weld(&oriented_path, WELDING_TOLERANCE)
+                            .concat(&oriented_path)
                             .expect("Concat must work at this point (J2)")
-                            .concat_weld(&paths[after_i], WELDING_TOLERANCE)
+                            .concat(&paths[after_i])
                             .expect("Concat must work at this point (J3)");
 
                         paths.remove(before_i.max(after_i));
@@ -432,16 +434,16 @@ impl AreaSplitResult {
                     }
                 }
                 (Some(before_i), None) => {
-                    let extended_path = paths[before_i]
-                        .concat_weld(&oriented_path, WELDING_TOLERANCE)
-                        .expect("Concat must work at this point (B)");
+                    let extended_path = paths[before_i].concat(&oriented_path).expect(
+                        "Concat must work at this point (B)",
+                    );
 
                     paths[before_i] = extended_path;
                 }
                 (None, Some(after_i)) => {
-                    let extended_path = oriented_path
-                        .concat_weld(&paths[after_i], WELDING_TOLERANCE)
-                        .expect("Concat must work at this point (A)");
+                    let extended_path = oriented_path.concat(&paths[after_i]).expect(
+                        "Concat must work at this point (A)",
+                    );
 
                     paths[after_i] = extended_path;
                 }
@@ -457,7 +459,7 @@ impl AreaSplitResult {
 
         if !paths.is_empty() {
             println!("{} left over paths", paths.len());
-            println!("{}", self.debug_svg());
+            // println!("{}", self.debug_svg());
             for path in &paths {
                 println!(
                     r#"<path d="{}" stroke="rgba(0, 255, 0, 0.8)"/>"#,
@@ -580,86 +582,105 @@ impl AreaSplitResult {
     }
 }
 
-#[test]
-fn svg_tests() {
+#[allow(dead_code)]
+fn svg_test(file_path: &str) {
     use std::fs;
     use std::io::Read;
     use {THICKNESS, RoughEq};
 
-    for dir_entry in fs::read_dir("./src/clipper_testcases").unwrap() {
-        let path = dir_entry.unwrap().path();
-        let path_str = path.to_str().unwrap();
+    let mut file = fs::File::open(file_path).unwrap();
 
-        if !path_str.ends_with(".svg") {
-            continue;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).unwrap();
+
+    let mut clip_area = None;
+    let mut subject_area = None;
+    let mut expected_result_primitive_areas = VecLike::new();
+
+    let path_substrs = contents.split("<path").filter(
+        |string| string.contains("d="),
+    );
+
+    for path_substr in path_substrs {
+        let path_commands_idx = path_substr.find(" d=").unwrap();
+        let path_commands = path_substr[path_commands_idx + 4..]
+            .splitn(2, '"')
+            .next()
+            .unwrap();
+
+        let id_idx = path_substr.find(" id=").unwrap();
+        let id = path_substr[id_idx + 5..].splitn(2, '"').next().unwrap();
+
+        println!("Found path {} with id {}", path_commands, id);
+
+        let area = PrimitiveArea::new(Path::from_svg(path_commands).unwrap()).unwrap();
+
+        if id == "subject" {
+            subject_area = Some(Area::new(Some(area).into_iter().collect()));
+        } else if id == "clip" {
+            clip_area = Some(Area::new(Some(area).into_iter().collect()));
+        } else if id.starts_with("result") {
+            expected_result_primitive_areas.push(area);
         }
-
-        println!("Testing svg case {}", path.display());
-
-        let mut file = fs::File::open(path.clone()).unwrap();
-
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
-
-        let mut clip_area = None;
-        let mut subject_area = None;
-        let mut expected_result_primitive_areas = vec![];
-
-        let path_substrs = contents.split("<path").filter(
-            |string| string.contains("d="),
-        );
-
-        for path_substr in path_substrs {
-            let path_commands_idx = path_substr.find(" d=").unwrap();
-            let path_commands = path_substr[path_commands_idx + 4..]
-                .splitn(2, '"')
-                .next()
-                .unwrap();
-
-            let id_idx = path_substr.find(" id=").unwrap();
-            let id = path_substr[id_idx + 5..].splitn(2, '"').next().unwrap();
-
-            println!("Found path {} with id {}", path_commands, id);
-
-            let area = PrimitiveArea::new(Path::from_svg(path_commands).unwrap()).unwrap();
-
-            if id == "subject" {
-                subject_area = Some(Area::new(vec![area]));
-            } else if id == "clip" {
-                clip_area = Some(Area::new(vec![area]));
-            } else if id.starts_with("result") {
-                expected_result_primitive_areas.push(area);
-            }
-        }
-
-        let expected_result_area = Area::new(expected_result_primitive_areas);
-
-        let subject_area = subject_area.expect("should have subject");
-        let clip_area = clip_area.expect("should have clip");
-
-        let split_result = subject_area.split(&clip_area);
-
-        println!("{}", split_result.debug_svg());
-
-        let result_area = if path_str.ends_with("intersection.svg") {
-            split_result.intersection()
-        } else if path_str.ends_with("union.svg") {
-            split_result.union()
-        } else if path_str.ends_with("difference.svg") {
-            split_result.a_minus_b()
-        } else if path_str.ends_with("not.svg") {
-            split_result.b_minus_a()
-        } else {
-            panic!("unsupported file ending");
-        };
-
-        assert_eq!(
-            expected_result_area.primitives.len(),
-            result_area.primitives.len()
-        );
-
-        assert!((&result_area).rough_eq_by(&expected_result_area, THICKNESS));
     }
+
+    let expected_result_area = Area::new(expected_result_primitive_areas);
+
+    let subject_area = subject_area.expect("should have subject");
+    let clip_area = clip_area.expect("should have clip");
+
+    let split_result = subject_area.split(&clip_area);
+
+    println!("{}", split_result.debug_svg());
+
+    let result_area = if file_path.ends_with("intersection.svg") {
+        split_result.intersection()
+    } else if file_path.ends_with("union.svg") {
+        split_result.union()
+    } else if file_path.ends_with("difference.svg") {
+        split_result.a_minus_b()
+    } else if file_path.ends_with("not.svg") {
+        split_result.b_minus_a()
+    } else {
+        panic!("unsupported file ending");
+    };
+
+    assert_eq!(
+        expected_result_area.primitives.len(),
+        result_area.primitives.len()
+    );
+
+    assert!((&result_area).rough_eq_by(&expected_result_area, THICKNESS));
+}
+
+#[test]
+fn clip_1_difference() {
+    svg_test("./src/clipper_testcases/1_difference.svg");
+}
+
+#[test]
+fn clip_1_intersection() {
+    svg_test("./src/clipper_testcases/1_intersection.svg");
+}
+
+#[test]
+fn clip_1_union() {
+    svg_test("./src/clipper_testcases/1_union.svg");
+}
+
+#[test]
+fn clip_2_difference() {
+    svg_test("./src/clipper_testcases/2_difference.svg");
+}
+
+#[test]
+fn clip_2_intersection() {
+    svg_test("./src/clipper_testcases/2_intersection.svg");
+}
+
+#[test]
+fn clip_3_difference() {
+    svg_test("./src/clipper_testcases/3_difference.svg");
 }
 
 pub trait AsArea {

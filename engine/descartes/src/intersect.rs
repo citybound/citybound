@@ -2,7 +2,7 @@ use super::{N, P2, RoughEq, Curve, FiniteCurve, THICKNESS, WithUniqueOrthogonal,
 use super::curves::{Line, Circle, Segment};
 use super::path::Path;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Intersection {
     pub along_a: N,
     pub along_b: N,
@@ -19,12 +19,25 @@ impl Intersection {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum IntersectionResult {
     Coincident,
     Apart,
     Intersecting(Vec<Intersection>),
 }
+
+impl PartialEq for IntersectionResult {
+    fn eq(&self, other: &IntersectionResult) -> bool {
+        match (self, other) {
+            (IntersectionResult::Apart, IntersectionResult::Apart) => true,
+            (IntersectionResult::Coincident, IntersectionResult::Coincident) => true,
+            (IntersectionResult::Intersecting(points_self),
+             IntersectionResult::Intersecting(points_other)) => points_self == points_other,
+            _ => false,
+        }
+    }
+}
+impl Eq for IntersectionResult {}
 
 impl IntersectionResult {
     fn swap(self) -> Self {
@@ -163,7 +176,10 @@ impl<'a> Intersect for (&'a Circle, &'a Circle) {
 impl<'a> Intersect for (&'a Segment, &'a Segment) {
     fn intersect(&self) -> IntersectionResult {
         let (a, b) = *self;
-        if !a.bounding_box().overlaps(&b.bounding_box()) {
+        if !a.bounding_box().grown_by(THICKNESS).overlaps(
+            &b.bounding_box().grown_by(THICKNESS),
+        )
+        {
             return IntersectionResult::Apart;
         }
 
@@ -221,21 +237,37 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
 
         points_to_consider.extend(&[a.start(), a.end(), b.start(), b.end()]);
 
-        IntersectionResult::Intersecting(
-            points_to_consider
-                .into_iter()
-                .filter_map(|point| if let (Some(along_a), Some(along_b)) =
-                    (
-                        a.project_with_max_distance(point, THICKNESS, THICKNESS),
-                        b.project_with_max_distance(point, THICKNESS, THICKNESS),
-                    )
-                {
-                    Some(Intersection { along_a, along_b, position: point })
-                } else {
-                    None
-                })
-                .collect(),
-        )
+        let mut unique_points_to_consider: Vec<P2> = vec![];
+
+        for point in points_to_consider {
+            if !unique_points_to_consider.iter().any(|other| {
+                point.rough_eq_by(*other, THICKNESS)
+            })
+            {
+                unique_points_to_consider.push(point);
+            }
+        }
+
+        let actual_intersections = unique_points_to_consider
+            .into_iter()
+            .filter_map(|point| if let (Some(along_a), Some(along_b)) =
+                (
+                    a.project_with_max_distance(point, THICKNESS, THICKNESS),
+                    b.project_with_max_distance(point, THICKNESS, THICKNESS),
+                )
+            {
+                Some(Intersection { along_a, along_b, position: point })
+            } else {
+                None
+            })
+            .collect::<Vec<_>>();
+
+        if actual_intersections.is_empty() {
+            IntersectionResult::Apart
+        } else {
+            IntersectionResult::Intersecting(actual_intersections)
+        }
+
     }
 }
 
@@ -275,4 +307,103 @@ impl<'a> Intersect for (&'a Path, &'a Path) {
             IntersectionResult::Intersecting(intersection_list)
         }
     }
+}
+
+#[test]
+fn line_segments_apart() {
+
+    // ----
+    // ----
+
+    assert_eq!(
+        (
+            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
+            &Segment::line(P2::new(0.0, 1.0), P2::new(1.0, 1.0)).unwrap(),
+        ).intersect(),
+        IntersectionResult::Apart
+    );
+
+    // ----  /
+    //      /
+
+    assert_eq!(
+        (
+            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
+            &Segment::line(P2::new(0.0, 1.0), P2::new(2.0, 0.0)).unwrap(),
+        ).intersect(),
+        IntersectionResult::Apart
+    );
+
+    // ----  ----
+
+    assert_eq!(
+        (
+            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
+            &Segment::line(P2::new(2.0, 0.0), P2::new(3.0, 0.0)).unwrap(),
+        ).intersect(),
+        IntersectionResult::Apart
+    );
+}
+
+#[test]
+fn line_segments_intersecting() {
+    //    /
+    // --/--
+    //  /
+
+    assert_eq!(
+        (
+            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
+            &Segment::line(P2::new(0.0, 1.0), P2::new(1.0, -1.0)).unwrap(),
+        ).intersect(),
+        IntersectionResult::Intersecting(vec![
+            Intersection {
+                along_a: 0.5,
+                along_b: 1.118034,
+                position: P2::new(0.5, 0.0),
+            },
+        ])
+    );
+
+    // |
+    // |----
+    // |
+
+    assert_eq!(
+        (
+            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
+            &Segment::line(P2::new(0.0, 1.0), P2::new(0.0, -1.0)).unwrap(),
+        ).intersect(),
+        IntersectionResult::Intersecting(vec![
+            Intersection {
+                along_a: 0.0,
+                along_b: 1.0,
+                position: P2::new(0.0, 0.0),
+            },
+        ])
+    );
+}
+
+#[allow(dead_code)]
+const TINY_BIT: N = THICKNESS / 3.0;
+
+#[test]
+fn line_segments_barely_intersecting() {
+    // |
+    // (----
+    // |
+
+    assert_eq!(
+        (
+            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
+            &Segment::line(P2::new(-TINY_BIT, 1.0), P2::new(-TINY_BIT, -1.0)).unwrap(),
+        ).intersect(),
+        IntersectionResult::Intersecting(vec![
+            Intersection {
+                along_a: 0.0,
+                along_b: 1.0,
+                position: P2::new(-TINY_BIT, 0.0),
+            },
+        ])
+    );
 }
