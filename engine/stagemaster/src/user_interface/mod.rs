@@ -433,6 +433,12 @@ impl UserInterface {
         self.focused_interactables.insert(id);
     }
 
+    pub fn unfocus(&mut self, id: Interactable3dID, _: &mut World) {
+        self.focused_interactables.retain(
+            |focused_id| *focused_id != id,
+        );
+    }
+
     pub fn set_current_layer(&mut self, layer: Option<UserInterfaceLayer>, _: &mut World) {
         self.current_layer = layer;
     }

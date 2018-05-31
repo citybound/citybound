@@ -1,4 +1,4 @@
-use descartes::{Path, Band, Segment, P2, N, FiniteCurve, WithUniqueOrthogonal};
+use descartes::{Path, Band, Segment, P2};
 use monet::{Mesh, Vertex, RendererID, Instance};
 
 static mut LAST_DEBUG_THING: u32 = 0;

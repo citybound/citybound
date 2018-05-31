@@ -1,4 +1,4 @@
-use kay::{World, MachineID, Fate, TypedID, ActorSystem, Actor};
+use kay::{World, MachineID, Fate, TypedID, ActorSystem, Actor, External};
 use compact::{CVec, COption};
 use descartes::{P2, Into2d, Circle, AsArea};
 use stagemaster::{UserInterfaceID, Interactable3d, Interactable3dID, Interactable2d,
@@ -12,6 +12,7 @@ use transport::transport_planning::RoadIntent;
 use land_use::zone_planning::{ZoneIntent, LandUse};
 use construction::{Construction, Action};
 use style::dimensions::CONTROL_POINT_HANDLE_RADIUS;
+use stagemaster::combo::{Bindings, Combo2};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ControlPointRef(pub GestureID, pub usize);
@@ -412,12 +413,16 @@ impl PlanManager {
         }
     }
 
-    pub fn undo(&mut self, proposal_id: ProposalID, _: &mut World) {
+    pub fn undo(&mut self, proposal_id: ProposalID, world: &mut World) {
         self.proposals.get_mut(proposal_id).unwrap().undo();
+        self.clear_previews(proposal_id);
+        self.recreate_gesture_interactables(proposal_id, world);
     }
 
-    pub fn redo(&mut self, proposal_id: ProposalID, _: &mut World) {
+    pub fn redo(&mut self, proposal_id: ProposalID, world: &mut World) {
         self.proposals.get_mut(proposal_id).unwrap().redo();
+        self.clear_previews(proposal_id);
+        self.recreate_gesture_interactables(proposal_id, world);
     }
 }
 
@@ -507,6 +512,29 @@ impl Interactable3d for ControlPointInteractable {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct PlanManagerSettings {
+    pub bindings: Bindings,
+}
+
+impl Default for PlanManagerSettings {
+    fn default() -> Self {
+        use stagemaster::combo::Button::*;
+
+        PlanManagerSettings {
+            bindings: Bindings::new(vec![
+                ("Implement Plan", Combo2::new(&[Return], &[])),
+                ("Undo", Combo2::new(&[LControl, Z], &[LWin, Z])),
+                (
+                    "Redo",
+                    Combo2::new(&[LControl, LShift, Z], &[LWin, LShift, Z])
+                ),
+            ]),
+        }
+    }
+}
+
+
 #[derive(Compact, Clone)]
 pub struct GestureCanvas {
     id: GestureCanvasID,
@@ -516,6 +544,7 @@ pub struct GestureCanvas {
     last_point: COption<P2>,
     current_mode: GestureCanvasMode,
     current_intent: GestureIntent,
+    settings: External<PlanManagerSettings>,
 }
 
 #[derive(Compact, Clone)]
@@ -541,6 +570,7 @@ impl GestureCanvas {
             world,
         );
         user_interface.add_2d(id.into(), world);
+        user_interface.focus(id.into(), world);
 
         GestureCanvas {
             id,
@@ -550,10 +580,12 @@ impl GestureCanvas {
             last_point: COption(None),
             current_mode: GestureCanvasMode::StartNewGesture,
             current_intent: GestureIntent::Road(RoadIntent::new(2, 2)),
+            settings: External::new(::ENV.load_settings("Planning")),
         }
     }
 
     pub fn remove(&self, user_interface: UserInterfaceID, world: &mut World) -> Fate {
+        user_interface.unfocus(self.id.into(), world);
         user_interface.remove(UILayer::Gesture as usize, self.id.into(), world);
         user_interface.remove_2d(self.id.into(), world);
         Fate::Die
@@ -562,36 +594,55 @@ impl GestureCanvas {
 
 impl Interactable3d for GestureCanvas {
     fn on_event(&mut self, event: Event3d, world: &mut World) {
-        if let Some((position, is_click)) =
-            match event {
-                Event3d::DragStarted { at, .. } => Some((at, true)),
-                Event3d::HoverOngoing { at, .. } => Some((at, false)),
-                _ => None,
-            }
-        {
-            let hovering_last = if let Some(last_point) = *self.last_point {
-                (position.into_2d() - last_point).norm() < CONTROL_POINT_HANDLE_RADIUS
-            } else {
-                false
-            };
+        match event {
+            Event3d::Combos(combos) => {
+                self.settings.bindings.do_rebinding(&combos.current);
+                let bindings = &self.settings.bindings;
 
-            if is_click {
-                if hovering_last {
-                    self.plan_manager.finish_gesture(self.for_machine, world);
+                if bindings["Implement Plan"].is_freshly_in(&combos) {
+                    self.plan_manager.implement(self.proposal_id, world);
+                }
+
+                if bindings["Redo"].is_freshly_in(&combos) {
                     self.current_mode = GestureCanvasMode::StartNewGesture;
-                    self.last_point = COption(None);
-                } else {
-                    self.last_point = COption(Some(position.into_2d()));
+                    self.plan_manager.redo(self.proposal_id, world);
+                } else if bindings["Undo"].is_freshly_in(&combos) {
+                    self.current_mode = GestureCanvasMode::StartNewGesture;
+                    self.plan_manager.undo(self.proposal_id, world);
                 }
             }
+            _ => {
 
-            if !hovering_last {
-                match self.current_mode {
-                    GestureCanvasMode::StartNewGesture => {
-                        if is_click {
-                            let new_gesture_id = GestureID::new();
+                if let Some((position, is_click)) =
+                    match event {
+                        Event3d::DragStarted { at, .. } => Some((at, true)),
+                        Event3d::HoverOngoing { at, .. } => Some((at, false)),
+                        _ => None,
+                    }
+                {
+                    let hovering_last = if let Some(last_point) = *self.last_point {
+                        (position.into_2d() - last_point).norm() < CONTROL_POINT_HANDLE_RADIUS
+                    } else {
+                        false
+                    };
 
-                            self.plan_manager.start_new_gesture(
+                    if is_click {
+                        if hovering_last {
+                            self.plan_manager.finish_gesture(self.for_machine, world);
+                            self.current_mode = GestureCanvasMode::StartNewGesture;
+                            self.last_point = COption(None);
+                        } else {
+                            self.last_point = COption(Some(position.into_2d()));
+                        }
+                    }
+
+                    if !hovering_last {
+                        match self.current_mode {
+                            GestureCanvasMode::StartNewGesture => {
+                                if is_click {
+                                    let new_gesture_id = GestureID::new();
+
+                                    self.plan_manager.start_new_gesture(
                                 self.proposal_id,
                                 self.for_machine,
                                 new_gesture_id,
@@ -601,29 +652,31 @@ impl Interactable3d for GestureCanvas {
                                 position.into_2d(),
                                 world,
                             );
-                            self.current_mode =
-                                GestureCanvasMode::AddToEndOfExisting(new_gesture_id);
+                                    self.current_mode =
+                                        GestureCanvasMode::AddToEndOfExisting(new_gesture_id);
+                                }
+                            }
+                            GestureCanvasMode::AddToEndOfExisting(gesture_id) => {
+                                self.plan_manager.add_control_point(
+                                    self.proposal_id,
+                                    gesture_id,
+                                    position.into_2d(),
+                                    true,
+                                    is_click,
+                                    world,
+                                );
+                            }
+                            GestureCanvasMode::AddToBeginningOfExisting(gesture_id) => {
+                                self.plan_manager.add_control_point(
+                                    self.proposal_id,
+                                    gesture_id,
+                                    position.into_2d(),
+                                    false,
+                                    is_click,
+                                    world,
+                                );
+                            }
                         }
-                    }
-                    GestureCanvasMode::AddToEndOfExisting(gesture_id) => {
-                        self.plan_manager.add_control_point(
-                            self.proposal_id,
-                            gesture_id,
-                            position.into_2d(),
-                            true,
-                            is_click,
-                            world,
-                        );
-                    }
-                    GestureCanvasMode::AddToBeginningOfExisting(gesture_id) => {
-                        self.plan_manager.add_control_point(
-                            self.proposal_id,
-                            gesture_id,
-                            position.into_2d(),
-                            false,
-                            is_click,
-                            world,
-                        );
                     }
                 }
             }
@@ -648,6 +701,17 @@ impl Interactable2d for GestureCanvas {
                     self.plan_manager.implement(self.proposal_id, world);
                 }
             });
+
+        ui.window(im_str!("Controls")).build(|| {
+            ui.text(im_str!("Planning"));
+            ui.separator();
+
+            if self.settings.bindings.settings_ui(&ui) {
+                ::ENV.write_settings("Planning", &*self.settings)
+            }
+
+            ui.spacing();
+        });
     }
 }
 
