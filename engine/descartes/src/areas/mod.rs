@@ -4,6 +4,8 @@ use path::Path;
 use intersect::{Intersect, IntersectionResult};
 use ordered_float::OrderedFloat;
 
+const WELDING_TOLERANCE: N = THICKNESS * 30.0;
+
 #[derive(Debug)]
 pub struct UnclosedPathError;
 
@@ -55,19 +57,25 @@ impl PointContainer for PrimitiveArea {
         if self.boundary.includes(point) {
             AreaLocation::Boundary
         } else {
-            let ray = Segment::line(point, P2::new(point.x + 10_000_000_000.0, point.y))
+            let ray = Segment::line(point, P2::new(point.x + 10_000.0, point.y))
                 .expect("Ray should be valid");
 
-            let n_intersections = match (
+            // TODO: allow for ccw holes by checking intersection direction
+            let intersections = match (
                 &Path::new_unchecked(Some(ray).into_iter().collect()),
                 &self.boundary,
             ).intersect() {
-                IntersectionResult::Intersecting(intersections) => intersections.len(),
-                IntersectionResult::Apart => 0,
+                IntersectionResult::Intersecting(intersections) => intersections,
+                IntersectionResult::Apart => vec![],
                 IntersectionResult::Coincident => unreachable!(),
             };
 
-            if n_intersections % 2 == 1 {
+            if intersections.iter().any(|intersection| {
+                intersection.along_a < THICKNESS
+            })
+            {
+                AreaLocation::Boundary
+            } else if intersections.len() % 2 == 1 {
                 AreaLocation::Inside
             } else {
                 AreaLocation::Outside
@@ -212,10 +220,13 @@ impl Area {
 
         let mut unique_boundary_pieces = VecLike::<BoundaryPiece>::new();
 
+        println!("Starting merge");
+
         for boundary_piece in boundary_pieces {
             let found_merge = {
                 // TODO: detect if several pieces are equivalent to one longer one
                 //       - maybe we need to simplify paths sometimes to prevent this?
+                //       - wait, this should never happen?
                 // TODO: any way to not make this O(n^2) ?
                 let maybe_equivalent = unique_boundary_pieces
                     .iter_mut()
@@ -223,28 +234,28 @@ impl Area {
                         let forward_equivalent =
                             other_piece.path.start().rough_eq_by(
                                 boundary_piece.path.start(),
-                                THICKNESS,
+                                WELDING_TOLERANCE / 2.0,
                             ) &&
                                 other_piece.path.end().rough_eq_by(
                                     boundary_piece.path.end(),
-                                    THICKNESS,
+                                    WELDING_TOLERANCE / 2.0,
                                 ) &&
                                 other_piece.path.midpoint().rough_eq_by(
                                     boundary_piece.path.midpoint(),
-                                    THICKNESS,
+                                    WELDING_TOLERANCE / 2.0,
                                 );
                         let backward_equivalent =
                             other_piece.path.start().rough_eq_by(
                                 boundary_piece.path.end(),
-                                THICKNESS,
+                                WELDING_TOLERANCE / 2.0,
                             ) &&
                                 other_piece.path.end().rough_eq_by(
                                     boundary_piece.path.start(),
-                                    THICKNESS,
+                                    WELDING_TOLERANCE / 2.0,
                                 ) &&
                                 other_piece.path.midpoint().rough_eq_by(
                                     boundary_piece.path.midpoint(),
-                                    THICKNESS,
+                                    WELDING_TOLERANCE / 2.0,
                                 );
                         (other_piece, forward_equivalent, backward_equivalent)
                     })
@@ -315,34 +326,33 @@ impl Area {
 
 impl PointContainer for Area {
     fn location_of(&self, point: P2) -> AreaLocation {
-        let point_on_primitive = self.primitives.iter().any(|primitive| {
-            primitive.boundary.includes(point)
-        });
-        if point_on_primitive {
+        let ray = Segment::line(point, P2::new(point.x + 10_000.0, point.y))
+            .expect("Ray should be valid");
+
+        // TODO: allow for ccw holes by checking intersection direction
+        let all_intersections = self.primitives
+            .iter()
+            .flat_map(|primitive| match (
+                &Path::new_unchecked(
+                    Some(ray).into_iter().collect(),
+                ),
+                &primitive.boundary,
+            ).intersect() {
+                IntersectionResult::Intersecting(intersections) => intersections,
+                IntersectionResult::Apart => vec![],
+                IntersectionResult::Coincident => unreachable!(),
+            })
+            .collect::<Vec<_>>();
+
+        if all_intersections.iter().any(|intersection| {
+            intersection.along_a < THICKNESS
+        })
+        {
             AreaLocation::Boundary
+        } else if all_intersections.len() % 2 == 1 {
+            AreaLocation::Inside
         } else {
-            let ray = Segment::line(point, P2::new(point.x + 10_000_000_000.0, point.y))
-                .expect("Ray should be valid");
-
-            // TODO: allow for ccw holes by checking intersection direction
-            let mut n_intersections = 0;
-
-            for primitive in &self.primitives {
-                n_intersections += match (
-                    &Path::new_unchecked(Some(ray).into_iter().collect()),
-                    &primitive.boundary,
-                ).intersect() {
-                    IntersectionResult::Intersecting(intersections) => intersections.len(),
-                    IntersectionResult::Apart => 0,
-                    IntersectionResult::Coincident => unreachable!(),
-                };
-            }
-
-            if n_intersections % 2 == 1 {
-                AreaLocation::Inside
-            } else {
-                AreaLocation::Outside
-            }
+            AreaLocation::Outside
         }
     }
 }
@@ -358,7 +368,7 @@ impl<'a> RoughEq for &'a Area {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "compact_containers", derive(Compact))]
 pub struct BoundaryPiece {
     path: Path,
@@ -380,18 +390,17 @@ pub enum PieceRole {
 
 impl AreaSplitResult {
     pub fn get_area<F: Fn(&BoundaryPiece) -> PieceRole>(&self, piece_filter: F) -> Area {
-        const WELDING_TOLERANCE: N = THICKNESS * 30.0;
-
         let mut paths = Vec::<Path>::new();
         let mut complete_paths = Vec::<Path>::new();
 
-        for oriented_path in self.pieces.iter().filter_map(
-            |piece| match piece_filter(piece) {
+        for oriented_path in self.pieces
+            .iter()
+            .filter_map(|piece| match piece_filter(piece) {
                 PieceRole::Forward => Some(piece.path.clone()),
                 PieceRole::Backward => Some(piece.path.reverse()),
                 PieceRole::NonContributing => None,
-            },
-        )
+            })
+            .filter(|path| path.length() > WELDING_TOLERANCE)
         {
             let mut maybe_path_before = None;
             let mut maybe_path_after = None;
@@ -456,7 +465,6 @@ impl AreaSplitResult {
                 }
             }
         }
-
 
         if !paths.is_empty() {
             println!("{} left over paths", paths.len());
@@ -536,46 +544,86 @@ impl AreaSplitResult {
     }
 
     pub fn debug_svg(&self) -> String {
+
+        let piece_points = self.pieces
+            .iter()
+            .flat_map(|piece| {
+                vec![piece.path.start(), piece.path.midpoint(), piece.path.end()]
+            })
+            .collect::<Vec<_>>();
+
+        let min_x = *piece_points
+            .iter()
+            .map(|p| OrderedFloat(p.x))
+            .min()
+            .unwrap();
+        let max_x = *piece_points
+            .iter()
+            .map(|p| OrderedFloat(p.x))
+            .max()
+            .unwrap();
+        let min_y = *piece_points
+            .iter()
+            .map(|p| OrderedFloat(p.y))
+            .min()
+            .unwrap();
+        let max_y = *piece_points
+            .iter()
+            .map(|p| OrderedFloat(p.y))
+            .max()
+            .unwrap();
+
+        let width = max_x - min_x;
+        let height = max_y - min_y;
+
+        let stroke_width = width.max(height) / 200.0;
+
         format!(
             r#"
-        <svg width="1000" height="1000" viewbox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+        <svg width="700" height="700" viewbox="{} {} {} {}" xmlns="http://www.w3.org/2000/svg">
             <g fill="none" stroke="rgba(0, 0, 0, 0.3)"
-            stroke-width="1" marker-end="url(#subj_marker)">
+            stroke-width="{}" marker-end="url(#subj_marker)">
                 <marker id="subj_marker" viewBox="0 0 6 6"
                         refX="6" refY="3" markerUnits="strokeWidth" orient="auto">
-                    <path d="M 0 0 L 6 3 L 0 6 z" fill="rgba(0, 0, 0, 0.3)"/>
+                    <path d="M 0 0 L 6 3 L 0 6 z" stroke-width="1"/>
                 </marker>
                 {}
             </g>
-            <g fill="none" stroke-width="1">
+            <g fill="none" stroke-width="{}">
                 {}
             </g>
         </svg>
         "#,
+            min_x - width * 0.1,
+            min_y - height * 0.1,
+            width * 1.2,
+            height * 1.2,
+            stroke_width,
             self.pieces
                 .iter()
                 .map(|piece| format!(r#"<path d="{}"/>"#, piece.path.to_svg()))
                 .collect::<Vec<_>>()
                 .join(" "),
+            stroke_width,
             self.pieces
                 .iter()
                 .flat_map(|piece| {
                     let mut side_paths = vec![];
 
                     if piece.left_inside[SUBJECT_A] {
-                        side_paths.push((-1.0, "rgba(0, 0, 255, 0.3)"));
+                        side_paths.push((-stroke_width, "rgba(0, 0, 255, 0.3)"));
                     }
 
                     if piece.left_inside[SUBJECT_B] {
-                        side_paths.push((-1.0, "rgba(255, 0, 0, 0.3)"));
+                        side_paths.push((-stroke_width, "rgba(255, 0, 0, 0.3)"));
                     }
 
                     if piece.right_inside[SUBJECT_A] {
-                        side_paths.push((1.0, "rgba(0, 0, 255, 0.3)"));
+                        side_paths.push((stroke_width, "rgba(0, 0, 255, 0.3)"));
                     }
 
                     if piece.right_inside[SUBJECT_B] {
-                        side_paths.push((1.0, "rgba(255, 0, 0, 0.3)"));
+                        side_paths.push((stroke_width, "rgba(255, 0, 0, 0.3)"));
                     }
 
                     side_paths.into_iter().flat_map(|(shift, color)|
