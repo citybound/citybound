@@ -16,6 +16,9 @@ optional = true
 path = "../compact_macros/"
 optional = true
 
+[dev-dependencies]
+pretty_assertions = "0.4.1"
+
 [features]
 default = []
 compact_containers = ["compact", "compact_macros"]

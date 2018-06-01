@@ -177,11 +177,7 @@ pub fn calculate_prototypes(
         .flat_map(|((i_a, shape_a), (i_b, shape_b))| if i_a == i_b {
             vec![]
         } else {
-            println!("Intersection iteration");
             let split = shape_a.split(shape_b);
-            println!("Intersection iteration done");
-
-            println!("{}", split.debug_svg());
             split.intersection().disjoint()
         })
         .collect::<Vec<_>>();

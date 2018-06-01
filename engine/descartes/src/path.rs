@@ -197,15 +197,87 @@ impl Path {
         }
     }
 
+    fn with_new_start_and_end(&self, new_start: P2, new_end: P2) -> Path {
+        if self.segments.len() == 1 {
+            let new_segment = if self.segments[0].is_linear() {
+                Segment::line(new_start, new_end).expect("New start/end should work A")
+            } else {
+                Segment::arc_with_direction(new_start, self.segments[0].start_direction(), new_end)
+                    .unwrap_or_else(|| {
+                        Segment::line(new_start, new_end).expect("New start/end should work B")
+                    })
+            };
+
+            Path::new_unchecked(Some(new_segment).into_iter().collect())
+        } else {
+            let first_segment = self.segments.first().unwrap();
+            let last_segment = self.segments.last().unwrap();
+
+            let new_last_segment = if last_segment.is_linear() {
+                Segment::line(last_segment.start(), new_end).expect("New start/end should work C")
+            } else {
+                Segment::arc_with_direction(
+                    last_segment.start(),
+                    last_segment.start_direction(),
+                    new_end,
+                ).unwrap_or_else(|| {
+                    Segment::line(last_segment.start(), new_end).expect(
+                        "New start/end should work D",
+                    )
+                })
+            };
+
+            let new_first_segment = if first_segment.is_linear() {
+                Segment::line(new_start, first_segment.end()).expect("New start/end should work E")
+            } else {
+                Segment::arc_with_direction(
+                    new_start,
+                    first_segment.start_direction(),
+                    first_segment.end(),
+                ).unwrap_or_else(|| {
+                    Segment::line(new_start, first_segment.end()).expect(
+                        "New start/end should work F",
+                    )
+                })
+            };
+
+            let segments = Some(new_first_segment)
+                .into_iter()
+                .chain(self.segments[1..(self.segments.len() - 1)].iter().cloned())
+                .chain(Some(new_last_segment))
+                .collect();
+
+            Path::new(segments).expect("New start/end should work G")
+        }
+    }
+
     pub fn concat_weld(&self, other: &Self, tolerance: N) -> Result<Self, PathError> {
-        Path::new_welded(
-            self.segments
-                .iter()
-                .chain(other.segments.iter())
-                .cloned()
-                .collect(),
-            tolerance,
-        )
+        let distance = (other.start() - self.end()).norm();
+
+        if distance < tolerance {
+            let new_end = other.start();
+
+            let distance_at_end = (other.end() - self.start()).norm();
+            let other_closes_self = distance_at_end < tolerance;
+
+            let new_start = if other_closes_self {
+                other.end()
+            } else {
+                self.start()
+            };
+
+            let new_path = self.with_new_start_and_end(new_start, new_end)
+                .concat(other)
+                .expect("Normal concat should work at this point");
+
+            if other_closes_self {
+                assert!(new_path.is_closed());
+            }
+
+            Ok(new_path)
+        } else {
+            Err(PathError::NotContinuous)
+        }
     }
 
     pub fn dash(&self, dash_length: N, gap_length: N) -> Vec<Path> {
@@ -246,12 +318,12 @@ impl Path {
 
         while let Some(command) = tokens.next() {
             if command == "M" || command == "L" {
-                let x: f32 = tokens
+                let x: N = tokens
                     .next()
                     .expect("Expected 1st token after M/L")
                     .parse()
                     .expect("Can't parse 1st token after M/L");
-                let y: f32 = tokens
+                let y: N = tokens
                     .next()
                     .expect("Expected 2nd token after M/L")
                     .parse()

@@ -1,4 +1,4 @@
-use super::{N, P2, V2, WithUniqueOrthogonal, angle_along_to, RoughEq, Intersect, Intersection,
+use super::{PI, N, P2, V2, WithUniqueOrthogonal, angle_along_to, RoughEq, Intersect, Intersection,
             IntersectionResult, HasBoundingBox, BoundingBox, THICKNESS};
 use nalgebra::Rotation2;
 
@@ -80,7 +80,7 @@ impl Curve for Line {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct Segment {
     pub start: P2,
     pub center_or_direction: V2,
@@ -89,9 +89,9 @@ pub struct Segment {
     signed_radius: N,
 }
 
-const DIRECTION_TOLERANCE: f32 = 0.01;
-pub const MIN_START_TO_END: f32 = 0.01;
-const MAX_SIMPLE_LINE_LENGTH: f32 = 0.5;
+const DIRECTION_TOLERANCE: N = 0.01;
+pub const MIN_START_TO_END: N = 0.01;
+const MAX_SIMPLE_LINE_LENGTH: N = 0.5;
 
 fn start_end_invalid(start: P2, end: P2) -> bool {
     start.x.is_nan() || start.y.is_nan() || end.x.is_nan() || end.y.is_nan() ||
@@ -305,7 +305,7 @@ impl Segment {
                 self.start.y,
                 self.radius(),
                 self.radius(),
-                if self.length / self.radius() > ::std::f32::consts::PI {
+                if self.length / self.radius() > PI {
                     1
                 } else {
                     0
@@ -432,7 +432,7 @@ impl Curve for Segment {
 
             if angle_start_to_point <= angle_span + tolerance_angle {
                 Some((angle_start_to_point * self.radius()).min(self.length))
-            } else if angle_start_to_point >= 2.0 * ::std::f32::consts::PI - tolerance_angle {
+            } else if angle_start_to_point >= 2.0 * PI - tolerance_angle {
                 Some(0.0)
             } else {
                 None

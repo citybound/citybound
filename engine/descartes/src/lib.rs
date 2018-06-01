@@ -9,10 +9,13 @@ extern crate compact;
 #[macro_use]
 extern crate compact_macros;
 
+#[cfg(test)]
+#[macro_use]
+extern crate pretty_assertions;
+
 use nalgebra::{Vector2, Point2, Vector3, Vector4, Point3, Isometry3, Affine3, Perspective3,
                Matrix4, dot};
 pub use nalgebra::try_inverse;
-use std::f32::consts::PI;
 
 #[cfg(feature = "compact_containers")]
 pub type VecLike<T> = compact::CVec<T>;
@@ -21,6 +24,9 @@ pub type VecLike<T> = compact::CVec<T>;
 pub type VecLike<T> = Vec<T>;
 
 pub type N = f32;
+use std::f32::consts::PI;
+use std::f32::{INFINITY, NEG_INFINITY};
+
 pub type V2 = Vector2<N>;
 pub type P2 = Point2<N>;
 pub type V3 = Vector3<N>;
@@ -163,8 +169,8 @@ pub struct BoundingBox {
 impl BoundingBox {
     pub fn infinite() -> Self {
         BoundingBox {
-            min: P2::new(std::f32::NEG_INFINITY, std::f32::NEG_INFINITY),
-            max: P2::new(std::f32::INFINITY, std::f32::INFINITY),
+            min: P2::new(NEG_INFINITY, NEG_INFINITY),
+            max: P2::new(INFINITY, INFINITY),
         }
     }
 

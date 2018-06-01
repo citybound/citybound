@@ -2,6 +2,8 @@ use super::{N, P2, RoughEq, Curve, FiniteCurve, THICKNESS, WithUniqueOrthogonal,
 use super::curves::{Line, Circle, Segment};
 use super::path::Path;
 
+use ordered_float::OrderedFloat;
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Intersection {
     pub along_a: N,
@@ -274,33 +276,85 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
 impl<'a> Intersect for (&'a Path, &'a Path) {
     fn intersect(&self) -> IntersectionResult {
         let (a, b) = *self;
-        let mut intersection_list = Vec::new();
+        // let mut intersection_list = Vec::new();
+        // for (segment_a, offset_a) in a.segments_with_start_offsets() {
+        //     for (segment_b, offset_b) in b.segments_with_start_offsets() {
+        //         match (segment_a, segment_b).intersect() {
+        //             IntersectionResult::Intersecting(intersections) => {
+        //                 for intersection in intersections {
+        //                     let identical_to_previous =
+        //                         intersection_list.iter().any(|previous_intersection| {
+        //                             (previous_intersection as &Intersection)
+        //                                 .position
+        //                                 .rough_eq_by(intersection.position, THICKNESS)
+        //                         });
+        //                     if !identical_to_previous {
+        //                         intersection_list.push(Intersection {
+        //                             along_a: intersection.along_a + offset_a,
+        //                             along_b: intersection.along_b + offset_b,
+        //                             position: intersection.position,
+        //                         });
+        //                     }
+        //                 }
+        //             }
+        //             IntersectionResult::Apart => {}
+        //             IntersectionResult::Coincident => unreachable!(),
+        //         }
+        //     }
+        // }
+
+        let mut raw_intersection_groups = Vec::<Vec<Intersection>>::new();
+
         for (segment_a, offset_a) in a.segments_with_start_offsets() {
             for (segment_b, offset_b) in b.segments_with_start_offsets() {
                 match (segment_a, segment_b).intersect() {
                     IntersectionResult::Intersecting(intersections) => {
                         for intersection in intersections {
-                            let identical_to_previous =
-                                intersection_list.iter().any(|previous_intersection| {
-                                    (previous_intersection as &Intersection)
-                                        .position
-                                        .rough_eq_by(intersection.position, THICKNESS)
-                                });
-                            if !identical_to_previous {
-                                intersection_list.push(Intersection {
-                                    along_a: intersection.along_a + offset_a,
-                                    along_b: intersection.along_b + offset_b,
-                                    position: intersection.position,
-                                });
+                            let new_intersection = Intersection {
+                                along_a: intersection.along_a + offset_a,
+                                along_b: intersection.along_b + offset_b,
+                                position: intersection.position,
+                            };
+
+                            if let Some(group_idx) = raw_intersection_groups.iter().position(
+                                |group| {
+                                    group[0].position.rough_eq_by(
+                                        intersection.position,
+                                        THICKNESS,
+                                    )
+                                },
+                            )
+                            {
+                                raw_intersection_groups[group_idx].push(new_intersection)
+                            } else {
+                                raw_intersection_groups.push(vec![new_intersection])
                             }
                         }
                     }
                     IntersectionResult::Apart => {}
                     IntersectionResult::Coincident => unreachable!(),
                 }
-
             }
         }
+
+        let intersection_list = raw_intersection_groups
+            .into_iter()
+            .map(|group| {
+                group
+                    .into_iter()
+                    .min_by_key(|intersection| {
+                        let position_on_a = a.along(intersection.along_a);
+                        let position_on_b = b.along(intersection.along_b);
+
+                        let error_sum = (intersection.position - position_on_a).norm() +
+                            (intersection.position - position_on_b).norm();
+
+                        OrderedFloat(error_sum)
+                    })
+                    .expect("Should really have a best candidate")
+            })
+            .collect::<Vec<_>>();
+
         if intersection_list.is_empty() {
             IntersectionResult::Apart
         } else {
@@ -384,26 +438,5 @@ fn line_segments_intersecting() {
     );
 }
 
-#[allow(dead_code)]
-const TINY_BIT: N = THICKNESS / 3.0;
-
-#[test]
-fn line_segments_barely_intersecting() {
-    // |
-    // (----
-    // |
-
-    assert_eq!(
-        (
-            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
-            &Segment::line(P2::new(-TINY_BIT, 1.0), P2::new(-TINY_BIT, -1.0)).unwrap(),
-        ).intersect(),
-        IntersectionResult::Intersecting(vec![
-            Intersection {
-                along_a: 0.0,
-                along_b: 1.0,
-                position: P2::new(-TINY_BIT, 0.0),
-            },
-        ])
-    );
-}
+#[cfg(test)]
+mod tests;
