@@ -276,88 +276,89 @@ pub fn calculate_prototypes(
                 .collect::<Vec<_>>();
 
             raw_lane_paths
-            .into_iter()
-            .flat_map(|(gesture_side_id, raw_lane_path)| {
-                let mut start_trim = 0.0f32;
-                let mut end_trim = raw_lane_path.length();
-                let mut cuts = Vec::new();
+                .into_iter()
+                .flat_map(|(gesture_side_id, raw_lane_path)| {
+                    let mut start_trim = 0.0f32;
+                    let mut end_trim = raw_lane_path.length();
+                    let mut cuts = Vec::new();
 
-                for intersection in &mut intersection_prototypes {
-                    if let Prototype::Road(RoadPrototype::Intersection(ref mut intersection)) =
+                    for intersection in &mut intersection_prototypes {
+                        if let Prototype::Road(RoadPrototype::Intersection(ref mut intersection)) =
                         *intersection
                     {
                         let intersection_result =
                             (&raw_lane_path, &intersection.area.primitives[0].boundary).intersect();
 
-                            if let IntersectionResult::Intersecting(intersection_points) = intersection_result {
-                        if intersection_points.len() >= 2 {
-                            let entry_distance = intersection_points
-                                .iter()
-                                .map(|p| OrderedFloat(p.along_a))
-                                .min()
-                                .unwrap();
-                            let exit_distance = intersection_points
-                                .iter()
-                                .map(|p| OrderedFloat(p.along_a))
-                                .max()
-                                .unwrap();
-                            intersection.incoming.push_at(
-                                gesture_side_id,
-                                IntersectionConnector::new(
-                                    raw_lane_path.along(*entry_distance),
-                                    raw_lane_path.direction_along(*entry_distance),
-                                ),
-                            );
-                            intersection.outgoing.push_at(
-                                gesture_side_id,
-                                IntersectionConnector::new(
-                                    raw_lane_path.along(*exit_distance),
-                                    raw_lane_path.direction_along(*exit_distance),
-                                ),
-                            );
-                            cuts.push((*entry_distance, *exit_distance));
-                        } else if intersection_points.len() == 1 {
-                            if intersection.area.contains(raw_lane_path.start()) {
-                                let exit_distance = intersection_points[0].along_a;
-                                intersection.outgoing.push_at(
-                                    gesture_side_id,
-                                    IntersectionConnector::new(
-                                        raw_lane_path.along(exit_distance),
-                                        raw_lane_path.direction_along(exit_distance),
-                                    ),
-                                );
-                                start_trim = start_trim.max(exit_distance);
-                            } else if intersection.area.contains(raw_lane_path.end()) {
-                                let entry_distance = intersection_points[0].along_a;
+                        if let IntersectionResult::Intersecting(points) = intersection_result {
+                            if points.len() >= 2 {
+                                let entry_distance = points
+                                    .iter()
+                                    .map(|p| OrderedFloat(p.along_a))
+                                    .min()
+                                    .unwrap();
+                                let exit_distance = points
+                                    .iter()
+                                    .map(|p| OrderedFloat(p.along_a))
+                                    .max()
+                                    .unwrap();
                                 intersection.incoming.push_at(
                                     gesture_side_id,
                                     IntersectionConnector::new(
-                                        raw_lane_path.along(entry_distance),
-                                        raw_lane_path.direction_along(entry_distance),
+                                        raw_lane_path.along(*entry_distance),
+                                        raw_lane_path.direction_along(*entry_distance),
                                     ),
                                 );
-                                end_trim = end_trim.min(entry_distance);
+                                intersection.outgoing.push_at(
+                                    gesture_side_id,
+                                    IntersectionConnector::new(
+                                        raw_lane_path.along(*exit_distance),
+                                        raw_lane_path.direction_along(*exit_distance),
+                                    ),
+                                );
+                                cuts.push((*entry_distance, *exit_distance));
+                            } else if points.len() == 1 {
+                                if intersection.area.contains(raw_lane_path.start()) {
+                                    let exit_distance = points[0].along_a;
+                                    intersection.outgoing.push_at(
+                                        gesture_side_id,
+                                        IntersectionConnector::new(
+                                            raw_lane_path.along(exit_distance),
+                                            raw_lane_path.direction_along(exit_distance),
+                                        ),
+                                    );
+                                    start_trim = start_trim.max(exit_distance);
+                                } else if intersection.area.contains(raw_lane_path.end()) {
+                                    let entry_distance = points[0].along_a;
+                                    intersection.incoming.push_at(
+                                        gesture_side_id,
+                                        IntersectionConnector::new(
+                                            raw_lane_path.along(entry_distance),
+                                            raw_lane_path.direction_along(entry_distance),
+                                        ),
+                                    );
+                                    end_trim = end_trim.min(entry_distance);
+                                }
                             }
                         }
-                            }
                     } else {
                         unreachable!()
                     }
-                }
+                    }
 
-                cuts.sort_by(|a, b| OrderedFloat(a.0).cmp(&OrderedFloat(b.0)));
+                    cuts.sort_by(|a, b| OrderedFloat(a.0).cmp(&OrderedFloat(b.0)));
 
-                cuts.insert(0, (-1.0, start_trim));
-                cuts.push((end_trim, raw_lane_path.length() + 1.0));
+                    cuts.insert(0, (-1.0, start_trim));
+                    cuts.push((end_trim, raw_lane_path.length() + 1.0));
 
-                cuts.windows(2)
-                    .filter_map(|two_cuts| {
-                        let ((_, exit_distance), (entry_distance, _)) = (two_cuts[0], two_cuts[1]);
-                        raw_lane_path.subsection(exit_distance, entry_distance)
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>()
+                    cuts.windows(2)
+                        .filter_map(|two_cuts| {
+                            let ((_, exit_distance), (entry_distance, _)) =
+                                (two_cuts[0], two_cuts[1]);
+                            raw_lane_path.subsection(exit_distance, entry_distance)
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
         };
 
     let switch_lane_paths = {
