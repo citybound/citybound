@@ -54,8 +54,6 @@ pub fn scan_and_generate(src_prefix: &str) {
                     }
 
                     let _ = Command::new("rustfmt")
-                        .arg("--write-mode")
-                        .arg("overwrite")
                         .arg(&auto_path)
                         .spawn();
                 }
