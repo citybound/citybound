@@ -57,7 +57,7 @@ impl PointContainer for PrimitiveArea {
         if self.boundary.includes(point) {
             AreaLocation::Boundary
         } else {
-            let ray = Segment::line(point, P2::new(point.x + 10_000.0, point.y))
+            let ray = Segment::line(point, P2::new(point.x + 10_000_000_000.0, point.y))
                 .expect("Ray should be valid");
 
             // TODO: allow for ccw holes by checking intersection direction
@@ -201,6 +201,11 @@ impl Area {
 
                     match ab[other_subject(subject)].location_of(midpoint) {
                         AreaLocation::Inside => {
+                            println!(
+                                "Piece {:?} is inside (midpoint {})",
+                                boundary_piece,
+                                midpoint
+                            );
                             boundary_piece.left_inside[other_subject(subject)] = true;
                             boundary_piece.right_inside[other_subject(subject)] = true;
                         }
@@ -326,33 +331,41 @@ impl Area {
 
 impl PointContainer for Area {
     fn location_of(&self, point: P2) -> AreaLocation {
-        let ray = Segment::line(point, P2::new(point.x + 10_000.0, point.y))
-            .expect("Ray should be valid");
-
-        // TODO: allow for ccw holes by checking intersection direction
-        let all_intersections = self.primitives
-            .iter()
-            .flat_map(|primitive| match (
-                &Path::new_unchecked(
-                    Some(ray).into_iter().collect(),
-                ),
-                &primitive.boundary,
-            ).intersect() {
-                IntersectionResult::Intersecting(intersections) => intersections,
-                IntersectionResult::Apart => vec![],
-                IntersectionResult::Coincident => unreachable!(),
-            })
-            .collect::<Vec<_>>();
-
-        if all_intersections.iter().any(|intersection| {
-            intersection.along_a < THICKNESS
+        if self.primitives.iter().any(|primtive| {
+            primtive.boundary.includes(point)
         })
         {
             AreaLocation::Boundary
-        } else if all_intersections.len() % 2 == 1 {
-            AreaLocation::Inside
         } else {
-            AreaLocation::Outside
+            let ray = Segment::line(point, P2::new(point.x + 10_000_000_000.0, point.y))
+                .expect("Ray should be valid");
+
+            // TODO: allow for ccw holes by checking intersection direction
+            let all_intersections = self.primitives
+                .iter()
+                .flat_map(|primitive| match (
+                    &Path::new_unchecked(
+                        Some(ray).into_iter().collect(),
+                    ),
+                    &primitive.boundary,
+                ).intersect() {
+                    IntersectionResult::Intersecting(intersections) => intersections,
+                    IntersectionResult::Apart => vec![],
+                    IntersectionResult::Coincident => unreachable!(),
+                })
+                .collect::<Vec<_>>();
+
+            if all_intersections.iter().any(|intersection| {
+                intersection.along_a < THICKNESS
+            })
+            {
+                AreaLocation::Boundary
+            } else if all_intersections.len() % 2 == 1 {
+                println!("{:?}", all_intersections);
+                AreaLocation::Inside
+            } else {
+                AreaLocation::Outside
+            }
         }
     }
 }
@@ -467,8 +480,13 @@ impl AreaSplitResult {
         }
 
         if !paths.is_empty() {
+            use std::io::Write;
+            ::std::io::stdout().flush();
+            ::std::thread::sleep_ms(100);
             println!("{} left over paths", paths.len());
+            ::std::thread::sleep_ms(100);
             println!("{}", self.debug_svg());
+            ::std::thread::sleep_ms(100);
             for path in &paths {
                 println!(
                     r#"<path d="{}" stroke="rgba(0, 255, 0, 0.8)"/>"#,
@@ -486,6 +504,11 @@ impl AreaSplitResult {
                         .expect("should have a min")
                 );
             }
+
+            ::std::io::stdout().flush();
+
+            ::std::thread::sleep_ms(100);
+
             assert!(paths.is_empty());
         }
 

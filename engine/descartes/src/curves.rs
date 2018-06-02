@@ -89,7 +89,7 @@ pub struct Segment {
     signed_radius: N,
 }
 
-const DIRECTION_TOLERANCE: N = 0.01;
+const DIRECTION_TOLERANCE: N = 0.0001;
 pub const MIN_START_TO_END: N = 0.01;
 const MAX_SIMPLE_LINE_LENGTH: N = 0.5;
 
@@ -454,6 +454,17 @@ impl Curve for Segment {
             }.includes(point)
         };
 
+        if !(primitive_includes_point && self.project(point).is_some()) {
+            println!(
+                "Segment {:?} close point {} primitive includes: {}, projection: {}, linear: {}",
+                self,
+                point,
+                primitive_includes_point,
+                self.project(point).is_some(),
+                self.is_linear()
+            );
+        }
+
         primitive_includes_point && self.project(point).is_some()
     }
 
@@ -507,7 +518,7 @@ impl ::std::fmt::Debug for Segment {
         if self.is_linear() {
             write!(
                 f,
-                "LineSeg({:.2}, {:.2} to {:.2}, {:.2})",
+                "LineSeg({:.4}, {:.4} to {:.4}, {:.4})",
                 self.start().x,
                 self.start().y,
                 self.end().x,
@@ -516,7 +527,7 @@ impl ::std::fmt::Debug for Segment {
         } else {
             write!(
                 f,
-                "ArcSeg({:.2}, {:.2} around {:.2}, {:.2} to {:.2}, {:.2})",
+                "ArcSeg({:.4}, {:.4} around {:.4}, {:.4} to {:.4}, {:.4})",
                 self.start().x,
                 self.start().y,
                 self.center().x,
