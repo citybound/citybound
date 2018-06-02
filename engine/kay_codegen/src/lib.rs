@@ -43,7 +43,7 @@ pub fn scan_and_generate(src_prefix: &str) {
                         file.read_to_string(&mut file_str).unwrap();
                         match parse(&file_str) {
                             Ok(model) => generate(&model),
-                            Err(error) => format!("PARSE ERROR:\n {:?}", error),
+                            Err(error) => panic!("PARSE ERROR:\n {:?}", error),
                         }
                     } else {
                         panic!("couldn't load");
@@ -55,6 +55,7 @@ pub fn scan_and_generate(src_prefix: &str) {
 
                     let _ = Command::new("rustfmt")
                         .arg(&auto_path)
+                        .arg("--backup")
                         .spawn();
                 }
             } else {
@@ -110,6 +111,7 @@ pub fn generate(model: &Model) -> String {
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
         use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom};
+        #[allow(unused_imports)]
         use super::*;
 
         #traits_msgs
