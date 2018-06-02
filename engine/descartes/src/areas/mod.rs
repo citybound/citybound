@@ -149,18 +149,18 @@ impl Area {
         let boundary_pieces = SUBJECTS
             .iter()
             .flat_map(|&subject| {
+                let mut unintersected_pieces = Vec::new();
 
                 for (primitive_i, primitive_distances) in
                     intersection_distances[subject].iter_mut().enumerate()
                 {
                     if primitive_distances.len() <= 1 {
                         primitive_distances.clear();
-                        primitive_distances.push(0.0);
-                        primitive_distances.push(
+                        unintersected_pieces.push(
                             ab[subject].primitives[primitive_i]
                                 .boundary
-                                .length(),
-                        );
+                                .clone(),
+                        )
                     } else {
                         primitive_distances.sort_unstable_by_key(|&along| OrderedFloat(along));
 
@@ -172,27 +172,30 @@ impl Area {
                     }
                 }
 
-                let mut boundary_pieces_initial = intersection_distances[subject]
-                    .iter()
-                    .enumerate()
-                    .flat_map(|(primitive_i, primitive_distances)| {
-                        primitive_distances
-                            .windows(2)
-                            .filter_map(|distance_pair| if let Some(subsection) =
-                                ab[subject].primitives[primitive_i].boundary.subsection(
-                                    distance_pair[0],
-                                    distance_pair[1],
-                                )
-                            {
-                                Some(BoundaryPiece {
-                                    path: subsection,
-                                    left_inside: [false, false],
-                                    right_inside: [subject == SUBJECT_A, subject == SUBJECT_B],
-                                })
-                            } else {
-                                None
-                            })
-                            .collect::<Vec<_>>()
+                let mut boundary_pieces_initial = unintersected_pieces
+                    .into_iter()
+                    .chain(
+                        intersection_distances[subject]
+                            .iter()
+                            .enumerate()
+                            .flat_map(|(primitive_i, primitive_distances)| {
+                                primitive_distances
+                                    .windows(2)
+                                    .filter_map(|distance_pair| {
+                                        ab[subject].primitives[primitive_i].boundary.subsection(
+                                            distance_pair[0],
+                                            distance_pair[1],
+                                        )
+                                    })
+                                    .collect::<Vec<_>>()
+                            }),
+                    )
+                    .map(|path| {
+                        BoundaryPiece {
+                            path: path,
+                            left_inside: [false, false],
+                            right_inside: [subject == SUBJECT_A, subject == SUBJECT_B],
+                        }
                     })
                     .collect::<Vec<_>>();
 
