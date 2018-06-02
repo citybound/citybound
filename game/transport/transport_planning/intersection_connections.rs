@@ -1,11 +1,11 @@
 use compact::CVec;
 use descartes::{Segment, Path, FiniteCurve, Intersect, IntersectionResult, WithUniqueOrthogonal,
-                RoughEq};
+RoughEq};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
 use super::{IntersectionPrototype, IntersectionConnector, ConnectionRole, LANE_DISTANCE,
-            LanePrototype, GestureSideID};
+LanePrototype, GestureSideID};
 
 pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
     // sort intersection connectors from inner to outer lanes
@@ -52,14 +52,12 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                     outer_turn: true,
                 }
             } else {
-                let is_uturn = outgoing[0].position.rough_eq_by(
-                    incoming[0].position,
-                    LANE_DISTANCE * 4.0,
-                ) &&
-                    outgoing[0].direction.rough_eq_by(
-                        -incoming[0].direction,
-                        0.1,
-                    );
+                let is_uturn = outgoing[0]
+                    .position
+                    .rough_eq_by(incoming[0].position, LANE_DISTANCE * 4.0)
+                    && outgoing[0]
+                        .direction
+                        .rough_eq_by(-incoming[0].direction, 0.1);
 
                 if is_uturn {
                     ConnectionRole {
@@ -88,9 +86,10 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
             let has_inner_turn = intersection.outgoing.values().any(|outgoing_group| {
                 role_between_groups(incoming_group, outgoing_group).inner_turn
             });
-            let has_straight = intersection.outgoing.values().any(|outgoing_group| {
-                role_between_groups(incoming_group, outgoing_group).straight
-            });
+            let has_straight = intersection
+                .outgoing
+                .values()
+                .any(|outgoing_group| role_between_groups(incoming_group, outgoing_group).straight);
             let has_outer_turn = intersection.outgoing.values().any(|outgoing_group| {
                 role_between_groups(incoming_group, outgoing_group).outer_turn
             });
@@ -128,9 +127,10 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
             let has_inner_turn = intersection.incoming.values().any(|incoming_group| {
                 role_between_groups(incoming_group, outgoing_group).inner_turn
             });
-            let has_straight = intersection.incoming.values().any(|incoming_group| {
-                role_between_groups(incoming_group, outgoing_group).straight
-            });
+            let has_straight = intersection
+                .incoming
+                .values()
+                .any(|incoming_group| role_between_groups(incoming_group, outgoing_group).straight);
             let has_outer_turn = intersection.incoming.values().any(|incoming_group| {
                 role_between_groups(incoming_group, outgoing_group).outer_turn
             });
@@ -175,10 +175,10 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                         let relevant_incoming_connectors = incoming_group
                             .iter()
                             .filter(|connector| {
-                                (role.u_turn && connector.role.u_turn) ||
-                                    (role.inner_turn && connector.role.inner_turn) ||
-                                    (role.straight && connector.role.straight) ||
-                                    (role.outer_turn && connector.role.outer_turn)
+                                (role.u_turn && connector.role.u_turn)
+                                    || (role.inner_turn && connector.role.inner_turn)
+                                    || (role.straight && connector.role.straight)
+                                    || (role.outer_turn && connector.role.outer_turn)
                             })
                             .collect::<Vec<_>>();
                         let relevant_incoming_len = relevant_incoming_connectors.len();
@@ -186,10 +186,10 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                         let relevant_outgoing_connectors = outgoing_group
                             .iter()
                             .filter(|connector| {
-                                (role.u_turn && connector.role.u_turn) ||
-                                    (role.inner_turn && connector.role.inner_turn) ||
-                                    (role.straight && connector.role.straight) ||
-                                    (role.outer_turn && connector.role.outer_turn)
+                                (role.u_turn && connector.role.u_turn)
+                                    || (role.inner_turn && connector.role.inner_turn)
+                                    || (role.straight && connector.role.straight)
+                                    || (role.outer_turn && connector.role.outer_turn)
                             })
                             .collect::<Vec<_>>();
                         let relevant_outgoing_len = relevant_outgoing_connectors.len();
@@ -198,22 +198,17 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                             (0..relevant_incoming_len.max(relevant_outgoing_len))
                                 .into_iter()
                                 .filter_map(|l| {
-                                    let start = relevant_incoming_connectors[l.min(
-                                        relevant_incoming_len -
-                                            1,
-                                    )];
-                                    let end = relevant_outgoing_connectors[l.min(
-                                        relevant_outgoing_len -
-                                            1,
-                                    )];
+                                    let start = relevant_incoming_connectors
+                                        [l.min(relevant_incoming_len - 1)];
+                                    let end = relevant_outgoing_connectors
+                                        [l.min(relevant_outgoing_len - 1)];
                                     let path = Path::new(
                                         Segment::biarc(
                                             start.position,
                                             start.direction,
                                             end.position,
                                             end.direction,
-                                        )?
-                                            .into(),
+                                        )?.into(),
                                     ).ok()?;
 
                                     Some(LanePrototype(path, CVec::new()))
@@ -247,12 +242,12 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
         fn compatible(lanes_a: &[LanePrototype], lanes_b: &[LanePrototype]) -> bool {
             lanes_a.iter().cartesian_product(lanes_b).all(
                 |(&LanePrototype(ref path_a, _), &LanePrototype(ref path_b, _))| {
-                    path_a.start().rough_eq_by(path_b.start(), 0.1) ||
-                        (!path_a.end().rough_eq_by(path_b.end(), 0.1) &&
-                             match (path_a, path_b).intersect() {
-                                 IntersectionResult::Apart => true,
-                                 _ => false,
-                             })
+                    path_a.start().rough_eq_by(path_b.start(), 0.1)
+                        || (!path_a.end().rough_eq_by(path_b.end(), 0.1)
+                            && match (path_a, path_b).intersect() {
+                                IntersectionResult::Apart => true,
+                                _ => false,
+                            })
                 },
             )
         }
@@ -263,21 +258,22 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
             phases.push((Vec::new(), 0));
 
             {
-                let mut pop_unused_compatible_where = |role_check: fn(ConnectionRole) -> bool,
-                                                       current_lanes: &mut Vec<LanePrototype>,
-                                                       iteration: usize| {
-                    unused_connecting_bundles.retain(
-                        |&((role, incoming_id, outgoing_id), ref lanes)| {
-                            if role_check(role) && compatible(lanes, current_lanes) {
-                                current_lanes.extend(lanes.iter().cloned());
-                                phases[iteration].0.push((incoming_id, outgoing_id));
-                                false
-                            } else {
-                                true
-                            }
-                        },
-                    );
-                };
+                let mut pop_unused_compatible_where =
+                    |role_check: fn(ConnectionRole) -> bool,
+                     current_lanes: &mut Vec<LanePrototype>,
+                     iteration: usize| {
+                        unused_connecting_bundles.retain(
+                            |&((role, incoming_id, outgoing_id), ref lanes)| {
+                                if role_check(role) && compatible(lanes, current_lanes) {
+                                    current_lanes.extend(lanes.iter().cloned());
+                                    phases[iteration].0.push((incoming_id, outgoing_id));
+                                    false
+                                } else {
+                                    true
+                                }
+                            },
+                        );
+                    };
 
                 if iteration % 2 == 0 {
                     // straight phase: consider nonconflicting straights,
@@ -319,16 +315,19 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
             }
 
             {
-                let mut reuse_compatible_where = |role_check: fn(ConnectionRole) -> bool,
-                                                  current_lanes: &mut Vec<LanePrototype>,
-                                                  iteration: usize| {
-                    for &((role, incoming_id, outgoing_id), ref lanes) in &connecting_lane_bundles {
-                        if role_check(role) && compatible(lanes, current_lanes) {
-                            current_lanes.extend(lanes.iter().cloned());
-                            phases[iteration].0.push((incoming_id, outgoing_id));
+                let mut reuse_compatible_where =
+                    |role_check: fn(ConnectionRole) -> bool,
+                     current_lanes: &mut Vec<LanePrototype>,
+                     iteration: usize| {
+                        for &((role, incoming_id, outgoing_id), ref lanes) in
+                            &connecting_lane_bundles
+                        {
+                            if role_check(role) && compatible(lanes, current_lanes) {
+                                current_lanes.extend(lanes.iter().cloned());
+                                phases[iteration].0.push((incoming_id, outgoing_id));
+                            }
                         }
-                    }
-                };
+                    };
 
                 if iteration % 2 == 0 {
                     // straight phase: consider nonconflicting straights,
@@ -358,8 +357,7 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
             iteration += 1;
         }
 
-        for ((incoming_id, outgoing_id), ref mut lanes) in
-            intersection.connecting_lanes.pairs_mut()
+        for ((incoming_id, outgoing_id), ref mut lanes) in intersection.connecting_lanes.pairs_mut()
         {
             let timings: CVec<bool> = phases
                 .iter()

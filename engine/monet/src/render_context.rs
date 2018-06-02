@@ -1,4 +1,3 @@
-
 use glium;
 
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, Into2d, Into3d, WithUniqueOrthogonal};
@@ -34,16 +33,14 @@ impl RenderContext {
                 .to_homogeneous()
                 .as_ref();
         let perspective: [[f32; 4]; 4] = *Persp3::new(
-            target.get_dimensions().0 as f32 /
-                target.get_dimensions().1 as f32,
+            target.get_dimensions().0 as f32 / target.get_dimensions().1 as f32,
             scene.eye.field_of_view,
             0.1,
             50000.0,
         ).as_matrix()
             .as_ref();
 
-        let uniforms =
-            uniform! {
+        let uniforms = uniform! {
             view: view,
             perspective: perspective
         };
@@ -74,15 +71,17 @@ impl RenderContext {
         let mut batches_todo = scene.batches.iter().collect::<Vec<_>>();
         batches_todo.sort_by_key(|&(batch_id, _)| batch_id);
 
-        for (i,
-             &Batch {
-                 ref vertices,
-                 ref indices,
-                 ref instances,
-                 is_decal,
-                 full_frame_instance_end,
-                 ..
-             }) in batches_todo
+        for (
+            i,
+            &Batch {
+                ref vertices,
+                ref indices,
+                ref instances,
+                is_decal,
+                full_frame_instance_end,
+                ..
+            },
+        ) in batches_todo
         {
             let instances_to_draw =
                 &instances[..full_frame_instance_end.unwrap_or_else(|| instances.len())];
@@ -93,8 +92,8 @@ impl RenderContext {
                     instances_to_draw.len()
                 ));
             }
-            let instance_buffer = glium::VertexBuffer::new(&*self.window, instances_to_draw)
-                .unwrap();
+            let instance_buffer =
+                glium::VertexBuffer::new(&*self.window, instances_to_draw).unwrap();
             target
                 .draw(
                     (vertices, instance_buffer.per_instance().unwrap()),

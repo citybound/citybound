@@ -23,26 +23,29 @@ pub fn render_preview(
 
     for prototype in result_preview.prototypes.values() {
         if let Prototype::Lot(LotPrototype {
-                                  lot: Lot { ref area, ref land_uses, .. },
-                                  occupancy,
-                                  ..
-                              }) = *prototype
+            lot:
+                Lot {
+                    ref area,
+                    ref land_uses,
+                    ..
+                },
+            occupancy,
+            ..
+        }) = *prototype
         {
             if occupancy == LotOccupancy::Vacant {
                 for primitive in &area.primitives {
-                    lot_vacant_outline_mesh +=
-                        Mesh::from_band(
-                            &Band::new(primitive.boundary.clone(), LOT_OUTLINE_WIDTH),
-                            0.1,
-                        );
+                    lot_vacant_outline_mesh += Mesh::from_band(
+                        &Band::new(primitive.boundary.clone(), LOT_OUTLINE_WIDTH),
+                        0.1,
+                    );
                 }
             } else {
                 for primitive in &area.primitives {
-                    lot_occupied_outline_mesh +=
-                        Mesh::from_band(
-                            &Band::new(primitive.boundary.clone(), LOT_OUTLINE_WIDTH),
-                            0.1,
-                        );
+                    lot_occupied_outline_mesh += Mesh::from_band(
+                        &Band::new(primitive.boundary.clone(), LOT_OUTLINE_WIDTH),
+                        0.1,
+                    );
                 }
             }
 

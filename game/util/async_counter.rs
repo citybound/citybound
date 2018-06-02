@@ -6,11 +6,17 @@ pub struct AsyncCounter {
 
 impl AsyncCounter {
     pub fn new() -> AsyncCounter {
-        AsyncCounter { count: 0, target: None }
+        AsyncCounter {
+            count: 0,
+            target: None,
+        }
     }
 
     pub fn with_target(target: usize) -> AsyncCounter {
-        AsyncCounter { count: 0, target: Some(target) }
+        AsyncCounter {
+            count: 0,
+            target: Some(target),
+        }
     }
 
     pub fn increment(&mut self) {

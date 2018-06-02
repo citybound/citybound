@@ -369,8 +369,9 @@ impl<T: Compact + Clone, A: Allocator> Compact for CompactVec<T, A> {
     }
 
     default fn dynamic_size_bytes(&self) -> usize {
-        self.cap * ::std::mem::size_of::<T>() +
-            self.iter()
+        self.cap * ::std::mem::size_of::<T>()
+            + self
+                .iter()
                 .map(|elem| elem.dynamic_size_bytes())
                 .sum::<usize>()
     }

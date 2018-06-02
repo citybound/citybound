@@ -44,19 +44,34 @@ impl<H: Handler> Chunk<H> {
     /// load a chunk with a given identifier, or create it if it didn't exist
     pub fn load_or_create(ident: Ident, size: usize) -> (Chunk<H>, bool) {
         let (ptr, created_new) = H::load_or_create_chunk(ident, size);
-        (Chunk { ptr, size, _h: PhantomData }, created_new)
+        (
+            Chunk {
+                ptr,
+                size,
+                _h: PhantomData,
+            },
+            created_new,
+        )
     }
 
     /// load a chunk with a given identifier, assumes it exists
     pub fn load(ident: Ident) -> Chunk<H> {
         let (ptr, size) = H::load_chunk(ident);
-        Chunk { ptr, size, _h: PhantomData }
+        Chunk {
+            ptr,
+            size,
+            _h: PhantomData,
+        }
     }
 
     /// load a chunk with a given identifier, assumes it doesn't exist
     pub fn create(ident: Ident, size: usize) -> Chunk<H> {
         let ptr = H::create_chunk(ident, size);
-        Chunk { ptr, size, _h: PhantomData }
+        Chunk {
+            ptr,
+            size,
+            _h: PhantomData,
+        }
     }
 
     /// destroy a chunk and delete any persisted representation
@@ -131,7 +146,10 @@ impl<V, H: Handler> Value<V, H> {
             }
         }
 
-        Value { chunk, _marker: PhantomData }
+        Value {
+            chunk,
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -214,10 +232,8 @@ impl<H: Handler> Arena<H> {
         // Make sure the item can fit in the current chunk
         if (*self.len + 1) > self.chunks.len() * self.items_per_chunk() {
             // If not, create a new chunk
-            self.chunks.push(Chunk::create(
-                self.ident.sub(*self.len),
-                self.chunk_size,
-            ));
+            self.chunks
+                .push(Chunk::create(self.ident.sub(*self.len), self.chunk_size));
         }
         let offset = (*self.len % self.items_per_chunk()) * self.item_size;
         let index = ArenaIndex(*self.len);
@@ -264,19 +280,17 @@ impl<H: Handler> Arena<H> {
 
     /// Get a pointer to the item at `index`
     pub unsafe fn at(&self, index: ArenaIndex) -> *const u8 {
-        self.chunks[index.0 / self.items_per_chunk()].ptr.offset(
-            ((index.0 % self.items_per_chunk()) *
-                 self.item_size) as isize,
-        )
+        self.chunks[index.0 / self.items_per_chunk()]
+            .ptr
+            .offset(((index.0 % self.items_per_chunk()) * self.item_size) as isize)
     }
 
     /// Get a mutable pointer to the item at `index`
     pub unsafe fn at_mut(&mut self, index: ArenaIndex) -> *mut u8 {
         let items_per_chunk = self.items_per_chunk();
-        self.chunks[index.0 / items_per_chunk].ptr.offset(
-            ((index.0 % items_per_chunk) * self.item_size) as
-                isize,
-        )
+        self.chunks[index.0 / items_per_chunk]
+            .ptr
+            .offset(((index.0 % items_per_chunk) * self.item_size) as isize)
     }
 }
 
@@ -332,8 +346,8 @@ impl<Item: Clone, H: Handler> Vector<Item, H> {
             None
         } else {
             unsafe {
-                let item_ptr: *const Item = self.arena.at(ArenaIndex(*self.arena.len - 1)) as
-                    *const Item;
+                let item_ptr: *const Item =
+                    self.arena.at(ArenaIndex(*self.arena.len - 1)) as *const Item;
                 let item = Some(ptr::read(item_ptr));
                 self.arena.pop_away();
                 item
@@ -387,9 +401,9 @@ impl<H: Handler> Queue<H> {
         }
 
         if queue.chunks.is_empty() {
-            queue.chunks.push(
-                Chunk::create(ident.sub(0), typical_chunk_size),
-            );
+            queue
+                .chunks
+                .push(Chunk::create(ident.sub(0), typical_chunk_size));
         }
 
         queue
@@ -626,11 +640,10 @@ impl<H: Handler> MultiArena<H> {
     pub fn populated_bin_indices_and_lens<'a>(
         &'a self,
     ) -> impl Iterator<Item = (usize, usize)> + 'a {
-        self.bins.iter().enumerate().filter_map(
-            |(index, maybe_bin)| {
-                maybe_bin.as_ref().map(|bin| (index, bin.len()))
-            },
-        )
+        self.bins
+            .iter()
+            .enumerate()
+            .filter_map(|(index, maybe_bin)| maybe_bin.as_ref().map(|bin| (index, bin.len())))
     }
 
     /// Get the length of the bin of the given bin index

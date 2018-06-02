@@ -20,13 +20,16 @@ pub struct VacantLot {
 
 impl Lot {
     pub fn width_depth_per_connection_point(&self) -> Vec<(P2, V2, f32, f32)> {
-        let midpoints = self.area
+        let midpoints = self
+            .area
             .primitives
             .iter()
             .flat_map(|primitive| {
-                primitive.boundary.segments.iter().map(|segment| {
-                    segment.midpoint()
-                })
+                primitive
+                    .boundary
+                    .segments
+                    .iter()
+                    .map(|segment| segment.midpoint())
             })
             .collect::<Vec<_>>();
 
@@ -36,26 +39,20 @@ impl Lot {
                 let depth_direction = direction;
                 let width_direction = depth_direction.orthogonal();
 
-                let depth = if let MinMaxResult::MinMax(front, back) =
-                    midpoints
-                        .iter()
-                        .map(|midpoint| {
-                            OrderedFloat((*midpoint - point).dot(&depth_direction))
-                        })
-                        .minmax()
+                let depth = if let MinMaxResult::MinMax(front, back) = midpoints
+                    .iter()
+                    .map(|midpoint| OrderedFloat((*midpoint - point).dot(&depth_direction)))
+                    .minmax()
                 {
                     *back - *front
                 } else {
                     0.0
                 };
 
-                let width = if let MinMaxResult::MinMax(left, right) =
-                    midpoints
-                        .iter()
-                        .map(|midpoint| {
-                            OrderedFloat((*midpoint - point).dot(&width_direction))
-                        })
-                        .minmax()
+                let width = if let MinMaxResult::MinMax(left, right) = midpoints
+                    .iter()
+                    .map(|midpoint| OrderedFloat((*midpoint - point).dot(&width_direction)))
+                    .minmax()
                 {
                     *right - *left
                 } else {
@@ -78,7 +75,6 @@ impl Lot {
 
         let maybe_suitable_connection_point = width_depth_per_connection_point.iter().find(
             |&&(_point, _direction, width, depth)| {
-
                 println!(
                     "Trying to suggest lot for {:?}. Is: {:?} Needed: {:?}",
                     building_style,
@@ -93,7 +89,7 @@ impl Lot {
             },
         );
 
-        if let Some(&(point, direction, _, _)) = maybe_suitable_connection_point {
+        if let Some(&(point, direction, ..)) = maybe_suitable_connection_point {
             // keep only the connection point for the building that matches its shape
             Some(Lot {
                 connection_points: vec![(point, direction)].into(),
@@ -110,7 +106,7 @@ impl Lot {
             );
 
             maybe_too_wide_connection_points
-                .filter_map(|&(point, direction, _, _)| {
+                .filter_map(|&(point, direction, ..)| {
                     let orthogonal = direction.orthogonal();
 
                     let corners = (
@@ -142,12 +138,13 @@ impl Lot {
                             .into_iter()
                             .filter_map(|right_split| {
                                 let split_lot = Lot {
-                                    connection_points: self.connection_points
+                                    connection_points: self
+                                        .connection_points
                                         .clone()
                                         .into_iter()
                                         .filter(|&(other_point, _)| {
-                                            point != other_point &&
-                                                right_split.contains(other_point)
+                                            point != other_point
+                                                && right_split.contains(other_point)
                                         })
                                         .collect(),
                                     area: right_split,
@@ -166,7 +163,8 @@ impl Lot {
                             .into_iter()
                             .filter_map(|left_split| {
                                 let split_lot = Lot {
-                                    connection_points: self.connection_points
+                                    connection_points: self
+                                        .connection_points
                                         .clone()
                                         .into_iter()
                                         .filter(|&(other_point, _)| {
@@ -193,7 +191,11 @@ impl Lot {
 
 impl VacantLot {
     pub fn spawn(id: VacantLotID, lot: &Lot, based_on: Version, _world: &mut World) -> VacantLot {
-        VacantLot { id, based_on, lot: lot.clone() }
+        VacantLot {
+            id,
+            based_on,
+            lot: lot.clone(),
+        }
     }
 
     pub fn suggest_lot(
@@ -205,7 +207,10 @@ impl VacantLot {
         println!("Trying suggest");
         if let Some(suitable_lot) = self.lot.split_for(building_style, true, true) {
             requester.on_suggested_lot(
-                BuildingIntent { lot: suitable_lot, building_style },
+                BuildingIntent {
+                    lot: suitable_lot,
+                    building_style,
+                },
                 self.based_on,
                 world,
             )

@@ -41,17 +41,14 @@ use std::io::Write;
 
 pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
     let callback: Box<FnMut(&PanicInfo)> = Box::new(move |panic_info| {
-
         let title = "SIMULATION BROKE :(";
 
         let message = match panic_info.payload().downcast_ref::<String>() {
             Some(string) => (string.clone()),
-            None => {
-                match panic_info.payload().downcast_ref::<&'static str>() {
-                    Some(static_str) => (*static_str).to_string(),
-                    None => "Weird error type".to_string(),
-                }
-            }
+            None => match panic_info.payload().downcast_ref::<&'static str>() {
+                Some(static_str) => (*static_str).to_string(),
+                None => "Weird error type".to_string(),
+            },
         };
 
         let backtrace = Backtrace::new();
@@ -63,28 +60,24 @@ pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
 
         let body = format!(
             "WHAT HAPPENED:\n{}\n\nWHERE IT HAPPENED:\n{}\n\nWHERE EXACTLY:\n{:?}",
-            message,
-            location,
-            backtrace
+            message, location, backtrace
         );
 
         let small_body = format!(
             "{}\n{}\nDETAILS IN cb_last_error.txt (AUTO-OPENED)",
-            message,
-            location
+            message, location
         );
 
-        let report_guide = "HOW TO REPORT BUGS:\n\
-            https://github.com/citybound/citybound/blob/master/CONTRIBUTING.md#reporting-bugs";
+        let report_guide = "HOW TO REPORT \
+                            BUGS:\nhttps://github.\
+                            com/citybound/citybound/blob/master/CONTRIBUTING.md#reporting-bugs";
 
         let mut error_file_path = ::std::env::temp_dir();
         error_file_path.push("cb_last_error.txt");
 
         println!(
             "{}\n\n{}\n\nALSO SEE {:?} (AUTO-OPENED)",
-            title,
-            body,
-            error_file_path
+            title, body, error_file_path
         );
 
         {
@@ -92,9 +85,8 @@ pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
                 let file_content = format!("{}\n\n{}\n\n{}", title, report_guide, body);
                 let file_content = file_content.replace("\n", "\r\n");
 
-                file.write_all(file_content.as_bytes()).expect(
-                    "Error writing error file, lol",
-                );
+                file.write_all(file_content.as_bytes())
+                    .expect("Error writing error file, lol");
             };
         }
 
@@ -133,7 +125,6 @@ pub fn networking_from_env_args() -> Networking {
 
         Networking::new(machine_id, network)
     }
-
 }
 
 pub fn build_window(machine_id: u8) -> WindowBuilder {
@@ -187,8 +178,8 @@ impl FrameCounter {
     }
 
     pub fn start_frame(&mut self) {
-        let elapsed_ms = self.last_frame.elapsed().as_secs() as f32 * 1000.0 +
-            self.last_frame.elapsed().subsec_nanos() as f32 / 10.0E5;
+        let elapsed_ms = self.last_frame.elapsed().as_secs() as f32 * 1000.0
+            + self.last_frame.elapsed().subsec_nanos() as f32 / 10.0E5;
 
         self.elapsed_ms_collected.push(elapsed_ms);
 
@@ -200,8 +191,8 @@ impl FrameCounter {
     }
 
     pub fn print_fps(&self, user_interface: UserInterfaceID, world: &mut World) {
-        let avg_elapsed_ms = self.elapsed_ms_collected.iter().sum::<f32>() /
-            (self.elapsed_ms_collected.len() as f32);
+        let avg_elapsed_ms = self.elapsed_ms_collected.iter().sum::<f32>()
+            / (self.elapsed_ms_collected.len() as f32);
 
         user_interface.add_debug_text(
             "Frame".to_owned().into(),

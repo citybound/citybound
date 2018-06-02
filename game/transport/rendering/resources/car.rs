@@ -14,23 +14,54 @@ use monet::Vertex;
 pub fn create() -> ::monet::Mesh {
     ::monet::Mesh::new(
         vec![
-            Vertex { position: [-2.25, -0.9, 0.00] }, // 0
-            Vertex { position: [-2.25, -0.9, 0.80] }, // 1
-            Vertex { position: [-2.00, -0.9, 1.00] }, // 2
-            Vertex { position: [-1.75, -0.9, 1.65] }, // 3
-            Vertex { position: [0.30, -0.9, 1.65] }, // 4
-            Vertex { position: [1.00, -0.9, 1.00] }, // 5
-            Vertex { position: [2.25, -0.9, 0.80] }, // 6
-            Vertex { position: [2.25, -0.9, 0.00] }, // 7
-
-            Vertex { position: [-2.25, 0.9, 0.00] }, // 8
-            Vertex { position: [-2.25, 0.9, 0.80] }, // 9
-            Vertex { position: [-2.00, 0.9, 1.00] }, // A
-            Vertex { position: [-1.75, 0.9, 1.65] }, // B
-            Vertex { position: [0.30, 0.9, 1.65] }, // C
-            Vertex { position: [1.00, 0.9, 1.00] }, // D
-            Vertex { position: [2.25, 0.9, 0.80] }, // E
-            Vertex { position: [2.25, 0.9, 0.00] } /* F */,
+            Vertex {
+                position: [-2.25, -0.9, 0.00],
+            }, // 0
+            Vertex {
+                position: [-2.25, -0.9, 0.80],
+            }, // 1
+            Vertex {
+                position: [-2.00, -0.9, 1.00],
+            }, // 2
+            Vertex {
+                position: [-1.75, -0.9, 1.65],
+            }, // 3
+            Vertex {
+                position: [0.30, -0.9, 1.65],
+            }, // 4
+            Vertex {
+                position: [1.00, -0.9, 1.00],
+            }, // 5
+            Vertex {
+                position: [2.25, -0.9, 0.80],
+            }, // 6
+            Vertex {
+                position: [2.25, -0.9, 0.00],
+            }, // 7
+            Vertex {
+                position: [-2.25, 0.9, 0.00],
+            }, // 8
+            Vertex {
+                position: [-2.25, 0.9, 0.80],
+            }, // 9
+            Vertex {
+                position: [-2.00, 0.9, 1.00],
+            }, // A
+            Vertex {
+                position: [-1.75, 0.9, 1.65],
+            }, // B
+            Vertex {
+                position: [0.30, 0.9, 1.65],
+            }, // C
+            Vertex {
+                position: [1.00, 0.9, 1.00],
+            }, // D
+            Vertex {
+                position: [2.25, 0.9, 0.80],
+            }, // E
+            Vertex {
+                position: [2.25, 0.9, 0.00],
+            }, /* F */
         ],
         vec![
             // right side

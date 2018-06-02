@@ -62,9 +62,7 @@ impl Building {
         rendering::on_add(id, lot, style, world);
 
         Simulation::local_first(world).wake_up_in(
-            Ticks::from(
-                Duration::from_minutes(10),
-            ),
+            Ticks::from(Duration::from_minutes(10)),
             id.into(),
             world,
         );
@@ -88,14 +86,12 @@ impl Building {
     ) {
         println!(
             "{:?} got offer request for {:?}",
-            self.style,
-            required_unit_type
+            self.style, required_unit_type
         );
         if self.being_destroyed_for.is_none() {
             if let Some(idx) = self.units.iter().position(|&Unit(household, unit_type)| {
                 household.is_none() && unit_type == required_unit_type
-            })
-            {
+            }) {
                 requester.on_unit_offer(self.id, UnitIdx(idx), world);
                 println!("...and responded positively!!!!");
             } else {
@@ -111,7 +107,8 @@ impl Building {
     }
 
     pub fn remove_household(&mut self, household: HouseholdID, world: &mut World) {
-        let position = self.units
+        let position = self
+            .units
             .iter()
             .position(|&Unit(user, _)| user == Some(household))
             .expect("Tried to remove a household not in the building");
@@ -134,10 +131,9 @@ impl Building {
         if let Some(location) = self.location {
             location.node.remove_attachee(self.id_as(), world);
         }
-        self.being_destroyed_for.unwrap().action_done(
-            self.id.into(),
-            world,
-        );
+        self.being_destroyed_for
+            .unwrap()
+            .action_done(self.id.into(), world);
         Fate::Die
     }
 }
@@ -187,9 +183,7 @@ impl Attachee for Building {
         } else {
             self.location = None;
             Simulation::local_first(world).wake_up_in(
-                Ticks::from(
-                    Duration::from_minutes(10),
-                ),
+                Ticks::from(Duration::from_minutes(10)),
                 self.id_as(),
                 world,
             );
@@ -212,9 +206,7 @@ impl Sleeper for Building {
                 world,
             );
             Simulation::local_first(world).wake_up_in(
-                Ticks::from(
-                    Duration::from_minutes(10),
-                ),
+                Ticks::from(Duration::from_minutes(10)),
                 self.id_as(),
                 world,
             );

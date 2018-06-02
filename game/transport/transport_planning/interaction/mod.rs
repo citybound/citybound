@@ -13,9 +13,9 @@ use planning::interaction::{GestureInteractable, GestureInteractableID};
 use construction::Action;
 
 use super::{RoadIntent, RoadPrototype, LanePrototype, SwitchLanePrototype, IntersectionPrototype,
-            gesture_intent_smooth_paths};
+gesture_intent_smooth_paths};
 use style::dimensions::{LANE_DISTANCE, CENTER_LANE_DISTANCE, LANE_MARKER_WIDTH,
-                        LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH};
+LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH};
 
 pub fn render_preview(
     result_preview: &PlanResult,
@@ -49,19 +49,19 @@ pub fn render_preview(
                             0.1,
                         );
                     }
-                    Prototype::Road(RoadPrototype::SwitchLane(
-                        SwitchLanePrototype(ref lane_path))) => {
-                        for dash in lane_path.dash(
-                                LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH) {
+                    Prototype::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(
+                        ref lane_path,
+                    ))) => {
+                        for dash in lane_path.dash(LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH) {
                             switch_lane_mesh +=
                                 Mesh::from_band(&Band::new(dash, LANE_MARKER_WIDTH), 0.1);
                         }
                     }
                     Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
-                                                                    ref area,
-                                                                    ref connecting_lanes,
-                                                                    ..
-                                                                })) => {
+                        ref area,
+                        ref connecting_lanes,
+                        ..
+                    })) => {
                         intersection_mesh += Mesh::from_band(
                             &Band::new(area.primitives[0].boundary.clone(), 0.1),
                             0.1,
@@ -166,35 +166,31 @@ impl GestureInteractable for LaneCountInteractable {
 
 impl Interactable3d for LaneCountInteractable {
     fn on_event(&mut self, event: Event3d, world: &mut World) {
-
-        if let Some((from, to, is_drag_finished)) =
-            match event {
-                Event3d::DragOngoing { from, to, .. } => Some((from, to, false)),
-                Event3d::DragFinished { from, to, .. } => Some((from, to, true)),
-                _ => None,
-            }
-        {
-            if let Some(closest_point_along) =
-                self.path.project_with_tolerance(from.into_2d(), 3.0)
+        if let Some((from, to, is_drag_finished)) = match event {
+            Event3d::DragOngoing { from, to, .. } => Some((from, to, false)),
+            Event3d::DragFinished { from, to, .. } => Some((from, to, true)),
+            _ => None,
+        } {
+            if let Some(closest_point_along) = self.path.project_with_tolerance(from.into_2d(), 3.0)
             {
                 let closest_point = self.path.along(closest_point_along);
                 let closest_point_direction = self.path.direction_along(closest_point_along);
 
-                let n_lanes_delta =
-                    ((to.into_2d() - closest_point).dot(&closest_point_direction.orthogonal())) /
-                        LANE_DISTANCE;
+                let n_lanes_delta = ((to.into_2d() - closest_point)
+                    .dot(&closest_point_direction.orthogonal()))
+                    / LANE_DISTANCE;
 
                 let new_intent = if self.forward {
                     RoadIntent {
-                        n_lanes_forward: (self.initial_intent.n_lanes_forward as isize +
-                                              n_lanes_delta as isize)
+                        n_lanes_forward: (self.initial_intent.n_lanes_forward as isize
+                            + n_lanes_delta as isize)
                             .max(0) as u8,
                         n_lanes_backward: self.initial_intent.n_lanes_backward,
                     }
                 } else {
                     RoadIntent {
-                        n_lanes_backward: (self.initial_intent.n_lanes_backward as isize +
-                                               n_lanes_delta as isize)
+                        n_lanes_backward: (self.initial_intent.n_lanes_backward as isize
+                            + n_lanes_delta as isize)
                             .max(0) as u8,
                         n_lanes_forward: self.initial_intent.n_lanes_forward,
                     }
@@ -225,8 +221,8 @@ pub fn spawn_gesture_interactables(
         .into_iter()
         .flat_map(|(gesture_id, road_intent, path)| {
             path.shift_orthogonally(
-                CENTER_LANE_DISTANCE / 2.0 +
-                    (f32::from(road_intent.n_lanes_forward) - 0.5) * LANE_DISTANCE,
+                CENTER_LANE_DISTANCE / 2.0
+                    + (f32::from(road_intent.n_lanes_forward) - 0.5) * LANE_DISTANCE,
             ).map(|shifted_path_forward| {
                     LaneCountInteractableID::spawn(
                         user_interface,
@@ -242,20 +238,20 @@ pub fn spawn_gesture_interactables(
                 .into_iter()
                 .chain(
                     path.shift_orthogonally(
-                        -(CENTER_LANE_DISTANCE / 2.0 +
-                              (f32::from(road_intent.n_lanes_backward) - 0.5) * LANE_DISTANCE),
+                        -(CENTER_LANE_DISTANCE / 2.0
+                            + (f32::from(road_intent.n_lanes_backward) - 0.5) * LANE_DISTANCE),
                     ).map(|shifted_path_backward| {
-                            LaneCountInteractableID::spawn(
-                                user_interface,
-                                plan_manager,
-                                proposal_id,
-                                gesture_id,
-                                false,
-                                shifted_path_backward.reverse(),
-                                road_intent,
-                                world,
-                            ).into()
-                        }),
+                        LaneCountInteractableID::spawn(
+                            user_interface,
+                            plan_manager,
+                            proposal_id,
+                            gesture_id,
+                            false,
+                            shifted_path_backward.reverse(),
+                            road_intent,
+                            world,
+                        ).into()
+                    }),
                 )
         })
         .collect()

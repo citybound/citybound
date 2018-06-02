@@ -102,7 +102,6 @@ impl<D: Into<Ticks>> ::std::ops::SubAssign<D> for Instant {
     }
 }
 
-
 #[derive(Copy, Clone, PartialEq, PartialOrd)]
 pub struct TimeOfDay {
     minutes_of_day: u16,
@@ -113,7 +112,9 @@ const MINUTES_PER_DAY: usize = 60 * 24;
 
 impl TimeOfDay {
     pub fn new(h: usize, m: usize) -> Self {
-        TimeOfDay { minutes_of_day: m as u16 + (h * 60) as u16 }
+        TimeOfDay {
+            minutes_of_day: m as u16 + (h * 60) as u16,
+        }
     }
 
     pub fn hours_minutes(&self) -> (usize, usize) {
@@ -125,17 +126,17 @@ impl TimeOfDay {
 
     pub fn earlier_by(&self, delta: Duration) -> Self {
         TimeOfDay {
-            minutes_of_day: ((((self.minutes_of_day as isize - delta.as_minutes() as isize) %
-                                   MINUTES_PER_DAY as isize) +
-                                  MINUTES_PER_DAY as isize) as
-                                 usize % MINUTES_PER_DAY) as u16,
+            minutes_of_day: ((((self.minutes_of_day as isize - delta.as_minutes() as isize)
+                % MINUTES_PER_DAY as isize)
+                + MINUTES_PER_DAY as isize) as usize % MINUTES_PER_DAY)
+                as u16,
         }
     }
 
     pub fn later_by(&self, delta: Duration) -> Self {
         TimeOfDay {
-            minutes_of_day: ((self.minutes_of_day as usize + delta.as_minutes() as usize) %
-                                 MINUTES_PER_DAY) as u16,
+            minutes_of_day: ((self.minutes_of_day as usize + delta.as_minutes() as usize)
+                % MINUTES_PER_DAY) as u16,
         }
     }
 }
@@ -143,9 +144,8 @@ impl TimeOfDay {
 impl From<Instant> for TimeOfDay {
     fn from(instant: Instant) -> TimeOfDay {
         TimeOfDay {
-            minutes_of_day: ((BEGINNING_TIME_OF_DAY * 60 +
-                                  (instant.ticks() / TICKS_PER_SIM_MINUTE)) %
-                                 MINUTES_PER_DAY) as u16,
+            minutes_of_day: ((BEGINNING_TIME_OF_DAY * 60 + (instant.ticks() / TICKS_PER_SIM_MINUTE))
+                % MINUTES_PER_DAY) as u16,
         }
     }
 }
@@ -154,7 +154,9 @@ impl<D: Into<Duration>> ::std::ops::Add<D> for TimeOfDay {
     type Output = Self;
 
     fn add(self, rhs: D) -> Self {
-        TimeOfDay { minutes_of_day: self.minutes_of_day + (rhs.into().0 / 60) as u16 }
+        TimeOfDay {
+            minutes_of_day: self.minutes_of_day + (rhs.into().0 / 60) as u16,
+        }
     }
 }
 
@@ -169,7 +171,9 @@ impl<D: Into<Duration>> ::std::ops::Sub<D> for TimeOfDay {
     type Output = Self;
 
     fn sub(self, rhs: D) -> Self {
-        TimeOfDay { minutes_of_day: self.minutes_of_day - (rhs.into().0 / 60) as u16 }
+        TimeOfDay {
+            minutes_of_day: self.minutes_of_day - (rhs.into().0 / 60) as u16,
+        }
     }
 }
 

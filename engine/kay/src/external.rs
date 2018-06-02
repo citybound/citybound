@@ -12,12 +12,16 @@ pub struct External<T> {
 impl<T> External<T> {
     /// Allocate `content` on the heap and create a sharable `External` reference to it
     pub fn new(content: T) -> Self {
-        External { maybe_owned: Cell::new(Some(Box::new(content))) }
+        External {
+            maybe_owned: Cell::new(Some(Box::new(content))),
+        }
     }
 
     /// To interface with traditional owned boxes
     pub fn from_box(content: Box<T>) -> Self {
-        External { maybe_owned: Cell::new(Some(content)) }
+        External {
+            maybe_owned: Cell::new(Some(content)),
+        }
     }
 
     /// Like `clone`, just to make the danger more clear
@@ -27,9 +31,9 @@ impl<T> External<T> {
 
     /// To interface with traditional owned boxes
     pub fn into_box(self) -> Box<T> {
-        self.maybe_owned.into_inner().expect(
-            "Tried to get Box from already taken external",
-        )
+        self.maybe_owned
+            .into_inner()
+            .expect("Tried to get Box from already taken external")
     }
 }
 
@@ -37,9 +41,11 @@ impl<T> External<T> {
 impl<T> Clone for External<T> {
     fn clone(&self) -> Self {
         External {
-            maybe_owned: Cell::new(Some(self.maybe_owned.take().expect(
-                "Tried to clone already taken external",
-            ))),
+            maybe_owned: Cell::new(Some(
+                self.maybe_owned
+                    .take()
+                    .expect("Tried to clone already taken external"),
+            )),
         }
     }
 }
@@ -49,17 +55,19 @@ impl<T> ::std::ops::Deref for External<T> {
 
     fn deref(&self) -> &T {
         let option_ref = unsafe { &(*self.maybe_owned.as_ptr()) };
-        &**option_ref.as_ref().expect(
-            "Tried to deref already taken external",
-        )
+        &**option_ref
+            .as_ref()
+            .expect("Tried to deref already taken external")
     }
 }
 
 impl<T> ::std::ops::DerefMut for External<T> {
     fn deref_mut(&mut self) -> &mut T {
-        &mut *self.maybe_owned.get_mut().as_mut().expect(
-            "Tried to mut deref already taken external",
-        )
+        &mut *self
+            .maybe_owned
+            .get_mut()
+            .as_mut()
+            .expect("Tried to mut deref already taken external")
     }
 }
 

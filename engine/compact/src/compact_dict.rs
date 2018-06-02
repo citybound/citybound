@@ -152,16 +152,16 @@ impl<K: Eq + Copy, I: Compact, A1: Allocator, A2: Allocator> CompactDict<K, Comp
 
     /// Iterator over the `CompactVec` at the key `query`
     pub fn get_iter<'a>(&'a self, query: K) -> impl Iterator<Item = &'a I> + 'a {
-        self.get(query).into_iter().flat_map(|vec_in_option| {
-            vec_in_option.iter()
-        })
+        self.get(query)
+            .into_iter()
+            .flat_map(|vec_in_option| vec_in_option.iter())
     }
 
     /// Remove the `CompactVec` at the key `query` and iterate over its elements (if it existed)
     pub fn remove_iter<'a>(&'a mut self, query: K) -> impl Iterator<Item = I> + 'a {
-        self.remove(query).into_iter().flat_map(|vec_in_option| {
-            vec_in_option.into_iter()
-        })
+        self.remove(query)
+            .into_iter()
+            .flat_map(|vec_in_option| vec_in_option.into_iter())
     }
 }
 
@@ -208,7 +208,8 @@ impl<K: Copy + Eq, V: Compact + Clone, A: Allocator> Default for CompactDict<K, 
 }
 
 impl<K: Copy + Eq, V: Compact + Clone, A: Allocator> ::std::iter::FromIterator<(K, V)>
-    for CompactDict<K, V, A> {
+    for CompactDict<K, V, A>
+{
     /// Construct a compact dictionary from an interator over key-value pairs
     fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
         let mut dict = Self::new();
@@ -220,7 +221,8 @@ impl<K: Copy + Eq, V: Compact + Clone, A: Allocator> ::std::iter::FromIterator<(
 }
 
 impl<K: Copy + Eq, V: Compact + Clone, A: Allocator> ::std::iter::Extend<(K, V)>
-    for CompactDict<K, V, A> {
+    for CompactDict<K, V, A>
+{
     /// Extend a compact dictionary from an iterator over key-value pairs
     fn extend<T: IntoIterator<Item = (K, V)>>(&mut self, iter: T) {
         for (key, value) in iter {
@@ -251,7 +253,6 @@ fn very_basic2() {
     assert!(*map.get(0).unwrap() == 54);
     assert!(*map.get(1).unwrap() == 48);
 }
-
 
 #[test]
 fn basic() {

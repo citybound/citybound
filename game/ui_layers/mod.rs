@@ -32,22 +32,13 @@ impl Interactable2d for LayerSelection {
             .size((200.0, 50.0), ImGuiSetCond_FirstUseEver)
             .collapsible(false)
             .build(|| {
-
                 if ui.small_button(im_str!("Planning")) {
-                    UserInterface::local_first(world).set_current_layer(
-                        Some(
-                            UILayer::Gesture as usize,
-                        ),
-                        world,
-                    );
+                    UserInterface::local_first(world)
+                        .set_current_layer(Some(UILayer::Gesture as usize), world);
                 }
                 if ui.small_button(im_str!("Info")) {
-                    UserInterface::local_first(world).set_current_layer(
-                        Some(
-                            UILayer::Info as usize,
-                        ),
-                        world,
-                    );
+                    UserInterface::local_first(world)
+                        .set_current_layer(Some(UILayer::Info as usize), world);
                 }
             });
     }

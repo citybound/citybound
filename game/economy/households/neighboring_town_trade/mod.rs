@@ -1,6 +1,6 @@
 use kay::{ActorSystem, World, Actor};
 use simulation::{TimeOfDay, TimeOfDayRange, Duration, Instant, Simulatable, SimulatableID,
-                 SimulationID, Ticks};
+SimulationID, Ticks};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
@@ -32,7 +32,7 @@ impl NeighboringTownTrade {
                 TimeOfDayRange::new(5, 0, 15, 0),
                 Deal::new(Some((Resource::Money, 50.0)), Duration::from_hours(5)),
                 300,
-                false
+                false,
             ),
             // Offer::new(
             //     MemberIdx(0),
@@ -62,7 +62,7 @@ impl NeighboringTownTrade {
                     Duration::from_minutes(30),
                 ),
                 32,
-                false
+                false,
             ),
             Offer::new(
                 MemberIdx(0),
@@ -72,7 +72,7 @@ impl NeighboringTownTrade {
                     Duration::from_minutes(10),
                 ),
                 8,
-                false
+                false,
             ),
             Offer::new(
                 MemberIdx(0),
@@ -82,7 +82,7 @@ impl NeighboringTownTrade {
                     Duration::from_minutes(10),
                 ),
                 8,
-                false
+                false,
             ),
             Offer::new(
                 MemberIdx(0),
@@ -92,7 +92,7 @@ impl NeighboringTownTrade {
                     Duration::from_minutes(10),
                 ),
                 8,
-                false
+                false,
             ),
             Offer::new(
                 MemberIdx(0),
@@ -105,7 +105,7 @@ impl NeighboringTownTrade {
                     Duration::from_minutes(10),
                 ),
                 60,
-                false
+                false,
             ),
             Offer::new(
                 MemberIdx(0),
@@ -115,7 +115,7 @@ impl NeighboringTownTrade {
                     Duration::from_minutes(10),
                 ),
                 8,
-                false
+                false,
             ),
             Offer::new(
                 MemberIdx(0),
@@ -128,58 +128,58 @@ impl NeighboringTownTrade {
                     Duration::from_minutes(10),
                 ),
                 8,
-                false
+                false,
             ),
-            // Offer::new(
-            //     MemberIdx(0),
-            //     TimeOfDayRange::new(7, 0, 20, 0),
-            //     Deal::new(
-            //         vec![(Wood, 30.0), (Money, -10.0)],
-            //         Duration::from_minutes(10),
-            //     ),
-            //     10,
-            //     false
-            // ),
-            // Offer::new(
-            //     MemberIdx(0),
-            //     TimeOfDayRange::new(7, 0, 20, 0),
-            //     Deal::new(
-            //         vec![(Furniture, 5.0), (Money, -100.0)],
-            //         Duration::from_minutes(10),
-            //     ),
-            //     10,
-            //     false
-            // ),
-            // Offer::new(
-            //     MemberIdx(0),
-            //     TimeOfDayRange::new(7, 0, 20, 0),
-            //     Deal::new(
-            //         vec![(TextileGoods, 30.0), (Money, -30.0)],
-            //         Duration::from_minutes(10),
-            //     ),
-            //     10,
-            //     false
-            // ),
-            // Offer::new(
-            //     MemberIdx(0),
-            //     TimeOfDayRange::new(7, 0, 20, 0),
-            //     Deal::new(
-            //         vec![(Clothes, 5.0), (Money, -50.0)],
-            //         Duration::from_minutes(10),
-            //     ),
-            //     10,
-            //     false
-            // ),
-            // Offer::new(
-            //     MemberIdx(0),
-            //     TimeOfDayRange::new(7, 0, 20, 0),
-            //     Deal::new(
-            //         vec![(Devices, 5.0), (Money, -100.0)],
-            //         Duration::from_minutes(10),
-            //     ),
-            //     10,
-            //     false
-            // ),
+            /* Offer::new(
+             *     MemberIdx(0),
+             *     TimeOfDayRange::new(7, 0, 20, 0),
+             *     Deal::new(
+             *         vec![(Wood, 30.0), (Money, -10.0)],
+             *         Duration::from_minutes(10),
+             *     ),
+             *     10,
+             *     false
+             * ),
+             * Offer::new(
+             *     MemberIdx(0),
+             *     TimeOfDayRange::new(7, 0, 20, 0),
+             *     Deal::new(
+             *         vec![(Furniture, 5.0), (Money, -100.0)],
+             *         Duration::from_minutes(10),
+             *     ),
+             *     10,
+             *     false
+             * ),
+             * Offer::new(
+             *     MemberIdx(0),
+             *     TimeOfDayRange::new(7, 0, 20, 0),
+             *     Deal::new(
+             *         vec![(TextileGoods, 30.0), (Money, -30.0)],
+             *         Duration::from_minutes(10),
+             *     ),
+             *     10,
+             *     false
+             * ),
+             * Offer::new(
+             *     MemberIdx(0),
+             *     TimeOfDayRange::new(7, 0, 20, 0),
+             *     Deal::new(
+             *         vec![(Clothes, 5.0), (Money, -50.0)],
+             *         Duration::from_minutes(10),
+             *     ),
+             *     10,
+             *     false
+             * ),
+             * Offer::new(
+             *     MemberIdx(0),
+             *     TimeOfDayRange::new(7, 0, 20, 0),
+             *     Deal::new(
+             *         vec![(Devices, 5.0), (Money, -100.0)],
+             *         Duration::from_minutes(10),
+             *     ),
+             *     10,
+             *     false
+             * ), */
         ];
 
         NeighboringTownTrade {
@@ -226,11 +226,11 @@ impl Household for NeighboringTownTrade {
             BakedGoods,
             Meat,
             DairyGoods,
-            // Wood,
-            //Furniture,
-            //TextileGoods,
-            //Clothes,
-            //Devices,
+            /* Wood, */
+            /*Furniture,
+             *TextileGoods,
+             *Clothes,
+             *Devices, */
         ]
     }
 
@@ -265,7 +265,11 @@ impl EvaluationRequester for NeighboringTownTrade {
     }
 
     fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World) {
-        let &EvaluatedSearchResult { resource, ref evaluated_deals, .. } = result;
+        let &EvaluatedSearchResult {
+            resource,
+            ref evaluated_deals,
+            ..
+        } = result;
         self.update_results(
             resource,
             &ResultAspect::AddDeals(evaluated_deals.clone()),
@@ -273,7 +277,6 @@ impl EvaluationRequester for NeighboringTownTrade {
         );
     }
 }
-
 
 impl TripListener for NeighboringTownTrade {
     fn trip_created(&mut self, trip: TripID, world: &mut World) {

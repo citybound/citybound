@@ -1,4 +1,4 @@
-#![recursion_limit="256"]
+#![recursion_limit = "256"]
 
 #[cfg(test)]
 #[macro_use]
@@ -27,10 +27,11 @@ pub fn scan_and_generate(src_prefix: &str) {
     for maybe_mod_path in glob(&format!("{}/**/mod.rs", src_prefix)).unwrap() {
         if let Ok(mod_path) = maybe_mod_path {
             //println!("cargo:warning={:?}", mod_path);
-            let auto_path = mod_path.clone().to_str().unwrap().replace(
-                "mod.rs",
-                "kay_auto.rs",
-            );
+            let auto_path = mod_path
+                .clone()
+                .to_str()
+                .unwrap()
+                .replace("mod.rs", "kay_auto.rs");
             if let Ok(src_meta) = metadata(&mod_path) {
                 let regenerate = match metadata(&auto_path) {
                     Ok(auto_meta) => src_meta.modified().unwrap() > auto_meta.modified().unwrap(),

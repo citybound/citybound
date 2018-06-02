@@ -3,7 +3,7 @@ use compact::{CVec, CString, COption};
 use descartes::{N, P2, V2, P3, Into2d, Area, PointContainer};
 use monet::{RendererID, RenderableID, SceneDescription, Display};
 use monet::glium::glutin::{ContextBuilder, Event, WindowBuilder, WindowEvent, MouseScrollDelta,
-                           ElementState, MouseButton, KeyboardInput};
+ElementState, MouseButton, KeyboardInput};
 use monet::glium::glutin::EventsLoop;
 pub use monet::glium::glutin::VirtualKeyCode;
 use std::collections::{HashMap, HashSet};
@@ -17,7 +17,10 @@ use environment::Environment;
 
 #[derive(Copy, Clone)]
 pub enum Event3d {
-    DragStarted { at: P3, at2d: P2 },
+    DragStarted {
+        at: P3,
+        at2d: P2,
+    },
     DragOngoing {
         from: P3,
         from2d: P2,
@@ -31,8 +34,14 @@ pub enum Event3d {
         to2d: P2,
     },
     DragAborted,
-    HoverStarted { at: P3, at2d: P2 },
-    HoverOngoing { at: P3, at2d: P2 },
+    HoverStarted {
+        at: P3,
+        at2d: P2,
+    },
+    HoverOngoing {
+        at: P3,
+        at2d: P2,
+    },
     HoverStopped,
     Scroll(V2),
     MouseMove(P2),
@@ -224,7 +233,9 @@ impl UserInterface {
 
     fn poll_events(&mut self) -> Vec<Event> {
         let mut res = Vec::new();
-        self.events_loop.poll_events(|event| { res.push(event); });
+        self.events_loop.poll_events(|event| {
+            res.push(event);
+        });
         res
     }
 
@@ -234,7 +245,11 @@ impl UserInterface {
         let events = self.poll_events();
 
         for event in events {
-            if let Event::WindowEvent { event: ref window_event, .. } = event {
+            if let Event::WindowEvent {
+                event: ref window_event,
+                ..
+            } = event
+            {
                 match *window_event {
                     WindowEvent::Closed => world.shutdown(),
 
@@ -254,7 +269,9 @@ impl UserInterface {
                             }
                         }
                     }
-                    WindowEvent::MouseMoved { position: (x, y), .. } => {
+                    WindowEvent::MouseMoved {
+                        position: (x, y), ..
+                    } => {
                         self.cursor_2d = P2::new(x as N, y as N);
 
                         let mouse_x = self.cursor_2d.x / scale.0;
@@ -265,13 +282,14 @@ impl UserInterface {
                             interactable.on_event(Event3d::MouseMove(self.cursor_2d), world);
                         }
 
-                        self.renderer_id.project_2d_to_3d(
-                            self.cursor_2d,
-                            self.id_as(),
-                            world,
-                        );
+                        self.renderer_id
+                            .project_2d_to_3d(self.cursor_2d, self.id_as(), world);
                     }
-                    WindowEvent::MouseInput { state: button_state, button, .. } => {
+                    WindowEvent::MouseInput {
+                        state: button_state,
+                        button,
+                        ..
+                    } => {
                         let button_idx = match button {
                             MouseButton::Left => 0,
                             MouseButton::Right => 1,
@@ -307,12 +325,12 @@ impl UserInterface {
                                 if let Some(active_interactable) = self.active_interactable {
                                     active_interactable.on_event(
                                         Event3d::DragFinished {
-                                            from: self.drag_start_3d.expect(
-                                                "active interactable but no drag start",
-                                            ),
-                                            from2d: self.drag_start_2d.expect(
-                                                "active interactable but no drag start",
-                                            ),
+                                            from: self
+                                                .drag_start_3d
+                                                .expect("active interactable but no drag start"),
+                                            from2d: self
+                                                .drag_start_2d
+                                                .expect("active interactable but no drag start"),
                                             to: self.cursor_3d,
                                             to2d: self.cursor_2d,
                                         },
@@ -339,7 +357,13 @@ impl UserInterface {
                         }
                     }
                     WindowEvent::KeyboardInput {
-                        input: KeyboardInput { state, virtual_keycode: Some(key_code), .. }, ..
+                        input:
+                            KeyboardInput {
+                                state,
+                                virtual_keycode: Some(key_code),
+                                ..
+                            },
+                        ..
                     } => {
                         let pressed = state == ElementState::Pressed;
 
@@ -434,9 +458,8 @@ impl UserInterface {
     }
 
     pub fn unfocus(&mut self, id: Interactable3dID, _: &mut World) {
-        self.focused_interactables.retain(
-            |focused_id| *focused_id != id,
-        );
+        self.focused_interactables
+            .retain(|focused_id| *focused_id != id);
     }
 
     pub fn set_current_layer(&mut self, layer: Option<UserInterfaceLayer>, _: &mut World) {
@@ -448,12 +471,12 @@ impl UserInterface {
             if let Some(layer) = self.current_layer.and_then(|l| self.interactables.get(&l)) {
                 let new_hovered_interactable = layer
                     .iter()
-                    .filter(|&(_id, &(ref area, _z_index))| if let Some(actual_area) =
-                        area.as_ref()
-                    {
-                        actual_area.contains(self.cursor_3d.into_2d())
-                    } else {
-                        true
+                    .filter(|&(_id, &(ref area, _z_index))| {
+                        if let Some(actual_area) = area.as_ref() {
+                            actual_area.contains(self.cursor_3d.into_2d())
+                        } else {
+                            true
+                        }
                     })
                     .max_by_key(|&(_id, &(ref _area, z_index))| z_index)
                     .map(|(id, _area)| *id);
@@ -464,7 +487,10 @@ impl UserInterface {
                     }
                     if let Some(next) = new_hovered_interactable {
                         next.on_event(
-                            Event3d::HoverStarted { at: self.cursor_3d, at2d: self.cursor_2d },
+                            Event3d::HoverStarted {
+                                at: self.cursor_3d,
+                                at2d: self.cursor_2d,
+                            },
                             world,
                         );
                     }
@@ -507,9 +533,8 @@ impl UserInterface {
     /// Critical
     pub fn start_frame(&mut self, world: &mut World) {
         if self.parked_frame.is_some() {
-            let target = ::std::mem::replace(&mut self.parked_frame, None).expect(
-                "Should have parked target",
-            );
+            let target = ::std::mem::replace(&mut self.parked_frame, None)
+                .expect("Should have parked target");
             target.finish().unwrap();
         }
 
@@ -527,12 +552,12 @@ impl ProjectionRequester for UserInterface {
         if let Some(active_interactable) = self.active_interactable {
             active_interactable.on_event(
                 Event3d::DragOngoing {
-                    from: self.drag_start_3d.expect(
-                        "active interactable but no drag start",
-                    ),
-                    from2d: self.drag_start_2d.expect(
-                        "active interactable but no drag start",
-                    ),
+                    from: self
+                        .drag_start_3d
+                        .expect("active interactable but no drag start"),
+                    from2d: self
+                        .drag_start_2d
+                        .expect("active interactable but no drag start"),
                     to: position_3d,
                     to2d: self.cursor_2d,
                 },
@@ -573,7 +598,8 @@ impl TargetProvider for UserInterface {
         self.imgui_capture_keyboard = imgui_ui.want_capture_keyboard();
         self.imgui_capture_mouse = imgui_ui.want_capture_mouse();
 
-        let texts: Vec<_> = self.persistent_debug_text
+        let texts: Vec<_> = self
+            .persistent_debug_text
             .clone()
             .into_iter()
             .chain(self.debug_text.clone().into_iter())
@@ -584,13 +610,15 @@ impl TargetProvider for UserInterface {
             .size((230.0, 200.0), ImGuiSetCond_FirstUseEver)
             .collapsible(!self.panicked)
             .position((10.0, 10.0), ImGuiSetCond_FirstUseEver)
-            .build(|| for (ref key, (ref text, ref color)) in texts {
-                if text.lines().count() > 3 {
-                    imgui_ui.tree_node(im_str!("{}", key)).build(|| {
-                        imgui_ui.text_colored(*color, im_str!("{}", text));
-                    });
-                } else {
-                    imgui_ui.text_colored(*color, im_str!("{}\n{}", key, text));
+            .build(|| {
+                for (ref key, (ref text, ref color)) in texts {
+                    if text.lines().count() > 3 {
+                        imgui_ui.tree_node(im_str!("{}", key)).build(|| {
+                            imgui_ui.text_colored(*color, im_str!("{}", text));
+                        });
+                    } else {
+                        imgui_ui.text_colored(*color, im_str!("{}\n{}", key, text));
+                    }
                 }
             });
 
@@ -605,9 +633,8 @@ impl UserInterface {
         if let Some(interactable_2d) = self.interactables_2d_todo.pop() {
             interactable_2d.draw_ui_2d(imgui_ui.steal(), self.id, world);
         } else {
-            let mut target = ::std::mem::replace(&mut self.parked_frame, None).expect(
-                "Should have parked target",
-            );
+            let mut target = ::std::mem::replace(&mut self.parked_frame, None)
+                .expect("Should have parked target");
             self.imgui_renderer
                 .render(&mut *target, unsafe {
                     ::std::ptr::read(Box::into_raw(imgui_ui.steal().into_box()))

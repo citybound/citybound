@@ -31,14 +31,16 @@ impl GridAccelerator {
             let y_end = (bbox.max.y / self.cell_size).floor() as isize + 1;
             for cell_x in x_start..x_end {
                 for cell_y in y_start..y_end {
-                    let cell = self.cells.entry((cell_x, cell_y)).or_insert_with(
-                        RoaringBitmap::new,
-                    );
+                    let cell = self
+                        .cells
+                        .entry((cell_x, cell_y))
+                        .or_insert_with(RoaringBitmap::new);
                     new_pair_partners.union_with(cell);
                     cell.insert(new_ref as u32);
-                    self.cells_of.get_mut(&new_ref).unwrap().push(
-                        (cell_x, cell_y),
-                    );
+                    self.cells_of
+                        .get_mut(&new_ref)
+                        .unwrap()
+                        .push((cell_x, cell_y));
                 }
             }
         }
@@ -51,9 +53,9 @@ impl GridAccelerator {
             .into_iter()
             .flat_map(|coordinates_set| {
                 coordinates_set.iter().flat_map(|coordinates| {
-                    self.cells[coordinates].iter().map(
-                        |ref_u64| ref_u64 as usize,
-                    )
+                    self.cells[coordinates]
+                        .iter()
+                        .map(|ref_u64| ref_u64 as usize)
                 })
             })
             .collect::<FnvHashSet<_>>()
@@ -61,7 +63,6 @@ impl GridAccelerator {
             .filter(|found_ref| found_ref != &query_ref)
             .collect::<Vec<_>>()
     }
-
 
     #[inline(never)]
     // TODO: wrap the return in something nicer

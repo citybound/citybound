@@ -65,9 +65,7 @@ fn main() {
     util::init::ensure_crossplatform_proper_thread(|| {
         util::init::first_time_open_wiki_release_page();
 
-        let mut system = Box::new(kay::ActorSystem::new(
-            util::init::networking_from_env_args(),
-        ));
+        let mut system = Box::new(kay::ActorSystem::new(util::init::networking_from_env_args()));
 
         let world = &mut system.world();
 
@@ -91,8 +89,7 @@ fn main() {
         let renderables: CVec<_> = vec![
             LaneRenderer::global_broadcast(world).into(),
             Grouper::global_broadcast(world).into(),
-            BuildingRenderer::global_broadcast(&mut system.world())
-                .into(),
+            BuildingRenderer::global_broadcast(&mut system.world()).into(),
             PlanManager::global_first(&mut system.world()).into(),
         ].into();
 

@@ -5,7 +5,7 @@ use stagemaster::UserInterfaceID;
 mod time;
 
 pub use self::time::{Instant, Ticks, Duration, TICKS_PER_SIM_MINUTE, TICKS_PER_SIM_SECOND,
-                     TimeOfDay, TimeOfDayRange};
+TimeOfDay, TimeOfDayRange};
 
 pub trait Simulatable {
     fn tick(&mut self, dt: f32, current_instant: Instant, world: &mut World);
@@ -48,14 +48,16 @@ impl Simulation {
                     world,
                 );
             }
-            while self.sleepers
+            while self
+                .sleepers
                 .last()
                 .map(|&(end, _)| end < self.current_instant)
                 .unwrap_or(false)
             {
-                let (_, sleeper) = self.sleepers.pop().expect(
-                    "just checked that there are sleepers",
-                );
+                let (_, sleeper) = self
+                    .sleepers
+                    .pop()
+                    .expect("just checked that there are sleepers");
                 sleeper.wake(self.current_instant, world);
             }
             self.current_instant += Ticks(1);
@@ -64,10 +66,9 @@ impl Simulation {
 
     pub fn wake_up_in(&mut self, remaining_ticks: Ticks, sleeper_id: SleeperID, _: &mut World) {
         let wake_up_at = self.current_instant + remaining_ticks;
-        let maybe_idx = self.sleepers.binary_search_by_key(
-            &wake_up_at.iticks(),
-            |&(t, _)| -(t.iticks()),
-        );
+        let maybe_idx = self
+            .sleepers
+            .binary_search_by_key(&wake_up_at.iticks(), |&(t, _)| -(t.iticks()));
         let insert_idx = match maybe_idx {
             Ok(idx) | Err(idx) => idx,
         };
@@ -90,7 +91,8 @@ impl Interactable2d for Simulation {
             ui.spacing();
             ui.text(im_str!("Simulation Speed"));
             ui.same_line(130.0);
-            let _ = ui.slider_int(im_str!("##simulation-speed"), &mut self.speed, 1, 30)
+            let _ = ui
+                .slider_int(im_str!("##simulation-speed"), &mut self.speed, 1, 30)
                 .build();
             ui.spacing();
         });

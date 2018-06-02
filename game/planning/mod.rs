@@ -20,7 +20,11 @@ pub struct Gesture {
 
 impl Gesture {
     pub fn new(points: CVec<P2>, intent: GestureIntent) -> Self {
-        Gesture { points, intent, deleted: false }
+        Gesture {
+            points,
+            intent,
+            deleted: false,
+        }
     }
 }
 
@@ -138,18 +142,19 @@ impl PrototypeID {
 
 impl Plan {
     pub fn calculate_result(&self, based_on: Version) -> PlanResult {
-        let mut result = PlanResult { prototypes: CHashMap::new() };
+        let mut result = PlanResult {
+            prototypes: CHashMap::new(),
+        };
 
         for prototype_fn in &[
             ::transport::transport_planning::calculate_prototypes,
             ::land_use::zone_planning::calculate_prototypes,
-        ]
-        {
+        ] {
             let new_prototypes = prototype_fn(self, &result, based_on);
 
-            for (id, prototype) in new_prototypes.into_iter().map(|prototype| {
-                (PrototypeID::new(), prototype)
-            })
+            for (id, prototype) in new_prototypes
+                .into_iter()
+                .map(|prototype| (PrototypeID::new(), prototype))
             {
                 result.prototypes.insert(id, prototype);
             }
@@ -217,9 +222,10 @@ impl PlanManager {
     }
 
     pub fn implement(&mut self, proposal_id: ProposalID, world: &mut World) {
-        let proposal = self.proposals.remove(proposal_id).expect(
-            "Proposal should exist",
-        );
+        let proposal = self
+            .proposals
+            .remove(proposal_id)
+            .expect("Proposal should exist");
 
         self.master_plan = self.master_plan.merge(proposal.current_history());
         self.master_version = Version(proposal_id);
@@ -231,7 +237,8 @@ impl PlanManager {
 
         self.implemented_proposals.insert(proposal_id, proposal);
 
-        let potentially_affected_ui_states = self.ui_state
+        let potentially_affected_ui_states = self
+            .ui_state
             .values()
             .map(|state| (state.current_proposal, state.user_interface))
             .collect::<Vec<_>>();

@@ -14,7 +14,7 @@ extern crate compact_macros;
 extern crate pretty_assertions;
 
 use nalgebra::{Vector2, Point2, Vector3, Vector4, Point3, Isometry3, Affine3, Perspective3,
-               Matrix4, dot};
+Matrix4, dot};
 pub use nalgebra::try_inverse;
 
 #[cfg(feature = "compact_containers")]
@@ -175,8 +175,10 @@ impl BoundingBox {
     }
 
     pub fn overlaps(&self, other: &BoundingBox) -> bool {
-        self.max.x >= other.min.x && other.max.x >= self.min.x && self.max.y >= other.min.y &&
-            other.max.y >= self.min.y
+        self.max.x >= other.min.x
+            && other.max.x >= self.min.x
+            && self.max.y >= other.min.y
+            && other.max.y >= self.min.y
     }
 
     pub fn point(p: P2) -> Self {

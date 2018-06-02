@@ -14,7 +14,11 @@ pub trait StorageAware: Sized {
     /// The default implementation just returns the static size of the implementing type
     fn typical_size() -> usize {
         let size = size_of::<Self>();
-        if size == 0 { 1 } else { size }
+        if size == 0 {
+            1
+        } else {
+            size
+        }
     }
 }
 impl<T> StorageAware for T {}
@@ -108,7 +112,7 @@ macro_rules! make_array {
             ::std::ptr::write(place, $constructor(i));
         }
         items
-    }}
+    }};
 }
 
 impl ActorSystem {
@@ -129,9 +133,10 @@ impl ActorSystem {
             message_registry: TypeRegistry::new(),
             swarms: [None; MAX_RECIPIENT_TYPES],
             dispatchers: unsafe {
-                make_array!(MAX_RECIPIENT_TYPES, |_| {
-                    make_array!(MAX_MESSAGE_TYPES, |_| None)
-                })
+                make_array!(MAX_RECIPIENT_TYPES, |_| make_array!(
+                    MAX_MESSAGE_TYPES,
+                    |_| None
+                ))
             },
             actors_as_countables: Vec::new(),
             networking,
@@ -171,10 +176,9 @@ impl ActorSystem {
         //          unsafe { ::std::intrinsics::type_name::<A>() },
         //          unsafe { ::std::intrinsics::type_name::<M>() });
 
-
         #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
-        let swarm_ptr = self.swarms[actor_id.as_usize()].expect("Actor not added yet") as
-            *mut Swarm<A>;
+        let swarm_ptr =
+            self.swarms[actor_id.as_usize()].expect("Actor not added yet") as *mut Swarm<A>;
 
         self.dispatchers[actor_id.as_usize()][message_id.as_usize()] = Some(Dispatcher {
             function: Box::new(move |packet_ptr: *const (), world: &mut World| unsafe {
@@ -201,10 +205,9 @@ impl ActorSystem {
         //          unsafe { ::std::intrinsics::type_name::<A>() },
         //          unsafe { ::std::intrinsics::type_name::<M>() });
 
-
         #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
-        let swarm_ptr = self.swarms[actor_id.as_usize()].expect("Actor not added yet") as
-            *mut Swarm<A>;
+        let swarm_ptr =
+            self.swarms[actor_id.as_usize()].expect("Actor not added yet") as *mut Swarm<A>;
 
         self.dispatchers[actor_id.as_usize()][message_id.as_usize()] = Some(Dispatcher {
             function: Box::new(move |packet_ptr: *const (), world: &mut World| unsafe {
@@ -227,16 +230,17 @@ impl ActorSystem {
     /// Inside actor message handlers you always have access to a
     /// [`World`](struct.World.html) that allows you to send messages.
     pub fn send<M: Message>(&mut self, recipient: RawID, message: M) {
-        let packet = Packet { recipient_id: recipient, message };
+        let packet = Packet {
+            recipient_id: recipient,
+            message,
+        };
 
         let to_here = recipient.machine == self.networking.machine_id;
         let global = recipient.is_global_broadcast();
 
         if !to_here || global {
-            self.networking.enqueue(
-                self.message_registry.get::<M>(),
-                packet.clone(),
-            );
+            self.networking
+                .enqueue(self.message_registry.get::<M>(), packet.clone());
         }
 
         if to_here || global {
@@ -246,9 +250,8 @@ impl ActorSystem {
                 panic!(
                     "{} has no inbox for {}",
                     self.actor_registry.get_name(recipient.type_id),
-                    self.message_registry.get_name(
-                        self.message_registry.get::<M>(),
-                    )
+                    self.message_registry
+                        .get_name(self.message_registry.get::<M>(),)
                 );
             }
         }
@@ -271,7 +274,11 @@ impl ActorSystem {
         for (recipient_type_idx, maybe_inbox) in self.inboxes.iter_mut().enumerate() {
             if let Some(recipient_type) = ShortTypeId::new(recipient_type_idx as u16) {
                 if let Some(inbox) = maybe_inbox.as_mut() {
-                    for DispatchablePacket { message_type, packet_ptr } in inbox.empty() {
+                    for DispatchablePacket {
+                        message_type,
+                        packet_ptr,
+                    } in inbox.empty()
+                    {
                         if let Some(handler) = self.dispatchers[recipient_type.as_usize()]
                             [message_type.as_usize()]
                             .as_mut()
@@ -302,8 +309,10 @@ impl ActorSystem {
     /// (for example, UI, simulation, rendering) can be run isolated from each other,
     /// in a fixed order of "turns" during each main-loop iteration.
     pub fn process_all_messages(&mut self) {
-        let result = catch_unwind(AssertUnwindSafe(|| for _i in 0..1000 {
-            self.single_message_cycle();
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            for _i in 0..1000 {
+                self.single_message_cycle();
+            }
         }));
 
         if result.is_err() {
@@ -356,10 +365,9 @@ impl ActorSystem {
             .iter()
             .map(|&(ref actor_name, countable_ptr)| {
                 format!(
-                    "{}: {}\n", actor_name.split("::").last().unwrap().replace(">", ""),
-                    unsafe {
-                        (*countable_ptr).instance_count()
-                    }
+                    "{}: {}\n",
+                    actor_name.split("::").last().unwrap().replace(">", ""),
+                    unsafe { (*countable_ptr).instance_count() }
                 )
             })
             .collect()
@@ -370,7 +378,6 @@ impl ActorSystem {
 /// from inside, in a message handler) to identify other actors and send messages to them.
 pub struct World(*mut ActorSystem);
 
-
 // TODO: make this true
 unsafe impl Sync for World {}
 unsafe impl Send for World {}
@@ -379,7 +386,7 @@ impl World {
     /// Send a message to a (sub-)actor with the given RawID.
     ///
     /// ```
-    /// world.send(child_id, Update {dt: 1.0});
+    /// world.send(child_id, Update { dt: 1.0 });
     /// ```
     pub fn send<M: Message>(&mut self, receiver: RawID, message: M) {
         unsafe { &mut *self.0 }.send(receiver, message);
@@ -414,7 +421,7 @@ impl World {
         let swarm = unsafe {
             #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
             &mut *(system.swarms[system.actor_registry.get::<A>().as_usize()]
-                       .expect("Subactor type not found.") as *mut Swarm<A>)
+                .expect("Subactor type not found.") as *mut Swarm<A>)
         };
         unsafe { swarm.allocate_id(self.local_broadcast::<A>()) }
     }

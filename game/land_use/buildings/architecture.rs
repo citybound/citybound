@@ -44,9 +44,10 @@ pub fn build_building<R: Rng>(
                 entrance_footprint.open_gable_roof_mesh(entrance_height, 0.3);
 
             BuildingMesh {
-                wall: main_footprint.wall_mesh(height) +
-                    entrance_footprint.wall_mesh(entrance_height) +
-                    roof_wall_mesh + entrance_roof_wall_mesh,
+                wall: main_footprint.wall_mesh(height)
+                    + entrance_footprint.wall_mesh(entrance_height)
+                    + roof_wall_mesh
+                    + entrance_roof_wall_mesh,
                 brick_roof: roof_brick_mesh + entrance_roof_brick_mesh,
                 flat_roof: Mesh::empty(),
                 field: Mesh::empty(),
@@ -57,22 +58,20 @@ pub fn build_building<R: Rng>(
             let entrance_height = height - 0.7;
 
             BuildingMesh {
-                wall: main_footprint.wall_mesh(height) +
-                    entrance_footprint.wall_mesh(entrance_height),
+                wall: main_footprint.wall_mesh(height)
+                    + entrance_footprint.wall_mesh(entrance_height),
                 brick_roof: Mesh::empty(),
-                flat_roof: main_footprint.flat_roof_mesh(height) +
-                    entrance_footprint.flat_roof_mesh(entrance_height),
+                flat_roof: main_footprint.flat_roof_mesh(height)
+                    + entrance_footprint.flat_roof_mesh(entrance_height),
                 field: Mesh::empty(),
             }
         }
-        BuildingStyle::Field => {
-            BuildingMesh {
-                wall: Mesh::empty(),
-                brick_roof: Mesh::empty(),
-                flat_roof: Mesh::empty(),
-                field: Mesh::from_area(&lot.area),
-            }
-        }
+        BuildingStyle::Field => BuildingMesh {
+            wall: Mesh::empty(),
+            brick_roof: Mesh::empty(),
+            flat_roof: Mesh::empty(),
+            field: Mesh::from_area(&lot.area),
+        },
         BuildingStyle::Mill => {
             let height = 3.0 + rng.next_f32();
             let tower_height = 5.0 + rng.next_f32();
@@ -83,9 +82,10 @@ pub fn build_building<R: Rng>(
                 entrance_footprint.open_gable_roof_mesh(tower_height, 0.3);
 
             BuildingMesh {
-                wall: main_footprint.wall_mesh(height) +
-                    entrance_footprint.wall_mesh(tower_height) +
-                    roof_wall_mesh + tower_roof_wall_mesh,
+                wall: main_footprint.wall_mesh(height)
+                    + entrance_footprint.wall_mesh(tower_height)
+                    + roof_wall_mesh
+                    + tower_roof_wall_mesh,
                 brick_roof: Mesh::empty(),
                 flat_roof: roof_brick_mesh + tower_roof_brick_mesh,
                 field: Mesh::empty(),
@@ -99,9 +99,9 @@ pub fn build_building<R: Rng>(
                 entrance_footprint.open_gable_roof_mesh(entrance_height, 0.3);
 
             BuildingMesh {
-                wall: main_footprint.wall_mesh(height) +
-                    entrance_footprint.wall_mesh(entrance_height) +
-                    entrance_roof_wall_mesh,
+                wall: main_footprint.wall_mesh(height)
+                    + entrance_footprint.wall_mesh(entrance_height)
+                    + entrance_roof_wall_mesh,
                 brick_roof: entrance_roof_brick_mesh,
                 flat_roof: main_footprint.flat_roof_mesh(height),
                 field: Mesh::empty(),
@@ -117,7 +117,9 @@ pub fn build_building<R: Rng>(
                 building_position + length / 4.0 * building_orientation_orth,
                 building_position - length / 2.0 * building_orientation,
             ].into_iter()
-                .map(|v| Vertex { position: [v.x, v.y, 3.0] })
+                .map(|v| Vertex {
+                    position: [v.x, v.y, 3.0],
+                })
                 .collect();
 
             let indices = vec![0, 1, 2, 2, 3, 0];
@@ -141,57 +143,55 @@ pub struct Footprint {
 
 impl Footprint {
     fn wall_mesh(&self, wall_height: N) -> Mesh {
-        let vertices =
-            vec![
-                Vertex { position: [self.back_right.x, self.back_right.y, 0.0] },
-                Vertex { position: [self.back_left.x, self.back_left.y, 0.0] },
-                Vertex { position: [self.front_left.x, self.front_left.y, 0.0] },
-                Vertex { position: [self.front_right.x, self.front_right.y, 0.0] },
-
-                Vertex { position: [self.back_right.x, self.back_right.y, wall_height] },
-                Vertex { position: [self.back_left.x, self.back_left.y, wall_height] },
-                Vertex { position: [self.front_left.x, self.front_left.y, wall_height] },
-                Vertex { position: [self.front_right.x, self.front_right.y, wall_height] },
-            ];
+        let vertices = vec![
+            Vertex {
+                position: [self.back_right.x, self.back_right.y, 0.0],
+            },
+            Vertex {
+                position: [self.back_left.x, self.back_left.y, 0.0],
+            },
+            Vertex {
+                position: [self.front_left.x, self.front_left.y, 0.0],
+            },
+            Vertex {
+                position: [self.front_right.x, self.front_right.y, 0.0],
+            },
+            Vertex {
+                position: [self.back_right.x, self.back_right.y, wall_height],
+            },
+            Vertex {
+                position: [self.back_left.x, self.back_left.y, wall_height],
+            },
+            Vertex {
+                position: [self.front_left.x, self.front_left.y, wall_height],
+            },
+            Vertex {
+                position: [self.front_right.x, self.front_right.y, wall_height],
+            },
+        ];
 
         let indices = vec![
-            0,
-            1,
-            4,
-            1,
-            5,
-            4,
-            1,
-            2,
-            5,
-            2,
-            6,
-            5,
-            2,
-            3,
-            6,
-            3,
-            7,
-            6,
-            3,
-            0,
-            7,
-            0,
-            4,
-            7,
+            0, 1, 4, 1, 5, 4, 1, 2, 5, 2, 6, 5, 2, 3, 6, 3, 7, 6, 3, 0, 7, 0, 4, 7,
         ];
 
         Mesh::new(vertices, indices)
     }
 
     fn flat_roof_mesh(&self, base_height: N) -> Mesh {
-        let vertices =
-            vec![
-                Vertex { position: [self.back_right.x, self.back_right.y, base_height] },
-                Vertex { position: [self.back_left.x, self.back_left.y, base_height] },
-                Vertex { position: [self.front_left.x, self.front_left.y, base_height] },
-                Vertex { position: [self.front_right.x, self.front_right.y, base_height] },
-            ];
+        let vertices = vec![
+            Vertex {
+                position: [self.back_right.x, self.back_right.y, base_height],
+            },
+            Vertex {
+                position: [self.back_left.x, self.back_left.y, base_height],
+            },
+            Vertex {
+                position: [self.front_left.x, self.front_left.y, base_height],
+            },
+            Vertex {
+                position: [self.front_right.x, self.front_right.y, base_height],
+            },
+        ];
 
         let indices = vec![0, 1, 3, 1, 2, 3];
 
@@ -203,15 +203,26 @@ impl Footprint {
         let mid_right = (self.back_right + self.front_right.coords) / 2.0;
         let mid_left = (self.back_left + self.front_left.coords) / 2.0;
 
-        let vertices =
-            vec![
-                Vertex { position: [self.back_right.x, self.back_right.y, base_height] },
-                Vertex { position: [self.back_left.x, self.back_left.y, base_height] },
-                Vertex { position: [mid_left.x, mid_left.y, base_height + roof_height] },
-                Vertex { position: [self.front_left.x, self.front_left.y, base_height] },
-                Vertex { position: [self.front_right.x, self.front_right.y, base_height] },
-                Vertex { position: [mid_right.x, mid_right.y, base_height + roof_height] },
-            ];
+        let vertices = vec![
+            Vertex {
+                position: [self.back_right.x, self.back_right.y, base_height],
+            },
+            Vertex {
+                position: [self.back_left.x, self.back_left.y, base_height],
+            },
+            Vertex {
+                position: [mid_left.x, mid_left.y, base_height + roof_height],
+            },
+            Vertex {
+                position: [self.front_left.x, self.front_left.y, base_height],
+            },
+            Vertex {
+                position: [self.front_right.x, self.front_right.y, base_height],
+            },
+            Vertex {
+                position: [mid_right.x, mid_right.y, base_height + roof_height],
+            },
+        ];
 
         let roof_indices = vec![0, 1, 2, 2, 5, 0, 2, 3, 4, 4, 5, 2];
 
@@ -225,8 +236,10 @@ impl Footprint {
 
     fn scale(&self, factor: f32) -> Footprint {
         let center = P2::from_coordinates(
-            (self.back_left.coords + self.back_right.coords + self.front_left.coords +
-                 self.front_right.coords) / 4.0,
+            (self.back_left.coords
+                + self.back_right.coords
+                + self.front_left.coords
+                + self.front_right.coords) / 4.0,
         );
 
         Footprint {
@@ -246,32 +259,36 @@ pub fn generate_house_footprint<R: Rng>(lot: &Lot, rng: &mut R) -> (Footprint, F
     let footprint_width = 10.0 + rng.next_f32() * 7.0;
     let footprint_depth = 7.0 + rng.next_f32() * 5.0;
 
-    let entrance_position = building_position +
-        building_orientation * (0.5 - 1.0 * rng.next_f32()) * footprint_width -
-        building_orientation_orth * (rng.next_f32() * 0.3 + 0.1) * footprint_depth;
+    let entrance_position = building_position
+        + building_orientation * (0.5 - 1.0 * rng.next_f32()) * footprint_width
+        - building_orientation_orth * (rng.next_f32() * 0.3 + 0.1) * footprint_depth;
     let entrance_width = 5.0 + rng.next_f32() * 4.0;
     let entrance_depth = 3.0 + rng.next_f32() * 3.0;
 
     (
         Footprint {
-            back_right: building_position + building_orientation * footprint_width / 2.0 -
-                building_orientation_orth * footprint_depth / 2.0,
-            back_left: building_position - building_orientation * footprint_width / 2.0 -
-                building_orientation_orth * footprint_depth / 2.0,
-            front_left: building_position - building_orientation * footprint_width / 2.0 +
-                building_orientation_orth * footprint_depth / 2.0,
-            front_right: building_position + building_orientation * footprint_width / 2.0 +
-                building_orientation_orth * footprint_depth / 2.0,
+            back_right: building_position + building_orientation * footprint_width / 2.0
+                - building_orientation_orth * footprint_depth / 2.0,
+            back_left: building_position
+                - building_orientation * footprint_width / 2.0
+                - building_orientation_orth * footprint_depth / 2.0,
+            front_left: building_position - building_orientation * footprint_width / 2.0
+                + building_orientation_orth * footprint_depth / 2.0,
+            front_right: building_position
+                + building_orientation * footprint_width / 2.0
+                + building_orientation_orth * footprint_depth / 2.0,
         },
         Footprint {
-            back_right: entrance_position + building_orientation_orth * entrance_width / 2.0 +
-                building_orientation * entrance_depth / 2.0,
-            back_left: entrance_position - building_orientation_orth * entrance_width / 2.0 +
-                building_orientation * entrance_depth / 2.0,
-            front_left: entrance_position - building_orientation_orth * entrance_width / 2.0 -
-                building_orientation * entrance_depth / 2.0,
-            front_right: entrance_position + building_orientation_orth * entrance_width / 2.0 -
-                building_orientation * entrance_depth / 2.0,
+            back_right: entrance_position
+                + building_orientation_orth * entrance_width / 2.0
+                + building_orientation * entrance_depth / 2.0,
+            back_left: entrance_position - building_orientation_orth * entrance_width / 2.0
+                + building_orientation * entrance_depth / 2.0,
+            front_left: entrance_position
+                - building_orientation_orth * entrance_width / 2.0
+                - building_orientation * entrance_depth / 2.0,
+            front_right: entrance_position + building_orientation_orth * entrance_width / 2.0
+                - building_orientation * entrance_depth / 2.0,
         },
     )
 }

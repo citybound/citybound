@@ -18,15 +18,30 @@ use monet::Vertex;
 pub fn create() -> ::monet::Mesh {
     ::monet::Mesh::new(
         vec![
-            Vertex { position: [-0.6, -0.6, 0.0] }, // 0
-            Vertex { position: [-0.6, -0.6, 2.0] }, // 1
-            Vertex { position: [-0.6, 0.6, 2.0] }, // 2
-            Vertex { position: [-0.6, 0.6, 0.0] }, // 3
-
-            Vertex { position: [0.4, -0.4, 0.0] }, // 4
-            Vertex { position: [0.4, -0.4, 2.0] }, // 5
-            Vertex { position: [0.4, 0.4, 2.0] }, // 6
-            Vertex { position: [0.4, 0.4, 0.0] } /* 7 */,
+            Vertex {
+                position: [-0.6, -0.6, 0.0],
+            }, // 0
+            Vertex {
+                position: [-0.6, -0.6, 2.0],
+            }, // 1
+            Vertex {
+                position: [-0.6, 0.6, 2.0],
+            }, // 2
+            Vertex {
+                position: [-0.6, 0.6, 0.0],
+            }, // 3
+            Vertex {
+                position: [0.4, -0.4, 0.0],
+            }, // 4
+            Vertex {
+                position: [0.4, -0.4, 2.0],
+            }, // 5
+            Vertex {
+                position: [0.4, 0.4, 2.0],
+            }, // 6
+            Vertex {
+                position: [0.4, 0.4, 0.0],
+            }, /* 7 */
         ],
         vec![
             // front side
@@ -71,10 +86,18 @@ pub fn create() -> ::monet::Mesh {
 pub fn create_light() -> ::monet::Mesh {
     ::monet::Mesh::new(
         vec![
-            Vertex { position: [-0.7, -0.4, 0.0] }, // 0
-            Vertex { position: [-0.7, -0.4, 0.6] }, // 1
-            Vertex { position: [-0.7, 0.4, 0.6] }, // 2
-            Vertex { position: [-0.7, 0.4, 0.0] } /* 3 */,
+            Vertex {
+                position: [-0.7, -0.4, 0.0],
+            }, // 0
+            Vertex {
+                position: [-0.7, -0.4, 0.6],
+            }, // 1
+            Vertex {
+                position: [-0.7, 0.4, 0.6],
+            }, // 2
+            Vertex {
+                position: [-0.7, 0.4, 0.0],
+            }, /* 3 */
         ],
         vec![0, 1, 2, 0, 2, 3],
     )
@@ -83,9 +106,15 @@ pub fn create_light() -> ::monet::Mesh {
 pub fn create_light_left() -> ::monet::Mesh {
     ::monet::Mesh::new(
         vec![
-            Vertex { position: [-0.7, 0.4, 0.3] }, // 0
-            Vertex { position: [-0.7, -0.4, 0.0] }, // 1
-            Vertex { position: [-0.7, -0.4, 0.6] } /* 2 */,
+            Vertex {
+                position: [-0.7, 0.4, 0.3],
+            }, // 0
+            Vertex {
+                position: [-0.7, -0.4, 0.0],
+            }, // 1
+            Vertex {
+                position: [-0.7, -0.4, 0.6],
+            }, /* 2 */
         ],
         vec![0, 1, 2],
     )
@@ -94,9 +123,15 @@ pub fn create_light_left() -> ::monet::Mesh {
 pub fn create_light_right() -> ::monet::Mesh {
     ::monet::Mesh::new(
         vec![
-            Vertex { position: [-0.7, 0.4, 0.0] }, // 0
-            Vertex { position: [-0.7, 0.4, 0.6] }, // 1
-            Vertex { position: [-0.7, -0.4, 0.3] } /* 2 */,
+            Vertex {
+                position: [-0.7, 0.4, 0.0],
+            }, // 0
+            Vertex {
+                position: [-0.7, 0.4, 0.6],
+            }, // 1
+            Vertex {
+                position: [-0.7, -0.4, 0.3],
+            }, /* 2 */
         ],
         vec![0, 1, 2],
     )

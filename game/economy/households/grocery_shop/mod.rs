@@ -40,14 +40,14 @@ impl GroceryShop {
                             Duration::from_minutes(30),
                         ),
                         16,
-                        false
+                        false,
                     ),
                     Offer::new(
                         MemberIdx(0),
                         TimeOfDayRange::new(7, 0, 15, 0),
                         Deal::new(Some((Money, 50.0)), Duration::from_hours(5)),
                         5,
-                        false
+                        false,
                     ),
                 ].into(),
             ),
@@ -80,22 +80,9 @@ impl Household for GroceryShop {
         let hour = time.hours_minutes().0;
 
         let bihourly_importance = match resource {
-            BakedGoods | Produce | Grain | Flour | Meat | DairyGoods => Some(
-                [
-                    0,
-                    0,
-                    0,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0,
-                ],
-            ),
+            BakedGoods | Produce | Grain | Flour | Meat | DairyGoods => {
+                Some([0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0])
+            }
             _ => None,
         };
 
@@ -106,14 +93,7 @@ impl Household for GroceryShop {
 
     fn interesting_resources() -> &'static [Resource] {
         &[
-            Money,
-            Groceries,
-            Produce,
-            Grain,
-            Flour,
-            BakedGoods,
-            Meat,
-            DairyGoods,
+            Money, Groceries, Produce, Grain, Flour, BakedGoods, Meat, DairyGoods,
         ]
     }
 
@@ -175,7 +155,11 @@ impl EvaluationRequester for GroceryShop {
     }
 
     fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World) {
-        let &EvaluatedSearchResult { resource, ref evaluated_deals, .. } = result;
+        let &EvaluatedSearchResult {
+            resource,
+            ref evaluated_deals,
+            ..
+        } = result;
         self.update_results(
             resource,
             &ResultAspect::AddDeals(evaluated_deals.clone()),
@@ -189,8 +173,8 @@ const UPDATE_EVERY_N_SECS: usize = 4;
 
 impl Simulatable for GroceryShop {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
-        if (current_instant.ticks() + self.id.as_raw().instance_id as usize) %
-            (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0
+        if (current_instant.ticks() + self.id.as_raw().instance_id as usize)
+            % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0
         {
             self.decay(Duration(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world);
         }

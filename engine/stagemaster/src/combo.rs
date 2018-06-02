@@ -49,12 +49,10 @@ impl Combo {
     }
 
     pub fn is_in(&self, other: &Combo) -> bool {
-        !self.is_empty() &&
-            self.0.iter().all(|opt| {
-                opt.map(|item| other.0.contains(&Some(item))).unwrap_or(
-                    true,
-                )
-            })
+        !self.is_empty() && self.0.iter().all(|opt| {
+            opt.map(|item| other.0.contains(&Some(item)))
+                .unwrap_or(true)
+        })
     }
 
     pub fn is_freshly_in(&self, listener: &ComboListener) -> bool {
@@ -293,36 +291,35 @@ impl ComboListener {
     pub fn update(&mut self, event: &Event) {
         let old_current = self.current;
         let something_changed = match *event {
-            Event::WindowEvent { ref event, .. } => {
-                match *event {
-                    WindowEvent::KeyboardInput {
-                        input: KeyboardInput {
+            Event::WindowEvent { ref event, .. } => match *event {
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
                             state,
                             virtual_keycode: Some(glutin_code),
                             ..
                         },
-                        ..
-                    } => {
-                        let pressed = state == ElementState::Pressed;
-                        if pressed {
-                            self.current.insert(glutin_code.into());
-                        } else {
-                            self.current.remove(&(glutin_code.into()));
-                        }
-                        true
+                    ..
+                } => {
+                    let pressed = state == ElementState::Pressed;
+                    if pressed {
+                        self.current.insert(glutin_code.into());
+                    } else {
+                        self.current.remove(&(glutin_code.into()));
                     }
-                    WindowEvent::MouseInput { state, button, .. } => {
-                        let pressed = state == ElementState::Pressed;
-                        if pressed {
-                            self.current.insert(button.into());
-                        } else {
-                            self.current.remove(&button.into());
-                        }
-                        true
-                    }
-                    _ => false,
+                    true
                 }
-            }
+                WindowEvent::MouseInput { state, button, .. } => {
+                    let pressed = state == ElementState::Pressed;
+                    if pressed {
+                        self.current.insert(button.into());
+                    } else {
+                        self.current.remove(&button.into());
+                    }
+                    true
+                }
+                _ => false,
+            },
             _ => false,
         };
         if something_changed {
@@ -391,8 +388,7 @@ impl Bindings {
                 target_is.0,
                 ImGuiSelectableFlags::empty(),
                 ImVec2::new(120.0, 0.0),
-            )
-            {
+            ) {
                 if target_is.0 {
                     new_target = None;
                     finished_changing = true;
@@ -407,8 +403,7 @@ impl Bindings {
                 target_is.1,
                 ImGuiSelectableFlags::empty(),
                 ImVec2::new(120.0, 0.0),
-            )
-            {
+            ) {
                 if target_is.1 {
                     new_target = None;
                     finished_changing = true;
@@ -417,7 +412,6 @@ impl Bindings {
                     new_target = Some((name.clone(), 1))
                 }
             }
-
         }
         self.rebinding = new_target;
         finished_changing

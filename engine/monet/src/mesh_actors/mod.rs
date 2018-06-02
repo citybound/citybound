@@ -134,7 +134,6 @@ use {Renderable, RendererID, RenderableID};
 
 impl Renderable for Grouper {
     fn render(&mut self, renderer_id: RendererID, _frame: usize, world: &mut World) {
-
         // kinda ugly way to enforce only one update per "global" frame
         if renderer_id.as_raw().machine == self.id.as_raw().machine {
             // TODO: this introduces 1 frame delay
@@ -142,29 +141,31 @@ impl Renderable for Grouper {
                 id.render_to_grouper(self.id, self.base_individual_id, world);
             }
 
-            self.living_groups = self.living_individuals
+            self.living_groups = self
+                .living_individuals
                 .values()
                 .cloned()
-                .coalesce(|a, b| if a.vertices.len() + b.vertices.len() >
-                    u16::max_value() as usize
-                {
-                    Err((a, b))
-                } else {
-                    Ok(a + b)
+                .coalesce(|a, b| {
+                    if a.vertices.len() + b.vertices.len() > u16::max_value() as usize {
+                        Err((a, b))
+                    } else {
+                        Ok(a + b)
+                    }
                 })
                 .collect();
         }
 
         if !self.frozen_up_to_date {
-            self.frozen_groups = self.frozen_individuals
+            self.frozen_groups = self
+                .frozen_individuals
                 .values()
                 .cloned()
-                .coalesce(|a, b| if a.vertices.len() + b.vertices.len() >
-                    u16::max_value() as usize
-                {
-                    Err((a, b))
-                } else {
-                    Ok(a + b)
+                .coalesce(|a, b| {
+                    if a.vertices.len() + b.vertices.len() > u16::max_value() as usize {
+                        Err((a, b))
+                    } else {
+                        Ok(a + b)
+                    }
                 })
                 .collect();
 
@@ -195,8 +196,8 @@ impl Renderable for Grouper {
             }
         }
 
-        for i in self.living_groups.len()..
-            ::std::cmp::min(new_renderer_state.n_living_groups, FROZEN_OFFSET as usize)
+        for i in self.living_groups.len()
+            ..::std::cmp::min(new_renderer_state.n_living_groups, FROZEN_OFFSET as usize)
         {
             renderer_id.update_individual(
                 self.base_individual_id + i as u32,

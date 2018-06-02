@@ -39,12 +39,11 @@ impl Lot {
     pub fn center_point(&self) -> P2 {
         let outline = &self.area.primitives[0].boundary;
         P2::from_coordinates(
-            (0..10u8).into_iter().fold(
-                V2::new(0.0, 0.0),
-                |sum_point, i| {
+            (0..10u8)
+                .into_iter()
+                .fold(V2::new(0.0, 0.0), |sum_point, i| {
                     sum_point + outline.along(f32::from(i) * outline.length() / 10.0).coords
-                },
-            ) / 10.0,
+                }) / 10.0,
         )
     }
 }
@@ -85,56 +84,66 @@ pub fn calculate_prototypes(
         })
         .collect::<Vec<_>>();
 
-    let building_prototypes =
-        plan.gestures
-            .values()
-            .filter_map(|gesture| {
-                if let GestureIntent::Building(BuildingIntent { ref lot, building_style }) =
-                    gesture.intent
-                {
-                    let mut area = lot.area.clone();
+    let building_prototypes = plan
+        .gestures
+        .values()
+        .filter_map(|gesture| {
+            if let GestureIntent::Building(BuildingIntent {
+                ref lot,
+                building_style,
+            }) = gesture.intent
+            {
+                let mut area = lot.area.clone();
 
-                    for paved_area_shape in &paved_area_areas {
-                        let split = area.split(&paved_area_shape);
+                for paved_area_shape in &paved_area_areas {
+                    let split = area.split(&paved_area_shape);
 
-                        if let Some(main_piece) = split.a_minus_b().disjoint().into_iter().find(
-                            |piece| piece.contains(lot.center_point()),
-                        )
-                        {
-                            area = main_piece;
-                        } else {
-                            println!("No piece contains center");
-                            return None;
-                        }
+                    if let Some(main_piece) = split
+                        .a_minus_b()
+                        .disjoint()
+                        .into_iter()
+                        .find(|piece| piece.contains(lot.center_point()))
+                    {
+                        area = main_piece;
+                    } else {
+                        println!("No piece contains center");
+                        return None;
                     }
+                }
 
-                    Some(Prototype::Lot(LotPrototype {
-                        lot: Lot { area, ..lot.clone() },
-                        occupancy: LotOccupancy::Occupied(building_style),
-                        based_on,
-                    }))
+                Some(Prototype::Lot(LotPrototype {
+                    lot: Lot {
+                        area,
+                        ..lot.clone()
+                    },
+                    occupancy: LotOccupancy::Occupied(building_style),
+                    based_on,
+                }))
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let vacant_lot_prototypes = {
+        let building_areas = building_prototypes
+            .iter()
+            .filter_map(|prototype| {
+                if let Prototype::Lot(LotPrototype {
+                    occupancy: LotOccupancy::Occupied(_),
+                    lot: Lot { ref area, .. },
+                    ..
+                }) = *prototype
+                {
+                    Some(area)
                 } else {
                     None
                 }
             })
             .collect::<Vec<_>>();
 
-    let vacant_lot_prototypes = {
-        let building_areas = building_prototypes
-            .iter()
-            .filter_map(|prototype| if let Prototype::Lot(LotPrototype {
-                                                  occupancy: LotOccupancy::Occupied(_),
-                                                  lot: Lot { ref area, .. },
-                                                  ..
-                                              }) = *prototype
-            {
-                Some(area)
-            } else {
-                None
-            })
-            .collect::<Vec<_>>();
-
-        let mut land_use_areas = plan.gestures
+        let mut land_use_areas = plan
+            .gestures
             .values()
             .filter_map(|gesture| {
                 if let GestureIntent::Zone(ZoneIntent::LandUse(land_use)) = gesture.intent {
@@ -146,22 +155,26 @@ pub fn calculate_prototypes(
             .filter_map(|(land_use, points)| {
                 Some((
                     land_use,
-                    Area::new_simple(Path::new(
-                        points
-                            .iter()
-                            .chain(points.first())
-                            .tuple_windows()
-                            .filter_map(|(start, end)| Segment::line(*start, *end))
-                            .collect(),
-                    ).ok()?).ok()?,
+                    Area::new_simple(
+                        Path::new(
+                            points
+                                .iter()
+                                .chain(points.first())
+                                .tuple_windows()
+                                .filter_map(|(start, end)| Segment::line(*start, *end))
+                                .collect(),
+                        ).ok()?,
+                    ).ok()?,
                 ))
             })
             .collect::<Vec<_>>();
 
-        let paved_or_built_area = paved_area_areas.iter().chain(building_areas.iter()).fold(
-            Area::new(CVec::new()),
-            |union, piece| union.split(piece).union(),
-        );
+        let paved_or_built_area = paved_area_areas
+            .iter()
+            .chain(building_areas.iter())
+            .fold(Area::new(CVec::new()), |union, piece| {
+                union.split(piece).union()
+            });
 
         land_use_areas = land_use_areas
             .into_iter()
@@ -197,9 +210,9 @@ pub fn calculate_prototypes(
                     })
                     .filter(|&(point, _dir)| {
                         // TODO: this is a horribly slow way to find connection points
-                        paved_area_areas.iter().any(|paved_area| {
-                            paved_area.contains(point)
-                        })
+                        paved_area_areas
+                            .iter()
+                            .any(|paved_area| paved_area.contains(point))
                     })
                     .collect::<CVec<_>>();
 

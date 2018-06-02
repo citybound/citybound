@@ -41,7 +41,10 @@ pub struct TaskEndScheduler {
 
 impl TaskEndScheduler {
     pub fn spawn(id: TaskEndSchedulerID, _: &mut World) -> TaskEndScheduler {
-        TaskEndScheduler { id, task_ends: CVec::new() }
+        TaskEndScheduler {
+            id,
+            task_ends: CVec::new(),
+        }
     }
 
     pub fn schedule(
@@ -51,10 +54,9 @@ impl TaskEndScheduler {
         member: MemberIdx,
         _: &mut World,
     ) {
-        let maybe_idx = self.task_ends.binary_search_by_key(
-            &(-end.iticks()),
-            |&(e, _, _)| -(e.iticks()),
-        );
+        let maybe_idx = self
+            .task_ends
+            .binary_search_by_key(&(-end.iticks()), |&(e, ..)| -(e.iticks()));
         let insert_idx = match maybe_idx {
             Ok(idx) | Err(idx) => idx,
         };
@@ -70,14 +72,16 @@ impl TaskEndScheduler {
 
 impl Simulatable for TaskEndScheduler {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
-        while self.task_ends
+        while self
+            .task_ends
             .last()
-            .map(|&(end, _, _)| end < current_instant)
+            .map(|&(end, ..)| end < current_instant)
             .unwrap_or(false)
         {
-            let (_, household, member) = self.task_ends.pop().expect(
-                "just checked that there are WIP tasks",
-            );
+            let (_, household, member) = self
+                .task_ends
+                .pop()
+                .expect("just checked that there are WIP tasks");
             household.task_succeeded(member, world);
         }
     }

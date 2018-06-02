@@ -1,18 +1,17 @@
 use super::{PI, N, P2, V2, WithUniqueOrthogonal, angle_along_to, RoughEq, Intersect, Intersection,
-            IntersectionResult, HasBoundingBox, BoundingBox, THICKNESS};
+IntersectionResult, HasBoundingBox, BoundingBox, THICKNESS};
 use nalgebra::Rotation2;
 
 pub trait Curve: Sized {
     fn project_with_max_distance(&self, point: P2, max_distance: N, tolerance: N) -> Option<N> {
-        self.project_with_tolerance(point, tolerance).and_then(
-            |offset| {
+        self.project_with_tolerance(point, tolerance)
+            .and_then(|offset| {
                 if self.distance_to(point) < max_distance {
                     Some(offset)
                 } else {
                     None
                 }
-            },
-        )
+            })
     }
     fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<N>;
     fn project(&self, point: P2) -> Option<N> {
@@ -94,8 +93,11 @@ pub const MIN_START_TO_END: N = 0.01;
 const MAX_SIMPLE_LINE_LENGTH: N = 0.5;
 
 fn start_end_invalid(start: P2, end: P2) -> bool {
-    start.x.is_nan() || start.y.is_nan() || end.x.is_nan() || end.y.is_nan() ||
-        start.rough_eq_by(end, MIN_START_TO_END)
+    start.x.is_nan()
+        || start.y.is_nan()
+        || end.x.is_nan()
+        || end.y.is_nan()
+        || start.rough_eq_by(end, MIN_START_TO_END)
 }
 
 impl Segment {
@@ -154,19 +156,25 @@ impl Segment {
             // );
         }
         let simple_curve = Segment::arc_with_direction(start, start_direction, end)?;
-        if simple_curve.end_direction().rough_eq_by(
-            end_direction,
-            DIRECTION_TOLERANCE,
-        )
+        if simple_curve
+            .end_direction()
+            .rough_eq_by(end_direction, DIRECTION_TOLERANCE)
         {
             Some(vec![simple_curve])
         } else if (end - start).norm() < MAX_SIMPLE_LINE_LENGTH {
             Some(vec![Segment::line(start, end)?])
         } else {
             let maybe_linear_intersection = match (
-                &Line { start, direction: start_direction },
-                &Line { start: end, direction: -end_direction },
-            ).intersect() {
+                &Line {
+                    start,
+                    direction: start_direction,
+                },
+                &Line {
+                    start: end,
+                    direction: -end_direction,
+                },
+            ).intersect()
+            {
                 IntersectionResult::Intersecting(intersections) => {
                     if intersections[0].along_a > 0.0 && intersections[0].along_b > 0.0 {
                         Some(intersections[0])
@@ -178,96 +186,84 @@ impl Segment {
                 IntersectionResult::Coincident => unreachable!(),
             };
 
-            let (connection_position, connection_direction) =
-                if let Some(Intersection { position, .. }) = maybe_linear_intersection {
-                    let start_to_intersection_distance = (start - position).norm();
-                    let end_to_intersection_distance = (end - position).norm();
+            let (connection_position, connection_direction) = if let Some(Intersection {
+                position,
+                ..
+            }) = maybe_linear_intersection
+            {
+                let start_to_intersection_distance = (start - position).norm();
+                let end_to_intersection_distance = (end - position).norm();
 
-                    if start_to_intersection_distance < end_to_intersection_distance {
-                        // arc then line
-                        (
-                            position + start_to_intersection_distance * end_direction,
-                            end_direction,
-                        )
-                    } else {
-                        // line then arc
-                        (
-                            position + end_to_intersection_distance * -start_direction,
-                            start_direction,
-                        )
-                    }
+                if start_to_intersection_distance < end_to_intersection_distance {
+                    // arc then line
+                    (
+                        position + start_to_intersection_distance * end_direction,
+                        end_direction,
+                    )
                 } else {
-                    // http://www.ryanjuckett.com/programming/biarc-interpolation/
-                    let v = end - start;
-                    let t = start_direction + end_direction;
-                    let same_direction =
-                        start_direction.rough_eq_by(end_direction, DIRECTION_TOLERANCE);
-                    let end_orthogonal_of_start = v.dot(&end_direction).rough_eq(0.0);
+                    // line then arc
+                    (
+                        position + end_to_intersection_distance * -start_direction,
+                        start_direction,
+                    )
+                }
+            } else {
+                // http://www.ryanjuckett.com/programming/biarc-interpolation/
+                let v = end - start;
+                let t = start_direction + end_direction;
+                let same_direction =
+                    start_direction.rough_eq_by(end_direction, DIRECTION_TOLERANCE);
+                let end_orthogonal_of_start = v.dot(&end_direction).rough_eq(0.0);
 
-                    if same_direction && end_orthogonal_of_start {
-                        //    __
-                        //   /  \
-                        //  ^    v    ^
-                        //        \__/
-                        (
-                            P2::from_coordinates((start.coords + end.coords) / 2.0),
-                            -start_direction,
-                        )
+                if same_direction && end_orthogonal_of_start {
+                    //    __
+                    //   /  \
+                    //  ^    v    ^
+                    //        \__/
+                    (
+                        P2::from_coordinates((start.coords + end.coords) / 2.0),
+                        -start_direction,
+                    )
+                } else {
+                    let d = if same_direction {
+                        v.dot(&v) / (4.0 * v.dot(&end_direction))
                     } else {
-                        let d = if same_direction {
-                            v.dot(&v) / (4.0 * v.dot(&end_direction))
-                        } else {
-                            // magic - I'm pretty sure this can be simplified
-                            let v_dot_t = v.dot(&t);
-                            (-v_dot_t +
-                                 (v_dot_t * v_dot_t +
-                                      2.0 * (1.0 - start_direction.dot(&end_direction)) *
-                                          v.dot(&v))
-                                     .sqrt()) /
-                                (2.0 * (1.0 - start_direction.dot(&end_direction)))
-                        };
+                        // magic - I'm pretty sure this can be simplified
+                        let v_dot_t = v.dot(&t);
+                        (-v_dot_t
+                            + (v_dot_t * v_dot_t
+                                + 2.0 * (1.0 - start_direction.dot(&end_direction)) * v.dot(&v))
+                                .sqrt())
+                            / (2.0 * (1.0 - start_direction.dot(&end_direction)))
+                    };
 
-                        let start_offset_point = start + d * start_direction;
-                        let end_offset_point = end - d * end_direction;
-                        let connection_direction = (end_offset_point - start_offset_point)
-                            .normalize();
+                    let start_offset_point = start + d * start_direction;
+                    let end_offset_point = end - d * end_direction;
+                    let connection_direction = (end_offset_point - start_offset_point).normalize();
 
-                        (
-                            start_offset_point + d * connection_direction,
-                            connection_direction,
-                        )
-                    }
-
-                };
+                    (
+                        start_offset_point + d * connection_direction,
+                        connection_direction,
+                    )
+                }
+            };
 
             if start.rough_eq_by(connection_position, MIN_START_TO_END) {
-                Some(vec![
-                    Segment::arc_with_direction(
-                        connection_position,
-                        connection_direction,
-                        end
-                    )?,
-                ])
+                Some(vec![Segment::arc_with_direction(
+                    connection_position,
+                    connection_direction,
+                    end,
+                )?])
             } else if end.rough_eq_by(connection_position, MIN_START_TO_END) {
-                Some(vec![
-                    Segment::arc_with_direction(
-                        start,
-                        start_direction,
-                        connection_position
-                    )?,
-                ])
+                Some(vec![Segment::arc_with_direction(
+                    start,
+                    start_direction,
+                    connection_position,
+                )?])
             } else {
                 Some(vec![
-                    Segment::arc_with_direction(
-                        start,
-                        start_direction,
-                        connection_position
-                    )?,
-                    Segment::arc_with_direction(
-                        connection_position,
-                        connection_direction,
-                        end
-                    )?,
+                    Segment::arc_with_direction(start, start_direction, connection_position)?,
+                    Segment::arc_with_direction(connection_position, connection_direction, end)?,
                 ])
             }
         }
@@ -293,10 +289,7 @@ impl Segment {
         if self.is_linear() {
             format!(
                 "M {} {} L {} {}",
-                self.start.x,
-                self.start.y,
-                self.end.x,
-                self.end.y
+                self.start.x, self.start.y, self.end.x, self.end.y
             )
         } else {
             format!(
@@ -490,9 +483,9 @@ impl Curve for Segment {
 
 impl<'a> RoughEq for &'a Segment {
     fn rough_eq_by(&self, other: &Segment, tolerance: N) -> bool {
-        self.start.rough_eq_by(other.start, tolerance) &&
-            self.end.rough_eq_by(other.end, tolerance) &&
-            self.midpoint().rough_eq_by(other.midpoint(), tolerance)
+        self.start.rough_eq_by(other.start, tolerance)
+            && self.end.rough_eq_by(other.end, tolerance)
+            && self.midpoint().rough_eq_by(other.midpoint(), tolerance)
     }
 }
 

@@ -1,4 +1,3 @@
-
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, Into2d, Into3d, WithUniqueOrthogonal};
 use compact::CVec;
 use kay::{World, ActorSystem, External};
@@ -137,7 +136,6 @@ pub trait Renderable {
     fn prepare_render(&mut self, _renderer_id: RendererID, _frame: usize, _world: &mut World) {}
     fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World);
 }
-
 
 pub fn setup(system: &mut ActorSystem) {
     system.register::<Renderer>();

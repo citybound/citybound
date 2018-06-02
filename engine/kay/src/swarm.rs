@@ -48,9 +48,9 @@ impl<A: Actor + Clone> Swarm<A> {
     }
 
     fn at_mut(&mut self, id: usize, version: u8) -> Option<&mut A> {
-        self.slot_map.indices_of(id, version).map(move |index| {
-            self.at_index_mut(index)
-        })
+        self.slot_map
+            .indices_of(id, version)
+            .map(move |index| self.at_index_mut(index))
     }
 
     /// Allocate a instance RawID for later use when manually adding a instance (see `add_with_id`)
@@ -76,10 +76,8 @@ impl<A: Actor + Clone> Swarm<A> {
         let size = (*initial_state).total_size_bytes();
         let (ptr, index) = self.instances.push(size);
 
-        self.slot_map.associate(
-            id.instance_id as usize,
-            index.into(),
-        );
+        self.slot_map
+            .associate(id.instance_id as usize, index.into());
 
         Compact::compact_behind(initial_state, ptr as *mut A);
         let actor_in_slot = &mut *(ptr as *mut A);
@@ -91,23 +89,19 @@ impl<A: Actor + Clone> Swarm<A> {
             match self.instances.swap_remove_within_bin(indices.into()) {
                 Some(ptr) => {
                     let swapped_actor = &*(ptr as *mut A);
-                    self.slot_map.associate(
-                        swapped_actor.id().as_raw().instance_id as
-                            usize,
-                        indices,
-                    );
+                    self.slot_map
+                        .associate(swapped_actor.id().as_raw().instance_id as usize, indices);
                     true
                 }
                 None => false,
             }
-
         }
     }
 
     fn remove(&mut self, id: RawID) {
-        let i = self.slot_map.indices_of_no_version_check(
-            id.instance_id as usize,
-        );
+        let i = self
+            .slot_map
+            .indices_of_no_version_check(id.instance_id as usize);
         self.remove_at_index(i, id);
     }
 
@@ -118,10 +112,8 @@ impl<A: Actor + Clone> Swarm<A> {
             ::std::ptr::drop_in_place(old_actor_ptr);
         }
         self.swap_remove(i);
-        self.slot_map.free(
-            id.instance_id as usize,
-            id.version as usize,
-        );
+        self.slot_map
+            .free(id.instance_id as usize, id.version as usize);
         *self.n_instances -= 1;
     }
 
@@ -148,15 +140,14 @@ impl<A: Actor + Clone> Swarm<A> {
             if let Some(actor) = self.at_mut(
                 packet.recipient_id.instance_id as usize,
                 packet.recipient_id.version,
-            )
-            {
+            ) {
                 let fate = handler(&packet.message, actor, world);
                 (fate, actor.is_still_compact())
             } else {
                 println!(
                     "Tried to send {} packet to {} actor of wrong version!",
-                    unsafe {::std::intrinsics::type_name::<M>()},
-                    unsafe {::std::intrinsics::type_name::<A>()}
+                    unsafe { ::std::intrinsics::type_name::<M>() },
+                    unsafe { ::std::intrinsics::type_name::<A>() }
                 );
                 return;
             }
@@ -211,8 +202,8 @@ impl<A: Actor + Clone> Swarm<A> {
                             self.resize_at_index(index);
                             // this should also work in the case where the "resized" actor
                             // itself is added to the same bin again
-                            let swapped_in_another_receiver = self.instances.bin_len(bin_index) <
-                                index_after_last_recipient;
+                            let swapped_in_another_receiver =
+                                self.instances.bin_len(bin_index) < index_after_last_recipient;
                             if swapped_in_another_receiver {
                                 index_after_last_recipient -= 1;
                                 true
@@ -225,8 +216,8 @@ impl<A: Actor + Clone> Swarm<A> {
                         self.remove_at_index(index, id);
                         // this should also work in the case where the "resized" actor
                         // itself is added to the same bin again
-                        let swapped_in_another_receiver = self.instances.bin_len(bin_index) <
-                            index_after_last_recipient;
+                        let swapped_in_another_receiver =
+                            self.instances.bin_len(bin_index) < index_after_last_recipient;
                         if swapped_in_another_receiver {
                             index_after_last_recipient -= 1;
                             true

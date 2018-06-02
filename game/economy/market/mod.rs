@@ -25,11 +25,7 @@ impl Deal {
     pub fn main_given(&self) -> Resource {
         self.delta
             .iter()
-            .filter_map(|&Entry(resource, amount)| if amount > 0.0 {
-                Some(resource)
-            } else {
-                None
-            })
+            .filter_map(|&Entry(resource, amount)| if amount > 0.0 { Some(resource) } else { None })
             .next()
             .unwrap()
     }
@@ -48,7 +44,10 @@ pub struct Market {
 
 impl Market {
     pub fn spawn(id: MarketID, _: &mut World) -> Market {
-        Market { id, offers_by_resource: CDict::new() }
+        Market {
+            id,
+            offers_by_resource: CDict::new(),
+        }
     }
 
     pub fn search(
@@ -61,13 +60,9 @@ impl Market {
     ) {
         let n_to_expect = if let Some(offers) = self.offers_by_resource.get(resource) {
             for offer in offers.iter() {
-                offer.household.evaluate(
-                    offer.idx,
-                    instant,
-                    location,
-                    requester,
-                    world,
-                );
+                offer
+                    .household
+                    .evaluate(offer.idx, instant, location, requester, world);
             }
 
             offers.len()
@@ -104,7 +99,7 @@ pub struct EvaluatedSearchResult {
 }
 
 use transport::pathfinding::{PreciseLocation, LocationRequester, DistanceRequester,
-                             DistanceRequesterID};
+DistanceRequesterID};
 
 #[derive(Compact, Clone)]
 pub struct TripCostEstimator {
@@ -167,11 +162,9 @@ impl LocationRequester for TripCostEstimator {
         self.n_resolved += 1;
 
         if let (Some(source), Some(destination)) = (self.source, self.destination) {
-            source.node.get_distance_to(
-                destination.location,
-                self.id_as(),
-                world,
-            );
+            source
+                .node
+                .get_distance_to(destination.location, self.id_as(), world);
         } else if self.n_resolved == 2 {
             // println!(
             //     "Either source or dest not resolvable for {}",
@@ -195,7 +188,8 @@ impl DistanceRequester for TripCostEstimator {
 
         let result = if let Some(distance) = maybe_distance {
             EvaluatedSearchResult {
-                evaluated_deals: self.base_result
+                evaluated_deals: self
+                    .base_result
                     .evaluated_deals
                     .iter()
                     .map(|evaluated_deal| {

@@ -16,8 +16,7 @@ impl Renderable for PlanManager {
                     center: P2::new(0.0, 0.0),
                     radius: CONTROL_POINT_HANDLE_RADIUS,
                 }.as_area()
-                    .primitives
-                    [0]
+                    .primitives[0]
                     .boundary
                     .clone(),
                 0.3,
@@ -29,7 +28,8 @@ impl Renderable for PlanManager {
     }
 
     fn prepare_render(&mut self, renderer_id: RendererID, _frame: usize, world: &mut World) {
-        let proposal_id = self.ui_state
+        let proposal_id = self
+            .ui_state
             .get(renderer_id.as_raw().machine)
             .expect("should have ui state for this renderer")
             .current_proposal;
@@ -38,7 +38,8 @@ impl Renderable for PlanManager {
 
     fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         // TODO: clean up this mess
-        let proposal_id = self.ui_state
+        let proposal_id = self
+            .ui_state
             .get(renderer_id.as_raw().machine)
             .expect("should have ui state for this renderer")
             .current_proposal;
@@ -48,8 +49,7 @@ impl Renderable for PlanManager {
         for render_fn in &[
             ::transport::transport_planning::interaction::render_preview,
             ::land_use::zone_planning::interaction::render_preview,
-        ]
-        {
+        ] {
             render_fn(
                 result_preview,
                 maybe_actions_preview,
@@ -67,8 +67,7 @@ impl Renderable for PlanManager {
                         .windows(2)
                         .filter_map(|window| Segment::line(window[0], window[1]))
                         .collect(),
-                )
-                {
+                ) {
                     Mesh::from_band(&Band::new(line_path, 0.3), 1.0)
                 } else {
                     Mesh::empty()
@@ -83,7 +82,8 @@ impl Renderable for PlanManager {
             }
         }
 
-        let selected_points = &self.ui_state
+        let selected_points = &self
+            .ui_state
             .get(renderer_id.as_raw().machine)
             .expect("should have ui state for this renderer")
             .selected_points;
@@ -92,22 +92,21 @@ impl Renderable for PlanManager {
             .gestures
             .pairs()
             .flat_map(|(gesture_id, gesture)| {
-                gesture.points.iter().enumerate().map(move |(point_index,
-                       point)| {
-                    Instance {
+                gesture
+                    .points
+                    .iter()
+                    .enumerate()
+                    .map(move |(point_index, point)| Instance {
                         instance_position: [point.x, point.y, 0.0],
                         instance_direction: [1.0, 0.0],
-                        instance_color: if selected_points.contains(&ControlPointRef(
-                            *gesture_id,
-                            point_index,
-                        ))
+                        instance_color: if selected_points
+                            .contains(&ControlPointRef(*gesture_id, point_index))
                         {
                             colors::CONTROL_POINT_SELECTED
                         } else {
                             colors::CONTROL_POINT
                         },
-                    }
-                })
+                    })
             })
             .collect();
 

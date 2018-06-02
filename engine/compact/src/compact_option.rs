@@ -22,9 +22,10 @@ impl<T: Compact + Clone> ::std::ops::DerefMut for CompactOption<T> {
 
 impl<T: Clone + Compact> Compact for CompactOption<T> {
     fn is_still_compact(&self) -> bool {
-        self.0.as_ref().map(|t| t.is_still_compact()).unwrap_or(
-            true,
-        )
+        self.0
+            .as_ref()
+            .map(|t| t.is_still_compact())
+            .unwrap_or(true)
     }
 
     fn dynamic_size_bytes(&self) -> usize {
@@ -68,7 +69,6 @@ fn basic_option() {
         unreachable!()
     }
 
-
     let bytes = option.total_size_bytes();
     let storage = DefaultHeap::allocate(bytes);
 
@@ -81,9 +81,7 @@ fn basic_option() {
             unreachable!()
         }
         println!("before decompact!");
-        if let Some(ref list) = *Compact::decompact(
-            storage as *mut CompactOption<CompactVec<u32>>,
-        )
+        if let Some(ref list) = *Compact::decompact(storage as *mut CompactOption<CompactVec<u32>>)
         {
             assert_eq!(&[1, 2, 3], &**list);
         } else {
