@@ -2,7 +2,7 @@ use kay::{ActorSystem, World, Actor};
 use util::random::{seed, Rng};
 
 use simulation::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, SimulationID, Simulatable,
-                 SimulatableID};
+SimulatableID};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
@@ -37,20 +37,21 @@ impl Family {
             world,
             n_members,
             home.into(),
-            vec![
-                Offer::new(
-                    MemberIdx(0),
-                    TimeOfDayRange::new(16, 0, 11, 0),
-                    Deal::new(Some((Awakeness, 3.0)), Duration::from_hours(1)),
-                    1,
-                    true
-                ),
-            ].into(),
+            vec![Offer::new(
+                MemberIdx(0),
+                TimeOfDayRange::new(16, 0, 11, 0),
+                Deal::new(Some((Awakeness, 3.0)), Duration::from_hours(1)),
+                1,
+                true,
+            )].into(),
         );
 
         core.used_offers.insert(
             Awakeness,
-            OfferID { household: id.into(), idx: OfferIdx(0) },
+            OfferID {
+                household: id.into(),
+                idx: OfferIdx(0),
+            },
         );
 
         Family { id, home, core }
@@ -73,7 +74,11 @@ impl EvaluationRequester for Family {
     }
 
     fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World) {
-        let &EvaluatedSearchResult { resource, ref evaluated_deals, .. } = result;
+        let &EvaluatedSearchResult {
+            resource,
+            ref evaluated_deals,
+            ..
+        } = result;
         self.update_results(
             resource,
             &ResultAspect::AddDeals(evaluated_deals.clone()),
@@ -156,10 +161,10 @@ impl Household for Family {
             //Entertainment,
             Money,
             Groceries,
-            //Furniture,
-            //Clothes,
-            //Devices,
-            //Services,
+            /* Furniture, */
+            /*Clothes,
+             *Devices,
+             *Services, */
         ]
     }
 

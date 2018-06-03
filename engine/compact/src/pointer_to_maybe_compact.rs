@@ -16,7 +16,9 @@ pub struct PointerToMaybeCompact<T> {
 
 impl<T> Default for PointerToMaybeCompact<T> {
     fn default() -> PointerToMaybeCompact<T> {
-        PointerToMaybeCompact { inner: Inner::Uninitialized }
+        PointerToMaybeCompact {
+            inner: Inner::Uninitialized,
+        }
     }
 }
 
@@ -29,7 +31,9 @@ impl<T> std::fmt::Debug for PointerToMaybeCompact<T> {
 impl<T> PointerToMaybeCompact<T> {
     /// Create a new pointer which is initialized to point on the heap
     pub fn new_free(ptr: *mut T) -> Self {
-        PointerToMaybeCompact { inner: Inner::Free(ptr) }
+        PointerToMaybeCompact {
+            inner: Inner::Free(ptr),
+        }
     }
 
     /// Set the pointer to point on the heap
@@ -64,8 +68,7 @@ impl<T> PointerToMaybeCompact<T> {
     pub fn is_compact(&self) -> bool {
         match self.inner {
             Inner::Free(_) => false,
-            Inner::Compact(_) |
-            Inner::Uninitialized => true,
+            Inner::Compact(_) | Inner::Uninitialized => true,
         }
     }
 
@@ -81,8 +84,7 @@ impl<T> PointerToMaybeCompact<T> {
 impl<T: Default> PointerToMaybeCompact<T> {
     pub fn init_with_default(&self, i: isize) {
         match self.inner {
-            Inner::Uninitialized |
-            Inner::Compact(_) => (),
+            Inner::Uninitialized | Inner::Compact(_) => (),
             Inner::Free(p) => (unsafe { std::ptr::write(p.offset(i), T::default()) }),
         }
     }

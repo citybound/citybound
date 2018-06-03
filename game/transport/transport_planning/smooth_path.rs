@@ -4,9 +4,7 @@ use compact::CVec;
 pub fn smooth_path_from(points: &[P2]) -> Option<Path> {
     let center_points = points
         .windows(2)
-        .map(|point_pair| {
-            P2::from_coordinates((point_pair[0].coords + point_pair[1].coords) / 2.0)
-        })
+        .map(|point_pair| P2::from_coordinates((point_pair[0].coords + point_pair[1].coords) / 2.0))
         .collect::<Vec<_>>();
 
     // for each straight line segment, we have first: a point called END,
@@ -29,12 +27,12 @@ pub fn smooth_path_from(points: &[P2]) -> Option<Path> {
         let next_center_point = center_points.get(i + 1).unwrap_or(&second_corner);
         let line_direction = (second_corner - first_corner).normalize();
 
-        let shorter_distance_to_first_corner = (first_corner - previous_center_point).norm().min(
-            (first_corner - this_center_point).norm(),
-        );
-        let shorter_distance_to_second_corner = (second_corner - this_center_point).norm().min(
-            (second_corner - next_center_point).norm(),
-        );
+        let shorter_distance_to_first_corner = (first_corner - previous_center_point)
+            .norm()
+            .min((first_corner - this_center_point).norm());
+        let shorter_distance_to_second_corner = (second_corner - this_center_point)
+            .norm()
+            .min((second_corner - next_center_point).norm());
 
         let end = first_corner + line_direction * shorter_distance_to_first_corner;
         let start = second_corner - line_direction * shorter_distance_to_second_corner;
@@ -62,5 +60,4 @@ pub fn smooth_path_from(points: &[P2]) -> Option<Path> {
     }
 
     Path::new(segments).ok()
-
 }

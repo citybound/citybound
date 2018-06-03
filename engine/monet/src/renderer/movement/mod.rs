@@ -41,9 +41,9 @@ impl Renderer {
     fn movement_shift(&mut self, delta: V3) {
         let eye = &mut self.scene.eye;
         let eye_direction_2d = (eye.target - eye.position).into_2d().normalize();
-        let absolute_delta = delta.x * eye_direction_2d.into_3d() +
-            delta.y * eye_direction_2d.orthogonal().into_3d() +
-            V3::new(0.0, 0.0, delta.z);
+        let absolute_delta = delta.x * eye_direction_2d.into_3d()
+            + delta.y * eye_direction_2d.orthogonal().into_3d()
+            + V3::new(0.0, 0.0, delta.z);
 
         let dist_to_target = (eye.target - eye.position).norm();
 
@@ -79,8 +79,7 @@ impl Renderer {
         // Scale the distance from eye.target to zoom_point
         // with the scale between zoom distances
         eye.target = P3::from_coordinates(
-            (new_zoom_distance * (eye.target - zoom_point)) / zoom_distance +
-                zoom_point.coords,
+            (new_zoom_distance * (eye.target - zoom_point)) / zoom_distance + zoom_point.coords,
         );
     }
 

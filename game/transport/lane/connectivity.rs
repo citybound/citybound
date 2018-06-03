@@ -42,7 +42,9 @@ pub enum InteractionKind {
         partner_end: f32,
         kind: OverlapKind,
     },
-    Next { green: bool },
+    Next {
+        green: bool,
+    },
     Previous,
 }
 

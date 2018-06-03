@@ -11,7 +11,9 @@ const CHUNK_SIZE: usize = 1024 * 1024 * 4; // 64MB
 
 impl Inbox {
     pub fn new(ident: &chunky::Ident) -> Self {
-        Inbox { queue: chunky::Queue::new(ident, CHUNK_SIZE) }
+        Inbox {
+            queue: chunky::Queue::new(ident, CHUNK_SIZE),
+        }
     }
 
     pub fn put<M: Message>(&mut self, mut packet: Packet<M>, message_registry: &TypeRegistry) {
@@ -20,7 +22,6 @@ impl Inbox {
 
         #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
         unsafe {
-
             // "Allocate" the space in the queue
             let queue_ptr = self.queue.enqueue(total_size);
 
@@ -70,9 +71,10 @@ impl<'a> Iterator for InboxIterator<'a> {
         } else {
             #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
             unsafe {
-                let ptr = self.queue.dequeue().expect(
-                    "should have something left for sure",
-                );
+                let ptr = self
+                    .queue
+                    .dequeue()
+                    .expect("should have something left for sure");
                 let message_type = *(ptr as *mut ShortTypeId);
                 let payload_ptr = ptr.offset(::std::mem::size_of::<ShortTypeId>() as isize);
                 self.n_messages_to_read -= 1;

@@ -7,7 +7,7 @@ use render_layers::RenderLayers;
 
 use style::colors;
 use style::dimensions::{LANE_DISTANCE, LANE_WIDTH, LANE_MARKER_WIDTH, LANE_MARKER_DASH_GAP,
-                        LANE_MARKER_DASH_LENGTH};
+LANE_MARKER_DASH_LENGTH};
 
 use itertools::Itertools;
 
@@ -26,9 +26,8 @@ impl Renderable for Lane {
         let mut current_offset = 0.0;
         let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
         for segment in self.construction.path.segments.iter() {
-            for car in cars_iter.take_while_ref(|car| {
-                *car.position - current_offset < segment.length()
-            })
+            for car in
+                cars_iter.take_while_ref(|car| *car.position - current_offset < segment.length())
             {
                 let position2d = segment.along(*car.position - current_offset);
                 let direction = segment.direction_along(*car.position - current_offset);
@@ -36,12 +35,11 @@ impl Renderable for Lane {
                     instance_position: [position2d.x, position2d.y, 0.0],
                     instance_direction: [direction.x, direction.y],
                     instance_color: if DEBUG_VIEW_LANDMARKS {
-                        colors::RANDOM_COLORS[car.destination.landmark.as_raw().instance_id as
-                                                  usize %
-                                                  colors::RANDOM_COLORS.len()]
+                        colors::RANDOM_COLORS[car.destination.landmark.as_raw().instance_id as usize
+                                                  % colors::RANDOM_COLORS.len()]
                     } else {
-                        colors::RANDOM_COLORS[car.trip.as_raw().instance_id as usize %
-                                                  colors::RANDOM_COLORS.len()]
+                        colors::RANDOM_COLORS
+                            [car.trip.as_raw().instance_id as usize % colors::RANDOM_COLORS.len()]
                     },
                 })
             }
@@ -53,9 +51,9 @@ impl Renderable for Lane {
                 let position2d = if *obstacle.position < self.construction.length {
                     self.construction.path.along(*obstacle.position)
                 } else {
-                    self.construction.path.end() +
-                        (*obstacle.position - self.construction.length) *
-                            self.construction.path.end_direction()
+                    self.construction.path.end()
+                        + (*obstacle.position - self.construction.length)
+                            * self.construction.path.end_direction()
                 };
                 let direction = self.construction.path.direction_along(*obstacle.position);
 
@@ -76,37 +74,35 @@ impl Renderable for Lane {
             );
         }
         // no traffic light for u-turn
-        if self.connectivity.on_intersection &&
-            !self.construction.path.end_direction().rough_eq_by(
-                -self.construction.path.start_direction(),
-                0.1,
-            )
+        if self.connectivity.on_intersection
+            && !self
+                .construction
+                .path
+                .end_direction()
+                .rough_eq_by(-self.construction.path.start_direction(), 0.1)
         {
             let mut position = self.construction.path.start();
-            let (position_shift, batch_id) =
-                if !self.construction.path.start_direction().rough_eq_by(
-                    self.construction
-                        .path
-                        .end_direction(),
-                    0.5,
-                )
-                {
-                    let dot = self.construction.path.end_direction().dot(
-                        &self.construction
-                            .path
-                            .start_direction()
-                            .orthogonal(),
-                    );
-                    let shift = if dot > 0.0 { 1.0 } else { -1.0 };
-                    let batch_id = if dot > 0.0 {
-                        RenderLayers::TrafficLightLightRight as u32
-                    } else {
-                        RenderLayers::TrafficLightLightLeft as u32
-                    };
-                    (shift, batch_id)
+            let (position_shift, batch_id) = if !self
+                .construction
+                .path
+                .start_direction()
+                .rough_eq_by(self.construction.path.end_direction(), 0.5)
+            {
+                let dot = self
+                    .construction
+                    .path
+                    .end_direction()
+                    .dot(&self.construction.path.start_direction().orthogonal());
+                let shift = if dot > 0.0 { 1.0 } else { -1.0 };
+                let batch_id = if dot > 0.0 {
+                    RenderLayers::TrafficLightLightRight as u32
                 } else {
-                    (0.0, RenderLayers::TrafficLightLight as u32)
+                    RenderLayers::TrafficLightLightLeft as u32
                 };
+                (shift, batch_id)
+            } else {
+                (0.0, RenderLayers::TrafficLightLight as u32)
+            };
             position += self.construction.path.start_direction().orthogonal() * position_shift;
             let direction = self.construction.path.start_direction();
 
@@ -217,9 +213,8 @@ impl Renderable for Lane {
 
         if DEBUG_VIEW_LANDMARKS && self.pathfinding.routes_changed {
             let (random_color, is_landmark) = if let Some(location) = self.pathfinding.location {
-                let random_color: [f32; 3] =
-                    colors::RANDOM_COLORS[location.landmark.as_raw().instance_id as usize %
-                                              colors::RANDOM_COLORS.len()];
+                let random_color: [f32; 3] = colors::RANDOM_COLORS
+                    [location.landmark.as_raw().instance_id as usize % colors::RANDOM_COLORS.len()];
                 let weaker_random_color = [
                     (random_color[0] + 1.0) / 2.0,
                     (random_color[1] + 1.0) / 2.0,
@@ -238,8 +233,7 @@ impl Renderable for Lane {
                 0.4,
             );
             renderer_id.update_individual(
-                RenderLayers::DebugLandmarkAssociation as u32 +
-                    self.id.as_raw().instance_id as u32,
+                RenderLayers::DebugLandmarkAssociation as u32 + self.id.as_raw().instance_id as u32,
                 instance,
                 Instance::with_color(random_color),
                 true,
@@ -251,15 +245,15 @@ impl Renderable for Lane {
 
         if DEBUG_VIEW_CONNECTIVITY {
             if !self.pathfinding.debug_highlight_for.is_empty() {
-                let (random_color, is_landmark) =
-                    if let Some(location) = self.pathfinding.location {
-                        let random_color: [f32; 3] = colors::RANDOM_COLORS
-                            [location.landmark.as_raw().instance_id as usize %
-                            colors::RANDOM_COLORS.len()];
-                        (random_color, location.is_landmark())
-                    } else {
-                        ([1.0, 1.0, 1.0], false)
-                    };
+                let (random_color, is_landmark) = if let Some(location) = self.pathfinding.location
+                {
+                    let random_color: [f32; 3] =
+                        colors::RANDOM_COLORS[location.landmark.as_raw().instance_id as usize
+                                                  % colors::RANDOM_COLORS.len()];
+                    (random_color, location.is_landmark())
+                } else {
+                    ([1.0, 1.0, 1.0], false)
+                };
 
                 let mesh = Mesh::from_band(
                     &Band::new(
@@ -269,8 +263,7 @@ impl Renderable for Lane {
                     0.4,
                 );
                 renderer_id.update_individual(
-                    RenderLayers::DebugConnectivity as u32 +
-                        self.id.as_raw().instance_id as u32,
+                    RenderLayers::DebugConnectivity as u32 + self.id.as_raw().instance_id as u32,
                     mesh,
                     Instance::with_color(random_color),
                     true,
@@ -278,8 +271,7 @@ impl Renderable for Lane {
                 );
             } else {
                 renderer_id.update_individual(
-                    RenderLayers::DebugConnectivity as u32 +
-                        self.id.as_raw().instance_id as u32,
+                    RenderLayers::DebugConnectivity as u32 + self.id.as_raw().instance_id as u32,
                     Mesh::empty(),
                     Instance::with_color([0.0, 0.0, 0.0]),
                     true,
@@ -297,13 +289,12 @@ impl GrouperIndividual for Lane {
         base_individual_id: u32,
         world: &mut World,
     ) {
-        let maybe_path = if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY <
-            self.construction.length
+        let maybe_path = if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY
+            < self.construction.length
         {
             self.construction.path.subsection(
                 0.0,
-                (self.construction.progress - CONSTRUCTION_ANIMATION_DELAY)
-                    .max(0.0),
+                (self.construction.progress - CONSTRUCTION_ANIMATION_DELAY).max(0.0),
             )
         } else {
             Some(self.construction.path.clone())
@@ -325,8 +316,7 @@ impl GrouperIndividual for Lane {
                     .unwrap_or_else(Mesh::empty),
                 world,
             );
-            if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
-                self.construction.length
+            if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY > self.construction.length
             {
                 grouper.freeze(self.id_as(), world);
             }
@@ -334,20 +324,15 @@ impl GrouperIndividual for Lane {
             let left_marker = maybe_path
                 .clone()
                 .and_then(|path| path.shift_orthogonally(LANE_DISTANCE / 2.0))
-                .map(|path| {
-                    Mesh::from_band(&Band::new(path, LANE_MARKER_WIDTH), 0.1)
-                })
+                .map(|path| Mesh::from_band(&Band::new(path, LANE_MARKER_WIDTH), 0.1))
                 .unwrap_or_else(Mesh::empty);
 
             let right_marker = maybe_path
                 .and_then(|path| path.shift_orthogonally(-LANE_DISTANCE / 2.0))
-                .map(|path| {
-                    Mesh::from_band(&Band::new(path, LANE_MARKER_WIDTH), 0.1)
-                })
+                .map(|path| Mesh::from_band(&Band::new(path, LANE_MARKER_WIDTH), 0.1))
                 .unwrap_or_else(Mesh::empty);
             grouper.update(self.id_as(), left_marker + right_marker, world);
-            if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY >
-                self.construction.length
+            if self.construction.progress - CONSTRUCTION_ANIMATION_DELAY > self.construction.length
             {
                 grouper.freeze(self.id_as(), world);
             }
@@ -361,26 +346,24 @@ impl Renderable for SwitchLane {
         let mut current_offset = 0.0;
         let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
         for segment in self.construction.path.segments.iter() {
-            for car in cars_iter.take_while_ref(|car| {
-                *car.position - current_offset < segment.length()
-            })
+            for car in
+                cars_iter.take_while_ref(|car| *car.position - current_offset < segment.length())
             {
                 let position2d = segment.along(*car.position - current_offset);
                 let direction = segment.direction_along(*car.position - current_offset);
                 let rotated_direction =
                     (direction + 0.3 * car.switch_velocity * direction.orthogonal()).normalize();
-                let shifted_position2d = position2d +
-                    2.5 * direction.orthogonal() * car.switch_position;
+                let shifted_position2d =
+                    position2d + 2.5 * direction.orthogonal() * car.switch_position;
                 car_instances.push(Instance {
                     instance_position: [shifted_position2d.x, shifted_position2d.y, 0.0],
                     instance_direction: [rotated_direction.x, rotated_direction.y],
                     instance_color: if DEBUG_VIEW_LANDMARKS {
-                        colors::RANDOM_COLORS[car.destination.landmark.as_raw().instance_id as
-                                                  usize %
-                                                  colors::RANDOM_COLORS.len()]
+                        colors::RANDOM_COLORS[car.destination.landmark.as_raw().instance_id as usize
+                                                  % colors::RANDOM_COLORS.len()]
                     } else {
-                        colors::RANDOM_COLORS[car.trip.as_raw().instance_id as usize %
-                                                  colors::RANDOM_COLORS.len()]
+                        colors::RANDOM_COLORS
+                            [car.trip.as_raw().instance_id as usize % colors::RANDOM_COLORS.len()]
                     },
                 })
             }
@@ -392,15 +375,15 @@ impl Renderable for SwitchLane {
                 let position2d = if *obstacle.position < self.construction.length {
                     self.construction.path.along(*obstacle.position)
                 } else {
-                    self.construction.path.end() +
-                        (*obstacle.position - self.construction.length) *
-                            self.construction.path.end_direction()
-                } -
-                    1.0 *
-                        self.construction
-                            .path
-                            .direction_along(*obstacle.position)
-                            .orthogonal();
+                    self.construction.path.end()
+                        + (*obstacle.position - self.construction.length)
+                            * self.construction.path.end_direction()
+                }
+                    - 1.0 * self
+                        .construction
+                        .path
+                        .direction_along(*obstacle.position)
+                        .orthogonal();
                 let direction = self.construction.path.direction_along(*obstacle.position);
 
                 car_instances.push(Instance {
@@ -414,15 +397,15 @@ impl Renderable for SwitchLane {
                 let position2d = if *obstacle.position < self.construction.length {
                     self.construction.path.along(*obstacle.position)
                 } else {
-                    self.construction.path.end() +
-                        (*obstacle.position - self.construction.length) *
-                            self.construction.path.end_direction()
-                } +
-                    1.0 *
-                        self.construction
-                            .path
-                            .direction_along(*obstacle.position)
-                            .orthogonal();
+                    self.construction.path.end()
+                        + (*obstacle.position - self.construction.length)
+                            * self.construction.path.end_direction()
+                }
+                    + 1.0 * self
+                        .construction
+                        .path
+                        .direction_along(*obstacle.position)
+                        .orthogonal();
                 let direction = self.construction.path.direction_along(*obstacle.position);
 
                 car_instances.push(Instance {
@@ -443,8 +426,9 @@ impl Renderable for SwitchLane {
         }
 
         if self.connectivity.left.is_none() {
-            let position = self.construction.path.along(self.construction.length / 2.0) +
-                self.construction
+            let position = self.construction.path.along(self.construction.length / 2.0)
+                + self
+                    .construction
                     .path
                     .direction_along(self.construction.length / 2.0)
                     .orthogonal();
@@ -460,8 +444,9 @@ impl Renderable for SwitchLane {
             );
         }
         if self.connectivity.right.is_none() {
-            let position = self.construction.path.along(self.construction.length / 2.0) -
-                self.construction
+            let position = self.construction.path.along(self.construction.length / 2.0)
+                - self
+                    .construction
                     .path
                     .direction_along(self.construction.length / 2.0)
                     .orthogonal();
@@ -486,13 +471,12 @@ impl GrouperIndividual for SwitchLane {
         _base_individual_id: u32,
         world: &mut World,
     ) {
-        let maybe_path = if self.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY <
-            self.construction.length
+        let maybe_path = if self.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY
+            < self.construction.length
         {
             self.construction.path.subsection(
                 0.0,
-                (self.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY)
-                    .max(0.0),
+                (self.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY).max(0.0),
             )
         } else {
             Some(self.construction.path.clone())
@@ -510,8 +494,8 @@ impl GrouperIndividual for SwitchLane {
                 .unwrap_or_else(Mesh::empty),
             world,
         );
-        if self.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY >
-            self.construction.length
+        if self.construction.progress - 2.0 * CONSTRUCTION_ANIMATION_DELAY
+            > self.construction.length
         {
             grouper.freeze(self.id_as(), world);
         }
@@ -519,7 +503,6 @@ impl GrouperIndividual for SwitchLane {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-
     system.register::<LaneRenderer>();
 
     auto_setup(system);
@@ -591,10 +574,18 @@ impl Renderable for LaneRenderer {
             RenderLayers::DebugConnectivity as u32,
             Mesh::new(
                 vec![
-                    Vertex { position: [-1.0, -1.0, 0.0] },
-                    Vertex { position: [1.0, -1.0, 0.0] },
-                    Vertex { position: [1.0, 1.0, 0.0] },
-                    Vertex { position: [-1.0, 1.0, 0.0] },
+                    Vertex {
+                        position: [-1.0, -1.0, 0.0],
+                    },
+                    Vertex {
+                        position: [1.0, -1.0, 0.0],
+                    },
+                    Vertex {
+                        position: [1.0, 1.0, 0.0],
+                    },
+                    Vertex {
+                        position: [-1.0, 1.0, 0.0],
+                    },
                 ],
                 vec![0, 1, 2, 2, 3, 0],
             ),
@@ -677,8 +668,7 @@ impl LaneRenderer {
 pub fn on_build(lane: &Lane, world: &mut World) {
     LaneRenderer::local_first(world).on_build(
         lane.id_as(),
-        lane.connectivity
-            .on_intersection,
+        lane.connectivity.on_intersection,
         world,
     );
 }
@@ -690,16 +680,14 @@ pub fn on_build_switch(lane: &SwitchLane, world: &mut World) {
 pub fn on_unbuild(lane: &Lane, world: &mut World) {
     LaneRenderer::local_first(world).on_unbuild(
         lane.id_as(),
-        lane.connectivity
-            .on_intersection,
+        lane.connectivity.on_intersection,
         world,
     );
 
     if DEBUG_VIEW_LANDMARKS {
         // TODO: move this to LaneRenderer
         Renderer::local_first(world).update_individual(
-            RenderLayers::DebugLandmarkAssociation as u32 +
-                lane.id.as_raw().instance_id as u32,
+            RenderLayers::DebugLandmarkAssociation as u32 + lane.id.as_raw().instance_id as u32,
             Mesh::empty(),
             Instance::with_color([0.0, 0.0, 0.0]),
             true,
@@ -709,8 +697,7 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
 
     if DEBUG_VIEW_SIGNALS {
         Renderer::local_first(world).update_individual(
-            RenderLayers::DebugLandmarkAssociation as u32 +
-                lane.id.as_raw().instance_id as u32,
+            RenderLayers::DebugLandmarkAssociation as u32 + lane.id.as_raw().instance_id as u32,
             Mesh::empty(),
             Instance::with_color([0.0, 0.0, 0.0]),
             true,

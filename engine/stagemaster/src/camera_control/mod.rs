@@ -114,22 +114,18 @@ impl Interactable3d for CameraControl {
                 if self.pitch_modifier {
                     self.renderer_id.move_eye(
                         Movement::Pitch(
-                            -delta.y * self.settings.rotation_speed *
-                                if self.settings.invert_y { -1.0 } else { 1.0 } /
-                                300.0,
+                            -delta.y
+                                * self.settings.rotation_speed
+                                * if self.settings.invert_y { -1.0 } else { 1.0 }
+                                / 300.0,
                         ),
                         world,
                     );
                 }
 
                 if self.pan_modifier {
-                    self.renderer_id.move_eye(
-                        Movement::ShiftProjected(
-                            old_cursor_2d,
-                            cursor_2d,
-                        ),
-                        world,
-                    )
+                    self.renderer_id
+                        .move_eye(Movement::ShiftProjected(old_cursor_2d, cursor_2d), world)
                 }
             }
             Event3d::MouseMove3d(cursor_3d) => {
@@ -137,44 +133,32 @@ impl Interactable3d for CameraControl {
             }
             Event3d::Scroll(delta) => {
                 self.renderer_id.move_eye(
-                    Movement::Zoom(
-                        delta.y * self.settings.zoom_speed,
-                        self.last_cursor_3d,
-                    ),
+                    Movement::Zoom(delta.y * self.settings.zoom_speed, self.last_cursor_3d),
                     world,
                 );
             }
             Event3d::Frame => {
                 if self.forward {
                     self.renderer_id.move_eye(
-                        Movement::Shift(
-                            V3::new(5.0 * self.settings.move_speed, 0.0, 0.0),
-                        ),
+                        Movement::Shift(V3::new(5.0 * self.settings.move_speed, 0.0, 0.0)),
                         world,
                     );
-
                 }
                 if self.backward {
                     self.renderer_id.move_eye(
-                        Movement::Shift(
-                            V3::new(-5.0 * self.settings.move_speed, 0.0, 0.0),
-                        ),
+                        Movement::Shift(V3::new(-5.0 * self.settings.move_speed, 0.0, 0.0)),
                         world,
                     );
                 }
                 if self.left {
                     self.renderer_id.move_eye(
-                        Movement::Shift(
-                            V3::new(0.0, -5.0 * self.settings.move_speed, 0.0),
-                        ),
+                        Movement::Shift(V3::new(0.0, -5.0 * self.settings.move_speed, 0.0)),
                         world,
                     );
                 }
                 if self.right {
                     self.renderer_id.move_eye(
-                        Movement::Shift(
-                            V3::new(0.0, 5.0 * self.settings.move_speed, 0.0),
-                        ),
+                        Movement::Shift(V3::new(0.0, 5.0 * self.settings.move_speed, 0.0)),
                         world,
                     );
                 }
@@ -201,21 +185,22 @@ impl Interactable2d for CameraControl {
 
                 ui.text(im_str!("Move Speed"));
                 ui.same_line(130.0);
-                settings_changed = settings_changed ||
-                    ui.slider_float(
-                        im_str!("##camera-speed"),
-                        &mut self.settings.move_speed,
-                        0.1,
-                        10.0,
-                    ).build();
+                settings_changed = settings_changed
+                    || ui
+                        .slider_float(
+                            im_str!("##camera-speed"),
+                            &mut self.settings.move_speed,
+                            0.1,
+                            10.0,
+                        )
+                        .build();
 
-                settings_changed = settings_changed ||
-                    ui.checkbox(im_str!("Invert Y"), &mut self.settings.invert_y);
+                settings_changed = settings_changed
+                    || ui.checkbox(im_str!("Invert Y"), &mut self.settings.invert_y);
 
                 settings_changed = settings_changed || self.settings.bindings.settings_ui(&ui);
 
                 ui.spacing();
-
             });
 
         if settings_changed {

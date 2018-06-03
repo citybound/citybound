@@ -66,8 +66,7 @@ impl Trip {
 
     pub fn finish(&mut self, result: TripResult, world: &mut World) -> Fate {
         match result.fate {
-            TripFate::Success(_) |
-            TripFate::ForceStopped => {}
+            TripFate::Success(_) | TripFate::ForceStopped => {}
             reason => {
                 println!(
                     "Trip {:?} failed! ({:?}) {:?} ({:?}) -> {:?} ({:?})",
@@ -188,7 +187,11 @@ pub struct TripCreator {
 
 impl TripCreator {
     pub fn spawn(id: TripCreatorID, simulation: SimulationID, _: &mut World) -> TripCreator {
-        TripCreator { id, simulation, lanes: CVec::new() }
+        TripCreator {
+            id,
+            simulation,
+            lanes: CVec::new(),
+        }
     }
 
     pub fn add_lane_for_trip(&mut self, lane_id: LaneID, world: &mut World) {

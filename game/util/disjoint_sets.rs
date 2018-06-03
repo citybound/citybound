@@ -168,7 +168,8 @@ impl<'a, T: 'a> Iterator for SetsIterator<'a, T> {
         if let Some((set_start_idx, root)) = self.input_iter.next() {
             let mut set_end_idx = set_start_idx + 1;
 
-            while self.input_iter
+            while self
+                .input_iter
                 .peek()
                 .map(|&(_, next_root)| next_root == root)
                 .unwrap_or(false)

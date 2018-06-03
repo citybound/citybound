@@ -1,2 +1,13 @@
-closure_block_indent_threshold = 0
-struct_lit_width = 40
+comment_width = 100
+condense_wildcard_suffixes = true
+error_on_line_overflow = true
+error_on_unformatted = true
+format_strings = true
+merge_imports = false
+max_width = 100
+reorder_imports = false
+reorder_modules = false
+reorder_impl_items = false
+use_field_init_shorthand = true
+use_try_shorthand = true
+wrap_comments = true

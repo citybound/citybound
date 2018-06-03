@@ -57,11 +57,8 @@ impl Construction {
     }
 
     pub fn action_done(&mut self, id: ConstructableID, _world: &mut World) {
-        self.pending_constructables.retain(
-            |pending_constructable| {
-                *pending_constructable != id
-            },
-        );
+        self.pending_constructables
+            .retain(|pending_constructable| *pending_constructable != id);
     }
 
     fn start_action(&mut self, action: Action, world: &mut World) {
@@ -70,33 +67,31 @@ impl Construction {
                 print!("C ");
                 let ids = prototype.construct(self.id, world);
                 self.constructed.insert(prototype_id, ids.clone());
-                self.current_prototypes.insert(
-                    prototype_id,
-                    prototype.clone(),
-                );
+                self.current_prototypes
+                    .insert(prototype_id, prototype.clone());
                 ids
             }
             Action::Morph(old_protoype_id, new_prototype_id, new_prototype) => {
                 print!("M ");
-                let ids = self.constructed.remove(old_protoype_id).expect(
-                    "Tried to morph non-constructed prototype",
-                );
+                let ids = self
+                    .constructed
+                    .remove(old_protoype_id)
+                    .expect("Tried to morph non-constructed prototype");
                 for id in &ids {
                     id.morph(new_prototype.clone(), self.id, world);
                 }
                 self.constructed.insert(new_prototype_id, ids.clone());
                 self.current_prototypes.remove(old_protoype_id);
-                self.current_prototypes.insert(
-                    new_prototype_id,
-                    new_prototype,
-                );
+                self.current_prototypes
+                    .insert(new_prototype_id, new_prototype);
                 ids
             }
             Action::Destruct(prototype_id) => {
                 print!("D ");
-                let ids = self.constructed.remove(prototype_id).expect(
-                    "Tried to destruct non-constructed prototype",
-                );
+                let ids = self
+                    .constructed
+                    .remove(prototype_id)
+                    .expect("Tried to destruct non-constructed prototype");
                 for id in &ids {
                     id.destruct(self.id, world);
                 }
@@ -105,9 +100,8 @@ impl Construction {
             }
         };
 
-        self.pending_constructables.extend(
-            new_pending_constructables,
-        );
+        self.pending_constructables
+            .extend(new_pending_constructables);
     }
 
     fn actions_to_implement(&self, new_result: &PlanResult) -> CVec<CVec<Action>> {
@@ -120,9 +114,7 @@ impl Construction {
         for (new_prototype_id, new_prototype) in new_result.prototypes.pairs() {
             let maybe_morphable_id = unmatched_existing
                 .pairs()
-                .find(|&(_, other_prototype)| {
-                    new_prototype.morphable_from(other_prototype)
-                })
+                .find(|&(_, other_prototype)| new_prototype.morphable_from(other_prototype))
                 .map(|(id, _)| *id);
             if let Some(morphable_id) = maybe_morphable_id {
                 unmatched_existing.remove(morphable_id);

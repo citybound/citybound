@@ -45,10 +45,12 @@ impl PrimitiveArea {
             IntersectionResult::Coincident => unreachable!(),
         };
 
-        n_intersections <= 1 &&
-            other.boundary.segments.iter().all(|other_segment| {
-                self.contains(other_segment.start())
-            })
+        n_intersections <= 1
+            && other
+                .boundary
+                .segments
+                .iter()
+                .all(|other_segment| self.contains(other_segment.start()))
     }
 }
 
@@ -64,15 +66,16 @@ impl PointContainer for PrimitiveArea {
             let intersections = match (
                 &Path::new_unchecked(Some(ray).into_iter().collect()),
                 &self.boundary,
-            ).intersect() {
+            ).intersect()
+            {
                 IntersectionResult::Intersecting(intersections) => intersections,
                 IntersectionResult::Apart => vec![],
                 IntersectionResult::Coincident => unreachable!(),
             };
 
-            if intersections.iter().any(|intersection| {
-                intersection.along_a < THICKNESS
-            })
+            if intersections
+                .iter()
+                .any(|intersection| intersection.along_a < THICKNESS)
             {
                 AreaLocation::Boundary
             } else if intersections.len() % 2 == 1 {
@@ -156,11 +159,8 @@ impl Area {
                 {
                     if primitive_distances.len() <= 1 {
                         primitive_distances.clear();
-                        unintersected_pieces.push(
-                            ab[subject].primitives[primitive_i]
-                                .boundary
-                                .clone(),
-                        )
+                        unintersected_pieces
+                            .push(ab[subject].primitives[primitive_i].boundary.clone())
                     } else {
                         primitive_distances.sort_unstable_by_key(|&along| OrderedFloat(along));
 
@@ -174,28 +174,22 @@ impl Area {
 
                 let mut boundary_pieces_initial = unintersected_pieces
                     .into_iter()
-                    .chain(
-                        intersection_distances[subject]
-                            .iter()
-                            .enumerate()
-                            .flat_map(|(primitive_i, primitive_distances)| {
-                                primitive_distances
-                                    .windows(2)
-                                    .filter_map(|distance_pair| {
-                                        ab[subject].primitives[primitive_i].boundary.subsection(
-                                            distance_pair[0],
-                                            distance_pair[1],
-                                        )
-                                    })
-                                    .collect::<Vec<_>>()
-                            }),
-                    )
-                    .map(|path| {
-                        BoundaryPiece {
-                            path: path,
-                            left_inside: [false, false],
-                            right_inside: [subject == SUBJECT_A, subject == SUBJECT_B],
-                        }
+                    .chain(intersection_distances[subject].iter().enumerate().flat_map(
+                        |(primitive_i, primitive_distances)| {
+                            primitive_distances
+                                .windows(2)
+                                .filter_map(|distance_pair| {
+                                    ab[subject].primitives[primitive_i]
+                                        .boundary
+                                        .subsection(distance_pair[0], distance_pair[1])
+                                })
+                                .collect::<Vec<_>>()
+                        },
+                    ))
+                    .map(|path| BoundaryPiece {
+                        path,
+                        left_inside: [false, false],
+                        right_inside: [subject == SUBJECT_A, subject == SUBJECT_B],
                     })
                     .collect::<Vec<_>>();
 
@@ -206,8 +200,7 @@ impl Area {
                         AreaLocation::Inside => {
                             println!(
                                 "Piece {:?} is inside (midpoint {})",
-                                boundary_piece,
-                                midpoint
+                                boundary_piece, midpoint
                             );
                             boundary_piece.left_inside[other_subject(subject)] = true;
                             boundary_piece.right_inside[other_subject(subject)] = true;
@@ -239,58 +232,55 @@ impl Area {
                 let maybe_equivalent = unique_boundary_pieces
                     .iter_mut()
                     .map(|other_piece| {
-                        let forward_equivalent =
-                            other_piece.path.start().rough_eq_by(
-                                boundary_piece.path.start(),
+                        let forward_equivalent = other_piece
+                            .path
+                            .start()
+                            .rough_eq_by(boundary_piece.path.start(), WELDING_TOLERANCE / 2.0)
+                            && other_piece
+                                .path
+                                .end()
+                                .rough_eq_by(boundary_piece.path.end(), WELDING_TOLERANCE / 2.0)
+                            && other_piece.path.midpoint().rough_eq_by(
+                                boundary_piece.path.midpoint(),
                                 WELDING_TOLERANCE / 2.0,
-                            ) &&
-                                other_piece.path.end().rough_eq_by(
-                                    boundary_piece.path.end(),
-                                    WELDING_TOLERANCE / 2.0,
-                                ) &&
-                                other_piece.path.midpoint().rough_eq_by(
-                                    boundary_piece.path.midpoint(),
-                                    WELDING_TOLERANCE / 2.0,
-                                );
-                        let backward_equivalent =
-                            other_piece.path.start().rough_eq_by(
-                                boundary_piece.path.end(),
+                            );
+                        let backward_equivalent = other_piece
+                            .path
+                            .start()
+                            .rough_eq_by(boundary_piece.path.end(), WELDING_TOLERANCE / 2.0)
+                            && other_piece
+                                .path
+                                .end()
+                                .rough_eq_by(boundary_piece.path.start(), WELDING_TOLERANCE / 2.0)
+                            && other_piece.path.midpoint().rough_eq_by(
+                                boundary_piece.path.midpoint(),
                                 WELDING_TOLERANCE / 2.0,
-                            ) &&
-                                other_piece.path.end().rough_eq_by(
-                                    boundary_piece.path.start(),
-                                    WELDING_TOLERANCE / 2.0,
-                                ) &&
-                                other_piece.path.midpoint().rough_eq_by(
-                                    boundary_piece.path.midpoint(),
-                                    WELDING_TOLERANCE / 2.0,
-                                );
+                            );
                         (other_piece, forward_equivalent, backward_equivalent)
                     })
                     .find(|(_, forward_equivalent, backward_equivalent)| {
                         *forward_equivalent || *backward_equivalent
                     });
 
-
                 if let Some((equivalent_piece, forward_equivalent, _)) = maybe_equivalent {
                     if forward_equivalent {
-                        equivalent_piece.left_inside[SUBJECT_A] |= boundary_piece.left_inside
-                            [SUBJECT_A];
-                        equivalent_piece.left_inside[SUBJECT_B] |= boundary_piece.left_inside
-                            [SUBJECT_B];
-                        equivalent_piece.right_inside[SUBJECT_A] |= boundary_piece.right_inside
-                            [SUBJECT_A];
-                        equivalent_piece.right_inside[SUBJECT_B] |= boundary_piece.right_inside
-                            [SUBJECT_B];
+                        equivalent_piece.left_inside[SUBJECT_A] |=
+                            boundary_piece.left_inside[SUBJECT_A];
+                        equivalent_piece.left_inside[SUBJECT_B] |=
+                            boundary_piece.left_inside[SUBJECT_B];
+                        equivalent_piece.right_inside[SUBJECT_A] |=
+                            boundary_piece.right_inside[SUBJECT_A];
+                        equivalent_piece.right_inside[SUBJECT_B] |=
+                            boundary_piece.right_inside[SUBJECT_B];
                     } else {
-                        equivalent_piece.left_inside[SUBJECT_A] |= boundary_piece.right_inside
-                            [SUBJECT_A];
-                        equivalent_piece.left_inside[SUBJECT_B] |= boundary_piece.right_inside
-                            [SUBJECT_B];
-                        equivalent_piece.right_inside[SUBJECT_A] |= boundary_piece.left_inside
-                            [SUBJECT_A];
-                        equivalent_piece.right_inside[SUBJECT_B] |= boundary_piece.left_inside
-                            [SUBJECT_B];
+                        equivalent_piece.left_inside[SUBJECT_A] |=
+                            boundary_piece.right_inside[SUBJECT_A];
+                        equivalent_piece.left_inside[SUBJECT_B] |=
+                            boundary_piece.right_inside[SUBJECT_B];
+                        equivalent_piece.right_inside[SUBJECT_A] |=
+                            boundary_piece.left_inside[SUBJECT_A];
+                        equivalent_piece.right_inside[SUBJECT_B] |=
+                            boundary_piece.left_inside[SUBJECT_B];
                     }
                     true
                 } else {
@@ -303,7 +293,9 @@ impl Area {
             }
         }
 
-        AreaSplitResult { pieces: unique_boundary_pieces }
+        AreaSplitResult {
+            pieces: unique_boundary_pieces,
+        }
     }
 
     pub fn disjoint(&self) -> Vec<Area> {
@@ -311,16 +303,14 @@ impl Area {
         let mut groups = Vec::<VecLike<PrimitiveArea>>::new();
 
         for primitive in self.primitives.iter().cloned() {
-            if let Some(surrounding_group_i) =
-                groups.iter().position(
-                    |group| group[0].fully_contains(&primitive),
-                )
+            if let Some(surrounding_group_i) = groups
+                .iter()
+                .position(|group| group[0].fully_contains(&primitive))
             {
                 groups[surrounding_group_i].push(primitive);
-            } else if let Some(surrounded_group_i) =
-                groups.iter().position(
-                    |group| primitive.fully_contains(&group[0]),
-                )
+            } else if let Some(surrounded_group_i) = groups
+                .iter()
+                .position(|group| primitive.fully_contains(&group[0]))
             {
                 groups[surrounded_group_i].insert(0, primitive);
             } else {
@@ -334,9 +324,10 @@ impl Area {
 
 impl PointContainer for Area {
     fn location_of(&self, point: P2) -> AreaLocation {
-        if self.primitives.iter().any(|primtive| {
-            primtive.boundary.includes(point)
-        })
+        if self
+            .primitives
+            .iter()
+            .any(|primtive| primtive.boundary.includes(point))
         {
             AreaLocation::Boundary
         } else {
@@ -344,23 +335,25 @@ impl PointContainer for Area {
                 .expect("Ray should be valid");
 
             // TODO: allow for ccw holes by checking intersection direction
-            let all_intersections = self.primitives
+            let all_intersections = self
+                .primitives
                 .iter()
-                .flat_map(|primitive| match (
-                    &Path::new_unchecked(
-                        Some(ray).into_iter().collect(),
-                    ),
-                    &primitive.boundary,
-                ).intersect() {
-                    IntersectionResult::Intersecting(intersections) => intersections,
-                    IntersectionResult::Apart => vec![],
-                    IntersectionResult::Coincident => unreachable!(),
+                .flat_map(|primitive| {
+                    match (
+                        &Path::new_unchecked(Some(ray).into_iter().collect()),
+                        &primitive.boundary,
+                    ).intersect()
+                    {
+                        IntersectionResult::Intersecting(intersections) => intersections,
+                        IntersectionResult::Apart => vec![],
+                        IntersectionResult::Coincident => unreachable!(),
+                    }
                 })
                 .collect::<Vec<_>>();
 
-            if all_intersections.iter().any(|intersection| {
-                intersection.along_a < THICKNESS
-            })
+            if all_intersections
+                .iter()
+                .any(|intersection| intersection.along_a < THICKNESS)
             {
                 AreaLocation::Boundary
             } else if all_intersections.len() % 2 == 1 {
@@ -375,11 +368,12 @@ impl PointContainer for Area {
 
 impl<'a> RoughEq for &'a Area {
     fn rough_eq_by(&self, other: Self, tolerance: N) -> bool {
-        self.primitives.len() == other.primitives.len() &&
-            self.primitives.iter().all(|own_primitive| {
-                other.primitives.iter().any(|other_primitive| {
-                    own_primitive.rough_eq_by(other_primitive, tolerance)
-                })
+        self.primitives.len() == other.primitives.len()
+            && self.primitives.iter().all(|own_primitive| {
+                other
+                    .primitives
+                    .iter()
+                    .any(|other_primitive| own_primitive.rough_eq_by(other_primitive, tolerance))
             })
     }
 }
@@ -409,7 +403,8 @@ impl AreaSplitResult {
         let mut paths = Vec::<Path>::new();
         let mut complete_paths = Vec::<Path>::new();
 
-        for oriented_path in self.pieces
+        for oriented_path in self
+            .pieces
             .iter()
             .filter_map(|piece| match piece_filter(piece) {
                 PieceRole::Forward => Some(piece.path.clone()),
@@ -422,17 +417,15 @@ impl AreaSplitResult {
             let mut maybe_path_after = None;
 
             for (path_i, path) in paths.iter().enumerate() {
-                if path.end().rough_eq_by(
-                    oriented_path.start(),
-                    WELDING_TOLERANCE,
-                )
+                if path
+                    .end()
+                    .rough_eq_by(oriented_path.start(), WELDING_TOLERANCE)
                 {
                     maybe_path_before = Some(path_i)
                 }
-                if path.start().rough_eq_by(
-                    oriented_path.end(),
-                    WELDING_TOLERANCE,
-                )
+                if path
+                    .start()
+                    .rough_eq_by(oriented_path.end(), WELDING_TOLERANCE)
                 {
                     maybe_path_after = Some(path_i)
                 }
@@ -524,58 +517,56 @@ impl AreaSplitResult {
     }
 
     pub fn intersection(&self) -> Area {
-        self.get_area(|piece| if piece.right_inside[SUBJECT_A] &&
-            piece.right_inside[SUBJECT_B]
-        {
-            PieceRole::Forward
-        } else {
-            PieceRole::NonContributing
+        self.get_area(|piece| {
+            if piece.right_inside[SUBJECT_A] && piece.right_inside[SUBJECT_B] {
+                PieceRole::Forward
+            } else {
+                PieceRole::NonContributing
+            }
         })
     }
 
     pub fn union(&self) -> Area {
-        self.get_area(
-            |piece| if (piece.right_inside[SUBJECT_A] || piece.right_inside[SUBJECT_B]) &&
-                !(piece.left_inside[SUBJECT_A] || piece.left_inside[SUBJECT_B])
+        self.get_area(|piece| {
+            if (piece.right_inside[SUBJECT_A] || piece.right_inside[SUBJECT_B])
+                && !(piece.left_inside[SUBJECT_A] || piece.left_inside[SUBJECT_B])
             {
                 PieceRole::Forward
             } else {
                 PieceRole::NonContributing
-            },
-        )
+            }
+        })
     }
 
     pub fn a_minus_b(&self) -> Area {
-        self.get_area(|piece| if piece.right_inside[SUBJECT_A] &&
-            !piece.right_inside[SUBJECT_B]
-        {
-            PieceRole::Forward
-        } else if piece.left_inside[SUBJECT_A] && !piece.left_inside[SUBJECT_B] {
-            PieceRole::Backward
-        } else {
-            PieceRole::NonContributing
+        self.get_area(|piece| {
+            if piece.right_inside[SUBJECT_A] && !piece.right_inside[SUBJECT_B] {
+                PieceRole::Forward
+            } else if piece.left_inside[SUBJECT_A] && !piece.left_inside[SUBJECT_B] {
+                PieceRole::Backward
+            } else {
+                PieceRole::NonContributing
+            }
         })
     }
 
     pub fn b_minus_a(&self) -> Area {
-        self.get_area(|piece| if piece.right_inside[SUBJECT_B] &&
-            !piece.right_inside[SUBJECT_A]
-        {
-            PieceRole::Forward
-        } else if piece.left_inside[SUBJECT_B] && !piece.left_inside[SUBJECT_A] {
-            PieceRole::Backward
-        } else {
-            PieceRole::NonContributing
+        self.get_area(|piece| {
+            if piece.right_inside[SUBJECT_B] && !piece.right_inside[SUBJECT_A] {
+                PieceRole::Forward
+            } else if piece.left_inside[SUBJECT_B] && !piece.left_inside[SUBJECT_A] {
+                PieceRole::Backward
+            } else {
+                PieceRole::NonContributing
+            }
         })
     }
 
     pub fn debug_svg(&self) -> String {
-
-        let piece_points = self.pieces
+        let piece_points = self
+            .pieces
             .iter()
-            .flat_map(|piece| {
-                vec![piece.path.start(), piece.path.midpoint(), piece.path.end()]
-            })
+            .flat_map(|piece| vec![piece.path.start(), piece.path.midpoint(), piece.path.end()])
             .collect::<Vec<_>>();
 
         let min_x = *piece_points
@@ -652,24 +643,31 @@ impl AreaSplitResult {
                         side_paths.push((stroke_width, "rgba(255, 0, 0, 0.3)"));
                     }
 
-                    side_paths.into_iter().flat_map(|(shift, color)|
-                        piece.path.segments.iter().filter_map(|segment|
-                            segment.shift_orthogonally(shift)
-                        ).map(|segment|
-                            format!(
-                            r#"<path d="{}" stroke="{}"/>"#,
-                            Path::new_unchecked(Some(segment).into_iter().collect()).to_svg(),
-                            color
-                        )).collect::<Vec<_>>()
-                    ).collect::<Vec<_>>()
+                    side_paths
+                        .into_iter()
+                        .flat_map(|(shift, color)| {
+                            piece
+                                .path
+                                .segments
+                                .iter()
+                                .filter_map(|segment| segment.shift_orthogonally(shift))
+                                .map(|segment| {
+                                    format!(
+                                        r#"<path d="{}" stroke="{}"/>"#,
+                                        Path::new_unchecked(Some(segment).into_iter().collect())
+                                            .to_svg(),
+                                        color
+                                    )
+                                })
+                                .collect::<Vec<_>>()
+                        })
+                        .collect::<Vec<_>>()
                 })
                 .collect::<Vec<_>>()
                 .join(" "),
         )
     }
 }
-
-
 
 pub trait AsArea {
     fn as_area(&self) -> Area;
@@ -693,14 +691,20 @@ impl Band {
     }
 
     pub fn new_asymmetric(path: Path, width_left: N, width_right: N) -> Band {
-        Band { path, width_left, width_right }
+        Band {
+            path,
+            width_left,
+            width_right,
+        }
     }
 
     pub fn outline(&self) -> Path {
-        let left_path = self.path
+        let left_path = self
+            .path
             .shift_orthogonally(-self.width_left)
             .unwrap_or_else(|| self.path.clone());
-        let right_path = self.path
+        let right_path = self
+            .path
             .shift_orthogonally(self.width_right)
             .unwrap_or_else(|| self.path.clone())
             .reverse();
@@ -722,23 +726,21 @@ impl Band {
     pub fn outline_distance_to_path_distance(&self, distance: N) -> N {
         let full_width = self.width_left + self.width_right;
 
-        if let (Some(left_path_length), Some(right_path_length)) =
-            (
-                self.path.shift_orthogonally(-self.width_left).map(
-                    |p| p.length(),
-                ),
-                self.path.shift_orthogonally(self.width_right).map(
-                    |p| p.length(),
-                ),
-            )
-        {
+        if let (Some(left_path_length), Some(right_path_length)) = (
+            self.path
+                .shift_orthogonally(-self.width_left)
+                .map(|p| p.length()),
+            self.path
+                .shift_orthogonally(self.width_right)
+                .map(|p| p.length()),
+        ) {
             if distance > left_path_length + full_width + right_path_length {
                 // on connector2
                 0.0
             } else if distance > left_path_length + full_width {
                 // on right side
-                (1.0 - (distance - left_path_length - full_width) / right_path_length) *
-                    self.path.length()
+                (1.0 - (distance - left_path_length - full_width) / right_path_length)
+                    * self.path.length()
             } else if distance > left_path_length {
                 // on connector1
                 self.path.length()
@@ -762,10 +764,10 @@ impl AsArea for Circle {
     fn as_area(&self) -> Area {
         let top = self.center + V2::new(0.0, self.radius);
         let bottom = self.center + V2::new(0.0, -self.radius);
-        let right_segment = Segment::arc_with_direction(top, V2::new(1.0, 0.0), bottom)
-            .expect("Circle too small");
-        let left_segment = Segment::arc_with_direction(bottom, V2::new(-1.0, 0.0), top)
-            .expect("Circle too small");
+        let right_segment =
+            Segment::arc_with_direction(top, V2::new(1.0, 0.0), bottom).expect("Circle too small");
+        let left_segment =
+            Segment::arc_with_direction(bottom, V2::new(-1.0, 0.0), top).expect("Circle too small");
 
         Area::new_simple(Path::new_unchecked(
             Some(right_segment)

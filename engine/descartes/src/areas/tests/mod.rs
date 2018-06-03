@@ -14,9 +14,9 @@ fn svg_test(file_path: &str) {
     let mut subject_area = None;
     let mut expected_result_primitive_areas = VecLike::new();
 
-    let path_substrs = contents.split("<path").filter(
-        |string| string.contains("d="),
-    );
+    let path_substrs = contents
+        .split("<path")
+        .filter(|string| string.contains("d="));
 
     for path_substr in path_substrs {
         let path_commands_idx = path_substr.find(" d=").unwrap();
@@ -112,41 +112,34 @@ fn area_intersecting_at_curved_road() {
     assert_eq!(
         &*Area::new_simple(
             Path::new(vec![
-                Segment::line(P2::new(0.0, 0.0), P2::new(2.0, 0.0))
-                    .unwrap(),
+                Segment::line(P2::new(0.0, 0.0), P2::new(2.0, 0.0)).unwrap(),
                 Segment::arc_with_direction(
                     P2::new(2.0, 0.0),
                     V2::new(1.0, 0.0),
-                    P2::new(3.0, 1.0)
+                    P2::new(3.0, 1.0),
                 ).unwrap(),
-                Segment::line(P2::new(3.0, 1.0), P2::new(2.5, 1.0))
-                    .unwrap(),
+                Segment::line(P2::new(3.0, 1.0), P2::new(2.5, 1.0)).unwrap(),
                 Segment::arc_with_direction(
                     P2::new(2.5, 1.0),
                     V2::new(0.0, -1.0),
-                    P2::new(2.0, 0.5)
+                    P2::new(2.0, 0.5),
                 ).unwrap(),
-                Segment::line(P2::new(2.0, 0.5), P2::new(0.0, 0.5))
-                    .unwrap(),
-                Segment::line(P2::new(0.0, 0.5), P2::new(0.0, 0.0))
-                    .unwrap(),
+                Segment::line(P2::new(2.0, 0.5), P2::new(0.0, 0.5)).unwrap(),
+                Segment::line(P2::new(0.0, 0.5), P2::new(0.0, 0.0)).unwrap(),
             ]).unwrap(),
         ).unwrap()
-            .split(&Area::new_simple(
-                Path::new(vec![
-                    Segment::line(P2::new(1.0, 1.0), P2::new(1.0, -1.0))
-                        .unwrap(),
-                    Segment::line(P2::new(1.0, -1.0), P2::new(2.0, -1.0))
-                        .unwrap(),
-                    Segment::line(P2::new(2.0, -1.0), P2::new(2.0, 1.0))
-                        .unwrap(),
-                    Segment::line(P2::new(2.0, 1.0), P2::new(1.0, 1.0))
-                        .unwrap(),
-                ]).unwrap(),
-            ).unwrap())
+            .split(
+                &Area::new_simple(
+                    Path::new(vec![
+                        Segment::line(P2::new(1.0, 1.0), P2::new(1.0, -1.0)).unwrap(),
+                        Segment::line(P2::new(1.0, -1.0), P2::new(2.0, -1.0)).unwrap(),
+                        Segment::line(P2::new(2.0, -1.0), P2::new(2.0, 1.0)).unwrap(),
+                        Segment::line(P2::new(2.0, 1.0), P2::new(1.0, 1.0)).unwrap(),
+                    ]).unwrap(),
+                ).unwrap(),
+            )
             .intersection()
-            .primitives
-            [0]
+            .primitives[0]
             .boundary
             .segments,
         &[
@@ -172,49 +165,38 @@ fn area_intersecting_before_curved_road() {
     assert_eq!(
         &*Area::new_simple(
             Path::new(vec![
-                Segment::line(P2::new(0.0, 0.0), P2::new(2.0, 0.0))
-                    .unwrap(),
+                Segment::line(P2::new(0.0, 0.0), P2::new(2.0, 0.0)).unwrap(),
                 Segment::arc_with_direction(
                     P2::new(2.0, 0.0),
                     V2::new(1.0, 0.0),
-                    P2::new(3.0, 1.0)
+                    P2::new(3.0, 1.0),
                 ).unwrap(),
-                Segment::line(P2::new(3.0, 1.0), P2::new(2.5, 1.0))
-                    .unwrap(),
+                Segment::line(P2::new(3.0, 1.0), P2::new(2.5, 1.0)).unwrap(),
                 Segment::arc_with_direction(
                     P2::new(2.5, 1.0),
                     V2::new(0.0, -1.0),
-                    P2::new(2.0, 0.5)
+                    P2::new(2.0, 0.5),
                 ).unwrap(),
-                Segment::line(P2::new(2.0, 0.5), P2::new(0.0, 0.5))
-                    .unwrap(),
-                Segment::line(P2::new(0.0, 0.5), P2::new(0.0, 0.0))
-                    .unwrap(),
+                Segment::line(P2::new(2.0, 0.5), P2::new(0.0, 0.5)).unwrap(),
+                Segment::line(P2::new(0.0, 0.5), P2::new(0.0, 0.0)).unwrap(),
             ]).unwrap(),
         ).unwrap()
-            .split(&Area::new_simple(
-                Path::new(vec![
-                    Segment::line(
-                        P2::new(1.0 - TINY_BIT, 1.0),
-                        P2::new(1.0 - TINY_BIT, -1.0)
-                    ).unwrap(),
-                    Segment::line(
-                        P2::new(1.0 - TINY_BIT, -1.0),
-                        P2::new(2.0 - TINY_BIT, -1.0)
-                    ).unwrap(),
-                    Segment::line(
-                        P2::new(2.0 - TINY_BIT, -1.0),
-                        P2::new(2.0 - TINY_BIT, 1.0)
-                    ).unwrap(),
-                    Segment::line(
-                        P2::new(2.0 - TINY_BIT, 1.0),
-                        P2::new(1.0 - TINY_BIT, 1.0)
-                    ).unwrap(),
-                ]).unwrap(),
-            ).unwrap())
+            .split(
+                &Area::new_simple(
+                    Path::new(vec![
+                        Segment::line(P2::new(1.0 - TINY_BIT, 1.0), P2::new(1.0 - TINY_BIT, -1.0))
+                            .unwrap(),
+                        Segment::line(P2::new(1.0 - TINY_BIT, -1.0), P2::new(2.0 - TINY_BIT, -1.0))
+                            .unwrap(),
+                        Segment::line(P2::new(2.0 - TINY_BIT, -1.0), P2::new(2.0 - TINY_BIT, 1.0))
+                            .unwrap(),
+                        Segment::line(P2::new(2.0 - TINY_BIT, 1.0), P2::new(1.0 - TINY_BIT, 1.0))
+                            .unwrap(),
+                    ]).unwrap(),
+                ).unwrap(),
+            )
             .intersection()
-            .primitives
-            [0]
+            .primitives[0]
             .boundary
             .segments,
         &[

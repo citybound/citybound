@@ -7,7 +7,6 @@ use land_use::buildings::BuildingID;
 
 use super::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer};
 
-
 #[derive(Compact, Clone)]
 pub struct CowFarm {
     id: CowFarmID,
@@ -41,7 +40,7 @@ impl CowFarm {
                             Duration::from_minutes(10),
                         ),
                         4,
-                        false
+                        false,
                     ),
                     Offer::new(
                         MemberIdx(0),
@@ -54,14 +53,14 @@ impl CowFarm {
                             Duration::from_minutes(10),
                         ),
                         4,
-                        false
+                        false,
                     ),
                     Offer::new(
                         MemberIdx(0),
                         TimeOfDayRange::new(5, 0, 15, 0),
                         Deal::new(Some((Resource::Money, 40.0)), Duration::from_hours(4)),
                         2,
-                        false
+                        false,
                     ),
                 ].into(),
             ),
@@ -147,8 +146,8 @@ const UPDATE_EVERY_N_SECS: usize = 4;
 
 impl Simulatable for CowFarm {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
-        if (current_instant.ticks() + self.id.as_raw().instance_id as usize) %
-            (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0
+        if (current_instant.ticks() + self.id.as_raw().instance_id as usize)
+            % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0
         {
             self.decay(Duration(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world);
         }

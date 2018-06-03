@@ -30,7 +30,9 @@ impl ::std::ops::Deref for CompactString {
 
 impl ::std::convert::From<String> for CompactString {
     fn from(string: String) -> CompactString {
-        CompactString { chars: string.into_bytes().into() }
+        CompactString {
+            chars: string.into_bytes().into(),
+        }
     }
 }
 
@@ -48,6 +50,8 @@ impl Compact for CompactString {
     }
 
     unsafe fn decompact(source: *const Self) -> Self {
-        CompactString { chars: Compact::decompact(&(*source).chars) }
+        CompactString {
+            chars: Compact::decompact(&(*source).chars),
+        }
     }
 }

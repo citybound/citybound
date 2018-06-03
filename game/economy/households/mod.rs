@@ -1,7 +1,7 @@
 use kay::{ActorSystem, World, Actor, TypedID, Fate};
 use compact::{CVec, CDict, COption, CString};
 use simulation::{Duration, TimeOfDay, Instant, Ticks, Simulation, TICKS_PER_SIM_SECOND, Sleeper,
-                 Simulatable};
+Simulatable};
 use util::async_counter::AsyncCounter;
 use util::random::{seed, Rng};
 use ordered_float::OrderedFloat;
@@ -25,7 +25,7 @@ use imgui::Ui;
 use kay::External;
 
 use super::market::{Market, Deal, EvaluatedDeal, EvaluationRequester, EvaluationRequesterID,
-                    TripCostEstimatorID, EvaluatedSearchResult};
+TripCostEstimatorID, EvaluatedSearchResult};
 use land_use::buildings::rendering::BuildingInspectorID;
 use super::resources::{Resource, ResourceAmount, ResourceMap, Entry, Inventory};
 use transport::pathfinding::{RoughLocationID, RoughLocation};
@@ -44,9 +44,9 @@ impl Into<RoughLocationID> for HouseholdID {
     }
 }
 
-pub trait Household
-    : Actor + EvaluationRequester + Sleeper + Simulatable + TripListener + RoughLocation
-    {
+pub trait Household:
+    Actor + EvaluationRequester + Sleeper + Simulatable + TripListener + RoughLocation
+{
     fn core(&self) -> &HouseholdCore;
     fn core_mut(&mut self) -> &mut HouseholdCore;
     fn site(&self) -> RoughLocationID;
@@ -74,8 +74,8 @@ pub trait Household
 
     fn provide_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
         let core = self.core_mut();
-        let provide_awakeness = deal.delta.len() == 1 &&
-            deal.delta.get(Resource::Awakeness).is_some();
+        let provide_awakeness =
+            deal.delta.len() == 1 && deal.delta.get(Resource::Awakeness).is_some();
         if !provide_awakeness {
             deal.delta.take_from_shared_private(
                 &mut core.resources,
@@ -101,40 +101,35 @@ pub trait Household
     }
 
     fn reset_member_task(&mut self, member: MemberIdx, world: &mut World) {
-        self.core_mut().log.log(
-            format!("Reset member {}\n", member.0)
-                .as_str(),
-        );
+        self.core_mut()
+            .log
+            .log(format!("Reset member {}\n", member.0).as_str());
         TaskEndScheduler::local_first(world).deschedule(self.id_as(), member, world);
 
         self.stop_task(member, None, world);
     }
 
     fn stop_using(&mut self, offer: OfferID, world: &mut World) {
-        if let Some(Entry(associated_resource, _)) =
-            self.core()
-                .used_offers
-                .iter()
-                .find(|&&Entry(_, resource_offer)| resource_offer == offer)
-                .cloned()
+        if let Some(Entry(associated_resource, _)) = self
+            .core()
+            .used_offers
+            .iter()
+            .find(|&&Entry(_, resource_offer)| resource_offer == offer)
+            .cloned()
         {
             self.core_mut().used_offers.remove(associated_resource);
-            offer.household.stopped_using(
-                offer.idx,
-                self.id_as(),
-                None,
-                world,
-            );
+            offer
+                .household
+                .stopped_using(offer.idx, self.id_as(), None, world);
         }
 
         let id_as_household = self.id_as();
 
         for (i, member_used_offers) in self.core_mut().member_used_offers.iter_mut().enumerate() {
-            if let Some(Entry(associated_resource, _)) =
-                member_used_offers
-                    .iter()
-                    .find(|&&Entry(_, resource_offer)| resource_offer == offer)
-                    .cloned()
+            if let Some(Entry(associated_resource, _)) = member_used_offers
+                .iter()
+                .find(|&&Entry(_, resource_offer)| resource_offer == offer)
+                .cloned()
             {
                 member_used_offers.remove(associated_resource);
                 offer.household.stopped_using(
@@ -146,21 +141,25 @@ pub trait Household
             }
         }
 
-        let members_to_reset = self.core()
+        let members_to_reset = self
+            .core()
             .member_tasks
             .iter()
             .enumerate()
-            .filter_map(|(i, task)| if let Task {
-                goal: Some((_, task_offer)), ..
-            } = *task
-            {
-                if task_offer == offer {
-                    Some(MemberIdx(i))
+            .filter_map(|(i, task)| {
+                if let Task {
+                    goal: Some((_, task_offer)),
+                    ..
+                } = *task
+                {
+                    if task_offer == offer {
+                        Some(MemberIdx(i))
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
-            } else {
-                None
             })
             .collect::<Vec<_>>();
 
@@ -173,22 +172,16 @@ pub trait Household
         self.core_mut().being_destroyed = true;
 
         for &Entry(_, offer) in self.core().used_offers.iter() {
-            offer.household.stopped_using(
-                offer.idx,
-                self.id_as(),
-                None,
-                world,
-            );
+            offer
+                .household
+                .stopped_using(offer.idx, self.id_as(), None, world);
         }
 
         for (i, member_used_offers) in self.core().member_used_offers.iter().enumerate() {
             for &Entry(_, offer) in member_used_offers.iter() {
-                offer.household.stopped_using(
-                    offer.idx,
-                    self.id_as(),
-                    Some(MemberIdx(i)),
-                    world,
-                );
+                offer
+                    .household
+                    .stopped_using(offer.idx, self.id_as(), Some(MemberIdx(i)), world);
             }
         }
 
@@ -209,7 +202,8 @@ pub trait Household
 
     fn update_core(&mut self, current_instant: Instant, world: &mut World) {
         if let DecisionState::None = self.core().decision_state {
-            let idle_members_idx_loc = self.core()
+            let idle_members_idx_loc = self
+                .core()
                 .member_tasks
                 .iter()
                 .enumerate()
@@ -232,7 +226,8 @@ pub trait Household
     }
 
     fn top_problems(&self, member: MemberIdx, time: TimeOfDay) -> Vec<(Resource, f32)> {
-        let mut resource_graveness = self.core()
+        let mut resource_graveness = self
+            .core()
             .resources
             .iter()
             .chain(self.core().member_resources[member.0].iter())
@@ -271,9 +266,8 @@ pub trait Household
             let core = self.core_mut();
 
             for &(resource, graveness) in &top_problems {
-                core.log.log(
-                    format!("Member #{}: {} = {}", member.0, resource, graveness).as_str(),
-                );
+                core.log
+                    .log(format!("Member #{}: {} = {}", member.0, resource, graveness).as_str());
                 let maybe_offer = if Self::supplier_shared(resource) {
                     core.used_offers.get(resource)
                 } else {
@@ -282,8 +276,7 @@ pub trait Household
 
                 let initial_counter = if let Some(&offer) = maybe_offer {
                     core.log.log(
-                        format!(" -> Using favorite offer {:?} for {}\n", offer, resource)
-                            .as_str(),
+                        format!(" -> Using favorite offer {:?} for {}\n", offer, resource).as_str(),
                     );
                     offer.household.evaluate(
                         offer.idx,
@@ -295,9 +288,8 @@ pub trait Household
 
                     AsyncCounter::with_target(1)
                 } else {
-                    core.log.log(
-                        format!(" -> Doing market query for {}\n", resource).as_str(),
-                    );
+                    core.log
+                        .log(format!(" -> Doing market query for {}\n", resource).as_str());
                     Market::global_first(world).search(
                         instant,
                         location,
@@ -332,18 +324,20 @@ pub trait Household
                 core.decision_state
             {
                 {
-                    let entry = entries.get_mut(resource).expect(
-                        "Should have an entry for queried resource",
-                    );
+                    let entry = entries
+                        .get_mut(resource)
+                        .expect("Should have an entry for queried resource");
 
                     match *update {
                         ResultAspect::AddDeals(ref evaluated_deals) => {
                             for evaluated_deal in evaluated_deals {
                                 core.log.log(
-                                    format!("Got eval'd deal for {}, {:?} -> {:?}\n",
+                                    format!(
+                                        "Got eval'd deal for {}, {:?} -> {:?}\n",
                                         evaluated_deal.deal.main_given(),
                                         evaluated_deal.opening_hours.start.hours_minutes(),
-                                        evaluated_deal.opening_hours.end.hours_minutes(),).as_str(),
+                                        evaluated_deal.opening_hours.end.hours_minutes(),
+                                    ).as_str(),
                                 );
                                 if evaluated_deal.opening_hours.contains(instant) {
                                     let new_deal_usefulness = Self::deal_usefulness(
@@ -358,8 +352,7 @@ pub trait Household
                                         core.log.log(
                                             format!(
                                                 "Deal rejected, not more useful: {} vs {}\n",
-                                                new_deal_usefulness,
-                                                entry.best_deal_usefulness
+                                                new_deal_usefulness, entry.best_deal_usefulness
                                             ).as_str(),
                                         );
                                     }
@@ -376,13 +369,12 @@ pub trait Household
                     }
                 }
 
-                entries.values().all(
-                    |entry| entry.results_counter.is_done(),
-                )
+                entries
+                    .values()
+                    .all(|entry| entry.results_counter.is_done())
             } else {
-                core.log.log(
-                    "Received unexpected deal / should be choosing\n",
-                );
+                core.log
+                    .log("Received unexpected deal / should be choosing\n");
                 false
             }
         };
@@ -442,9 +434,8 @@ pub trait Household
                         panic!("Member who gets new task should be idle");
                     };
 
-                    core.log.log(
-                        format!("Found best offer for {}\n", best.deal.main_given()).as_str(),
-                    );
+                    core.log
+                        .log(format!("Found best offer for {}\n", best.deal.main_given()).as_str());
 
                     Some((member, instant, best))
                 } else {
@@ -457,17 +448,15 @@ pub trait Household
 
         if let Some((member, instant, best)) = maybe_best_info {
             {
-                let (used_offers, maybe_member) =
-                    if Self::supplier_shared(best.deal.main_given()) {
-                        (&mut self.core_mut().used_offers, None)
-                    } else {
-                        (
-                            &mut self.core_mut().member_used_offers[member.0],
-                            Some(member),
-                        )
-                    };
-                if let Some(previous_offer) =
-                    used_offers.insert(best.deal.main_given(), best.offer)
+                let (used_offers, maybe_member) = if Self::supplier_shared(best.deal.main_given()) {
+                    (&mut self.core_mut().used_offers, None)
+                } else {
+                    (
+                        &mut self.core_mut().member_used_offers[member.0],
+                        Some(member),
+                    )
+                };
+                if let Some(previous_offer) = used_offers.insert(best.deal.main_given(), best.offer)
                 {
                     if previous_offer != best.offer {
                         previous_offer.household.stopped_using(
@@ -495,9 +484,9 @@ pub trait Household
             );
             self.start_trip(member, instant, world);
         } else {
-            self.core_mut().log.log(
-                "Didn't find any suitable offers at all\n",
-            );
+            self.core_mut()
+                .log
+                .log("Didn't find any suitable offers at all\n");
             self.core_mut().decision_state = DecisionState::None;
             Simulation::local_first(world).wake_up_in(DECISION_PAUSE, id_as_sleeper, world);
         }
@@ -507,9 +496,7 @@ pub trait Household
         ) -> Option<EvaluatedDeal> {
             entries
                 .values()
-                .max_by_key(|decision_entry| {
-                    OrderedFloat(decision_entry.best_deal_usefulness)
-                })
+                .max_by_key(|decision_entry| OrderedFloat(decision_entry.best_deal_usefulness))
                 .and_then(|best_entry| best_entry.best_deal.as_ref().cloned())
         }
     }
@@ -552,14 +539,13 @@ pub trait Household
         rough_destination: RoughLocationID,
         world: &mut World,
     ) {
-        let (matching_task_member, matching_resource, matching_offer) =
-            self.core()
-                .member_tasks
-                .iter()
-                .enumerate()
-                .filter_map(|(idx, task)| if let TaskState::InTrip(task_trip_id) =
-                    task.state
-                {
+        let (matching_task_member, matching_resource, matching_offer) = self
+            .core()
+            .member_tasks
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, task)| {
+                if let TaskState::InTrip(task_trip_id) = task.state {
                     if task_trip_id == trip {
                         if let Some((goal, offer)) = task.goal {
                             Some((MemberIdx(idx), goal, offer))
@@ -571,9 +557,10 @@ pub trait Household
                     }
                 } else {
                     None
-                })
-                .next()
-                .expect("Should have a matching task");
+                }
+            })
+            .next()
+            .expect("Should have a matching task");
         {
             let id_as_household = self.id_as();
 
@@ -608,10 +595,7 @@ pub trait Household
                 self.core_mut().log.log(
                     format!(
                         "Trip of member #{} from {:?} to {:?} failed ({:?})!\n",
-                        matching_task_member.0,
-                        rough_source,
-                        rough_destination,
-                        fate
+                        matching_task_member.0, rough_source, rough_destination, fate
                     ).as_str(),
                 );
 
@@ -624,7 +608,6 @@ pub trait Household
                     );
                 }
                 self.stop_task(matching_task_member, result.location_now, world);
-
             }
         }
     }
@@ -644,12 +627,9 @@ pub trait Household
             world,
         );
         if let Some((_, offer)) = self.core().member_tasks[member.0].goal {
-            offer.household.started_actively_using(
-                offer.idx,
-                self.id_as(),
-                member,
-                world,
-            );
+            offer
+                .household
+                .started_actively_using(offer.idx, self.id_as(), member, world);
         }
         self.core_mut().member_tasks[member.0].state = TaskState::StartedAt(start, location);
     }
@@ -674,22 +654,18 @@ pub trait Household
             let old_state = self.core().member_tasks[member.0].state;
             self.core_mut().log.log(
                 format!(
-                "Task of member {} stopped (was in state {:?})\n",
-                member.0,
-                old_state,
-            ).as_str(),
+                    "Task of member {} stopped (was in state {:?})\n",
+                    member.0, old_state,
+                ).as_str(),
             );
 
             self.core_mut().member_tasks[member.0].state =
                 TaskState::IdleAt(location.unwrap_or_else(|| self.site()));
 
             if let Some((_, offer)) = self.core().member_tasks[member.0].goal {
-                offer.household.stopped_actively_using(
-                    offer.idx,
-                    self.id_as(),
-                    member,
-                    world,
-                );
+                offer
+                    .household
+                    .stopped_actively_using(offer.idx, self.id_as(), member, world);
             }
 
             Simulation::local_first(world).wake_up_in(Ticks(0), self.id_as(), world);
@@ -697,8 +673,8 @@ pub trait Household
     }
 
     fn on_tick(&mut self, current_instant: Instant, world: &mut World) {
-        if (current_instant.ticks() + self.id().as_raw().instance_id as usize) %
-            (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0
+        if (current_instant.ticks() + self.id().as_raw().instance_id as usize)
+            % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) == 0
         {
             self.decay(Duration(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world);
         }
@@ -722,19 +698,20 @@ pub trait Household
     ) {
         let offer = self.get_offer(offer_idx);
 
-        if offer.opening_hours.end_after_on_same_day(
-            TimeOfDay::from(instant),
-        )
+        if offer
+            .opening_hours
+            .end_after_on_same_day(TimeOfDay::from(instant))
         {
             let search_result = EvaluatedSearchResult {
                 resource: offer.deal.main_given(),
-                evaluated_deals: vec![
-                    EvaluatedDeal {
-                        offer: OfferID { household: self.id_as(), idx: offer_idx },
-                        deal: offer.deal.clone(),
-                        opening_hours: offer.opening_hours,
+                evaluated_deals: vec![EvaluatedDeal {
+                    offer: OfferID {
+                        household: self.id_as(),
+                        idx: offer_idx,
                     },
-                ].into(),
+                    deal: offer.deal.clone(),
+                    opening_hours: offer.opening_hours,
+                }].into(),
             };
             TripCostEstimatorID::spawn(
                 requester,
@@ -836,8 +813,9 @@ pub trait Household
                 o_user != user || o_using_member != using_member
             });
 
-            if offer.is_internal && users_before >= offer.max_users &&
-                offer.users.len() < offer.max_users
+            if offer.is_internal
+                && users_before >= offer.max_users
+                && offer.users.len() < offer.max_users
             {
                 Market::global_first(world).register(
                     offer.deal.main_given(),
@@ -884,9 +862,9 @@ pub trait Household
         _: &mut World,
     ) {
         let offer = self.get_offer_mut(offer_idx);
-        offer.active_users.retain(|&(o_user, o_using_member)| {
-            o_user != user || o_using_member != using_member
-        });
+        offer
+            .active_users
+            .retain(|&(o_user, o_using_member)| o_user != user || o_using_member != using_member);
     }
 
     // TODO: there is still a tiny potential race condition here:
@@ -902,7 +880,10 @@ pub trait Household
 
             for user in &offer.users {
                 user.0.stop_using(
-                    OfferID { household: self.id_as(), idx: offer_idx },
+                    OfferID {
+                        household: self.id_as(),
+                        idx: offer_idx,
+                    },
                     world,
                 )
             }
@@ -929,8 +910,8 @@ pub trait Household
         let ui = imgui_ui.steal();
 
         ui.window(im_str!("Building")).build(|| {
-            ui.tree_node(im_str!("{}", self.household_name())).build(
-                || {
+            ui.tree_node(im_str!("{}", self.household_name()))
+                .build(|| {
                     // ui.text(im_str!(
                     //     "({})",
                     //     match self.decision_state {
@@ -948,25 +929,22 @@ pub trait Household
                             ui.text(im_str!("{:.2}", amount));
                         }
                     }
-                    for (i, (member_resources, member_task)) in
-                        self.core()
-                            .member_resources
-                            .iter()
-                            .zip(&self.core().member_tasks)
-                            .enumerate()
+                    for (i, (member_resources, member_task)) in self
+                        .core()
+                        .member_resources
+                        .iter()
+                        .zip(&self.core().member_tasks)
+                        .enumerate()
                     {
                         ui.spacing();
-                        ui.text(im_str!(
-                            "{}:",
-                            self.member_name(MemberIdx(i)),
-                        ));
+                        ui.text(im_str!("{}:", self.member_name(MemberIdx(i)),));
                         ui.text(im_str!(
                             "({} {})",
                             match member_task.state {
                                 TaskState::IdleAt(_) => "Idle after getting",
                                 TaskState::GettingReadyAt(_) => "Preparing to get",
                                 TaskState::InTrip(_) => "In trip to get",
-                                TaskState::StartedAt(_, _) => "Getting",
+                                TaskState::StartedAt(..) => "Getting",
                             },
                             member_task
                                 .goal
@@ -983,30 +961,25 @@ pub trait Household
                             }
                         }
                     }
-                    ui.tree_node(im_str!("Offers")).build(|| for offer in
-                        &self.core().provided_offers
-                    {
-                        ui.text(im_str!("Offer for {}", offer.deal.main_given()));
-                        ui.text(im_str!(
-                            "{} of max. {} users ({} right now)",
-                            offer.users.len(),
-                            offer.max_users,
-                            offer.active_users.len()
-                        ))
+                    ui.tree_node(im_str!("Offers")).build(|| {
+                        for offer in &self.core().provided_offers {
+                            ui.text(im_str!("Offer for {}", offer.deal.main_given()));
+                            ui.text(im_str!(
+                                "{} of max. {} users ({} right now)",
+                                offer.users.len(),
+                                offer.max_users,
+                                offer.active_users.len()
+                            ))
+                        }
                     });
                     if DO_HOUSEHOLD_LOGGING {
-                        ui.tree_node(im_str!("Log")).build(
-                            || for line in self.core_mut()
-                                .log
-                                .0
-                                .lines()
-                            {
+                        ui.tree_node(im_str!("Log")).build(|| {
+                            for line in self.core_mut().log.0.lines() {
                                 ui.text(im_str!("{}", line));
-                            },
-                        );
+                            }
+                        });
                     }
-                },
-            )
+                })
         });
 
         return_to.ui_drawn(ui, world);
@@ -1029,7 +1002,12 @@ struct DecisionResourceEntry {
 #[derive(Compact, Clone)]
 enum DecisionState {
     None,
-    Choosing(MemberIdx, Instant, CVec<(Resource, f32)>, CDict<Resource, DecisionResourceEntry>),
+    Choosing(
+        MemberIdx,
+        Instant,
+        CVec<(Resource, f32)>,
+        CDict<Resource, DecisionResourceEntry>,
+    ),
     WaitingForTrip(MemberIdx),
 }
 
@@ -1059,7 +1037,10 @@ impl HouseholdCore {
         for (idx, offer) in provided_offers.iter().enumerate() {
             Market::local_first(world).register(
                 offer.deal.main_given(),
-                OfferID { household: owner, idx: OfferIdx(idx) },
+                OfferID {
+                    household: owner,
+                    idx: OfferIdx(idx),
+                },
                 world,
             )
         }

@@ -2,12 +2,12 @@ use kay::{World, MachineID, Fate, TypedID, ActorSystem, Actor, External};
 use compact::{CVec, COption};
 use descartes::{P2, Into2d, Circle, AsArea};
 use stagemaster::{UserInterfaceID, Interactable3d, Interactable3dID, Interactable2d,
-                  Interactable2dID};
+Interactable2dID};
 use ui_layers::UILayer;
 use imgui::ImGuiSetCond_FirstUseEver;
 
 use super::{Plan, PlanResult, GestureID, ProposalID, PlanManager, PlanManagerID, Gesture,
-            GestureIntent};
+GestureIntent};
 use transport::transport_planning::RoadIntent;
 use land_use::zone_planning::{ZoneIntent, LandUse};
 use construction::{Construction, Action};
@@ -39,10 +39,10 @@ impl PlanManager {
     ) {
         let machine = user_interface.as_raw().machine;
 
-        if let Some((current_canvas, current_interactables)) =
-            self.ui_state.get_mut(machine).map(|ui_state| {
-                (ui_state.canvas, &mut ui_state.gesture_interactables)
-            })
+        if let Some((current_canvas, current_interactables)) = self
+            .ui_state
+            .get_mut(machine)
+            .map(|ui_state| (ui_state.canvas, &mut ui_state.gesture_interactables))
         {
             current_canvas.remove(user_interface, world);
             for gesture_interactable in current_interactables.drain() {
@@ -69,9 +69,10 @@ impl PlanManager {
     }
 
     pub fn clear_previews(&mut self, proposal_id: ProposalID) {
-        for state in self.ui_state.values_mut().filter(|state| {
-            state.current_proposal == proposal_id
-        })
+        for state in self
+            .ui_state
+            .values_mut()
+            .filter(|state| state.current_proposal == proposal_id)
         {
             state.current_preview = COption(None);
             state.current_result_preview = COption(None);
@@ -86,9 +87,10 @@ impl PlanManager {
         proposal_id: ProposalID,
         world: &mut World,
     ) -> (&Plan, &PlanResult, &Option<CVec<CVec<Action>>>) {
-        let ui_state = self.ui_state.get(machine_id).expect(
-            "Should already have a ui state for this machine",
-        );
+        let ui_state = self
+            .ui_state
+            .get(machine_id)
+            .expect("Should already have a ui state for this machine");
 
         // super ugly of course, maybe we can use a cell or similar in the future
         unsafe {
@@ -99,7 +101,8 @@ impl PlanManager {
             }
 
             if ui_state.current_preview.is_none() {
-                let preview_plan = self.proposals
+                let preview_plan = self
+                    .proposals
                     .get(proposal_id)
                     .unwrap()
                     .apply_to_with_ongoing(&self.master_plan);
@@ -129,9 +132,10 @@ impl PlanManager {
         actions: &CVec<CVec<Action>>,
         _: &mut World,
     ) {
-        for state in self.ui_state.values_mut().filter(|state| {
-            state.current_proposal == proposal_id
-        })
+        for state in self
+            .ui_state
+            .values_mut()
+            .filter(|state| state.current_proposal == proposal_id)
         {
             // TODO: avoid clone
             state.current_action_preview = COption(Some(actions.clone()));
@@ -156,7 +160,7 @@ impl PlanManager {
             if gesture_ongoing {
                 CVec::new()
             } else {
-                let (preview, _, _) = self.ensure_preview(machine_id, proposal_id, world);
+                let (preview, ..) = self.ensure_preview(machine_id, proposal_id, world);
 
                 preview
                     .gestures
@@ -191,7 +195,6 @@ impl PlanManager {
                         ),
                     )
                     .collect()
-
             }
         };
 
@@ -205,7 +208,8 @@ impl PlanManager {
     }
 
     pub fn recreate_gesture_interactables(&mut self, proposal_id: ProposalID, world: &mut World) {
-        let machines_with_this_proposal = self.ui_state
+        let machines_with_this_proposal = self
+            .ui_state
             .pairs()
             .filter(|&(_, state)| state.current_proposal == proposal_id)
             .map(|(machine_id, _)| *machine_id)
@@ -223,9 +227,10 @@ impl PlanManager {
         world: &mut World,
     ) {
         {
-            let ui_state = self.ui_state.get_mut(machine_id).expect(
-                "should already have ui state",
-            );
+            let ui_state = self
+                .ui_state
+                .get_mut(machine_id)
+                .expect("should already have ui state");
             if !ui_state.selected_points.contains(&point_ref) {
                 ui_state.selected_points.push(point_ref);
             }
@@ -235,9 +240,10 @@ impl PlanManager {
 
     pub fn clear_selection(&mut self, machine_id: MachineID, world: &mut World) {
         {
-            let ui_state = self.ui_state.get_mut(machine_id).expect(
-                "should already have ui state",
-            );
+            let ui_state = self
+                .ui_state
+                .get_mut(machine_id)
+                .expect("should already have ui state");
             ui_state.selected_points.clear();
         }
         self.recreate_gesture_interactables_on_machine(machine_id, world);
@@ -254,7 +260,9 @@ impl PlanManager {
     ) {
         let new_gesture = Gesture::new(vec![start].into(), intent.clone());
 
-        let new_step = Plan { gestures: Some((new_gesture_id, new_gesture)).into_iter().collect() };
+        let new_step = Plan {
+            gestures: Some((new_gesture_id, new_gesture)).into_iter().collect(),
+        };
 
         self.proposals
             .get_mut(proposal_id)
@@ -314,7 +322,9 @@ impl PlanManager {
                 }
             };
 
-            Plan { gestures: Some((gesture_id, changed_gesture)).into_iter().collect() }
+            Plan {
+                gestures: Some((gesture_id, changed_gesture)).into_iter().collect(),
+            }
         };
 
         self.proposals
@@ -353,8 +363,9 @@ impl PlanManager {
                 ..current_gesture.clone()
             };
 
-
-            Plan { gestures: Some((gesture_id, new_gesture)).into_iter().collect() }
+            Plan {
+                gestures: Some((gesture_id, new_gesture)).into_iter().collect(),
+            }
         };
 
         self.proposals
@@ -391,8 +402,9 @@ impl PlanManager {
                 ..current_gesture.clone()
             };
 
-
-            Plan { gestures: Some((gesture_id, new_gesture)).into_iter().collect() }
+            Plan {
+                gestures: Some((gesture_id, new_gesture)).into_iter().collect(),
+            }
         };
 
         self.proposals
@@ -527,13 +539,12 @@ impl Default for PlanManagerSettings {
                 ("Undo", Combo2::new(&[LControl, Z], &[LWin, Z])),
                 (
                     "Redo",
-                    Combo2::new(&[LControl, LShift, Z], &[LWin, LShift, Z])
+                    Combo2::new(&[LControl, LShift, Z], &[LWin, LShift, Z]),
                 ),
             ]),
         }
     }
 }
-
 
 #[derive(Compact, Clone)]
 pub struct GestureCanvas {
@@ -612,14 +623,11 @@ impl Interactable3d for GestureCanvas {
                 }
             }
             _ => {
-
-                if let Some((position, is_click)) =
-                    match event {
-                        Event3d::DragStarted { at, .. } => Some((at, true)),
-                        Event3d::HoverOngoing { at, .. } => Some((at, false)),
-                        _ => None,
-                    }
-                {
+                if let Some((position, is_click)) = match event {
+                    Event3d::DragStarted { at, .. } => Some((at, true)),
+                    Event3d::HoverOngoing { at, .. } => Some((at, false)),
+                    _ => None,
+                } {
                     let hovering_last = if let Some(last_point) = *self.last_point {
                         (position.into_2d() - last_point).norm() < CONTROL_POINT_HANDLE_RADIUS
                     } else {
@@ -643,15 +651,16 @@ impl Interactable3d for GestureCanvas {
                                     let new_gesture_id = GestureID::new();
 
                                     self.plan_manager.start_new_gesture(
-                                self.proposal_id,
-                                self.for_machine,
-                                new_gesture_id,
-                                // GestureIntent::Road(RoadIntent::new(2, 2)),
-                                //GestureIntent::Zone(ZoneIntent::LandUse(LandUse::Residential)),
-                                self.current_intent.clone(),
-                                position.into_2d(),
-                                world,
-                            );
+                                        self.proposal_id,
+                                        self.for_machine,
+                                        new_gesture_id,
+                                        // GestureIntent::Road(RoadIntent::new(2, 2)),
+                                        //GestureIntent::Zone(ZoneIntent::LandUse(LandUse::
+                                        // Residential)),
+                                        self.current_intent.clone(),
+                                        position.into_2d(),
+                                        world,
+                                    );
                                     self.current_mode =
                                         GestureCanvasMode::AddToEndOfExisting(new_gesture_id);
                                 }

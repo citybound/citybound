@@ -45,7 +45,6 @@ pub struct IntoIter<T, A: Allocator> {
     _alloc: PhantomData<*const A>,
 }
 
-
 struct QuadraticProbingIterator<'a, K: 'a, V: 'a, A: 'a + Allocator = DefaultHeap> {
     i: usize,
     number_used: usize,
@@ -59,7 +58,6 @@ struct QuadraticProbingMutIterator<'a, K: 'a, V: 'a, A: 'a + Allocator = Default
     hash: u32,
     map: &'a mut OpenAddressingMap<K, V, A>,
 }
-
 
 /// A dynamically-sized open adressing quadratic probing hashmap
 /// that can be stored in compact sequential storage and
@@ -148,21 +146,25 @@ impl<K, V> std::fmt::Debug for Entry<K, V> {
 
 impl<K, V> Default for Entry<K, V> {
     fn default() -> Self {
-        Entry { hash: 0, tombstoned: false, inner: None }
+        Entry {
+            hash: 0,
+            tombstoned: false,
+            inner: None,
+        }
     }
 }
 
 impl<K: Copy, V: Compact> Compact for Entry<K, V> {
     default fn is_still_compact(&self) -> bool {
-        self.inner.as_ref().map_or(true, |kv_tuple| {
-            kv_tuple.1.is_still_compact()
-        })
+        self.inner
+            .as_ref()
+            .map_or(true, |kv_tuple| kv_tuple.1.is_still_compact())
     }
 
     default fn dynamic_size_bytes(&self) -> usize {
-        self.inner.as_ref().map_or(0, |kv_tuple| {
-            kv_tuple.1.dynamic_size_bytes()
-        })
+        self.inner
+            .as_ref()
+            .map_or(0, |kv_tuple| kv_tuple.1.dynamic_size_bytes())
     }
 
     default unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
@@ -301,8 +303,6 @@ impl<T, A: Allocator> DerefMut for CompactArray<T, A> {
     }
 }
 
-
-
 impl<T, A: Allocator> Iterator for IntoIter<T, A> {
     type Item = T;
 
@@ -374,8 +374,9 @@ impl<T: Compact + Sized, A: Allocator> Compact for CompactArray<T, A> {
     }
 
     default fn dynamic_size_bytes(&self) -> usize {
-        self.cap * ::std::mem::size_of::<T>() +
-            self.iter()
+        self.cap * ::std::mem::size_of::<T>()
+            + self
+                .iter()
                 .map(|elem| elem.dynamic_size_bytes())
                 .sum::<usize>()
     }
@@ -448,9 +449,7 @@ impl<T: Compact + ::std::fmt::Debug, A: Allocator> ::std::fmt::Debug for Compact
 }
 
 lazy_static! {
-    static ref PRIME_SIEVE: primal::Sieve = {
-        primal::Sieve::new(1_000_000)
-    };
+    static ref PRIME_SIEVE: primal::Sieve = { primal::Sieve::new(1_000_000) };
 }
 
 impl<'a, K, V, A: Allocator> QuadraticProbingIterator<'a, K, V, A> {
@@ -502,9 +501,7 @@ impl<'a, K, V, A: Allocator> Iterator for QuadraticProbingMutIterator<'a, K, V, 
         }
         let index = (self.hash as usize + self.i * self.i) % self.number_used;
         self.i += 1;
-        Some(unsafe {
-            &mut *(&mut self.map.entries[index] as *mut Entry<K, V>)
-        })
+        Some(unsafe { &mut *(&mut self.map.entries[index] as *mut Entry<K, V>) })
     }
 }
 
@@ -581,16 +578,18 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
 
     /// Iterator over mutable references to all values in the dictionary
     pub fn values_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut V> + 'a {
-        self.entries.iter_mut().filter(|e| e.alive()).map(|e| {
-            e.mut_value()
-        })
+        self.entries
+            .iter_mut()
+            .filter(|e| e.alive())
+            .map(|e| e.mut_value())
     }
 
     /// Iterator over all key-value pairs in the dictionary
     pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a V)> + 'a {
-        self.entries.iter().filter(|e| e.alive()).map(|e| {
-            (e.key(), e.value())
-        })
+        self.entries
+            .iter()
+            .filter(|e| e.alive())
+            .map(|e| (e.key(), e.value()))
     }
 
     /// Iterator over all key-value pairs in the dictionary,
@@ -599,9 +598,10 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> OpenAddressingMap<K, V, A> {
     where
         K: Copy,
     {
-        self.entries.iter_mut().filter(|e| e.alive()).map(|e| {
-            (*e.key(), e.mut_value())
-        })
+        self.entries
+            .iter_mut()
+            .filter(|e| e.alive())
+            .map(|e| (*e.key(), e.mut_value()))
     }
 
     fn hash(key: K) -> u32 {
@@ -744,7 +744,6 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> Compact for OpenAddressingMa
             &mut (*dest).entries,
             new_dynamic_part,
         );
-
     }
 
     unsafe fn decompact(source: *const Self) -> OpenAddressingMap<K, V, A> {
@@ -773,7 +772,8 @@ impl<K: Copy + Eq + Hash, V: Compact, A: Allocator> Default for OpenAddressingMa
 }
 
 impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> ::std::iter::FromIterator<(K, V)>
-    for OpenAddressingMap<K, V, A> {
+    for OpenAddressingMap<K, V, A>
+{
     /// Construct a compact dictionary from an interator over key-value pairs
     fn from_iter<T: IntoIterator<Item = (K, V)>>(iter_to_be: T) -> Self {
         let iter = iter_to_be.into_iter();
@@ -785,11 +785,9 @@ impl<K: Copy + Eq + Hash, V: Compact + Clone, A: Allocator> ::std::iter::FromIte
     }
 }
 
-
-
-
 impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator>
-    OpenAddressingMap<K, CompactVec<I, A1>, A2> {
+    OpenAddressingMap<K, CompactVec<I, A1>, A2>
+{
     /// Push a value onto the `CompactVec` at the key `query`
     pub fn push_at(&mut self, query: K, item: I) {
         if self.push_at_inner(query, item) {
@@ -819,16 +817,16 @@ impl<K: Hash + Eq + Copy, I: Compact, A1: Allocator, A2: Allocator>
 
     /// Iterator over the `CompactVec` at the key `query`
     pub fn get_iter<'a>(&'a self, query: K) -> impl Iterator<Item = &'a I> + 'a {
-        self.get(query).into_iter().flat_map(|vec_in_option| {
-            vec_in_option.iter()
-        })
+        self.get(query)
+            .into_iter()
+            .flat_map(|vec_in_option| vec_in_option.iter())
     }
 
     /// Remove the `CompactVec` at the key `query` and iterate over its elements (if it existed)
     pub fn remove_iter<'a>(&'a mut self, query: K) -> impl Iterator<Item = I> + 'a {
-        self.remove(query).into_iter().flat_map(|vec_in_option| {
-            vec_in_option.into_iter()
-        })
+        self.remove(query)
+            .into_iter()
+            .flat_map(|vec_in_option| vec_in_option.into_iter())
     }
 }
 
@@ -909,7 +907,6 @@ fn very_basic2() {
     assert!(*map.get(1).unwrap() == 48);
 }
 
-
 #[test]
 fn basic() {
     let n: usize = 10000;
@@ -960,7 +957,6 @@ fn iter() {
         let mut values = map.values();
         assert!(values.find(|i| **i == elem(n)).is_some());
     }
-
 }
 
 #[test]
@@ -1038,7 +1034,6 @@ fn ensure_capacity_works() {
 
 #[test]
 fn insert_after_remove_works_same_hash() {
-
     // get 2 elems with the same hash
     let mut hashToUsize: HashMap<u32, usize> = HashMap::new();
     let mut bad_pair_opt = None;
@@ -1054,7 +1049,6 @@ fn insert_after_remove_works_same_hash() {
         }
         hashToUsize.insert(hash, i);
     }
-
 
     type NestedType = OpenAddressingMap<usize, usize>;
     let mut map: NestedType = OpenAddressingMap::new();
@@ -1077,7 +1071,6 @@ fn insert_after_remove_works_same_hash() {
         }
     }
     assert!(n1 == 1);
-
 }
 
 #[test]

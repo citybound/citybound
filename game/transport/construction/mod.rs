@@ -1,7 +1,7 @@
 use compact::CVec;
 use kay::{ActorSystem, World, Fate, Actor, TypedID};
 use descartes::{N, P2, Band, Curve, FiniteCurve, Path, RoughEq, Intersect, IntersectionResult,
-                WithUniqueOrthogonal};
+WithUniqueOrthogonal};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
@@ -12,25 +12,24 @@ use super::microtraffic::LaneLikeID;
 use planning::Prototype;
 use construction::{ConstructionID, Constructable, ConstructableID};
 use super::transport_planning::{RoadPrototype, LanePrototype, SwitchLanePrototype,
-                                IntersectionPrototype};
+IntersectionPrototype};
 
 const CONNECTION_TOLERANCE: f32 = 0.1;
 
 impl RoadPrototype {
     pub fn construct(&self, report_to: ConstructionID, world: &mut World) -> CVec<ConstructableID> {
         match *self {
-            RoadPrototype::Lane(LanePrototype(ref path, _)) => {
-                vec![
-                    LaneID::spawn_and_connect(path.clone(), false, CVec::new(), report_to, world)
-                        .into(),
-                ].into()
-            }
+            RoadPrototype::Lane(LanePrototype(ref path, _)) => vec![
+                LaneID::spawn_and_connect(path.clone(), false, CVec::new(), report_to, world)
+                    .into(),
+            ].into(),
             RoadPrototype::SwitchLane(SwitchLanePrototype(ref path)) => {
-                vec![
-                    SwitchLaneID::spawn_and_connect(path.clone(), report_to, world).into(),
-                ].into()
+                vec![SwitchLaneID::spawn_and_connect(path.clone(), report_to, world).into()].into()
             }
-            RoadPrototype::Intersection(IntersectionPrototype { ref connecting_lanes, .. }) => {
+            RoadPrototype::Intersection(IntersectionPrototype {
+                ref connecting_lanes,
+                ..
+            }) => {
                 let ids = connecting_lanes
                     .values()
                     .flat_map(|group| {
@@ -112,10 +111,9 @@ pub trait Unbuildable {
 
 use fnv::FnvHashMap;
 use std::cell::UnsafeCell;
-thread_local! (
-    static MEMOIZED_BANDS_OUTLINES: UnsafeCell<
-        FnvHashMap<LaneLikeID, (Band, Path)>
-        > = UnsafeCell::new(FnvHashMap::default());
+thread_local!(
+    static MEMOIZED_BANDS_OUTLINES: UnsafeCell<FnvHashMap<LaneLikeID, (Band, Path)>> =
+        UnsafeCell::new(FnvHashMap::default());
 );
 
 impl Lane {
@@ -255,24 +253,21 @@ impl Lane {
             let intersection_result = (lane_outline, other_outline).intersect();
             if let IntersectionResult::Intersecting(intersections) = intersection_result {
                 if intersections.len() >= 2 {
-                    if let ::itertools::MinMaxResult::MinMax((entry_intersection,
-                                                              entry_distance),
-                                                             (exit_intersection, exit_distance)) =
-                        intersections
-                            .iter()
-                            .map(|intersection| {
-                                (
-                                    intersection,
-                                    lane_band.outline_distance_to_path_distance(
-                                        intersection.along_a,
-                                    ),
-                                )
-                            })
-                            .minmax_by_key(|&(_, distance)| OrderedFloat(distance))
+                    if let ::itertools::MinMaxResult::MinMax(
+                        (entry_intersection, entry_distance),
+                        (exit_intersection, exit_distance),
+                    ) = intersections
+                        .iter()
+                        .map(|intersection| {
+                            (
+                                intersection,
+                                lane_band.outline_distance_to_path_distance(intersection.along_a),
+                            )
+                        })
+                        .minmax_by_key(|&(_, distance)| OrderedFloat(distance))
                     {
-                        let other_entry_distance = other_band.outline_distance_to_path_distance(
-                            entry_intersection.along_b,
-                        );
+                        let other_entry_distance = other_band
+                            .outline_distance_to_path_distance(entry_intersection.along_b);
                         let other_exit_distance =
                             other_band.outline_distance_to_path_distance(exit_intersection.along_b);
 
@@ -281,12 +276,11 @@ impl Lane {
                             .rough_eq_by(
                                 self.construction.path.direction_along(entry_distance),
                                 0.1,
-                            ) ||
-                            other_path.direction_along(other_exit_distance).rough_eq_by(
+                            )
+                            || other_path.direction_along(other_exit_distance).rough_eq_by(
                                 self.construction.path.direction_along(exit_distance),
                                 0.1,
-                            )
-                        {
+                            ) {
                             // ::stagemaster::geometry::CPath::add_debug_path(
                             //     self.construction.path
                             //         .subsection(entry_distance, exit_distance).unwrap(),
@@ -320,7 +314,6 @@ impl Lane {
                 }
             }
 
-
             if reply_needed {
                 other_id.connect_overlaps(self.id, self.construction.path.clone(), false, world);
             }
@@ -332,9 +325,11 @@ impl Lane {
     }
 
     pub fn add_switch_lane_interaction(&mut self, interaction: Interaction, _: &mut World) {
-        let already_a_partner = self.connectivity.interactions.iter().any(|existing| {
-            existing.partner_lane == interaction.partner_lane
-        });
+        let already_a_partner = self
+            .connectivity
+            .interactions
+            .iter()
+            .any(|existing| existing.partner_lane == interaction.partner_lane);
         if !already_a_partner {
             self.connectivity.interactions.push(interaction);
             super::pathfinding::on_connect(self);
@@ -359,10 +354,8 @@ impl Unbuildable for Lane {
             .collect::<Vec<_>>();
 
         let self_as_rough_location = self.id_as();
-        self.microtraffic.cars.retain(
-            |car| if let Some(hop_interaction) =
-                car.next_hop_interaction
-            {
+        self.microtraffic.cars.retain(|car| {
+            if let Some(hop_interaction) = car.next_hop_interaction {
                 if interaction_indices_to_remove.contains(&(hop_interaction as usize)) {
                     car.trip.finish(
                         TripResult {
@@ -377,8 +370,8 @@ impl Unbuildable for Lane {
                 }
             } else {
                 true
-            },
-        );
+            }
+        });
         self.microtraffic.obstacles.retain(|&(_obstacle, from_id)| {
             // TODO: ugly: untyped RawID shenanigans
             from_id.as_raw() != other_id.as_raw()
@@ -394,7 +387,8 @@ impl Unbuildable for Lane {
 
     fn unbuild(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
         let mut disconnects_remaining = 0;
-        for id in self.connectivity
+        for id in self
+            .connectivity
             .interactions
             .iter()
             .map(|interaction| interaction.partner_lane)
@@ -424,9 +418,9 @@ impl Unbuildable for Lane {
         self.construction.disconnects_remaining -= 1;
         if self.construction.disconnects_remaining == 0 {
             self.finalize(
-                self.construction.unbuilding_for.expect(
-                    "should be unbuilding",
-                ),
+                self.construction
+                    .unbuilding_for
+                    .expect("should be unbuilding"),
                 world,
             );
             Fate::Die
@@ -469,15 +463,14 @@ impl Lane {
                 let path = &self.construction.path;
                 let distance = path.distance_to(lot_position);
 
-                if distance >= MIN_LANE_BUILDING_DISTANCE &&
-                    distance <= 1.7 * MIN_LANE_BUILDING_DISTANCE
+                if distance >= MIN_LANE_BUILDING_DISTANCE
+                    && distance <= 1.7 * MIN_LANE_BUILDING_DISTANCE
                 {
                     if let Some(offset) = path.project_with_max_distance(
                         lot_position,
                         1.7 * MIN_LANE_BUILDING_DISTANCE,
                         0.5,
-                    )
-                    {
+                    ) {
                         building.reconnect(
                             PreciseLocation { location, offset },
                             path.along(offset),
@@ -517,17 +510,16 @@ impl SwitchLane {
             other_path.project(self.construction.path.start()),
             other_path.project(self.construction.path.end()),
         );
-        if let (Some(lane_start_on_other_distance), Some(lane_end_on_other_distance)) =
-            projections
+        if let (Some(lane_start_on_other_distance), Some(lane_end_on_other_distance)) = projections
         {
-            if lane_start_on_other_distance < lane_end_on_other_distance &&
-                lane_end_on_other_distance - lane_start_on_other_distance > 6.0
+            if lane_start_on_other_distance < lane_end_on_other_distance
+                && lane_end_on_other_distance - lane_start_on_other_distance > 6.0
             {
                 let lane_start_on_other = other_path.along(lane_start_on_other_distance);
                 let lane_end_on_other = other_path.along(lane_end_on_other_distance);
 
-                if lane_start_on_other.rough_eq_by(self.construction.path.start(), 3.0) &&
-                    lane_end_on_other.rough_eq_by(self.construction.path.end(), 3.0)
+                if lane_start_on_other.rough_eq_by(self.construction.path.start(), 3.0)
+                    && lane_end_on_other.rough_eq_by(self.construction.path.end(), 3.0)
                 {
                     other_id.add_switch_lane_interaction(
                         Interaction {
@@ -544,16 +536,16 @@ impl SwitchLane {
                     );
 
                     let mut distance_covered = 0.0;
-                    let distance_map = self.construction
+                    let distance_map = self
+                        .construction
                         .path
                         .segments
                         .iter()
                         .map(|segment| {
                             distance_covered += segment.length();
-                            let segment_end_on_other_distance =
-                                other_path.project(segment.end()).expect(
-                                    "should contain switch lane segment end",
-                                );
+                            let segment_end_on_other_distance = other_path
+                                .project(segment.end())
+                                .expect("should contain switch lane segment end");
                             (
                                 distance_covered,
                                 segment_end_on_other_distance - lane_start_on_other_distance,
@@ -561,10 +553,9 @@ impl SwitchLane {
                         })
                         .collect();
 
-                    let other_is_right =
-                        (lane_start_on_other - self.construction.path.start()).dot(
-                            &self.construction.path.start_direction().orthogonal(),
-                        ) > 0.0;
+                    let other_is_right = (lane_start_on_other - self.construction.path.start())
+                        .dot(&self.construction.path.start_direction().orthogonal())
+                        > 0.0;
 
                     if other_is_right {
                         self.connectivity.right = Some((other_id, lane_start_on_other_distance));
@@ -583,22 +574,22 @@ impl Unbuildable for SwitchLane {
     fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World) {
         self.connectivity.left = self.connectivity.left.and_then(
             // TODO: ugly: untyped RawID shenanigans
-            |(left_id, left_start)| if left_id.as_raw() ==
-                other_id.as_raw()
-            {
-                None
-            } else {
-                Some((left_id, left_start))
+            |(left_id, left_start)| {
+                if left_id.as_raw() == other_id.as_raw() {
+                    None
+                } else {
+                    Some((left_id, left_start))
+                }
             },
         );
         self.connectivity.right = self.connectivity.right.and_then(
             // TODO: ugly: untyped RawID shenanigans
-            |(right_id, right_start)| if right_id.as_raw() ==
-                other_id.as_raw()
-            {
-                None
-            } else {
-                Some((right_id, right_start))
+            |(right_id, right_start)| {
+                if right_id.as_raw() == other_id.as_raw() {
+                    None
+                } else {
+                    Some((right_id, right_start))
+                }
             },
         );
         other_id.on_confirm_disconnect(world);
@@ -616,7 +607,8 @@ impl Unbuildable for SwitchLane {
             self.finalize(report_to, world);
             Fate::Die
         } else {
-            self.construction.disconnects_remaining = self.connectivity
+            self.construction.disconnects_remaining = self
+                .connectivity
                 .left
                 .into_iter()
                 .chain(self.connectivity.right)
@@ -630,9 +622,9 @@ impl Unbuildable for SwitchLane {
         self.construction.disconnects_remaining -= 1;
         if self.construction.disconnects_remaining == 0 {
             self.finalize(
-                self.construction.unbuilding_for.expect(
-                    "should be unbuilding",
-                ),
+                self.construction
+                    .unbuilding_for
+                    .expect("should be unbuilding"),
                 world,
             );
             Fate::Die

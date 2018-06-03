@@ -8,7 +8,7 @@ sudo: required
 
 # TODO This is the Rust channel that build jobs will use by default but can be
 # overridden on a case by case basis down below
-rust: nightly-2018-05-07
+rust: nightly-2018-06-02
 osx_image: xcode8.2
 
 env:
@@ -32,13 +32,14 @@ before_install: set -e
 install:
   - sh ci/install.sh
   - source ~/.cargo/env || true
-  - cargo install -f rustfmt --vers 0.9.0 || true
-  - cargo install -f clippy --vers 0.0.197
+  - rustup component add rustfmt-preview --toolchain $TRAVIS_RUST_VERSION
+  - cargo fmt --verbose --version
+  - cargo install -f clippy --vers 0.0.206
 
 script:
   - cargo build --verbose
+  - cargo fmt --all -- --check
   - cargo clippy --all --verbose
-  - bash ci/script.sh
 
 after_script: set +e
 

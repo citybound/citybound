@@ -9,7 +9,7 @@ pub fn parse(file: &str) -> Result<Model, String> {
     for item in &parsed.items {
         let ident = &item.ident;
         match item.node {
-            ItemKind::Struct(_, _) => {
+            ItemKind::Struct(..) => {
                 let ident_as_seg: PathSegment = ident.clone().into();
                 let actor_def = model
                     .actors
@@ -18,9 +18,10 @@ pub fn parse(file: &str) -> Result<Model, String> {
                 actor_def.defined_here = true;
             }
             ItemKind::Impl(_, _, _, ref maybe_trait, ref actor_name, ref impl_items) => {
-                let actor_def = model.actors.entry((**actor_name).clone()).or_insert_with(
-                    Default::default,
-                );
+                let actor_def = model
+                    .actors
+                    .entry((**actor_name).clone())
+                    .or_insert_with(Default::default);
                 let actor_path = match **actor_name {
                     Ty::Path(_, ref path) => path,
                     _ => unimplemented!(),
@@ -34,18 +35,17 @@ pub fn parse(file: &str) -> Result<Model, String> {
                     actor_def.impls.push(trait_name.clone());
                     actor_def.handlers.extend(new_actor_handlers);
                 } else {
-                    actor_def.handlers.extend(handlers_from_impl_items(
-                        impl_items,
-                        &None,
-                        actor_path,
-                    ));
+                    actor_def
+                        .handlers
+                        .extend(handlers_from_impl_items(impl_items, &None, actor_path));
                 }
             }
             ItemKind::Trait(_, _, _, ref trait_items) => {
                 let trait_name: TraitName = ::syn::Path::from(PathSegment::from(ident.clone()));
-                let trait_def = model.traits.entry(trait_name.clone()).or_insert_with(
-                    Default::default,
-                );
+                let trait_def = model
+                    .traits
+                    .entry(trait_name.clone())
+                    .or_insert_with(Default::default);
                 let as_segment: PathSegment = ident.clone().into();
                 trait_def.handlers.extend(handlers_from_trait_items(
                     trait_items,
@@ -77,9 +77,9 @@ pub fn parse(file: &str) -> Result<Model, String> {
         !actor_def.handlers.is_empty() || !actor_def.impls.is_empty()
     });
 
-    model.traits.retain(|ref _name, ref trait_def| {
-        !trait_def.handlers.is_empty()
-    });
+    model
+        .traits
+        .retain(|ref _name, ref trait_def| !trait_def.handlers.is_empty());
 
     Ok(model)
 }
@@ -91,21 +91,23 @@ fn handlers_from_impl_items(
 ) -> Vec<Handler> {
     impl_items
         .iter()
-        .filter_map(|impl_item| if let ImplItem {
-            ident: ref fn_name,
-            ref vis,
-            node: ImplItemKind::Method(ref sig, _),
-            ref attrs,
-            ..
-        } = *impl_item
-        {
-            if with_trait.is_some() || *vis == Visibility::Public {
-                handler_from(fn_name, sig, attrs, with_trait, parent_path)
+        .filter_map(|impl_item| {
+            if let ImplItem {
+                ident: ref fn_name,
+                ref vis,
+                node: ImplItemKind::Method(ref sig, _),
+                ref attrs,
+                ..
+            } = *impl_item
+            {
+                if with_trait.is_some() || *vis == Visibility::Public {
+                    handler_from(fn_name, sig, attrs, with_trait, parent_path)
+                } else {
+                    None
+                }
             } else {
                 None
             }
-        } else {
-            None
         })
         .collect()
 }
@@ -113,15 +115,17 @@ fn handlers_from_impl_items(
 fn handlers_from_trait_items(trait_items: &[TraitItem], parent_path: &::syn::Path) -> Vec<Handler> {
     trait_items
         .iter()
-        .filter_map(|trait_item| if let TraitItem {
-            ident: ref fn_name,
-            node: TraitItemKind::Method(ref sig, _),
-            ..
-        } = *trait_item
-        {
-            handler_from(fn_name, sig, &[], &None, parent_path)
-        } else {
-            None
+        .filter_map(|trait_item| {
+            if let TraitItem {
+                ident: ref fn_name,
+                node: TraitItemKind::Method(ref sig, _),
+                ..
+            } = *trait_item
+            {
+                handler_from(fn_name, sig, &[], &None, parent_path)
+            } else {
+                None
+            }
         })
         .collect()
 }
@@ -149,8 +153,8 @@ fn handler_from(
         };
 
         let is_critical = attrs.iter().any(|attr| {
-            attr.is_sugared_doc &&
-                attr.value == MetaItem::NameValue("doc".into(), "/// Critical".into())
+            attr.is_sugared_doc
+                && attr.value == MetaItem::NameValue("doc".into(), "/// Critical".into())
         });
 
         Some(Handler {
@@ -176,7 +180,7 @@ pub fn check_handler<'a>(
         {
             if path.segments.last().unwrap().ident == Ident::new("World") {
                 match sig.decl.inputs.get(0) {
-                    Some(&FnArg::SelfRef(_, _)) => {
+                    Some(&FnArg::SelfRef(..)) => {
                         let args = &sig.decl.inputs[1..(sig.decl.inputs.len() - 1)];
                         Some((args, HandlerType::Handler))
                     }
@@ -185,8 +189,9 @@ pub fn check_handler<'a>(
                         let self_segment: PathSegment = Ident::new("Self").into();
                         match sig.decl.output {
                             FunctionRetTy::Ty(Ty::Path(_, ref ret_ty_path))
-                                if *ret_ty_path == ::syn::Path::from(self_segment) ||
-                                       *ret_ty_path == *parent_path => {
+                                if *ret_ty_path == ::syn::Path::from(self_segment)
+                                    || *ret_ty_path == *parent_path =>
+                            {
                                 let args = &sig.decl.inputs[1..(sig.decl.inputs.len() - 1)];
                                 Some((args, HandlerType::Init))
                             }

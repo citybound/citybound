@@ -1,6 +1,6 @@
 //! Automatic `#[derive(Compact)]` macro for structs whose fields are all `Compact`
 
-#![recursion_limit="256"]
+#![recursion_limit = "256"]
 
 #[cfg(test)]
 #[macro_use]
@@ -38,13 +38,11 @@ fn get_field_idents(
     tuple_prefix: &'static str,
 ) -> Vec<syn::Ident> {
     match *variant_data {
-        syn::VariantData::Tuple(ref fields) => {
-            fields
-                .iter()
-                .enumerate()
-                .map(|(i, _f)| format!("{}{}", tuple_prefix, i).into())
-                .collect()
-        }
+        syn::VariantData::Tuple(ref fields) => fields
+            .iter()
+            .enumerate()
+            .map(|(i, _f)| format!("{}{}", tuple_prefix, i).into())
+            .collect(),
         syn::VariantData::Unit => Vec::new(),
         syn::VariantData::Struct(_) => panic!("struct variants in enums not supported yet"),
     }
@@ -56,12 +54,11 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
 
     match ast.body {
         syn::Body::Struct(ref data) => {
-            let fields: Vec<_> = data.fields()
+            let fields: Vec<_> = data
+                .fields()
                 .iter()
                 .enumerate()
-                .map(|(i, ref f)| {
-                    f.ident.clone().unwrap_or_else(|| format!("{}", i).into())
-                })
+                .map(|(i, ref f)| f.ident.clone().unwrap_or_else(|| format!("{}", i).into()))
                 .collect();
             let fields_ref = &fields;
             let fields_ref2 = &fields;
@@ -116,7 +113,8 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
             }
         }
         syn::Body::Enum(ref data) => {
-            let variants_still_compact: &Vec<_> = &data.iter()
+            let variants_still_compact: &Vec<_> = &data
+                .iter()
                 .map(|variant| {
                     let ident = &variant.ident;
                     let fields = get_field_idents(&variant.data, "f");
@@ -136,7 +134,8 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                 })
                 .collect();
 
-            let variants_dynamic_size: &Vec<_> = &data.iter()
+            let variants_dynamic_size: &Vec<_> = &data
+                .iter()
                 .map(|variant| {
                     let ident = &variant.ident;
                     let fields = get_field_idents(&variant.data, "f");
@@ -156,7 +155,8 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                 })
                 .collect();
 
-            let variants_compact_to: &Vec<_> = &data.iter()
+            let variants_compact_to: &Vec<_> = &data
+                .iter()
                 .map(|variant| {
                     let ident = &variant.ident;
                     let fields = get_field_idents(&variant.data, "f");
@@ -191,7 +191,8 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
                 })
                 .collect();
 
-            let variants_decompact: &Vec<_> = &data.iter()
+            let variants_decompact: &Vec<_> = &data
+                .iter()
                 .map(|variant| {
                     let ident = &variant.ident;
                     let fields = get_field_idents(&variant.data, "f");
@@ -255,13 +256,11 @@ fn expand_derive_compact(ast: &syn::MacroInput) -> quote::Tokens {
 
 #[test]
 fn basic_struct() {
-    let input = quote!(
-        struct Test {
-            number: u32,
-            list: CVec<f32>,
-            truth: bool
-        }
-    );
+    let input = quote!(struct Test {
+        number: u32,
+        list: CVec<f32>,
+        truth: bool,
+    });
 
     let expected = quote!(
         impl ::compact::Compact for Test {
@@ -317,20 +316,18 @@ fn basic_struct() {
 
     assert_eq!(
         expected.into_string(),
-        expand_derive_compact(&syn::parse_macro_input(input.into_string().as_str())
-            .unwrap()).into_string()
+        expand_derive_compact(&syn::parse_macro_input(input.into_string().as_str()).unwrap())
+            .into_string()
     );
 }
 
 #[test]
 fn basic_enum() {
-    let input = quote!(
-        enum Test2 {
-            A(u32, bool, f32),
-            B(CVec<u8>),
-            C
-        }
-    );
+    let input = quote!(enum Test2 {
+        A(u32, bool, f32),
+        B(CVec<u8>),
+        C,
+    });
 
     let expected = quote!(
         impl ::compact::Compact for Test2 {
@@ -426,7 +423,7 @@ fn basic_enum() {
 
     assert_eq!(
         expected.into_string(),
-        expand_derive_compact(&syn::parse_macro_input(input.into_string().as_str())
-            .unwrap()).into_string()
+        expand_derive_compact(&syn::parse_macro_input(input.into_string().as_str()).unwrap())
+            .into_string()
     );
 }

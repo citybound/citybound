@@ -36,9 +36,9 @@ pub fn unit_type_for(household_type: HouseholdTypeToSpawn) -> UnitType {
     match household_type {
         HouseholdTypeToSpawn::Family => UnitType::Dwelling,
         HouseholdTypeToSpawn::GroceryShop => UnitType::Retail,
-        HouseholdTypeToSpawn::GrainFarm |
-        HouseholdTypeToSpawn::CowFarm |
-        HouseholdTypeToSpawn::VegetableFarm => UnitType::Agriculture,
+        HouseholdTypeToSpawn::GrainFarm
+        | HouseholdTypeToSpawn::CowFarm
+        | HouseholdTypeToSpawn::VegetableFarm => UnitType::Agriculture,
         HouseholdTypeToSpawn::Mill => UnitType::Mill,
         HouseholdTypeToSpawn::Bakery => UnitType::Bakery,
         HouseholdTypeToSpawn::NeighboringTownTrade => UnitType::NeighboringTownTrade,
@@ -49,9 +49,9 @@ pub fn building_style_for(household_type: HouseholdTypeToSpawn) -> BuildingStyle
     match household_type {
         HouseholdTypeToSpawn::Family => BuildingStyle::FamilyHouse,
         HouseholdTypeToSpawn::GroceryShop => BuildingStyle::GroceryShop,
-        HouseholdTypeToSpawn::GrainFarm |
-        HouseholdTypeToSpawn::CowFarm |
-        HouseholdTypeToSpawn::VegetableFarm => BuildingStyle::Field,
+        HouseholdTypeToSpawn::GrainFarm
+        | HouseholdTypeToSpawn::CowFarm
+        | HouseholdTypeToSpawn::VegetableFarm => BuildingStyle::Field,
         HouseholdTypeToSpawn::Mill => BuildingStyle::Mill,
         HouseholdTypeToSpawn::Bakery => BuildingStyle::Bakery,
         HouseholdTypeToSpawn::NeighboringTownTrade => BuildingStyle::NeighboringTownConnection,
@@ -102,9 +102,13 @@ impl Sleeper for ImmigrationManager {
                 let mill_share = 0.02; //0.001;
                 let bakery_share = 0.02; //0.01;
 
-                let total_share = family_share + grocery_share + cow_farm_share +
-                    veg_farm_share + grain_farm_share +
-                    mill_share + bakery_share;
+                let total_share = family_share
+                    + grocery_share
+                    + cow_farm_share
+                    + veg_farm_share
+                    + grain_farm_share
+                    + mill_share
+                    + bakery_share;
 
                 let dot = seed(current_instant).gen_range(0.0, total_share);
 
@@ -116,14 +120,19 @@ impl Sleeper for ImmigrationManager {
                     HouseholdTypeToSpawn::CowFarm
                 } else if dot < family_share + grocery_share + cow_farm_share + veg_farm_share {
                     HouseholdTypeToSpawn::VegetableFarm
-                } else if dot <
-                           family_share + grocery_share + cow_farm_share + veg_farm_share +
-                               grain_farm_share
+                } else if dot < family_share
+                    + grocery_share
+                    + cow_farm_share
+                    + veg_farm_share
+                    + grain_farm_share
                 {
                     HouseholdTypeToSpawn::GrainFarm
-                } else if dot <
-                           family_share + grocery_share + cow_farm_share + veg_farm_share +
-                               grain_farm_share + mill_share
+                } else if dot < family_share
+                    + grocery_share
+                    + cow_farm_share
+                    + veg_farm_share
+                    + grain_farm_share
+                    + mill_share
                 {
                     HouseholdTypeToSpawn::Mill
                 } else {
@@ -144,22 +153,15 @@ impl Sleeper for ImmigrationManager {
             }
             ImmigrationManagerState::FindingBuilding(household_type_to_spawn) => {
                 // didn't find a building in time
-                self.development_manager.try_develop(
-                    building_style_for(
-                        household_type_to_spawn,
-                    ),
-                    world,
-                );
+                self.development_manager
+                    .try_develop(building_style_for(household_type_to_spawn), world);
 
                 ImmigrationManagerState::Idle
             }
         };
 
-        self.simulation.wake_up_in(
-            Duration::from_minutes(10).into(),
-            self.id.into(),
-            world,
-        );
+        self.simulation
+            .wake_up_in(Duration::from_minutes(10).into(), self.id.into(), world);
     }
 }
 
@@ -215,7 +217,6 @@ pub struct DevelopmentManager {
     building_to_develop: COption<BuildingStyle>,
 }
 
-
 impl DevelopmentManager {
     pub fn spawn(
         id: DevelopmentManagerID,
@@ -236,11 +237,8 @@ impl DevelopmentManager {
             println!("Trying to develop {:?}", building_style);
             self.building_to_develop = COption(Some(building_style));
             VacantLot::global_broadcast(world).suggest_lot(building_style, self.id, world);
-            self.simulation.wake_up_in(
-                Duration::from_minutes(10).into(),
-                self.id.into(),
-                world,
-            );
+            self.simulation
+                .wake_up_in(Duration::from_minutes(10).into(), self.id.into(), world);
         }
     }
 

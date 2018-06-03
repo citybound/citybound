@@ -68,9 +68,7 @@ impl Networking {
                 if n_turns + 120 < self.n_turns {
                     // ~2s difference
                     should_sleep = Some((
-                        Duration::from_millis(
-                            ((self.n_turns - 120 - n_turns) / 10) as u64,
-                        ),
+                        Duration::from_millis(((self.n_turns - 120 - n_turns) / 10) as u64),
                         n_turns,
                     ));
                 }
@@ -142,10 +140,9 @@ impl Networking {
         };
 
         let first_connection = connections.remove(0);
-        first_connection.write_queue.reserve(
-            ::std::mem::size_of::<u64>() +
-                total_size,
-        );
+        first_connection
+            .write_queue
+            .reserve(::std::mem::size_of::<u64>() + total_size);
 
         let before_everything = first_connection.write_queue.len();
 
@@ -162,10 +159,9 @@ impl Networking {
             .unwrap();
 
         let packet_pos = first_connection.write_queue.len();
-        first_connection.write_queue.resize(
-            packet_pos + packet_size,
-            0,
-        );
+        first_connection
+            .write_queue
+            .resize(packet_pos + packet_size, 0);
 
         unsafe {
             // store packet compactly in write queue
@@ -177,12 +173,10 @@ impl Networking {
         }
 
         for rest_connection in connections {
-            rest_connection.write_queue.extend_from_slice(
-                &first_connection.write_queue
-                    [before_everything..],
-            );
+            rest_connection
+                .write_queue
+                .extend_from_slice(&first_connection.write_queue[before_everything..]);
         }
-
     }
 
     /// Return a debug message containing the current local view of
@@ -298,10 +292,10 @@ impl Connection {
                                 // let message_type_id =
                                 //               (&buf[0] as *const u8) as *const ShortTypeId;
                                 #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
-                                let recipient_type_id =
-                                    (&packet_buffer[::std::mem::size_of::<ShortTypeId>()] as
-                                         *const u8) as
-                                        *const RawID;
+                                let recipient_type_id = (&packet_buffer
+                                    [::std::mem::size_of::<ShortTypeId>()]
+                                    as *const u8)
+                                    as *const RawID;
 
                                 unsafe {
                                     // println!("Receiving packet of size {}, msg {} for actor {}",

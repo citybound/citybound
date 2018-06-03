@@ -2,7 +2,7 @@ use compact::{CVec, CDict, COption};
 use kay::{ActorSystem, World, External, TypedID, Actor};
 use monet::{RendererID, Renderable, RenderableID, GrouperID, GrouperIndividualID, Mesh, Instance};
 use stagemaster::{UserInterface, UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
-                  Interactable2d, Interactable2dID};
+Interactable2d, Interactable2dID};
 use imgui::ImGuiSetCond_FirstUseEver;
 
 use super::{Building, Lot, BuildingID, BuildingPlanResultDelta, BuildingStyle};
@@ -93,7 +93,11 @@ impl Interactable2d for BuildingInspector {
             self.return_ui_to = Some(return_to);
             self.id.ui_drawn(ui, world);
 
-            if opened { Some(building) } else { None }
+            if opened {
+                Some(building)
+            } else {
+                None
+            }
         } else {
             return_to.ui_drawn(ui, world);
             None
@@ -106,8 +110,11 @@ impl Interactable2d for BuildingInspector {
 impl Interactable3d for Building {
     fn on_event(&mut self, event: Event3d, world: &mut World) {
         if let Event3d::DragFinished { .. } = event {
-            BuildingInspector::local_first(world)
-                .set_inspected_building(self.id, self.all_households().into(), world);
+            BuildingInspector::local_first(world).set_inspected_building(
+                self.id,
+                self.all_households().into(),
+                world,
+            );
         };
     }
 }
@@ -204,7 +211,8 @@ impl BuildingRenderer {
         world: &mut World,
     ) {
         let new_buildings_to_be_destroyed = &building_plan_result_delta.buildings_to_destroy;
-        let existing_n_to_be_destroyed = self.current_n_buildings_to_be_destroyed
+        let existing_n_to_be_destroyed = self
+            .current_n_buildings_to_be_destroyed
             .get(renderer_id)
             .cloned()
             .unwrap_or(0);
@@ -222,10 +230,8 @@ impl BuildingRenderer {
             building.render_as_destroyed(renderer_id, i, world);
         }
 
-        self.current_n_buildings_to_be_destroyed.insert(
-            renderer_id,
-            new_buildings_to_be_destroyed.len(),
-        );
+        self.current_n_buildings_to_be_destroyed
+            .insert(renderer_id, new_buildings_to_be_destroyed.len());
     }
 }
 
@@ -271,11 +277,7 @@ pub fn on_add(id: BuildingID, lot: &Lot, building_type: BuildingStyle, world: &m
 
     BuildingRenderer::local_first(world).add_mesh(
         id,
-        build_building(
-            lot,
-            building_type,
-            &mut seed(id),
-        ),
+        build_building(lot, building_type, &mut seed(id)),
         world,
     )
 }
@@ -298,8 +300,8 @@ impl Building {
     ) {
         let geometries = build_building(&self.lot, self.style, &mut seed(self.id));
 
-        let combined_mesh = geometries.brick_roof + geometries.flat_roof + geometries.wall +
-            geometries.field;
+        let combined_mesh =
+            geometries.brick_roof + geometries.flat_roof + geometries.wall + geometries.field;
 
         renderer_id.update_individual(
             RenderLayers::BuildingToBeDestroyed as u32 + building_index as u32,

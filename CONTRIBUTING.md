@@ -53,7 +53,7 @@ You can make suggestions of every kind:
 
 ## Compiling Citybound yourself
 
-Currently Citybound is built with Rust `nightly-2018-05-07'
+Currently Citybound is built with Rust `nightly-2018-06-02'
 
 **If you want a working version of Citybound,** compile a commit that corresponds to a [release](https://github.com/citybound/citybound/releases), since master might temporarily break or represents work-in-progress state.
 
@@ -62,12 +62,12 @@ Recommended setup:
 * `git clone https://github.com/citybound/citybound.git`
 * `cd citybound`
 * Windows:
-  * `rustup override add nightly-2018-05-07-x86_64-pc-windows-msvc`
+  * `rustup override add nightly-2018-06-02-x86_64-pc-windows-msvc`
   * Install the [Visual C++ 2015 Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools), unless you have Visual Studio 2015
 * MacOS:
-  * `rustup override add nightly-2018-05-07-x86_64-apple-darwin`
+  * `rustup override add nightly-2018-06-02-x86_64-apple-darwin`
 * Linux:
-  * `rustup override add nightly-2018-05-07-x86_64-unknown-linux-gnu`
+  * `rustup override add nightly-2018-06-02-x86_64-unknown-linux-gnu`
   * `sudo apt install build-essential` (for Ubuntu)
 * `cargo run --release` (Debug mode is generally too slow to interact with)
 
@@ -93,7 +93,7 @@ Recommended setup:
     * Add the following user settings in VSCode
       * `"rust.cargoHomePath": "C:\\firstname\\.cargo"`,
       * `"rust.racerPath": "C:\\firstname\\.cargo\\bin\\racer.exe"`,
-      * `"rust.rustLangSrcPath": "C:\\firstname\\.rustup\\toolchains\\nightly-2018-05-07-x86_64-pc-windows-msvc\\lib\\rustlib\\src\\rust\\src"`
+      * `"rust.rustLangSrcPath": "C:\\firstname\\.rustup\\toolchains\\nightly-2018-06-02-x86_64-pc-windows-msvc\\lib\\rustlib\\src\\rust\\src"`
   * Otherwise it "should just work"
 * For debugging 
   * Linux/MacOS: 
@@ -106,11 +106,11 @@ Recommended setup:
 
 ## Conforming to style
 
-* install rustfmt: `cargo install rustfmt --vers 0.9.0` **and please make sure to use the same version as noted here** (pinned now, but might change from time to time)
+* install rustfmt: `rustup component add rustfmt-preview --toolchain nightly-2018-06-02` **and please make sure to use the same version as noted here** (pinned now, but might change from time to time)
 * run rustfmt on the whole repo:
-  `rustfmt --write-mode=overwrite ./game/main.rs ./engine/*/src/lib.rs`
+  `rustfmt ./game/main.rs ./engine/*/src/lib.rs`
   (using default settings) - if there are any overlong lines it can't fix, please fix them manually.
-* install clippy: `cargo install -f clippy --vers 0.0.197` **and please make sure to use the same version as noted here** (pinned now, but might change from time to time)
+* install clippy: `cargo install -f clippy --vers 0.0.206` **and please make sure to use the same version as noted here** (pinned now, but might change from time to time)
 * Run clippy on the whole repo: `cargo clippy` and adress all warnings in code that you added
 
 ## Have a question? Want to discuss something?

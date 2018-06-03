@@ -33,8 +33,10 @@ impl PartialEq for IntersectionResult {
         match (self, other) {
             (IntersectionResult::Apart, IntersectionResult::Apart) => true,
             (IntersectionResult::Coincident, IntersectionResult::Coincident) => true,
-            (IntersectionResult::Intersecting(points_self),
-             IntersectionResult::Intersecting(points_other)) => points_self == points_other,
+            (
+                IntersectionResult::Intersecting(points_self),
+                IntersectionResult::Intersecting(points_other),
+            ) => points_self == points_other,
             _ => false,
         }
     }
@@ -68,13 +70,11 @@ impl<'a> Intersect for (&'a Line, &'a Line) {
         if !det.rough_eq(0.0) {
             let delta = b.start - a.start;
             let along_a = (delta.y * b.direction.x - delta.x * b.direction.y) / det;
-            IntersectionResult::Intersecting(vec![
-                Intersection {
-                    along_a,
-                    along_b: (delta.y * a.direction.x - delta.x * a.direction.y) / det,
-                    position: a.start + a.direction * along_a,
-                },
-            ])
+            IntersectionResult::Intersecting(vec![Intersection {
+                along_a,
+                along_b: (delta.y * a.direction.x - delta.x * a.direction.y) / det,
+                position: a.start + a.direction * along_a,
+            }])
         } else {
             if a.includes(b.start) {
                 IntersectionResult::Coincident
@@ -94,7 +94,6 @@ impl<'a> Intersect for (&'a Line, &'a Circle) {
         let det = direction_dot_delta.powi(2) - (delta.norm_squared() - c.radius.powi(2));
 
         if det >= 0.0 {
-
             let t1 = -direction_dot_delta - det.sqrt();
             let solution1_position = l.start + t1 * l.direction;
             let solution1 = Intersection {
@@ -137,20 +136,20 @@ impl<'a> Intersect for (&'a Circle, &'a Circle) {
 
         if a_to_b_dist.rough_eq(0.0) && a.radius.rough_eq(b.radius) {
             IntersectionResult::Coincident
-        } else if a_to_b_dist > a.radius + b.radius + THICKNESS ||
-                   a_to_b_dist < (a.radius - b.radius).abs() - THICKNESS
+        } else if a_to_b_dist > a.radius + b.radius + THICKNESS
+            || a_to_b_dist < (a.radius - b.radius).abs() - THICKNESS
         {
             IntersectionResult::Apart
         } else {
-            let a_to_centroid_dist = (a.radius.powi(2) - b.radius.powi(2) + a_to_b_dist.powi(2)) /
-                (2.0 * a_to_b_dist);
-            let intersection_to_centroid_dist = (a.radius.powi(2) - a_to_centroid_dist.powi(2))
-                .sqrt();
+            let a_to_centroid_dist =
+                (a.radius.powi(2) - b.radius.powi(2) + a_to_b_dist.powi(2)) / (2.0 * a_to_b_dist);
+            let intersection_to_centroid_dist =
+                (a.radius.powi(2) - a_to_centroid_dist.powi(2)).sqrt();
 
             let centroid = a.center + (a_to_b * a_to_centroid_dist / a_to_b_dist);
 
-            let centroid_to_intersection = a_to_b.normalize().orthogonal() *
-                intersection_to_centroid_dist;
+            let centroid_to_intersection =
+                a_to_b.normalize().orthogonal() * intersection_to_centroid_dist;
 
             let solution_1_position = centroid + centroid_to_intersection;
             let solution_1 = Intersection {
@@ -178,62 +177,65 @@ impl<'a> Intersect for (&'a Circle, &'a Circle) {
 impl<'a> Intersect for (&'a Segment, &'a Segment) {
     fn intersect(&self) -> IntersectionResult {
         let (a, b) = *self;
-        if !a.bounding_box().grown_by(THICKNESS).overlaps(
-            &b.bounding_box().grown_by(THICKNESS),
-        )
+        if !a
+            .bounding_box()
+            .grown_by(THICKNESS)
+            .overlaps(&b.bounding_box().grown_by(THICKNESS))
         {
             return IntersectionResult::Apart;
         }
 
         let primitive_intersections = match (a.is_linear(), b.is_linear()) {
-            (true, true) => {
-                (
-                    &Line {
-                        start: a.start(),
-                        direction: a.start_direction(),
-                    },
-                    &Line {
-                        start: b.start(),
-                        direction: b.start_direction(),
-                    },
-                ).intersect()
-            }
-            (true, false) => {
-                (
-                    &Line {
-                        start: a.start(),
-                        direction: a.start_direction(),
-                    },
-                    &Circle { center: b.center(), radius: b.radius() },
-                ).intersect()
-            }
-            (false, true) => {
-                (
-                    &Circle { center: a.center(), radius: a.radius() },
-                    &Line {
-                        start: b.start(),
-                        direction: b.start_direction(),
-                    },
-                ).intersect()
-            }
-            (false, false) => {
-                (
-                    &Circle { center: a.center(), radius: a.radius() },
-                    &Circle { center: b.center(), radius: b.radius() },
-                ).intersect()
-            }
+            (true, true) => (
+                &Line {
+                    start: a.start(),
+                    direction: a.start_direction(),
+                },
+                &Line {
+                    start: b.start(),
+                    direction: b.start_direction(),
+                },
+            ).intersect(),
+            (true, false) => (
+                &Line {
+                    start: a.start(),
+                    direction: a.start_direction(),
+                },
+                &Circle {
+                    center: b.center(),
+                    radius: b.radius(),
+                },
+            ).intersect(),
+            (false, true) => (
+                &Circle {
+                    center: a.center(),
+                    radius: a.radius(),
+                },
+                &Line {
+                    start: b.start(),
+                    direction: b.start_direction(),
+                },
+            ).intersect(),
+            (false, false) => (
+                &Circle {
+                    center: a.center(),
+                    radius: a.radius(),
+                },
+                &Circle {
+                    center: b.center(),
+                    radius: b.radius(),
+                },
+            ).intersect(),
         };
 
         let mut points_to_consider = match primitive_intersections {
             IntersectionResult::Apart => {
                 return IntersectionResult::Apart;
             }
-            IntersectionResult::Intersecting(intersections) => {
-                intersections
-                    .into_iter()
-                    .map(|intersection| intersection.position)
-                    .collect()
-            }
+            IntersectionResult::Intersecting(intersections) => intersections
+                .into_iter()
+                .map(|intersection| intersection.position)
+                .collect(),
             IntersectionResult::Coincident => vec![],
         };
 
@@ -242,9 +244,9 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
         let mut unique_points_to_consider: Vec<P2> = vec![];
 
         for point in points_to_consider {
-            if !unique_points_to_consider.iter().any(|other| {
-                point.rough_eq_by(*other, THICKNESS)
-            })
+            if !unique_points_to_consider
+                .iter()
+                .any(|other| point.rough_eq_by(*other, THICKNESS))
             {
                 unique_points_to_consider.push(point);
             }
@@ -252,15 +254,19 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
 
         let actual_intersections = unique_points_to_consider
             .into_iter()
-            .filter_map(|point| if let (Some(along_a), Some(along_b)) =
-                (
+            .filter_map(|point| {
+                if let (Some(along_a), Some(along_b)) = (
                     a.project_with_max_distance(point, THICKNESS, THICKNESS),
                     b.project_with_max_distance(point, THICKNESS, THICKNESS),
-                )
-            {
-                Some(Intersection { along_a, along_b, position: point })
-            } else {
-                None
+                ) {
+                    Some(Intersection {
+                        along_a,
+                        along_b,
+                        position: point,
+                    })
+                } else {
+                    None
+                }
             })
             .collect::<Vec<_>>();
 
@@ -269,7 +275,6 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
         } else {
             IntersectionResult::Intersecting(actual_intersections)
         }
-
     }
 }
 
@@ -316,15 +321,12 @@ impl<'a> Intersect for (&'a Path, &'a Path) {
                                 position: intersection.position,
                             };
 
-                            if let Some(group_idx) = raw_intersection_groups.iter().position(
-                                |group| {
-                                    group[0].position.rough_eq_by(
-                                        intersection.position,
-                                        THICKNESS,
-                                    )
-                                },
-                            )
-                            {
+                            if let Some(group_idx) =
+                                raw_intersection_groups.iter().position(|group| {
+                                    group[0]
+                                        .position
+                                        .rough_eq_by(intersection.position, THICKNESS)
+                                }) {
                                 raw_intersection_groups[group_idx].push(new_intersection)
                             } else {
                                 raw_intersection_groups.push(vec![new_intersection])
@@ -346,8 +348,8 @@ impl<'a> Intersect for (&'a Path, &'a Path) {
                         let position_on_a = a.along(intersection.along_a);
                         let position_on_b = b.along(intersection.along_b);
 
-                        let error_sum = (intersection.position - position_on_a).norm() +
-                            (intersection.position - position_on_b).norm();
+                        let error_sum = (intersection.position - position_on_a).norm()
+                            + (intersection.position - position_on_b).norm();
 
                         OrderedFloat(error_sum)
                     })
@@ -365,7 +367,6 @@ impl<'a> Intersect for (&'a Path, &'a Path) {
 
 #[test]
 fn line_segments_apart() {
-
     // ----
     // ----
 
@@ -410,13 +411,11 @@ fn line_segments_intersecting() {
             &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
             &Segment::line(P2::new(0.0, 1.0), P2::new(1.0, -1.0)).unwrap(),
         ).intersect(),
-        IntersectionResult::Intersecting(vec![
-            Intersection {
-                along_a: 0.5,
-                along_b: 1.118034,
-                position: P2::new(0.5, 0.0),
-            },
-        ])
+        IntersectionResult::Intersecting(vec![Intersection {
+            along_a: 0.5,
+            along_b: 1.118034,
+            position: P2::new(0.5, 0.0),
+        }])
     );
 
     // |
@@ -428,13 +427,11 @@ fn line_segments_intersecting() {
             &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
             &Segment::line(P2::new(0.0, 1.0), P2::new(0.0, -1.0)).unwrap(),
         ).intersect(),
-        IntersectionResult::Intersecting(vec![
-            Intersection {
-                along_a: 0.0,
-                along_b: 1.0,
-                position: P2::new(0.0, 0.0),
-            },
-        ])
+        IntersectionResult::Intersecting(vec![Intersection {
+            along_a: 0.0,
+            along_b: 1.0,
+            position: P2::new(0.0, 0.0),
+        }])
     );
 }
 

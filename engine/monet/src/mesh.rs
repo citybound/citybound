@@ -1,5 +1,5 @@
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, Into2d, Into3d, WithUniqueOrthogonal,
-                    Path, Area, Band, FiniteCurve};
+Path, Area, Band, FiniteCurve};
 
 use glium::{self, index};
 use glium::backend::glutin::Display;
@@ -74,9 +74,8 @@ impl ::std::ops::Add for Mesh {
     fn add(mut self, rhs: Mesh) -> Mesh {
         let self_n_vertices = self.vertices.len();
         self.vertices.extend_from_copy_slice(&rhs.vertices);
-        self.indices.extend(rhs.indices.iter().map(|i| {
-            *i + self_n_vertices as u16
-        }));
+        self.indices
+            .extend(rhs.indices.iter().map(|i| *i + self_n_vertices as u16));
         self
     }
 }
@@ -165,51 +164,48 @@ const CURVE_LINEARIZATION_MAX_ANGLE: f32 = 0.03;
 
 impl Mesh {
     pub fn from_area(area: &Area) -> Mesh {
-        let path_iterator = PathIter::new(area.primitives.iter().flat_map(|primitive| {
-            primitive
-                .boundary
-                .segments
-                .iter()
-                .with_position()
-                .flat_map(|segment_with_position| {
-                    let initial_move = match segment_with_position {
-                        Position::First(segment) |
-                        Position::Only(segment) => {
-                            Some(PathEvent::MoveTo(
-                                point(segment.start().x, segment.start().y),
-                            ))
+        let path_iterator =
+            PathIter::new(area.primitives.iter().flat_map(|primitive| {
+                primitive.boundary.segments.iter().with_position().flat_map(
+                    |segment_with_position| {
+                        let initial_move = match segment_with_position {
+                            Position::First(segment) | Position::Only(segment) => Some(
+                                PathEvent::MoveTo(point(segment.start().x, segment.start().y)),
+                            ),
+                            _ => None,
+                        };
+
+                        let segment = segment_with_position.into_inner();
+
+                        if segment.is_linear() {
+                            initial_move
+                                .into_iter()
+                                .chain(Some(PathEvent::LineTo(point(
+                                    segment.end().x,
+                                    segment.end().y,
+                                ))))
+                                .collect::<Vec<_>>()
+                        } else {
+                            let angle_span = segment.length / segment.radius();
+                            let subdivisions = (angle_span / CURVE_LINEARIZATION_MAX_ANGLE)
+                                .max(1.0)
+                                .floor() as usize;
+                            let distance_per_subdivision = segment.length / (subdivisions as f32);
+
+                            initial_move
+                                .into_iter()
+                                .chain((0..subdivisions).into_iter().map(|subdivision| {
+                                    let distance =
+                                        (subdivision + 1) as f32 * distance_per_subdivision;
+                                    let position = segment.along(distance);
+
+                                    PathEvent::LineTo(point(position.x, position.y))
+                                }))
+                                .collect::<Vec<_>>()
                         }
-                        _ => None,
-                    };
-
-                    let segment = segment_with_position.into_inner();
-
-                    if segment.is_linear() {
-                        initial_move
-                            .into_iter()
-                            .chain(Some(
-                                PathEvent::LineTo(point(segment.end().x, segment.end().y)),
-                            ))
-                            .collect::<Vec<_>>()
-                    } else {
-                        let angle_span = segment.length / segment.radius();
-                        let subdivisions = (angle_span / CURVE_LINEARIZATION_MAX_ANGLE)
-                            .max(1.0)
-                            .floor() as usize;
-                        let distance_per_subdivision = segment.length / (subdivisions as f32);
-
-                        initial_move
-                            .into_iter()
-                            .chain((0..subdivisions).into_iter().map(|subdivision| {
-                                let distance = (subdivision + 1) as f32 * distance_per_subdivision;
-                                let position = segment.along(distance);
-
-                                PathEvent::LineTo(point(position.x, position.y))
-                            }))
-                            .collect::<Vec<_>>()
-                    }
-                })
-        }));
+                    },
+                )
+            }));
 
         let mut tesselator = FillTessellator::new();
         let mut output = Mesh::empty();
@@ -223,7 +219,9 @@ impl Mesh {
 
     pub fn from_band(band: &Band, z: N) -> Mesh {
         fn to_vertex(point: P2, z: N) -> Vertex {
-            Vertex { position: [point.x, point.y, z] }
+            Vertex {
+                position: [point.x, point.y, z],
+            }
         }
 
         let mut vertices = Vec::<Vertex>::new();
@@ -246,16 +244,16 @@ impl Mesh {
                 ));
                 vertices.push(to_vertex(segment.end - band.width_left * orth_direction, z));
 
-                indices.extend_from_slice(
-                    &[first_new_vertex, first_new_vertex + 1, first_new_vertex + 2],
-                );
-                indices.extend_from_slice(
-                    &[
-                        first_new_vertex + 1,
-                        first_new_vertex + 3,
-                        first_new_vertex + 2,
-                    ],
-                );
+                indices.extend_from_slice(&[
+                    first_new_vertex,
+                    first_new_vertex + 1,
+                    first_new_vertex + 2,
+                ]);
+                indices.extend_from_slice(&[
+                    first_new_vertex + 1,
+                    first_new_vertex + 3,
+                    first_new_vertex + 2,
+                ]);
             } else {
                 let angle_span = segment.length / segment.radius();
                 let subdivisions = (angle_span / CURVE_LINEARIZATION_MAX_ANGLE)
@@ -278,12 +276,16 @@ impl Mesh {
                     vertices.push(to_vertex(position + band.width_right * orth_direction, z));
                     vertices.push(to_vertex(position - band.width_left * orth_direction, z));
 
-                    indices.extend_from_slice(
-                        &[first_new_vertex - 2, first_new_vertex - 1, first_new_vertex],
-                    );
-                    indices.extend_from_slice(
-                        &[first_new_vertex - 1, first_new_vertex + 1, first_new_vertex],
-                    );
+                    indices.extend_from_slice(&[
+                        first_new_vertex - 2,
+                        first_new_vertex - 1,
+                        first_new_vertex,
+                    ]);
+                    indices.extend_from_slice(&[
+                        first_new_vertex - 1,
+                        first_new_vertex + 1,
+                        first_new_vertex,
+                    ]);
                 }
             }
         }

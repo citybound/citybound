@@ -1,4 +1,4 @@
-#![recursion_limit="256"]
+#![recursion_limit = "256"]
 
 #[cfg(test)]
 #[macro_use]
@@ -27,10 +27,11 @@ pub fn scan_and_generate(src_prefix: &str) {
     for maybe_mod_path in glob(&format!("{}/**/mod.rs", src_prefix)).unwrap() {
         if let Ok(mod_path) = maybe_mod_path {
             //println!("cargo:warning={:?}", mod_path);
-            let auto_path = mod_path.clone().to_str().unwrap().replace(
-                "mod.rs",
-                "kay_auto.rs",
-            );
+            let auto_path = mod_path
+                .clone()
+                .to_str()
+                .unwrap()
+                .replace("mod.rs", "kay_auto.rs");
             if let Ok(src_meta) = metadata(&mod_path) {
                 let regenerate = match metadata(&auto_path) {
                     Ok(auto_meta) => src_meta.modified().unwrap() > auto_meta.modified().unwrap(),
@@ -43,7 +44,7 @@ pub fn scan_and_generate(src_prefix: &str) {
                         file.read_to_string(&mut file_str).unwrap();
                         match parse(&file_str) {
                             Ok(model) => generate(&model),
-                            Err(error) => format!("PARSE ERROR:\n {:?}", error),
+                            Err(error) => panic!("PARSE ERROR:\n {:?}", error),
                         }
                     } else {
                         panic!("couldn't load");
@@ -54,9 +55,8 @@ pub fn scan_and_generate(src_prefix: &str) {
                     }
 
                     let _ = Command::new("rustfmt")
-                        .arg("--write-mode")
-                        .arg("overwrite")
                         .arg(&auto_path)
+                        .arg("--backup")
                         .spawn();
                 }
             } else {
@@ -112,6 +112,7 @@ pub fn generate(model: &Model) -> String {
         //! This is all auto-generated. Do not touch.
         #[allow(unused_imports)]
         use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom};
+        #[allow(unused_imports)]
         use super::*;
 
         #traits_msgs

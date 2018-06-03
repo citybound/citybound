@@ -1,4 +1,3 @@
-
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, Into2d, Into3d, WithUniqueOrthogonal};
 use kay::{World, External};
 use glium::Frame;

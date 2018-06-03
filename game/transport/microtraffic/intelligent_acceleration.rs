@@ -19,16 +19,17 @@ pub fn intelligent_acceleration(
     let net_distance = *obstacle.position - *car.position - car_length;
     let velocity_difference = car.velocity - obstacle.velocity;
 
-    let s_star = minimum_spacing +
-        0.0f32.max(
-            car.velocity * safe_time_headway +
-                (car.velocity * velocity_difference /
-                     (2.0 * (acceleration * COMFORTABLE_BREAKING_DECELERATION).sqrt())),
+    let s_star = minimum_spacing
+        + 0.0f32.max(
+            car.velocity * safe_time_headway
+                + (car.velocity * velocity_difference
+                    / (2.0 * (acceleration * COMFORTABLE_BREAKING_DECELERATION).sqrt())),
         );
 
     (-max_deceleration).max(
-        acceleration *
-            (1.0 - (car.velocity / desired_velocity).powf(acceleration_exponent) -
-                 (s_star / net_distance).powf(2.0)),
+        acceleration
+            * (1.0
+                - (car.velocity / desired_velocity).powf(acceleration_exponent)
+                - (s_star / net_distance).powf(2.0)),
     )
 }

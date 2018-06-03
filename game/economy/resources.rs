@@ -12,11 +12,11 @@ pub enum Resource {
     BakedGoods,
     Meat,
     DairyGoods,
-    // Wood,
-    //Furniture,
-    //TextileGoods,
-    //Clothes,
-    //Devices,
+    /* Wood, */
+    /*Furniture,
+     *TextileGoods,
+     *Clothes,
+     *Devices, */
 }
 
 use self::Resource::*;
@@ -42,11 +42,11 @@ impl Resource {
             BakedGoods => "Baked Goods",
             Meat => "Meat",
             DairyGoods => "Dairy Goods",
-            // Wood => "Wood",
-            // Furniture => "Furniture",
-            // TextileGoods => "Textile Goods",
-            // Clothes => "Clothes",
-            // Devices => "Devices",
+            /* Wood => "Wood",
+             * Furniture => "Furniture",
+             * TextileGoods => "Textile Goods",
+             * Clothes => "Clothes",
+             * Devices => "Devices", */
         }
     }
 }
@@ -65,7 +65,9 @@ pub struct ResourceMap<AssociatedValue: Compact> {
 
 impl<AssociatedValue: Compact> Default for ResourceMap<AssociatedValue> {
     fn default() -> Self {
-        ResourceMap { entries: CVec::new() }
+        ResourceMap {
+            entries: CVec::new(),
+        }
     }
 }
 
@@ -86,10 +88,10 @@ impl<AssociatedValue: Compact> ResourceMap<AssociatedValue> {
         key: Resource,
         default: AssociatedValue,
     ) -> &mut AssociatedValue {
-        match self.entries.binary_search_by_key(
-            &key,
-            |&Entry(ref k, ref _v)| *k,
-        ) {
+        match self
+            .entries
+            .binary_search_by_key(&key, |&Entry(ref k, ref _v)| *k)
+        {
             Ok(index) => &mut self.entries[index].1,
             Err(index) => {
                 self.entries.insert(index, Entry(key, default));
@@ -99,10 +101,10 @@ impl<AssociatedValue: Compact> ResourceMap<AssociatedValue> {
     }
 
     pub fn insert(&mut self, key: Resource, value: AssociatedValue) -> Option<AssociatedValue> {
-        match self.entries.binary_search_by_key(
-            &key,
-            |&Entry(ref k, ref _v)| *k,
-        ) {
+        match self
+            .entries
+            .binary_search_by_key(&key, |&Entry(ref k, ref _v)| *k)
+        {
             Ok(index) => {
                 let old = ::std::mem::replace(&mut self.entries[index].1, value);
                 Some(old)
@@ -115,10 +117,10 @@ impl<AssociatedValue: Compact> ResourceMap<AssociatedValue> {
     }
 
     pub fn remove(&mut self, key: Resource) -> Option<AssociatedValue> {
-        match self.entries.binary_search_by_key(
-            &key,
-            |&Entry(ref k, ref _v)| *k,
-        ) {
+        match self
+            .entries
+            .binary_search_by_key(&key, |&Entry(ref k, ref _v)| *k)
+        {
             Ok(index) => Some(self.entries.remove(index).1),
             Err(_) => None,
         }
@@ -134,7 +136,8 @@ impl<AssociatedValue: Compact> ::std::ops::Deref for ResourceMap<AssociatedValue
 }
 
 impl<AssociatedValue: Compact> ::std::iter::FromIterator<(Resource, AssociatedValue)>
-    for ResourceMap<AssociatedValue> {
+    for ResourceMap<AssociatedValue>
+{
     fn from_iter<T: IntoIterator<Item = (Resource, AssociatedValue)>>(iter: T) -> Self {
         let mut map = Self::new();
         for (resource, value) in iter {

@@ -22,4 +22,4 @@ pub mod combo;
 pub mod camera_control;
 
 pub use user_interface::{UserInterface, UserInterfaceID, Interactable3d, Interactable3dID,
-                         Event3d, UserInterfaceLayer, Interactable2d, Interactable2dID, setup};
+Event3d, UserInterfaceLayer, Interactable2d, Interactable2dID, setup};

@@ -1,5 +1,5 @@
 // temporary fix for https://github.com/glium/glium/issues/1620
-#![cfg_attr(feature="cargo-clippy", allow(forget_copy))]
+#![cfg_attr(feature = "cargo-clippy", allow(forget_copy))]
 
 extern crate descartes;
 #[macro_use]
@@ -24,6 +24,6 @@ pub use mesh::{Mesh, Batch, Vertex, Instance};
 pub use mesh_actors::{Grouper, GrouperID, GrouperIndividual, GrouperIndividualID};
 pub use renderer::{setup, Renderer, RendererID, Renderable, RenderableID, TargetProvider,
                    TargetProviderID, Movement, EyeListener, EyeListenerID, ProjectionRequester,
-                   ProjectionRequesterID};
+ProjectionRequesterID};
 pub use render_context::RenderContext;
 pub use scene::{Eye, Scene, SceneDescription};

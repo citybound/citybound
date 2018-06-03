@@ -27,8 +27,8 @@ impl ActorDef {
         self.handlers
             .iter()
             .filter(|&handler| {
-                (origin == AlsoFromTraits || handler.from_trait.is_none()) &&
-                    (handler.scope == scope)
+                (origin == AlsoFromTraits || handler.from_trait.is_none())
+                    && (handler.scope == scope)
             })
             .map(|handler| map_f(name, handler))
             .collect()
@@ -65,12 +65,7 @@ impl Model {
                 HandlerType::Handler,
                 &map_f,
             ));
-            for_init.push(actor_def.map_handlers(
-                actor_name,
-                origin,
-                HandlerType::Init,
-                &map_f,
-            ));
+            for_init.push(actor_def.map_handlers(actor_name, origin, HandlerType::Init, &map_f));
         }
 
         (for_instance, for_init)
@@ -97,16 +92,8 @@ impl Model {
         let mut for_init = Vec::<Vec<O>>::new();
 
         for (trait_name, trait_def) in self.traits.iter() {
-            for_instance.push(trait_def.map_handlers(
-                trait_name,
-                HandlerType::Handler,
-                &map_f,
-            ));
-            for_init.push(trait_def.map_handlers(
-                trait_name,
-                HandlerType::Init,
-                &map_f,
-            ));
+            for_instance.push(trait_def.map_handlers(trait_name, HandlerType::Handler, &map_f));
+            for_init.push(trait_def.map_handlers(trait_name, HandlerType::Init, &map_f));
         }
 
         (for_instance, for_init)
@@ -123,24 +110,22 @@ impl Model {
     }
 
     pub fn generate_setups(&self) -> Tokens {
-        let actor_impl_actors: Vec<Vec<_>> = self.actors
+        let actor_impl_actors: Vec<Vec<_>> = self
+            .actors
             .iter()
-            .map(|(actor_name, actor_def)| {
-                actor_def.impls.iter().map(|_| actor_name).collect()
-            })
+            .map(|(actor_name, actor_def)| actor_def.impls.iter().map(|_| actor_name).collect())
             .collect();
 
-        let actor_impl_trait_ids: Vec<Vec<_>> = self.actors
+        let actor_impl_trait_ids: Vec<Vec<_>> = self
+            .actors
             .iter()
-            .map(|(_, actor_def)| {
-                actor_def.impls.iter().map(trait_name_to_id).collect()
-            })
+            .map(|(_, actor_def)| actor_def.impls.iter().map(trait_name_to_id).collect())
             .collect();
 
         let (handler_actor_types, init_actor_types) =
             self.map_handlers(OnlyOwn, |ty, _| ty.clone());
-        let (handler_criticals, init_handler_criticals) =
-            self.map_handlers(OnlyOwn, |_, handler| {
+        let (handler_criticals, init_handler_criticals) = self
+            .map_handlers(OnlyOwn, |_, handler| {
                 Ident::from(if handler.critical { "true" } else { "false" })
             });
         let (msg_names, init_msg_names) = self.map_handlers(OnlyOwn, |actor_name, handler| {
@@ -148,12 +133,10 @@ impl Model {
             Ident::new(format!("{}_{}", msg_prefix, handler.name))
         });
         let (msg_args, init_msg_args) = self.map_handlers_args(OnlyOwn, |arg| match *arg {
-            FnArg::Captured(Pat::Ident(_, ref ident, _), ref ty) => {
-                match *ty {
-                    Ty::Rptr(_, _) => Pat::Ident(ByRef(Immutable), ident.clone(), None),
-                    _ => Pat::Ident(ByValue(Immutable), ident.clone(), None),
-                }
-            }
+            FnArg::Captured(Pat::Ident(_, ref ident, _), ref ty) => match *ty {
+                Ty::Rptr(..) => Pat::Ident(ByRef(Immutable), ident.clone(), None),
+                _ => Pat::Ident(ByValue(Immutable), ident.clone(), None),
+            },
             _ => unimplemented!(),
         });
         let (handler_names, init_handler_names) =
@@ -163,12 +146,13 @@ impl Model {
                 FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
                 _ => unimplemented!(),
             });
-        let (maybe_fate_returns, _) =
-            self.map_handlers(OnlyOwn, |_, handler| if handler.returns_fate {
+        let (maybe_fate_returns, _) = self.map_handlers(OnlyOwn, |_, handler| {
+            if handler.returns_fate {
                 quote!()
             } else {
                 quote!(; Fate::Live)
-            });
+            }
+        });
         let (_, types_for_init_handlers_1) =
             self.map_handlers(OnlyOwn, |actor_name, _| actor_name.clone());
         let types_for_init_handlers_2 = types_for_init_handlers_1.clone();
@@ -218,12 +202,13 @@ impl Model {
             FnArg::Captured(Pat::Ident(_, ref ident, _), _) => ident.clone(),
             _ => unimplemented!(),
         });
-        let (maybe_fate_returns, _) =
-            self.map_trait_handlers(|_, handler| if handler.returns_fate {
+        let (maybe_fate_returns, _) = self.map_trait_handlers(|_, handler| {
+            if handler.returns_fate {
                 quote!()
             } else {
                 quote!(; Fate::Live)
-            });
+            }
+        });
         let (msg_names_1, _) = self.map_trait_handlers(|trait_name, handler| {
             let msg_prefix = trait_to_message_prefix(&trait_name.segments.last().unwrap().ident);
             Ident::new(format!("{}_{}", msg_prefix, handler.name))
@@ -231,19 +216,18 @@ impl Model {
         let (msg_names_2, msg_names_3) = (msg_names_1.clone(), msg_names_1.clone());
         let (msg_params_1, _) = self.map_trait_handlers_args(arg_as_value);
         let (msg_param_types, _) = self.map_trait_handlers_args(arg_as_value_type);
-        let (msg_derives, _) =
-            self.map_trait_handlers(|_, handler| if handler.arguments.is_empty() {
+        let (msg_derives, _) = self.map_trait_handlers(|_, handler| {
+            if handler.arguments.is_empty() {
                 quote!(#[derive(Copy, Clone)])
             } else {
                 quote!(#[derive(Compact, Clone)])
-            });
-        let (msg_args, _) = self.map_trait_handlers_args(|arg| match *arg {
-            FnArg::Captured(Pat::Ident(_, ref ident, _), ref ty) => {
-                match *ty {
-                    Ty::Rptr(_, _) => Pat::Ident(ByRef(Immutable), ident.clone(), None),
-                    _ => Pat::Ident(ByValue(Immutable), ident.clone(), None),
-                }
             }
+        });
+        let (msg_args, _) = self.map_trait_handlers_args(|arg| match *arg {
+            FnArg::Captured(Pat::Ident(_, ref ident, _), ref ty) => match *ty {
+                Ty::Rptr(..) => Pat::Ident(ByRef(Immutable), ident.clone(), None),
+                _ => Pat::Ident(ByValue(Immutable), ident.clone(), None),
+            },
             _ => unimplemented!(),
         });
 
@@ -293,20 +277,26 @@ impl Model {
     }
 
     pub fn generate_actor_ids_messages_and_conversions(&self) -> Tokens {
-        let actor_here_names_1: Vec<_> = self.actors
+        let actor_here_names_1: Vec<_> = self
+            .actors
             .iter()
-            .filter_map(|(actor_name, actor_def)| if actor_def.defined_here {
-                Some(actor_name)
-            } else {
-                None
+            .filter_map(|(actor_name, actor_def)| {
+                if actor_def.defined_here {
+                    Some(actor_name)
+                } else {
+                    None
+                }
             })
             .collect();
-        let actor_here_ids_1: Vec<_> = self.actors
+        let actor_here_ids_1: Vec<_> = self
+            .actors
             .iter()
-            .filter_map(|(actor_name, actor_def)| if actor_def.defined_here {
-                Some(actor_name_to_id(actor_name))
-            } else {
-                None
+            .filter_map(|(actor_name, actor_def)| {
+                if actor_def.defined_here {
+                    Some(actor_name_to_id(actor_name))
+                } else {
+                    None
+                }
             })
             .collect();
         let (actor_here_ids_2, actor_here_ids_3, actor_here_ids_4) = (
@@ -328,12 +318,13 @@ impl Model {
         let (msg_params, init_msg_params) = self.map_handlers_args(OnlyOwn, arg_as_value);
         let (msg_param_types, init_msg_param_types) =
             self.map_handlers_args(OnlyOwn, arg_as_value_type);
-        let (msg_derives, init_msg_derives) =
-            self.map_handlers(OnlyOwn, |_, handler| if handler.arguments.is_empty() {
+        let (msg_derives, init_msg_derives) = self.map_handlers(OnlyOwn, |_, handler| {
+            if handler.arguments.is_empty() {
                 quote!(#[derive(Copy, Clone)])
             } else {
                 quote!(#[derive(Compact, Clone)])
-            });
+            }
+        });
         let (_, actor_types_for_init_handlers_1) =
             self.map_handlers(OnlyOwn, |actor_name, _| actor_name.clone());
         let actor_types_for_init_handlers_2 = actor_types_for_init_handlers_1.clone();
@@ -342,15 +333,15 @@ impl Model {
             self.map_handlers(OnlyOwn, |actor_name, _| actor_name_to_id(actor_name));
         let actor_ids_for_init_msgs = actor_ids_for_init_handlers.clone();
 
-        let actor_trait_ids_1: Vec<Vec<_>> = self.actors
+        let actor_trait_ids_1: Vec<Vec<_>> = self
+            .actors
             .iter()
-            .map(|(_, actor_def)| {
-                actor_def.impls.iter().map(trait_name_to_id).collect()
-            })
+            .map(|(_, actor_def)| actor_def.impls.iter().map(trait_name_to_id).collect())
             .collect();
         let (actor_trait_ids_2, actor_trait_ids_3) =
             (actor_trait_ids_1.clone(), actor_trait_ids_1.clone());
-        let actor_ids_for_traits: Vec<Vec<_>> = self.actors
+        let actor_ids_for_traits: Vec<Vec<_>> = self
+            .actors
             .iter()
             .map(|(actor_name, actor_def)| {
                 actor_def

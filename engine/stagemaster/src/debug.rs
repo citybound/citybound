@@ -30,10 +30,18 @@ pub fn add_debug_point(point: P2, color: [f32; 3], z: f32, world: &mut World) {
     if let Some(renderer) = unsafe { DEBUG_RENDERER } {
         let mesh = Mesh::new(
             vec![
-                Vertex { position: [point.x + -0.5, point.y + -0.5, z] },
-                Vertex { position: [point.x + 0.5, point.y + -0.5, z] },
-                Vertex { position: [point.x + 0.5, point.y + 0.5, z] },
-                Vertex { position: [point.x + -0.5, point.y + 0.5, z] },
+                Vertex {
+                    position: [point.x + -0.5, point.y + -0.5, z],
+                },
+                Vertex {
+                    position: [point.x + 0.5, point.y + -0.5, z],
+                },
+                Vertex {
+                    position: [point.x + 0.5, point.y + 0.5, z],
+                },
+                Vertex {
+                    position: [point.x + -0.5, point.y + 0.5, z],
+                },
             ],
             vec![0, 1, 2, 2, 3, 0],
         );

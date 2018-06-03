@@ -4,11 +4,8 @@ use super::intersect::{Intersect, Intersection, IntersectionResult};
 use ordered_float::OrderedFloat;
 
 type ScannerFn<'a> = fn(&mut StartOffsetState, &'a Segment) -> Option<(&'a Segment, N)>;
-type ScanIter<'a> = ::std::iter::Scan<
-    ::std::slice::Iter<'a, Segment>,
-    StartOffsetState,
-    ScannerFn<'a>,
->;
+type ScanIter<'a> =
+    ::std::iter::Scan<::std::slice::Iter<'a, Segment>, StartOffsetState, ScannerFn<'a>>;
 
 #[derive(Debug)]
 pub enum PathError {
@@ -32,10 +29,9 @@ impl Path {
             Result::Err(PathError::EmptyPath)
         } else {
             let continuous = segments.windows(2).all(|seg_pair| {
-                seg_pair[0].end().rough_eq_by(
-                    seg_pair[1].start(),
-                    THICKNESS,
-                )
+                seg_pair[0]
+                    .end()
+                    .rough_eq_by(seg_pair[1].start(), THICKNESS)
             });
 
             if !continuous {
@@ -44,20 +40,17 @@ impl Path {
                 Result::Ok(Self::new_unchecked(segments))
             }
         }
-
     }
 
     pub fn new_welded(mut segments: VecLike<Segment>, tolerance: N) -> Result<Self, PathError> {
         if segments.is_empty() {
             Result::Err(PathError::EmptyPath)
         } else {
-            let probably_closed = segments.last().unwrap().end().rough_eq_by(
-                segments
-                    .first()
-                    .unwrap()
-                    .start(),
-                tolerance,
-            );
+            let probably_closed = segments
+                .last()
+                .unwrap()
+                .end()
+                .rough_eq_by(segments.first().unwrap().start(), tolerance);
 
             let original_length = segments.len();
 
@@ -68,14 +61,16 @@ impl Path {
 
             let mut welded_segments: VecLike<Segment> = segments
                 .windows(2)
-                .filter_map(|seg_pair| if seg_pair[0].is_linear() {
-                    Segment::line(seg_pair[0].start(), seg_pair[1].start())
-                } else {
-                    Segment::arc_with_direction(
-                        seg_pair[0].start(),
-                        seg_pair[0].start_direction(),
-                        seg_pair[1].start(),
-                    )
+                .filter_map(|seg_pair| {
+                    if seg_pair[0].is_linear() {
+                        Segment::line(seg_pair[0].start(), seg_pair[1].start())
+                    } else {
+                        Segment::arc_with_direction(
+                            seg_pair[0].start(),
+                            seg_pair[0].start_direction(),
+                            seg_pair[1].start(),
+                        )
+                    }
                 })
                 .collect();
 
@@ -102,10 +97,9 @@ impl Path {
     }
 
     pub fn segments_with_start_offsets(&self) -> ScanIter {
-        self.segments.iter().scan(
-            StartOffsetState(0.0),
-            Self::scan_segments,
-        )
+        self.segments
+            .iter()
+            .scan(StartOffsetState(0.0), Self::scan_segments)
     }
 
     pub fn find_on_segment(&self, distance: N) -> Option<(&Segment, N)> {
@@ -126,56 +120,51 @@ impl Path {
             .flat_map(|(i, (segment_a, offset_a))| {
                 self.segments_with_start_offsets()
                     .skip(i + 1)
-                    .flat_map(|(segment_b, offset_b)| match (segment_a, segment_b)
-                        .intersect() {
-                        IntersectionResult::Intersecting(intersections) => {
-                            intersections
+                    .flat_map(
+                        |(segment_b, offset_b)| match (segment_a, segment_b).intersect() {
+                            IntersectionResult::Intersecting(intersections) => intersections
                                 .into_iter()
-                                .filter_map(|intersection| if intersection.along_a.rough_eq_by(
-                                    0.0,
-                                    THICKNESS,
-                                ) ||
-                                    intersection.along_a.rough_eq_by(
-                                        segment_a.length(),
-                                        THICKNESS,
-                                    ) ||
-                                    intersection.along_b.rough_eq_by(0.0, THICKNESS) ||
-                                    intersection.along_b.rough_eq_by(
-                                        segment_b.length(),
-                                        THICKNESS,
-                                    )
-                                {
-                                    None
-                                } else {
-                                    Some(Intersection {
-                                        position: intersection.position,
-                                        along_a: offset_a + intersection.along_a,
-                                        along_b: offset_b + intersection.along_b,
-                                    })
+                                .filter_map(|intersection| {
+                                    if intersection.along_a.rough_eq_by(0.0, THICKNESS)
+                                        || intersection
+                                            .along_a
+                                            .rough_eq_by(segment_a.length(), THICKNESS)
+                                        || intersection.along_b.rough_eq_by(0.0, THICKNESS)
+                                        || intersection
+                                            .along_b
+                                            .rough_eq_by(segment_b.length(), THICKNESS)
+                                    {
+                                        None
+                                    } else {
+                                        Some(Intersection {
+                                            position: intersection.position,
+                                            along_a: offset_a + intersection.along_a,
+                                            along_b: offset_b + intersection.along_b,
+                                        })
+                                    }
                                 })
-                                .collect::<Vec<_>>()
-                        }
-                        _ => vec![],
-                    })
+                                .collect::<Vec<_>>(),
+                            _ => vec![],
+                        },
+                    )
                     .collect::<Vec<_>>()
             })
             .collect()
     }
 
     pub fn is_closed(&self) -> bool {
-        self.segments.last().unwrap().end().rough_eq_by(
-            self.segments
-                .first()
-                .unwrap()
-                .start(),
-            THICKNESS,
-        )
+        self.segments
+            .last()
+            .unwrap()
+            .end()
+            .rough_eq_by(self.segments.first().unwrap().start(), THICKNESS)
     }
 
     pub fn is_ordered_along(&self, start: N, mid: N, end: N) -> bool {
         if self.is_closed() {
-            (start <= mid && mid < end) || (end < start && mid >= start) ||
-                (end < start && mid < end)
+            (start <= mid && mid < end)
+                || (end < start && mid >= start)
+                || (end < start && mid < end)
         } else {
             start < mid && mid < end
         }
@@ -221,9 +210,8 @@ impl Path {
                     last_segment.start_direction(),
                     new_end,
                 ).unwrap_or_else(|| {
-                    Segment::line(last_segment.start(), new_end).expect(
-                        "New start/end should work D",
-                    )
+                    Segment::line(last_segment.start(), new_end)
+                        .expect("New start/end should work D")
                 })
             };
 
@@ -235,9 +223,8 @@ impl Path {
                     first_segment.start_direction(),
                     first_segment.end(),
                 ).unwrap_or_else(|| {
-                    Segment::line(new_start, first_segment.end()).expect(
-                        "New start/end should work F",
-                    )
+                    Segment::line(new_start, first_segment.end())
+                        .expect("New start/end should work F")
                 })
             };
 
@@ -266,7 +253,8 @@ impl Path {
                 self.start()
             };
 
-            let new_path = self.with_new_start_and_end(new_start, new_end)
+            let new_path = self
+                .with_new_start_and_end(new_start, new_end)
                 .concat(other)
                 .expect("Normal concat should work at this point");
 
@@ -332,9 +320,7 @@ impl Path {
                 let next_position = P2::new(x, y);
 
                 if command == "L" {
-                    segments.push(Segment::line(position, next_position).expect(
-                        "Invalid Segment",
-                    ));
+                    segments.push(Segment::line(position, next_position).expect("Invalid Segment"));
                 }
 
                 position = next_position;
@@ -342,12 +328,10 @@ impl Path {
                     first_position = Some(next_position);
                 }
             } else if command == "Z" {
-                if let Some(closing_segment) =
-                    Segment::line(
-                        position,
-                        first_position.expect("Should have first_position"),
-                    )
-                {
+                if let Some(closing_segment) = Segment::line(
+                    position,
+                    first_position.expect("Should have first_position"),
+                ) {
                     segments.push(closing_segment);
                 }
             }
@@ -361,10 +345,10 @@ pub struct StartOffsetState(N);
 
 impl FiniteCurve for Path {
     fn length(&self) -> N {
-        self.segments.iter().map(|segment| segment.length()).fold(
-            0.0,
-            ::std::ops::Add::add,
-        )
+        self.segments
+            .iter()
+            .map(|segment| segment.length())
+            .fold(0.0, ::std::ops::Add::add)
     }
 
     fn along(&self, distance: N) -> P2 {
@@ -419,17 +403,18 @@ impl FiniteCurve for Path {
             let maybe_second_half = self.subsection(0.0, end);
 
             match (maybe_first_half, maybe_second_half) {
-                (Some(first_half), Some(second_half)) => {
-                    Some(first_half.concat(&second_half).expect(
-                        "Closed path, should always be continous",
-                    ))
-                }
+                (Some(first_half), Some(second_half)) => Some(
+                    first_half
+                        .concat(&second_half)
+                        .expect("Closed path, should always be continous"),
+                ),
                 (Some(first_half), None) => Some(first_half),
                 (None, Some(second_half)) => Some(second_half),
                 _ => None,
             }
         } else {
-            let segments = self.segments_with_start_offsets()
+            let segments = self
+                .segments_with_start_offsets()
                 .filter_map(|pair: (&Segment, N)| {
                     let (segment, start_offset) = pair;
                     let end_offset = start_offset + segment.length;
@@ -445,7 +430,8 @@ impl FiniteCurve for Path {
     }
 
     fn shift_orthogonally(&self, shift_to_right: N) -> Option<Path> {
-        let segments = self.segments
+        let segments = self
+            .segments
             .iter()
             .filter_map(|segment| segment.shift_orthogonally(shift_to_right))
             .collect::<Vec<_>>();
@@ -482,11 +468,9 @@ impl Curve for Path {
         self.segments_with_start_offsets()
             .filter_map(|pair: (&Segment, N)| {
                 let (segment, start_offset) = pair;
-                segment.project_with_tolerance(point, tolerance).map(
-                    |offset| {
-                        offset + start_offset
-                    },
-                )
+                segment
+                    .project_with_tolerance(point, tolerance)
+                    .map(|offset| offset + start_offset)
             })
             .min_by_key(|offset| OrderedFloat((self.along(*offset) - point).norm()))
     }
@@ -509,22 +493,22 @@ impl Curve for Path {
 
 impl<'a> RoughEq for &'a Path {
     fn rough_eq_by(&self, other: &Path, tolerance: N) -> bool {
-        self.segments.len() == other.segments.len() &&
-            if self.is_closed() && other.is_closed() {
-                // TODO: this is strictly too loose
-                // and maybe this should be moved to shape instead,
-                // since the paths are *not* exactly equal
-                self.segments.iter().all(|segment_1| {
-                    other.segments.iter().any(|segment_2| {
-                        segment_1.rough_eq_by(segment_2, tolerance)
-                    })
-                })
-            } else {
-                self.segments.iter().zip(other.segments.iter()).all(
-                    |(segment_1, segment_2)| segment_1.rough_eq_by(segment_2, tolerance),
-                )
-            }
-
+        self.segments.len() == other.segments.len() && if self.is_closed() && other.is_closed() {
+            // TODO: this is strictly too loose
+            // and maybe this should be moved to shape instead,
+            // since the paths are *not* exactly equal
+            self.segments.iter().all(|segment_1| {
+                other
+                    .segments
+                    .iter()
+                    .any(|segment_2| segment_1.rough_eq_by(segment_2, tolerance))
+            })
+        } else {
+            self.segments
+                .iter()
+                .zip(other.segments.iter())
+                .all(|(segment_1, segment_2)| segment_1.rough_eq_by(segment_2, tolerance))
+        }
     }
 }
 

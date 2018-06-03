@@ -79,7 +79,10 @@ impl ::std::ops::DerefMut for PreciseLocation {
 
 impl Location {
     fn landmark(landmark: NodeID) -> Self {
-        Location { landmark, node: landmark }
+        Location {
+            landmark,
+            node: landmark,
+        }
     }
     pub fn is_landmark(&self) -> bool {
         self.landmark == self.node
@@ -151,8 +154,8 @@ impl Node for Lane {
                     world,
                 );
             }
-        } else if !self.connectivity.on_intersection &&
-                   predecessors(self).count() >= MIN_LANDMARK_INCOMING
+        } else if !self.connectivity.on_intersection
+            && predecessors(self).count() >= MIN_LANDMARK_INCOMING
         {
             self.pathfinding = PathfindingInfo {
                 location: Some(Location::landmark(self.id_as())),
@@ -196,29 +199,42 @@ impl Node for Lane {
                     } else {
                         self.construction.length
                     };
-                    predecessor.on_routes(self.pathfinding
+                    predecessor.on_routes(
+                        self.pathfinding
                             .routes
                             .pairs()
-                            .filter_map(|(&destination,
-                              &RoutingInfo { distance, distance_hops, .. })| {
-                                if true
-                                // fresh
-                                {
-                                    Some((destination, (distance + self_cost, distance_hops + 1)))
-                                } else {
-                                    None
-                                }
-                            })
-                            .chain(
-                                if self.connectivity.on_intersection {
-                                    None
-                                } else {
-                                    self.pathfinding
-                                        .location
-                                        .map(|destination| (destination, (self_cost, 0)))
+                            .filter_map(
+                                |(
+                                    &destination,
+                                    &RoutingInfo {
+                                        distance,
+                                        distance_hops,
+                                        ..
+                                    },
+                                )| {
+                                    if true
+                                    // fresh
+                                    {
+                                        Some((
+                                            destination,
+                                            (distance + self_cost, distance_hops + 1),
+                                        ))
+                                    } else {
+                                        None
+                                    }
                                 },
                             )
-                            .collect(), self.id_as(), world);
+                            .chain(if self.connectivity.on_intersection {
+                                None
+                            } else {
+                                self.pathfinding
+                                    .location
+                                    .map(|destination| (destination, (self_cost, 0)))
+                            })
+                            .collect(),
+                        self.id_as(),
+                        world,
+                    );
                 }
                 for routing_info in self.pathfinding.routes.values_mut() {
                     routing_info.fresh = false;
@@ -238,16 +254,24 @@ impl Node for Lane {
             self.pathfinding
                 .routes
                 .pairs()
-                .map(|(&destination,
-                  &RoutingInfo { distance, distance_hops, .. })| {
-                    (destination, (distance + self_cost, distance_hops + 1))
-                })
+                .map(
+                    |(
+                        &destination,
+                        &RoutingInfo {
+                            distance,
+                            distance_hops,
+                            ..
+                        },
+                    )| {
+                        (destination, (distance + self_cost, distance_hops + 1))
+                    },
+                )
                 .chain(if self.connectivity.on_intersection {
                     None
                 } else {
-                    self.pathfinding.location.map(|destination| {
-                        (destination, (self_cost, 0))
-                    })
+                    self.pathfinding
+                        .location
+                        .map(|destination| (destination, (self_cost, 0)))
                 })
                 .collect(),
             self.id_as(),
@@ -256,22 +280,22 @@ impl Node for Lane {
     }
 
     fn on_routes(&mut self, new_routes: &CDict<Location, (f32, u8)>, from: NodeID, _: &mut World) {
-        if let Some(from_interaction_idx) =
-            self.connectivity.interactions.iter().position(
-                |interaction| {
-                    // TODO: ugly: untyped RawID shenanigans
-                    interaction.partner_lane.as_raw() == from.as_raw()
-                },
-            )
-        {
+        if let Some(from_interaction_idx) = self.connectivity.interactions.iter().position(
+            |interaction| {
+                // TODO: ugly: untyped RawID shenanigans
+                interaction.partner_lane.as_raw() == from.as_raw()
+            },
+        ) {
             for (&destination, &(new_distance, new_distance_hops)) in new_routes.pairs() {
-                if destination.is_landmark() || new_distance_hops <= IDEAL_LANDMARK_RADIUS ||
-                    self.pathfinding
+                if destination.is_landmark() || new_distance_hops <= IDEAL_LANDMARK_RADIUS
+                    || self
+                        .pathfinding
                         .location
                         .map(|self_dest| self_dest.landmark == destination.landmark)
                         .unwrap_or(false)
                 {
-                    let insert = self.pathfinding
+                    let insert = self
+                        .pathfinding
                         .routes
                         .get(destination)
                         .map(|&RoutingInfo { distance, .. }| new_distance < distance)
@@ -313,10 +337,8 @@ impl Node for Lane {
                 self.pathfinding.routes.remove(*destination_to_forget);
                 let self_as_rough_location = self.id_as();
                 if destination_to_forget.is_landmark() {
-                    self.microtraffic.cars.retain(
-                        |car| if car.destination.landmark ==
-                            destination_to_forget.landmark
-                        {
+                    self.microtraffic.cars.retain(|car| {
+                        if car.destination.landmark == destination_to_forget.landmark {
                             car.trip.finish(
                                 TripResult {
                                     location_now: Some(self_as_rough_location),
@@ -327,13 +349,11 @@ impl Node for Lane {
                             false
                         } else {
                             true
-                        },
-                    )
+                        }
+                    })
                 } else {
-                    self.microtraffic.cars.retain(
-                        |car| if &car.destination.location ==
-                            destination_to_forget
-                        {
+                    self.microtraffic.cars.retain(|car| {
+                        if &car.destination.location == destination_to_forget {
                             car.trip.finish(
                                 TripResult {
                                     location_now: Some(self_as_rough_location),
@@ -344,8 +364,8 @@ impl Node for Lane {
                             false
                         } else {
                             true
-                        },
-                    )
+                        }
+                    })
                 }
                 forgotten.push(*destination_to_forget);
             }
@@ -360,24 +380,26 @@ impl Node for Lane {
         hops_from_landmark: u8,
         world: &mut World,
     ) {
-        let join = self.pathfinding
+        let join = self
+            .pathfinding
             .location
             .map(|self_location| {
-                join_as != self_location &&
-                    (if self_location.is_landmark() {
-                         hops_from_landmark < IDEAL_LANDMARK_RADIUS &&
-                             join_as.landmark.as_raw().instance_id < self.id.as_raw().instance_id
-                     } else {
-                         hops_from_landmark < self.pathfinding.hops_from_landmark ||
-                             self.pathfinding
-                                 .learned_landmark_from
-                                 .map(|learned_from| learned_from == from)
-                                 .unwrap_or(false)
-                     })
+                join_as != self_location && (if self_location.is_landmark() {
+                    hops_from_landmark < IDEAL_LANDMARK_RADIUS
+                        && join_as.landmark.as_raw().instance_id < self.id.as_raw().instance_id
+                } else {
+                    hops_from_landmark < self.pathfinding.hops_from_landmark
+                        || self
+                            .pathfinding
+                            .learned_landmark_from
+                            .map(|learned_from| learned_from == from)
+                            .unwrap_or(false)
+                })
             })
             .unwrap_or(true);
         if join {
-            let tell_to_forget_next_tick = self.pathfinding
+            let tell_to_forget_next_tick = self
+                .pathfinding
                 .routes
                 .keys()
                 .cloned()
@@ -409,13 +431,14 @@ impl Node for Lane {
         requester: DistanceRequesterID,
         world: &mut World,
     ) {
-        let maybe_distance = self.pathfinding
+        let maybe_distance = self
+            .pathfinding
             .routes
             .get(destination)
             .or_else(|| {
-                self.pathfinding.routes.get(
-                    destination.landmark_destination(),
-                )
+                self.pathfinding
+                    .routes
+                    .get(destination.landmark_destination())
             })
             .map(|routing_info| routing_info.distance);
         requester.on_distance(maybe_distance, world);
@@ -430,11 +453,12 @@ impl Node for Lane {
     }
 }
 
-
 #[cfg_attr(feature = "cargo-clippy", allow(needless_lifetimes))]
 fn successors<'a>(lane: &'a Lane) -> impl Iterator<Item = NodeID> + 'a {
-    lane.connectivity.interactions.iter().filter_map(
-        |interaction| {
+    lane.connectivity
+        .interactions
+        .iter()
+        .filter_map(|interaction| {
             match *interaction {
                 Interaction {
                     partner_lane,
@@ -449,8 +473,7 @@ fn successors<'a>(lane: &'a Lane) -> impl Iterator<Item = NodeID> + 'a {
                 } => Some(unsafe{ NodeID::from_raw(partner_lane.as_raw()) }),
                 _ => None,
             }
-        },
-    )
+        })
 }
 
 #[cfg_attr(feature = "cargo-clippy", allow(needless_lifetimes))]
@@ -463,7 +486,11 @@ fn predecessors<'a>(lane: &'a Lane) -> impl Iterator<Item = (u8, NodeID, bool)> 
             // TODO: ugly: untyped RawID shenanigans
             Interaction {
                 partner_lane,
-                kind: InteractionKind::Overlap { kind: OverlapKind::Transfer, .. },
+                kind:
+                    InteractionKind::Overlap {
+                        kind: OverlapKind::Transfer,
+                        ..
+                    },
                 ..
             } => Some((
                 i as u8,
@@ -493,8 +520,9 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
 impl RoughLocation for Lane {
     fn resolve(&self) -> RoughLocationResolve {
         RoughLocationResolve::Done(
-            self.pathfinding.location.map(|location| {
-                PreciseLocation { location, offset: 0.0 }
+            self.pathfinding.location.map(|location| PreciseLocation {
+                location,
+                offset: 0.0,
             }),
             self.construction.path.along(self.construction.length / 2.0),
         )
@@ -527,8 +555,8 @@ impl Node for SwitchLane {
                     .pairs()
                     .map(|(&destination, &(distance, hops))| {
                         // TODO: ugly: untyped RawID shenanigans
-                        let change_cost = if from.as_raw() ==
-                            self.connectivity.left.expect("should have left").0.as_raw()
+                        let change_cost = if from.as_raw()
+                            == self.connectivity.left.expect("should have left").0.as_raw()
                         {
                             LANE_CHANGE_COST_RIGHT
                         } else {
