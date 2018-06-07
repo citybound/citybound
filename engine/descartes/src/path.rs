@@ -463,16 +463,15 @@ impl FiniteCurve for Path {
 }
 
 impl Curve for Path {
-    // TODO: this can be really buggy/unexpected
-    fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<N> {
+    fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<(N, P2)> {
         self.segments_with_start_offsets()
             .filter_map(|pair: (&Segment, N)| {
                 let (segment, start_offset) = pair;
                 segment
                     .project_with_tolerance(point, tolerance)
-                    .map(|offset| offset + start_offset)
+                    .map(|(offset, projected_point)| (offset + start_offset, projected_point))
             })
-            .min_by_key(|offset| OrderedFloat((self.along(*offset) - point).norm()))
+            .min_by_key(|(_offset, projected_point)| OrderedFloat((projected_point - point).norm()))
     }
 
     fn includes(&self, point: P2) -> bool {
@@ -480,8 +479,8 @@ impl Curve for Path {
     }
 
     fn distance_to(&self, point: P2) -> N {
-        if let Some(offset) = self.project(point) {
-            (point - self.along(offset)).norm()
+        if let Some((_offset, projected_point)) = self.project(point) {
+            (point - projected_point).norm()
         } else {
             *::std::cmp::min(
                 OrderedFloat((point - self.start()).norm()),

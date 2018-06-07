@@ -58,9 +58,7 @@ impl PrimitiveArea {
             .boundary
             .segments
             .iter()
-            .map(|segment| {
-                segment.winding_angle(point)
-            })
+            .map(|segment| segment.winding_angle(point))
             .sum::<f32>() / (2.0 * PI))
             .round()
     }

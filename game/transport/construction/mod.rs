@@ -466,14 +466,14 @@ impl Lane {
                 if distance >= MIN_LANE_BUILDING_DISTANCE
                     && distance <= 1.7 * MIN_LANE_BUILDING_DISTANCE
                 {
-                    if let Some(offset) = path.project_with_max_distance(
+                    if let Some((offset, projected_point)) = path.project_with_max_distance(
                         lot_position,
                         1.7 * MIN_LANE_BUILDING_DISTANCE,
                         0.5,
                     ) {
                         building.reconnect(
                             PreciseLocation { location, offset },
-                            path.along(offset),
+                            projected_point,
                             world,
                         );
                     }
@@ -510,7 +510,8 @@ impl SwitchLane {
             other_path.project(self.construction.path.start()),
             other_path.project(self.construction.path.end()),
         );
-        if let (Some(lane_start_on_other_distance), Some(lane_end_on_other_distance)) = projections
+        if let (Some((lane_start_on_other_distance, _)), Some((lane_end_on_other_distance, _))) =
+            projections
         {
             if lane_start_on_other_distance < lane_end_on_other_distance
                 && lane_end_on_other_distance - lane_start_on_other_distance > 6.0
@@ -545,7 +546,8 @@ impl SwitchLane {
                             distance_covered += segment.length();
                             let segment_end_on_other_distance = other_path
                                 .project(segment.end())
-                                .expect("should contain switch lane segment end");
+                                .expect("should contain switch lane segment end")
+                                .0;
                             (
                                 distance_covered,
                                 segment_end_on_other_distance - lane_start_on_other_distance,

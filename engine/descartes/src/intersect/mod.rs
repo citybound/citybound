@@ -98,7 +98,7 @@ impl<'a> Intersect for (&'a Line, &'a Circle) {
             let solution1_position = l.start + t1 * l.direction;
             let solution1 = Intersection {
                 along_a: t1,
-                along_b: c.project(solution1_position).unwrap(),
+                along_b: c.project(solution1_position).unwrap().0,
                 position: solution1_position,
             };
 
@@ -107,7 +107,7 @@ impl<'a> Intersect for (&'a Line, &'a Circle) {
                 let solution2_position = l.start + t2 * l.direction;
                 let solution2 = Intersection {
                     along_a: t2,
-                    along_b: c.project(solution2_position).unwrap(),
+                    along_b: c.project(solution2_position).unwrap().0,
                     position: solution2_position,
                 };
 
@@ -153,8 +153,8 @@ impl<'a> Intersect for (&'a Circle, &'a Circle) {
 
             let solution_1_position = centroid + centroid_to_intersection;
             let solution_1 = Intersection {
-                along_a: a.project(solution_1_position).unwrap(),
-                along_b: b.project(solution_1_position).unwrap(),
+                along_a: a.project(solution_1_position).unwrap().0,
+                along_b: b.project(solution_1_position).unwrap().0,
                 position: solution_1_position,
             };
 
@@ -163,8 +163,8 @@ impl<'a> Intersect for (&'a Circle, &'a Circle) {
             } else {
                 let solution_2_position = centroid - centroid_to_intersection;
                 let solution_2 = Intersection {
-                    along_a: a.project(solution_2_position).unwrap(),
-                    along_b: b.project(solution_2_position).unwrap(),
+                    along_a: a.project(solution_2_position).unwrap().0,
+                    along_b: b.project(solution_2_position).unwrap().0,
                     position: solution_2_position,
                 };
                 IntersectionResult::Intersecting(vec![solution_1, solution_2])
@@ -255,7 +255,7 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
         let actual_intersections = unique_points_to_consider
             .into_iter()
             .filter_map(|point| {
-                if let (Some(along_a), Some(along_b)) = (
+                if let (Some((along_a, _)), Some((along_b, _))) = (
                     a.project_with_max_distance(point, THICKNESS, THICKNESS),
                     b.project_with_max_distance(point, THICKNESS, THICKNESS),
                 ) {

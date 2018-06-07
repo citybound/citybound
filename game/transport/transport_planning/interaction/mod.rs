@@ -171,9 +171,9 @@ impl Interactable3d for LaneCountInteractable {
             Event3d::DragFinished { from, to, .. } => Some((from, to, true)),
             _ => None,
         } {
-            if let Some(closest_point_along) = self.path.project_with_tolerance(from.into_2d(), 3.0)
+            if let Some((closest_point_along, closest_point)) =
+                self.path.project_with_tolerance(from.into_2d(), 3.0)
             {
-                let closest_point = self.path.along(closest_point_along);
                 let closest_point_direction = self.path.direction_along(closest_point_along);
 
                 let n_lanes_delta = ((to.into_2d() - closest_point)

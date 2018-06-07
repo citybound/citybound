@@ -3,18 +3,23 @@ Intersect, Intersection, IntersectionResult, HasBoundingBox, BoundingBox, THICKN
 use nalgebra::Rotation2;
 
 pub trait Curve: Sized {
-    fn project_with_max_distance(&self, point: P2, max_distance: N, tolerance: N) -> Option<N> {
+    fn project_with_max_distance(
+        &self,
+        point: P2,
+        max_distance: N,
+        tolerance: N,
+    ) -> Option<(N, P2)> {
         self.project_with_tolerance(point, tolerance)
-            .and_then(|offset| {
-                if self.distance_to(point) < max_distance {
-                    Some(offset)
+            .and_then(|(offset, projected_point)| {
+                if (point - projected_point).norm() < max_distance {
+                    Some((offset, projected_point))
                 } else {
                     None
                 }
             })
     }
-    fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<N>;
-    fn project(&self, point: P2) -> Option<N> {
+    fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<(N, P2)>;
+    fn project(&self, point: P2) -> Option<(N, P2)> {
         self.project_with_tolerance(point, THICKNESS)
     }
     fn includes(&self, point: P2) -> bool {
@@ -53,9 +58,12 @@ pub struct Circle {
 }
 
 impl Curve for Circle {
-    fn project_with_tolerance(&self, point: P2, _tolerance: N) -> Option<N> {
+    fn project_with_tolerance(&self, point: P2, _tolerance: N) -> Option<(N, P2)> {
         let angle = angle_along_to(V2::new(1.0, 0.0), V2::new(0.0, 1.0), point - self.center);
-        Some(self.radius * angle)
+        Some((
+            self.radius * angle,
+            self.center + (point - self.center).normalize() * self.radius,
+        ))
     }
 
     fn distance_to(&self, point: P2) -> N {
@@ -70,8 +78,9 @@ pub struct Line {
 }
 
 impl Curve for Line {
-    fn project_with_tolerance(&self, point: P2, _tolerance: N) -> Option<N> {
-        Some((point - self.start).dot(&self.direction))
+    fn project_with_tolerance(&self, point: P2, _tolerance: N) -> Option<(N, P2)> {
+        let along = (point - self.start).dot(&self.direction);
+        Some((along, self.start + along * self.direction))
     }
 
     fn distance_to(&self, point: P2) -> N {
@@ -456,15 +465,20 @@ impl FiniteCurve for Segment {
     }
 }
 
-const MIN_TOLERANCE_ANGLE: N = 0.005;
-
 impl Curve for Segment {
-    fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<N> {
-        if self.is_linear() {
+    fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<(N, P2)> {
+        if (point - self.start).norm() < tolerance {
+            Some((0.0, self.start))
+        } else if (point - self.end).norm() < tolerance {
+            Some((self.length, self.end))
+        } else if self.is_linear() {
             let direction = self.center_or_direction;
             let line_offset = direction.dot(&(point - self.start));
-            if line_offset > -tolerance && line_offset < self.length + tolerance {
-                Some(line_offset.max(0.0).min(self.length))
+            if line_offset >= 0.0 && line_offset <= self.length {
+                Some((
+                    line_offset,
+                    self.start + line_offset * self.center_or_direction,
+                ))
             } else {
                 None
             }
@@ -475,13 +489,14 @@ impl Curve for Segment {
                 point - self.center(),
             );
 
-            let tolerance_angle = (tolerance / self.radius()).max(MIN_TOLERANCE_ANGLE);
             let angle_span = self.length / self.radius();
 
-            if angle_start_to_point <= angle_span + tolerance_angle {
-                Some((angle_start_to_point * self.radius()).min(self.length))
-            } else if angle_start_to_point >= 2.0 * PI - tolerance_angle {
-                Some(0.0)
+            if angle_start_to_point <= angle_span {
+                let point = self.center() + (point - self.center()).normalize() * self.radius();
+                Some((
+                    (angle_start_to_point * self.radius()).min(self.length),
+                    point,
+                ))
             } else {
                 None
             }
@@ -489,37 +504,25 @@ impl Curve for Segment {
     }
 
     // TODO: optimize this
-    fn includes(&self, point: P2) -> bool {
-        let primitive_includes_point = if self.is_linear() {
-            Line {
-                start: self.start,
-                direction: self.center_or_direction,
-            }.includes(point)
-        } else {
-            Circle {
-                center: self.center(),
-                radius: self.radius(),
-            }.includes(point)
-        };
+    // fn includes(&self, point: P2) -> bool {
+    //     let primitive_includes_point = if self.is_linear() {
+    //         Line {
+    //             start: self.start,
+    //             direction: self.center_or_direction,
+    //         }.includes(point)
+    //     } else {
+    //         Circle {
+    //             center: self.center(),
+    //             radius: self.radius(),
+    //         }.includes(point)
+    //     };
 
-        primitive_includes_point && self.project(point).is_some()
-    }
+    //     primitive_includes_point && self.project(point).is_some()
+    // }
 
     fn distance_to(&self, point: P2) -> N {
         match self.project(point) {
-            Some(_offset) => {
-                if self.is_linear() {
-                    Line {
-                        start: self.start,
-                        direction: self.center_or_direction,
-                    }.distance_to(point)
-                } else {
-                    Circle {
-                        center: self.center(),
-                        radius: self.radius(),
-                    }.distance_to(point)
-                }
-            }
+            Some((_offset, projected_point)) => (point - projected_point).norm(),
             None => (self.start - point).norm().min((self.end - point).norm()),
         }
     }
