@@ -280,6 +280,8 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
 
 impl<'a> Intersect for (&'a Path, &'a Path) {
     fn intersect(&self) -> IntersectionResult {
+        // TODO: Replace all this crap by Bentley Ottoman
+
         let (a, b) = *self;
         // let mut intersection_list = Vec::new();
         // for (segment_a, offset_a) in a.segments_with_start_offsets() {
@@ -363,76 +365,6 @@ impl<'a> Intersect for (&'a Path, &'a Path) {
             IntersectionResult::Intersecting(intersection_list)
         }
     }
-}
-
-#[test]
-fn line_segments_apart() {
-    // ----
-    // ----
-
-    assert_eq!(
-        (
-            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
-            &Segment::line(P2::new(0.0, 1.0), P2::new(1.0, 1.0)).unwrap(),
-        ).intersect(),
-        IntersectionResult::Apart
-    );
-
-    // ----  /
-    //      /
-
-    assert_eq!(
-        (
-            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
-            &Segment::line(P2::new(0.0, 1.0), P2::new(2.0, 0.0)).unwrap(),
-        ).intersect(),
-        IntersectionResult::Apart
-    );
-
-    // ----  ----
-
-    assert_eq!(
-        (
-            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
-            &Segment::line(P2::new(2.0, 0.0), P2::new(3.0, 0.0)).unwrap(),
-        ).intersect(),
-        IntersectionResult::Apart
-    );
-}
-
-#[test]
-fn line_segments_intersecting() {
-    //    /
-    // --/--
-    //  /
-
-    assert_eq!(
-        (
-            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
-            &Segment::line(P2::new(0.0, 1.0), P2::new(1.0, -1.0)).unwrap(),
-        ).intersect(),
-        IntersectionResult::Intersecting(vec![Intersection {
-            along_a: 0.5,
-            along_b: 1.118034,
-            position: P2::new(0.5, 0.0),
-        }])
-    );
-
-    // |
-    // |----
-    // |
-
-    assert_eq!(
-        (
-            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
-            &Segment::line(P2::new(0.0, 1.0), P2::new(0.0, -1.0)).unwrap(),
-        ).intersect(),
-        IntersectionResult::Intersecting(vec![Intersection {
-            along_a: 0.0,
-            along_b: 1.0,
-            position: P2::new(0.0, 0.0),
-        }])
-    );
 }
 
 #[cfg(test)]

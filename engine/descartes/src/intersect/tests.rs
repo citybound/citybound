@@ -3,6 +3,76 @@ use super::{P2, N, THICKNESS, Intersect, Intersection, IntersectionResult, Segme
 const TINY_BIT: N = THICKNESS / 3.0;
 
 #[test]
+fn line_segments_apart() {
+    // ----
+    // ----
+
+    assert_eq!(
+        (
+            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
+            &Segment::line(P2::new(0.0, 1.0), P2::new(1.0, 1.0)).unwrap(),
+        ).intersect(),
+        IntersectionResult::Apart
+    );
+
+    // ----  /
+    //      /
+
+    assert_eq!(
+        (
+            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
+            &Segment::line(P2::new(0.0, 1.0), P2::new(2.0, 0.0)).unwrap(),
+        ).intersect(),
+        IntersectionResult::Apart
+    );
+
+    // ----  ----
+
+    assert_eq!(
+        (
+            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
+            &Segment::line(P2::new(2.0, 0.0), P2::new(3.0, 0.0)).unwrap(),
+        ).intersect(),
+        IntersectionResult::Apart
+    );
+}
+
+#[test]
+fn line_segments_intersecting() {
+    //    /
+    // --/--
+    //  /
+
+    assert_eq!(
+        (
+            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
+            &Segment::line(P2::new(0.0, 1.0), P2::new(1.0, -1.0)).unwrap(),
+        ).intersect(),
+        IntersectionResult::Intersecting(vec![Intersection {
+            along_a: 0.5,
+            along_b: 1.118034,
+            position: P2::new(0.5, 0.0),
+        }])
+    );
+
+    // |
+    // |----
+    // |
+
+    assert_eq!(
+        (
+            &Segment::line(P2::new(0.0, 0.0), P2::new(1.0, 0.0)).unwrap(),
+            &Segment::line(P2::new(0.0, 1.0), P2::new(0.0, -1.0)).unwrap(),
+        ).intersect(),
+        IntersectionResult::Intersecting(vec![Intersection {
+            along_a: 0.0,
+            along_b: 1.0,
+            position: P2::new(0.0, 0.0),
+        }])
+    );
+}
+
+#[test]
 fn line_segments_barely_intersecting() {
     // |
     // (----

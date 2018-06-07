@@ -1,5 +1,5 @@
-use super::{PI, N, P2, V2, WithUniqueOrthogonal, angle_along_to, RoughEq, Intersect, Intersection,
-IntersectionResult, HasBoundingBox, BoundingBox, THICKNESS};
+use super::{PI, N, P2, V2, WithUniqueOrthogonal, angle_along_to, signed_angle_to, RoughEq,
+Intersect, Intersection, IntersectionResult, HasBoundingBox, BoundingBox, THICKNESS};
 use nalgebra::Rotation2;
 
 pub trait Curve: Sized {
@@ -285,6 +285,61 @@ impl Segment {
         self.length / self.signed_radius
     }
 
+    pub fn winding_angle(&self, point: P2) -> N {
+        let simple_angle = signed_angle_to(self.start - point, self.end - point);
+
+        if self.is_linear() {
+            simple_angle
+        } else {
+            // simple
+            //     P
+            //  A      B
+            // ;        ;
+            //  \      /
+            //   '-..-'
+
+            //     P
+            //  A      B
+            //   '-..-'
+
+            //  A      B
+            // ;        ;
+            //  \      /
+            //   '-..-'
+            //        P
+
+            //
+            //  A      B
+            //   '-..-'
+            //        P
+
+            // inverse & long
+            //  A      B
+            // ;   P    ;
+            //  \      /
+            //   '-..-'
+
+            //
+            //  A      B
+            //   '-P.-'
+
+            let chord_midpoint = P2::from_coordinates((self.start.coords + self.end.coords) / 2.0);
+            let sagitta_direction =
+                (self.end() - self.start()).normalize().orthogonal() * self.signed_radius.signum();
+            let on_correct_side_of_chord = (self.center() - chord_midpoint).dot(&sagitta_direction)
+                < (self.center() - point).dot(&sagitta_direction);
+
+            let between_chord_and_arc =
+                (point - self.center()).norm() < self.radius() && on_correct_side_of_chord;
+
+            if between_chord_and_arc {
+                (2.0 * PI - simple_angle.abs()) * -simple_angle.signum()
+            } else {
+                simple_angle
+            }
+        }
+    }
+
     pub fn to_svg(&self) -> String {
         if self.is_linear() {
             format!(
@@ -447,17 +502,6 @@ impl Curve for Segment {
             }.includes(point)
         };
 
-        if !(primitive_includes_point && self.project(point).is_some()) {
-            println!(
-                "Segment {:?} close point {} primitive includes: {}, projection: {}, linear: {}",
-                self,
-                point,
-                primitive_includes_point,
-                self.project(point).is_some(),
-                self.is_linear()
-            );
-        }
-
         primitive_includes_point && self.project(point).is_some()
     }
 
@@ -531,3 +575,6 @@ impl ::std::fmt::Debug for Segment {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

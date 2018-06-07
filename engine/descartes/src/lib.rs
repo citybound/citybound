@@ -67,9 +67,16 @@ pub fn angle_along_to(a: V2, a_direction: V2, b: V2) -> N {
     }
 }
 
+pub fn signed_angle_to(a: V2, b: V2) -> N {
+    // https://stackoverflow.com/a/2150475
+    let det = a.x * b.y - a.y * b.x;
+    let dot = a.x * b.x + a.y * b.y;
+    (det).atan2(dot)
+}
+
 //
 //  DESCARTES ASSUMES
-//  A LEFT HAND COORDINATE SYSTEM
+//  A RIGHT HAND COORDINATE SYSTEM
 //
 
 pub trait WithUniqueOrthogonal {

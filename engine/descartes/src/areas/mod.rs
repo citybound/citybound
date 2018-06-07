@@ -1,4 +1,4 @@
-use {P2, V2, N, THICKNESS, RoughEq, VecLike};
+use {P2, V2, N, THICKNESS, RoughEq, VecLike, PI};
 use curves::{Segment, Curve, FiniteCurve, Circle};
 use path::Path;
 use intersect::{Intersect, IntersectionResult};
@@ -52,6 +52,18 @@ impl PrimitiveArea {
                 .iter()
                 .all(|other_segment| self.contains(other_segment.start()))
     }
+
+    pub fn winding_number(&self, point: P2) -> f32 {
+        (self
+            .boundary
+            .segments
+            .iter()
+            .map(|segment| {
+                segment.winding_angle(point)
+            })
+            .sum::<f32>() / (2.0 * PI))
+            .round()
+    }
 }
 
 impl PointContainer for PrimitiveArea {
@@ -59,29 +71,10 @@ impl PointContainer for PrimitiveArea {
         if self.boundary.includes(point) {
             AreaLocation::Boundary
         } else {
-            let ray = Segment::line(point, P2::new(point.x + 10_000_000_000.0, point.y))
-                .expect("Ray should be valid");
-
-            // TODO: allow for ccw holes by checking intersection direction
-            let intersections = match (
-                &Path::new_unchecked(Some(ray).into_iter().collect()),
-                &self.boundary,
-            ).intersect()
-            {
-                IntersectionResult::Intersecting(intersections) => intersections,
-                IntersectionResult::Apart => vec![],
-                IntersectionResult::Coincident => unreachable!(),
-            };
-
-            if intersections
-                .iter()
-                .any(|intersection| intersection.along_a < THICKNESS)
-            {
-                AreaLocation::Boundary
-            } else if intersections.len() % 2 == 1 {
-                AreaLocation::Inside
-            } else {
+            if self.winding_number(point) == 0.0 {
                 AreaLocation::Outside
+            } else {
+                AreaLocation::Inside
             }
         }
     }
@@ -320,6 +313,13 @@ impl Area {
 
         groups.into_iter().map(Area::new).collect()
     }
+
+    fn winding_number(&self, point: P2) -> f32 {
+        self.primitives
+            .iter()
+            .map(|primitive| primitive.winding_number(point))
+            .sum()
+    }
 }
 
 impl PointContainer for Area {
@@ -331,36 +331,10 @@ impl PointContainer for Area {
         {
             AreaLocation::Boundary
         } else {
-            let ray = Segment::line(point, P2::new(point.x + 10_000_000_000.0, point.y))
-                .expect("Ray should be valid");
-
-            // TODO: allow for ccw holes by checking intersection direction
-            let all_intersections = self
-                .primitives
-                .iter()
-                .flat_map(|primitive| {
-                    match (
-                        &Path::new_unchecked(Some(ray).into_iter().collect()),
-                        &primitive.boundary,
-                    ).intersect()
-                    {
-                        IntersectionResult::Intersecting(intersections) => intersections,
-                        IntersectionResult::Apart => vec![],
-                        IntersectionResult::Coincident => unreachable!(),
-                    }
-                })
-                .collect::<Vec<_>>();
-
-            if all_intersections
-                .iter()
-                .any(|intersection| intersection.along_a < THICKNESS)
-            {
-                AreaLocation::Boundary
-            } else if all_intersections.len() % 2 == 1 {
-                println!("{:?}", all_intersections);
-                AreaLocation::Inside
-            } else {
+            if self.winding_number(point) == 0.0 {
                 AreaLocation::Outside
+            } else {
+                AreaLocation::Inside
             }
         }
     }
@@ -476,36 +450,31 @@ impl AreaSplitResult {
         }
 
         if !paths.is_empty() {
-            use std::io::Write;
-            ::std::io::stdout().flush();
-            ::std::thread::sleep_ms(100);
-            println!("{} left over paths", paths.len());
-            ::std::thread::sleep_ms(100);
-            println!("{}", self.debug_svg());
-            ::std::thread::sleep_ms(100);
             for path in &paths {
-                println!(
-                    r#"<path d="{}" stroke="rgba(0, 255, 0, 0.8)"/>"#,
-                    path.to_svg()
-                );
-            }
-
-            for path in &paths {
-                println!(
-                    "Start to closest end: {}",
-                    paths
+                if path.length() > 0.5 {
+                    let min_distance = paths
                         .iter()
                         .map(|other| OrderedFloat((path.start() - other.end()).norm()))
                         .min()
-                        .expect("should have a min")
-                );
+                        .expect("should have a min");
+
+                    if *min_distance < 0.5 {
+                        use std::io::Write;
+
+                        println!("Start to closest end: {}", min_distance);
+                        ::std::thread::sleep_ms(100);
+                        println!("{}", self.debug_svg());
+                        println!("Left over:");
+                        println!(
+                            r#"<path d="{}" stroke="rgba(0, 255, 0, 0.8)"/>"#,
+                            path.to_svg()
+                        );
+                        ::std::io::stdout().flush().unwrap();
+                        ::std::thread::sleep_ms(100);
+                        panic!("Open end!");
+                    }
+                }
             }
-
-            ::std::io::stdout().flush();
-
-            ::std::thread::sleep_ms(100);
-
-            assert!(paths.is_empty());
         }
 
         Area::new(
