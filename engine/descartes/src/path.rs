@@ -42,51 +42,6 @@ impl Path {
         }
     }
 
-    pub fn new_welded(mut segments: VecLike<Segment>, tolerance: N) -> Result<Self, PathError> {
-        if segments.is_empty() {
-            Result::Err(PathError::EmptyPath)
-        } else {
-            let probably_closed = segments
-                .last()
-                .unwrap()
-                .end()
-                .rough_eq_by(segments.first().unwrap().start(), tolerance);
-
-            let original_length = segments.len();
-
-            if probably_closed {
-                let first_again = segments[0];
-                segments.push(first_again);
-            }
-
-            let mut welded_segments: VecLike<Segment> = segments
-                .windows(2)
-                .filter_map(|seg_pair| {
-                    if seg_pair[0].is_linear() {
-                        Segment::line(seg_pair[0].start(), seg_pair[1].start())
-                    } else {
-                        Segment::arc_with_direction(
-                            seg_pair[0].start(),
-                            seg_pair[0].start_direction(),
-                            seg_pair[1].start(),
-                        )
-                    }
-                })
-                .collect();
-
-            if !probably_closed {
-                welded_segments.push(segments.last().cloned().unwrap())
-            }
-
-            if welded_segments.len() < original_length {
-                // some welding resulted in an invalid segment, weld again
-                Self::new_welded(welded_segments, tolerance)
-            } else {
-                Self::new(welded_segments)
-            }
-        }
-    }
-
     pub fn scan_segments<'a>(
         start_offset: &mut StartOffsetState,
         segment: &'a Segment,
@@ -158,16 +113,6 @@ impl Path {
             .unwrap()
             .end()
             .rough_eq_by(self.segments.first().unwrap().start(), THICKNESS)
-    }
-
-    pub fn is_ordered_along(&self, start: N, mid: N, end: N) -> bool {
-        if self.is_closed() {
-            (start <= mid && mid < end)
-                || (end < start && mid >= start)
-                || (end < start && mid < end)
-        } else {
-            start < mid && mid < end
-        }
     }
 
     pub fn concat(&self, other: &Self) -> Result<Self, PathError> {

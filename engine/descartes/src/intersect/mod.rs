@@ -283,32 +283,6 @@ impl<'a> Intersect for (&'a Path, &'a Path) {
         // TODO: Replace all this crap by Bentley Ottoman
 
         let (a, b) = *self;
-        // let mut intersection_list = Vec::new();
-        // for (segment_a, offset_a) in a.segments_with_start_offsets() {
-        //     for (segment_b, offset_b) in b.segments_with_start_offsets() {
-        //         match (segment_a, segment_b).intersect() {
-        //             IntersectionResult::Intersecting(intersections) => {
-        //                 for intersection in intersections {
-        //                     let identical_to_previous =
-        //                         intersection_list.iter().any(|previous_intersection| {
-        //                             (previous_intersection as &Intersection)
-        //                                 .position
-        //                                 .rough_eq_by(intersection.position, THICKNESS)
-        //                         });
-        //                     if !identical_to_previous {
-        //                         intersection_list.push(Intersection {
-        //                             along_a: intersection.along_a + offset_a,
-        //                             along_b: intersection.along_b + offset_b,
-        //                             position: intersection.position,
-        //                         });
-        //                     }
-        //                 }
-        //             }
-        //             IntersectionResult::Apart => {}
-        //             IntersectionResult::Coincident => unreachable!(),
-        //         }
-        //     }
-        // }
 
         let mut raw_intersection_groups = Vec::<Vec<Intersection>>::new();
 

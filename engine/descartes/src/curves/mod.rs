@@ -503,23 +503,6 @@ impl Curve for Segment {
         }
     }
 
-    // TODO: optimize this
-    // fn includes(&self, point: P2) -> bool {
-    //     let primitive_includes_point = if self.is_linear() {
-    //         Line {
-    //             start: self.start,
-    //             direction: self.center_or_direction,
-    //         }.includes(point)
-    //     } else {
-    //         Circle {
-    //             center: self.center(),
-    //             radius: self.radius(),
-    //         }.includes(point)
-    //     };
-
-    //     primitive_includes_point && self.project(point).is_some()
-    // }
-
     fn distance_to(&self, point: P2) -> N {
         match self.project(point) {
             Some((_offset, projected_point)) => (point - projected_point).norm(),
