@@ -545,7 +545,7 @@ impl SwitchLane {
                         .map(|segment| {
                             distance_covered += segment.length();
                             let segment_end_on_other_distance = other_path
-                                .project(segment.end())
+                                .project_with_tolerance(segment.end(), CONNECTION_TOLERANCE)
                                 .expect("should contain switch lane segment end")
                                 .0;
                             (

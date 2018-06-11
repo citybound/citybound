@@ -348,14 +348,17 @@ impl FiniteCurve for Path {
             let maybe_second_half = self.subsection(0.0, end);
 
             match (maybe_first_half, maybe_second_half) {
-                (Some(first_half), Some(second_half)) => {
-                    Some(first_half.concat_weld(&second_half, THICKNESS * 2.0).unwrap_or_else(|_| {
-                        panic!(
-                            "Closed path, should always be continous: {:?} subsection {} - {}, first: {:?} second: {:?}",
-                            self, start, end, first_half, second_half
-                        )
-                    }))
-                }
+                (Some(first_half), Some(second_half)) => Some(
+                    first_half
+                        .concat_weld(&second_half, THICKNESS * 2.0)
+                        .unwrap_or_else(|_| {
+                            panic!(
+                                "Closed path, should always be continous: {:?} subsection {} - \
+                                 {}, first: {:?} second: {:?}",
+                                self, start, end, first_half, second_half
+                            )
+                        }),
+                ),
                 (Some(first_half), None) => Some(first_half),
                 (None, Some(second_half)) => Some(second_half),
                 _ => None,

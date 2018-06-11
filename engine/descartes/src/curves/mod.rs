@@ -112,7 +112,6 @@ fn start_end_invalid(start: P2, end: P2) -> bool {
 impl Segment {
     pub fn line(start: P2, end: P2) -> Option<Segment> {
         if start_end_invalid(start, end) {
-            //panic!("invalid segment!");
             None
         } else {
             Some(Segment {
@@ -127,7 +126,6 @@ impl Segment {
 
     pub fn arc_with_direction(start: P2, direction: V2, end: P2) -> Option<Segment> {
         if start_end_invalid(start, end) {
-            //panic!("invalid segment!");
             None
         } else if direction.rough_eq_by((end - start).normalize(), DIRECTION_TOLERANCE) {
             Segment::line(start, end)
@@ -156,13 +154,6 @@ impl Segment {
     ) -> Option<Vec<Segment>> {
         if start_end_invalid(start, end) {
             return None;
-            // panic!(
-            //     "invalid biarc! {:?}, {:?} -> {:?}, {:?}",
-            //     start,
-            //     start_direction,
-            //     end,
-            //     end_direction
-            // );
         }
         let simple_curve = Segment::arc_with_direction(start, start_direction, end)?;
         if simple_curve
