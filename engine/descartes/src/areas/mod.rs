@@ -4,7 +4,7 @@ use path::Path;
 use intersect::{Intersect, IntersectionResult};
 use ordered_float::OrderedFloat;
 
-const WELDING_TOLERANCE: N = THICKNESS * 30.0;
+const EQUIVALENCE_TOLERANCE: N = THICKNESS * 10.0;
 
 #[derive(Debug)]
 pub struct UnclosedPathError;
@@ -189,10 +189,6 @@ impl Area {
 
                     match ab[other_subject(subject)].location_of(midpoint) {
                         AreaLocation::Inside => {
-                            println!(
-                                "Piece {:?} is inside (midpoint {})",
-                                boundary_piece, midpoint
-                            );
                             boundary_piece.left_inside[other_subject(subject)] = true;
                             boundary_piece.right_inside[other_subject(subject)] = true;
                         }
@@ -212,8 +208,6 @@ impl Area {
 
         let mut unique_boundary_pieces = VecLike::<BoundaryPiece>::new();
 
-        println!("Starting merge");
-
         for boundary_piece in boundary_pieces {
             let found_merge = {
                 // TODO: detect if several pieces are equivalent to one longer one
@@ -226,27 +220,27 @@ impl Area {
                         let forward_equivalent = other_piece
                             .path
                             .start()
-                            .rough_eq_by(boundary_piece.path.start(), WELDING_TOLERANCE / 2.0)
+                            .rough_eq_by(boundary_piece.path.start(), EQUIVALENCE_TOLERANCE)
                             && other_piece
                                 .path
                                 .end()
-                                .rough_eq_by(boundary_piece.path.end(), WELDING_TOLERANCE / 2.0)
-                            && other_piece.path.midpoint().rough_eq_by(
-                                boundary_piece.path.midpoint(),
-                                WELDING_TOLERANCE / 2.0,
-                            );
+                                .rough_eq_by(boundary_piece.path.end(), EQUIVALENCE_TOLERANCE)
+                            && other_piece
+                                .path
+                                .midpoint()
+                                .rough_eq_by(boundary_piece.path.midpoint(), EQUIVALENCE_TOLERANCE);
                         let backward_equivalent = other_piece
                             .path
                             .start()
-                            .rough_eq_by(boundary_piece.path.end(), WELDING_TOLERANCE / 2.0)
+                            .rough_eq_by(boundary_piece.path.end(), EQUIVALENCE_TOLERANCE)
                             && other_piece
                                 .path
                                 .end()
-                                .rough_eq_by(boundary_piece.path.start(), WELDING_TOLERANCE / 2.0)
-                            && other_piece.path.midpoint().rough_eq_by(
-                                boundary_piece.path.midpoint(),
-                                WELDING_TOLERANCE / 2.0,
-                            );
+                                .rough_eq_by(boundary_piece.path.start(), EQUIVALENCE_TOLERANCE)
+                            && other_piece
+                                .path
+                                .midpoint()
+                                .rough_eq_by(boundary_piece.path.midpoint(), EQUIVALENCE_TOLERANCE);
                         (other_piece, forward_equivalent, backward_equivalent)
                     })
                     .find(|(_, forward_equivalent, backward_equivalent)| {
@@ -370,12 +364,36 @@ pub enum PieceRole {
     NonContributing,
 }
 
+fn join_within_vec<I, F: Fn(&I, &I) -> Option<I>>(vector: &mut Vec<I>, joiner: F) {
+    // do-until
+    while {
+        let mut could_join = false;
+
+        let mut i = 0;
+
+        while i + 1 < vector.len() {
+            let mut j = i + 1;
+
+            while j < vector.len() {
+                if let Some(joined) = joiner(&vector[i], &vector[j]) {
+                    vector[i] = joined;
+                    vector.swap_remove(j);
+                    could_join = true;
+                } else {
+                    j += 1;
+                }
+            }
+
+            i += 1;
+        }
+
+        could_join
+    } {}
+}
+
 impl AreaSplitResult {
     pub fn get_area<F: Fn(&BoundaryPiece) -> PieceRole>(&self, piece_filter: F) -> Area {
-        let mut paths = Vec::<Path>::new();
-        let mut complete_paths = Vec::<Path>::new();
-
-        for oriented_path in self
+        let mut paths = self
             .pieces
             .iter()
             .filter_map(|piece| match piece_filter(piece) {
@@ -383,95 +401,74 @@ impl AreaSplitResult {
                 PieceRole::Backward => Some(piece.path.reverse()),
                 PieceRole::NonContributing => None,
             })
-            .filter(|path| path.length() > WELDING_TOLERANCE)
-        {
-            let mut maybe_path_before = None;
-            let mut maybe_path_after = None;
+            .collect::<Vec<_>>();
+        let mut complete_paths = Vec::<Path>::new();
 
-            for (path_i, path) in paths.iter().enumerate() {
-                if path
-                    .end()
-                    .rough_eq_by(oriented_path.start(), WELDING_TOLERANCE)
-                {
-                    maybe_path_before = Some(path_i)
-                }
-                if path
+        let mut combining_tolerance = THICKNESS;
+
+        while !paths.is_empty() && combining_tolerance < 1.0 {
+            join_within_vec(&mut paths, |path_a, path_b| {
+                if path_b
                     .start()
-                    .rough_eq_by(oriented_path.end(), WELDING_TOLERANCE)
+                    .rough_eq_by(path_a.end(), combining_tolerance)
                 {
-                    maybe_path_after = Some(path_i)
+                    Some(
+                        path_a
+                            .concat_weld(&path_b, combining_tolerance)
+                            .expect("Welding should work at this point"),
+                    )
+                } else if path_b
+                    .end()
+                    .rough_eq_by(path_a.start(), combining_tolerance)
+                {
+                    Some(
+                        path_b
+                            .concat_weld(&path_a, combining_tolerance)
+                            .expect("Welding should work at this point"),
+                    )
+                } else {
+                    None
                 }
-            }
+            });
 
-            match (maybe_path_before, maybe_path_after) {
-                (Some(before_i), Some(after_i)) => {
-                    if before_i == after_i {
-                        let joined_path = paths[before_i]
-                            .concat_weld(&oriented_path, WELDING_TOLERANCE)
-                            .expect("Concat must work at this point (J1)");
-
-                        paths.remove(before_i);
-                        complete_paths.push(joined_path);
-                    } else {
-                        let joined_path = paths[before_i]
-                            .concat_weld(&oriented_path, WELDING_TOLERANCE)
-                            .expect("Concat must work at this point (J2)")
-                            .concat_weld(&paths[after_i], WELDING_TOLERANCE)
-                            .expect("Concat must work at this point (J3)");
-
-                        paths.remove(before_i.max(after_i));
-                        paths[before_i.min(after_i)] = joined_path;
-                    }
+            paths.retain(|path| {
+                if path.length() < combining_tolerance {
+                    false
+                } else if path.is_closed() {
+                    complete_paths.push(path.clone());
+                    false
+                } else if (path.start() - path.end()).norm() <= combining_tolerance {
+                    complete_paths.push(path.with_new_start_and_end(path.start(), path.start()));
+                    false
+                } else {
+                    true
                 }
-                (Some(before_i), None) => {
-                    let extended_path = paths[before_i]
-                        .concat_weld(&oriented_path, WELDING_TOLERANCE)
-                        .expect("Concat must work at this point (B)");
+            });
 
-                    paths[before_i] = extended_path;
-                }
-                (None, Some(after_i)) => {
-                    let extended_path = oriented_path
-                        .concat_weld(&paths[after_i], WELDING_TOLERANCE)
-                        .expect("Concat must work at this point (A)");
-
-                    paths[after_i] = extended_path;
-                }
-                (None, None) => {
-                    if oriented_path.is_closed() {
-                        complete_paths.push(oriented_path)
-                    } else {
-                        paths.push(oriented_path)
-                    }
-                }
-            }
+            combining_tolerance *= 2.0;
         }
 
         if !paths.is_empty() {
             for path in &paths {
-                if path.length() > 0.5 {
-                    let min_distance = paths
-                        .iter()
-                        .map(|other| OrderedFloat((path.start() - other.end()).norm()))
-                        .min()
-                        .expect("should have a min");
+                let min_distance = paths
+                    .iter()
+                    .map(|other| OrderedFloat((path.start() - other.end()).norm()))
+                    .min()
+                    .expect("should have a min");
 
-                    if *min_distance < 0.5 {
-                        use std::io::Write;
+                use std::io::Write;
 
-                        println!("Start to closest end: {}", min_distance);
-                        ::std::thread::sleep_ms(100);
-                        println!("{}", self.debug_svg());
-                        println!("Left over:");
-                        println!(
-                            r#"<path d="{}" stroke="rgba(0, 255, 0, 0.8)"/>"#,
-                            path.to_svg()
-                        );
-                        ::std::io::stdout().flush().unwrap();
-                        ::std::thread::sleep_ms(100);
-                        panic!("Open end!");
-                    }
-                }
+                println!("Left over:");
+                println!("Start to closest end: {}", min_distance);
+                ::std::thread::sleep_ms(100);
+                println!("{}", self.debug_svg());
+                println!(
+                    r#"<path d="{}" stroke="rgba(0, 255, 0, 0.8)"/>"#,
+                    path.to_svg()
+                );
+                ::std::io::stdout().flush().unwrap();
+                ::std::thread::sleep_ms(100);
+                panic!("Left over!");
             }
         }
 

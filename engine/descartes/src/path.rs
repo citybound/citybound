@@ -131,7 +131,7 @@ impl Path {
         }
     }
 
-    fn with_new_start_and_end(&self, new_start: P2, new_end: P2) -> Path {
+    pub fn with_new_start_and_end(&self, new_start: P2, new_end: P2) -> Path {
         if self.segments.len() == 1 {
             let new_segment = if self.segments[0].is_linear() {
                 Segment::line(new_start, new_end).expect("New start/end should work A")
@@ -348,11 +348,14 @@ impl FiniteCurve for Path {
             let maybe_second_half = self.subsection(0.0, end);
 
             match (maybe_first_half, maybe_second_half) {
-                (Some(first_half), Some(second_half)) => Some(
-                    first_half
-                        .concat(&second_half)
-                        .expect("Closed path, should always be continous"),
-                ),
+                (Some(first_half), Some(second_half)) => {
+                    Some(first_half.concat_weld(&second_half, THICKNESS).unwrap_or_else(|_| {
+                        panic!(
+                            "Closed path, should always be continous: {:?} subsection {} - {}",
+                            self, start, end
+                        )
+                    }))
+                }
                 (Some(first_half), None) => Some(first_half),
                 (None, Some(second_half)) => Some(second_half),
                 _ => None,

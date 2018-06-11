@@ -185,6 +185,24 @@ impl<'a> Intersect for (&'a Segment, &'a Segment) {
             return IntersectionResult::Apart;
         }
 
+        if a.start().rough_eq_by(b.start(), THICKNESS)
+            && a.end().rough_eq_by(b.end(), THICKNESS)
+            && a.midpoint().rough_eq_by(b.midpoint(), THICKNESS)
+        {
+            return IntersectionResult::Intersecting(vec![
+                Intersection {
+                    along_a: 0.0,
+                    along_b: 0.0,
+                    position: a.start(),
+                },
+                Intersection {
+                    along_a: a.length(),
+                    along_b: b.length(),
+                    position: a.end(),
+                },
+            ]);
+        }
+
         let primitive_intersections = match (a.is_linear(), b.is_linear()) {
             (true, true) => (
                 &Line {
