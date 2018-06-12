@@ -56,7 +56,6 @@ pub fn scan_and_generate(src_prefix: &str) {
 
                     let _ = Command::new("rustfmt")
                         .arg(&auto_path)
-                        .arg("--backup")
                         .spawn();
                 }
             } else {
