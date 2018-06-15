@@ -16,7 +16,7 @@
 
 * The character of a city is largely determined by the sum of its industries
 * The vast majority of consumed resources and services depend on complex chains of earlier resources, these resource chains/trees are at the core of shaping industries, the required logistics and thus also a city
-* The player is not supposed to manage supply/demand/resource chains, but to enable them to be as effective as possible, thorough the means of infrastructure planning and zoning/governance
+* The player is not supposed to manage supply/demand/resource chains, but to enable them to be as effective as possible, through the means of infrastructure planning and zoning/governance
 
 * Even though the amount of information presented in the game might go way beyond realistically knowable things, this contrast in availability of information compared to the real world has an educational and almost call-to-action aspect to it
 
