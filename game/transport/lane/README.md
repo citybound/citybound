@@ -18,7 +18,7 @@
 ## Implementation Decisions
 
 * Each lane keeps track of
-   * it's connectivity to preceeding/following lanes (connected to it's start or end)
+   * it's connectivity to preceding/following lanes (connected to it's start or end)
    * lanes it overlaps, distinguishing between nearly-parallel overlaps and opposing overlaps
 * Special case: two parallel lines that can be merged between are not directly connected
    * instead, an invisible "switch lane" is placed along their range of overlap
