@@ -1,4 +1,5 @@
 .vscode/.browse.VC.db
+.idea/
 target
 imgui.ini
 kay_auto.rs
