@@ -361,7 +361,7 @@ pub enum PieceRole {
 }
 
 fn join_within_vec<I, E, F: Fn(&I, &I) -> Result<Option<I>, E>>(
-    vector: &mut Vec<I>,
+    items: &mut Vec<I>,
     joiner: F,
 ) -> Result<(), E> {
     // do-until
@@ -370,13 +370,13 @@ fn join_within_vec<I, E, F: Fn(&I, &I) -> Result<Option<I>, E>>(
 
         let mut i = 0;
 
-        while i + 1 < vector.len() {
+        while i + 1 < items.len() {
             let mut j = i + 1;
 
-            while j < vector.len() {
-                if let Some(joined) = joiner(&vector[i], &vector[j])? {
-                    vector[i] = joined;
-                    vector.swap_remove(j);
+            while j < items.len() {
+                if let Some(joined) = joiner(&items[i], &items[j])?.or(joiner(&items[j], &items[i])?) {
+                    items[i] = joined;
+                    items.swap_remove(j);
                     could_join = true;
                 } else {
                     j += 1;
@@ -396,8 +396,7 @@ use path::PathError;
 
 #[derive(Debug)]
 pub enum AreaError {
-    ABWeldingShouldWork(PathError),
-    BAWeldingShouldWork(PathError),
+    WeldingShouldWork(PathError),
     LeftOver(String),
 }
 
@@ -428,16 +427,7 @@ impl AreaSplitResult {
                     Ok(Some(
                         path_a
                             .concat_weld(&path_b, combining_tolerance)
-                            .map_err(AreaError::ABWeldingShouldWork)?,
-                    ))
-                } else if path_b
-                    .end()
-                    .rough_eq_by(path_a.start(), combining_tolerance)
-                {
-                    Ok(Some(
-                        path_b
-                            .concat_weld(&path_a, combining_tolerance)
-                            .map_err(AreaError::BAWeldingShouldWork)?,
+                            .map_err(AreaError::WeldingShouldWork)?,
                     ))
                 } else {
                     Ok(None)
