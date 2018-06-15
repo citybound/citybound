@@ -88,10 +88,12 @@ Shrubs are bushes with Woody Branches and are usually larger than a Bush and sma
     * `(` : Denotes the beginning of a variable's parameter list
     * `)` : Close a parameter list
     * `[` : Denotes the beginning of a subtree for a preceding variable/variable-parameters-pair
+      * The same is true for a variable/variable-parameters-pair preceded by a subtree
+      * i.e. root tree structure and trunk/branching tree structure above roots
     * `]` : Close a subtree
 * **Parameters** : `(` `paramsExpr` `)`
 * **Parameters Expression** : `params`
-    * | `params` `,` `params
+    * | `params` `,` `params`
     * | `name` `=` `value`
 * **Name** : `STRING`    
 * **Value** : `value`
@@ -161,15 +163,21 @@ All parts `impl Node`
 1. Seed
   * Begins as a lone seed, usually dried
 2. Germination
-  * `Seed -> Root Sprout`
+  * `Seed -> Seed [ Sprout ]`
   * Germinates after planting with adequate water, food, and maximum distance to surface
 3. Sprout
-  * `1. Sprout -> Root [ Shoot ]`
+  * `1. Seed [ Sprout ] -> Root [ Shoot ]`
   * Becomes a rooted seedling when sprout breaks through soil's surface
   * If the plant is a dicot then the seedling will have two leaves, otherwise it's a whip
 4. Seedling
-  * `1. Root [ Shoot ] -> [Root Root] Branch-Root [ Trunk [ Branch-Green [ Stem [ Leaf ] Shoot Stem [ Leaf ] ] Branch-Green [ Stem [ Leaf ] Shoot Stem [ Leaf ] ] ] ]` (A whip
-  * `1. Root [ Shoot ] -> [Root Root] Branch-Root [ Trunk [ Branch-Green [ Stem [ Leaf Leaf ] Shoot Stem [ Leaf Leaf ] ] Branch-Green [ Stem [ Leaf Leaf ] Shoot Stem [ Leaf Leaf ] ] ] ]` (A dicot plant; notice two leaves per `Stem`)
+  * `1. Root [ Shoot ] -> [ Root Root ] Branch-Root [ Branch-Green [ Stem [ Leaf ] Shoot Stem [ Leaf ] ] ]`
+    * A whip; notice one leaf per `Stem`
+  * `2. Root [ Shoot ] -> [ Root Root ] Branch-Root [ Branch-Green [ Stem [ Leaf Leaf ] Shoot Stem [ Leaf Leaf ] ] ]`
+    * A dicot plant; notice two leaves per `Stem`
+5. Large Seedling
+  * `1. Seedling -> [ [ Root Root ] Branch-Root [ Root Root ] Branch-Root ] Branch-Root [ Branch-Green [ Branch-Green [ Stem [ Leaf ] Shoot Stem [ Leaf ] ] Branch-Green [ Stem [ Leaf ] Shoot Stem [ Leaf ] ] ] ]` (A whip
+  * `2. Seedling -> [ [ Root Root ] Branch-Root [ Root Root ] Branch-Root ] Branch-Root [ Branch-Green [ Branch-Green [ Stem [ Leaf Leaf ] Shoot Stem [ Leaf Leaf ] ] Branch-Green [ Stem [ Leaf Leaf ] Shoot Stem [ Leaf Leaf ] ] ] ]`
+    * A dicot plant; notice two leaves per `Stem`
   * Becomes a Sapling
 5. Sapling
   * **TODO:** L-System Productions
