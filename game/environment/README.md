@@ -13,6 +13,8 @@
 ## Parts
 
 * ~~[Terrain]()~~
-* ~~[Water & Weather]()~~
-* ~~[Vegetation & Pollution]()~~
+* ~~[Water]()~~
+* ~~[Climate, Biomes, & Weather]()~~
+* ~~[Pollution]()~~
+* [Foliage](./foliage)
 * ~~[Culture & Political Context]()~~
