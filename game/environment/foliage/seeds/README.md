@@ -27,6 +27,7 @@
 ### Trees
 * Woody Trunks
 * Woody Branches
+* Green Branches
 * Stems
 * Leaves
 
@@ -45,6 +46,7 @@ Cone-bearing trees usually with pine needles.
 See [12 Broadleaf Evergreen Street Trees](https://www.portlandoregon.gov/parks/article/514100) for a list of broadleaf evergreen trees
 
 ### Bushes
+* Green Branches
 * Stems
 * Leaves
 * "Bushy-ness" factor (i.e. How voluptuous is this bush?)
@@ -57,7 +59,7 @@ See [12 Broadleaf Evergreen Street Trees](https://www.portlandoregon.gov/parks/a
 
 #### Shrubs
 
-Shrubs are bushes with Woody Branches and are usually smaller than a tree. Shrubs also have thicker foliage than that of a Bush.
+Shrubs are bushes with Woody Branches and are usually larger than a Bush and smaller than a Tree. Shrubs also have thicker foliage than that of a Bush.
 
 ### Flowers
 * Stems
@@ -81,10 +83,21 @@ Shrubs are bushes with Woody Branches and are usually smaller than a tree. Shrub
 ### Parametric L-system Notation
 
 * **Variables** : `A`, `B`, `Name`, `Seed`, `Branch`, etc.; Nodes in a plant's L-system tree
-* **Constants** : `->`, `[`, `]`
+* **Constants** : `->`, `(`, `)`, `[`, `]`
     * `->` : Production
-    * `[` : Denotes the beginning of a subtree for a preceding variable
+    * `(` : Denotes the beginning of a variable's parameter list
+    * `)` : Close a parameter list
+    * `[` : Denotes the beginning of a subtree for a preceding variable/variable-parameters-pair
     * `]` : Close a subtree
+* **Parameters** : `(` `paramsExpr` `)`
+* **Parameters Expression** : `params`
+    * | `params` `,` `params
+    * | `name` `=` `value`
+* **Name** : `STRING`    
+* **Value** : `value`
+    * | `UINT`
+    * | `UFLOAT`
+    * | `STRING`
 * **Production** : `A -> B`
     * `A` transforms into `B`
     * Meaning the tree on the left-hand-side is replaced with the right-hand-side
@@ -107,6 +120,7 @@ Shrubs are bushes with Woody Branches and are usually smaller than a tree. Shrub
 
 * Plant
   * `impl Node`
+  * `dicot: bool`
   
 #### Plant Parts
 
@@ -116,8 +130,7 @@ All parts `impl Node`
 * Sprout
 * Root
 * Shoot
-  * Whip (`Shoot-Whip`)
-  * Dicot (`Shoot-Dicot`)
+  * `Shoot` is a dicot if node's root `Plant:dicot` is `true`
 * Trunk
 * Branch
   * Root (`Branch-Root`)
@@ -131,9 +144,9 @@ All parts `impl Node`
 
 * Is a `Trunk` simply a `Branch` with only one child?
   * **No**, a tree's trunk can have branches and still have a trunk continue skywards
-    * So `Trunk` nodes can have child `Trunk` nodes
+        * So `Trunk` nodes can have child `Branch` and `Trunk` nodes, i.e. `Trunk [ Branch Trunk Branch ]`
 
-### Traits, i.e. "is-a"
+### Traits
 
 #### Plant Types
 
@@ -148,15 +161,15 @@ All parts `impl Node`
 1. Seed
   * Begins as a lone seed, usually dried
 2. Germination
-  * `Seed -> Sprout`
+  * `Seed -> Root Sprout`
   * Germinates after planting with adequate water, food, and maximum distance to surface
 3. Sprout
-  * `1. Sprout -> Root [ Shoot-Whip ]`
-  * `2. Sprout -> Root [ Shoot-Dicot ]`
+  * `1. Sprout -> Root [ Shoot ]`
   * Becomes a rooted seedling when sprout breaks through soil's surface
   * If the plant is a dicot then the seedling will have two leaves, otherwise it's a whip
 4. Seedling
-  * `Root [ Shoot-Whip ] -> [Root Root] Branch-Root [ Trunk [ Branch-Green [ Stem [ Leaf ] Shoot-Whip Stem [ Leaf ] ] Branch-Green [ Stem [ Leaf ] Shoot-Whip Stem [ Leaf ] ] ] ]`
+  * `1. Root [ Shoot ] -> [Root Root] Branch-Root [ Trunk [ Branch-Green [ Stem [ Leaf ] Shoot Stem [ Leaf ] ] Branch-Green [ Stem [ Leaf ] Shoot Stem [ Leaf ] ] ] ]` (A whip
+  * `1. Root [ Shoot ] -> [Root Root] Branch-Root [ Trunk [ Branch-Green [ Stem [ Leaf Leaf ] Shoot Stem [ Leaf Leaf ] ] Branch-Green [ Stem [ Leaf Leaf ] Shoot Stem [ Leaf Leaf ] ] ] ]` (A dicot plant; notice two leaves per `Stem`)
   * Becomes a Sapling
 5. Sapling
   * **TODO:** L-System Productions
