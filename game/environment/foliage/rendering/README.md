@@ -11,7 +11,11 @@
 
 * [Lies and Imposters](https://paroj.github.io/gltut/Illumination/Tutorial%2013.html) Chapter 13 - OpenGL Billboarding/Imposter tutorial (Learning Modern 3D Graphics Programming)
 * [Billboarding](http://www.flipcode.com/archives/Billboarding-Excerpt_From_iReal-Time_Renderingi_2E.shtml) excerpt (Real-Time Rendering 2E)
+* [Impostors, Pseudo-instancing and Image Maps for GPU Crowd Rendering](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.98.3592&rep=rep1&type=pdf) (The International Journal of Virtual Reality)
 * [Dynamic 2D Imposters](https://www.gamasutra.com/view/feature/130911/dynamic_2d_imposters_a_simple_.php) generation (Gamasutra)
+* [Imposters Made Easy](https://software.intel.com/en-us/articles/impostors-made-easy) for procedurally generated trees (Intel)
+  * > ... as few as four different trees, which are then rotated and scaled differently, can result in an impressively realistic forest.
+  * We could render a small handful of generated plants per species for "good enough" variation
 
 ## Philosophy
 
