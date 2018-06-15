@@ -15,6 +15,10 @@
 * [Simulated growth of plants](https://en.wikipedia.org/wiki/Simulated_growth_of_plants) (Wikipedia)
   * Includes references to many extant software solutions to model plant growth
 * [L-system branching](http://www.mizuno.org/applet/branching/)
+  * [petgraph](https://github.com/bluss/petgraph) crate
+    * Graph data structure library for Rust
+  * [froggy](https://github.com/kvark/froggy) crate
+    * Component Graph System experiment
 * [/r/proceduralgeneration](https://www.reddit.com/r/proceduralgeneration/search?q=trees&restrict_sr=on)
   * Search for "trees"
 * [IXORA](http://www.ixora.org/) (Private company)
@@ -79,6 +83,10 @@ Shrubs are bushes with Woody Branches and are usually larger than a Bush and sma
 * Machine Learning, an [IXORA](http://www.ixora.org/)-esque tensor-based graph analog?
 
 ## Implementation Philosophy
+
+**Questions**
+* Should the foliage growth model use a tree/graph data structure?
+  * If so, will we need new `CTree` and/or `CGraph` data structures in the [`compact`](https://github.com/citybound/citybound/tree/master/engine/compact) library?
 
 ### Parametric L-system Notation
 
