@@ -14,6 +14,8 @@ use construction::{ConstructionID, Constructable, ConstructableID};
 use super::transport_planning::{RoadPrototype, LanePrototype, SwitchLanePrototype,
 IntersectionPrototype};
 
+use style::dimensions::LANE_DISTANCE;
+
 const CONNECTION_TOLERANCE: f32 = 0.1;
 
 impl RoadPrototype {
@@ -507,17 +509,15 @@ impl SwitchLane {
         world: &mut World,
     ) {
         let projections = (
-            other_path.project(self.construction.path.start()),
-            other_path.project(self.construction.path.end()),
+            other_path.project_with_max_distance(self.construction.path.start(), LANE_DISTANCE, LANE_DISTANCE),
+            other_path.project_with_max_distance(self.construction.path.end(), LANE_DISTANCE, LANE_DISTANCE),
         );
-        if let (Some((lane_start_on_other_distance, _)), Some((lane_end_on_other_distance, _))) =
+        if let (Some((lane_start_on_other_distance, lane_start_on_other)), Some((lane_end_on_other_distance, lane_end_on_other))) =
             projections
         {
             if lane_start_on_other_distance < lane_end_on_other_distance
                 && lane_end_on_other_distance - lane_start_on_other_distance > 6.0
             {
-                let lane_start_on_other = other_path.along(lane_start_on_other_distance);
-                let lane_end_on_other = other_path.along(lane_end_on_other_distance);
 
                 if lane_start_on_other.rough_eq_by(self.construction.path.start(), 3.0)
                     && lane_end_on_other.rough_eq_by(self.construction.path.end(), 3.0)
@@ -545,7 +545,7 @@ impl SwitchLane {
                         .map(|segment| {
                             distance_covered += segment.length();
                             let segment_end_on_other_distance = other_path
-                                .project_with_tolerance(segment.end(), CONNECTION_TOLERANCE)
+                                .project_with_tolerance(segment.end(), LANE_DISTANCE * 1.5)
                                 .expect("should contain switch lane segment end")
                                 .0;
                             (
