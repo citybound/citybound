@@ -10,7 +10,7 @@ artificial, in the plant kingdom. Citybound should reflect that fact.
 ### Nature
 
 * [Biome Classifications](https://en.wikipedia.org/wiki/Biome#Classifications) (Wikipedia)
-* [Tree](https://en.wikipedia.org/wiki/Tree)
+* [Tree](https://en.wikipedia.org/wiki/Tree) (Wikipedia)
 * [Shrub](https://en.wikipedia.org/wiki/Shrub) (Wikipedia)
 
 #### Taxonomies of Life
@@ -88,6 +88,6 @@ Perhaps we can use a Machine Learning/Tensor-based model?
 
 * [Plant Health](./health)
 * [Plant Lifecycle](./lifecycle)
-* [Plant Seeds (Species & Growth Models)](./seeds)
+* [Plant Seeds](./seeds) (Species & Growth Models)
 * [Interaction](./interaction) (Planting & Uprooting Foliage)
 * [Rendering](./rendering)

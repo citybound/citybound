@@ -2,7 +2,8 @@
 
 ## Prior Art & Inspiration
 
-* [Stoma](https://en.wikipedia.org/wiki/Stoma) (Wikipedia) - Plants "breathe" gases (CO2 and Oxygen) through stomata
+* [Stoma](https://en.wikipedia.org/wiki/Stoma) (Wikipedia)
+  * Plants "breathe" gases (CO2 and Oxygen) through stomata
 * [Tree Spacing](http://hort.ifas.ufl.edu/woody/spacing.shtml) (University of Florida: Institute of Food and Agricultural Sciences, Environmental Horticulture - Urban planning)
 
 ## Philosophy
@@ -24,7 +25,7 @@ Factors contributing to a plant's health:
 - Available sunlight
   - Neighboring plants, "Crowdedness" in three dimensions
   - Groundcover likes shade
-  - Trees like lone canopies and to be farther part from each other (See Tree Spacing in [Prior Art & Inspiration](#prior-art--inspiration))
+  - Trees like lone canopies and to be farther part from each other (See [Tree Spacing](#prior-art--inspiration))
 - Heat
 
 **Questions**

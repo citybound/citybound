@@ -19,7 +19,6 @@
   * Includes references to many extant software solutions to model plant growth
 * [L-system branching](http://www.mizuno.org/applet/branching/)
 * [/r/proceduralgeneration](https://www.reddit.com/r/proceduralgeneration/search?q=trees&restrict_sr=on) - Search for "trees"
-* [IXORA](http://www.ixora.org/) (Private company) - Tensor-based graph computations
 * [TensorFlow Rust language bindings](https://github.com/tensorflow/rust)
 * [Algorithmic Botany](http://algorithmicbotany.org/papers/) papers (University of Calgary)
 

@@ -2,6 +2,10 @@
 
 ## Prior Art & Inspiration
 
+* [/r/proceduralgeneration](https://www.reddit.com/r/proceduralgeneration/search?q=trees&restrict_sr=on) - Search for "trees"
+* [IXORA](http://www.ixora.org/) (Private company)
+  * Tensor-based graph computations
+
 ## Philosophy
 
 * A plant is always growing, unless:
