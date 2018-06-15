@@ -33,7 +33,7 @@ impl Renderable for PlanManager {
             .get(renderer_id.as_raw().machine)
             .expect("should have ui state for this renderer")
             .current_proposal;
-        self.ensure_preview(renderer_id.as_raw().machine, proposal_id, world);
+        self.try_ensure_preview(renderer_id.as_raw().machine, proposal_id, world);
     }
 
     fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
@@ -43,20 +43,22 @@ impl Renderable for PlanManager {
             .get(renderer_id.as_raw().machine)
             .expect("should have ui state for this renderer")
             .current_proposal;
-        let (preview, result_preview, maybe_actions_preview) =
-            self.ensure_preview(renderer_id.as_raw().machine, proposal_id, world);
+        let (preview, maybe_result_preview, maybe_actions_preview) =
+            self.try_ensure_preview(renderer_id.as_raw().machine, proposal_id, world);
 
-        for render_fn in &[
-            ::transport::transport_planning::interaction::render_preview,
-            ::land_use::zone_planning::interaction::render_preview,
-        ] {
-            render_fn(
-                result_preview,
-                maybe_actions_preview,
-                renderer_id,
-                frame,
-                world,
-            );
+        if let Some(result_preview) = maybe_result_preview {
+            for render_fn in &[
+                ::transport::transport_planning::interaction::render_preview,
+                ::land_use::zone_planning::interaction::render_preview,
+            ] {
+                render_fn(
+                    result_preview,
+                    maybe_actions_preview,
+                    renderer_id,
+                    frame,
+                    world,
+                );
+            }
         }
 
         for (i, gesture) in preview.gestures.values().enumerate() {

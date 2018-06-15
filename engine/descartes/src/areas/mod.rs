@@ -364,7 +364,10 @@ pub enum PieceRole {
     NonContributing,
 }
 
-fn join_within_vec<I, F: Fn(&I, &I) -> Option<I>>(vector: &mut Vec<I>, joiner: F) {
+fn join_within_vec<I, E, F: Fn(&I, &I) -> Result<Option<I>, E>>(
+    vector: &mut Vec<I>,
+    joiner: F,
+) -> Result<(), E> {
     // do-until
     while {
         let mut could_join = false;
@@ -375,7 +378,7 @@ fn join_within_vec<I, F: Fn(&I, &I) -> Option<I>>(vector: &mut Vec<I>, joiner: F
             let mut j = i + 1;
 
             while j < vector.len() {
-                if let Some(joined) = joiner(&vector[i], &vector[j]) {
+                if let Some(joined) = joiner(&vector[i], &vector[j])? {
                     vector[i] = joined;
                     vector.swap_remove(j);
                     could_join = true;
@@ -389,10 +392,24 @@ fn join_within_vec<I, F: Fn(&I, &I) -> Option<I>>(vector: &mut Vec<I>, joiner: F
 
         could_join
     } {}
+
+    Ok(())
+}
+
+use path::PathError;
+
+#[derive(Debug)]
+pub enum AreaError {
+    ABWeldingShouldWork(PathError),
+    BAWeldingShouldWork(PathError),
+    LeftOver(String),
 }
 
 impl AreaSplitResult {
-    pub fn get_area<F: Fn(&BoundaryPiece) -> PieceRole>(&self, piece_filter: F) -> Area {
+    pub fn get_area<F: Fn(&BoundaryPiece) -> PieceRole>(
+        &self,
+        piece_filter: F,
+    ) -> Result<Area, AreaError> {
         let mut paths = self
             .pieces
             .iter()
@@ -412,24 +429,24 @@ impl AreaSplitResult {
                     .start()
                     .rough_eq_by(path_a.end(), combining_tolerance)
                 {
-                    Some(
+                    Ok(Some(
                         path_a
                             .concat_weld(&path_b, combining_tolerance)
-                            .expect("Welding should work at this point"),
-                    )
+                            .map_err(|err| AreaError::ABWeldingShouldWork(err))?,
+                    ))
                 } else if path_b
                     .end()
                     .rough_eq_by(path_a.start(), combining_tolerance)
                 {
-                    Some(
+                    Ok(Some(
                         path_b
                             .concat_weld(&path_a, combining_tolerance)
-                            .expect("Welding should work at this point"),
-                    )
+                            .map_err(|err| AreaError::BAWeldingShouldWork(err))?,
+                    ))
                 } else {
-                    None
+                    Ok(None)
                 }
-            });
+            })?;
 
             paths.retain(|path| {
                 if path.length() < combining_tolerance {
@@ -438,8 +455,13 @@ impl AreaSplitResult {
                     complete_paths.push(path.clone());
                     false
                 } else if (path.start() - path.end()).norm() <= combining_tolerance {
-                    complete_paths.push(path.with_new_start_and_end(path.start(), path.start()));
-                    false
+                    if let Ok(welded_path) = path.with_new_start_and_end(path.start(), path.start())
+                    {
+                        complete_paths.push(welded_path);
+                        false
+                    } else {
+                        true
+                    }
                 } else {
                     true
                 }
@@ -456,31 +478,27 @@ impl AreaSplitResult {
                     .min()
                     .expect("should have a min");
 
-                use std::io::Write;
-
-                println!("Left over:");
-                println!("Start to closest end: {}", min_distance);
-                ::std::thread::sleep_ms(100);
-                println!("{}", self.debug_svg());
-                println!(
-                    r#"<path d="{}" stroke="rgba(0, 255, 0, 0.8)"/>"#,
-                    path.to_svg()
-                );
-                ::std::io::stdout().flush().unwrap();
-                ::std::thread::sleep_ms(100);
-                panic!("Left over!");
+                return Err(AreaError::LeftOver(format!(
+                    "Start to closest end: {}\n{}\n\n{}",
+                    min_distance,
+                    self.debug_svg(),
+                    format!(
+                        r#"<path d="{}" stroke="rgba(0, 255, 0, 0.8)"/>"#,
+                        path.to_svg()
+                    )
+                )));
             }
         }
 
-        Area::new(
+        Ok(Area::new(
             complete_paths
                 .into_iter()
                 .map(|path| PrimitiveArea::new(path).unwrap())
                 .collect(),
-        )
+        ))
     }
 
-    pub fn intersection(&self) -> Area {
+    pub fn intersection(&self) -> Result<Area, AreaError> {
         self.get_area(|piece| {
             if piece.right_inside[SUBJECT_A] && piece.right_inside[SUBJECT_B] {
                 PieceRole::Forward
@@ -490,7 +508,7 @@ impl AreaSplitResult {
         })
     }
 
-    pub fn union(&self) -> Area {
+    pub fn union(&self) -> Result<Area, AreaError> {
         self.get_area(|piece| {
             if (piece.right_inside[SUBJECT_A] || piece.right_inside[SUBJECT_B])
                 && !(piece.left_inside[SUBJECT_A] || piece.left_inside[SUBJECT_B])
@@ -502,7 +520,7 @@ impl AreaSplitResult {
         })
     }
 
-    pub fn a_minus_b(&self) -> Area {
+    pub fn a_minus_b(&self) -> Result<Area, AreaError> {
         self.get_area(|piece| {
             if piece.right_inside[SUBJECT_A] && !piece.right_inside[SUBJECT_B] {
                 PieceRole::Forward
@@ -514,7 +532,7 @@ impl AreaSplitResult {
         })
     }
 
-    pub fn b_minus_a(&self) -> Area {
+    pub fn b_minus_a(&self) -> Result<Area, AreaError> {
         self.get_area(|piece| {
             if piece.right_inside[SUBJECT_B] && !piece.right_inside[SUBJECT_A] {
                 PieceRole::Forward

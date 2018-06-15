@@ -1,5 +1,6 @@
 use compact::CVec;
-use descartes::{P2, V2, Segment, Area, Path, FiniteCurve, WithUniqueOrthogonal, PointContainer};
+use descartes::{P2, V2, Segment, Area, Path, FiniteCurve, WithUniqueOrthogonal,
+PointContainer, AreaError};
 use land_use::buildings::BuildingStyle;
 use itertools::Itertools;
 
@@ -71,7 +72,7 @@ pub fn calculate_prototypes(
     plan: &Plan,
     current_result: &PlanResult,
     based_on: Version,
-) -> Vec<Prototype> {
+) -> Result<Vec<Prototype>, AreaError> {
     let paved_area_areas = current_result
         .prototypes
         .values()
@@ -87,7 +88,7 @@ pub fn calculate_prototypes(
     let building_prototypes = plan
         .gestures
         .values()
-        .filter_map(|gesture| {
+        .map(|gesture| {
             if let GestureIntent::Building(BuildingIntent {
                 ref lot,
                 building_style,
@@ -98,31 +99,36 @@ pub fn calculate_prototypes(
                 for paved_area_shape in &paved_area_areas {
                     let split = area.split(&paved_area_shape);
 
-                    if let Some(main_piece) = split
-                        .a_minus_b()
-                        .disjoint()
-                        .into_iter()
-                        .find(|piece| piece.contains(lot.center_point()))
-                    {
-                        area = main_piece;
-                    } else {
-                        println!("No piece contains center");
-                        return None;
+                    match split.a_minus_b() {
+                        Ok(pieces) => if let Some(main_piece) = pieces
+                            .disjoint()
+                            .into_iter()
+                            .find(|piece| piece.contains(lot.center_point()))
+                        {
+                            area = main_piece;
+                        } else {
+                            println!("No piece contains center");
+                            return Ok(None);
+                        },
+                        Err(err) => return Err(err),
                     }
                 }
 
-                Some(Prototype::Lot(LotPrototype {
+                Ok(Some(Prototype::Lot(LotPrototype {
                     lot: Lot {
                         area,
                         ..lot.clone()
                     },
                     occupancy: LotOccupancy::Occupied(building_style),
                     based_on,
-                }))
+                })))
             } else {
-                None
+                Ok(None)
             }
         })
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .filter_map(|maybe_proto| maybe_proto)
         .collect::<Vec<_>>();
 
     let vacant_lot_prototypes = {
@@ -172,21 +178,27 @@ pub fn calculate_prototypes(
         let paved_or_built_area = paved_area_areas
             .iter()
             .chain(building_areas.iter())
-            .fold(Area::new(CVec::new()), |union, piece| {
+            .try_fold(Area::new(CVec::new()), |union, piece| {
                 union.split(piece).union()
-            });
+            })?;
 
         land_use_areas = land_use_areas
             .into_iter()
-            .flat_map(|(land_use, shape)| {
+            .map(|(land_use, shape)| {
                 shape
                     .split(&paved_or_built_area)
                     .a_minus_b()
-                    .disjoint()
-                    .into_iter()
-                    .map(|cut_shape| (land_use, cut_shape))
-                    .collect::<Vec<_>>()
+                    .map(|cut_shapes| {
+                        cut_shapes
+                            .disjoint()
+                            .into_iter()
+                            .map(|cut_shape| (land_use, cut_shape))
+                            .collect::<Vec<_>>()
+                    })
             })
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .flat_map(|areas| areas)
             .collect();
 
         land_use_areas
@@ -236,8 +248,8 @@ pub fn calculate_prototypes(
             .collect::<Vec<_>>()
     };
 
-    vacant_lot_prototypes
+    Ok(vacant_lot_prototypes
         .into_iter()
         .chain(building_prototypes)
-        .collect()
+        .collect())
 }

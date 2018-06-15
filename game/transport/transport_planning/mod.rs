@@ -1,6 +1,6 @@
 use compact::{CHashMap, CVec};
 use descartes::{N, P2, V2, Band, Segment, AsArea, Path, FiniteCurve, Area, Intersect,
-IntersectionResult, WithUniqueOrthogonal, RoughEq, PointContainer};
+IntersectionResult, WithUniqueOrthogonal, RoughEq, PointContainer, AreaError};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
@@ -156,7 +156,7 @@ pub fn calculate_prototypes(
     plan: &Plan,
     _current_result: &PlanResult,
     _based_on: Version,
-) -> Vec<Prototype> {
+) -> Result<Vec<Prototype>, AreaError> {
     let gesture_intent_smooth_paths = gesture_intent_smooth_paths(plan);
 
     let gesture_areas_for_intersection = gesture_intent_smooth_paths
@@ -174,14 +174,17 @@ pub fn calculate_prototypes(
         .iter()
         .enumerate()
         .cartesian_product(gesture_areas_for_intersection.iter().enumerate())
-        .flat_map(|((i_a, shape_a), (i_b, shape_b))| {
+        .filter_map(|((i_a, shape_a), (i_b, shape_b))| {
             if i_a == i_b {
-                vec![]
+                None
             } else {
                 let split = shape_a.split(shape_b);
-                split.intersection().disjoint()
+                Some(split.intersection())
             }
         })
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .flat_map(|intersection| intersection.disjoint())
         .collect::<Vec<_>>();
 
     // add intersections at the starts and ends of gestures
@@ -234,7 +237,7 @@ pub fn calculate_prototypes(
     let mut unioned_intersection_area = Area::new(CVec::new());
 
     for intersection_area in &intersection_areas {
-        unioned_intersection_area = unioned_intersection_area.split(intersection_area).union();
+        unioned_intersection_area = unioned_intersection_area.split(intersection_area).union()?;
     }
 
     let intersection_areas = unioned_intersection_area.disjoint();
@@ -462,7 +465,7 @@ pub fn calculate_prototypes(
         }
     }
 
-    intersection_prototypes
+    Ok(intersection_prototypes
         .into_iter()
         .chain(
             intersected_lane_paths
@@ -479,5 +482,5 @@ pub fn calculate_prototypes(
                 .into_iter()
                 .map(|shape| Prototype::Road(RoadPrototype::PavedArea(shape))),
         )
-        .collect()
+        .collect())
 }

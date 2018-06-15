@@ -1,6 +1,6 @@
 use kay::{World, MachineID, ActorSystem, Actor};
 use compact::{CVec, CHashMap};
-use descartes::P2;
+use descartes::{P2, AreaError};
 use stagemaster::UserInterfaceID;
 use uuid::Uuid;
 
@@ -141,7 +141,7 @@ impl PrototypeID {
 }
 
 impl Plan {
-    pub fn calculate_result(&self, based_on: Version) -> PlanResult {
+    pub fn calculate_result(&self, based_on: Version) -> Result<PlanResult, AreaError> {
         let mut result = PlanResult {
             prototypes: CHashMap::new(),
         };
@@ -150,7 +150,7 @@ impl Plan {
             ::transport::transport_planning::calculate_prototypes,
             ::land_use::zone_planning::calculate_prototypes,
         ] {
-            let new_prototypes = prototype_fn(self, &result, based_on);
+            let new_prototypes = prototype_fn(self, &result, based_on)?;
 
             for (id, prototype) in new_prototypes
                 .into_iter()
@@ -160,7 +160,7 @@ impl Plan {
             }
         }
 
-        result
+        Ok(result)
     }
 }
 
@@ -230,10 +230,9 @@ impl PlanManager {
         self.master_plan = self.master_plan.merge(proposal.current_history());
         self.master_version = Version(proposal_id);
 
-        Construction::global_first(world).implement(
-            self.master_plan.calculate_result(self.master_version),
-            world,
-        );
+        if let Ok(result) = self.master_plan.calculate_result(self.master_version) {
+            Construction::global_first(world).implement(result, world);
+        }
 
         self.implemented_proposals.insert(proposal_id, proposal);
 

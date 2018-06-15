@@ -11,6 +11,7 @@ type ScanIter<'a> =
 pub enum PathError {
     EmptyPath,
     NotContinuous,
+    NewStartEndInvalidSegment,
 }
 
 #[cfg_attr(feature = "compact_containers", derive(Compact))]
@@ -131,46 +132,43 @@ impl Path {
         }
     }
 
-    pub fn with_new_start_and_end(&self, new_start: P2, new_end: P2) -> Path {
+    pub fn with_new_start_and_end(&self, new_start: P2, new_end: P2) -> Result<Path, PathError> {
         if self.segments.len() == 1 {
             let new_segment = if self.segments[0].is_linear() {
-                Segment::line(new_start, new_end).expect("New start/end should work A")
+                Segment::line(new_start, new_end).ok_or(PathError::NewStartEndInvalidSegment)?
             } else {
                 Segment::arc_with_direction(new_start, self.segments[0].start_direction(), new_end)
-                    .unwrap_or_else(|| {
-                        Segment::line(new_start, new_end).expect("New start/end should work B")
-                    })
+                    .or_else(|| Segment::line(new_start, new_end))
+                    .ok_or(PathError::NewStartEndInvalidSegment)?
             };
 
-            Path::new_unchecked(Some(new_segment).into_iter().collect())
+            Ok(Path::new_unchecked(Some(new_segment).into_iter().collect()))
         } else {
             let first_segment = self.segments.first().unwrap();
             let last_segment = self.segments.last().unwrap();
 
             let new_last_segment = if last_segment.is_linear() {
-                Segment::line(last_segment.start(), new_end).expect("New start/end should work C")
+                Segment::line(last_segment.start(), new_end)
+                    .ok_or(PathError::NewStartEndInvalidSegment)?
             } else {
                 Segment::arc_with_direction(
                     last_segment.start(),
                     last_segment.start_direction(),
                     new_end,
-                ).unwrap_or_else(|| {
-                    Segment::line(last_segment.start(), new_end)
-                        .expect("New start/end should work D")
-                })
+                ).or_else(|| Segment::line(last_segment.start(), new_end))
+                    .ok_or(PathError::NewStartEndInvalidSegment)?
             };
 
             let new_first_segment = if first_segment.is_linear() {
-                Segment::line(new_start, first_segment.end()).expect("New start/end should work E")
+                Segment::line(new_start, first_segment.end())
+                    .ok_or(PathError::NewStartEndInvalidSegment)?
             } else {
                 Segment::arc_with_direction(
                     new_start,
                     first_segment.start_direction(),
                     first_segment.end(),
-                ).unwrap_or_else(|| {
-                    Segment::line(new_start, first_segment.end())
-                        .expect("New start/end should work F")
-                })
+                ).or_else(|| Segment::line(new_start, first_segment.end()))
+                    .ok_or(PathError::NewStartEndInvalidSegment)?
             };
 
             let segments = Some(new_first_segment)
@@ -179,7 +177,7 @@ impl Path {
                 .chain(Some(new_last_segment))
                 .collect();
 
-            Path::new(segments).expect("New start/end should work G")
+            Path::new(segments)
         }
     }
 
@@ -199,7 +197,7 @@ impl Path {
             };
 
             let new_path = self
-                .with_new_start_and_end(new_start, new_end)
+                .with_new_start_and_end(new_start, new_end)?
                 .concat(other)
                 .expect("Normal concat should work at this point");
 
@@ -348,17 +346,10 @@ impl FiniteCurve for Path {
             let maybe_second_half = self.subsection(0.0, end);
 
             match (maybe_first_half, maybe_second_half) {
-                (Some(first_half), Some(second_half)) => Some(
-                    first_half
-                        .concat_weld(&second_half, THICKNESS * 2.0)
-                        .unwrap_or_else(|_| {
-                            panic!(
-                                "Closed path, should always be continous: {:?} subsection {} - \
-                                 {}, first: {:?} second: {:?}",
-                                self, start, end, first_half, second_half
-                            )
-                        }),
-                ),
+                (Some(first_half), Some(second_half)) => {
+                    // TODO: propagate errors here instead of returning None?
+                    first_half.concat_weld(&second_half, THICKNESS * 2.0).ok()
+                }
                 (Some(first_half), None) => Some(first_half),
                 (None, Some(second_half)) => Some(second_half),
                 _ => None,

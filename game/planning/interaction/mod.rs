@@ -81,12 +81,12 @@ impl PlanManager {
     }
 
     #[allow(mutable_transmutes)]
-    pub fn ensure_preview(
+    pub fn try_ensure_preview(
         &self,
         machine_id: MachineID,
         proposal_id: ProposalID,
         world: &mut World,
-    ) -> (&Plan, &PlanResult, &Option<CVec<CVec<Action>>>) {
+    ) -> (&Plan, Option<&PlanResult>, &Option<CVec<CVec<Action>>>) {
         let ui_state = self
             .ui_state
             .get(machine_id)
@@ -106,22 +106,24 @@ impl PlanManager {
                     .get(proposal_id)
                     .unwrap()
                     .apply_to_with_ongoing(&self.master_plan);
-                let preview_plan_result = preview_plan.calculate_result(self.master_version);
 
+                if let Ok(preview_plan_result) = preview_plan.calculate_result(self.master_version)
+                {
+                    Construction::global_first(world).simulate(
+                        preview_plan_result.clone(),
+                        self.id,
+                        proposal_id,
+                        world,
+                    );
+                    ui_state_mut.current_result_preview = COption(Some(preview_plan_result));
+                }
                 ui_state_mut.current_preview = COption(Some(preview_plan));
-                Construction::global_first(world).simulate(
-                    preview_plan_result.clone(),
-                    self.id,
-                    proposal_id,
-                    world,
-                );
-                ui_state_mut.current_result_preview = COption(Some(preview_plan_result));
             }
         }
 
         (
             ui_state.current_preview.as_ref().unwrap(),
-            ui_state.current_result_preview.as_ref().unwrap(),
+            ui_state.current_result_preview.as_ref(),
             &*ui_state.current_action_preview,
         )
     }
@@ -160,7 +162,7 @@ impl PlanManager {
             if gesture_ongoing {
                 CVec::new()
             } else {
-                let (preview, ..) = self.ensure_preview(machine_id, proposal_id, world);
+                let (preview, ..) = self.try_ensure_preview(machine_id, proposal_id, world);
 
                 preview
                     .gestures
