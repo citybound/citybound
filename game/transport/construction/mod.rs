@@ -509,16 +509,25 @@ impl SwitchLane {
         world: &mut World,
     ) {
         let projections = (
-            other_path.project_with_max_distance(self.construction.path.start(), LANE_DISTANCE, LANE_DISTANCE),
-            other_path.project_with_max_distance(self.construction.path.end(), LANE_DISTANCE, LANE_DISTANCE),
+            other_path.project_with_max_distance(
+                self.construction.path.start(),
+                LANE_DISTANCE,
+                LANE_DISTANCE,
+            ),
+            other_path.project_with_max_distance(
+                self.construction.path.end(),
+                LANE_DISTANCE,
+                LANE_DISTANCE,
+            ),
         );
-        if let (Some((lane_start_on_other_distance, lane_start_on_other)), Some((lane_end_on_other_distance, lane_end_on_other))) =
-            projections
+        if let (
+            Some((lane_start_on_other_distance, lane_start_on_other)),
+            Some((lane_end_on_other_distance, lane_end_on_other)),
+        ) = projections
         {
             if lane_start_on_other_distance < lane_end_on_other_distance
                 && lane_end_on_other_distance - lane_start_on_other_distance > 6.0
             {
-
                 if lane_start_on_other.rough_eq_by(self.construction.path.start(), 3.0)
                     && lane_end_on_other.rough_eq_by(self.construction.path.end(), 3.0)
                 {

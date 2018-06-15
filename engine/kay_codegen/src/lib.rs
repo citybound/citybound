@@ -54,9 +54,7 @@ pub fn scan_and_generate(src_prefix: &str) {
                         file.write_all(auto_file.as_bytes()).unwrap();
                     }
 
-                    let _ = Command::new("rustfmt")
-                        .arg(&auto_path)
-                        .spawn();
+                    let _ = Command::new("rustfmt").arg(&auto_path).spawn();
                 }
             } else {
                 panic!("couldn't load");
