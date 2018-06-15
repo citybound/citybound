@@ -175,23 +175,24 @@ All parts `impl Node`
   * `2. Root [ Shoot ] -> [ Root Root ] Branch-Root [ Branch-Green [ Stem [ Leaf Leaf ] Shoot Stem [ Leaf Leaf ] ] ]`
     * A dicot plant; notice two leaves per `Stem`
 5. Large Seedling
-  * `1. Seedling -> [ [ Root Root ] Branch-Root [ Root Root ] Branch-Root ] Branch-Root [ Branch-Green [ Branch-Green [ Stem [ Leaf ] Shoot Stem [ Leaf ] ] Branch-Green [ Stem [ Leaf ] Shoot Stem [ Leaf ] ] ] ]` (A whip
+  * `1. Seedling -> [ [ Root Root ] Branch-Root [ Root Root ] Branch-Root ] Branch-Root [ Branch-Green [ Branch-Green [ Stem [ Leaf ] Shoot Stem [ Leaf ] ] Branch-Green [ Stem [ Leaf ] Shoot Stem [ Leaf ] ] ] ]`
+    * A whip; notice one leaf per `Stem`
   * `2. Seedling -> [ [ Root Root ] Branch-Root [ Root Root ] Branch-Root ] Branch-Root [ Branch-Green [ Branch-Green [ Stem [ Leaf Leaf ] Shoot Stem [ Leaf Leaf ] ] Branch-Green [ Stem [ Leaf Leaf ] Shoot Stem [ Leaf Leaf ] ] ] ]`
     * A dicot plant; notice two leaves per `Stem`
   * Becomes a Sapling
-5. Sapling
+6. Sapling
   * **TODO:** L-System Productions
   * Branching root structure
   * Smooth bark on a woody trunk
   * "Symmetric" green branches
   * "Symmetric" stems with leaves surrounding green shoots
-6. Primary growth
+7. Primary growth
   * **TODO:** L-System Productions
   * More root branches
   * Rough bark trunk
   * Less rough bark branches
   * Green branches, stems, shoots, and leaves
-7. Adult Lifecycle
+8. Adult Lifecycle
   * **TODO:** L-System Productions
   * Reproductive leaf nodes
 
