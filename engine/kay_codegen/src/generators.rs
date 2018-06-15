@@ -75,7 +75,7 @@ impl Model {
         &self,
         origin: HandlerOrigin,
         map_f: F,
-    ) -> (Vec<Vec<Vec<O>>>, Vec<Vec<Vec<O>>>)
+    ) -> (TraitHandlersArgs<O>, TraitHandlersArgs<O>)
     where
         F: Fn(&FnArg) -> O,
     {
@@ -469,7 +469,7 @@ fn arg_as_value_type(arg: &FnArg) -> Ty {
 fn typ_to_message_prefix(typ: &Ty, with_trait: Option<&Path>) -> String {
     let segments = if let Some(path) = with_trait {
         &path.segments
-    } else if let &Ty::Path(_, Path { ref segments, .. }) = typ {
+    } else if let Ty::Path(_, Path { ref segments, .. }) = *typ {
         segments
     } else {
         unimplemented!()

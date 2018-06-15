@@ -75,12 +75,10 @@ impl<'a> Intersect for (&'a Line, &'a Line) {
                 along_b: (delta.y * a.direction.x - delta.x * a.direction.y) / det,
                 position: a.start + a.direction * along_a,
             }])
+        } else if a.includes(b.start) {
+            IntersectionResult::Coincident
         } else {
-            if a.includes(b.start) {
-                IntersectionResult::Coincident
-            } else {
-                IntersectionResult::Apart
-            }
+            IntersectionResult::Apart
         }
     }
 }

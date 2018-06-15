@@ -68,12 +68,10 @@ impl PointContainer for PrimitiveArea {
     fn location_of(&self, point: P2) -> AreaLocation {
         if self.boundary.includes(point) {
             AreaLocation::Boundary
+        } else if self.winding_number(point) == 0.0 {
+            AreaLocation::Outside
         } else {
-            if self.winding_number(point) == 0.0 {
-                AreaLocation::Outside
-            } else {
-                AreaLocation::Inside
-            }
+            AreaLocation::Inside
         }
     }
 }
@@ -322,12 +320,10 @@ impl PointContainer for Area {
             .any(|primtive| primtive.boundary.includes(point))
         {
             AreaLocation::Boundary
+        } else if self.winding_number(point) == 0.0 {
+            AreaLocation::Outside
         } else {
-            if self.winding_number(point) == 0.0 {
-                AreaLocation::Outside
-            } else {
-                AreaLocation::Inside
-            }
+            AreaLocation::Inside
         }
     }
 }
@@ -432,7 +428,7 @@ impl AreaSplitResult {
                     Ok(Some(
                         path_a
                             .concat_weld(&path_b, combining_tolerance)
-                            .map_err(|err| AreaError::ABWeldingShouldWork(err))?,
+                            .map_err(AreaError::ABWeldingShouldWork)?,
                     ))
                 } else if path_b
                     .end()
@@ -441,7 +437,7 @@ impl AreaSplitResult {
                     Ok(Some(
                         path_b
                             .concat_weld(&path_a, combining_tolerance)
-                            .map_err(|err| AreaError::BAWeldingShouldWork(err))?,
+                            .map_err(AreaError::BAWeldingShouldWork)?,
                     ))
                 } else {
                     Ok(None)
@@ -471,23 +467,21 @@ impl AreaSplitResult {
         }
 
         if !paths.is_empty() {
-            for path in &paths {
-                let min_distance = paths
-                    .iter()
-                    .map(|other| OrderedFloat((path.start() - other.end()).norm()))
-                    .min()
-                    .expect("should have a min");
+            let min_distance = paths
+                .iter()
+                .map(|other| OrderedFloat((paths[0].start() - other.end()).norm()))
+                .min()
+                .expect("should have a min");
 
-                return Err(AreaError::LeftOver(format!(
-                    "Start to closest end: {}\n{}\n\n{}",
-                    min_distance,
-                    self.debug_svg(),
-                    format!(
-                        r#"<path d="{}" stroke="rgba(0, 255, 0, 0.8)"/>"#,
-                        path.to_svg()
-                    )
-                )));
-            }
+            return Err(AreaError::LeftOver(format!(
+                "Start to closest end: {}\n{}\n\n{}",
+                min_distance,
+                self.debug_svg(),
+                format!(
+                    r#"<path d="{}" stroke="rgba(0, 255, 0, 0.8)"/>"#,
+                    paths[0].to_svg()
+                )
+            )));
         }
 
         Ok(Area::new(

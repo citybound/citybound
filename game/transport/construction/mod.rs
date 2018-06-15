@@ -527,54 +527,52 @@ impl SwitchLane {
         {
             if lane_start_on_other_distance < lane_end_on_other_distance
                 && lane_end_on_other_distance - lane_start_on_other_distance > 6.0
+                && lane_start_on_other.rough_eq_by(self.construction.path.start(), 3.0)
+                && lane_end_on_other.rough_eq_by(self.construction.path.end(), 3.0)
             {
-                if lane_start_on_other.rough_eq_by(self.construction.path.start(), 3.0)
-                    && lane_end_on_other.rough_eq_by(self.construction.path.end(), 3.0)
-                {
-                    other_id.add_switch_lane_interaction(
-                        Interaction {
-                            partner_lane: self.id_as(),
-                            start: lane_start_on_other_distance,
-                            partner_start: 0.0,
-                            kind: InteractionKind::Overlap {
-                                end: lane_start_on_other_distance + self.construction.length,
-                                partner_end: self.construction.length,
-                                kind: OverlapKind::Transfer,
-                            },
+                other_id.add_switch_lane_interaction(
+                    Interaction {
+                        partner_lane: self.id_as(),
+                        start: lane_start_on_other_distance,
+                        partner_start: 0.0,
+                        kind: InteractionKind::Overlap {
+                            end: lane_start_on_other_distance + self.construction.length,
+                            partner_end: self.construction.length,
+                            kind: OverlapKind::Transfer,
                         },
-                        world,
-                    );
+                    },
+                    world,
+                );
 
-                    let mut distance_covered = 0.0;
-                    let distance_map = self
-                        .construction
-                        .path
-                        .segments
-                        .iter()
-                        .map(|segment| {
-                            distance_covered += segment.length();
-                            let segment_end_on_other_distance = other_path
-                                .project_with_tolerance(segment.end(), LANE_DISTANCE * 1.5)
-                                .expect("should contain switch lane segment end")
-                                .0;
-                            (
-                                distance_covered,
-                                segment_end_on_other_distance - lane_start_on_other_distance,
-                            )
-                        })
-                        .collect();
+                let mut distance_covered = 0.0;
+                let distance_map = self
+                    .construction
+                    .path
+                    .segments
+                    .iter()
+                    .map(|segment| {
+                        distance_covered += segment.length();
+                        let segment_end_on_other_distance = other_path
+                            .project_with_tolerance(segment.end(), LANE_DISTANCE * 1.5)
+                            .expect("should contain switch lane segment end")
+                            .0;
+                        (
+                            distance_covered,
+                            segment_end_on_other_distance - lane_start_on_other_distance,
+                        )
+                    })
+                    .collect();
 
-                    let other_is_right = (lane_start_on_other - self.construction.path.start())
-                        .dot(&self.construction.path.start_direction().orthogonal())
-                        > 0.0;
+                let other_is_right = (lane_start_on_other - self.construction.path.start())
+                    .dot(&self.construction.path.start_direction().orthogonal())
+                    > 0.0;
 
-                    if other_is_right {
-                        self.connectivity.right = Some((other_id, lane_start_on_other_distance));
-                        self.connectivity.right_distance_map = distance_map;
-                    } else {
-                        self.connectivity.left = Some((other_id, lane_start_on_other_distance));
-                        self.connectivity.left_distance_map = distance_map;
-                    }
+                if other_is_right {
+                    self.connectivity.right = Some((other_id, lane_start_on_other_distance));
+                    self.connectivity.right_distance_map = distance_map;
+                } else {
+                    self.connectivity.left = Some((other_id, lane_start_on_other_distance));
+                    self.connectivity.left_distance_map = distance_map;
                 }
             }
         }
