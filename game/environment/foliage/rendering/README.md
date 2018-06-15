@@ -5,6 +5,7 @@
 * [/r/proceduralgeneration](https://www.reddit.com/r/proceduralgeneration/search?q=trees&restrict_sr=on) - Search for "trees"
 * [IXORA](http://www.ixora.org/) (Private company)
   * Tensor-based graph computations
+  * [CG growing basil](https://www.youtube.com/watch?v=qdd3M6ilc2M&t=0s&index=2&list=PLT48XojLMCzNCb73z19LFQlSNEMIQdGo-) (YouTube)
 
 ## Philosophy
 
