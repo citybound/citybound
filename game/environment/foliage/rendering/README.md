@@ -7,6 +7,12 @@
   * Tensor-based graph computations
   * [CG growing basil](https://www.youtube.com/watch?v=qdd3M6ilc2M&t=0s&index=2&list=PLT48XojLMCzNCb73z19LFQlSNEMIQdGo-) (YouTube)
 
+### Techniques
+
+* [Lies and Imposters](https://paroj.github.io/gltut/Illumination/Tutorial%2013.html) Chapter 13 - OpenGL Billboarding/Imposter tutorial (Learning Modern 3D Graphics Programming)
+* [Billboarding](http://www.flipcode.com/archives/Billboarding-Excerpt_From_iReal-Time_Renderingi_2E.shtml) excerpt (Real-Time Rendering 2E)
+* [Dynamic 2D Imposters](https://www.gamasutra.com/view/feature/130911/dynamic_2d_imposters_a_simple_.php) generation (Gamasutra)
+
 ## Philosophy
 
 * A plant is always growing, unless:
