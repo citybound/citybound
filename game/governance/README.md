@@ -8,7 +8,7 @@
 
 ## Implementation Philosophy
 
-## Implementation Decsisions
+## Implementation Decisions
 
 ## Parts
 
