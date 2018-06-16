@@ -14,7 +14,8 @@ use construction::{ConstructionID, Constructable, ConstructableID};
 use super::transport_planning::{RoadPrototype, LanePrototype, SwitchLanePrototype,
 IntersectionPrototype};
 
-use style::dimensions::{LANE_CONNECTION_TOLERANCE, MAX_SWITCHING_LANE_DISTANCE, MIN_SWITCHING_LANE_LENGTH};
+use style::dimensions::{LANE_CONNECTION_TOLERANCE, MAX_SWITCHING_LANE_DISTANCE,
+MIN_SWITCHING_LANE_LENGTH};
 
 impl RoadPrototype {
     pub fn construct(&self, report_to: ConstructionID, world: &mut World) -> CVec<ConstructableID> {

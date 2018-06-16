@@ -10,7 +10,8 @@ mod intersection_connections;
 mod smooth_path;
 pub mod interaction;
 pub use self::interaction::setup;
-use style::dimensions::{LANE_DISTANCE, CENTER_LANE_DISTANCE, MIN_SWITCHING_LANE_LENGTH, SWITCHING_LANE_OVERLAP_TOLERANCE};
+use style::dimensions::{LANE_DISTANCE, CENTER_LANE_DISTANCE, MIN_SWITCHING_LANE_LENGTH,
+SWITCHING_LANE_OVERLAP_TOLERANCE};
 
 #[derive(Copy, Clone)]
 pub struct RoadIntent {
