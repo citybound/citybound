@@ -132,21 +132,19 @@ pub fn calculate_prototypes(
         .collect::<Vec<_>>();
 
     let vacant_lot_prototypes = {
-        let building_areas = building_prototypes
-            .iter()
-            .filter_map(|prototype| {
-                if let Prototype::Lot(LotPrototype {
-                    occupancy: LotOccupancy::Occupied(_),
-                    lot: Lot { ref area, .. },
-                    ..
-                }) = *prototype
-                {
-                    Some(area)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
+        let building_areas = plan
+        .gestures
+        .values()
+        .filter_map(|gesture| {
+            if let GestureIntent::Building(BuildingIntent {
+                lot: Lot { ref area, .. },..
+            }) = gesture.intent
+            {
+                Some(area)
+            } else {
+                None
+            }
+        }).collect::<Vec<_>>();
 
         let mut land_use_areas = plan
             .gestures
@@ -176,8 +174,9 @@ pub fn calculate_prototypes(
             .collect::<Vec<_>>();
 
         let paved_or_built_area = paved_area_areas
-            .iter()
-            .chain(building_areas.iter())
+            .clone()
+            .into_iter()
+            .chain(building_areas)
             .try_fold(Area::new(CVec::new()), |union, piece| {
                 union.split(piece).union()
             })?;
