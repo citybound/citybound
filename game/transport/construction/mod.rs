@@ -524,8 +524,10 @@ impl SwitchLane {
         ) = projections
         {
             if lane_start_on_other_distance < lane_end_on_other_distance
-                && lane_end_on_other_distance - lane_start_on_other_distance > MIN_SWITCHING_LANE_LENGTH
-                && lane_start_on_other.rough_eq_by(self.construction.path.start(), MAX_SWITCHING_LANE_DISTANCE)
+                && lane_end_on_other_distance - lane_start_on_other_distance
+                    > MIN_SWITCHING_LANE_LENGTH
+                && lane_start_on_other
+                    .rough_eq_by(self.construction.path.start(), MAX_SWITCHING_LANE_DISTANCE)
                 && lane_end_on_other.rough_eq_by(self.construction.path.end(), 3.0)
             {
                 other_id.add_switch_lane_interaction(

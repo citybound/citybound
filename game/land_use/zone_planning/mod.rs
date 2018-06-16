@@ -133,18 +133,20 @@ pub fn calculate_prototypes(
 
     let vacant_lot_prototypes = {
         let building_areas = plan
-        .gestures
-        .values()
-        .filter_map(|gesture| {
-            if let GestureIntent::Building(BuildingIntent {
-                lot: Lot { ref area, .. },..
-            }) = gesture.intent
-            {
-                Some(area)
-            } else {
-                None
-            }
-        }).collect::<Vec<_>>();
+            .gestures
+            .values()
+            .filter_map(|gesture| {
+                if let GestureIntent::Building(BuildingIntent {
+                    lot: Lot { ref area, .. },
+                    ..
+                }) = gesture.intent
+                {
+                    Some(area)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
 
         let mut land_use_areas = plan
             .gestures

@@ -374,7 +374,9 @@ fn join_within_vec<I, E, F: Fn(&I, &I) -> Result<Option<I>, E>>(
             let mut j = i + 1;
 
             while j < items.len() {
-                if let Some(joined) = joiner(&items[i], &items[j])?.or(joiner(&items[j], &items[i])?) {
+                if let Some(joined) =
+                    joiner(&items[i], &items[j])?.or(joiner(&items[j], &items[i])?)
+                {
                     items[i] = joined;
                     items.swap_remove(j);
                     could_join = true;

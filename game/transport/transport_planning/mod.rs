@@ -453,7 +453,8 @@ pub fn calculate_prototypes(
                 } else {
                     vec![]
                 }
-            }).filter(|path| path.length() > MIN_SWITCHING_LANE_LENGTH)
+            })
+            .filter(|path| path.length() > MIN_SWITCHING_LANE_LENGTH)
     };
 
     for prototype in &mut intersection_prototypes {
