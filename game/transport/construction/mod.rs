@@ -14,9 +14,7 @@ use construction::{ConstructionID, Constructable, ConstructableID};
 use super::transport_planning::{RoadPrototype, LanePrototype, SwitchLanePrototype,
 IntersectionPrototype};
 
-use style::dimensions::LANE_DISTANCE;
-
-const CONNECTION_TOLERANCE: f32 = 0.1;
+use style::dimensions::{LANE_CONNECTION_TOLERANCE, MAX_SWITCHING_LANE_DISTANCE, MIN_SWITCHING_LANE_LENGTH};
 
 impl RoadPrototype {
     pub fn construct(&self, report_to: ConstructionID, world: &mut World) -> CVec<ConstructableID> {
@@ -163,7 +161,7 @@ impl Lane {
 
         let mut connected = false;
 
-        if other_start.rough_eq_by(self.construction.path.end(), CONNECTION_TOLERANCE) {
+        if other_start.rough_eq_by(self.construction.path.end(), LANE_CONNECTION_TOLERANCE) {
             connected = true;
 
             let already_a_partner = self.connectivity.interactions.iter().any(|interaction| {
@@ -188,7 +186,7 @@ impl Lane {
             super::pathfinding::on_connect(self);
         }
 
-        if other_end.rough_eq_by(self.construction.path.start(), CONNECTION_TOLERANCE) {
+        if other_end.rough_eq_by(self.construction.path.start(), LANE_CONNECTION_TOLERANCE) {
             connected = true;
 
             let already_a_partner = self.connectivity.interactions.iter().any(|interaction| {
@@ -511,13 +509,13 @@ impl SwitchLane {
         let projections = (
             other_path.project_with_max_distance(
                 self.construction.path.start(),
-                LANE_DISTANCE,
-                LANE_DISTANCE,
+                MAX_SWITCHING_LANE_DISTANCE,
+                MAX_SWITCHING_LANE_DISTANCE,
             ),
             other_path.project_with_max_distance(
                 self.construction.path.end(),
-                LANE_DISTANCE,
-                LANE_DISTANCE,
+                MAX_SWITCHING_LANE_DISTANCE,
+                MAX_SWITCHING_LANE_DISTANCE,
             ),
         );
         if let (
@@ -526,8 +524,8 @@ impl SwitchLane {
         ) = projections
         {
             if lane_start_on_other_distance < lane_end_on_other_distance
-                && lane_end_on_other_distance - lane_start_on_other_distance > 6.0
-                && lane_start_on_other.rough_eq_by(self.construction.path.start(), 3.0)
+                && lane_end_on_other_distance - lane_start_on_other_distance > MIN_SWITCHING_LANE_LENGTH
+                && lane_start_on_other.rough_eq_by(self.construction.path.start(), MAX_SWITCHING_LANE_DISTANCE)
                 && lane_end_on_other.rough_eq_by(self.construction.path.end(), 3.0)
             {
                 other_id.add_switch_lane_interaction(
@@ -553,7 +551,7 @@ impl SwitchLane {
                     .map(|segment| {
                         distance_covered += segment.length();
                         let segment_end_on_other_distance = other_path
-                            .project_with_tolerance(segment.end(), LANE_DISTANCE * 1.5)
+                            .project_with_tolerance(segment.end(), MAX_SWITCHING_LANE_DISTANCE)
                             .expect("should contain switch lane segment end")
                             .0;
                         (

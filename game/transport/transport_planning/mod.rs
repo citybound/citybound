@@ -10,7 +10,7 @@ mod intersection_connections;
 mod smooth_path;
 pub mod interaction;
 pub use self::interaction::setup;
-use style::dimensions::{LANE_DISTANCE, CENTER_LANE_DISTANCE};
+use style::dimensions::{LANE_DISTANCE, CENTER_LANE_DISTANCE, MIN_SWITCHING_LANE_LENGTH, SWITCHING_LANE_OVERLAP_TOLERANCE};
 
 #[derive(Copy, Clone)]
 pub struct RoadIntent {
@@ -364,7 +364,6 @@ pub fn calculate_prototypes(
     };
 
     let switch_lane_paths = {
-        const TRANSFER_LANE_DISTANCE_TOLERANCE: N = 0.3;
         let right_lane_paths_and_bands = intersected_lane_paths
             .iter()
             .filter_map(|path| {
@@ -372,7 +371,7 @@ pub fn calculate_prototypes(
                     .map(|right_path| {
                         (
                             right_path.clone(),
-                            Band::new(right_path, TRANSFER_LANE_DISTANCE_TOLERANCE),
+                            Band::new(right_path, SWITCHING_LANE_OVERLAP_TOLERANCE),
                         )
                     })
             })
@@ -385,7 +384,7 @@ pub fn calculate_prototypes(
                     .map(|left_path| {
                         (
                             left_path.clone(),
-                            Band::new(left_path, TRANSFER_LANE_DISTANCE_TOLERANCE),
+                            Band::new(left_path, SWITCHING_LANE_OVERLAP_TOLERANCE),
                         )
                     })
             })
@@ -434,7 +433,7 @@ pub fn calculate_prototypes(
                                             left_path.along(
                                                 (first_along_left + second_along_left) / 2.0,
                                             ),
-                                            TRANSFER_LANE_DISTANCE_TOLERANCE,
+                                            SWITCHING_LANE_OVERLAP_TOLERANCE,
                                         ) {
                                         right_path.subsection(first_along_right, second_along_right)
                                     } else {
@@ -454,7 +453,7 @@ pub fn calculate_prototypes(
                 } else {
                     vec![]
                 }
-            })
+            }).filter(|path| path.length() > MIN_SWITCHING_LANE_LENGTH)
     };
 
     for prototype in &mut intersection_prototypes {
