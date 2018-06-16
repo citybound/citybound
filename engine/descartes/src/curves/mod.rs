@@ -514,11 +514,17 @@ impl HasBoundingBox for Segment {
     fn bounding_box(&self) -> BoundingBox {
         if self.is_linear() {
             BoundingBox {
-                min: P2::new(self.start.x.min(self.end.x), self.start.y.min(self.end.y)),
-                max: P2::new(self.start.x.max(self.end.x), self.start.y.max(self.end.y)),
+                min: P2::new(
+                    self.start.x.min(self.end.x) - THICKNESS,
+                    self.start.y.min(self.end.y) - THICKNESS,
+                ),
+                max: P2::new(
+                    self.start.x.max(self.end.x) + THICKNESS,
+                    self.start.y.max(self.end.y) + THICKNESS,
+                ),
             }
         } else {
-            let half_diagonal = V2::new(self.radius(), self.radius());
+            let half_diagonal = V2::new(self.radius() + THICKNESS, self.radius() + THICKNESS);
             BoundingBox {
                 min: self.center() - half_diagonal,
                 max: self.center() + half_diagonal,

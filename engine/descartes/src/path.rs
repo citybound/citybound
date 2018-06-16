@@ -375,12 +375,11 @@ impl FiniteCurve for Path {
         let segments = self
             .segments
             .iter()
-            .filter_map(|segment| segment.shift_orthogonally(shift_to_right))
-            .collect::<Vec<_>>();
-        let mut glued_segments = VecLike::new();
-        let mut window_segments_iter = segments.iter().peekable();
+            .filter_map(|segment| segment.shift_orthogonally(shift_to_right));
+        let mut glued_segments = VecLike::with_capacity(self.segments.len());
+        let mut window_segments_iter = segments.peekable();
         while let Some(segment) = window_segments_iter.next() {
-            glued_segments.push(*segment);
+            glued_segments.push(segment);
             match window_segments_iter.peek() {
                 Some(next_segment) => {
                     if !segment.end().rough_eq_by(next_segment.start(), THICKNESS) {
@@ -393,10 +392,9 @@ impl FiniteCurve for Path {
         if glued_segments.is_empty() {
             None
         } else {
-            let was_closed = self.end().rough_eq_by(self.start(), THICKNESS);
             let new_end = glued_segments.last().unwrap().end();
             let new_start = glued_segments[0].start();
-            if was_closed && !new_end.rough_eq_by(new_start, THICKNESS) {
+            if self.is_closed() && !new_end.rough_eq_by(new_start, THICKNESS) {
                 glued_segments.push(Segment::line(new_end, new_start)?);
             }
             Some(Self::new(glued_segments).unwrap())

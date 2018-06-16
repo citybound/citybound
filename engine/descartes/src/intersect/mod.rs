@@ -175,11 +175,7 @@ impl<'a> Intersect for (&'a Circle, &'a Circle) {
 impl<'a> Intersect for (&'a Segment, &'a Segment) {
     fn intersect(&self) -> IntersectionResult {
         let (a, b) = *self;
-        if !a
-            .bounding_box()
-            .grown_by(THICKNESS)
-            .overlaps(&b.bounding_box().grown_by(THICKNESS))
-        {
+        if !a.bounding_box().overlaps(&b.bounding_box()) {
             return IntersectionResult::Apart;
         }
 
