@@ -8,7 +8,7 @@
 ## Philosophy
 
 * All macro-economic behaviours arise from interactions of individual households (families, companies) `(emergence)`
-* Members of households have both selfish and shared goals, resulting in a tradeoff between individuality and cooperation
+* Members of households have both selfish and shared goals, resulting in a trade-off between individuality and cooperation
 * Locality of households and interactions is essential and enables all kinds of logistics and distributed industries
    * All resources that have to physically moved in real life have to also be moved in Citybound
 
@@ -16,9 +16,9 @@
 
 * The character of a city is largely determined by the sum of its industries
 * The vast majority of consumed resources and services depend on complex chains of earlier resources, these resource chains/trees are at the core of shaping industries, the required logistics and thus also a city
-* The player is not supposed to manage supply/demand/resource chains, but to enable them to be as effective as possible, thorugh the means of infrastructure planning and zoning/governance
+* The player is not supposed to manage supply/demand/resource chains, but to enable them to be as effective as possible, through the means of infrastructure planning and zoning/governance
 
-* Even though the amount of information presented in the game might go way beyond realisticly knowable things, this contrast in availabiltiy of information compared to the real world has an educational and almost call-to-action aspect to it
+* Even though the amount of information presented in the game might go way beyond realistically knowable things, this contrast in availability of information compared to the real world has an educational and almost call-to-action aspect to it
 
 * Individuals act as a lens to see the game world from, other than the players birds-eye-view
 * Overall "macro" appearance of the city hints at general issues which might inspire you to investigate in detail
@@ -36,11 +36,11 @@
 
 ## Implementation Decisions
 
-* Resources represent both tangible goods as well as intangible (phsychological, physiological, social) metrics
-* All of these are measured using scalar values, from -infinitiy to infinity
+* Resources represent both tangible goods as well as intangible (psychological, physiological, social) metrics
+* All of these are measured using scalar values, from -infinity to infinity
    * these values represent how well a household is doing on a particular resource (0 representing ideal), not necessarily absolute stockpile values
-* One houshold and its associated resources are always tied to one specific building/location - if this is one location of a larger company, these cooperate mostly as if they were separate businesses
-* "Crafting recipies" to determine both how resource combine, at which costs, and which businesses do that
+* One household and its associated resources are always tied to one specific building/location - if this is one location of a larger company, these cooperate mostly as if they were separate businesses
+* "Crafting recipes" to determine both how resource combine, at which costs, and which businesses do that
 
 ## Parts
 
