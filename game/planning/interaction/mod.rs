@@ -107,16 +107,26 @@ impl PlanManager {
                     .unwrap()
                     .apply_to_with_ongoing(&self.master_plan);
 
-                if let Ok(preview_plan_result) = preview_plan.calculate_result(self.master_version)
-                {
-                    Construction::global_first(world).simulate(
-                        preview_plan_result.clone(),
-                        self.id,
-                        proposal_id,
-                        world,
-                    );
-                    ui_state_mut.current_result_preview = COption(Some(preview_plan_result));
+                match preview_plan.calculate_result(self.master_version) {
+                    Ok(preview_plan_result) => {
+                        Construction::global_first(world).simulate(
+                            preview_plan_result.clone(),
+                            self.id,
+                            proposal_id,
+                            world,
+                        );
+                        ui_state_mut.current_result_preview = COption(Some(preview_plan_result));
+                    }
+                    Err(err) => match err {
+                        ::descartes::AreaError::LeftOver(string) => {
+                            println!("Preview Plan Error: {}", string);
+                        }
+                        _ => {
+                            println!("Preview Plan Error: {:?}", err);
+                        }
+                    },
                 }
+
                 ui_state_mut.current_preview = COption(Some(preview_plan));
             }
         }

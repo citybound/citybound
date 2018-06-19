@@ -230,34 +230,43 @@ impl PlanManager {
         self.master_plan = self.master_plan.merge(proposal.current_history());
         self.master_version = Version(proposal_id);
 
-        if let Ok(result) = self.master_plan.calculate_result(self.master_version) {
-            Construction::global_first(world).implement(result, world);
-        }
+        match self.master_plan.calculate_result(self.master_version) {
+            Ok(result) => {
+                Construction::global_first(world).implement(result, world);
+                self.implemented_proposals.insert(proposal_id, proposal);
 
-        self.implemented_proposals.insert(proposal_id, proposal);
+                let potentially_affected_ui_states = self
+                    .ui_state
+                    .values()
+                    .map(|state| (state.current_proposal, state.user_interface))
+                    .collect::<Vec<_>>();
 
-        let potentially_affected_ui_states = self
-            .ui_state
-            .values()
-            .map(|state| (state.current_proposal, state.user_interface))
-            .collect::<Vec<_>>();
+                for (current_proposal, user_interface) in potentially_affected_ui_states {
+                    if current_proposal == proposal_id {
+                        let new_proposal_id = ProposalID::new();
 
-        for (current_proposal, user_interface) in potentially_affected_ui_states {
-            if current_proposal == proposal_id {
-                let new_proposal_id = ProposalID::new();
+                        self.proposals.insert(new_proposal_id, Proposal::new());
 
-                self.proposals.insert(new_proposal_id, Proposal::new());
+                        self.switch_to(user_interface, new_proposal_id, world);
+                    }
+                }
 
-                self.switch_to(user_interface, new_proposal_id, world);
+                let all_proposal_ids = self.proposals.keys().cloned().collect::<Vec<_>>();
+                for old_proposal_id in all_proposal_ids {
+                    if old_proposal_id != proposal_id {
+                        self.clear_previews(old_proposal_id);
+                        self.recreate_gesture_interactables(old_proposal_id, world);
+                    }
+                }
             }
-        }
-
-        let all_proposal_ids = self.proposals.keys().cloned().collect::<Vec<_>>();
-        for old_proposal_id in all_proposal_ids {
-            if old_proposal_id != proposal_id {
-                self.clear_previews(old_proposal_id);
-                self.recreate_gesture_interactables(old_proposal_id, world);
-            }
+            Err(err) => match err {
+                ::descartes::AreaError::LeftOver(string) => {
+                    println!("Implement Plan Error: {}", string);
+                }
+                _ => {
+                    println!("Implement Plan Error: {:?}", err);
+                }
+            },
         }
     }
 
