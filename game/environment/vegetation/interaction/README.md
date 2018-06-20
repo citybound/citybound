@@ -1,31 +1,31 @@
-# Foliage Interaction
+# Vegetation Interaction
 
 ## Prior Art & Inspiration
 
 ## Philosophy
 
-### Planting Foliage
+### Planting Vegetation
 
-Roads sketching with specified green medians or green strips next to sidewalks shall automatically plant foliage.
+Roads sketching with specified green medians or green strips next to sidewalks shall automatically plant vegetation.
 * Let the player decide on mixtures of trees, shrubs and bushes, flowers, etc.
 
-These zone types plant foliage automatically for the player:
+These zone types plant vegetation automatically for the player:
 * Agricultural (plants are annual/seasonal)
 * Residential
 * Offices
 * Parks and Plazas
-  * Parks can make use of existing foliage
+  * Parks can make use of existing vegetation
 
 Zones have user-configurable properties for green space allotments and plant types.
 
-### Uprooting Foliage
+### Uprooting Vegetation
 
-* Construction in the city will uproot (bulldoze) foliage
+* Construction in the city will uproot (bulldoze) vegetation
 * Uprooted trees may be sent to a city's _Logging_ industry for use in Wood products
 
-#### Transplanting Uprooted Foliage
+#### Transplanting Uprooted Vegetation
 
-* Uprooted foliage may be transplanted to a city's Parks or to other empty green spaces
+* Uprooted vegetation may be transplanted to a city's Parks or to other empty green spaces
 * A plant may only be moved to a new location if a new location satisfied the following requirements:
   * Available space is large enough to hold the plant
     * Land is clear

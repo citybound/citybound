@@ -1,4 +1,4 @@
-# Foliage Rendering
+# Vegetation Rendering
 
 ## Prior Art & Inspiration
 

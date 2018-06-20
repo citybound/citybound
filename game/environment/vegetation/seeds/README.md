@@ -85,7 +85,7 @@ Shrubs are bushes with Woody Branches and are usually larger than a Bush and sma
 ## Implementation Philosophy
 
 **Questions**
-* Should the foliage growth model use a tree/graph data structure?
+* Should the vegetation growth model use a tree/graph data structure?
   * If so, will we need new `CTree` and/or `CGraph` data structures in the [`compact`](https://github.com/citybound/citybound/tree/master/engine/compact) library?
 
 ### Parametric L-system Notation

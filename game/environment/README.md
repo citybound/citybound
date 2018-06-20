@@ -16,5 +16,5 @@
 * ~~[Water]()~~
 * ~~[Climate, Biomes, & Weather]()~~
 * ~~[Pollution]()~~
-* [Foliage](./foliage)
+* [Vegetation](./vegetation)
 * ~~[Culture & Political Context]()~~

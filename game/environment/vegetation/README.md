@@ -1,4 +1,4 @@
-# Foliage
+# Vegetation
 
 Deciduous and evergreen plants exhibit different lifecycles. Some plants die in
 a drought. Agriculture is built off the backs of plants. Plants in a rainforest
@@ -30,9 +30,9 @@ artificial, in the plant kingdom. Citybound should reflect that fact.
 * Plants in a rainforest are super-green and lush
 * Citybound should reflect the myriad of diversity in the plant kingdom, both natural and artificial
 
-* When a new game starts the city will have been pre-planted with foliage
-* The player will build on, over, and around this extant foliage
-* Foliage may be planted or uprooted as the player zones their city
+* When a new game starts the city will have been pre-planted with vegetation
+* The player will build on, over, and around this extant vegetation
+* Vegetation may be planted or uprooted as the player zones their city
 * The foliage of a city literally breathes, evolves, and grows
 
 ### Plant Types
@@ -51,12 +51,12 @@ artificial, in the plant kingdom. Citybound should reflect that fact.
 * Annual (e.g. Tulips)
   * Crops
 
-### Foliage as an Emergent System `(emergence)`
+### Vegetation as an Emergent System `(emergence)`
 
 * From a city's ~~[Climate]()~~ emerges its ~~[Biome]()~~
-* From the current ~~[Season]()~~ and ~~[Weather]()~~ emerges [Plant Health]() and the visual representation of foliage
+* From the current ~~[Season]()~~ and ~~[Weather]()~~ emerges [Plant Health]() and the visual representation of vegetation
 
-#### ~~[Agriculture]()~~/Crops are Foliage
+#### ~~[Agriculture]()~~/Crops are Vegetation
 
 * A crop's health is a function of its plants' health
   * So, for example, if a particular Summer season is so hot as to cause a drought and the city's water supply is taxed then a crop's health may degrade due to a lack of water
@@ -72,7 +72,7 @@ artificial, in the plant kingdom. Citybound should reflect that fact.
 
 ## Decisions
 
-* All foliage is procedurally generated
+* All vegetation is procedurally generated
 
 ## Implementation Philosophy
 
@@ -89,5 +89,5 @@ Perhaps we can use a Machine Learning/Tensor-based model?
 * [Plant Health](./health)
 * [Plant Lifecycle](./lifecycle)
 * [Plant Seeds](./seeds) (Species & Growth Models)
-* [Interaction](./interaction) (Planting & Uprooting Foliage)
+* [Interaction](./interaction) (Planting & Uprooting Vegetation)
 * [Rendering](./rendering)
