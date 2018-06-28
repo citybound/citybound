@@ -49,7 +49,7 @@ impl<'a> AreaSplitResult<'a> {
         let piece_points = self
             .pieces
             .iter()
-            .flat_map(|piece| vec![piece.start, piece.end])
+            .flat_map(|piece| piece.to_path().map(|path| path.points.clone()).unwrap_or(Vec::new()))
             .collect::<Vec<_>>();
 
         let min_x = *piece_points
@@ -113,19 +113,19 @@ impl<'a> AreaSplitResult<'a> {
                     let mut side_paths = vec![];
 
                     if piece.left_inside[SUBJECT_A] {
-                        side_paths.push((-stroke_width, "rgba(0, 0, 255, 0.3)"));
-                    }
-
-                    if piece.left_inside[SUBJECT_B] {
-                        side_paths.push((-stroke_width, "rgba(255, 0, 0, 0.3)"));
-                    }
-
-                    if piece.right_inside[SUBJECT_A] {
                         side_paths.push((stroke_width, "rgba(0, 0, 255, 0.3)"));
                     }
 
-                    if piece.right_inside[SUBJECT_B] {
+                    if piece.left_inside[SUBJECT_B] {
                         side_paths.push((stroke_width, "rgba(255, 0, 0, 0.3)"));
+                    }
+
+                    if piece.right_inside[SUBJECT_A] {
+                        side_paths.push((-stroke_width, "rgba(0, 0, 255, 0.3)"));
+                    }
+
+                    if piece.right_inside[SUBJECT_B] {
+                        side_paths.push((-stroke_width, "rgba(255, 0, 0, 0.3)"));
                     }
 
                     side_paths
@@ -145,20 +145,22 @@ impl<'a> AreaSplitResult<'a> {
     }
 }
 
-impl<'a> RoughEq for &'a LinePath {
+impl<'a> RoughEq for &'a ClosedLinePath {
     fn rough_eq_by(&self, other: Self, tolerance: N) -> bool {
-        self.points
-            .iter()
-            .zip(other.points.iter())
-            .all(|(a, b)| a.rough_eq_by(*b, tolerance))
+        // TODO: is this really equality?
+        self.path().points.len() == other.path().points.len() &&
+        self.path().segments().all(|self_segment|
+            other.path().segments().any(|other_segment|
+                self_segment.start().rough_eq_by(other_segment.start(), tolerance) && self_segment.end().rough_eq_by(other_segment.end(), tolerance)
+            )
+        )
     }
 }
 
 impl<'a> RoughEq for &'a PrimitiveArea {
     fn rough_eq_by(&self, other: Self, tolerance: N) -> bool {
-        self.boundary
-            .path()
-            .rough_eq_by(other.boundary.path(), tolerance)
+        (&self.boundary)
+            .rough_eq_by(&other.boundary, tolerance)
     }
 }
 
@@ -275,7 +277,7 @@ fn clip_2_intersection() {
 fn clip_3_difference() {
     svg_test("./src/areas/tests/3_difference.svg");
 }
-/*
+
 #[test]
 fn area_intersecting_at_curved_road() {
     use V2;
@@ -393,4 +395,3 @@ fn area_intersecting_before_curved_road() {
         ]).unwrap()
     );
 }
-*/

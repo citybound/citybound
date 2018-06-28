@@ -323,7 +323,13 @@ impl LinePath {
         LinePath::new(
             Some(self.along(start))
                 .into_iter()
-                .chain(self.points.iter().cloned())
+                .chain(self.points.iter().zip(self.distances.iter()).filter_map(|(&point, &distance)|
+                    if start < distance && end > distance {
+                        Some(point)
+                    } else {
+                        None
+                    }
+                ))
                 .chain(Some(self.along(end)))
                 .collect(),
         )
@@ -341,6 +347,8 @@ impl LinePath {
             .into_iter()
             .chain(angle_bisectors)
             .chain(Some(self.last_segment().direction().orthogonal()));
+
+        // TODO: THIS IS WRONG!! THE SHIFT DISTANCE DEPENDS ON ANGLE!!!
 
         let new_points = self
             .points

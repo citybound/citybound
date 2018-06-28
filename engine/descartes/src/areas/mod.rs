@@ -287,8 +287,11 @@ impl Area {
                         // to close the loop when taking piece-cutting windows
                         let first = primitive_distances_points[0];
                         primitive_distances_points.push(first);
+
                     }
                 }
+                
+                println!("INTERSECTION POINTS DISTANCES \n{:?}", intersection_distances_points);
 
                 let mut boundary_pieces_initial = unintersected_pieces
                     .into_iter()
@@ -316,6 +319,10 @@ impl Area {
                             }),
                     )
                     .collect::<Vec<_>>();
+
+                    println!("BOUNDARY PIECES INITIAL \n{:#?}", boundary_pieces_initial.iter().map(|piece|
+                        format!("({}/{} - {} - {}/{}", piece.start, piece.start_distance, piece.midpoint, piece.end, piece.end_distance)
+                    ).collect::<Vec<_>>());
 
                 for boundary_piece in &mut boundary_pieces_initial {
                     match ab[other_subject(subject)].location_of(boundary_piece.midpoint) {
@@ -380,6 +387,10 @@ impl Area {
                 unique_boundary_pieces.push(boundary_piece);
             }
         }
+
+        println!("UNIQUE PIECES \n{:#?}", unique_boundary_pieces.iter().map(|piece|
+                        format!("({}/{} - {} - {}/{}, Path: {:?}", piece.start, piece.start_distance, piece.midpoint, piece.end, piece.end_distance, piece.to_path().unwrap().points.iter().map(|p| format!("{}", p)).collect::<Vec<_>>())
+                    ).collect::<Vec<_>>());
 
         AreaSplitResult {
             pieces: unique_boundary_pieces,
@@ -449,6 +460,11 @@ impl<'a> AreaSplitResult<'a> {
                 PieceRole::NonContributing => None,
             })
             .collect::<Vec<_>>();
+
+        println!("PATHS \n{:#?}", paths.iter().map(|path|
+                        format!("Path: {:?}", path.points.iter().map(|p| format!("{}", p)).collect::<Vec<_>>())
+                    ).collect::<Vec<_>>());
+
         let mut complete_paths = Vec::<ClosedLinePath>::new();
 
         let mut combining_tolerance = THICKNESS;
