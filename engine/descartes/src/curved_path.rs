@@ -122,13 +122,12 @@ impl CurvedPath {
             } else {
                 let start_ray = LineSegment(start, start + RAY_LENGTH * start_direction);
                 let end_ray = LineSegment(end, end - RAY_LENGTH * end_direction);
-                let maybe_linear_intersection = (start_ray, end_ray)
-                    .intersect()
-                    .into_iter()
-                    .find(|intersection| {
+                let maybe_linear_intersection = (start_ray, end_ray).intersect().into_iter().find(
+                    |intersection| {
                         intersection.along_a < 0.8 * RAY_LENGTH
                             && intersection.along_b < 0.8 * RAY_LENGTH
-                    });
+                    },
+                );
 
                 let (connection_position, connection_direction) =
                     if let Some(Intersection { position, .. }) = maybe_linear_intersection {
