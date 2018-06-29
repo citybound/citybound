@@ -1,4 +1,4 @@
-use {N, P2, V2, VecLike, angle_to, Rotation2};
+use {N, P2, V2, VecLike, signed_angle_to, Rotation2};
 use line_path::{LinePath, ConcatError, LineSegment};
 use intersect::{Intersect, Intersection};
 use rough_eq::{RoughEq, THICKNESS};
@@ -55,7 +55,7 @@ impl CurvedSegment {
         match self {
             CurvedSegment::Line(start, end) => (start - end).norm(),
             CurvedSegment::Arc(start, center, end) => {
-                let angle_span = angle_to(end - center, start - center).abs();
+                let angle_span = signed_angle_to(end - center, start - center).abs();
                 let radius = (start - center).norm();
                 radius * angle_span
             }
@@ -71,7 +71,7 @@ pub struct CurvedPath {
 }
 
 const ARC_DIRECTION_TOLERANCE: N = 0.0001;
-const CURVE_LINEARIZATION_MAX_ANGLE: N = 0.03;
+const CURVE_LINEARIZATION_MAX_ANGLE: N = 0.1;
 
 /// Creation
 impl CurvedPath {
@@ -205,6 +205,14 @@ impl CurvedPath {
             }
         }
     }
+
+    pub fn circle(center: P2, radius: N) -> Option<Self> {
+        let top = center + V2::new(0.0, radius);
+        let bottom = center + V2::new(0.0, -radius);
+        let right_segment = Self::arc(top, V2::new(1.0, 0.0), bottom)?;
+        let left_segment = Self::arc(bottom, V2::new(-1.0, 0.0), top)?;
+        right_segment.concat(&left_segment).ok()
+    }
 }
 
 /// Inspection
@@ -286,7 +294,8 @@ impl CurvedPath {
             .flat_map(|segment| match segment {
                 CurvedSegment::Line(start, _end) => vec![start],
                 CurvedSegment::Arc(start, center, end) => {
-                    let signed_angle_span = angle_to(end - center, start - center);
+                    let signed_angle_span = signed_angle_to(start - center, end - center);
+                    
                     let subdivisions =
                         (signed_angle_span.abs() / max_angle).max(1.0).floor() as usize;
                     let subdivision_angle = signed_angle_span / (subdivisions as f32);

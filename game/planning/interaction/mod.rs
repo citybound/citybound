@@ -1,6 +1,6 @@
 use kay::{World, MachineID, Fate, TypedID, ActorSystem, Actor, External};
 use compact::{CVec, COption};
-use descartes::{P2, Into2d, Circle, AsArea};
+use descartes::{P2, Into2d, Area, AreaError, CurvedPath, ClosedLinePath};
 use stagemaster::{UserInterfaceID, Interactable3d, Interactable3dID, Interactable2d,
 Interactable2dID};
 use ui_layers::UILayer;
@@ -118,7 +118,7 @@ impl PlanManager {
                         ui_state_mut.current_result_preview = COption(Some(preview_plan_result));
                     }
                     Err(err) => match err {
-                        ::descartes::AreaError::LeftOver(string) => {
+                        AreaError::LeftOver(string) => {
                             println!("Preview Plan Error: {}", string);
                         }
                         _ => {
@@ -478,12 +478,13 @@ impl ControlPointInteractable {
         user_interface.add(
             UILayer::Gesture as usize,
             id.into(),
-            COption(Some(
-                Circle {
-                    center: position,
-                    radius: CONTROL_POINT_HANDLE_RADIUS,
-                }.as_area(),
-            )),
+            COption(Some(Area::new_simple(
+                ClosedLinePath::new(
+                    CurvedPath::circle(position, CONTROL_POINT_HANDLE_RADIUS)
+                        .unwrap()
+                        .to_line_path(),
+                ).unwrap(),
+            ))),
             1,
             world,
         );

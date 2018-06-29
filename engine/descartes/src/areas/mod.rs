@@ -4,6 +4,11 @@ use closed_line_path::{ClosedLinePath};
 use intersect::{Intersect};
 use ordered_float::OrderedFloat;
 
+mod debug;
+
+#[cfg(test)]
+mod tests;
+
 const EQUIVALENCE_TOLERANCE: N = THICKNESS * 10.0;
 
 #[derive(Debug)]
@@ -77,6 +82,12 @@ impl PointContainer for PrimitiveArea {
     }
 }
 
+impl<'a> RoughEq for &'a PrimitiveArea {
+    fn rough_eq_by(&self, other: Self, tolerance: N) -> bool {
+        (&self.boundary).rough_eq_by(&other.boundary, tolerance)
+    }
+}
+
 #[derive(Clone)]
 #[cfg_attr(feature = "compact_containers", derive(Compact))]
 pub struct Area {
@@ -141,6 +152,18 @@ impl PointContainer for Area {
     }
 }
 
+impl<'a> RoughEq for &'a Area {
+    fn rough_eq_by(&self, other: Self, tolerance: N) -> bool {
+        self.primitives.len() == other.primitives.len()
+            && self.primitives.iter().all(|own_primitive| {
+                other
+                    .primitives
+                    .iter()
+                    .any(|other_primitive| own_primitive.rough_eq_by(other_primitive, tolerance))
+            })
+    }
+}
+
 pub struct BoundaryPiece<'a> {
     on_boundary: &'a ClosedLinePath,
     start: P2,
@@ -152,7 +175,7 @@ pub struct BoundaryPiece<'a> {
     right_inside: [bool; 2],
 }
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum PieceEquivalence {
     Different,
     Forward,
@@ -179,9 +202,7 @@ impl<'a> BoundaryPiece<'a> {
                 end_distance,
                 right_inside,
                 left_inside: [false, false],
-                midpoint: on_boundary
-                    .path()
-                    .along((start_distance + end_distance) / 2.0),
+                midpoint: on_boundary.midpoint_between(start_distance, end_distance),
             })
         }
     }
@@ -287,11 +308,13 @@ impl Area {
                         // to close the loop when taking piece-cutting windows
                         let first = primitive_distances_points[0];
                         primitive_distances_points.push(first);
-
                     }
                 }
-                
-                println!("INTERSECTION POINTS DISTANCES \n{:?}", intersection_distances_points);
+
+                // println!(
+                //     "INTERSECTION POINTS DISTANCES \n{:?}",
+                //     intersection_distances_points
+                // );
 
                 let mut boundary_pieces_initial = unintersected_pieces
                     .into_iter()
@@ -320,9 +343,20 @@ impl Area {
                     )
                     .collect::<Vec<_>>();
 
-                    println!("BOUNDARY PIECES INITIAL \n{:#?}", boundary_pieces_initial.iter().map(|piece|
-                        format!("({}/{} - {} - {}/{}", piece.start, piece.start_distance, piece.midpoint, piece.end, piece.end_distance)
-                    ).collect::<Vec<_>>());
+                // println!(
+                //     "BOUNDARY PIECES INITIAL \n{:#?}",
+                //     boundary_pieces_initial
+                //         .iter()
+                //         .map(|piece| format!(
+                //             "({}/{} - {} - {}/{}",
+                //             piece.start,
+                //             piece.start_distance,
+                //             piece.midpoint,
+                //             piece.end,
+                //             piece.end_distance
+                //         ))
+                //         .collect::<Vec<_>>()
+                // );
 
                 for boundary_piece in &mut boundary_pieces_initial {
                     match ab[other_subject(subject)].location_of(boundary_piece.midpoint) {
@@ -388,9 +422,27 @@ impl Area {
             }
         }
 
-        println!("UNIQUE PIECES \n{:#?}", unique_boundary_pieces.iter().map(|piece|
-                        format!("({}/{} - {} - {}/{}, Path: {:?}", piece.start, piece.start_distance, piece.midpoint, piece.end, piece.end_distance, piece.to_path().unwrap().points.iter().map(|p| format!("{}", p)).collect::<Vec<_>>())
-                    ).collect::<Vec<_>>());
+        // println!(
+        //     "UNIQUE PIECES \n{:#?}",
+        //     unique_boundary_pieces
+        //         .iter()
+        //         .map(|piece| format!(
+        //             "({}/{} - {} - {}/{}, Path: {:?}",
+        //             piece.start,
+        //             piece.start_distance,
+        //             piece.midpoint,
+        //             piece.end,
+        //             piece.end_distance,
+        //             piece
+        //                 .to_path()
+        //                 .unwrap()
+        //                 .points
+        //                 .iter()
+        //                 .map(|p| format!("{}", p))
+        //                 .collect::<Vec<_>>()
+        //         ))
+        //         .collect::<Vec<_>>()
+        // );
 
         AreaSplitResult {
             pieces: unique_boundary_pieces,
@@ -461,9 +513,19 @@ impl<'a> AreaSplitResult<'a> {
             })
             .collect::<Vec<_>>();
 
-        println!("PATHS \n{:#?}", paths.iter().map(|path|
-                        format!("Path: {:?}", path.points.iter().map(|p| format!("{}", p)).collect::<Vec<_>>())
-                    ).collect::<Vec<_>>());
+        // println!(
+        //     "PATHS \n{:#?}",
+        //     paths
+        //         .iter()
+        //         .map(|path| format!(
+        //             "Path: {:?}",
+        //             path.points
+        //                 .iter()
+        //                 .map(|p| format!("{}", p))
+        //                 .collect::<Vec<_>>()
+        //         ))
+        //         .collect::<Vec<_>>()
+        // );
 
         let mut complete_paths = Vec::<ClosedLinePath>::new();
 
@@ -518,7 +580,7 @@ impl<'a> AreaSplitResult<'a> {
                 .expect("should have a min");
 
             return Err(AreaError::LeftOver(
-                format!("Start to closest end: {}", min_distance), /*format!(
+                format!(
                     "Start to closest end: {}\n{}\n\n{}",
                     min_distance,
                     self.debug_svg(),
@@ -526,7 +588,7 @@ impl<'a> AreaSplitResult<'a> {
                         r#"<path d="{}" stroke="rgba(0, 255, 0, 0.8)"/>"#,
                         paths[0].to_svg()
                     )
-                ))*/
+                )
             ));
         }
 
@@ -581,6 +643,3 @@ impl<'a> AreaSplitResult<'a> {
         })
     }
 }
-
-#[cfg(test)]
-mod tests;

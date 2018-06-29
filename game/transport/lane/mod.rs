@@ -1,6 +1,6 @@
 use compact::{CVec, COption};
 use kay::{ActorSystem, World, Actor};
-use descartes::{N, Band, Path, AsArea};
+use descartes::{N, Band, LinePath};
 
 use super::construction::ConstructionInfo;
 pub mod connectivity;
@@ -22,7 +22,7 @@ impl Lane {
     #[cfg_attr(feature = "cargo-clippy", allow(eq_op))]
     pub fn spawn(
         id: LaneID,
-        path: &Path,
+        path: &LinePath,
         on_intersection: bool,
         timings: &CVec<bool>,
         world: &mut World,
@@ -62,7 +62,7 @@ pub struct SwitchLane {
 }
 
 impl SwitchLane {
-    pub fn spawn(id: SwitchLaneID, path: &Path, _: &mut World) -> SwitchLane {
+    pub fn spawn(id: SwitchLaneID, path: &LinePath, _: &mut World) -> SwitchLane {
         SwitchLane {
             id,
             construction: ConstructionInfo::from_path(path.clone()),

@@ -1,8 +1,6 @@
 use compact::CVec;
-use descartes::{P2, V2, Segment, Area, Path, FiniteCurve, WithUniqueOrthogonal,
-PointContainer, AreaError};
+use descartes::{P2, V2, Area, ClosedLinePath, LinePath, PointContainer, AreaError};
 use land_use::buildings::BuildingStyle;
-use itertools::Itertools;
 
 use transport::transport_planning::RoadPrototype;
 
@@ -38,13 +36,14 @@ pub struct Lot {
 
 impl Lot {
     pub fn center_point(&self) -> P2 {
-        let outline = &self.area.primitives[0].boundary;
+        let outline = &self.area.primitives[0].boundary.path();
         P2::from_coordinates(
-            (0..10u8)
-                .into_iter()
-                .fold(V2::new(0.0, 0.0), |sum_point, i| {
-                    sum_point + outline.along(f32::from(i) * outline.length() / 10.0).coords
-                }) / 10.0,
+            outline
+                .points
+                .iter()
+                .fold(V2::new(0.0, 0.0), |sum_point, point| {
+                    sum_point + point.coords
+                }) / outline.points.len() as f32,
         )
     }
 }
@@ -97,20 +96,21 @@ pub fn calculate_prototypes(
                 let mut area = lot.area.clone();
 
                 for paved_area_shape in &paved_area_areas {
-                    let split = area.split(&paved_area_shape);
+                    let maybe_main_piece = {
+                        let split = area.split(&paved_area_shape);
 
-                    match split.a_minus_b() {
-                        Ok(pieces) => if let Some(main_piece) = pieces
+                        split
+                            .a_minus_b()?
                             .disjoint()
                             .into_iter()
                             .find(|piece| piece.contains(lot.center_point()))
-                        {
-                            area = main_piece;
-                        } else {
-                            println!("No piece contains center");
-                            return Ok(None);
-                        },
-                        Err(err) => return Err(err),
+                    };
+
+                    if let Some(main_piece) = maybe_main_piece {
+                        area = main_piece;
+                    } else {
+                        println!("No piece contains center");
+                        return Ok(None);
                     }
                 }
 
@@ -161,16 +161,9 @@ pub fn calculate_prototypes(
             .filter_map(|(land_use, points)| {
                 Some((
                     land_use,
-                    Area::new_simple(
-                        Path::new(
-                            points
-                                .iter()
-                                .chain(points.first())
-                                .tuple_windows()
-                                .filter_map(|(start, end)| Segment::line(*start, *end))
-                                .collect(),
-                        ).ok()?,
-                    ).ok()?,
+                    Area::new_simple(ClosedLinePath::new(LinePath::new(
+                        points.iter().chain(points.first()).cloned().collect(),
+                    )?)?),
                 ))
             })
             .collect::<Vec<_>>();
@@ -207,18 +200,13 @@ pub fn calculate_prototypes(
             .filter_map(|(land_use, area)| {
                 let connection_points = area.primitives[0]
                     .boundary
-                    .segments
-                    .iter()
+                    .path()
+                    .segments()
                     .flat_map(|segment| {
                         let length = segment.length();
                         (&[0.25, 0.5, 0.75])
                             .iter()
-                            .map(|ratio| {
-                                (
-                                    segment.along(length * ratio),
-                                    -segment.direction_along(length * ratio).orthogonal(),
-                                )
-                            })
+                            .map(|ratio| (segment.along(length * ratio), -segment.direction()))
                             .collect::<Vec<_>>()
                     })
                     .filter(|&(point, _dir)| {

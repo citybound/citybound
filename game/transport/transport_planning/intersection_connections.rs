@@ -1,5 +1,5 @@
 use compact::CVec;
-use descartes::{Segment, Path, FiniteCurve, Intersect, IntersectionResult, WithUniqueOrthogonal,
+use descartes::{CurvedPath, Intersect, WithUniqueOrthogonal,
 RoughEq};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
@@ -202,14 +202,12 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                                         [l.min(relevant_incoming_len - 1)];
                                     let end = relevant_outgoing_connectors
                                         [l.min(relevant_outgoing_len - 1)];
-                                    let path = Path::new(
-                                        Segment::biarc(
-                                            start.position,
-                                            start.direction,
-                                            end.position,
-                                            end.direction,
-                                        )?.into(),
-                                    ).ok()?;
+                                    let path = CurvedPath::biarc(
+                                        start.position,
+                                        start.direction,
+                                        end.position,
+                                        end.direction,
+                                    )?.to_line_path();
 
                                     Some(LanePrototype(path, CVec::new()))
                                 })
@@ -244,10 +242,7 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                 |(&LanePrototype(ref path_a, _), &LanePrototype(ref path_b, _))| {
                     path_a.start().rough_eq_by(path_b.start(), 0.1)
                         || (!path_a.end().rough_eq_by(path_b.end(), 0.1)
-                            && match (path_a, path_b).intersect() {
-                                IntersectionResult::Apart => true,
-                                _ => false,
-                            })
+                            && (path_a, path_b).intersect().is_empty())
                 },
             )
         }

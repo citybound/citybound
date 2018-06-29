@@ -1,4 +1,4 @@
-use descartes::{Path, Band, Segment, P2};
+use descartes::{LinePath, Band, P2};
 use monet::{Mesh, Vertex, RendererID, Instance};
 
 static mut LAST_DEBUG_THING: u32 = 0;
@@ -7,13 +7,12 @@ pub static mut DEBUG_RENDERER: Option<RendererID> = None;
 use kay::World;
 
 pub fn add_debug_line(from: P2, to: P2, color: [f32; 3], z: f32, world: &mut World) {
-    if let Some(line) = Segment::line(from, to) {
-        let path = Path::new(vec![line].into()).unwrap();
+    if let Some(path) = LinePath::new(vec![from, to].into()) {
         add_debug_path(path, color, z, world);
     }
 }
 
-pub fn add_debug_path(path: Path, color: [f32; 3], z: f32, world: &mut World) {
+pub fn add_debug_path(path: LinePath, color: [f32; 3], z: f32, world: &mut World) {
     if let Some(renderer) = unsafe { DEBUG_RENDERER } {
         renderer.update_individual(
             4_000_000_000 + unsafe { LAST_DEBUG_THING },

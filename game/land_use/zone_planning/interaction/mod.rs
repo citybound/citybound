@@ -36,14 +36,14 @@ pub fn render_preview(
             if occupancy == LotOccupancy::Vacant {
                 for primitive in &area.primitives {
                     lot_vacant_outline_mesh += Mesh::from_band(
-                        &Band::new(primitive.boundary.clone(), LOT_OUTLINE_WIDTH),
+                        &Band::new(primitive.boundary.path().clone(), LOT_OUTLINE_WIDTH),
                         0.1,
                     );
                 }
             } else {
                 for primitive in &area.primitives {
                     lot_occupied_outline_mesh += Mesh::from_band(
-                        &Band::new(primitive.boundary.clone(), LOT_OUTLINE_WIDTH),
+                        &Band::new(primitive.boundary.path().clone(), LOT_OUTLINE_WIDTH),
                         0.1,
                     );
                 }

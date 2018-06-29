@@ -1,4 +1,4 @@
-use descartes::{Band, FiniteCurve, WithUniqueOrthogonal, RoughEq};
+use descartes::{Band, WithUniqueOrthogonal, RoughEq};
 use compact::CVec;
 use kay::{ActorSystem, World, Actor, TypedID};
 use monet::{Instance, Vertex, Mesh, Renderer, RendererID};
@@ -23,14 +23,13 @@ impl Renderable for Lane {
     #[cfg_attr(feature = "cargo-clippy", allow(cyclomatic_complexity))]
     fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         let mut cars_iter = self.microtraffic.cars.iter();
-        let mut current_offset = 0.0;
         let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
-        for segment in self.construction.path.segments.iter() {
+        for (segment, distance_pair) in self.construction.path.segments_with_distances() {
             for car in
-                cars_iter.take_while_ref(|car| *car.position - current_offset < segment.length())
+                cars_iter.take_while_ref(|car| *car.position - distance_pair[0] < segment.length())
             {
-                let position2d = segment.along(*car.position - current_offset);
-                let direction = segment.direction_along(*car.position - current_offset);
+                let position2d = segment.along(*car.position - distance_pair[0]);
+                let direction = segment.direction();
                 car_instances.push(Instance {
                     instance_position: [position2d.x, position2d.y, 0.0],
                     instance_direction: [direction.x, direction.y],
@@ -43,7 +42,6 @@ impl Renderable for Lane {
                     },
                 })
             }
-            current_offset += segment.length;
         }
 
         if DEBUG_VIEW_OBSTACLES {
@@ -343,14 +341,13 @@ impl GrouperIndividual for Lane {
 impl Renderable for SwitchLane {
     fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
         let mut cars_iter = self.microtraffic.cars.iter();
-        let mut current_offset = 0.0;
         let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
-        for segment in self.construction.path.segments.iter() {
+        for (segment, distance_pair) in self.construction.path.segments_with_distances() {
             for car in
-                cars_iter.take_while_ref(|car| *car.position - current_offset < segment.length())
+                cars_iter.take_while_ref(|car| *car.position - distance_pair[0] < segment.length())
             {
-                let position2d = segment.along(*car.position - current_offset);
-                let direction = segment.direction_along(*car.position - current_offset);
+                let position2d = segment.along(*car.position - distance_pair[0]);
+                let direction = segment.direction();
                 let rotated_direction =
                     (direction + 0.3 * car.switch_velocity * direction.orthogonal()).normalize();
                 let shifted_position2d =
@@ -367,7 +364,6 @@ impl Renderable for SwitchLane {
                     },
                 })
             }
-            current_offset += segment.length;
         }
 
         if DEBUG_VIEW_TRANSFER_OBSTACLES {

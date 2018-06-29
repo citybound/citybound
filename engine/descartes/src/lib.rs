@@ -40,18 +40,22 @@ pub type Persp3 = Perspective3<N>;
 
 mod rough_eq;
 mod angles;
+mod convert_2d_3d;
 mod bbox;
 mod line_path;
 mod closed_line_path;
 mod curved_path;
 mod intersect;
 mod areas;
+mod band;
 
 pub use self::rough_eq::*;
 pub use self::angles::*;
+pub use self::convert_2d_3d::*;
 pub use self::bbox::*;
 pub use self::line_path::*;
 pub use self::closed_line_path::*;
 pub use self::curved_path::*;
 pub use self::intersect::*;
 pub use self::areas::*;
+pub use self::band::*;

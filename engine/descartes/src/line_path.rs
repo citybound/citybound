@@ -27,6 +27,10 @@ impl LineSegment {
         self.start() + distance * self.direction()
     }
 
+    pub fn midpoint(&self) -> P2 {
+        P2::from_coordinates((self.start().coords + self.end().coords) / 2.0)
+    }
+
     pub fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<(N, P2)> {
         if (point - self.start()).norm() < tolerance {
             Some((0.0, self.start()))
@@ -242,6 +246,14 @@ impl LinePath {
         }
     }
 
+    pub fn start_direction(&self) -> V2 {
+        self.first_segment().direction()
+    }
+
+    pub fn end_direction(&self) -> V2 {
+        self.last_segment().direction()
+    }
+
     pub fn project_with_tolerance(&self, point: P2, tolerance: N) -> Option<(N, P2)> {
         self.segments_with_distances()
             .filter_map(|(segment, distances)| {
@@ -323,16 +335,37 @@ impl LinePath {
         LinePath::new(
             Some(self.along(start))
                 .into_iter()
-                .chain(self.points.iter().zip(self.distances.iter()).filter_map(|(&point, &distance)|
-                    if start < distance && end > distance {
-                        Some(point)
-                    } else {
-                        None
-                    }
+                .chain(self.points.iter().zip(self.distances.iter()).filter_map(
+                    |(&point, &distance)| {
+                        if start < distance && end > distance {
+                            Some(point)
+                        } else {
+                            None
+                        }
+                    },
                 ))
                 .chain(Some(self.along(end)))
                 .collect(),
         )
+    }
+
+    pub fn dash(&self, dash_length: N, gap_length: N) -> Vec<LinePath> {
+        let mut on_dash = true;
+        let mut position = 0.0;
+        let mut dashes = Vec::new();
+
+        while position < self.length() {
+            let old_position = position;
+            if on_dash {
+                position += dash_length;
+                dashes.extend(self.subsection(old_position, position));
+            } else {
+                position += gap_length;
+            }
+            on_dash = !on_dash;
+        }
+
+        dashes
     }
 
     pub fn shift_orthogonally(&self, shift_to_right: N) -> Option<Self> {
@@ -369,5 +402,16 @@ impl LinePath {
                 .chain(Some(new_end))
                 .collect(),
         )
+    }
+}
+
+impl<'a> RoughEq for &'a LinePath {
+    fn rough_eq_by(&self, other: Self, tolerance: N) -> bool {
+        self.points.len() == other.points.len()
+            && self
+                .points
+                .iter()
+                .zip(other.points.iter())
+                .all(|(a, b)| a.rough_eq_by(*b, tolerance))
     }
 }

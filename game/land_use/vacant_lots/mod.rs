@@ -1,5 +1,5 @@
 use kay::{World, Fate, ActorSystem};
-use descartes::{P2, V2, Area, WithUniqueOrthogonal, Path, FiniteCurve, Segment,
+use descartes::{P2, V2, Area, WithUniqueOrthogonal, ClosedLinePath, LinePath,
 PointContainer, AreaError};
 use ordered_float::OrderedFloat;
 
@@ -28,8 +28,8 @@ impl Lot {
             .flat_map(|primitive| {
                 primitive
                     .boundary
-                    .segments
-                    .iter()
+                    .path()
+                    .segments()
                     .map(|segment| segment.midpoint())
             })
             .collect::<Vec<_>>();
@@ -109,23 +109,17 @@ impl Lot {
             for &(point, direction, ..) in maybe_too_wide_connection_points {
                 let orthogonal = direction.orthogonal();
 
-                let corners = (
+                let corners = vec![
                     point + needed_shape.1 * direction,
                     point + needed_shape.1 * direction + 1_000.0 * orthogonal,
                     point - 500.0 * direction + 1_000.0 * orthogonal,
                     point - 500.0 * direction,
-                );
+                    point + needed_shape.1 * direction,
+                ];
 
                 let splitting_area = Area::new_simple(
-                    Path::new(
-                        vec![
-                            Segment::line(corners.0, corners.1).unwrap(),
-                            Segment::line(corners.1, corners.2).unwrap(),
-                            Segment::line(corners.2, corners.3).unwrap(),
-                            Segment::line(corners.3, corners.0).unwrap(),
-                        ].into(),
-                    ).unwrap(),
-                ).unwrap();
+                    ClosedLinePath::new(LinePath::new(corners.into()).unwrap()).unwrap(),
+                );
 
                 println!("Attempting width split");
 

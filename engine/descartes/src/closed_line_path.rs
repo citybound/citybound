@@ -1,4 +1,4 @@
-use {N};
+use {N, P2};
 use line_path::LinePath;
 use rough_eq::{RoughEq, THICKNESS};
 
@@ -43,5 +43,37 @@ impl ClosedLinePath {
         } else {
             self.path().subsection(start, end)
         }
+    }
+
+    pub fn midpoint_between(&self, start: N, end: N) -> P2 {
+        if start > end + THICKNESS {
+            let length = self.path().length();
+            let start_end_distance = (length - start) + end;
+
+            if start + start_end_distance / 2.0 <= length {
+                self.path().along(start + start_end_distance / 2.0)
+            } else {
+                self.path().along(end - start_end_distance / 2.0)
+            }
+        } else {
+            self.path().along((start + end) / 2.0)
+        }
+    }
+}
+
+impl<'a> RoughEq for &'a ClosedLinePath {
+    fn rough_eq_by(&self, other: Self, tolerance: N) -> bool {
+        // TODO: is this really equality?
+        self.path().points.len() == other.path().points.len()
+            && self.path().segments().all(|self_segment| {
+                other.path().segments().any(|other_segment| {
+                    self_segment
+                        .start()
+                        .rough_eq_by(other_segment.start(), tolerance)
+                        && self_segment
+                            .end()
+                            .rough_eq_by(other_segment.end(), tolerance)
+                })
+            })
     }
 }

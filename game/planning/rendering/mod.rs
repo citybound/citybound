@@ -1,5 +1,5 @@
 use kay::{World, TypedID};
-use descartes::{P2, Band, Segment, Circle, Path, AsArea};
+use descartes::{P2, Band, CurvedPath, LinePath};
 use monet::{RendererID, Renderable, RenderableID, Instance, Mesh};
 use style::colors;
 use style::dimensions::CONTROL_POINT_HANDLE_RADIUS;
@@ -12,13 +12,9 @@ impl Renderable for PlanManager {
     fn init(&mut self, renderer_id: RendererID, world: &mut World) {
         let dot_mesh = Mesh::from_band(
             &Band::new(
-                Circle {
-                    center: P2::new(0.0, 0.0),
-                    radius: CONTROL_POINT_HANDLE_RADIUS,
-                }.as_area()
-                    .primitives[0]
-                    .boundary
-                    .clone(),
+                CurvedPath::circle(P2::new(0.0, 0.0), CONTROL_POINT_HANDLE_RADIUS)
+                    .unwrap()
+                    .to_line_path(),
                 0.3,
             ),
             1.0,
@@ -63,13 +59,7 @@ impl Renderable for PlanManager {
 
         for (i, gesture) in preview.gestures.values().enumerate() {
             if gesture.points.len() >= 2 {
-                let line_mesh = if let Ok(line_path) = Path::new(
-                    gesture
-                        .points
-                        .windows(2)
-                        .filter_map(|window| Segment::line(window[0], window[1]))
-                        .collect(),
-                ) {
+                let line_mesh = if let Some(line_path) = LinePath::new(gesture.points.clone()) {
                     Mesh::from_band(&Band::new(line_path, 0.3), 1.0)
                 } else {
                     Mesh::empty()

@@ -1,6 +1,6 @@
 use kay::{World, MachineID, Fate, TypedID, ActorSystem};
 use compact::{CVec, COption};
-use descartes::{N, Band, FiniteCurve, Path, AsArea, WithUniqueOrthogonal, Curve, Into2d};
+use descartes::{N, Band, LinePath, WithUniqueOrthogonal, Into2d};
 use monet::{RendererID, Instance, Mesh};
 use stagemaster::user_interface::{UserInterfaceID, Interactable3d, Interactable3dID, Event3d};
 use style::colors;
@@ -63,7 +63,7 @@ pub fn render_preview(
                         ..
                     })) => {
                         intersection_mesh += Mesh::from_band(
-                            &Band::new(area.primitives[0].boundary.clone(), 0.1),
+                            &Band::new(area.primitives[0].boundary.path().clone(), 0.1),
                             0.1,
                         );
 
@@ -119,7 +119,7 @@ pub struct LaneCountInteractable {
     proposal_id: ProposalID,
     gesture_id: GestureID,
     forward: bool,
-    path: Path,
+    path: LinePath,
     initial_intent: RoadIntent,
 }
 
@@ -132,7 +132,7 @@ impl LaneCountInteractable {
         proposal_id: ProposalID,
         gesture_id: GestureID,
         forward: bool,
-        path: &Path,
+        path: &LinePath,
         initial_intent: RoadIntent,
         world: &mut World,
     ) -> Self {

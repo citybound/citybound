@@ -1,6 +1,6 @@
 use compact::{CDict, CVec, CHashMap};
 use kay::{ActorSystem, World, TypedID, Actor};
-use descartes::{P2, FiniteCurve};
+use descartes::{P2};
 use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
 use simulation::Instant;

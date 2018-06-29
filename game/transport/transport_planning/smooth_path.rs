@@ -1,7 +1,6 @@
-use descartes::{P2, Segment, Path};
-use compact::CVec;
+use descartes::{P2, CurvedPath};
 
-pub fn smooth_path_from(points: &[P2]) -> Option<Path> {
+pub fn smooth_path_from(points: &[P2]) -> Option<CurvedPath> {
     let center_points = points
         .windows(2)
         .map(|point_pair| P2::from_coordinates((point_pair[0].coords + point_pair[1].coords) / 2.0))
@@ -40,24 +39,26 @@ pub fn smooth_path_from(points: &[P2]) -> Option<Path> {
         end_start_directions.push((end, start, line_direction));
     }
 
-    let mut segments = CVec::new();
+    let mut collected_path: Option<CurvedPath> = None;
     let mut previous_point = points[0];
     let mut previous_direction = (points[1] - points[0]).normalize();
 
     for (end, start, direction) in end_start_directions {
-        if let Some(valid_incoming_arc) =
-            Segment::arc_with_direction(previous_point, previous_direction, end)
-        {
-            segments.push(valid_incoming_arc);
+        if let Some(valid_incoming_arc) = CurvedPath::arc(previous_point, previous_direction, end) {
+            collected_path = collected_path.map_or(Some(valid_incoming_arc.clone()), |path| {
+                path.concat(&valid_incoming_arc).ok()
+            });
         }
 
-        if let Some(valid_connecting_line) = Segment::line(end, start) {
-            segments.push(valid_connecting_line);
+        if let Some(valid_connecting_line) = CurvedPath::line(end, start) {
+            collected_path = collected_path.map_or(Some(valid_connecting_line.clone()), |path| {
+                path.concat(&valid_connecting_line).ok()
+            });
         }
 
         previous_point = start;
         previous_direction = direction;
     }
 
-    Path::new(segments).ok()
+    collected_path
 }
