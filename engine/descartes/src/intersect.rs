@@ -13,10 +13,16 @@ pub trait Intersect {
 }
 
 use line_path::LineSegment;
+use bbox::HasBoundingBox;
 
 impl Intersect for (LineSegment, LineSegment) {
     fn intersect(&self) -> Vec<Intersection> {
         let (a, b) = *self;
+
+        if !a.bounding_box().overlaps(&b.bounding_box()) {
+            return vec![];
+        }
+
         let a_direction = a.direction();
         let b_direction = b.direction();
 
