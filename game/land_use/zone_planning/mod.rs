@@ -38,12 +38,9 @@ impl Lot {
     pub fn center_point(&self) -> P2 {
         let outline = &self.area.primitives[0].boundary.path();
         P2::from_coordinates(
-            outline
-                .points
-                .iter()
-                .fold(V2::new(0.0, 0.0), |sum_point, point| {
-                    sum_point + point.coords
-                }) / outline.points.len() as f32,
+            (0..10).into_iter().fold(V2::new(0.0, 0.0), |sum_point, i| {
+                sum_point + outline.along(i as f32 * (outline.length() / 10.0)).coords
+            }) / 10.0,
         )
     }
 }

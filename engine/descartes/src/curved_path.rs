@@ -206,10 +206,18 @@ impl CurvedPath {
 
     pub fn circle(center: P2, radius: N) -> Option<Self> {
         let top = center + V2::new(0.0, radius);
+        let right = center + V2::new(radius, 0.0);
         let bottom = center + V2::new(0.0, -radius);
-        let right_segment = Self::arc(top, V2::new(1.0, 0.0), bottom)?;
-        let left_segment = Self::arc(bottom, V2::new(-1.0, 0.0), top)?;
-        right_segment.concat(&left_segment).ok()
+        let left = center + V2::new(-radius, 0.0);
+        let top_right_segment = Self::arc(top, V2::new(1.0, 0.0), right)?;
+        let bottom_right_segment = Self::arc(right, V2::new(0.0, -1.0), bottom)?;
+        let bottom_left_segment = Self::arc(bottom, V2::new(-1.0, 0.0), left)?;
+        let top_left_segment = Self::arc(left, V2::new(0.0, 1.0), top)?;
+        top_right_segment
+            .concat(&bottom_right_segment)
+            .and_then(|path| path.concat(&bottom_left_segment))
+            .and_then(|path| path.concat(&top_left_segment))
+            .ok()
     }
 }
 
