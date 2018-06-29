@@ -1,4 +1,4 @@
-use super::{N, P2, LinePath,   AreaSplitResult, VecLike, SUBJECT_A, SUBJECT_B};
+use super::{N, P2, LinePath, AreaSplitResult, SUBJECT_A, SUBJECT_B};
 use ordered_float::OrderedFloat;
 
 impl LinePath {
@@ -50,7 +50,7 @@ impl<'a> AreaSplitResult<'a> {
                 piece
                     .to_path()
                     .map(|path| path.points.clone())
-                    .unwrap_or(VecLike::new())
+                    .unwrap_or_default()
             })
             .collect::<Vec<_>>();
 
