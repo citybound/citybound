@@ -579,17 +579,15 @@ impl<'a> AreaSplitResult<'a> {
                 .min()
                 .expect("should have a min");
 
-            return Err(AreaError::LeftOver(
+            return Err(AreaError::LeftOver(format!(
+                "Start to closest end: {}\n{}\n\n{}",
+                min_distance,
+                self.debug_svg(),
                 format!(
-                    "Start to closest end: {}\n{}\n\n{}",
-                    min_distance,
-                    self.debug_svg(),
-                    format!(
-                        r#"<path d="{}" stroke="rgba(0, 255, 0, 0.8)"/>"#,
-                        paths[0].to_svg()
-                    )
+                    r#"<path d="{}" stroke="rgba(0, 255, 0, 0.8)"/>"#,
+                    paths[0].to_svg()
                 )
-            ));
+            )));
         }
 
         Ok(Area::new(

@@ -295,7 +295,7 @@ impl CurvedPath {
                 CurvedSegment::Line(start, _end) => vec![start],
                 CurvedSegment::Arc(start, center, end) => {
                     let signed_angle_span = signed_angle_to(start - center, end - center);
-                    
+
                     let subdivisions =
                         (signed_angle_span.abs() / max_angle).max(1.0).floor() as usize;
                     let subdivision_angle = signed_angle_span / (subdivisions as f32);
