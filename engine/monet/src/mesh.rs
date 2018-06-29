@@ -205,39 +205,39 @@ impl Mesh {
             }
         }
 
-        let mut vertices = Vec::<Vertex>::new();
-        let mut indices = Vec::<u16>::new();
-        for segment in band.path.segments() {
-            let first_new_vertex = vertices.len() as u16;
-            let orth_direction = segment.direction().orthogonal();
-            vertices.push(to_vertex(
-                segment.start() + band.width_right * orth_direction,
-                z,
-            ));
-            vertices.push(to_vertex(
-                segment.start() - band.width_left * orth_direction,
-                z,
-            ));
-            vertices.push(to_vertex(
-                segment.end() + band.width_right * orth_direction,
-                z,
-            ));
-            vertices.push(to_vertex(
-                segment.end() - band.width_left * orth_direction,
-                z,
-            ));
+        let left = band
+            .path
+            .shift_orthogonally(-band.width_left)
+            .unwrap_or_else(|| band.path.clone());
+        let right = band
+            .path
+            .shift_orthogonally(band.width_right)
+            .unwrap_or_else(|| band.path.clone());
 
-            indices.extend_from_slice(&[
-                first_new_vertex,
-                first_new_vertex + 1,
-                first_new_vertex + 2,
-            ]);
-            indices.extend_from_slice(&[
-                first_new_vertex + 1,
-                first_new_vertex + 3,
-                first_new_vertex + 2,
-            ]);
-        }
+        let vertices = left
+            .points
+            .iter()
+            .chain(right.points.iter())
+            .map(|&p| to_vertex(p, z))
+            .collect::<Vec<_>>();
+
+        let left_len = left.points.len();
+
+        let indices = (0..(left_len - 1))
+            .flat_map(|left_i| {
+                let left_i = left_i as u16;
+                let right_i = left_i + left_len as u16;
+
+                vec![
+                    left_i,
+                    right_i.min(vertices.len() as u16 - 1),
+                    left_i + 1,
+                    left_i + 1,
+                    right_i.min(vertices.len() as u16 - 1),
+                    (right_i + 1).min(vertices.len() as u16 - 1),
+                ]
+            })
+            .collect();
 
         Mesh::new(vertices, indices)
     }
