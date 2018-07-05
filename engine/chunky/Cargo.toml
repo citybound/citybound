@@ -1,8 +1,0 @@
-[package]
-name = "chunky"
-version = "0.1.0"
-authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
-
-[dependencies.allocators]
-path = "../allocators/"
-

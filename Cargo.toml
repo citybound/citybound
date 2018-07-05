@@ -11,13 +11,6 @@ path = "./game/main.rs"
 
 [workspace]
 members = [
-    "./engine/allocators",
-    "./engine/chunky",
-    "./engine/compact",
-    "./engine/compact_macros",
-    "./engine/descartes",
-    "./engine/kay",
-    "./engine/kay_codegen",
     "./engine/monet",
     './engine/stagemaster'
 ]
@@ -34,18 +27,12 @@ serde_derive = "1.0"
 imgui = "0.0.15"
 backtrace = "0.3"
 uuid = { version = "0.6", features = ["v4"] }
-
-[dependencies.compact]
-path = "./engine/compact/"
-
-[dependencies.compact_macros]
-path = "./engine/compact_macros/"
-
-[dependencies.kay]
-path = "./engine/kay/"
+compact = "0.1.0"
+compact_macros = "0.1.0"
+kay = "0.1.0"
 
 [dependencies.descartes]
-path = "./engine/descartes/"
+version = "0.1.0"
 features = ["compact_containers"]
 
 [dependencies.monet]
@@ -55,7 +42,7 @@ path = "./engine/monet/"
 path = "./engine/stagemaster/"
 
 [build-dependencies]
-kay_codegen = {path = "./engine/kay_codegen/"}
+kay_codegen = "0.1.0"
 
 [profile.dev]
 opt-level = 1

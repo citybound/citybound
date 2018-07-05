@@ -12,24 +12,17 @@ serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
 app_dirs = "1.2.1"
-
-
-[dependencies.kay]
-path = "../kay"
-
-[dependencies.compact]
-path = "../compact"
-
-[dependencies.compact_macros]
-path = "../compact_macros"
+kay = "0.1.0"
+compact = "0.1.0"
+compact_macros = "0.1.0"
 
 [dependencies.descartes]
-path = "../descartes"
+version = "0.1.0"
 features = ["compact_containers"]
 
 [dependencies.monet]
 path = "../monet"
 
 [build-dependencies]
-kay_codegen = {path = "../kay_codegen/"}
+kay_codegen = "0.1.0"
 
