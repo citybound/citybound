@@ -9,6 +9,8 @@ glium = "0.17.0"
 fnv = "1.0.3"
 itertools = "0.7.6"
 lyon_tessellation = "0.9.1"
+tungstenite = "0.5.3"
+byteorder = "1"
 
 [dependencies.kay]
 path = "../kay"

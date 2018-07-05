@@ -722,6 +722,65 @@ impl Interactable2d for GestureCanvas {
                 if ui.small_button(im_str!("Implement")) {
                     self.plan_manager.implement(self.proposal_id, world);
                 }
+                if ui.small_button(im_str!("Build 10x10 grid")) {
+                    use transport::transport_planning::RoadIntent;
+                    use super::{GestureID};
+                    use descartes::N;
+
+                    const GRID_SPACING: N = 200.0;
+
+                    for x in 0..10 {
+                        let id = GestureID::new();
+                        let p1 = P2::new(x as f32 * GRID_SPACING, 0.0);
+                        let p2 = P2::new(x as f32 * GRID_SPACING, 10.0 * GRID_SPACING);
+                        self.plan_manager.start_new_gesture(
+                            self.proposal_id,
+                            self.for_machine,
+                            id,
+                            GestureIntent::Road(RoadIntent::new(3, 3)),
+                            p1,
+                            world,
+                        );
+                        self.plan_manager.add_control_point(
+                            self.proposal_id,
+                            id,
+                            p2,
+                            true,
+                            true,
+                            world,
+                        );
+                        self.plan_manager.finish_gesture(self.for_machine, world);
+                    }
+
+                    for y in 0..10 {
+                        let id = GestureID::new();
+                        let p1 = P2::new(0.0, y as f32 * GRID_SPACING);
+                        let p2 = P2::new(10.0 * GRID_SPACING, y as f32 * GRID_SPACING);
+                        self.plan_manager.start_new_gesture(
+                            self.proposal_id,
+                            self.for_machine,
+                            id,
+                            GestureIntent::Road(RoadIntent::new(3, 3)),
+                            p1,
+                            world,
+                        );
+                        self.plan_manager.add_control_point(
+                            self.proposal_id,
+                            id,
+                            p2,
+                            true,
+                            true,
+                            world,
+                        );
+                        self.plan_manager.finish_gesture(self.for_machine, world);
+                    }
+                }
+                if ui.small_button(im_str!("Spawn cars")) {
+                    use transport::lane::Lane;
+                    for _ in (0..50) {
+                        Lane::global_broadcast(world).manually_spawn_car_add_lane(world);
+                    }
+                }
             });
 
         ui.window(im_str!("Settings")).build(|| {

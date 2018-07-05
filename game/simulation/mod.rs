@@ -92,7 +92,7 @@ impl Interactable2d for Simulation {
             ui.text(im_str!("Simulation Speed"));
             ui.same_line(130.0);
             let _ = ui
-                .slider_int(im_str!("##simulation-speed"), &mut self.speed, 1, 30)
+                .slider_int(im_str!("##simulation-speed"), &mut self.speed, 0, 30)
                 .build();
             ui.spacing();
         });

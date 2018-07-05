@@ -6,10 +6,15 @@ use glium::Surface;
 use glium::backend::glutin::Display;
 use kay::External;
 
+use std::net::{TcpListener, TcpStream};
+use tungstenite::WebSocket;
+use byteorder::{LittleEndian, WriteBytesExt};
+
 use {Batch, Scene};
 
 pub struct RenderContext {
     pub window: External<Display>,
+    pub websocket: WebSocket<TcpStream>,
     batch_program: glium::Program,
     clear_color: (f32, f32, f32, f32),
 }
@@ -17,17 +22,21 @@ pub struct RenderContext {
 impl RenderContext {
     #[cfg_attr(feature = "cargo-clippy", allow(redundant_closure))]
     pub fn new(window: &External<Display>, clear_color: (f32, f32, f32, f32)) -> RenderContext {
+        let tcp_listener = TcpListener::bind("127.0.0.1:9999").unwrap();
+        println!("Awaiting TCP connection");
+        let websocket = ::tungstenite::server::accept(tcp_listener.accept().unwrap().0).unwrap();
         RenderContext {
             batch_program: program!(&**window, 140 => {
                 vertex: include_str!("shader/solid_140.glslv"),
                 fragment: include_str!("shader/solid_140.glslf")
             }).unwrap(),
+            websocket,
             window: window.steal(),
             clear_color,
         }
     }
 
-    pub fn submit<S: Surface>(&self, scene: &Scene, target: &mut S) {
+    pub fn submit<S: Surface>(&mut self, scene: &Scene, target: &mut S) {
         let view: [[f32; 4]; 4] =
             *Iso3::look_at_rh(&scene.eye.position, &scene.eye.target, &scene.eye.up)
                 .to_homogeneous()
@@ -39,6 +48,29 @@ impl RenderContext {
             50000.0,
         ).as_matrix()
             .as_ref();
+
+        let mut websocket_message =
+            Vec::<u8>::with_capacity(4 + 2 * 4 * 4 * ::std::mem::size_of::<f32>());
+
+        // frame start
+        websocket_message.write_u32::<LittleEndian>(0).unwrap();
+
+        websocket_message.resize(4 + 2 * 4 * ::std::mem::size_of::<[f32; 4]>(), 0);
+        unsafe {
+            view.as_ptr()
+                .copy_to(&mut websocket_message[4] as *mut u8 as *mut [f32; 4], 4)
+        }
+        unsafe {
+            perspective.as_ptr().copy_to(
+                &mut websocket_message[4 + 4 * ::std::mem::size_of::<[f32; 4]>()] as *mut u8
+                    as *mut [f32; 4],
+                4,
+            )
+        }
+
+        self.websocket
+            .write_message(::tungstenite::Message::binary(websocket_message))
+            .unwrap();
 
         let uniforms = uniform! {
             view: view,
@@ -92,6 +124,31 @@ impl RenderContext {
                     instances_to_draw.len()
                 ));
             }
+
+            // drawcall
+            if !instances_to_draw.is_empty() {
+                let mut websocket_message = Vec::<u8>::new();
+                websocket_message.write_u32::<LittleEndian>(42).unwrap();
+                websocket_message.write_u32::<LittleEndian>(*i).unwrap();
+                websocket_message
+                    .write_u32::<LittleEndian>(instances_to_draw.len() as u32)
+                    .unwrap();
+                let instances_pos = websocket_message.len();
+                websocket_message.resize(
+                    instances_pos + instances.len() * ::std::mem::size_of::<::mesh::Instance>(),
+                    0,
+                );
+                unsafe {
+                    instances_to_draw.as_ptr().copy_to(
+                        &mut websocket_message[instances_pos] as *mut u8 as *mut ::mesh::Instance,
+                        instances_to_draw.len(),
+                    )
+                }
+                self.websocket
+                    .write_message(::tungstenite::Message::binary(websocket_message))
+                    .unwrap();
+            }
+
             let instance_buffer =
                 glium::VertexBuffer::new(&*self.window, instances_to_draw).unwrap();
             target

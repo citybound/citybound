@@ -253,8 +253,19 @@ pub struct Batch {
     pub frame: usize,
 }
 
+use std::net::{TcpStream};
+use tungstenite::{WebSocket, Message};
+use byteorder::{LittleEndian, WriteBytesExt};
+
 impl Batch {
-    pub fn new(prototype: &Mesh, window: &Display) -> Batch {
+    pub fn new(
+        id: u32,
+        prototype: &Mesh,
+        window: &Display,
+        websocket: &mut WebSocket<TcpStream>,
+    ) -> Batch {
+        transfer_batch(id, prototype, websocket);
+
         Batch {
             vertices: glium::VertexBuffer::new(window, &prototype.vertices).unwrap(),
             indices: glium::IndexBuffer::new(
@@ -271,11 +282,15 @@ impl Batch {
     }
 
     pub fn new_individual(
+        id: u32,
         mesh: &Mesh,
         instance: Instance,
         is_decal: bool,
         window: &Display,
+        websocket: &mut WebSocket<TcpStream>,
     ) -> Batch {
+        transfer_batch(id, mesh, websocket);
+
         Batch {
             vertices: glium::VertexBuffer::new(window, &mesh.vertices).unwrap(),
             indices: glium::IndexBuffer::new(
@@ -290,4 +305,55 @@ impl Batch {
             frame: 0,
         }
     }
+}
+
+fn transfer_batch(id: u32, mesh: &Mesh, websocket: &mut WebSocket<TcpStream>) {
+    let Mesh {
+        ref vertices,
+        ref indices,
+    } = mesh;
+    let mut websocket_message = Vec::<u8>::new();
+
+    if vertices.is_empty() || indices.is_empty() {
+        return;
+    }
+
+    // batch creation
+    websocket_message.write_u32::<LittleEndian>(13).unwrap();
+
+    websocket_message.write_u32::<LittleEndian>(id).unwrap();
+
+    websocket_message
+        .write_u32::<LittleEndian>(vertices.len() as u32)
+        .unwrap();
+    let vertices_pos = websocket_message.len();
+    websocket_message.resize(
+        vertices_pos + vertices.len() * ::std::mem::size_of::<Vertex>(),
+        0,
+    );
+    unsafe {
+        vertices.as_ptr().copy_to(
+            &mut websocket_message[vertices_pos] as *mut u8 as *mut Vertex,
+            vertices.len(),
+        )
+    }
+
+    websocket_message
+        .write_u32::<LittleEndian>(indices.len() as u32)
+        .unwrap();
+    let indices_pos = websocket_message.len();
+    websocket_message.resize(
+        indices_pos + indices.len() * ::std::mem::size_of::<u16>(),
+        0,
+    );
+    unsafe {
+        indices.as_ptr().copy_to(
+            &mut websocket_message[indices_pos] as *mut u8 as *mut u16,
+            indices.len(),
+        )
+    }
+
+    websocket
+        .write_message(Message::binary(websocket_message))
+        .unwrap();
 }

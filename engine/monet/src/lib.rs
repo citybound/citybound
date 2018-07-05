@@ -11,6 +11,8 @@ extern crate compact_macros;
 extern crate fnv;
 extern crate itertools;
 extern crate lyon_tessellation;
+extern crate tungstenite;
+extern crate byteorder;
 
 mod mesh;
 mod mesh_actors;

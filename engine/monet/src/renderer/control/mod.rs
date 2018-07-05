@@ -39,7 +39,10 @@ impl Renderer {
         world: &mut World,
     ) {
         let mut target = given_target.steal();
-        self.render_context.submit(&self.scene, &mut *target);
+        let inner = &mut *self.inner;
+        let scene = &inner.scene;
+        let context = &mut inner.render_context;
+        context.submit(scene, &mut *target);
 
         return_to.submitted(target, world);
     }

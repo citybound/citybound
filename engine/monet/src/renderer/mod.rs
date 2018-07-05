@@ -68,7 +68,12 @@ impl Renderer {
 
     /// Critical
     pub fn add_batch(&mut self, batch_id: u32, prototype: &Mesh, _: &mut World) {
-        let batch = Batch::new(prototype, &self.render_context.window);
+        let batch = {
+            let inner = &mut *self.inner;
+            let window = &inner.render_context.window;
+            let websocket = &mut inner.render_context.websocket;
+            Batch::new(batch_id, prototype, window, websocket)
+        };
         self.scene.batches.insert(batch_id, batch);
     }
 
@@ -81,8 +86,19 @@ impl Renderer {
         is_decal: bool,
         _: &mut World,
     ) {
-        let individual =
-            Batch::new_individual(mesh, *instance_info, is_decal, &self.render_context.window);
+        let individual = {
+            let inner = &mut *self.inner;
+            let window = &inner.render_context.window;
+            let websocket = &mut inner.render_context.websocket;
+            Batch::new_individual(
+                individual_id,
+                mesh,
+                *instance_info,
+                is_decal,
+                window,
+                websocket,
+            )
+        };
         self.scene.batches.insert(individual_id, individual);
     }
 

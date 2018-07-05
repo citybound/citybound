@@ -1,0 +1,204 @@
+<canvas id="glcanvas" width="1920" height="1080">
+    Your browser doesn't appear to support the HTML5
+    <code>&lt;canvas&gt;</code> element.
+</canvas>
+
+<script src="webgl-debug.js"></script>
+<script>
+    window.onload = main;
+    function main() {
+        // Get the WebGL context from the canvas
+        try { var gl = document.getElementById("glcanvas").getContext("webgl") } catch (ex) { }//02
+        if (!gl) { console.log("Unable to initialize WebGL. Your browser may not support it."); return; }//03
+        try { var ext = gl.getExtension("ANGLE_instanced_arrays") } catch (ex) { };
+        if (!ext) { console.log("Unable to load ANGLE_instanced_arrays extension."); return; }
+
+        // Setup the shader program with the vertex shader and the fragment shader
+        const shaderProgram = buildShaderProgram(gl, `
+precision mediump float;
+uniform mat4 view;
+uniform mat4 perspective;
+attribute vec3 position;
+attribute vec3 instance_position;
+attribute vec2 instance_direction;
+attribute vec3 instance_color;
+varying vec3 p;
+varying vec3 color;
+
+void main() {
+    mat4 model = mat4(1.0); // unit diagonal
+    mat4 modelview = view * model;
+    vec2 orth_instance_direction = vec2(-instance_direction.y, instance_direction.x);
+    vec3 rotated_position = vec3(position.x * instance_direction + position.y * orth_instance_direction, position.z);
+    gl_Position = perspective * modelview * vec4(rotated_position + instance_position, 1.0);
+    p = position;
+    color = instance_color;
+}
+            `, `
+precision mediump float;
+varying vec3 p;
+varying vec3 color;
+void main() {
+    gl_FragColor = vec4(pow(color, vec3(1.0/2.2)), 1.0);
+}`
+        );
+        gl.useProgram(shaderProgram);
+
+        const shader = {
+            program: shaderProgram,
+            uniLocs: {
+                view: gl.getUniformLocation(shaderProgram, 'view'),
+                perspective: gl.getUniformLocation(shaderProgram, 'perspective'),
+            },
+            attrLocs: {
+                position: gl.getAttribLocation(shaderProgram, 'position'),
+                instancePosition: gl.getAttribLocation(shaderProgram, 'instance_position'),
+                instanceDirection: gl.getAttribLocation(shaderProgram, 'instance_direction'),
+                instanceColor: gl.getAttribLocation(shaderProgram, 'instance_color'),
+            },
+        };
+
+        const socket = new WebSocket("ws://localhost:9999");
+        socket.binaryType = 'arraybuffer';
+
+        const batches = {};
+
+        socket.onmessage = function (event) {
+            const data = event.data;
+            const messageType = new Uint32Array(data, 0, 1)[0];
+
+            if (messageType == 13) {
+                // create/update batch
+                // TODO: dispose of old buffers
+
+                const batchId = new Uint32Array(data, 4, 1)[0];
+                const nVertices = new Uint32Array(data, 4 + 4, 1)[0];
+                const vertices = new Float32Array(data, 4 + 4 + 4, nVertices * 3);
+                const nIndices = new Uint32Array(data, 4 + 4 + 4 + nVertices * 3 * 4, 1)[0];
+                const indices = new Uint16Array(data, 4 + 4 + 4 + nVertices * 3 * 4 + 4, nIndices);
+
+                //console.log("Received batch", batchId, "vertices:", nVertices, vertices, "indices:", nIndices, indices);
+
+                const vertexBufferId = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertexBufferId);
+                gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+                const indexBufferId = gl.createBuffer();
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBufferId);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+
+                batches[batchId] = {
+                    vertexBufferId,
+                    indexBufferId,
+                    nIndices: indices.length,
+                    nElements: indices.length / 3,
+                    vertices,
+                    indices
+                };
+            } else if (messageType == 0) {
+                // frame start
+
+                const viewMatrix = new Float32Array(data, 4, 4 * 4);
+                const perspectiveMatrix = new Float32Array(data, 4 + 4 * 4 * 4, 4 * 4);
+
+                console.log("Frame start");
+                //console.log("Starting frame", "viewMatrix", viewMatrix, "perspectiveMatrix", perspectiveMatrix);
+
+                gl.clearColor(0.6, 0.75, 0.4, 1.0);
+                gl.clearDepth(1.0);
+                gl.enable(gl.DEPTH_TEST);
+                gl.depthFunc(gl.LEQUAL);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+                gl.useProgram(shader.program);
+
+                // setting up uniforms
+                gl.uniformMatrix4fv(
+                    shader.uniLocs.view,
+                    false,
+                    viewMatrix);
+                gl.uniformMatrix4fv(
+                    shader.uniLocs.perspective,
+                    false,
+                    perspectiveMatrix);
+
+
+            } else if (messageType == 42) {
+                // drawcall
+
+                const batchId = new Uint32Array(data, 4, 1)[0];
+                const nInstances = new Uint32Array(data, 4 + 4, 1)[0];
+                const instances = new Float32Array(data, 4 + 4 + 4, nInstances * 8); // TODO
+
+                //console.log("Draw call, batch", batchId, "instances:", nInstances, instances);
+
+                const batch = batches[batchId];
+                if (!batch) {
+                    //console.log("Tried to draw batch", batchId, "which wasn't received yet");
+                    return;
+                }
+
+                // set up vertex attributes
+                gl.bindBuffer(gl.ARRAY_BUFFER, batch.vertexBufferId);
+                gl.vertexAttribPointer(shader.attrLocs.position, 3, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(shader.attrLocs.position);
+                ext.vertexAttribDivisorANGLE(shader.attrLocs.position, 0);
+
+                // set up index array
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, batch.indexBufferId);
+
+                // create instance buffer
+                const instaceBufferId = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, instaceBufferId);
+                gl.bufferData(gl.ARRAY_BUFFER, instances, gl.STATIC_DRAW);
+
+                // gl.bindBuffer(gl.ARRAY_BUFFER, instaceBufferId);
+
+                // set up instance attributes
+                gl.vertexAttribPointer(shader.attrLocs.instancePosition, 3, gl.FLOAT, false, 8 * 4, 0);
+                gl.enableVertexAttribArray(shader.attrLocs.instancePosition);
+                ext.vertexAttribDivisorANGLE(shader.attrLocs.instancePosition, 1);
+
+                gl.vertexAttribPointer(shader.attrLocs.instanceDirection, 2, gl.FLOAT, false, 8 * 4, 3 * 4);
+                gl.enableVertexAttribArray(shader.attrLocs.instanceDirection);
+                ext.vertexAttribDivisorANGLE(shader.attrLocs.instanceDirection, 1);
+
+                gl.vertexAttribPointer(shader.attrLocs.instanceColor, 3, gl.FLOAT, false, 8 * 4, 5 * 4);
+                gl.enableVertexAttribArray(shader.attrLocs.instanceColor);
+                ext.vertexAttribDivisorANGLE(shader.attrLocs.instanceColor, 1);
+
+                ext.drawElementsInstancedANGLE(gl.TRIANGLES, batch.nIndices, gl.UNSIGNED_SHORT, 0, nInstances);
+
+                // TODO: dispose of old instance buffers
+            }
+        }
+    }
+
+    function buildShaderProgram(gl, vertShaderSrc, fragShaderSrc) {
+        function buildShader(type, source) {
+            var sh;
+            if (type == "fragment")
+                sh = gl.createShader(gl.FRAGMENT_SHADER);
+            else if (type == "vertex")
+                sh = gl.createShader(gl.VERTEX_SHADER);
+            else // Unknown shader type
+                return null;
+            gl.shaderSource(sh, source);
+            gl.compileShader(sh);
+            if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+                console.log("An error occurred compiling the " + type +
+                    " shader: " + gl.getShaderInfoLog(sh));
+                return null;
+            } else { return sh; }
+        };
+
+        var prog = gl.createProgram();
+        gl.attachShader(prog, buildShader('vertex', vertShaderSrc));
+        gl.attachShader(prog, buildShader('fragment', fragShaderSrc));
+        gl.linkProgram(prog);
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+            throw "Could not link the shader program!";
+        }
+        return prog;
+    }
+</script>
