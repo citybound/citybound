@@ -24,6 +24,8 @@ extern crate stagemaster;
 extern crate imgui;
 #[macro_use]
 extern crate serde_derive;
+extern crate tungstenite;
+extern crate rmpv;
 
 use stagemaster::environment::Environment;
 
@@ -43,6 +45,7 @@ mod land_use;
 mod ui_layers;
 mod render_layers;
 mod style;
+mod browser_ui;
 
 use kay::Actor;
 use compact::CVec;
@@ -121,10 +124,13 @@ fn main() {
 
         let mut frame_counter = util::init::FrameCounter::new();
 
+        let browser_ui = browser_ui::setup(&mut system);
+
         loop {
             frame_counter.start_frame();
 
             user_interface.process_events(world);
+            browser_ui.process_messages(world);
 
             system.process_all_messages();
 

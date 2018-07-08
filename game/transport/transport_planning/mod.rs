@@ -15,8 +15,8 @@ SWITCHING_LANE_OVERLAP_TOLERANCE};
 
 #[derive(Copy, Clone)]
 pub struct RoadIntent {
-    n_lanes_forward: u8,
-    n_lanes_backward: u8,
+    pub n_lanes_forward: u8,
+    pub n_lanes_backward: u8,
 }
 
 impl RoadIntent {

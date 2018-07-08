@@ -30,6 +30,8 @@ uuid = { version = "0.6", features = ["v4"] }
 compact = "0.1.0"
 compact_macros = "0.1.0"
 kay = "0.1.0"
+tungstenite = "0.5.3"
+rmpv = "0.4.0"
 
 [dependencies.descartes]
 version = "0.1.0"

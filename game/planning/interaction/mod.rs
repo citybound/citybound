@@ -13,6 +13,7 @@ use land_use::zone_planning::{ZoneIntent, LandUse};
 use construction::{Construction, Action};
 use style::dimensions::CONTROL_POINT_HANDLE_RADIUS;
 use stagemaster::combo::{Bindings, Combo2};
+use browser_ui::BrowserUIID;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ControlPointRef(pub GestureID, pub usize);
@@ -28,6 +29,12 @@ pub struct PlanManagerUIState {
     current_result_preview: COption<PlanResult>,
     current_action_preview: COption<CVec<CVec<Action>>>,
     pub user_interface: UserInterfaceID,
+}
+
+impl PlanManager {
+    pub fn get_all_plans(&mut self, ui: BrowserUIID, world: &mut World) {
+        ui.send_all_plans(self.master_plan.clone(), self.proposals.clone(), world);
+    }
 }
 
 impl PlanManager {

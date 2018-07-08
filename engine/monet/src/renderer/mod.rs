@@ -71,8 +71,7 @@ impl Renderer {
         let batch = {
             let inner = &mut *self.inner;
             let window = &inner.render_context.window;
-            let websocket = &mut inner.render_context.websocket;
-            Batch::new(batch_id, prototype, window, websocket)
+            Batch::new(prototype, window)
         };
         self.scene.batches.insert(batch_id, batch);
     }
@@ -89,15 +88,7 @@ impl Renderer {
         let individual = {
             let inner = &mut *self.inner;
             let window = &inner.render_context.window;
-            let websocket = &mut inner.render_context.websocket;
-            Batch::new_individual(
-                individual_id,
-                mesh,
-                *instance_info,
-                is_decal,
-                window,
-                websocket,
-            )
+            Batch::new_individual(mesh, *instance_info, is_decal, window)
         };
         self.scene.batches.insert(individual_id, individual);
     }

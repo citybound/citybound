@@ -36,7 +36,7 @@ pub enum GestureIntent {
 }
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq)]
-pub struct GestureID(Uuid);
+pub struct GestureID(pub Uuid);
 
 impl GestureID {
     pub fn new() -> GestureID {
@@ -167,7 +167,7 @@ impl Plan {
 use self::interaction::PlanManagerUIState;
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq)]
-pub struct ProposalID(Uuid);
+pub struct ProposalID(pub Uuid);
 
 impl ProposalID {
     pub fn new() -> ProposalID {
