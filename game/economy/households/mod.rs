@@ -1085,5 +1085,9 @@ pub fn setup(system: &mut ActorSystem) {
     neighboring_town_trade::setup(system);
 }
 
+pub fn spawn(world: &mut World) {
+    tasks::spawn(world);
+}
+
 mod kay_auto;
 pub use self::kay_auto::*;

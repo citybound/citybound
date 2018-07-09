@@ -284,15 +284,17 @@ impl PlanManager {
     }
 }
 
-pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) -> PlanManagerID {
+pub fn setup(system: &mut ActorSystem) {
     system.register::<PlanManager>();
     auto_setup(system);
     rendering::auto_setup(system);
     interaction::setup(system);
+}
 
+pub fn spawn(world: &mut World, user_interface: UserInterfaceID) -> PlanManagerID {
     let initial_proposal_id = ProposalID::new();
-    let plan_manager = PlanManagerID::spawn(initial_proposal_id, &mut system.world());
-    plan_manager.switch_to(user_interface, initial_proposal_id, &mut system.world());
+    let plan_manager = PlanManagerID::spawn(initial_proposal_id, world);
+    plan_manager.switch_to(user_interface, initial_proposal_id, world);
     plan_manager
 }
 

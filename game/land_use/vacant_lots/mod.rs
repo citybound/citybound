@@ -222,7 +222,6 @@ impl Constructable for VacantLot {
 
 pub fn setup(system: &mut ActorSystem) {
     system.register::<VacantLot>();
-
     auto_setup(system);
 }
 

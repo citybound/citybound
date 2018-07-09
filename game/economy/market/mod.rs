@@ -225,12 +225,11 @@ impl DistanceRequester for TripCostEstimator {
 pub fn setup(system: &mut ActorSystem) {
     system.register::<Market>();
     system.register::<TripCostEstimator>();
-
     kay_auto::auto_setup(system);
+}
 
-    if system.networking_machine_id().0 == 0 {
-        MarketID::spawn(&mut system.world());
-    }
+pub fn spawn(world: &mut World) {
+    MarketID::spawn(world);
 }
 
 mod kay_auto;

@@ -89,10 +89,11 @@ impl Simulatable for TaskEndScheduler {
 
 pub fn setup(system: &mut ActorSystem) {
     system.register::<TaskEndScheduler>();
-
     auto_setup(system);
+}
 
-    TaskEndSchedulerID::spawn(&mut system.world());
+pub fn spawn(world: &mut World) {
+    TaskEndSchedulerID::spawn(world);
 }
 
 mod kay_auto;

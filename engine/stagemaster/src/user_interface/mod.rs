@@ -662,31 +662,27 @@ impl UserInterface {
     }
 }
 
-pub fn setup(
-    system: &mut ActorSystem,
+pub fn setup(system: &mut ActorSystem) {
+    ::monet::setup(system);
+    system.register::<UserInterface>();
+    auto_setup(system);
+    super::camera_control::setup(system);
+}
+
+pub fn spawn(
+    world: &mut World,
     renderables: CVec<RenderableID>,
     env: Environment,
     window_builder: WindowBuilder,
     clear_color: (f32, f32, f32, f32),
 ) -> (UserInterfaceID, RendererID) {
-    ::monet::setup(system);
-    system.register::<UserInterface>();
-    auto_setup(system);
-
-    super::camera_control::setup(system);
-
     let context = ContextBuilder::new().with_vsync(true);
     let events_loop = EventsLoop::new();
     let window = Display::new(window_builder, context, &events_loop).unwrap();
 
     let mut scene = SceneDescription::new(renderables);
     scene.eye.position *= 30.0;
-    let renderer_id = RendererID::spawn(
-        External::new(window.clone()),
-        scene,
-        clear_color,
-        &mut system.world(),
-    );
+    let renderer_id = RendererID::spawn(External::new(window.clone()), scene, clear_color, world);
 
     unsafe {
         super::debug::DEBUG_RENDERER = Some(renderer_id);
@@ -697,7 +693,7 @@ pub fn setup(
         External::new(events_loop),
         renderer_id,
         env,
-        &mut system.world(),
+        world,
     );
 
     (ui_id, renderer_id)

@@ -328,7 +328,6 @@ pub fn spawn_gesture_interactables(
 
 pub fn setup(system: &mut ActorSystem) {
     system.register::<LaneCountInteractable>();
-
     auto_setup(system);
 }
 

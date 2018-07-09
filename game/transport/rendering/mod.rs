@@ -512,31 +512,32 @@ impl SwitchLane {
 
 pub fn setup(system: &mut ActorSystem) {
     system.register::<LaneRenderer>();
-
     auto_setup(system);
+}
 
+pub fn spawn(world: &mut World) {
     let asphalt_group = GrouperID::spawn(
         colors::ASPHALT,
         RenderLayers::LaneAsphalt as u32,
         false,
-        &mut system.world(),
+        world,
     );
 
     let marker_group = GrouperID::spawn(
         colors::ROAD_MARKER,
         RenderLayers::LaneMarker as u32,
         true,
-        &mut system.world(),
+        world,
     );
 
     let gaps_group = GrouperID::spawn(
         colors::ASPHALT,
         RenderLayers::LaneMarkerGaps as u32,
         true,
-        &mut system.world(),
+        world,
     );
 
-    LaneRendererID::spawn(asphalt_group, marker_group, gaps_group, &mut system.world());
+    LaneRendererID::spawn(asphalt_group, marker_group, gaps_group, world);
 }
 
 const CONSTRUCTION_ANIMATION_DELAY: f32 = 120.0;

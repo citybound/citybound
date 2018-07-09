@@ -277,15 +277,15 @@ impl Sleeper for DevelopmentManager {
     }
 }
 
-pub fn setup(system: &mut ActorSystem, simulation: SimulationID, plan_manager: PlanManagerID) {
+pub fn setup(system: &mut ActorSystem) {
     system.register::<ImmigrationManager>();
     system.register::<DevelopmentManager>();
-
     auto_setup(system);
+}
 
-    let development_manager =
-        DevelopmentManagerID::spawn(simulation, plan_manager, &mut system.world());
-    ImmigrationManagerID::spawn(simulation, development_manager, &mut system.world());
+pub fn spawn(world: &mut World, simulation: SimulationID, plan_manager: PlanManagerID) {
+    let development_manager = DevelopmentManagerID::spawn(simulation, plan_manager, world);
+    ImmigrationManagerID::spawn(simulation, development_manager, world);
 }
 
 mod kay_auto;

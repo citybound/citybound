@@ -99,12 +99,13 @@ impl Interactable2d for Simulation {
     }
 }
 
-pub fn setup(system: &mut ActorSystem, simulatables: Vec<SimulatableID>) -> SimulationID {
+pub fn setup(system: &mut ActorSystem) {
     system.register::<Simulation>();
-
     auto_setup(system);
+}
 
-    SimulationID::spawn(simulatables.into(), &mut system.world())
+pub fn spawn(world: &mut World, simulatables: Vec<SimulatableID>) -> SimulationID {
+    SimulationID::spawn(simulatables.into(), world)
 }
 
 mod kay_auto;

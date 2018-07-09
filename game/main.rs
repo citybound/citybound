@@ -64,11 +64,29 @@ use land_use::buildings::rendering::BuildingRenderer;
 use planning::PlanManager;
 use construction::Construction;
 
+fn setup_all(system: &mut kay::ActorSystem) {
+    for setup_fn in &[
+        stagemaster::setup,
+        simulation::setup,
+        ui_layers::setup,
+        planning::setup,
+        construction::setup,
+        transport::setup,
+        economy::setup,
+        land_use::setup,
+        browser_ui::setup,
+    ] {
+        setup_fn(system)
+    }
+}
+
 fn main() {
     util::init::ensure_crossplatform_proper_thread(|| {
         util::init::first_time_open_wiki_release_page();
 
         let mut system = Box::new(kay::ActorSystem::new(util::init::networking_from_env_args()));
+
+        setup_all(&mut system);
 
         let world = &mut system.world();
 
@@ -87,19 +105,19 @@ fn main() {
             TaskEndScheduler::local_first(world).into(),
             Construction::global_first(world).into(),
         ];
-        let simulation = simulation::setup(&mut system, simulatables);
+        let simulation = simulation::spawn(world, simulatables);
 
         let renderables: CVec<_> = vec![
             LaneRenderer::global_broadcast(world).into(),
             Grouper::global_broadcast(world).into(),
-            BuildingRenderer::global_broadcast(&mut system.world()).into(),
-            PlanManager::global_first(&mut system.world()).into(),
+            BuildingRenderer::global_broadcast(world).into(),
+            PlanManager::global_first(world).into(),
         ].into();
 
         let machine_id = system.networking_machine_id();
 
-        let (user_interface, renderer) = stagemaster::setup(
-            &mut system,
+        let (user_interface, renderer) = stagemaster::spawn(
+            world,
             renderables,
             *ENV,
             util::init::build_window(machine_id.0),
@@ -107,16 +125,15 @@ fn main() {
         );
 
         simulation.add_to_ui(user_interface, world);
-        ui_layers::setup(&mut system, user_interface);
+        ui_layers::spawn(world, user_interface);
 
         util::init::set_error_hook(user_interface, system.world());
 
-        let plan_manager = planning::setup(&mut system, user_interface);
-        construction::setup(&mut system);
-
-        transport::setup(&mut system, simulation);
-        economy::setup(&mut system, simulation, plan_manager);
-        land_use::setup(&mut system, user_interface);
+        let plan_manager = planning::spawn(world, user_interface);
+        construction::spawn(world);
+        transport::spawn(world, simulation);
+        economy::spawn(world, simulation, plan_manager);
+        land_use::spawn(world, user_interface);
 
         util::init::print_version(user_interface, world);
 
@@ -124,7 +141,7 @@ fn main() {
 
         let mut frame_counter = util::init::FrameCounter::new();
 
-        let browser_ui = browser_ui::setup(&mut system);
+        let browser_ui = browser_ui::spawn(world);
 
         loop {
             frame_counter.start_frame();

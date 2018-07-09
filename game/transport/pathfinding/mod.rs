@@ -713,9 +713,13 @@ impl Lane {
 
 use simulation::SimulationID;
 
-pub fn setup(system: &mut ActorSystem, simulation: SimulationID) {
-    trip::setup(system, simulation);
+pub fn setup(system: &mut ActorSystem) {
+    trip::setup(system);
     auto_setup(system);
+}
+
+pub fn spawn(world: &mut World, simulation: SimulationID) {
+    trip::spawn(world, simulation);
 }
 
 mod kay_auto;

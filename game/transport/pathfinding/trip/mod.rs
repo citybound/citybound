@@ -302,13 +302,15 @@ impl PositionRequester for FailedTripDebugger {
     }
 }
 
-pub fn setup(system: &mut ActorSystem, simulation: SimulationID) {
+pub fn setup(system: &mut ActorSystem) {
     system.register::<Trip>();
     system.register::<TripCreator>();
     system.register::<FailedTripDebugger>();
     auto_setup(system);
+}
 
-    TripCreatorID::spawn(simulation, &mut system.world());
+pub fn spawn(world: &mut World, simulation: SimulationID) {
+    TripCreatorID::spawn(simulation, world);
 }
 
 mod kay_auto;

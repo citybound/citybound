@@ -151,7 +151,6 @@ impl Interactable3d for Lane {
 pub fn setup(system: &mut ActorSystem) {
     system.register::<Lane>();
     system.register::<SwitchLane>();
-
     auto_setup(system);
 }
 

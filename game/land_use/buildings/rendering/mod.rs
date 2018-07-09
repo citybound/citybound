@@ -253,14 +253,15 @@ impl Renderable for BuildingRenderer {
     }
 }
 
-pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) -> BuildingRendererID {
+pub fn setup(system: &mut ActorSystem) {
     system.register::<BuildingInspector>();
     system.register::<BuildingRenderer>();
     auto_setup(system);
+}
 
-    BuildingInspectorID::spawn(user_interface, &mut system.world());
-
-    BuildingRendererID::spawn(&mut system.world())
+pub fn spawn(world: &mut World, user_interface: UserInterfaceID) -> BuildingRendererID {
+    BuildingInspectorID::spawn(user_interface, world);
+    BuildingRendererID::spawn(world)
 }
 
 use util::random::seed;

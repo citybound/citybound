@@ -249,12 +249,13 @@ impl BrowserUI {
     }
 }
 
-pub fn setup(system: &mut ActorSystem) -> BrowserUIID {
+pub fn setup(system: &mut ActorSystem) {
     system.register::<BrowserUI>();
-
     auto_setup(system);
+}
 
-    BrowserUIID::spawn(&mut system.world())
+pub fn spawn(world: &mut World) -> BrowserUIID {
+    BrowserUIID::spawn(world)
 }
 
 mod kay_auto;

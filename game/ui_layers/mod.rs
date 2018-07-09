@@ -44,10 +44,13 @@ impl Interactable2d for LayerSelection {
     }
 }
 
-pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) {
+pub fn setup(system: &mut ActorSystem) {
     system.register::<LayerSelection>();
     self::kay_auto::auto_setup(system);
-    LayerSelectionID::spawn(user_interface, &mut system.world());
+}
+
+pub fn spawn(world: &mut World, user_interface: UserInterfaceID) {
+    LayerSelectionID::spawn(user_interface, world);
 }
 
 mod kay_auto;

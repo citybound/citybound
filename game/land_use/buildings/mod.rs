@@ -273,11 +273,15 @@ pub struct BuildingPlanResultDelta {
 pub struct MaterializedBuildings {
     buildings: CVec<(P2, BuildingID, LaneID)>,
 }
-pub fn setup(system: &mut ActorSystem, user_interface: UserInterfaceID) {
-    system.register::<Building>();
-    rendering::setup(system, user_interface);
 
+pub fn setup(system: &mut ActorSystem) {
+    system.register::<Building>();
+    rendering::setup(system);
     kay_auto::auto_setup(system);
+}
+
+pub fn spawn(world: &mut World, user_interface: UserInterfaceID) {
+    rendering::spawn(world, user_interface);
 }
 
 mod kay_auto;

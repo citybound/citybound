@@ -176,8 +176,10 @@ impl Simulatable for Construction {
 pub fn setup(system: &mut ActorSystem) {
     system.register::<Construction>();
     auto_setup(system);
+}
 
-    ConstructionID::spawn(&mut system.world());
+pub fn spawn(world: &mut World) {
+    ConstructionID::spawn(world);
 }
 
 mod kay_auto;

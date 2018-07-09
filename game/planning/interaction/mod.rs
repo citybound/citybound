@@ -808,7 +808,6 @@ impl Interactable2d for GestureCanvas {
 pub fn setup(system: &mut ActorSystem) {
     system.register::<GestureCanvas>();
     system.register::<ControlPointInteractable>();
-
     auto_setup(system);
 }
 
