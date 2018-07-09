@@ -1,0 +1,43 @@
+[package]
+name = "citybound_common"
+version = "0.3.0"
+authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
+license = "AGPL-3.0"
+build = "./build.rs"
+
+[workspace]
+members = [
+    "../engine/monet",
+    "../engine/stagemaster"
+]
+
+[dependencies]
+ordered-float = "0.5.0"
+itertools = "0.7.6"
+rand = "0.3"
+fnv = "1.0.5"
+roaring = "0.5.2"
+open = "1.2.1"
+serde = "1.0"
+serde_derive = "1.0"
+imgui = "0.0.15"
+backtrace = "0.3"
+uuid = { version = "0.6", features = ["v4"] }
+compact = "0.1.0"
+compact_macros = "0.1.0"
+kay = "0.1.0"
+tungstenite = "0.5.3"
+rmpv = "0.4.0"
+
+[dependencies.descartes]
+version = "0.1.0"
+features = ["compact_containers"]
+
+[dependencies.monet]
+path = "../engine/monet/"
+
+[dependencies.stagemaster]
+path = "../engine/stagemaster/"
+
+[build-dependencies]
+kay_codegen = "0.1.0"

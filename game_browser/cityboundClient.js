@@ -1,9 +1,10 @@
 import Monet from 'monet';
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { vec3, mat4 } from 'gl-matrix';
+import { vec3, vec4, mat4 } from 'gl-matrix';
 import ContainerDimensions from 'react-container-dimensions';
 import msgpack from 'msgpack-lite';
+import update from 'immutability-helper';
 
 class CityboundClient extends React.Component {
     constructor(props) {
@@ -33,19 +34,53 @@ class CityboundClient extends React.Component {
             //console.log(command, options);
 
             if (command == "ADD_MESH") {
-                this.setState((oldState) => Object.assign(oldState, {
-                    meshes: Object.assign(oldState.meshes, {
+                this.setState(oldState => update(oldState, {
+                    meshes: {
                         [options.name]: {
-                            vertices: options.vertices,
-                            indices: options.indices,
+                            $set: {
+                                vertices: options.vertices,
+                                indices: options.indices,
+                            }
                         }
-                    })
+                    }
+                }));
+            } else if (command == "REMOVE_MESH") {
+                const name = options;
+
+                this.setState(oldState => update(oldState, {
+                    meshes: { $unset: [name] }
                 }));
             } else if (command == "UPDATE_ALL_PLANS") {
-                this.setState((oldState) => Object.assign(oldState, {
-                    planning: options
+                const planning = options;
+                this.setState(oldState => update(oldState, {
+                    planning: { $set: planning }
                 }));
             }
+        }
+    }
+
+    handleUICommand(command, options) {
+        if (command == "MOVE_GESTURE_POINT") {
+            const { proposalId, gestureId, pointIndex, newPosition } = options;
+
+            this.socket.send(msgpack.encode(["MOVE_GESTURE_POINT", options]));
+
+            this.setState(oldState => update(oldState, {
+                planning: {
+                    proposals: {
+                        [proposalId]: {
+                            [gestureId]: {
+                                points: (oldPoints => {
+                                    const newPoints = new Float32Array(oldPoints);
+                                    newPoints[pointIndex * 2] = newPosition[0];
+                                    newPoints[(pointIndex * 2) + 1] = newPosition[1];
+                                    return newPoints;
+                                })
+                            }
+                        }
+                    }
+                }
+            }));
         }
     }
 
@@ -136,6 +171,49 @@ class CityboundClient extends React.Component {
                 ]
             }
         ];
+
+        if (this.state.cursor3d) {
+            const [x, y, z] = this.state.cursor3d;
+            layers.push({
+                decal: true,
+                batches: [
+                    {
+                        mesh: this.state.meshes.GestureDot,
+                        instances: new Float32Array([x, y, z, 1.0, 0.0, 0.3, 0.3, 0.0])
+                    }
+                ]
+            })
+        }
+
+        const gesturePointInteractables = [];
+
+        if (this.state.planning) {
+            for (let proposalId of Object.keys(this.state.planning.proposals)) {
+                const proposal = this.state.planning.proposals[proposalId];
+                for (let gestureId of Object.keys(proposal)) {
+                    const gesture = proposal[gestureId];
+
+                    for (let i = 0; i < gesture.points.length; i += 2) {
+                        gesturePointInteractables.push({
+                            shape: {
+                                type: "circle",
+                                center: [gesture.points[i], gesture.points[i + 1], 0],
+                                radius: 3
+                            },
+                            onEvent: e => {
+                                if (e.drag && e.drag.now) {
+                                    this.handleUICommand("MOVE_GESTURE_POINT", {
+                                        proposalId, gestureId, pointIndex: i / 2, newPosition: e.drag.now
+                                    });
+                                }
+                            }
+                        })
+                    }
+                }
+            }
+        }
+
+
         //const {viewMatrix, perspectiveMatrix} = this.state.view;
         const { eye, target, verticalFov } = this.state.view;
 
@@ -160,12 +238,116 @@ class CityboundClient extends React.Component {
                 return false;
             }
         },
-            React.createElement(ContainerDimensions, { style: { width: "100%", height: "100%" } }, ({ width, height }) => {
+            React.createElement(ContainerDimensions, { style: { width: "100%", height: "100%", position: "relative" } }, ({ width, height }) => {
                 const viewMatrix = mat4.lookAt(mat4.create(), eye, target, [0, 0, 1]);
                 const perspectiveMatrix = mat4.perspective(mat4.create(), verticalFov, width / height, 50000, 0.1);
-                return React.createElement(Monet, { width, height, layers, viewMatrix, perspectiveMatrix, clearColor: [0.79, 0.88, 0.65, 1.0] })
+                return React.createElement("div", { style: { width, height } }, [
+                    React.createElement(Monet, {
+                        key: "canvas",
+                        layers,
+                        width, height,
+                        viewMatrix, perspectiveMatrix,
+                        clearColor: [0.79, 0.88, 0.65, 1.0]
+                    }),
+                    React.createElement(Stage, {
+                        key: "stage",
+                        interactables: gesturePointInteractables,
+                        width, height,
+                        eye, target, verticalFov,
+                        style: { width, height, position: "absolute", top: 0, left: 0 }
+                    })
+                ])
             })
         );
+    }
+}
+
+class Stage extends React.Component {
+    render() {
+        return React.createElement("div", {
+            style: Object.assign({}, this.props.style, { width: this.props.width, height: this.props.height }),
+            onMouseMove: e => {
+                const { eye, target, verticalFov, width, height } = this.props;
+                const elementRect = e.target.getBoundingClientRect();
+                const cursorPosition3d = this.projectCursor(eye, target, verticalFov, width, height, e, elementRect);
+
+                this.props.cursorMoved && this.props.cursorMoved(cursorPosition3d);
+
+                if (this.activeInteractable) {
+                    this.activeInteractable.onEvent({ drag: { start: this.dragStart, now: cursorPosition3d } })
+                } else {
+                    const oldHoveredInteractable = this.hoveredInteractable;
+                    this.hoveredInteractable = this.findInteractableBelow(cursorPosition3d);
+
+                    if (oldHoveredInteractable != this.hoveredInteractable) {
+                        oldHoveredInteractable && oldHoveredInteractable.onEvent({ hover: { end: cursorPosition3d } });
+                        this.hoveredInteractable && this.hoveredInteractable.onEvent({ hover: { start: cursorPosition3d } });
+                    } else {
+                        this.hoveredInteractable && this.hoveredInteractable.onEvent({ hover: { now: cursorPosition3d } });
+                    }
+                }
+            },
+            onMouseDown: e => {
+                const { eye, target, verticalFov, width, height } = this.props;
+                const elementRect = e.target.getBoundingClientRect();
+                const cursorPosition3d = this.projectCursor(eye, target, verticalFov, width, height, e, elementRect);
+
+                this.activeInteractable = this.findInteractableBelow(cursorPosition3d);
+                this.activeInteractable && this.activeInteractable.onEvent({ drag: { start: cursorPosition3d } });
+                this.dragStart = cursorPosition3d;
+            },
+            onMouseUp: e => {
+                const { eye, target, verticalFov, width, height } = this.props;
+                const elementRect = e.target.getBoundingClientRect();
+                const cursorPosition3d = this.projectCursor(eye, target, verticalFov, width, height, e, elementRect);
+
+                if (this.activeInteractable) {
+                    this.activeInteractable.onEvent({ drag: { start: this.dragStart, end: cursorPosition3d } });
+                    this.activeInteractable = null;
+                    this.dragStart = null;
+                }
+            }
+        });
+    }
+
+    findInteractableBelow(cursorPosition3d) {
+        for (let interactable of this.props.interactables) {
+            let below = interactable.shape.type == "circle"
+                ? vec3.dist(cursorPosition3d, interactable.shape.center) < interactable.shape.radius
+                : false;
+
+            if (below) {
+                return interactable;
+            }
+        }
+
+        return null;
+    }
+
+    projectCursor(eye, target, verticalFov, width, height, e, elementRect) {
+        const cursor2dX = e.clientX - elementRect.left;
+        const cursor2dY = e.clientY - elementRect.top;
+
+        const normalized2dPosition = [
+            ((cursor2dX / width) * 2.0) - 1.0,
+            ((-cursor2dY / height) * 2.0) + 1.0,
+            -1.0,
+            1.0
+        ];
+
+        const inverseView = mat4.lookAt(mat4.create(), eye, target, [0, 0, 1]);
+        mat4.invert(inverseView, inverseView);
+        const inversePerspectiveMatrix = mat4.perspective(mat4.create(), verticalFov, width / height, 50000, 0.1);
+        mat4.invert(inversePerspectiveMatrix, inversePerspectiveMatrix);
+
+        const positionFromCamera = vec4.transformMat4(vec4.create(), normalized2dPosition, inversePerspectiveMatrix);
+        positionFromCamera[3] = 0;
+
+        const directionIntoWorld = vec4.transformMat4(vec4.create(), positionFromCamera, inverseView);
+
+        const distance = -eye[2] / directionIntoWorld[2];
+        const cursorPosition3d = vec3.scaleAndAdd(vec3.create(), eye, directionIntoWorld, distance);
+        return cursorPosition3d;
     }
 }
 

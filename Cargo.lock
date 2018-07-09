@@ -137,6 +137,13 @@ dependencies = [
 name = "citybound"
 version = "0.3.0"
 dependencies = [
+ "citybound_common 0.3.0",
+]
+
+[[package]]
+name = "citybound_common"
+version = "0.3.0"
+dependencies = [
  "backtrace 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "compact 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "compact_macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",

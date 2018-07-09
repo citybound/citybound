@@ -1,51 +1,5 @@
-#![feature(custom_derive, iter_rfold)]
-#![allow(dead_code)]
-// Enable this for memory tracking with Instruments/MacOS
-// and for much better stacktraces for memory issues
-#![feature(alloc_system)]
-extern crate alloc_system;
-
-extern crate ordered_float;
-extern crate itertools;
-extern crate rand;
-extern crate fnv;
-extern crate roaring;
-extern crate backtrace;
-extern crate uuid;
-
-extern crate compact;
-#[macro_use]
-extern crate compact_macros;
-extern crate kay;
-extern crate monet;
-extern crate descartes;
-extern crate stagemaster;
-#[macro_use]
-extern crate imgui;
-#[macro_use]
-extern crate serde_derive;
-extern crate tungstenite;
-extern crate rmpv;
-
-use stagemaster::environment::Environment;
-
-pub const ENV: &Environment = &Environment {
-    name: "Citybound",
-    author: "ae play",
-    version: "0.4.0",
-};
-
-mod util;
-mod simulation;
-mod transport;
-mod planning;
-mod construction;
-mod economy;
-mod land_use;
-mod ui_layers;
-mod render_layers;
-mod style;
-mod browser_ui;
+extern crate citybound_common;
+use citybound_common::*;
 
 use kay::Actor;
 use compact::CVec;
@@ -63,22 +17,6 @@ use economy::households::tasks::TaskEndScheduler;
 use land_use::buildings::rendering::BuildingRenderer;
 use planning::PlanManager;
 use construction::Construction;
-
-fn setup_all(system: &mut kay::ActorSystem) {
-    for setup_fn in &[
-        stagemaster::setup,
-        simulation::setup,
-        ui_layers::setup,
-        planning::setup,
-        construction::setup,
-        transport::setup,
-        economy::setup,
-        land_use::setup,
-        browser_ui::setup,
-    ] {
-        setup_fn(system)
-    }
-}
 
 fn main() {
     util::init::ensure_crossplatform_proper_thread(|| {

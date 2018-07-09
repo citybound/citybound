@@ -133,7 +133,8 @@ impl UserInterface {
         world: &mut World,
     ) -> UserInterface {
         let mut imgui = ImGui::init();
-        let default_font = include_bytes!("../../../../game/assets/ClearSans-Regular.ttf");
+        let default_font =
+            include_bytes!("../../../../game_common/src/assets/ClearSans-Regular.ttf");
 
         unsafe {
             let atlas = (*::imgui_sys::igGetIO()).fonts;
