@@ -1,5 +1,6 @@
 use kay::{Actor, ActorSystem, World};
 use stagemaster::{Interactable2d, Interactable2dID, UserInterface, UserInterfaceID};
+#[cfg(feature = "non-dummy")]
 use imgui::ImGuiSetCond_FirstUseEver;
 
 #[repr(usize)]
@@ -27,6 +28,7 @@ impl LayerSelection {
 }
 
 impl Interactable2d for LayerSelection {
+    #[cfg(feature = "non-dummy")]
     fn draw(&mut self, world: &mut World, ui: &::imgui::Ui<'static>) {
         ui.window(im_str!("UI Mode"))
             .size((200.0, 50.0), ImGuiSetCond_FirstUseEver)
@@ -42,6 +44,9 @@ impl Interactable2d for LayerSelection {
                 }
             });
     }
+
+    #[cfg(feature = "dummy")]
+    fn draw(&mut self, world: &mut World, ui: &()) {}
 }
 
 pub fn setup(system: &mut ActorSystem) {

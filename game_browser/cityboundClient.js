@@ -3,8 +3,12 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { vec3, vec4, mat4 } from 'gl-matrix';
 import ContainerDimensions from 'react-container-dimensions';
-import msgpack from 'msgpack-lite';
+//import msgpack from 'msgpack-lite';
 import update from 'immutability-helper';
+
+import cityboundBrowser from './Cargo.toml';
+
+cityboundBrowser.test();
 
 class CityboundClient extends React.Component {
     constructor(props) {

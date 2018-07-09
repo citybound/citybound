@@ -4,6 +4,7 @@ use descartes::{P2, Into2d, Area, AreaError, CurvedPath, ClosedLinePath};
 use stagemaster::{UserInterfaceID, Interactable3d, Interactable3dID, Interactable2d,
 Interactable2dID};
 use ui_layers::UILayer;
+#[cfg(feature = "non-dummy")]
 use imgui::ImGuiSetCond_FirstUseEver;
 
 use super::{Plan, PlanResult, GestureID, ProposalID, PlanManager, PlanManagerID, Gesture,
@@ -546,7 +547,8 @@ impl Interactable3d for ControlPointInteractable {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "non-dummy", derive(Serialize, Deserialize))]
+#[derive(Clone)]
 pub struct PlanManagerSettings {
     pub bindings: Bindings,
 }
@@ -577,6 +579,7 @@ pub struct GestureCanvas {
     last_point: COption<P2>,
     current_mode: GestureCanvasMode,
     current_intent: GestureIntent,
+    #[cfg(feature = "non-dummy")]
     settings: External<PlanManagerSettings>,
 }
 
@@ -605,15 +608,30 @@ impl GestureCanvas {
         user_interface.add_2d(id.into(), world);
         user_interface.focus(id.into(), world);
 
-        GestureCanvas {
-            id,
-            for_machine: user_interface.as_raw().machine,
-            plan_manager,
-            proposal_id,
-            last_point: COption(None),
-            current_mode: GestureCanvasMode::StartNewGesture,
-            current_intent: GestureIntent::Road(RoadIntent::new(2, 2)),
-            settings: External::new(::ENV.load_settings("Planning")),
+        #[cfg(feature = "non-dummy")]
+        {
+            GestureCanvas {
+                id,
+                for_machine: user_interface.as_raw().machine,
+                plan_manager,
+                proposal_id,
+                last_point: COption(None),
+                current_mode: GestureCanvasMode::StartNewGesture,
+                current_intent: GestureIntent::Road(RoadIntent::new(2, 2)),
+                settings: External::new(::ENV.load_settings("Planning")),
+            }
+        }
+        #[cfg(feature = "dummy")]
+        {
+            GestureCanvas {
+                id,
+                for_machine: user_interface.as_raw().machine,
+                plan_manager,
+                proposal_id,
+                last_point: COption(None),
+                current_mode: GestureCanvasMode::StartNewGesture,
+                current_intent: GestureIntent::Road(RoadIntent::new(2, 2)),
+            }
         }
     }
 
@@ -628,6 +646,7 @@ impl GestureCanvas {
 impl Interactable3d for GestureCanvas {
     fn on_event(&mut self, event: Event3d, world: &mut World) {
         match event {
+            #[cfg(feature = "non-dummy")]
             Event3d::Combos(combos) => {
                 self.settings.bindings.do_rebinding(&combos.current);
                 let bindings = &self.settings.bindings;
@@ -716,6 +735,7 @@ impl Interactable3d for GestureCanvas {
 }
 
 impl Interactable2d for GestureCanvas {
+    #[cfg(feature = "non-dummy")]
     fn draw(&mut self, world: &mut World, ui: &::imgui::Ui<'static>) {
         ui.window(im_str!("Canvas Mode"))
             .size((200.0, 50.0), ImGuiSetCond_FirstUseEver)
@@ -803,6 +823,9 @@ impl Interactable2d for GestureCanvas {
             ui.spacing();
         });
     }
+
+    #[cfg(feature = "dummy")]
+    fn draw(&mut self, world: &mut World, ui: &()) {}
 }
 
 pub fn setup(system: &mut ActorSystem) {

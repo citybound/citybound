@@ -7,8 +7,10 @@ build = "./build.rs"
 
 [workspace]
 members = [
-    "../engine/monet",
-    "../engine/stagemaster"
+    "./engine/monet",
+    "./engine/dummy_monet",
+    "./engine/stagemaster",
+    "./engine/dummy_stagemaster",
 ]
 
 [dependencies]
@@ -26,18 +28,36 @@ uuid = { version = "0.6", features = ["v4"] }
 compact = "0.1.0"
 compact_macros = "0.1.0"
 kay = "0.1.0"
-tungstenite = "0.5.3"
 rmpv = "0.4.0"
 
 [dependencies.descartes]
-version = "0.1.0"
+version = "0.1.1"
 features = ["compact_containers"]
 
 [dependencies.monet]
-path = "../engine/monet/"
+path = "./engine/monet/"
+optional = true
 
 [dependencies.stagemaster]
-path = "../engine/stagemaster/"
+path = "./engine/stagemaster/"
+optional = true
+
+[dependencies.dummy_monet]
+path = "./engine/dummy_monet/"
+optional = true
+
+[dependencies.dummy_stagemaster]
+path = "./engine/dummy_stagemaster/"
+optional = true
+
+[dependencies.tungstenite]
+version = "0.5.3"
+optional = true
 
 [build-dependencies]
 kay_codegen = "0.1.0"
+
+[features]
+default = ["non-dummy"]
+non-dummy = ["monet", "stagemaster", "tungstenite"]
+dummy = ["dummy_monet", "dummy_stagemaster"]

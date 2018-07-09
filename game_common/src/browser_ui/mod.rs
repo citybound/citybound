@@ -2,13 +2,16 @@ use kay::{World, External, ActorSystem, Actor};
 use compact::{CString, CHashMap};
 
 use std::net::{TcpListener, TcpStream};
+#[cfg(feature = "non-dummy")]
 use tungstenite::{WebSocket, Message};
 use rmpv::{decode, encode, ValueRef};
 
 #[derive(Compact, Clone)]
 pub struct BrowserUI {
     id: BrowserUIID,
+    #[cfg(feature = "non-dummy")]
     listener: External<TcpListener>,
+    #[cfg(feature = "non-dummy")]
     websocket: External<WebSocket<TcpStream>>,
 }
 
@@ -38,6 +41,7 @@ impl BrowserUI {
         }
     }
 
+    #[cfg(feature = "non-dummy")]
     fn send_command(&mut self, command: &str, options: ValueRef) {
         let mut message = Vec::new();
 
@@ -50,6 +54,9 @@ impl BrowserUI {
             .write_message(Message::Binary(message))
             .unwrap();
     }
+
+    #[cfg(feature = "dummy")]
+    fn send_command(&mut self, command: &str, options: ValueRef) {}
 
     pub fn add_mesh(&mut self, name: &CString, mesh: &::monet::Mesh, world: &mut World) {
         self.send_command(
@@ -192,59 +199,73 @@ fn into_byte_slice<T: Sized>(slice: &[T]) -> &[u8] {
 
 impl BrowserUI {
     pub fn spawn(id: BrowserUIID, world: &mut World) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:9999").unwrap();
-        println!("Awaiting TCP connection");
-        let stream = listener.accept().unwrap().0;
-        let mut websocket = ::tungstenite::server::accept(stream).unwrap();
-        websocket.get_mut().set_nonblocking(true).unwrap();
-        BrowserUI {
-            id,
-            listener: External::new(listener),
-            websocket: External::new(websocket),
+        #[cfg(feature = "non-dummy")]
+        {
+            let listener = TcpListener::bind("127.0.0.1:9999").unwrap();
+            println!("Awaiting TCP connection");
+            let stream = listener.accept().unwrap().0;
+            let mut websocket = ::tungstenite::server::accept(stream).unwrap();
+            websocket.get_mut().set_nonblocking(true).unwrap();
+            BrowserUI {
+                id,
+                listener: External::new(listener),
+                websocket: External::new(websocket),
+            }
+        }
+        #[cfg(feature = "dummy")]
+        {
+            BrowserUI { id }
         }
     }
 
     pub fn process_messages(&mut self, world: &mut World) {
-        let reading_successful = match self.websocket.read_message() {
-            Ok(::tungstenite::Message::Binary(raw_msg)) => {
-                let msg = decode::value_ref::read_value_ref(&mut raw_msg.as_slice());
-                match msg {
-                    Ok(ValueRef::Array(command_info)) => {
-                        if let Some(command_str) = command_info.get(0).and_then(|v| {
-                            if let ValueRef::String(string) = v {
-                                string.as_str()
+        #[cfg(feature = "non-dummy")]
+        {
+            let reading_successful = match self.websocket.read_message() {
+                Ok(::tungstenite::Message::Binary(raw_msg)) => {
+                    let msg = decode::value_ref::read_value_ref(&mut raw_msg.as_slice());
+                    match msg {
+                        Ok(ValueRef::Array(command_info)) => {
+                            if let Some(command_str) = command_info.get(0).and_then(|v| {
+                                if let ValueRef::String(string) = v {
+                                    string.as_str()
+                                } else {
+                                    None
+                                }
+                            }) {
+                                self.handle_command(
+                                    command_str,
+                                    command_info.get(1).cloned(),
+                                    world,
+                                )
                             } else {
-                                None
+                                println!("Got a weird command {:?}", command_info)
                             }
-                        }) {
-                            self.handle_command(command_str, command_info.get(1).cloned(), world)
-                        } else {
-                            println!("Got a weird command {:?}", command_info)
                         }
-                    }
-                    Ok(weird) => println!("Got a weird message: {:?}", weird),
-                    Err(err) => println!("Got a message read error: {:?}", err),
-                };
-                true
-            }
-            Ok(_) => true,
-            Err(::tungstenite::Error::Io(ref io_err))
-                if io_err.kind() == ::std::io::ErrorKind::WouldBlock =>
-            {
-                true
-            }
-            Err(err) => {
-                println!("WebSocket Error: {:?}", err);
-                false
-            }
-        };
+                        Ok(weird) => println!("Got a weird message: {:?}", weird),
+                        Err(err) => println!("Got a message read error: {:?}", err),
+                    };
+                    true
+                }
+                Ok(_) => true,
+                Err(::tungstenite::Error::Io(ref io_err))
+                    if io_err.kind() == ::std::io::ErrorKind::WouldBlock =>
+                {
+                    true
+                }
+                Err(err) => {
+                    println!("WebSocket Error: {:?}", err);
+                    false
+                }
+            };
 
-        if !reading_successful {
-            println!("Awaiting TCP re-connection");
-            let stream = self.listener.accept().unwrap().0;
-            let mut websocket = ::tungstenite::server::accept(stream).unwrap();
-            websocket.get_mut().set_nonblocking(true).unwrap();
-            self.websocket = External::new(websocket);
+            if !reading_successful {
+                println!("Awaiting TCP re-connection");
+                let stream = self.listener.accept().unwrap().0;
+                let mut websocket = ::tungstenite::server::accept(stream).unwrap();
+                websocket.get_mut().set_nonblocking(true).unwrap();
+                self.websocket = External::new(websocket);
+            }
         }
     }
 }

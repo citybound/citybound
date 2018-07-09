@@ -1,0 +1,16 @@
+[package]
+name = "citybound_browser"
+version = "0.3.0"
+authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
+license = "AGPL-3.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+stdweb = "0.4.7"
+
+[dependencies.citybound_common]
+path = "../game_common"
+default-features = false
+features = ["dummy"]

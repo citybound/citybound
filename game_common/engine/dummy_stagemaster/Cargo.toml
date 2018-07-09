@@ -1,0 +1,21 @@
+[package]
+name = "dummy_stagemaster"
+version = "0.1.0"
+authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
+build = "./src/build.rs"
+
+[dependencies]
+kay = "0.1.0"
+compact = "0.1.0"
+compact_macros = "0.1.0"
+
+[dependencies.descartes]
+version = "0.1.1"
+features = ["compact_containers"]
+
+[dependencies.dummy_monet]
+path = "../dummy_monet"
+
+[build-dependencies]
+kay_codegen = "0.1.0"
+

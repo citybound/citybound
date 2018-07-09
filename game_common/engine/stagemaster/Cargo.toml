@@ -17,7 +17,7 @@ compact = "0.1.0"
 compact_macros = "0.1.0"
 
 [dependencies.descartes]
-version = "0.1.0"
+version = "0.1.1"
 features = ["compact_containers"]
 
 [dependencies.monet]

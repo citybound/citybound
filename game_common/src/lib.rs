@@ -17,13 +17,25 @@ pub extern crate compact;
 #[macro_use]
 extern crate compact_macros;
 pub extern crate kay;
+#[cfg(feature = "non-dummy")]
 pub extern crate monet;
+#[cfg(feature = "dummy")]
+pub extern crate dummy_monet;
+#[cfg(feature = "dummy")]
+pub use dummy_monet as monet;
 pub extern crate descartes;
+#[cfg(feature = "non-dummy")]
 pub extern crate stagemaster;
+#[cfg(feature = "dummy")]
+pub extern crate dummy_stagemaster;
+#[cfg(feature = "dummy")]
+pub use dummy_stagemaster as stagemaster;
+#[cfg(feature = "non-dummy")]
 #[macro_use]
 extern crate imgui;
 #[macro_use]
 extern crate serde_derive;
+#[cfg(feature = "non-dummy")]
 extern crate tungstenite;
 extern crate rmpv;
 

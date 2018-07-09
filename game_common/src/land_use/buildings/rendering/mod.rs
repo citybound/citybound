@@ -3,6 +3,7 @@ use kay::{ActorSystem, World, External, TypedID, Actor};
 use monet::{RendererID, Renderable, RenderableID, GrouperID, GrouperIndividualID, Mesh, Instance};
 use stagemaster::{UserInterface, UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
 Interactable2d, Interactable2dID};
+#[cfg(feature = "non-dummy")]
 use imgui::ImGuiSetCond_FirstUseEver;
 
 use super::{Building, Lot, BuildingID, BuildingPlanResultDelta, BuildingStyle};
@@ -11,6 +12,11 @@ use style::colors;
 use render_layers::RenderLayers;
 
 use super::architecture::{BuildingMesh, build_building};
+
+#[cfg(feature = "non-dummy")]
+type UI = External<::imgui::Ui<'static>>;
+#[cfg(feature = "dummy")]
+type UI = ();
 
 #[derive(Compact, Clone)]
 pub struct BuildingInspector {
@@ -50,60 +56,61 @@ impl BuildingInspector {
         self.user_interface.add_2d(self.id_as(), world);
     }
 
-    pub fn ui_drawn(&mut self, imgui_ui: &External<::imgui::Ui<'static>>, world: &mut World) {
-        let ui = imgui_ui.steal();
+    pub fn ui_drawn(&mut self, imgui_ui: &UI, world: &mut World) {
+        #[cfg(feature = "non-dummy")]
+        {
+            let ui = imgui_ui.steal();
 
-        if let Some(household) = self.households_todo.pop() {
-            household.inspect(ui, self.id, world);
-        } else {
-            self.return_ui_to
-                .expect("Should have return to set for UI")
-                .ui_drawn(ui, world);
+            if let Some(household) = self.households_todo.pop() {
+                household.inspect(ui, self.id, world);
+            } else {
+                self.return_ui_to
+                    .expect("Should have return to set for UI")
+                    .ui_drawn(ui, world);
+            }
         }
     }
 }
 
 impl Interactable2d for BuildingInspector {
-    fn draw_ui_2d(
-        &mut self,
-        imgui_ui: &External<::imgui::Ui<'static>>,
-        return_to: UserInterfaceID,
-        world: &mut World,
-    ) {
-        let ui = imgui_ui.steal();
-        self.return_ui_to = Some(return_to);
-
-        let new_building = if let Some(building) = self.current_building {
-            let mut opened = true;
-
-            ui.window(im_str!("Building"))
-                .size((230.0, 400.0), ImGuiSetCond_FirstUseEver)
-                .position((10.0, 220.0), ImGuiSetCond_FirstUseEver)
-                .collapsible(false)
-                .opened(&mut opened)
-                .build(|| {
-                    ui.text(im_str!("Building RawID: {:?}", building.as_raw()));
-                    ui.text(im_str!(
-                        "# of households: {}",
-                        self.current_households.len()
-                    ))
-                });
-
-            self.households_todo = self.current_households.clone();
+    fn draw_ui_2d(&mut self, imgui_ui: &UI, return_to: UserInterfaceID, world: &mut World) {
+        #[cfg(feature = "non-dummy")]
+        {
+            let ui = imgui_ui.steal();
             self.return_ui_to = Some(return_to);
-            self.id.ui_drawn(ui, world);
 
-            if opened {
-                Some(building)
+            let new_building = if let Some(building) = self.current_building {
+                let mut opened = true;
+
+                ui.window(im_str!("Building"))
+                    .size((230.0, 400.0), ImGuiSetCond_FirstUseEver)
+                    .position((10.0, 220.0), ImGuiSetCond_FirstUseEver)
+                    .collapsible(false)
+                    .opened(&mut opened)
+                    .build(|| {
+                        ui.text(im_str!("Building RawID: {:?}", building.as_raw()));
+                        ui.text(im_str!(
+                            "# of households: {}",
+                            self.current_households.len()
+                        ))
+                    });
+
+                self.households_todo = self.current_households.clone();
+                self.return_ui_to = Some(return_to);
+                self.id.ui_drawn(ui, world);
+
+                if opened {
+                    Some(building)
+                } else {
+                    None
+                }
             } else {
+                return_to.ui_drawn(ui, world);
                 None
-            }
-        } else {
-            return_to.ui_drawn(ui, world);
-            None
-        };
+            };
 
-        self.current_building = new_building;
+            self.current_building = new_building;
+        }
     }
 }
 

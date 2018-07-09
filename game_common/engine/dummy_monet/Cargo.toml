@@ -1,0 +1,17 @@
+[package]
+name = "dummy_monet"
+version = "0.1.0"
+authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
+build = "src/build.rs"
+
+[dependencies]
+fnv = "1.0.3"
+itertools = "0.7.6"
+lyon_tessellation = "0.9.1"
+kay = "0.1.0"
+compact = "0.1.0"
+compact_macros = "0.1.0"
+descartes = "0.1.1"
+
+[build-dependencies]
+kay_codegen = "0.1.0"

@@ -1,6 +1,7 @@
 extern crate open;
 
 use kay::{ActorSystem, World, Networking};
+#[cfg(feature = "non-dummy")]
 use monet::glium::glutin::WindowBuilder;
 use stagemaster::UserInterfaceID;
 use std::net::SocketAddr;
@@ -127,6 +128,7 @@ pub fn networking_from_env_args() -> Networking {
     }
 }
 
+#[cfg(feature = "non-dummy")]
 pub fn build_window(machine_id: u8) -> WindowBuilder {
     WindowBuilder::new()
         .with_title(format!("Citybound (machine {})", machine_id))
