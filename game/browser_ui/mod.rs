@@ -25,6 +25,8 @@ impl BrowserUI {
         match (command, options) {
             ("INIT", _) => {
                 ::planning::PlanManager::global_first(world).init_meshes(self.id, world);
+                ::transport::lane::Lane::global_broadcast(world).get_mesh(self.id, world);
+                ::transport::lane::SwitchLane::global_broadcast(world).get_mesh(self.id, world);
                 println!("GOT INIT!!");
             }
             ("GET_ALL_PLANS", _) => {
@@ -64,6 +66,10 @@ impl BrowserUI {
                 ),
             ]),
         );
+    }
+
+    pub fn remove_mesh(&mut self, name: &CString, world: &mut World) {
+        self.send_command("REMOVE_MESH", vrstr(&**name));
     }
 
     pub fn send_all_plans(
@@ -156,6 +162,22 @@ impl BrowserUI {
                 ),
             ]),
         )
+    }
+
+    pub fn send_preview(
+        &mut self,
+        line_meshes: &::monet::Mesh,
+        lane_meshes: &::monet::Mesh,
+        switch_lane_meshes: &::monet::Mesh,
+        world: &mut World,
+    ) {
+        self.add_mesh(&"GestureLines".to_owned().into(), line_meshes, world);
+        self.add_mesh(&"PlannedLanes".to_owned().into(), lane_meshes, world);
+        self.add_mesh(
+            &"PlannedSwitchLanes".to_owned().into(),
+            switch_lane_meshes,
+            world,
+        );
     }
 }
 

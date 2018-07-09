@@ -24,13 +24,13 @@ class CityboundClient extends React.Component {
         this.socket.onopen = () => {
             this.socket.send(msgpack.encode(["INIT"]));
 
-            setInterval(() => this.socket.send(msgpack.encode(["GET_ALL_PLANS"])), 1000)
+            setInterval(() => this.socket.send(msgpack.encode(["GET_ALL_PLANS"])), 100)
         }
 
         this.socket.onmessage = (event) => {
             const [command, options] = msgpack.decode(new Uint8Array(event.data));
 
-            console.log(command, options);
+            //console.log(command, options);
 
             if (command == "ADD_MESH") {
                 this.setState((oldState) => Object.assign(oldState, {
@@ -54,7 +54,7 @@ class CityboundClient extends React.Component {
 
         if (this.state.planning) {
             for (let gesture of Object.values(this.state.planning.master)) {
-                for (let i = 0 ; i < gesture.points.length; i += 2) {
+                for (let i = 0; i < gesture.points.length; i += 2) {
                     gesturePointInstances.push.apply(gesturePointInstances, [
                         gesture.points[i], gesture.points[i + 1], 0,
                         1.0, 0.0,
@@ -62,14 +62,76 @@ class CityboundClient extends React.Component {
                     ])
                 }
             }
+
+            for (let proposal of Object.values(this.state.planning.proposals)) {
+                for (let gesture of Object.values(proposal)) {
+                    for (let i = 0; i < gesture.points.length; i += 2) {
+                        gesturePointInstances.push.apply(gesturePointInstances, [
+                            gesture.points[i], gesture.points[i + 1], 0,
+                            1.0, 0.0,
+                            1.0, 0.0, 0.0
+                        ])
+                    }
+                }
+            }
         }
 
         const layers = [
             {
+                decal: true,
+                batches: Object.keys(this.state.meshes).filter(name => name.startsWith("Lane ")).map(laneMeshId =>
+                    ({
+                        mesh: this.state.meshes[laneMeshId],
+                        instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 0.7, 0.7, 0.7])
+                    })
+                )
+            },
+            {
+                decal: true,
+                batches: Object.keys(this.state.meshes).filter(name => name.startsWith("LaneMarker ")).map(laneMeshId =>
+                    ({
+                        mesh: this.state.meshes[laneMeshId],
+                        instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0])
+                    })
+                )
+            },
+            {
+                decal: true,
+                batches: Object.keys(this.state.meshes).filter(name => name.startsWith("SwitchLane ")).map(laneMeshId =>
+                    ({
+                        mesh: this.state.meshes[laneMeshId],
+                        instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 0.7, 0.7, 0.7])
+                    })
+                )
+            },
+            {
+                decal: true,
+                batches: [
+                    {
+                        mesh: this.state.meshes.PlannedLanes,
+                        instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0])
+                    },
+                    {
+                        mesh: this.state.meshes.PlannedSwitchLanes,
+                        instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0])
+                    }
+                ]
+            },
+            {
+                decal: true,
                 batches: [
                     {
                         mesh: this.state.meshes.GestureDot,
                         instances: new Float32Array(gesturePointInstances)
+                    }
+                ]
+            },
+            {
+                decal: true,
+                batches: [
+                    {
+                        mesh: this.state.meshes.GestureLines,
+                        instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
                     }
                 ]
             }
@@ -101,7 +163,7 @@ class CityboundClient extends React.Component {
             React.createElement(ContainerDimensions, { style: { width: "100%", height: "100%" } }, ({ width, height }) => {
                 const viewMatrix = mat4.lookAt(mat4.create(), eye, target, [0, 0, 1]);
                 const perspectiveMatrix = mat4.perspective(mat4.create(), verticalFov, width / height, 50000, 0.1);
-                return React.createElement(Monet, { width, height, layers, viewMatrix, perspectiveMatrix, clearColor: [0.6, 0.75, 0.4, 1.0] })
+                return React.createElement(Monet, { width, height, layers, viewMatrix, perspectiveMatrix, clearColor: [0.79, 0.88, 0.65, 1.0] })
             })
         );
     }

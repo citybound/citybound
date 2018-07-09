@@ -128,5 +128,45 @@ impl Renderable for PlanManager {
     }
 }
 
+impl PlanManager {
+    pub fn render_preview_new(&self, world: &mut World) -> (Mesh, Mesh, Mesh) {
+        let proposal_id = self
+            .ui_state
+            .get(self.id.as_raw().machine) // TEMPORARY HACK
+            .expect("should have ui state for this renderer")
+            .current_proposal;
+        let (preview, maybe_result_preview, maybe_actions_preview) =
+            self.try_ensure_preview(self.id.as_raw().machine, proposal_id, world);
+
+        let lines = preview
+            .gestures
+            .values()
+            .filter_map(|gesture| {
+                if gesture.points.len() >= 2 {
+                    if let Some(line_path) = LinePath::new(gesture.points.clone()) {
+                        Some(Mesh::from_band(&Band::new(line_path, 0.3), 1.0))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .sum();
+
+        let (lane_meshes, switching_lane_meshes) =
+            if let Some(result_preview) = maybe_result_preview {
+                ::transport::transport_planning::interaction::render_preview_new(
+                    result_preview,
+                    maybe_actions_preview,
+                )
+            } else {
+                (Mesh::empty(), Mesh::empty())
+            };
+
+        (lines, lane_meshes, switching_lane_meshes)
+    }
+}
+
 pub mod kay_auto;
 pub use self::kay_auto::auto_setup;

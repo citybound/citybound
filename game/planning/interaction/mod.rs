@@ -34,6 +34,8 @@ pub struct PlanManagerUIState {
 impl PlanManager {
     pub fn get_all_plans(&mut self, ui: BrowserUIID, world: &mut World) {
         ui.send_all_plans(self.master_plan.clone(), self.proposals.clone(), world);
+        let (line_meshes, lane_meshes, switching_lane_meshes) = self.render_preview_new(world);
+        ui.send_preview(line_meshes, lane_meshes, switching_lane_meshes, world);
     }
 }
 

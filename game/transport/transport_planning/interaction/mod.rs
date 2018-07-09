@@ -111,6 +111,75 @@ pub fn render_preview(
     );
 }
 
+pub fn render_preview_new(
+    result_preview: &PlanResult,
+    maybe_action_preview: &Option<CVec<CVec<Action>>>,
+) -> (Mesh, Mesh) {
+    let mut lane_mesh = Mesh::empty();
+    let mut switch_lane_mesh = Mesh::empty();
+    let mut intersection_mesh = Mesh::empty();
+
+    const EFFECTIVE_LANE_WIDTH: N = LANE_DISTANCE - LANE_MARKER_WIDTH;
+
+    if let Some(ref action_preview) = *maybe_action_preview {
+        for (prototype_id, prototype) in result_preview.prototypes.pairs() {
+            let corresponding_construction_action_exists =
+                action_preview.iter().any(|action_group| {
+                    action_group.iter().any(|action| match *action {
+                        Action::Construct(constructed_prototype_id, _) => {
+                            constructed_prototype_id == *prototype_id
+                        }
+                        _ => false,
+                    })
+                });
+            if corresponding_construction_action_exists {
+                match *prototype {
+                    Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
+                        lane_mesh += Mesh::from_band(
+                            &Band::new(lane_path.clone(), EFFECTIVE_LANE_WIDTH),
+                            0.1,
+                        );
+                    }
+                    Prototype::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(
+                        ref lane_path,
+                    ))) => {
+                        for dash in lane_path.dash(LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH) {
+                            switch_lane_mesh +=
+                                Mesh::from_band(&Band::new(dash, LANE_MARKER_WIDTH), 0.1);
+                        }
+                    }
+                    Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
+                        ref area,
+                        ref connecting_lanes,
+                        ..
+                    })) => {
+                        intersection_mesh += Mesh::from_band(
+                            &Band::new(area.primitives[0].boundary.path().clone(), 0.1),
+                            0.1,
+                        );
+
+                        for &LanePrototype(ref lane_path, ref timings) in
+                            connecting_lanes.values().flat_map(|lanes| lanes)
+                        {
+                            lane_mesh += Mesh::from_band(
+                                &Band::new(lane_path.clone(), EFFECTIVE_LANE_WIDTH),
+                                0.1,
+                            );
+                            // if timings[(frame / 10) % timings.len()] {
+                            //     intersection_mesh +=
+                            //         Mesh::from_band(&Band::new(lane_path.clone(), 0.1), 0.1);
+                            // }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    (lane_mesh, switch_lane_mesh)
+}
+
 #[derive(Compact, Clone)]
 pub struct LaneCountInteractable {
     id: LaneCountInteractableID,
