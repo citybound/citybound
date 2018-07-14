@@ -2,8 +2,8 @@ extern crate compact;
 #[macro_use]
 extern crate compact_macros;
 extern crate kay;
-extern crate dummy_monet;
-use dummy_monet as monet;
+extern crate browser_monet;
+use browser_monet as monet;
 extern crate descartes;
 
 pub mod user_interface;

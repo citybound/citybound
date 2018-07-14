@@ -500,13 +500,13 @@ impl GrouperIndividual for SwitchLane {
 
 impl Lane {
     pub fn get_mesh(&mut self, ui: BrowserUIID, world: &mut World) {
-        new_render(self, ui, world);
+        // new_render(self, ui, world);
     }
 }
 
 impl SwitchLane {
     pub fn get_mesh(&mut self, ui: BrowserUIID, world: &mut World) {
-        new_render_switch(self, ui, world);
+        // new_render_switch(self, ui, world);
     }
 }
 
@@ -676,32 +676,6 @@ impl LaneRenderer {
 
 use browser_ui::{BrowserUI, BrowserUIID};
 
-pub fn new_render(lane: &Lane, ui: BrowserUIID, world: &mut World) {
-    ui.add_mesh(
-        format!("Lane {:?}", lane.id).into(),
-        Mesh::from_band(&Band::new(lane.construction.path.clone(), LANE_WIDTH), 0.0),
-        world,
-    );
-
-    if !lane.connectivity.on_intersection {
-        ui.add_mesh(
-            format!("LaneMarker {:?}", lane.id).into(),
-            lane.construction
-                .path
-                .shift_orthogonally(LANE_DISTANCE / 2.0)
-                .map(|path| Mesh::from_band(&Band::new(path, LANE_MARKER_WIDTH), 0.1))
-                .unwrap_or_else(Mesh::empty)
-                + lane
-                    .construction
-                    .path
-                    .shift_orthogonally(-LANE_DISTANCE / 2.0)
-                    .map(|path| Mesh::from_band(&Band::new(path, LANE_MARKER_WIDTH), 0.1))
-                    .unwrap_or_else(Mesh::empty),
-            world,
-        );
-    }
-}
-
 pub fn on_build(lane: &Lane, world: &mut World) {
     LaneRenderer::local_first(world).on_build(
         lane.id_as(),
@@ -709,25 +683,12 @@ pub fn on_build(lane: &Lane, world: &mut World) {
         world,
     );
 
-    new_render(lane, BrowserUI::local_first(world), world);
-}
-
-pub fn new_render_switch(lane: &SwitchLane, ui: BrowserUIID, world: &mut World) {
-    ui.add_mesh(
-        format!("SwitchLane {:?}", lane.id).into(),
-        lane.construction
-            .path
-            .dash(LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH)
-            .into_iter()
-            .map(|dash| Mesh::from_band(&Band::new(dash, 0.8), 0.0))
-            .sum(),
-        world,
-    );
+    //new_render(lane, BrowserUI::local_first(world), world);
 }
 
 pub fn on_build_switch(lane: &SwitchLane, world: &mut World) {
     LaneRenderer::local_first(world).on_build_switch(lane.id_as(), world);
-    new_render_switch(lane, BrowserUI::local_first(world), world);
+    //new_render_switch(lane, BrowserUI::local_first(world), world);
 }
 
 pub fn on_unbuild(lane: &Lane, world: &mut World) {
@@ -737,11 +698,11 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
         world,
     );
 
-    BrowserUI::local_first(world).remove_mesh(format!("Lane {:?}", lane.id).into(), world);
-    if !lane.connectivity.on_intersection {
-        BrowserUI::local_first(world)
-            .remove_mesh(format!("LaneMarker {:?}", lane.id).into(), world);
-    }
+    // BrowserUI::local_first(world).remove_mesh(format!("Lane {:?}", lane.id).into(), world);
+    // if !lane.connectivity.on_intersection {
+    //     BrowserUI::local_first(world)
+    //         .remove_mesh(format!("LaneMarker {:?}", lane.id).into(), world);
+    // }
 
     if DEBUG_VIEW_LANDMARKS {
         // TODO: move this to LaneRenderer
@@ -768,7 +729,7 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
 pub fn on_unbuild_switch(lane: &SwitchLane, world: &mut World) {
     LaneRenderer::local_first(world).on_unbuild_switch(lane.id_as(), world);
 
-    BrowserUI::local_first(world).remove_mesh(format!("SwitchLane {:?}", lane.id).into(), world)
+    // BrowserUI::local_first(world).remove_mesh(format!("SwitchLane {:?}", lane.id).into(), world)
 }
 
 mod kay_auto;

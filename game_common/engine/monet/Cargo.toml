@@ -9,10 +9,10 @@ glium = "0.17.0"
 fnv = "1.0.3"
 itertools = "0.7.6"
 lyon_tessellation = "0.9.1"
-kay = "0.1.0"
-compact = "0.1.0"
+kay = "0.2.3"
+compact = "0.2.4"
 compact_macros = "0.1.0"
-descartes = "0.1.1"
+descartes = "0.1.3"
 
 [build-dependencies]
 kay_codegen = "0.1.0"

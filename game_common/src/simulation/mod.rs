@@ -83,7 +83,7 @@ impl Simulation {
 use stagemaster::{Interactable2d, Interactable2dID};
 
 impl Interactable2d for Simulation {
-    #[cfg(feature = "non-dummy")]
+    #[cfg(feature = "server")]
     fn draw(&mut self, _world: &mut World, ui: &::imgui::Ui<'static>) {
         let time = TimeOfDay::from(self.current_instant).hours_minutes();
 
@@ -99,7 +99,7 @@ impl Interactable2d for Simulation {
         });
     }
 
-    #[cfg(feature = "dummy")]
+    #[cfg(feature = "browser")]
     fn draw(&mut self, _world: &mut World, ui: &()) {}
 }
 

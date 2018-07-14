@@ -32,7 +32,7 @@ pub enum UnitType {
 #[derive(Copy, Clone)]
 pub struct UnitIdx(usize);
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum BuildingStyle {
     FamilyHouse,
     GroceryShop,

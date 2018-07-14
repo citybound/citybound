@@ -9,20 +9,18 @@ use browser_ui::BrowserUIID;
 use super::{PlanManager, PlanManagerID};
 use super::interaction::ControlPointRef;
 
-impl PlanManager {
-    pub fn init_meshes(&mut self, ui_id: BrowserUIID, world: &mut World) {
-        let dot_mesh = Mesh::from_band(
-            &Band::new(
-                CurvedPath::circle(P2::new(0.0, 0.0), CONTROL_POINT_HANDLE_RADIUS)
-                    .unwrap()
-                    .to_line_path(),
-                0.3,
-            ),
-            1.0,
-        );
+pub fn static_meshes() -> Vec<(&'static str, Mesh)> {
+    let dot_mesh = Mesh::from_band(
+        &Band::new(
+            CurvedPath::circle(P2::new(0.0, 0.0), CONTROL_POINT_HANDLE_RADIUS)
+                .unwrap()
+                .to_line_path(),
+            0.3,
+        ),
+        1.0,
+    );
 
-        ui_id.add_mesh("GestureDot".to_owned().into(), dot_mesh, world);
-    }
+    vec![("GestureDot", dot_mesh)]
 }
 
 impl Renderable for PlanManager {

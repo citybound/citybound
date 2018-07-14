@@ -4,6 +4,14 @@ version = "0.3.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 license = "AGPL-3.0"
 
+[workspace]
+members = [
+    "./game_common"
+]
+exclude = [
+    "./game_browser"
+]
+
 [[bin]]
 name = "citybound"
 path = "./game_server/main.rs"

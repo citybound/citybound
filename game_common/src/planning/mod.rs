@@ -11,7 +11,7 @@ use construction::Construction;
 pub mod rendering;
 pub mod interaction;
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize, Deserialize)]
 pub struct Gesture {
     pub points: CVec<P2>,
     pub intent: GestureIntent,
@@ -28,14 +28,14 @@ impl Gesture {
     }
 }
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize, Deserialize)]
 pub enum GestureIntent {
     Road(RoadIntent),
     Zone(ZoneIntent),
     Building(BuildingIntent),
 }
 
-#[derive(Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GestureID(pub Uuid);
 
 impl GestureID {
@@ -44,7 +44,7 @@ impl GestureID {
     }
 }
 
-#[derive(Compact, Clone, Default)]
+#[derive(Compact, Clone, Default, Serialize, Deserialize)]
 pub struct Plan {
     pub gestures: CHashMap<GestureID, Gesture>,
 }
@@ -63,7 +63,7 @@ impl Plan {
 
 // TODO: when applied, proposals can be flattened into the last
 // version of each gesture and all intermediate gestures can be completely removed
-#[derive(Compact, Clone, Default)]
+#[derive(Compact, Clone, Default, Serialize, Deserialize)]
 pub struct Proposal {
     undoable_history: CVec<Plan>,
     ongoing: Plan,
@@ -166,7 +166,7 @@ impl Plan {
 
 use self::interaction::PlanManagerUIState;
 
-#[derive(Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProposalID(pub Uuid);
 
 impl ProposalID {

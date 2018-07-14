@@ -3,7 +3,7 @@ use kay::{ActorSystem, World, External, TypedID, Actor};
 use monet::{RendererID, Renderable, RenderableID, GrouperID, GrouperIndividualID, Mesh, Instance};
 use stagemaster::{UserInterface, UserInterfaceID, Event3d, Interactable3d, Interactable3dID,
 Interactable2d, Interactable2dID};
-#[cfg(feature = "non-dummy")]
+#[cfg(feature = "server")]
 use imgui::ImGuiSetCond_FirstUseEver;
 
 use super::{Building, Lot, BuildingID, BuildingPlanResultDelta, BuildingStyle};
@@ -13,9 +13,9 @@ use render_layers::RenderLayers;
 
 use super::architecture::{BuildingMesh, build_building};
 
-#[cfg(feature = "non-dummy")]
+#[cfg(feature = "server")]
 type UI = External<::imgui::Ui<'static>>;
-#[cfg(feature = "dummy")]
+#[cfg(feature = "browser")]
 type UI = ();
 
 #[derive(Compact, Clone)]
@@ -57,7 +57,7 @@ impl BuildingInspector {
     }
 
     pub fn ui_drawn(&mut self, imgui_ui: &UI, world: &mut World) {
-        #[cfg(feature = "non-dummy")]
+        #[cfg(feature = "server")]
         {
             let ui = imgui_ui.steal();
 
@@ -74,7 +74,7 @@ impl BuildingInspector {
 
 impl Interactable2d for BuildingInspector {
     fn draw_ui_2d(&mut self, imgui_ui: &UI, return_to: UserInterfaceID, world: &mut World) {
-        #[cfg(feature = "non-dummy")]
+        #[cfg(feature = "server")]
         {
             let ui = imgui_ui.steal();
             self.return_ui_to = Some(return_to);

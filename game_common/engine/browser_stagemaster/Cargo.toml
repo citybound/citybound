@@ -1,20 +1,20 @@
 [package]
-name = "dummy_stagemaster"
+name = "browser_stagemaster"
 version = "0.1.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 build = "./src/build.rs"
 
 [dependencies]
-kay = "0.1.0"
-compact = "0.1.0"
+kay = {version = "0.2.3", default-features = false, features = ["browser"]}
+compact = "0.2.4"
 compact_macros = "0.1.0"
 
 [dependencies.descartes]
 version = "0.1.1"
-features = ["compact_containers"]
+features = ["compact_containers", "serde-serialization"]
 
-[dependencies.dummy_monet]
-path = "../dummy_monet"
+[dependencies.browser_monet]
+path = "../browser_monet"
 
 [build-dependencies]
 kay_codegen = "0.1.0"

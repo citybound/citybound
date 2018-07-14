@@ -22,7 +22,10 @@ fn main() {
     util::init::ensure_crossplatform_proper_thread(|| {
         util::init::first_time_open_wiki_release_page();
 
-        let mut system = Box::new(kay::ActorSystem::new(util::init::networking_from_env_args()));
+        let mut system = Box::new(kay::ActorSystem::new(kay::Networking::new(
+            0,
+            vec!["localhost:9999", "ws-client"],
+        )));
 
         setup_all(&mut system);
 
@@ -79,13 +82,10 @@ fn main() {
 
         let mut frame_counter = util::init::FrameCounter::new();
 
-        let browser_ui = browser_ui::spawn(world);
-
         loop {
             frame_counter.start_frame();
 
             user_interface.process_events(world);
-            browser_ui.process_messages(world);
 
             system.process_all_messages();
 

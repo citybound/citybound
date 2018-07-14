@@ -17,27 +17,27 @@ pub extern crate compact;
 #[macro_use]
 extern crate compact_macros;
 pub extern crate kay;
-#[cfg(feature = "non-dummy")]
+#[cfg(feature = "server")]
 pub extern crate monet;
-#[cfg(feature = "dummy")]
-pub extern crate dummy_monet;
-#[cfg(feature = "dummy")]
-pub use dummy_monet as monet;
+#[cfg(feature = "browser")]
+pub extern crate browser_monet;
+#[cfg(feature = "browser")]
+pub use browser_monet as monet;
 pub extern crate descartes;
-#[cfg(feature = "non-dummy")]
+#[cfg(feature = "server")]
 pub extern crate stagemaster;
-#[cfg(feature = "dummy")]
-pub extern crate dummy_stagemaster;
-#[cfg(feature = "dummy")]
-pub use dummy_stagemaster as stagemaster;
-#[cfg(feature = "non-dummy")]
+#[cfg(feature = "browser")]
+pub extern crate browser_stagemaster;
+#[cfg(feature = "browser")]
+pub use browser_stagemaster as stagemaster;
+#[cfg(feature = "server")]
 #[macro_use]
 extern crate imgui;
 #[macro_use]
 extern crate serde_derive;
-#[cfg(feature = "non-dummy")]
-extern crate tungstenite;
-extern crate rmpv;
+#[cfg(feature = "browser")]
+#[macro_use]
+extern crate stdweb;
 
 use stagemaster::environment::Environment;
 
@@ -58,23 +58,6 @@ pub mod ui_layers;
 pub mod render_layers;
 pub mod style;
 pub mod browser_ui;
-
-use kay::Actor;
-use compact::CVec;
-use monet::Grouper;
-use transport::lane::{Lane, SwitchLane};
-use transport::rendering::LaneRenderer;
-use economy::households::family::Family;
-use economy::households::grocery_shop::GroceryShop;
-use economy::households::grain_farm::GrainFarm;
-use economy::households::cow_farm::CowFarm;
-use economy::households::mill::Mill;
-use economy::households::bakery::Bakery;
-use economy::households::neighboring_town_trade::NeighboringTownTrade;
-use economy::households::tasks::TaskEndScheduler;
-use land_use::buildings::rendering::BuildingRenderer;
-use planning::PlanManager;
-use construction::Construction;
 
 pub fn setup_all(system: &mut kay::ActorSystem) {
     for setup_fn in &[

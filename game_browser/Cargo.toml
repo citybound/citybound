@@ -13,4 +13,9 @@ stdweb = "0.4.7"
 [dependencies.citybound_common]
 path = "../game_common"
 default-features = false
-features = ["dummy"]
+features = ["browser"]
+
+[dependencies.kay]
+version = "0.2.3"
+default-features = false 
+features = ["browser"]

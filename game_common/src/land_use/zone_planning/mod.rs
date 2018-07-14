@@ -8,14 +8,14 @@ use planning::{Plan, PlanResult, Prototype, GestureIntent, Version};
 
 pub mod interaction;
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize, Deserialize)]
 pub enum ZoneIntent {
     LandUse(LandUse),
     MaxHeight(u8),
     SetBack(u8),
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum LandUse {
     Residential,
     Commercial,
@@ -25,7 +25,7 @@ pub enum LandUse {
     Official,
 }
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize, Deserialize)]
 pub struct Lot {
     pub area: Area,
     pub land_uses: CVec<LandUse>,
@@ -45,7 +45,7 @@ impl Lot {
     }
 }
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize, Deserialize)]
 pub struct BuildingIntent {
     pub lot: Lot,
     pub building_style: BuildingStyle,

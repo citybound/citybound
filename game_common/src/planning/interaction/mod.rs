@@ -4,7 +4,7 @@ use descartes::{P2, Into2d, Area, AreaError, CurvedPath, ClosedLinePath};
 use stagemaster::{UserInterfaceID, Interactable3d, Interactable3dID, Interactable2d,
 Interactable2dID};
 use ui_layers::UILayer;
-#[cfg(feature = "non-dummy")]
+#[cfg(feature = "server")]
 use imgui::ImGuiSetCond_FirstUseEver;
 
 use super::{Plan, PlanResult, GestureID, ProposalID, PlanManager, PlanManagerID, Gesture,
@@ -34,9 +34,9 @@ pub struct PlanManagerUIState {
 
 impl PlanManager {
     pub fn get_all_plans(&mut self, ui: BrowserUIID, world: &mut World) {
-        ui.send_all_plans(self.master_plan.clone(), self.proposals.clone(), world);
-        let (line_meshes, lane_meshes, switching_lane_meshes) = self.render_preview_new(world);
-        ui.send_preview(line_meshes, lane_meshes, switching_lane_meshes, world);
+        ui.on_plans_update(self.master_plan.clone(), self.proposals.clone(), world);
+        //let (line_meshes, lane_meshes, switching_lane_meshes) = self.render_preview_new(world);
+        //ui.send_preview(line_meshes, lane_meshes, switching_lane_meshes, world);
     }
 }
 
@@ -547,7 +547,7 @@ impl Interactable3d for ControlPointInteractable {
     }
 }
 
-#[cfg_attr(feature = "non-dummy", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "server", derive(Serialize, Deserialize))]
 #[derive(Clone)]
 pub struct PlanManagerSettings {
     pub bindings: Bindings,
@@ -579,7 +579,7 @@ pub struct GestureCanvas {
     last_point: COption<P2>,
     current_mode: GestureCanvasMode,
     current_intent: GestureIntent,
-    #[cfg(feature = "non-dummy")]
+    #[cfg(feature = "server")]
     settings: External<PlanManagerSettings>,
 }
 
@@ -608,7 +608,7 @@ impl GestureCanvas {
         user_interface.add_2d(id.into(), world);
         user_interface.focus(id.into(), world);
 
-        #[cfg(feature = "non-dummy")]
+        #[cfg(feature = "server")]
         {
             GestureCanvas {
                 id,
@@ -621,7 +621,7 @@ impl GestureCanvas {
                 settings: External::new(::ENV.load_settings("Planning")),
             }
         }
-        #[cfg(feature = "dummy")]
+        #[cfg(feature = "browser")]
         {
             GestureCanvas {
                 id,
@@ -646,7 +646,7 @@ impl GestureCanvas {
 impl Interactable3d for GestureCanvas {
     fn on_event(&mut self, event: Event3d, world: &mut World) {
         match event {
-            #[cfg(feature = "non-dummy")]
+            #[cfg(feature = "server")]
             Event3d::Combos(combos) => {
                 self.settings.bindings.do_rebinding(&combos.current);
                 let bindings = &self.settings.bindings;
@@ -735,7 +735,7 @@ impl Interactable3d for GestureCanvas {
 }
 
 impl Interactable2d for GestureCanvas {
-    #[cfg(feature = "non-dummy")]
+    #[cfg(feature = "server")]
     fn draw(&mut self, world: &mut World, ui: &::imgui::Ui<'static>) {
         ui.window(im_str!("Canvas Mode"))
             .size((200.0, 50.0), ImGuiSetCond_FirstUseEver)
@@ -824,7 +824,7 @@ impl Interactable2d for GestureCanvas {
         });
     }
 
-    #[cfg(feature = "dummy")]
+    #[cfg(feature = "browser")]
     fn draw(&mut self, world: &mut World, ui: &()) {}
 }
 

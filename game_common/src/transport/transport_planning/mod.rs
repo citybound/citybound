@@ -13,7 +13,7 @@ pub use self::interaction::setup;
 use style::dimensions::{LANE_DISTANCE, CENTER_LANE_DISTANCE, MIN_SWITCHING_LANE_LENGTH,
 SWITCHING_LANE_OVERLAP_TOLERANCE};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct RoadIntent {
     pub n_lanes_forward: u8,
     pub n_lanes_backward: u8,

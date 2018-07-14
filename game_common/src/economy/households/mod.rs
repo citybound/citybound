@@ -21,12 +21,12 @@ pub mod neighboring_town_trade;
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct MemberIdx(usize);
 
-#[cfg(feature = "non-dummy")]
+#[cfg(feature = "server")]
 use imgui::Ui;
 
-#[cfg(feature = "non-dummy")]
+#[cfg(feature = "server")]
 type UI = External<::imgui::Ui<'static>>;
-#[cfg(feature = "dummy")]
+#[cfg(feature = "browser")]
 type UI = ();
 
 use kay::External;
@@ -909,7 +909,7 @@ pub trait Household:
 
     #[cfg_attr(feature = "cargo-clippy", allow(useless_format))]
     fn inspect(&mut self, imgui_ui: &UI, return_to: BuildingInspectorID, world: &mut World) {
-        #[cfg(feature = "non-dummy")]
+        #[cfg(feature = "server")]
         {
             let ui = imgui_ui.steal();
 
