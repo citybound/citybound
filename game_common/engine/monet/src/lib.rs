@@ -11,6 +11,8 @@ extern crate compact_macros;
 extern crate fnv;
 extern crate itertools;
 extern crate lyon_tessellation;
+#[macro_use]
+extern crate serde_derive;
 
 mod mesh;
 mod mesh_actors;
