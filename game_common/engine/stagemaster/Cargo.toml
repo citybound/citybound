@@ -12,17 +12,17 @@ serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
 app_dirs = "1.2.1"
-kay = "0.2.3"
+kay = "0.2.5"
 compact = "0.2.4"
 compact_macros = "0.1.0"
 
 [dependencies.descartes]
-version = "0.1.1"
+version = "0.1.4"
 features = ["compact_containers", "serde-serialization"]
 
 [dependencies.monet]
 path = "../monet"
 
 [build-dependencies]
-kay_codegen = "0.1.0"
+kay_codegen = "0.1.1"
 

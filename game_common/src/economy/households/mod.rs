@@ -22,9 +22,6 @@ pub mod neighboring_town_trade;
 pub struct MemberIdx(usize);
 
 #[cfg(feature = "server")]
-use imgui::Ui;
-
-#[cfg(feature = "server")]
 type UI = External<::imgui::Ui<'static>>;
 #[cfg(feature = "browser")]
 type UI = ();

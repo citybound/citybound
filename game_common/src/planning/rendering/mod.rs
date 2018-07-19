@@ -4,7 +4,6 @@ use monet::{RendererID, Renderable, RenderableID, Instance, Mesh};
 use style::colors;
 use style::dimensions::CONTROL_POINT_HANDLE_RADIUS;
 use render_layers::RenderLayers;
-use browser_ui::BrowserUIID;
 
 use super::{PlanManager, PlanManagerID};
 use super::interaction::ControlPointRef;

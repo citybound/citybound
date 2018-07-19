@@ -11,6 +11,10 @@ use construction::Construction;
 pub mod rendering;
 pub mod interaction;
 
+// idea for improvement:
+// - everything (Gestures, Prototypes) immutable (helps caching)
+// - everything separated by staggered grid (to save work)
+
 #[derive(Compact, Clone, Serialize, Deserialize)]
 pub struct Gesture {
     pub points: CVec<P2>,
@@ -120,18 +124,18 @@ impl Proposal {
     }
 }
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize, Deserialize, Debug)]
 pub struct PlanResult {
     pub prototypes: CHashMap<PrototypeID, Prototype>,
 }
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize, Deserialize, Debug)]
 pub enum Prototype {
     Road(RoadPrototype),
     Lot(LotPrototype),
 }
 
-#[derive(Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub struct PrototypeID(Uuid);
 
 impl PrototypeID {
@@ -166,7 +170,7 @@ impl Plan {
 
 use self::interaction::PlanManagerUIState;
 
-#[derive(Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub struct ProposalID(pub Uuid);
 
 impl ProposalID {
@@ -175,7 +179,7 @@ impl ProposalID {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub struct Version(ProposalID);
 
 #[derive(Compact, Clone)]

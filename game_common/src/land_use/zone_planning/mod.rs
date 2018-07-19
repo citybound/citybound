@@ -15,7 +15,7 @@ pub enum ZoneIntent {
     SetBack(u8),
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub enum LandUse {
     Residential,
     Commercial,
@@ -25,7 +25,7 @@ pub enum LandUse {
     Official,
 }
 
-#[derive(Compact, Clone, Serialize, Deserialize)]
+#[derive(Compact, Clone, Serialize, Deserialize, Debug)]
 pub struct Lot {
     pub area: Area,
     pub land_uses: CVec<LandUse>,
@@ -51,14 +51,14 @@ pub struct BuildingIntent {
     pub building_style: BuildingStyle,
 }
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize, Deserialize, Debug)]
 pub struct LotPrototype {
     pub lot: Lot,
     pub occupancy: LotOccupancy,
     pub based_on: Version,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub enum LotOccupancy {
     Vacant,
     Occupied(BuildingStyle),

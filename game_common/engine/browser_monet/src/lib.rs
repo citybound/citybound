@@ -10,6 +10,10 @@ extern crate fnv;
 extern crate itertools;
 extern crate lyon_tessellation;
 
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+
 mod mesh;
 mod mesh_actors;
 mod renderer;

@@ -8,6 +8,8 @@ import update from 'immutability-helper';
 
 window.update = update;
 
+const EL = React.createElement;
+
 class CityboundClient extends React.Component {
     constructor(props) {
         super(props);
@@ -15,12 +17,22 @@ class CityboundClient extends React.Component {
         this.state = {
             planning: {
                 rendering: {
-                    staticMeshes: {}
+                    staticMeshes: {},
+                    currentPreview: {}
                 },
                 master: {
                     gestures: {}
                 },
                 proposals: {
+                },
+                currentProposal: null
+            },
+            transport: {
+                builtLanes: {
+
+                },
+                builtSwitchLanes: {
+
                 }
             },
             view: {
@@ -30,6 +42,13 @@ class CityboundClient extends React.Component {
             }
         }
 
+    }
+
+    switchToProposal(proposalId) {
+        console.log("switching to", proposalId);
+        this.setState(oldState => update(oldState, {
+            planning: { currentProposal: { $set: proposalId } }
+        }))
     }
 
     render() {
@@ -61,46 +80,42 @@ class CityboundClient extends React.Component {
         }
 
         const layers = [
-            // {
-            //     decal: true,
-            //     batches: Object.keys(this.state.meshes).filter(name => name.startsWith("Lane ")).map(laneMeshId =>
-            //         ({
-            //             mesh: this.state.meshes[laneMeshId],
-            //             instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 0.7, 0.7, 0.7])
-            //         })
-            //     )
-            // },
-            // {
-            //     decal: true,
-            //     batches: Object.keys(this.state.meshes).filter(name => name.startsWith("LaneMarker ")).map(laneMeshId =>
-            //         ({
-            //             mesh: this.state.meshes[laneMeshId],
-            //             instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0])
-            //         })
-            //     )
-            // },
-            // {
-            //     decal: true,
-            //     batches: Object.keys(this.state.meshes).filter(name => name.startsWith("SwitchLane ")).map(laneMeshId =>
-            //         ({
-            //             mesh: this.state.meshes[laneMeshId],
-            //             instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 0.7, 0.7, 0.7])
-            //         })
-            //     )
-            // },
-            // {
-            //     decal: true,
-            //     batches: [
-            //         {
-            //             mesh: this.state.meshes.PlannedLanes,
-            //             instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0])
-            //         },
-            //         {
-            //             mesh: this.state.meshes.PlannedSwitchLanes,
-            //             instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0])
-            //         }
-            //     ]
-            // },
+            {
+                decal: true,
+                batches: [
+                    {
+                        mesh: this.state.planning.rendering.currentPreview.lanesToDestruct,
+                        instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 0.8, 0.0, 0.0])
+                    },
+                ]
+            },
+            {
+                decal: true,
+                batches: [
+                    {
+                        mesh: this.state.planning.rendering.currentPreview.lanesToConstruct,
+                        instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 0.9, 0.9, 0.9])
+                    },
+                ]
+            },
+            {
+                decal: true,
+                batches: [
+                    {
+                        mesh: this.state.planning.rendering.currentPreview.lanesToConstructMarker,
+                        instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0])
+                    },
+                ]
+            },
+            {
+                decal: true,
+                batches: [
+                    {
+                        mesh: this.state.planning.rendering.currentPreview.switchLanesToConstructMarkerGap,
+                        instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 0.9, 0.9, 0.9])
+                    },
+                ]
+            },
             {
                 decal: true,
                 batches: [
@@ -110,15 +125,6 @@ class CityboundClient extends React.Component {
                     }
                 ]
             },
-            // {
-            //     decal: true,
-            //     batches: [
-            //         {
-            //             mesh: this.state.meshes.GestureLines,
-            //             instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
-            //         }
-            //     ]
-            // }
         ];
 
         if (this.state.cursor3d) {
@@ -166,7 +172,7 @@ class CityboundClient extends React.Component {
         //const {viewMatrix, perspectiveMatrix} = this.state.view;
         const { eye, target, verticalFov } = this.state.view;
 
-        return React.createElement("div", {
+        return EL("div", {
             style: { width: "100%", height: "100%" },
             onWheel: e => {
                 const forward = vec3.sub(vec3.create(), target, eye);
@@ -187,18 +193,31 @@ class CityboundClient extends React.Component {
                 return false;
             }
         },
-            React.createElement(ContainerDimensions, { style: { width: "100%", height: "100%", position: "relative" } }, ({ width, height }) => {
+            EL(ContainerDimensions, { style: { width: "100%", height: "100%", position: "relative" } }, ({ width, height }) => {
                 const viewMatrix = mat4.lookAt(mat4.create(), eye, target, [0, 0, 1]);
                 const perspectiveMatrix = mat4.perspective(mat4.create(), verticalFov, width / height, 50000, 0.1);
-                return React.createElement("div", { style: { width, height } }, [
-                    React.createElement(Monet, {
+
+                return EL("div", { style: { width, height } }, [
+                    EL("div", { key: "ui2d", style: { position: "absolute", zIndex: 3 } }, [
+                        EL("div", {}, [
+                            EL("h1", {}, "Proposals"),
+                            ...Object.keys(this.state.planning.proposals).map(proposalId =>
+                                proposalId == this.state.planning.currentProposal
+                                    ? EL("p", {}, "" + proposalId)
+                                    : EL("button", {
+                                        onClick: () => this.switchToProposal(proposalId)
+                                    }, "" + proposalId)
+                            )
+                        ])
+                    ]),
+                    EL(Monet, {
                         key: "canvas",
                         layers,
                         width, height,
                         viewMatrix, perspectiveMatrix,
                         clearColor: [0.79, 0.88, 0.65, 1.0]
                     }),
-                    React.createElement(Stage, {
+                    EL(Stage, {
                         key: "stage",
                         interactables: gesturePointInteractables,
                         width, height,
@@ -213,7 +232,7 @@ class CityboundClient extends React.Component {
 
 class Stage extends React.Component {
     render() {
-        return React.createElement("div", {
+        return EL("div", {
             style: Object.assign({}, this.props.style, { width: this.props.width, height: this.props.height }),
             onMouseMove: e => {
                 const { eye, target, verticalFov, width, height } = this.props;
@@ -300,7 +319,7 @@ class Stage extends React.Component {
     }
 }
 
-window.cbclient = ReactDOM.render(React.createElement(CityboundClient), document.getElementById('app'));
+window.cbclient = ReactDOM.render(EL(CityboundClient), document.getElementById('app'));
 
 import cityboundBrowser from './Cargo.toml';
 

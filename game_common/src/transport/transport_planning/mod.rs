@@ -28,7 +28,7 @@ impl RoadIntent {
     }
 }
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize, Deserialize, Debug)]
 pub enum RoadPrototype {
     Lane(LanePrototype),
     SwitchLane(SwitchLanePrototype),
@@ -54,7 +54,7 @@ impl RoadPrototype {
     }
 }
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize, Deserialize, Debug)]
 pub struct LanePrototype(pub LinePath, pub CVec<bool>);
 
 impl LanePrototype {
@@ -68,7 +68,7 @@ impl LanePrototype {
     }
 }
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize, Deserialize, Debug)]
 pub struct SwitchLanePrototype(pub LinePath);
 
 impl SwitchLanePrototype {
@@ -81,7 +81,7 @@ impl SwitchLanePrototype {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 pub struct ConnectionRole {
     straight: bool,
     u_turn: bool,
@@ -89,7 +89,7 @@ pub struct ConnectionRole {
     outer_turn: bool,
 }
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize, Deserialize, Debug)]
 pub struct IntersectionConnector {
     position: P2,
     direction: V2,
@@ -111,20 +111,20 @@ impl IntersectionConnector {
     }
 }
 
-#[derive(Copy, Clone, Hash, PartialEq, Eq)]
-pub struct GestureSideID(isize);
+#[derive(Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Debug)]
+pub struct GestureSideID(i16);
 
 impl GestureSideID {
     pub fn new_forward(gesture_idx: usize) -> Self {
-        GestureSideID((gesture_idx + 1) as isize)
+        GestureSideID((gesture_idx + 1) as i16)
     }
 
     pub fn new_backward(gesture_idx: usize) -> Self {
-        GestureSideID(-((gesture_idx + 1) as isize))
+        GestureSideID(-((gesture_idx + 1) as i16))
     }
 }
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize, Deserialize, Debug)]
 pub struct IntersectionPrototype {
     area: Area,
     incoming: CHashMap<GestureSideID, CVec<IntersectionConnector>>,

@@ -10,8 +10,12 @@ use kay::ActorSystem;
 extern crate citybound_common;
 use citybound_common::*;
 
+use std::panic;
+
 #[js_export]
 pub fn test() {
+    panic::set_hook(Box::new(|info| console!(error, info.to_string())));
+
     js!{ console.log("Before setup") }
 
     let mut system =
@@ -51,6 +55,14 @@ impl MainLoop {
         system.process_all_messages();
 
         self.browser_ui_id.on_frame(world);
+        system.process_all_messages();
+
+        system.process_all_messages();
+        system.process_all_messages();
+        system.process_all_messages();
+        system.process_all_messages();
+        system.process_all_messages();
+        system.process_all_messages();
         system.process_all_messages();
 
         system.networking_finish_turn();

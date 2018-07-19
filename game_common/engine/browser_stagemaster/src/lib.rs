@@ -5,6 +5,9 @@ extern crate kay;
 extern crate browser_monet;
 use browser_monet as monet;
 extern crate descartes;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 
 pub mod user_interface;
 pub mod debug;

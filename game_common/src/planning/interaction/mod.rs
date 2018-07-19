@@ -38,6 +38,37 @@ impl PlanManager {
         //let (line_meshes, lane_meshes, switching_lane_meshes) = self.render_preview_new(world);
         //ui.send_preview(line_meshes, lane_meshes, switching_lane_meshes, world);
     }
+
+    pub fn get_proposal_preview(
+        &mut self,
+        ui: BrowserUIID,
+        proposal_id: ProposalID,
+        world: &mut World,
+    ) {
+        // TODO: this is a super ugly hack until we get rid of the native UI
+        let (maybe_native_ui_id, needs_switch) =
+            if let Some(native_ui_state) = self.ui_state.get_mut(world.local_machine_id()) {
+                (
+                    Some(native_ui_state.user_interface),
+                    native_ui_state.current_proposal != proposal_id,
+                )
+            } else {
+                (None, false)
+            };
+
+        if let Some(native_ui_id) = maybe_native_ui_id {
+            if needs_switch {
+                self.switch_to(native_ui_id, proposal_id, world);
+            }
+
+            let (_, maybe_result, maybe_actions) =
+                self.try_ensure_preview(world.local_machine_id(), proposal_id, world);
+
+            if let (Some(result), Some(actions)) = (maybe_result, maybe_actions) {
+                ui.on_proposal_preview(proposal_id, result.clone(), actions.clone(), world);
+            }
+        }
+    }
 }
 
 impl PlanManager {
@@ -806,7 +837,7 @@ impl Interactable2d for GestureCanvas {
                 }
                 if ui.small_button(im_str!("Spawn cars")) {
                     use transport::lane::Lane;
-                    for _ in (0..50) {
+                    for _ in 0..50 {
                         Lane::global_broadcast(world).manually_spawn_car_add_lane(world);
                     }
                 }

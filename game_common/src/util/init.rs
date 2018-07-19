@@ -1,10 +1,9 @@
 extern crate open;
 
-use kay::{ActorSystem, World, Networking};
+use kay::{ActorSystem, World};
 #[cfg(feature = "server")]
 use monet::glium::glutin::WindowBuilder;
 use stagemaster::UserInterfaceID;
-use std::net::SocketAddr;
 use std::time::Instant;
 
 pub fn ensure_crossplatform_proper_thread<F: Fn() -> () + Send + 'static>(callback: F) {
@@ -105,28 +104,6 @@ pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
 
     set_hook(unsafe { ::std::mem::transmute(callback) });
 }
-
-// pub fn networking_from_env_args() -> Networking {
-//     println!("{:?}", ::std::env::args().collect::<Vec<_>>());
-
-//     if ::std::env::args().nth(1).is_none() {
-//         Networking::new(0, vec!["127.0.0.1:3500".parse().unwrap()])
-//     } else {
-//         let machine_id: u8 = ::std::env::args()
-//             .nth(1)
-//             .expect("expected machine_id")
-//             .parse()
-//             .unwrap();
-//         let network: Vec<SocketAddr> = ::std::env::args()
-//             .nth(2)
-//             .expect("expected network")
-//             .split(',')
-//             .map(|addr_str| addr_str.parse().unwrap())
-//             .collect();
-
-//         Networking::new(machine_id, network)
-//     }
-// }
 
 #[cfg(feature = "server")]
 pub fn build_window(machine_id: u8) -> WindowBuilder {

@@ -158,7 +158,7 @@ pub fn render_preview_new(
                             0.1,
                         );
 
-                        for &LanePrototype(ref lane_path, ref timings) in
+                        for &LanePrototype(ref lane_path, ref _timings) in
                             connecting_lanes.values().flat_map(|lanes| lanes)
                         {
                             lane_mesh += Mesh::from_band(
