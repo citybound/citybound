@@ -3,8 +3,9 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { vec3, vec4, mat4 } from 'gl-matrix';
 import ContainerDimensions from 'react-container-dimensions';
-//import msgpack from 'msgpack-lite';
 import update from 'immutability-helper';
+
+import colors from './colors';
 
 window.update = update;
 
@@ -25,14 +26,14 @@ class CityboundClient extends React.Component {
                 },
                 proposals: {
                 },
-                currentProposal: null
+                currentProposal: null,
+                hoveredGesturePoint: {}
             },
             transport: {
-                builtLanes: {
-
-                },
-                builtSwitchLanes: {
-
+                rendering: {
+                    laneAsphalt: {},
+                    laneMarker: {},
+                    laneMarkerGap: {}
                 }
             },
             view: {
@@ -51,30 +52,69 @@ class CityboundClient extends React.Component {
         }))
     }
 
+    moveGesturePoint(proposalId, gestureId, pointIdx, newPosition) {
+
+    }
+
     render() {
         const gesturePointInstances = [];
+        const gesturePointInteractables = [];
 
         if (this.state.planning) {
-            for (let gesture of Object.values(this.state.planning.master.gestures)) {
-                for (let point of gesture.points) {
+            let gestures = Object.keys(this.state.planning.master.gestures).map(gestureId =>
+                ({ [gestureId]: Object.assign(this.state.planning.master.gestures[gestureId], { fromMaster: true }) })
+            ).concat(this.state.planning.currentProposal
+                ? this.state.planning.proposals[this.state.planning.currentProposal].undoable_history.map(step => step.gestures)
+                : []
+            ).reduce((coll, gestures) => Object.assign(coll, gestures), {});
+
+            let { gestureId: hoveredGestureId, pointIdx: hoveredPointIdx } = this.state.planning.hoveredGesturePoint;
+
+            for (let gestureId of Object.keys(gestures)) {
+                const gesture = gestures[gestureId];
+
+                for (let [pointIdx, point] of gesture.points.entries()) {
+                    let isHovered = gestureId == hoveredGestureId && pointIdx == hoveredPointIdx;
                     gesturePointInstances.push.apply(gesturePointInstances, [
                         point[0], point[1], 0,
                         1.0, 0.0,
-                        1.0, 0.0, 0.0
-                    ])
-                }
-            }
+                        ...(isHovered
+                            ? colors.gesturePointHover
+                            : (gesture.fromMaster ? colors.gesturePointMaster : colors.gesturePointCurrentProposal))
+                    ]);
 
-            for (let proposal of Object.values(this.state.planning.proposals)) {
-                const currentGestures = proposal.undoable_history.reduce((coll, step) => Object.assign(coll, step.gestures), {});
-                for (let gesture of Object.values(currentGestures)) {
-                    for (let point of gesture.points) {
-                        gesturePointInstances.push.apply(gesturePointInstances, [
-                            point[0], point[1], 0,
-                            1.0, 0.0,
-                            1.0, 0.0, 0.0
-                        ])
-                    }
+                    gesturePointInteractables.push({
+                        shape: {
+                            type: "circle",
+                            center: [point[0], point[1], 0],
+                            radius: 3
+                        },
+                        onEvent: e => {
+                            if (e.hover) {
+                                if (e.hover.start) {
+                                    this.setState(update(this.state, {
+                                        planning: {
+                                            hoveredGesturePoint: {
+                                                $set: { gestureId, pointIdx }
+                                            }
+                                        }
+                                    }))
+                                } else if (e.hover.end) {
+                                    this.setState(update(this.state, {
+                                        planning: {
+                                            hoveredGesturePoint: {
+                                                $set: {}
+                                            }
+                                        }
+                                    }))
+                                }
+                            }
+
+                            if (e.drag && e.drag.now) {
+                                this.moveGesturePoint(this.state.planning.currentProposal, gestureId, pointIdx, e.drag.now);
+                            }
+                        }
+                    })
                 }
             }
         }
@@ -82,48 +122,59 @@ class CityboundClient extends React.Component {
         const layers = [
             {
                 decal: true,
-                batches: [
-                    {
-                        mesh: this.state.planning.rendering.currentPreview.lanesToDestruct,
-                        instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 0.8, 0.0, 0.0])
-                    },
-                ]
+                batches: Object.values(this.state.transport.rendering.laneAsphalt).map(laneAsphalt => ({
+                    mesh: laneAsphalt,
+                    instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.asphalt])
+                }))
             },
             {
                 decal: true,
-                batches: [
-                    {
-                        mesh: this.state.planning.rendering.currentPreview.lanesToConstruct,
-                        instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 0.9, 0.9, 0.9])
-                    },
-                ]
+                batches: Object.values(this.state.transport.rendering.laneMarker).map(laneMarker => ({
+                    mesh: laneMarker,
+                    instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.roadMarker])
+                }))
             },
             {
                 decal: true,
-                batches: [
-                    {
-                        mesh: this.state.planning.rendering.currentPreview.lanesToConstructMarker,
-                        instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0])
-                    },
-                ]
+                batches: Object.values(this.state.transport.rendering.laneMarkerGap).map(laneMarkerGap => ({
+                    mesh: laneMarkerGap,
+                    instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.asphalt])
+                }))
             },
             {
                 decal: true,
-                batches: [
-                    {
-                        mesh: this.state.planning.rendering.currentPreview.switchLanesToConstructMarkerGap,
-                        instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, 0.9, 0.9, 0.9])
-                    },
-                ]
+                batches: [{
+                    mesh: this.state.planning.rendering.currentPreview.lanesToDestruct,
+                    instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.destructedAsphalt])
+                }]
             },
             {
                 decal: true,
-                batches: [
-                    {
-                        mesh: this.state.planning.rendering.staticMeshes.GestureDot,
-                        instances: new Float32Array(gesturePointInstances)
-                    }
-                ]
+                batches: [{
+                    mesh: this.state.planning.rendering.currentPreview.lanesToConstruct,
+                    instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.plannedAsphalt])
+                }]
+            },
+            {
+                decal: true,
+                batches: [{
+                    mesh: this.state.planning.rendering.currentPreview.lanesToConstructMarker,
+                    instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.plannedRoadMarker])
+                }]
+            },
+            {
+                decal: true,
+                batches: [{
+                    mesh: this.state.planning.rendering.currentPreview.switchLanesToConstructMarkerGap,
+                    instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.plannedAsphalt])
+                }]
+            },
+            {
+                decal: true,
+                batches: [{
+                    mesh: this.state.planning.rendering.staticMeshes.GestureDot,
+                    instances: new Float32Array(gesturePointInstances)
+                }]
             },
         ];
 
@@ -140,36 +191,6 @@ class CityboundClient extends React.Component {
             })
         }
 
-        const gesturePointInteractables = [];
-
-        // if (this.state.planning) {
-        //     for (let proposalId of Object.keys(this.state.planning.proposals)) {
-        //         const proposal = this.state.planning.proposals[proposalId];
-        //         for (let gestureId of Object.keys(proposal)) {
-        //             const gesture = proposal[gestureId];
-
-        //             for (let i = 0; i < gesture.points.length; i += 2) {
-        //                 gesturePointInteractables.push({
-        //                     shape: {
-        //                         type: "circle",
-        //                         center: [gesture.points[i], gesture.points[i + 1], 0],
-        //                         radius: 3
-        //                     },
-        //                     onEvent: e => {
-        //                         if (e.drag && e.drag.now) {
-        //                             this.handleUICommand("MOVE_GESTURE_POINT", {
-        //                                 proposalId, gestureId, pointIndex: i / 2, newPosition: e.drag.now
-        //                             });
-        //                         }
-        //                     }
-        //                 })
-        //             }
-        //         }
-        //     }
-        // }
-
-
-        //const {viewMatrix, perspectiveMatrix} = this.state.view;
         const { eye, target, verticalFov } = this.state.view;
 
         return EL("div", {
@@ -198,8 +219,8 @@ class CityboundClient extends React.Component {
                 const perspectiveMatrix = mat4.perspective(mat4.create(), verticalFov, width / height, 50000, 0.1);
 
                 return EL("div", { style: { width, height } }, [
-                    EL("div", { key: "ui2d", style: { position: "absolute", zIndex: 3 } }, [
-                        EL("div", {}, [
+                    EL("div", { key: "ui2d", className: "ui2d" }, [
+                        EL("div", { className: "window proposals" }, [
                             EL("h1", {}, "Proposals"),
                             ...Object.keys(this.state.planning.proposals).map(proposalId =>
                                 proposalId == this.state.planning.currentProposal
@@ -215,7 +236,7 @@ class CityboundClient extends React.Component {
                         layers,
                         width, height,
                         viewMatrix, perspectiveMatrix,
-                        clearColor: [0.79, 0.88, 0.65, 1.0]
+                        clearColor: [...colors.grass, 1.0]
                     }),
                     EL(Stage, {
                         key: "stage",
@@ -233,7 +254,10 @@ class CityboundClient extends React.Component {
 class Stage extends React.Component {
     render() {
         return EL("div", {
-            style: Object.assign({}, this.props.style, { width: this.props.width, height: this.props.height }),
+            style: Object.assign({}, this.props.style, {
+                width: this.props.width, height: this.props.height,
+                cursor: this.hoveredInteractable ? "pointer" : "default"
+            }),
             onMouseMove: e => {
                 const { eye, target, verticalFov, width, height } = this.props;
                 const elementRect = e.target.getBoundingClientRect();
@@ -323,4 +347,4 @@ window.cbclient = ReactDOM.render(EL(CityboundClient), document.getElementById('
 
 import cityboundBrowser from './Cargo.toml';
 
-cityboundBrowser.test();
+cityboundBrowser.start();

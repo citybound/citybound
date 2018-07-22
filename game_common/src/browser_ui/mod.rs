@@ -1,6 +1,6 @@
 #![cfg_attr(feature = "server", allow(unused_variables, unused_imports))]
 
-use kay::{World, ActorSystem, Actor};
+use kay::{World, ActorSystem, Actor, RawID};
 use compact::{CVec, CHashMap};
 
 #[derive(Compact, Clone)]
@@ -39,19 +39,15 @@ impl BrowserUI {
             for (name, mesh) in ::planning::rendering::static_meshes() {
                 js! {
                     window.cbclient.setState(oldState => update(oldState, {
-                        planning: {
-                            rendering: {
-                                staticMeshes: {
-                                    [@{name}]: {"$set": @{to_js_mesh(&mesh)}}
-                                }
-                            }
-                        }
+                        planning: {rendering: {staticMeshes: {
+                            [@{name}]: {"$set": @{to_js_mesh(&mesh)}}
+                        }}}
                     }));
                 }
             }
 
-            // ::transport::lane::Lane::global_broadcast(world).get_mesh(id, world);
-            // ::transport::lane::SwitchLane::global_broadcast(world).get_mesh(id, world);
+            ::transport::lane::Lane::global_broadcast(world).get_render_info(id, world);
+            ::transport::lane::SwitchLane::global_broadcast(world).get_render_info(id, world);
         }
 
         BrowserUI { id }
@@ -181,17 +177,89 @@ impl BrowserUI {
             
             js! {
                 window.cbclient.setState(oldState => update(oldState, {
-                    planning: {
-                        rendering: {
-                            currentPreview: {"$set": {
-                                lanesToConstruct: @{to_js_mesh(&lanes_to_construct_mesh)},
-                                lanesToConstructMarker: @{to_js_mesh(&lanes_to_construct_marker_mesh)},
-                                lanesToDestruct: @{to_js_mesh(&lanes_to_destruct_mesh)},
-                                switchLanesToConstructMarkerGap: @{to_js_mesh(&switch_lanes_to_construct_marker_gap_mesh)}
-                            }}
-                        }
-                    }
+                    planning: {rendering: {
+                        currentPreview: {"$set": {
+                            lanesToConstruct: @{to_js_mesh(&lanes_to_construct_mesh)},
+                            lanesToConstructMarker: @{to_js_mesh(&lanes_to_construct_marker_mesh)},
+                            lanesToDestruct: @{to_js_mesh(&lanes_to_destruct_mesh)},
+                            switchLanesToConstructMarkerGap: @{to_js_mesh(&switch_lanes_to_construct_marker_gap_mesh)}
+                        }}
+                    }}
                 }));
+            }
+        }
+    }
+
+    pub fn on_lane_constructed(&mut self, id: RawID, lane_path: &::descartes::LinePath, is_switch: bool, on_intersection: bool, world: &mut World) {
+        #[cfg(feature = "browser")]
+        {
+            use ::transport::rendering::{lane_and_marker_mesh, switch_marker_gap_mesh};
+            if is_switch {
+                let gap_mesh = switch_marker_gap_mesh(lane_path);
+
+                js!{
+                    window.cbclient.setState(oldState => update(oldState, {
+                        transport: {rendering: {
+                            laneMarkerGap: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&gap_mesh)}}}
+                        }}
+                    }));
+                }
+
+            } else {
+                let meshes = lane_and_marker_mesh(lane_path);
+
+                if on_intersection {
+                    js!{
+                        window.cbclient.setState(oldState => update(oldState, {
+                            transport: {rendering: {
+                                laneAsphalt: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.0)}}}
+                            }}
+                        }));
+                    }
+                } else {
+                    js!{
+                        window.cbclient.setState(oldState => update(oldState, {
+                            transport: {rendering: {
+                                laneAsphalt: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.0)}}},
+                                laneMarker: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&((meshes.1).0 + (meshes.1).1))}}}
+                            }}
+                        }));
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn on_lane_destructed(&mut self, id: RawID, is_switch: bool, on_intersection: bool, world: &mut World) {
+        #[cfg(feature = "browser")]
+        {
+            if is_switch {
+                    js!{
+                        window.cbclient.setState(oldState => update(oldState, {
+                            transport: {rendering: {
+                                laneMarkerGap: {"$unset": [@{format!("{:?}", id)}]}
+                            }}
+                        }));
+                    }
+            } else {
+                if on_intersection {
+                    js!{
+                        window.cbclient.setState(oldState => update(oldState, {
+                            transport: {rendering: {
+                                laneAsphalt: {"$unset": [@{format!("{:?}", id)}]}
+                            }}
+                        }));
+                    }
+                } else {
+                    js!{
+                        window.cbclient.setState(oldState => update(oldState, {
+                            transport: {rendering: {
+                                laneAsphalt: {"$unset": [@{format!("{:?}", id)}]},
+                                laneMarker: {"$unset": [@{format!("{:?}", id)}]}
+                            }}
+                        }));
+                    }
+                }
             }
         }
     }

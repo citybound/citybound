@@ -301,6 +301,32 @@ pub fn switch_marker_gap_mesh(path: &LinePath) -> Mesh {
         .sum()
 }
 
+use browser_ui::BrowserUIID;
+
+impl Lane {
+    pub fn get_render_info(&mut self, ui: BrowserUIID, world: &mut World) {
+        ui.on_lane_constructed(
+            self.id.as_raw(),
+            self.construction.path.clone(),
+            false,
+            self.connectivity.on_intersection,
+            world,
+        );
+    }
+}
+
+impl SwitchLane {
+    pub fn get_render_info(&mut self, ui: BrowserUIID, world: &mut World) {
+        ui.on_lane_constructed(
+            self.id.as_raw(),
+            self.construction.path.clone(),
+            true,
+            false,
+            world,
+        );
+    }
+}
+
 impl GrouperIndividual for Lane {
     fn render_to_grouper(
         &mut self,
@@ -683,9 +709,19 @@ impl LaneRenderer {
     }
 }
 
+use browser_ui::BrowserUI;
+
 pub fn on_build(lane: &Lane, world: &mut World) {
     LaneRenderer::local_first(world).on_build(
         lane.id_as(),
+        lane.connectivity.on_intersection,
+        world,
+    );
+
+    BrowserUI::global_broadcast(world).on_lane_constructed(
+        lane.id.as_raw(),
+        lane.construction.path.clone(),
+        false,
         lane.connectivity.on_intersection,
         world,
     );
@@ -693,11 +729,25 @@ pub fn on_build(lane: &Lane, world: &mut World) {
 
 pub fn on_build_switch(lane: &SwitchLane, world: &mut World) {
     LaneRenderer::local_first(world).on_build_switch(lane.id_as(), world);
+    BrowserUI::global_broadcast(world).on_lane_constructed(
+        lane.id.as_raw(),
+        lane.construction.path.clone(),
+        true,
+        false,
+        world,
+    );
 }
 
 pub fn on_unbuild(lane: &Lane, world: &mut World) {
     LaneRenderer::local_first(world).on_unbuild(
         lane.id_as(),
+        lane.connectivity.on_intersection,
+        world,
+    );
+
+    BrowserUI::global_broadcast(world).on_lane_destructed(
+        lane.id.as_raw(),
+        false,
         lane.connectivity.on_intersection,
         world,
     );
@@ -726,6 +776,7 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
 
 pub fn on_unbuild_switch(lane: &SwitchLane, world: &mut World) {
     LaneRenderer::local_first(world).on_unbuild_switch(lane.id_as(), world);
+    BrowserUI::global_broadcast(world).on_lane_destructed(lane.id.as_raw(), true, false, world);
 }
 
 mod kay_auto;

@@ -1,0 +1,23 @@
+@font-face {
+    font-family: "Clear Sans";
+    src: url("assets/ClearSans-Regular.ttf") format("ttf"),
+  }
+
+
+body {
+    margin: 0;
+    font-family: 'Clear Sans', sans-serif;
+}
+
+.ui2d {
+    position: absolute;
+    z-index: 3;
+    padding: 1rem;
+}
+
+.window {
+    padding: 1em;
+    background-color: rgba(240, 240, 240, 0.8);
+    border-radius: 2px;
+    -webkit-backdrop-filter: blur(10px);
+}

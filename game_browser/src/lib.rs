@@ -13,7 +13,7 @@ use citybound_common::*;
 use std::panic;
 
 #[js_export]
-pub fn test() {
+pub fn start() {
     panic::set_hook(Box::new(|info| console!(error, info.to_string())));
 
     js!{ console.log("Before setup") }
