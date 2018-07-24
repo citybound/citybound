@@ -66,21 +66,23 @@ impl MainLoop {
         system.process_all_messages();
 
         let maybe_sleep = system.networking_finish_turn();
+
+        const STEP_LENGTH_MS: u32 = 1000 / 60;
         
-        match maybe_sleep {
+        let next_step_in_ms = match maybe_sleep {
             None => {
-                let mut next = self.clone();
-                ::stdweb::web::window().request_animation_frame(move |_dt| next.frame());
+                STEP_LENGTH_MS
             },
             Some(duration) => {
-                let mut next = self.clone();
-                let nanos = duration.subsec_nanos() as u64;
-                let ms = (1000*1000*1000 * duration.as_secs() + nanos)/(1000 * 1000);
-                ::stdweb::web::set_timeout(move || {
-                    ::stdweb::web::window().request_animation_frame(move |_dt| next.frame());
-                }, ms as u32)
+                let sleep_nanos = duration.subsec_nanos() as u64;
+                let sleep_ms = (1000*1000*1000 * duration.as_secs() + sleep_nanos)/(1000 * 1000);
+                STEP_LENGTH_MS + sleep_ms as u32
             }
-        }
+        };
+
+        let mut next = self.clone();
+
+        ::stdweb::web::set_timeout(move || next.frame(), next_step_in_ms);
     }
 }
 
@@ -93,6 +95,7 @@ pub fn move_gesture_point(
     gesture_id: Serde<::planning::GestureID>,
     point_idx: u32,
     new_position: Serde<::descartes::P2>,
+    done_moving: bool
 ) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
@@ -101,7 +104,14 @@ pub fn move_gesture_point(
         gesture_id.0,
         point_idx,
         new_position.0,
-        false,
+        done_moving,
         world,
     );
+}
+
+#[js_export]
+pub fn implement_proposal(proposal_id: Serde<::planning::ProposalID>) {
+    let system = unsafe { &mut *SYSTEM };
+    let world = &mut system.world();
+    ::planning::PlanManager::global_first(world).implement(proposal_id.0, world);
 }

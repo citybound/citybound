@@ -1,8 +1,6 @@
 import Monet from 'monet';
 import React from 'react';
-//import React from './node_modules/react/cjs/react.production.min.js';
 import ReactDOM from 'react-dom';
-//import ReactDOM from './node_modules/react-dom/cjs/react-dom.production.min.js';
 import { vec3, vec4, mat4 } from 'gl-matrix';
 import ContainerDimensions from 'react-container-dimensions';
 import update from 'immutability-helper';
@@ -73,24 +71,31 @@ class CityboundClient extends React.Component {
         return this.state.planning.master.gestures[gestureId];
     }
 
-    moveGesturePoint(proposalId, gestureId, pointIdx, newPosition) {
-        cityboundBrowser.move_gesture_point(proposalId, gestureId, pointIdx, [newPosition[0], newPosition[1]]);
+    moveGesturePoint(proposalId, gestureId, pointIdx, newPosition, doneMoving) {
+        cityboundBrowser.move_gesture_point(proposalId, gestureId, pointIdx, [newPosition[0], newPosition[1]], doneMoving);
 
-        let currentGesture = this.getGestureAsOf(proposalId, gestureId);
-        let newPoints = [...currentGesture.points];
-        newPoints[pointIdx] = newPosition;
+        if (!doneMoving) {
+            let currentGesture = this.getGestureAsOf(proposalId, gestureId);
+            let newPoints = [...currentGesture.points];
+            newPoints[pointIdx] = newPosition;
 
-        this.setState(oldState => update(oldState, {
-            planning: {
-                proposals: {
-                    [proposalId]: {
-                        ongoing: {
-                            $set: { gestures: { [gestureId]: Object.assign(currentGesture, { points: newPoints }) } }
+            this.setState(oldState => update(oldState, {
+                planning: {
+                    proposals: {
+                        [proposalId]: {
+                            ongoing: {
+                                $set: { gestures: { [gestureId]: Object.assign(currentGesture, { points: newPoints }) } }
+                            }
                         }
                     }
                 }
-            }
-        }))
+            }))
+        }
+    }
+
+    implementProposal(proposalId) {
+        cityboundBrowser.implement_proposal(proposalId);
+        this.setState(oldState => update(oldState, { planning: { $unset: ['currentProposal'] } }));
     }
 
     render() {
@@ -148,8 +153,12 @@ class CityboundClient extends React.Component {
                                 }
                             }
 
-                            if (e.drag && e.drag.now) {
-                                this.moveGesturePoint(this.state.planning.currentProposal, gestureId, pointIdx, e.drag.now);
+                            if (e.drag) {
+                                if (e.drag.now) {
+                                    this.moveGesturePoint(this.state.planning.currentProposal, gestureId, pointIdx, e.drag.now, false);
+                                } else if (e.drag.end) {
+                                    this.moveGesturePoint(this.state.planning.currentProposal, gestureId, pointIdx, e.drag.end, true);
+                                }
                             }
                         }
                     })
@@ -262,12 +271,17 @@ class CityboundClient extends React.Component {
                             EL("h1", { key: "heading" }, "Proposals"),
                             ...Object.keys(this.state.planning.proposals).map(proposalId =>
                                 proposalId == this.state.planning.currentProposal
-                                    ? EL("p", { key: proposalId }, "" + proposalId)
+                                    ? EL("p", { key: proposalId }, [
+                                        "" + proposalId,
+                                        EL("button", {
+                                            onClick: () => this.implementProposal(this.state.planning.currentProposal)
+                                        }, "implement")
+                                    ])
                                     : EL("button", {
                                         key: proposalId,
                                         onClick: () => this.switchToProposal(proposalId)
                                     }, "" + proposalId)
-                            )
+                            ),
                         ]),
                         EL("div", { key: "networking", className: "window networking" },
                             EL("pre", {}, this.state.system.networkingTurns)
