@@ -12,6 +12,9 @@ use citybound_common::*;
 
 use std::panic;
 
+// TODO: not thread safe for now
+static mut SYSTEM: *mut ActorSystem = 0 as *mut ActorSystem;
+
 #[js_export]
 pub fn start() {
     panic::set_hook(Box::new(|info| console!(error, info.to_string())));
@@ -19,7 +22,7 @@ pub fn start() {
     js!{ console.log("Before setup") }
 
     let mut system =
-        kay::ActorSystem::new(kay::Networking::new(1, vec!["localhost:9999", "ws-client"]));
+        kay::ActorSystem::new(kay::Networking::new(1, vec!["localhost:9999", "ws-client"], 30, 3));
     setup_all(&mut system);
 
     system.networking_connect();
@@ -30,54 +33,75 @@ pub fn start() {
 
     js!{ console.log("After setup") }
 
-    let main_loop = Rc::new(RefCell::new(MainLoop {
-        system,
-        browser_ui_id,
-    }));
+    let mut main_loop = MainLoop { browser_ui_id };
 
-    main_loop.borrow_mut().frame(main_loop.clone());
+    unsafe { SYSTEM = Box::into_raw(Box::new(system)) };
+
+    main_loop.frame();
 }
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
+#[derive(Copy, Clone)]
 struct MainLoop {
-    system: ActorSystem,
     browser_ui_id: citybound_common::browser_ui::BrowserUIID,
 }
 
 impl MainLoop {
-    fn frame(&mut self, rc: Rc<RefCell<Self>>) {
-        let system = &mut self.system;
+    fn frame(&mut self) {
+        let system = unsafe { &mut *SYSTEM };
         let world = &mut system.world();
 
-        system.networking_send_and_receive();
         system.process_all_messages();
 
         self.browser_ui_id.on_frame(world);
         system.process_all_messages();
 
-        system.process_all_messages();
-        system.process_all_messages();
-        system.process_all_messages();
-        system.process_all_messages();
-        system.process_all_messages();
-        system.process_all_messages();
+        system.networking_send_and_receive();
+
+        js!{
+            window.cbclient.setState(oldState => update(oldState, {system: {networkingTurns: {"$set": 
+                @{system.networking_debug_all_n_turns()}
+            }}}))
+        }
+
         system.process_all_messages();
 
-        system.networking_finish_turn();
-
-        ::stdweb::web::window().request_animation_frame(move |_dt| {
-            let next_rc = rc.clone();
-            rc.borrow_mut().frame(next_rc);
-        });
-
-        // stdweb::web::set_timeout(
-        //     move || {
-        //         let next_rc = rc.clone();
-        //         rc.borrow_mut().frame(next_rc);
-        //     },
-        //     100,
-        // );
+        let maybe_sleep = system.networking_finish_turn();
+        
+        match maybe_sleep {
+            None => {
+                let mut next = self.clone();
+                ::stdweb::web::window().request_animation_frame(move |_dt| next.frame());
+            },
+            Some(duration) => {
+                let mut next = self.clone();
+                let nanos = duration.subsec_nanos() as u64;
+                let ms = (1000*1000*1000 * duration.as_secs() + nanos)/(1000 * 1000);
+                ::stdweb::web::set_timeout(move || {
+                    ::stdweb::web::window().request_animation_frame(move |_dt| next.frame());
+                }, ms as u32)
+            }
+        }
     }
+}
+
+use kay::Actor;
+use stdweb::serde::Serde;
+
+#[js_export]
+pub fn move_gesture_point(
+    proposal_id: Serde<::planning::ProposalID>,
+    gesture_id: Serde<::planning::GestureID>,
+    point_idx: u32,
+    new_position: Serde<::descartes::P2>,
+) {
+    let system = unsafe { &mut *SYSTEM };
+    let world = &mut system.world();
+    ::planning::PlanManager::global_first(world).move_control_point(
+        proposal_id.0,
+        gesture_id.0,
+        point_idx,
+        new_position.0,
+        false,
+        world,
+    );
 }

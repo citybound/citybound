@@ -1,11 +1,16 @@
 import Monet from 'monet';
 import React from 'react';
+//import React from './node_modules/react/cjs/react.production.min.js';
 import ReactDOM from 'react-dom';
+//import ReactDOM from './node_modules/react-dom/cjs/react-dom.production.min.js';
 import { vec3, vec4, mat4 } from 'gl-matrix';
 import ContainerDimensions from 'react-container-dimensions';
 import update from 'immutability-helper';
 
 import colors from './colors';
+
+import * as cityboundBrowser from './Cargo.toml';
+
 
 window.update = update;
 
@@ -36,6 +41,9 @@ class CityboundClient extends React.Component {
                     laneMarkerGap: {}
                 }
             },
+            system: {
+                networkingTurns: ""
+            },
             view: {
                 eye: [-150, -150, 150],
                 target: [0, 0, 0],
@@ -52,8 +60,37 @@ class CityboundClient extends React.Component {
         }))
     }
 
-    moveGesturePoint(proposalId, gestureId, pointIdx, newPosition) {
+    getGestureAsOf(proposalId, gestureId) {
+        if (proposalId && this.state.planning.proposals[proposalId]) {
+            let proposal = this.state.planning.proposals[proposalId];
+            for (let i = proposal.undoable_history.length - 1; i >= 0; i--) {
+                let gestureInStep = proposal.undoable_history[i][gestureId];
+                if (gestureInStep) {
+                    return gestureInStep;
+                }
+            }
+        }
+        return this.state.planning.master.gestures[gestureId];
+    }
 
+    moveGesturePoint(proposalId, gestureId, pointIdx, newPosition) {
+        cityboundBrowser.move_gesture_point(proposalId, gestureId, pointIdx, [newPosition[0], newPosition[1]]);
+
+        let currentGesture = this.getGestureAsOf(proposalId, gestureId);
+        let newPoints = [...currentGesture.points];
+        newPoints[pointIdx] = newPosition;
+
+        this.setState(oldState => update(oldState, {
+            planning: {
+                proposals: {
+                    [proposalId]: {
+                        ongoing: {
+                            $set: { gestures: { [gestureId]: Object.assign(currentGesture, { points: newPoints }) } }
+                        }
+                    }
+                }
+            }
+        }))
     }
 
     render() {
@@ -64,7 +101,8 @@ class CityboundClient extends React.Component {
             let gestures = Object.keys(this.state.planning.master.gestures).map(gestureId =>
                 ({ [gestureId]: Object.assign(this.state.planning.master.gestures[gestureId], { fromMaster: true }) })
             ).concat(this.state.planning.currentProposal
-                ? this.state.planning.proposals[this.state.planning.currentProposal].undoable_history.map(step => step.gestures)
+                ? this.state.planning.proposals[this.state.planning.currentProposal].undoable_history
+                    .concat([this.state.planning.proposals[this.state.planning.currentProposal].ongoing || { gestures: [] }]).map(step => step.gestures)
                 : []
             ).reduce((coll, gestures) => Object.assign(coll, gestures), {});
 
@@ -220,16 +258,20 @@ class CityboundClient extends React.Component {
 
                 return EL("div", { style: { width, height } }, [
                     EL("div", { key: "ui2d", className: "ui2d" }, [
-                        EL("div", { className: "window proposals" }, [
-                            EL("h1", {}, "Proposals"),
+                        EL("div", { key: "proposals", className: "window proposals" }, [
+                            EL("h1", { key: "heading" }, "Proposals"),
                             ...Object.keys(this.state.planning.proposals).map(proposalId =>
                                 proposalId == this.state.planning.currentProposal
-                                    ? EL("p", {}, "" + proposalId)
+                                    ? EL("p", { key: proposalId }, "" + proposalId)
                                     : EL("button", {
+                                        key: proposalId,
                                         onClick: () => this.switchToProposal(proposalId)
                                     }, "" + proposalId)
                             )
-                        ])
+                        ]),
+                        EL("div", { key: "networking", className: "window networking" },
+                            EL("pre", {}, this.state.system.networkingTurns)
+                        )
                     ]),
                     EL(Monet, {
                         key: "canvas",
@@ -344,7 +386,5 @@ class Stage extends React.Component {
 }
 
 window.cbclient = ReactDOM.render(EL(CityboundClient), document.getElementById('app'));
-
-import cityboundBrowser from './Cargo.toml';
 
 cityboundBrowser.start();

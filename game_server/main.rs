@@ -25,6 +25,8 @@ fn main() {
         let mut system = Box::new(kay::ActorSystem::new(kay::Networking::new(
             0,
             vec!["localhost:9999", "ws-client"],
+            30,
+            1,
         )));
 
         setup_all(&mut system);
@@ -118,7 +120,11 @@ fn main() {
 
             system.process_all_messages();
 
-            system.networking_finish_turn();
+            let maybe_sleep = system.networking_finish_turn();
+
+            if let Some(duration) = maybe_sleep {
+                ::std::thread::sleep(duration);
+            }
         }
     });
 }

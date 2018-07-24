@@ -400,7 +400,7 @@ impl PlanManager {
         &mut self,
         proposal_id: ProposalID,
         gesture_id: GestureID,
-        point_index: usize,
+        point_index: u32,
         new_position: P2,
         is_move_finished: bool,
         world: &mut World,
@@ -409,7 +409,7 @@ impl PlanManager {
             let current_gesture = self.get_current_version_of(gesture_id, proposal_id);
 
             let mut new_gesture_points = current_gesture.points.clone();
-            new_gesture_points[point_index] = new_position;
+            new_gesture_points[point_index as usize] = new_position;
 
             let new_gesture = Gesture {
                 points: new_gesture_points,
@@ -561,7 +561,7 @@ impl Interactable3d for ControlPointInteractable {
             self.plan_manager.move_control_point(
                 self.proposal_id,
                 self.gesture_id,
-                self.point_index,
+                self.point_index as u32,
                 to.into_2d(),
                 is_finished,
                 world,
