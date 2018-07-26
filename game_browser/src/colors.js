@@ -11,9 +11,9 @@ export default {
     plannedRoadMarker: [0.6, 0.6, 0.6],
     destructedAsphalt: [1.0, 0.0, 0.0],
 
-    gesturePointMaster: [0.3, 0.3, 0.3],
-    gesturePointCurrentProposal: [0.0, 0.0, 0.0],
-    gesturePointHover: [0.3, 0.3, 1.0],
+    controlPointMaster: [0.3, 0.3, 0.3],
+    controlPointCurrentProposal: [0.0, 0.0, 0.0],
+    controlPointHover: [0.3, 0.3, 1.0],
 
     residential: [0.16, 0.67, 0.28],
     commercial: [0.25, 0.46, 0.9],

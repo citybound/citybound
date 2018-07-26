@@ -88,6 +88,7 @@ class CityboundClient extends React.Component {
                         key: "canvas",
                         layers,
                         width, height,
+                        retinaFactor: 2,
                         viewMatrix, perspectiveMatrix,
                         clearColor: [...colors.grass, 1.0]
                     }),

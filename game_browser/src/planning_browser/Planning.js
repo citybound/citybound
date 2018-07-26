@@ -15,7 +15,7 @@ export const initialState = {
     proposals: {
     },
     currentProposal: null,
-    hoveredGesturePoint: {}
+    hoveredControlPoint: {}
 };
 
 // STATE MUTATING ACTIONS
@@ -41,7 +41,7 @@ function getGestureAsOf(state, proposalId, gestureId) {
     return state.planning.master.gestures[gestureId];
 }
 
-function moveGesturePoint(proposalId, gestureId, pointIdx, newPosition, doneMoving) {
+function moveControlPoint(proposalId, gestureId, pointIdx, newPosition, doneMoving) {
     cityboundBrowser.move_gesture_point(proposalId, gestureId, pointIdx, [newPosition[0], newPosition[1]], doneMoving);
 
     if (!doneMoving) {
@@ -92,7 +92,7 @@ export function render(state, setState) {
             : []
         ).reduce((coll, gestures) => Object.assign(coll, gestures), {});
 
-        let { gestureId: hoveredGestureId, pointIdx: hoveredPointIdx } = state.planning.hoveredGesturePoint;
+        let { gestureId: hoveredGestureId, pointIdx: hoveredPointIdx } = state.planning.hoveredControlPoint;
 
         for (let gestureId of Object.keys(gestures)) {
             const gesture = gestures[gestureId];
@@ -109,8 +109,8 @@ export function render(state, setState) {
                         point[0], point[1], 0,
                         1.0, 0.0,
                         ...(isHovered
-                            ? colors.controlPointsHover
-                            : (gesture.fromMaster ? colors.controlPointsMaster : colors.controlPointsCurrentProposal))
+                            ? colors.controlPointHover
+                            : (gesture.fromMaster ? colors.controlPointMaster : colors.controlPointCurrentProposal))
                     ]);
 
                     controlPointsInteractables.push({
@@ -124,7 +124,7 @@ export function render(state, setState) {
                                 if (e.hover.start) {
                                     setState(update(state, {
                                         planning: {
-                                            hoveredGesturePoint: {
+                                            hoveredControlPoint: {
                                                 $set: { gestureId, pointIdx }
                                             }
                                         }
@@ -132,7 +132,7 @@ export function render(state, setState) {
                                 } else if (e.hover.end) {
                                     setState(update(state, {
                                         planning: {
-                                            hoveredGesturePoint: {
+                                            hoveredControlPoint: {
                                                 $set: {}
                                             }
                                         }
@@ -142,9 +142,9 @@ export function render(state, setState) {
 
                             if (e.drag) {
                                 if (e.drag.now) {
-                                    setState(moveGesturePoint(state.planning.currentProposal, gestureId, pointIdx, e.drag.now, false));
+                                    setState(moveControlPoint(state.planning.currentProposal, gestureId, pointIdx, e.drag.now, false));
                                 } else if (e.drag.end) {
-                                    setState(moveGesturePoint(state.planning.currentProposal, gestureId, pointIdx, e.drag.end, true));
+                                    setState(moveControlPoint(state.planning.currentProposal, gestureId, pointIdx, e.drag.end, true));
                                 }
                             }
                         }
