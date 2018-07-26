@@ -23,6 +23,11 @@ button {
     display: flex;
     flex-direction: row;
     align-items: start;
+    pointer-events: none;
+}
+
+.ui2d * {
+    pointer-events: auto;
 }
 
 .window {

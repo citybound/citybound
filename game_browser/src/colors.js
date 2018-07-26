@@ -19,7 +19,7 @@ export default {
     commercial: [0.25, 0.46, 0.9],
     offices: [0.35, 0.31, 0.8],
     industrial: [0.95, 0.40, 0.17],
-    agricultural: [0.93, 0.68, 0.14],
+    agricultural: [0.93, 0.58, 0.14],
     recreational: [0.17, 0.26, 0.14],
     official: [0.0, 0.4, 0.4]
 }

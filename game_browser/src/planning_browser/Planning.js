@@ -80,8 +80,8 @@ function implementProposal(proposalId) {
 // INTERACTABLES AND RENDER LAYERS
 
 export function render(state, setState) {
-    const gesturePointInstances = [];
-    const gesturePointInteractables = [];
+    const controlPointsInstances = [];
+    const controlPointsInteractables = [];
 
     if (state.planning) {
         let gestures = Object.keys(state.planning.master.gestures).map(gestureId =>
@@ -98,51 +98,58 @@ export function render(state, setState) {
             const gesture = gestures[gestureId];
 
             for (let [pointIdx, point] of gesture.points.entries()) {
-                let isHovered = gestureId == hoveredGestureId && pointIdx == hoveredPointIdx;
-                gesturePointInstances.push.apply(gesturePointInstances, [
-                    point[0], point[1], 0,
-                    1.0, 0.0,
-                    ...(isHovered
-                        ? colors.gesturePointHover
-                        : (gesture.fromMaster ? colors.gesturePointMaster : colors.gesturePointCurrentProposal))
-                ]);
 
-                gesturePointInteractables.push({
-                    shape: {
-                        type: "circle",
-                        center: [point[0], point[1], 0],
-                        radius: 3
-                    },
-                    onEvent: e => {
-                        if (e.hover) {
-                            if (e.hover.start) {
-                                setState(update(state, {
-                                    planning: {
-                                        hoveredGesturePoint: {
-                                            $set: { gestureId, pointIdx }
+                let isRelevant = (gesture.intent.Road && state.uiMode === "main/planning/roads")
+                    || (gesture.intent.Zone && state.uiMode.startsWith("main/planning/zoning"));
+
+                if (isRelevant) {
+                    let isHovered = gestureId == hoveredGestureId && pointIdx == hoveredPointIdx;
+
+                    controlPointsInstances.push.apply(controlPointsInstances, [
+                        point[0], point[1], 0,
+                        1.0, 0.0,
+                        ...(isHovered
+                            ? colors.controlPointsHover
+                            : (gesture.fromMaster ? colors.controlPointsMaster : colors.controlPointsCurrentProposal))
+                    ]);
+
+                    controlPointsInteractables.push({
+                        shape: {
+                            type: "circle",
+                            center: [point[0], point[1], 0],
+                            radius: 3
+                        },
+                        onEvent: e => {
+                            if (e.hover) {
+                                if (e.hover.start) {
+                                    setState(update(state, {
+                                        planning: {
+                                            hoveredGesturePoint: {
+                                                $set: { gestureId, pointIdx }
+                                            }
                                         }
-                                    }
-                                }))
-                            } else if (e.hover.end) {
-                                setState(update(state, {
-                                    planning: {
-                                        hoveredGesturePoint: {
-                                            $set: {}
+                                    }))
+                                } else if (e.hover.end) {
+                                    setState(update(state, {
+                                        planning: {
+                                            hoveredGesturePoint: {
+                                                $set: {}
+                                            }
                                         }
-                                    }
-                                }))
+                                    }))
+                                }
+                            }
+
+                            if (e.drag) {
+                                if (e.drag.now) {
+                                    setState(moveGesturePoint(state.planning.currentProposal, gestureId, pointIdx, e.drag.now, false));
+                                } else if (e.drag.end) {
+                                    setState(moveGesturePoint(state.planning.currentProposal, gestureId, pointIdx, e.drag.end, true));
+                                }
                             }
                         }
-
-                        if (e.drag) {
-                            if (e.drag.now) {
-                                setState(moveGesturePoint(state.planning.currentProposal, gestureId, pointIdx, e.drag.now, false));
-                            } else if (e.drag.end) {
-                                setState(moveGesturePoint(state.planning.currentProposal, gestureId, pointIdx, e.drag.end, true));
-                            }
-                        }
-                    }
-                })
+                    })
+                }
             }
         }
     }
@@ -187,7 +194,7 @@ export function render(state, setState) {
             decal: true,
             batches: [{
                 mesh: state.planning.rendering.staticMeshes.GestureDot,
-                instances: new Float32Array(gesturePointInstances)
+                instances: new Float32Array(controlPointsInstances)
             }]
         }
     ];
@@ -247,5 +254,5 @@ export function render(state, setState) {
         ]),
     ];
 
-    return [layers, gesturePointInteractables, elements];
+    return [layers, controlPointsInteractables, elements];
 }
