@@ -1,23 +1,115 @@
 @font-face {
     font-family: "Clear Sans";
     src: url("assets/ClearSans-Regular.ttf") format("ttf"),
-  }
-
+}
 
 body {
     margin: 0;
     font-family: 'Clear Sans', sans-serif;
 }
 
+button {
+    font: inherit;
+    cursor: pointer;
+    outline: none;
+}
+
 .ui2d {
     position: absolute;
     z-index: 3;
     padding: 1rem;
+    width: calc(100% - 2rem);
+    height: calc(100% - 2rem);
+    display: flex;
+    flex-direction: row;
+    align-items: start;
 }
 
 .window {
     padding: 1em;
+    margin: 0 0.5em;
     background-color: rgba(240, 240, 240, 0.8);
     border-radius: 2px;
     -webkit-backdrop-filter: blur(10px);
+}
+
+.toolbar {
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+}
+
+.toolbar button {
+    width: 3em;
+    height: 3em;
+    border: none;
+    margin: 0 0.5em 1px 0.5em;
+    margin-top: 0;
+    background-color: rgba(240, 240, 240, 0.8);
+    border-radius: 2px;
+    -webkit-backdrop-filter: blur(10px);
+    background-position: center center;
+    background-size: 24px 24px;
+    background-repeat: no-repeat no-repeat;
+    opacity: 0.6;
+}
+
+.toolbar button:hover {
+    opacity: 0.8;
+}
+
+.toolbar button.active {
+    opacity: 1.0;
+}
+
+#planning {
+    background-image: url('./assets/icons/icons8-stationery.png');
+}
+
+#inspection {
+    background-image: url('./assets/icons/icons8-visible.png');
+}
+
+#budgeting {
+    background-image: url('./assets/icons/icons8-cash.png');
+}
+
+#roads {
+    background-image: url('./assets/icons/icons8-road.png');
+}
+
+#zoning {
+    background-image: url('./assets/icons/icons8-categorize.png');
+}
+
+#zoning-toolbar button {
+    background-blend-mode: overlay;
+}
+
+#residential {
+    background-image: url('./assets/icons/icons8-cottage.png');
+}
+
+#commercial {
+    background-image: url('./assets/icons/icons8-shop.png');
+}
+
+#offices {
+    background-image: url('./assets/icons/icons8-company.png');
+}
+
+#industrial {
+    background-image: url('./assets/icons/icons8-factory.png');
+}
+
+#agricultural {
+    background-image: url('./assets/icons/icons8-farm.png');
+}
+
+#recreational {
+    background-image: url('./assets/icons/icons8-forest.png');
+}
+
+#official {
+    background-image: url('./assets/icons/icons8-city_hall.png');
 }

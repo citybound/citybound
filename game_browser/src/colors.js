@@ -15,10 +15,11 @@ export default {
     gesturePointCurrentProposal: [0.0, 0.0, 0.0],
     gesturePointHover: [0.3, 0.3, 1.0],
 
+    residential: [0.16, 0.67, 0.28],
+    commercial: [0.25, 0.46, 0.9],
+    offices: [0.35, 0.31, 0.8],
     industrial: [0.95, 0.40, 0.17],
-    commercial: [0.35, 0.46, 0.80],
-    residential: [0.16, 0.63, 0.28],
     agricultural: [0.93, 0.68, 0.14],
     recreational: [0.17, 0.26, 0.14],
-    official: [0.15, 0.11, 0.72]
+    official: [0.0, 0.4, 0.4]
 }

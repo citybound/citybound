@@ -22,6 +22,7 @@ class CityboundClient extends React.Component {
         this.state = {
             planning: Planning.initialState,
             transport: Transport.initialState,
+            uiMode: "main",
             system: {
                 networkingTurns: ""
             },
