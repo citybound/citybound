@@ -10,6 +10,8 @@ import * as cityboundBrowser from './Cargo.toml';
 import * as Planning from './src/planning_browser/Planning';
 import * as Transport from './src/transport_browser/Transport';
 import Stage from './src/stage/Stage';
+import colors from './src/colors';
+
 
 const EL = React.createElement;
 

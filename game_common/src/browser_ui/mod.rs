@@ -104,11 +104,13 @@ impl BrowserUI {
         #[cfg(feature = "browser")]
         {
             use ::construction::Action;
-            use ::planning::Prototype;
+            use ::planning::{Prototype};
             use ::transport::transport_planning::{RoadPrototype, LanePrototype, SwitchLanePrototype, IntersectionPrototype};
             use ::transport::rendering::{lane_and_marker_mesh, switch_marker_gap_mesh};
+            use ::land_use::zone_planning::{LotPrototype, LotOccupancy, Lot};
             use ::monet::Mesh;
 
+            let mut zones_mesh = Mesh::empty();
             let mut lanes_to_construct_mesh = Mesh::empty();
             let mut lanes_to_construct_marker_mesh = Mesh::empty();
             let mut switch_lanes_to_construct_marker_gap_mesh = Mesh::empty();
@@ -120,14 +122,21 @@ impl BrowserUI {
                         action_group.iter().filter_map(|action| match *action {
                             Action::Construct(constructed_prototype_id, _) => {
                                 if constructed_prototype_id == *prototype_id {
-                                    Some(true)
+                                    Some((true, false))
                                 } else {
                                     None
                                 }
                             }
-                            Action::Destruct(constructed_prototype_id) => {
-                                if constructed_prototype_id == *prototype_id {
-                                    Some(false)
+                            Action::Morph(_, new_prototype_id, _) => {
+                                if new_prototype_id == *prototype_id {
+                                    Some((true, true))
+                                } else {
+                                    None
+                                }
+                            }
+                            Action::Destruct(destructed_prototype_id) => {
+                                if destructed_prototype_id == *prototype_id {
+                                    Some((false, false))
                                 } else {
                                     None
                                 }
@@ -136,22 +145,22 @@ impl BrowserUI {
                         }).next()
                     }).next();
 
-                if let Some(is_construct) = corresponding_action_exists {
+                if let Some((is_construct, is_morph)) = corresponding_action_exists {
                     match *prototype {
                         Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
                             let meshes = lane_and_marker_mesh(lane_path);
-                            if is_construct {
+                            if is_construct && !is_morph {
                                 lanes_to_construct_mesh += meshes.0;
                                 lanes_to_construct_marker_mesh += (meshes.1).0;
                                 lanes_to_construct_marker_mesh += (meshes.1).1;
-                            } else {
+                            } else if !is_construct {
                                 lanes_to_destruct_mesh += meshes.0
                             }
                         }
                         Prototype::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(
                             ref lane_path,
                         ))) => {
-                            if is_construct {
+                            if is_construct && !is_morph {
                                 switch_lanes_to_construct_marker_gap_mesh += switch_marker_gap_mesh(lane_path);
                             }
                         }
@@ -163,13 +172,16 @@ impl BrowserUI {
                                 connecting_lanes.values().flat_map(|lanes| lanes)
                             {
                                 let meshes = lane_and_marker_mesh(lane_path);
-                                if is_construct {
+                                if is_construct && !is_morph {
                                     lanes_to_construct_mesh += meshes.0;
-                                } else {
+                                } else if !is_construct {
                                     lanes_to_destruct_mesh += meshes.0;
                                 }
                             }
                         },
+                        Prototype::Lot(LotPrototype{ref lot, occupancy: LotOccupancy::Vacant, ..}) => {
+                            zones_mesh += Mesh::from_area(&lot.area);
+                        }
                         _ => {}
                     }
                 }
@@ -179,6 +191,7 @@ impl BrowserUI {
                 window.cbclient.setState(oldState => update(oldState, {
                     planning: {rendering: {
                         currentPreview: {"$set": {
+                            zones: @{to_js_mesh(&zones_mesh)},
                             lanesToConstruct: @{to_js_mesh(&lanes_to_construct_mesh)},
                             lanesToConstructMarker: @{to_js_mesh(&lanes_to_construct_marker_mesh)},
                             lanesToDestruct: @{to_js_mesh(&lanes_to_destruct_mesh)},

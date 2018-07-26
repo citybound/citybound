@@ -1,4 +1,8 @@
 import colors from '../colors';
+import React from 'react';
+import * as cityboundBrowser from '../../Cargo.toml';
+
+const EL = React.createElement;
 
 export const initialState = {
     rendering: {
@@ -44,20 +48,24 @@ function moveGesturePoint(proposalId, gestureId, pointIdx, newPosition, doneMovi
 
         return oldState => {
             let currentGesture = getGestureAsOf(oldState, proposalId, gestureId);
-            let newPoints = [...currentGesture.points];
-            newPoints[pointIdx] = newPosition;
+            if (currentGesture) {
+                let newPoints = [...currentGesture.points];
+                newPoints[pointIdx] = newPosition;
 
-            return update(oldState, {
-                planning: {
-                    proposals: {
-                        [proposalId]: {
-                            ongoing: {
-                                $set: { gestures: { [gestureId]: Object.assign(currentGesture, { points: newPoints }) } }
+                return update(oldState, {
+                    planning: {
+                        proposals: {
+                            [proposalId]: {
+                                ongoing: {
+                                    $set: { gestures: { [gestureId]: Object.assign(currentGesture, { points: newPoints }) } }
+                                }
                             }
                         }
                     }
-                }
-            })
+                })
+            } else {
+                return s => s;
+            }
         }
     } else {
         return s => s
@@ -143,29 +151,36 @@ export function render(state, setState) {
         {
             decal: true,
             batches: [{
-                mesh: this.state.planning.rendering.currentPreview.lanesToDestruct,
+                mesh: state.planning.rendering.currentPreview.lanesToDestruct,
                 instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.destructedAsphalt])
             }]
         },
         {
             decal: true,
             batches: [{
-                mesh: this.state.planning.rendering.currentPreview.lanesToConstruct,
+                mesh: state.planning.rendering.currentPreview.lanesToConstruct,
                 instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.plannedAsphalt])
             }]
         },
         {
             decal: true,
             batches: [{
-                mesh: this.state.planning.rendering.currentPreview.lanesToConstructMarker,
+                mesh: state.planning.rendering.currentPreview.lanesToConstructMarker,
                 instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.plannedRoadMarker])
             }]
         },
         {
             decal: true,
             batches: [{
-                mesh: this.state.planning.rendering.currentPreview.switchLanesToConstructMarkerGap,
+                mesh: state.planning.rendering.currentPreview.switchLanesToConstructMarkerGap,
                 instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.plannedAsphalt])
+            }]
+        },
+        {
+            decal: true,
+            batches: [{
+                mesh: state.planning.rendering.currentPreview.zones,
+                instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.residential])
             }]
         },
         {
@@ -177,7 +192,7 @@ export function render(state, setState) {
         }
     ];
 
-    const elements = EL("div", { key: "proposals", className: "window proposals" }, [
+    const elements = [EL("div", { key: "proposals", className: "window proposals" }, [
         EL("h1", { key: "heading" }, "Proposals"),
         ...Object.keys(state.planning.proposals).map(proposalId =>
             proposalId == state.planning.currentProposal
@@ -192,7 +207,7 @@ export function render(state, setState) {
                     onClick: () => setState(switchToProposal(proposalId))
                 }, "" + proposalId)
         ),
-    ]);
+    ])];
 
     return [layers, gesturePointInteractables, elements];
 }
