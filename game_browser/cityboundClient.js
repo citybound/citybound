@@ -1,7 +1,7 @@
 import Monet from 'monet';
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { vec3, vec4, mat4 } from 'gl-matrix';
+import { vec3, mat4 } from 'gl-matrix';
 import ContainerDimensions from 'react-container-dimensions';
 import update from 'immutability-helper';
 window.update = update;

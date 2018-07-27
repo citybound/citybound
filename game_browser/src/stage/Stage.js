@@ -6,7 +6,10 @@ export default class Stage extends React.Component {
         return React.createElement("div", {
             style: Object.assign({}, this.props.style, {
                 width: this.props.width, height: this.props.height,
-                cursor: this.hoveredInteractable ? "pointer" : "default"
+                userSelect: "none",
+                cursor: this.activeInteractable
+                    ? (this.activeInteractable.cursorActive || "pointer")
+                    : (this.hoveredInteractable ? (this.hoveredInteractable.cursorHover || "pointer") : "default")
             }),
             onMouseMove: e => {
                 const { eye, target, verticalFov, width, height } = this.props;
@@ -53,10 +56,14 @@ export default class Stage extends React.Component {
     }
 
     findInteractableBelow(cursorPosition3d) {
-        for (let interactable of this.props.interactables) {
+        const interactables = [...this.props.interactables];
+        interactables.sort((a, b) => b.zIndex - a.zIndex);
+        for (let interactable of interactables) {
             let below = interactable.shape.type == "circle"
                 ? vec3.dist(cursorPosition3d, interactable.shape.center) < interactable.shape.radius
-                : false;
+                : (interactable.shape.type == "everywhere"
+                    ? true
+                    : false);
 
             if (below) {
                 return interactable;

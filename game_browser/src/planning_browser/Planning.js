@@ -1,6 +1,8 @@
 import colors from '../colors';
 import React from 'react';
+import { vec3, mat4 } from 'gl-matrix';
 import * as cityboundBrowser from '../../Cargo.toml';
+import uuid from '../uuid';
 
 const EL = React.createElement;
 
@@ -15,7 +17,16 @@ export const initialState = {
     proposals: {
     },
     currentProposal: null,
-    hoveredControlPoint: {}
+    hoveredControlPoint: {},
+    canvasMode: {
+        intent: null,
+        currentGesture: null,
+        addToEnd: true,
+        previousClick: null,
+    },
+    settings: {
+        finishGestureDistance: 3.0
+    }
 };
 
 // STATE MUTATING ACTIONS
@@ -72,6 +83,50 @@ function moveControlPoint(proposalId, gestureId, pointIdx, newPosition, doneMovi
     }
 }
 
+function startNewGesture(proposalId, intent, startPoint) {
+    let gestureId = uuid();
+
+    cityboundBrowser.start_new_gesture(proposalId, gestureId, intent, [startPoint[0], startPoint[1]]);
+
+    return oldState => update(oldState, {
+        planning: {
+            canvasMode: {
+                currentGesture: { $set: gestureId },
+                addToEnd: { $set: true },
+                previousClick: { $set: startPoint }
+            }
+        }
+    });
+}
+
+function addControlPoint(proposalId, gestureId, point, addToEnd, doneAdding) {
+    cityboundBrowser.add_control_point(proposalId, gestureId, [point[0], point[1]], addToEnd, doneAdding);
+
+    if (doneAdding) {
+        return oldState => update(oldState, {
+            planning: {
+                canvasMode: {
+                    previousClick: { $set: point }
+                }
+            }
+        });
+    } else {
+        return s => s
+    }
+}
+
+function finishGesture(proposalId, gestureId) {
+    cityboundBrowser.finish_gesture();
+
+    return oldState => update(oldState, {
+        planning: {
+            canvasMode: {
+                $unset: ['currentGesture', 'previousClick']
+            }
+        }
+    });
+}
+
 function implementProposal(proposalId) {
     cityboundBrowser.implement_proposal(proposalId);
     return oldState => update(oldState, { planning: { $unset: ['currentProposal'] } });
@@ -119,6 +174,9 @@ export function render(state, setState) {
                             center: [point[0], point[1], 0],
                             radius: 3
                         },
+                        zIndex: 2,
+                        cursorHover: "grab",
+                        cursorActive: "grabbing",
                         onEvent: e => {
                             if (e.hover) {
                                 if (e.hover.start) {
@@ -217,7 +275,38 @@ export function render(state, setState) {
         }
     }
 
-    const setUiMode = uiMode => setState({ uiMode: uiMode })
+    const setUiMode = uiMode => {
+        let updateOp = { uiMode: { $set: uiMode } };
+        if (uiMode === "main/planning/roads") {
+            updateOp.planning = {
+                canvasMode: {
+                    intent: {
+                        $set: {
+                            Road: {
+                                n_lanes_forward: 2,
+                                n_lanes_backward: 2
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (uiMode === "main/planning/zoning/residential") {
+            updateOp.planning = {
+                canvasMode: {
+                    intent: {
+                        $set: {
+                            Zone: {
+                                LandUse: "Residential"
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            updateOp.planning = { canvasMode: { intent: { $set: null } } }
+        }
+        setState(oldState => update(oldState, updateOp))
+    }
 
     const elements = [
         ...makeToolbar("main-toolbar", ["Inspection", "Planning", "Budgeting"], "main", state.uiMode, setUiMode),
@@ -254,5 +343,45 @@ export function render(state, setState) {
         ]),
     ];
 
-    return [layers, controlPointsInteractables, elements];
+    const interactables = [
+        ...(state.planning.canvasMode.currentGesture ? [] : controlPointsInteractables),
+        {
+            shape: {
+                type: "everywhere",
+            },
+            zIndex: 1,
+            cursorHover: "crosshair",
+            cursorActive: "pointer",
+            onEvent: e => {
+                const canvasMode = state.planning.canvasMode;
+                if (e.hover && e.hover.now) {
+                    if (canvasMode.currentGesture) {
+                        setState(addControlPoint(
+                            state.planning.currentProposal, canvasMode.currentGesture,
+                            e.hover.now, canvasMode.addToEnd, false
+                        ))
+                    }
+                }
+                if (e.drag && e.drag.end) {
+                    if (canvasMode.currentGesture) {
+                        if (canvasMode.previousClick
+                            && vec3.dist(e.drag.end, canvasMode.previousClick) < state.planning.settings.finishGestureDistance) {
+                            setState(finishGesture(state.planning.currentProposal, canvasMode.currentGesture));
+                        } else {
+                            setState(addControlPoint(
+                                state.planning.currentProposal, canvasMode.currentGesture,
+                                e.drag.end, canvasMode.addToEnd, true
+                            ))
+                        }
+                    } else if (canvasMode.intent) {
+                        setState(startNewGesture(
+                            state.planning.currentProposal, canvasMode.intent, e.drag.end
+                        ));
+                    }
+                }
+            }
+        }
+    ]
+
+    return [layers, interactables, elements];
 }
