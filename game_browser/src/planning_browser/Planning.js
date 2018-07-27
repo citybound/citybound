@@ -305,6 +305,7 @@ export function render(state, setState) {
         } else {
             updateOp.planning = { canvasMode: { intent: { $set: null } } }
         }
+
         setState(oldState => update(oldState, updateOp))
     }
 
@@ -383,5 +384,9 @@ export function render(state, setState) {
         }
     ]
 
-    return [layers, interactables, elements];
+    if (state.uiMode.startsWith("main/planning") && state.planning.currentProposal) {
+        return [layers, interactables, elements];
+    } else {
+        return [[], [], elements];
+    }
 }

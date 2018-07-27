@@ -62,7 +62,7 @@ impl BrowserUI {
             ::planning::PlanManager::global_first(world).get_all_plans(self.id, world);
 
             let maybe_current_proposal_id: Result<Serde<::planning::ProposalID>, _> = js! {
-                return window.cbclient.state.planning.currentProposal;
+                return window.cbclient.state.uiMode.startsWith("main/planning") && window.cbclient.state.planning.currentProposal;
             }.try_into();
             if let Ok(Serde(current_proposal_id)) = maybe_current_proposal_id {
                 ::planning::PlanManager::global_first(world).get_proposal_preview(
