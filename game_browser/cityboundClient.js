@@ -9,6 +9,7 @@ window.update = update;
 import * as cityboundBrowser from './Cargo.toml';
 import * as Planning from './src/planning_browser/Planning';
 import * as Transport from './src/transport_browser/Transport';
+import * as LandUse from './src/land_use_browser/LandUse';
 import Stage from './src/stage/Stage';
 import colors from './src/colors';
 
@@ -22,6 +23,7 @@ class CityboundClient extends React.Component {
         this.state = {
             planning: Planning.initialState,
             transport: Transport.initialState,
+            landUse: LandUse.initialState,
             uiMode: "main",
             system: {
                 networkingTurns: ""
@@ -38,15 +40,18 @@ class CityboundClient extends React.Component {
     render() {
         const [planningLayers, planningInteractables, planningElements] = Planning.render(this.state, this.setState.bind(this));
         const [transportLayers, transportInteractables, transportElements] = Transport.render(this.state, this.setState.bind(this));
+        const [landUseLayers, landUseInteractables, landUseElements] = LandUse.render(this.state, this.setState.bind(this));
 
         const layers = [
             ...transportLayers,
-            ...planningLayers
+            ...planningLayers,
+            ...landUseLayers,
         ];
 
         const interactables = [
             ...planningInteractables,
-            ...transportInteractables
+            ...transportInteractables,
+            ...landUseInteractables,
         ];
 
         const { eye, target, verticalFov } = this.state.view;
@@ -74,12 +79,13 @@ class CityboundClient extends React.Component {
         },
             EL(ContainerDimensions, { style: { width: "100%", height: "100%", position: "relative" } }, ({ width, height }) => {
                 const viewMatrix = mat4.lookAt(mat4.create(), eye, target, [0, 0, 1]);
-                const perspectiveMatrix = mat4.perspective(mat4.create(), verticalFov, width / height, 50000, 0.1);
+                const perspectiveMatrix = mat4.perspective(mat4.create(), verticalFov, width / height, 0.1, 50000);
 
                 return EL("div", { style: { width, height } }, [
                     EL("div", { key: "ui2d", className: "ui2d" }, [
                         ...planningElements,
                         ...transportElements,
+                        ...landUseElements,
                         EL("div", { key: "networking", className: "window networking" },
                             EL("pre", {}, this.state.system.networkingTurns)
                         )

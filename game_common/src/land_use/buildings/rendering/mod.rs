@@ -272,6 +272,13 @@ pub fn spawn(world: &mut World, user_interface: UserInterfaceID) -> BuildingRend
 }
 
 use util::random::seed;
+use browser_ui::{BrowserUI, BrowserUIID};
+
+impl Building {
+    pub fn get_render_info(&mut self, ui: BrowserUIID, world: &mut World) {
+        ui.on_building_constructed(self.id, self.lot.clone(), self.style, world)
+    }
+}
 
 pub fn on_add(id: BuildingID, lot: &Lot, building_type: BuildingStyle, world: &mut World) {
     // TODO: not sure if correct
@@ -287,7 +294,14 @@ pub fn on_add(id: BuildingID, lot: &Lot, building_type: BuildingStyle, world: &m
         id,
         build_building(lot, building_type, &mut seed(id)),
         world,
-    )
+    );
+
+    BrowserUI::global_broadcast(world).on_building_constructed(
+        id,
+        lot.clone(),
+        building_type,
+        world,
+    );
 }
 
 pub fn on_destroy(building_id: BuildingID, world: &mut World) {
@@ -297,6 +311,8 @@ pub fn on_destroy(building_id: BuildingID, world: &mut World) {
         world,
     );
     BuildingRenderer::local_first(world).remove_mesh(building_id, world);
+
+    BrowserUI::global_broadcast(world).on_building_destructed(building_id, world);
 }
 
 impl Building {

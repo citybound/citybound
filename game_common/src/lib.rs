@@ -1,5 +1,6 @@
 #![feature(custom_derive, iter_rfold)]
 #![allow(dead_code)]
+#![recursion_limit = "128"]
 // Enable this for memory tracking with Instruments/MacOS
 // and for much better stacktraces for memory issues
 #![feature(alloc_system)]

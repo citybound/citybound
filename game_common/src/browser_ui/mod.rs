@@ -48,6 +48,7 @@ impl BrowserUI {
 
             ::transport::lane::Lane::global_broadcast(world).get_render_info(id, world);
             ::transport::lane::SwitchLane::global_broadcast(world).get_render_info(id, world);
+            ::land_use::buildings::Building::global_broadcast(world).get_render_info(id, world);
         }
 
         BrowserUI { id }
@@ -273,6 +274,40 @@ impl BrowserUI {
                         }));
                     }
                 }
+            }
+        }
+    }
+
+    pub fn on_building_constructed(&mut self, id: ::land_use::buildings::BuildingID, lot: &::land_use::zone_planning::Lot, style: ::land_use::buildings::BuildingStyle, world: &mut World) {
+        #[cfg(feature = "browser")]
+        {
+            let meshes = ::land_use::buildings::architecture::build_building(lot, style, &mut ::util::random::seed(id));
+
+            js!{
+                window.cbclient.setState(oldState => update(oldState, {
+                    landUse: {rendering: {
+                        wall: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.wall)}}},
+                        brickRoof: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.brick_roof)}}},
+                        flatRoof: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.flat_roof)}}},
+                        field: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.field)}}},
+                    }}
+                }));
+            }
+        }
+    }
+
+    pub fn on_building_destructed(&mut self, id: ::land_use::buildings::BuildingID, world: &mut World) {
+        #[cfg(feature = "browser")]
+        {
+            js!{
+                window.cbclient.setState(oldState => update(oldState, {
+                    landUse: {rendering: {
+                        wall: {"$unset": [@{format!("{:?}", id)}]},
+                        brickRoof: {"$unset": [@{format!("{:?}", id)}]},
+                        flatRoof: {"$unset": [@{format!("{:?}", id)}]},
+                        field: {"$unset": [@{format!("{:?}", id)}]},
+                    }}
+                }));
             }
         }
     }
