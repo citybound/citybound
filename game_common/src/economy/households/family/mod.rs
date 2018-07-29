@@ -25,7 +25,7 @@ pub struct Family {
 impl Family {
     pub fn move_into(
         id: FamilyID,
-        n_members: usize,
+        n_members: u32,
         home: BuildingID,
         simulation: SimulationID,
         world: &mut World,
@@ -35,7 +35,7 @@ impl Family {
         let mut core = HouseholdCore::new(
             id.into(),
             world,
-            n_members,
+            n_members as usize,
             home.into(),
             vec![Offer::new(
                 MemberIdx(0),
@@ -69,7 +69,7 @@ impl Sleeper for Family {
 use super::ResultAspect;
 
 impl EvaluationRequester for Family {
-    fn expect_n_results(&mut self, resource: Resource, n: usize, world: &mut World) {
+    fn expect_n_results(&mut self, resource: Resource, n: u32, world: &mut World) {
         self.update_results(resource, &ResultAspect::SetTarget(n), world);
     }
 

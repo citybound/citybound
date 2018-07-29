@@ -194,7 +194,7 @@ pub trait Household:
                 offer.deal.main_given(),
                 OfferID {
                     household: self.id_as(),
-                    idx: OfferIdx(idx),
+                    idx: OfferIdx(idx as u16),
                 },
                 world,
             )
@@ -368,7 +368,7 @@ pub trait Household:
                             entry.results_counter.increment();
                         }
                         ResultAspect::SetTarget(n) => {
-                            entry.results_counter.set_target(n);
+                            entry.results_counter.set_target(n as usize);
                         }
                     }
                 }
@@ -685,11 +685,11 @@ pub trait Household:
     }
 
     fn get_offer(&self, idx: OfferIdx) -> &Offer {
-        &self.core().provided_offers[idx.0]
+        &self.core().provided_offers[idx.0 as usize]
     }
 
     fn get_offer_mut(&mut self, idx: OfferIdx) -> &mut Offer {
-        &mut self.core_mut().provided_offers[idx.0]
+        &mut self.core_mut().provided_offers[idx.0 as usize]
     }
 
     fn evaluate(
@@ -991,7 +991,7 @@ pub trait Household:
 #[derive(Compact, Clone)]
 pub enum ResultAspect {
     AddDeals(CVec<EvaluatedDeal>),
-    SetTarget(usize),
+    SetTarget(u32),
 }
 
 #[derive(Compact, Clone)]
@@ -1041,7 +1041,7 @@ impl HouseholdCore {
                 offer.deal.main_given(),
                 OfferID {
                     household: owner,
-                    idx: OfferIdx(idx),
+                    idx: OfferIdx(idx as u16),
                 },
                 world,
             )

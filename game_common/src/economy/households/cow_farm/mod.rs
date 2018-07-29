@@ -161,7 +161,7 @@ impl Sleeper for CowFarm {
 }
 
 impl EvaluationRequester for CowFarm {
-    fn expect_n_results(&mut self, _r: Resource, _n: usize, _: &mut World) {}
+    fn expect_n_results(&mut self, _r: Resource, _n: u32, _: &mut World) {}
     fn on_result(&mut self, _e: &EvaluatedSearchResult, _: &mut World) {}
 }
 

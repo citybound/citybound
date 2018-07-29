@@ -32,7 +32,7 @@ impl Deal {
 }
 
 pub trait EvaluationRequester {
-    fn expect_n_results(&mut self, resource: Resource, n: usize, world: &mut World);
+    fn expect_n_results(&mut self, resource: Resource, n: u32, world: &mut World);
     fn on_result(&mut self, result: &EvaluatedSearchResult, world: &mut World);
 }
 
@@ -70,7 +70,7 @@ impl Market {
             0
         };
 
-        requester.expect_n_results(resource, n_to_expect, world);
+        requester.expect_n_results(resource, n_to_expect as u32, world);
     }
 
     pub fn register(&mut self, resource: Resource, offer: OfferID, _: &mut World) {

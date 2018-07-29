@@ -260,7 +260,7 @@ impl Sleeper for NeighboringTownTrade {
 use super::ResultAspect;
 
 impl EvaluationRequester for NeighboringTownTrade {
-    fn expect_n_results(&mut self, resource: Resource, n: usize, world: &mut World) {
+    fn expect_n_results(&mut self, resource: Resource, n: u32, world: &mut World) {
         self.update_results(resource, &ResultAspect::SetTarget(n), world);
     }
 

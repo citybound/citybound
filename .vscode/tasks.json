@@ -7,11 +7,16 @@
     "tasks": [
         {
             "taskName": "build",
-            "args": ["rustc", "--", "-Zincremental=/tmp/"]
+            "args": [
+                "rustc",
+            ]
         },
         {
             "taskName": "release_build",
-            "args": ["rustc", "--release", "--", "-Zincremental=/tmp/"]
+            "args": [
+                "rustc",
+                "--release"
+            ]
         }
     ]
 }

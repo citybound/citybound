@@ -4,7 +4,7 @@ use super::{HouseholdID, MemberIdx};
 use simulation::TimeOfDayRange;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub struct OfferIdx(pub usize);
+pub struct OfferIdx(pub u16);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct OfferID {

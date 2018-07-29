@@ -15,6 +15,7 @@ pub fn setup(system: &mut ActorSystem) {
 }
 
 pub fn spawn(world: &mut World, simulation: SimulationID, plan_manager: PlanManagerID) {
+    market::spawn(world);
     households::spawn(world);
     immigration_and_development::spawn(world, simulation, plan_manager);
 }

@@ -138,7 +138,7 @@ impl Sleeper for Mill {
 }
 
 impl EvaluationRequester for Mill {
-    fn expect_n_results(&mut self, _r: Resource, _n: usize, _: &mut World) {}
+    fn expect_n_results(&mut self, _r: Resource, _n: u32, _: &mut World) {}
     fn on_result(&mut self, _e: &EvaluatedSearchResult, _: &mut World) {}
 }
 

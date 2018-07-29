@@ -9,7 +9,7 @@ glium = "0.17.0"
 fnv = "1.0.3"
 itertools = "0.7.6"
 lyon_tessellation = "0.9.1"
-kay = {version = "0.2.8"}
+kay = {version = "0.2.10"}
 compact = "0.2.4"
 compact_macros = "0.1.0"
 descartes = "0.1.4"

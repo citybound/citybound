@@ -9,7 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 stdweb = "0.4.7"
-kay = {version = "0.2.8", default-features = false, features = ["browser"]}
+kay = {version = "0.2.10", default-features = false, features = ["browser"]}
 
 [dependencies.citybound_common]
 path = "../game_common"
