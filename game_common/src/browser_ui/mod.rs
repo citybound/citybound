@@ -6,6 +6,7 @@ use compact::{CVec, CHashMap};
 #[derive(Compact, Clone)]
 pub struct BrowserUI {
     id: BrowserUIID,
+    car_instance_buffers: CHashMap<RawID, CVec<::monet::Instance>>
 }
 
 fn flatten_vertices(vertices: &[::monet::Vertex]) -> &[f32] {
@@ -16,6 +17,11 @@ fn flatten_vertices(vertices: &[::monet::Vertex]) -> &[f32] {
 fn flatten_points(points: &[::descartes::P3]) -> &[f32] {
     let new_len = points.len() * 3;
     unsafe { ::std::slice::from_raw_parts(points.as_ptr() as *const f32, new_len) }
+}
+
+fn flatten_instances(instances: &[::monet::Instance]) -> &[f32] {
+    let new_len = instances.len() * 8;
+    unsafe { ::std::slice::from_raw_parts(instances.as_ptr() as *const f32, new_len) }
 }
 
 #[cfg(feature = "browser")]
@@ -51,7 +57,7 @@ impl BrowserUI {
             ::land_use::buildings::Building::global_broadcast(world).get_render_info(id, world);
         }
 
-        BrowserUI { id }
+        BrowserUI { id, car_instance_buffers: CHashMap::new() }
     }
 
     pub fn on_frame(&mut self, world: &mut World) {
@@ -71,6 +77,25 @@ impl BrowserUI {
                     current_proposal_id,
                     world,
                 )
+            }
+
+            ::transport::lane::Lane::global_broadcast(world).get_car_instances(self.id, world);
+            ::transport::lane::SwitchLane::global_broadcast(world).get_car_instances(self.id, world);
+
+            let mut car_instances = Vec::with_capacity(600_000);
+
+            for lane_instances in self.car_instance_buffers.values() {
+                car_instances.extend_from_slice(lane_instances);
+            }
+
+            let car_instances_js : ::stdweb::web::TypedArray<f32> = flatten_instances(&car_instances).into();
+
+            js! {
+                window.cbclient.setState(oldState => update(oldState, {
+                    transport: {rendering: {
+                        carInstances: {"$set": @{car_instances_js}}
+                    }}
+                }))
             }
         }
     }
@@ -276,6 +301,10 @@ impl BrowserUI {
                 }
             }
         }
+    }
+
+    pub fn on_car_instances(&mut self, from_lane: RawID, instances: &CVec<::monet::Instance>, _: &mut World) {
+        self.car_instance_buffers.insert(from_lane, instances.clone());
     }
 
     pub fn on_building_constructed(&mut self, id: ::land_use::buildings::BuildingID, lot: &::land_use::zone_planning::Lot, style: ::land_use::buildings::BuildingStyle, world: &mut World) {

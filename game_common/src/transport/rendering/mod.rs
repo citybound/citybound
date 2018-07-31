@@ -19,9 +19,8 @@ mod traffic_light;
 
 use monet::{Renderable, RenderableID, GrouperID, GrouperIndividual, GrouperIndividualID};
 
-impl Renderable for Lane {
-    #[cfg_attr(feature = "cargo-clippy", allow(cyclomatic_complexity))]
-    fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
+impl Lane {
+    fn car_instances(&self) -> CVec<Instance> {
         let mut cars_iter = self.microtraffic.cars.iter();
         let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
         for (segment, distance_pair) in self.construction.path.segments_with_distances() {
@@ -43,6 +42,19 @@ impl Renderable for Lane {
                 })
             }
         }
+
+        car_instances
+    }
+
+    pub fn get_car_instances(&self, ui: BrowserUIID, world: &mut World) {
+        ui.on_car_instances(self.id.as_raw(), self.car_instances(), world);
+    }
+}
+
+impl Renderable for Lane {
+    #[cfg_attr(feature = "cargo-clippy", allow(cyclomatic_complexity))]
+    fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
+        let mut car_instances = self.car_instances();
 
         if DEBUG_VIEW_OBSTACLES {
             for &(obstacle, _id) in &self.microtraffic.obstacles {
@@ -385,8 +397,8 @@ impl GrouperIndividual for Lane {
     }
 }
 
-impl Renderable for SwitchLane {
-    fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
+impl SwitchLane {
+    fn car_instances(&self) -> CVec<Instance> {
         let mut cars_iter = self.microtraffic.cars.iter();
         let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
         for (segment, distance_pair) in self.construction.path.segments_with_distances() {
@@ -412,6 +424,18 @@ impl Renderable for SwitchLane {
                 })
             }
         }
+
+        car_instances
+    }
+
+    pub fn get_car_instances(&mut self, ui: BrowserUIID, world: &mut World) {
+        ui.on_car_instances(self.id.as_raw(), self.car_instances(), world);
+    }
+}
+
+impl Renderable for SwitchLane {
+    fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
+        let mut car_instances = self.car_instances();
 
         if DEBUG_VIEW_TRANSFER_OBSTACLES {
             for obstacle in &self.microtraffic.left_obstacles {

@@ -1,11 +1,16 @@
 import colors from '../colors';
 import update from 'immutability-helper';
+import carMesh from './carMesh';
 
 export const initialState = {
     rendering: {
+        staticMeshes: {
+            car: carMesh
+        },
         laneAsphalt: {},
         laneMarker: {},
-        laneMarkerGap: {}
+        laneMarkerGap: {},
+        carInstances: []
     }
 };
 
@@ -33,6 +38,13 @@ export function render(state, _setState) {
                 instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.asphalt])
             }))
         },
+        {
+            decal: false,
+            batches: [{
+                mesh: state.transport.rendering.staticMeshes.car,
+                instances: state.transport.rendering.carInstances
+            }]
+        }
     ];
 
     return [layers, [], []];

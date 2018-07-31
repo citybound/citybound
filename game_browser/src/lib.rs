@@ -67,7 +67,7 @@ impl MainLoop {
 
         let maybe_sleep = system.networking_finish_turn();
 
-        const STEP_LENGTH_MS: u32 = 1000 / 60;
+        const STEP_LENGTH_MS: u32 = 0;//1000 / 60;
         
         let next_step_in_ms = match maybe_sleep {
             None => {
