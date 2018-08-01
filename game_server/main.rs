@@ -25,6 +25,7 @@ fn main() {
         let mut system = Box::new(kay::ActorSystem::new(kay::Networking::new(
             0,
             vec!["localhost:9999", "ws-client"],
+            50_000,
             30,
             1,
         )));

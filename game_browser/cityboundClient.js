@@ -28,6 +28,9 @@ class CityboundClient extends React.Component {
             system: {
                 networkingTurns: ""
             },
+            rendering: {
+                enabled: true
+            },
             view: {
                 eye: [-150, -150, 150],
                 target: [0, 0, 0],
@@ -35,6 +38,13 @@ class CityboundClient extends React.Component {
             }
         }
 
+        this.renderer = React.createRef();
+    }
+
+    onFrame() {
+        if (this.state.rendering.enabled) {
+            this.renderer.current.renderFrame();
+        }
     }
 
     render() {
@@ -88,10 +98,18 @@ class CityboundClient extends React.Component {
                         ...landUseElements,
                         EL("div", { key: "networking", className: "window networking" },
                             EL("pre", {}, this.state.system.networkingTurns)
+                        ),
+                        EL("div", { key: "rendering", className: "window rendering" },
+                            EL("button", {
+                                onClick: () => this.setState(
+                                    oldState => update(oldState, { rendering: { enabled: { $apply: e => !e } } })
+                                )
+                            }, this.state.rendering.enabled ? "disable rendering" : "enable rendering")
                         )
                     ]),
                     EL(Monet, {
                         key: "canvas",
+                        ref: this.renderer,
                         layers,
                         width, height,
                         retinaFactor: 2,

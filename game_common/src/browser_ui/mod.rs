@@ -1,12 +1,13 @@
 #![cfg_attr(feature = "server", allow(unused_variables, unused_imports))]
 
-use kay::{World, ActorSystem, Actor, RawID};
+use kay::{World, ActorSystem, Actor, RawID, External};
 use compact::{CVec, CHashMap};
+use std::collections::HashMap;
 
 #[derive(Compact, Clone)]
 pub struct BrowserUI {
     id: BrowserUIID,
-    car_instance_buffers: CHashMap<RawID, CVec<::monet::Instance>>
+    car_instance_buffers: External<HashMap<RawID, Vec<::monet::Instance>>>
 }
 
 fn flatten_vertices(vertices: &[::monet::Vertex]) -> &[f32] {
@@ -57,7 +58,7 @@ impl BrowserUI {
             ::land_use::buildings::Building::global_broadcast(world).get_render_info(id, world);
         }
 
-        BrowserUI { id, car_instance_buffers: CHashMap::new() }
+        BrowserUI { id, car_instance_buffers: External::new(HashMap::new()) }
     }
 
     pub fn on_frame(&mut self, world: &mut World) {
@@ -304,7 +305,7 @@ impl BrowserUI {
     }
 
     pub fn on_car_instances(&mut self, from_lane: RawID, instances: &CVec<::monet::Instance>, _: &mut World) {
-        self.car_instance_buffers.insert(from_lane, instances.clone());
+        self.car_instance_buffers.insert(from_lane, instances.to_vec());
     }
 
     pub fn on_building_constructed(&mut self, id: ::land_use::buildings::BuildingID, lot: &::land_use::zone_planning::Lot, style: ::land_use::buildings::BuildingStyle, world: &mut World) {

@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "start": "./node_modules/.bin/parcel index.html"
+    "start": "./node_modules/.bin/parcel --no-cache index.html"
   },
   "dependencies": {
     "gl-matrix": "^2.6.1",
