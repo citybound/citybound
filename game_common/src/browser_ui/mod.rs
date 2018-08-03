@@ -142,7 +142,7 @@ impl BrowserUI {
             use ::planning::{Prototype, PrototypeKind};
             use ::transport::transport_planning::{RoadPrototype, LanePrototype,
 SwitchLanePrototype, IntersectionPrototype};
-            use ::transport::rendering::{lane_and_marker_mesh, switch_marker_gap_mesh};
+            use ::transport::rendering::{lane_mesh, marker_mesh, switch_marker_gap_mesh};
             use ::land_use::zone_planning::{LotPrototype, LotOccupancy, Lot};
             use ::monet::Mesh;
 
@@ -192,13 +192,14 @@ SwitchLanePrototype, IntersectionPrototype};
                             ref lane_path,
                             _,
                         ))) => {
-                            let meshes = lane_and_marker_mesh(lane_path);
+                            let mesh = lane_mesh(lane_path);
                             if is_construct && !is_morph {
-                                lanes_to_construct_mesh += meshes.0;
-                                lanes_to_construct_marker_mesh += (meshes.1).0;
-                                lanes_to_construct_marker_mesh += (meshes.1).1;
+                                lanes_to_construct_mesh += mesh;
+                                let marker_meshes = marker_mesh(lane_path);
+                                lanes_to_construct_marker_mesh += marker_meshes.0;
+                                lanes_to_construct_marker_mesh += marker_meshes.1;
                             } else if !is_construct {
-                                lanes_to_destruct_mesh += meshes.0
+                                lanes_to_destruct_mesh += mesh;
                             }
                         }
                         PrototypeKind::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(
@@ -218,11 +219,11 @@ SwitchLanePrototype, IntersectionPrototype};
                             for &LanePrototype(ref lane_path, _) in
                                 connecting_lanes.values().flat_map(|lanes| lanes)
                             {
-                                let meshes = lane_and_marker_mesh(lane_path);
+                                let mesh = lane_mesh(lane_path);
                                 if is_construct && !is_morph {
-                                    lanes_to_construct_mesh += meshes.0;
+                                    lanes_to_construct_mesh += mesh;
                                 } else if !is_construct {
-                                    lanes_to_destruct_mesh += meshes.0;
+                                    lanes_to_destruct_mesh += mesh;
                                 }
                             }
                         }
@@ -266,7 +267,7 @@ SwitchLanePrototype, IntersectionPrototype};
     ) {
         #[cfg(feature = "browser")]
         {
-            use ::transport::rendering::{lane_and_marker_mesh, switch_marker_gap_mesh};
+            use ::transport::rendering::{lane_mesh, marker_mesh, switch_marker_gap_mesh};
             if is_switch {
                 let gap_mesh = switch_marker_gap_mesh(lane_path);
 
@@ -282,7 +283,7 @@ SwitchLanePrototype, IntersectionPrototype};
                     }));
                 }
             } else {
-                let meshes = lane_and_marker_mesh(lane_path);
+                let mesh = lane_mesh(lane_path);
 
                 if on_intersection {
                     js!{
@@ -290,24 +291,25 @@ SwitchLanePrototype, IntersectionPrototype};
                             transport: {rendering: {
                                 laneAsphalt: {
                                     [@{format!("{:?}", id)}]: {
-                                        "$set": @{to_js_mesh(&meshes.0)}
+                                        "$set": @{to_js_mesh(&mesh)}
                                     }
                                 }
                             }}
                         }));
                     }
                 } else {
+                    let marker_meshes = marker_mesh(lane_path);
                     js!{
                         window.cbclient.setState(oldState => update(oldState, {
                             transport: {rendering: {
                                 laneAsphalt: {
                                     [@{format!("{:?}", id)}]: {
-                                        "$set": @{to_js_mesh(&meshes.0)}
+                                        "$set": @{to_js_mesh(&mesh)}
                                     }
                                 },
                                 laneMarker: {
                                     [@{format!("{:?}", id)}]: {
-                                        "$set": @{to_js_mesh(&((meshes.1).0 + (meshes.1).1))}
+                                        "$set": @{to_js_mesh(&(marker_meshes.0 + marker_meshes.1))}
                                     }
                                 }
                             }}

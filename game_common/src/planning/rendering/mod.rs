@@ -1,5 +1,5 @@
 use kay::{World, TypedID};
-use descartes::{P2, Band, CurvedPath, LinePath};
+use descartes::{P2, CurvedPath, LinePath};
 use monet::{RendererID, Renderable, RenderableID, Instance, Mesh};
 use style::colors;
 use style::dimensions::CONTROL_POINT_HANDLE_RADIUS;
@@ -9,13 +9,11 @@ use super::{PlanManager, PlanManagerID, VersionedGesture};
 use super::interaction::ControlPointRef;
 
 pub fn static_meshes() -> Vec<(&'static str, Mesh)> {
-    let dot_mesh = Mesh::from_band(
-        &Band::new(
-            CurvedPath::circle(P2::new(0.0, 0.0), CONTROL_POINT_HANDLE_RADIUS)
-                .unwrap()
-                .to_line_path(),
-            0.3,
-        ),
+    let dot_mesh = Mesh::from_path_as_band(
+        &CurvedPath::circle(P2::new(0.0, 0.0), CONTROL_POINT_HANDLE_RADIUS)
+            .unwrap()
+            .to_line_path(),
+        0.3,
         1.0,
     );
 
@@ -24,13 +22,11 @@ pub fn static_meshes() -> Vec<(&'static str, Mesh)> {
 
 impl Renderable for PlanManager {
     fn init(&mut self, renderer_id: RendererID, world: &mut World) {
-        let dot_mesh = Mesh::from_band(
-            &Band::new(
-                CurvedPath::circle(P2::new(0.0, 0.0), CONTROL_POINT_HANDLE_RADIUS)
-                    .unwrap()
-                    .to_line_path(),
-                0.3,
-            ),
+        let dot_mesh = Mesh::from_path_as_band(
+            &CurvedPath::circle(P2::new(0.0, 0.0), CONTROL_POINT_HANDLE_RADIUS)
+                .unwrap()
+                .to_line_path(),
+            0.3,
             1.0,
         );
 
@@ -74,7 +70,7 @@ impl Renderable for PlanManager {
         for (i, VersionedGesture(gesture, _)) in preview.gestures.values().enumerate() {
             if gesture.points.len() >= 2 {
                 let line_mesh = if let Some(line_path) = LinePath::new(gesture.points.clone()) {
-                    Mesh::from_band(&Band::new(line_path, 0.3), 1.0)
+                    Mesh::from_path_as_band(&line_path, 0.3, 1.0)
                 } else {
                     Mesh::empty()
                 };
@@ -122,46 +118,6 @@ impl Renderable for PlanManager {
             control_point_instances,
             world,
         );
-    }
-}
-
-impl PlanManager {
-    pub fn render_preview_new(&self, _: &mut World) -> (Mesh, Mesh, Mesh) {
-        let proposal_id = self
-            .ui_state
-            .get(self.id.as_raw().machine) // TEMPORARY HACK
-            .expect("should have ui state for this renderer")
-            .current_proposal;
-        let (preview, maybe_result_preview, maybe_actions_preview) =
-            self.try_ensure_preview(self.id.as_raw().machine, proposal_id);
-
-        let lines = preview
-            .gestures
-            .values()
-            .filter_map(|VersionedGesture(gesture, _)| {
-                if gesture.points.len() >= 2 {
-                    if let Some(line_path) = LinePath::new(gesture.points.clone()) {
-                        Some(Mesh::from_band(&Band::new(line_path, 0.3), 1.0))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            })
-            .sum();
-
-        let (lane_meshes, switching_lane_meshes) =
-            if let Some(result_preview) = maybe_result_preview {
-                ::transport::transport_planning::interaction::render_preview_new(
-                    result_preview,
-                    maybe_actions_preview,
-                )
-            } else {
-                (Mesh::empty(), Mesh::empty())
-            };
-
-        (lines, lane_meshes, switching_lane_meshes)
     }
 }
 

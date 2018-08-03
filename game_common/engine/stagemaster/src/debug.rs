@@ -1,4 +1,4 @@
-use descartes::{LinePath, Band, P2};
+use descartes::{LinePath, P2};
 use monet::{Mesh, Vertex, RendererID, Instance};
 
 static mut LAST_DEBUG_THING: u32 = 0;
@@ -16,7 +16,7 @@ pub fn add_debug_path(path: LinePath, color: [f32; 3], z: f32, world: &mut World
     if let Some(renderer) = unsafe { DEBUG_RENDERER } {
         renderer.update_individual(
             4_000_000_000 + unsafe { LAST_DEBUG_THING },
-            Mesh::from_band(&Band::new(path, 0.2), z),
+            Mesh::from_path_as_band(&path, 0.2, z),
             Instance::with_color(color),
             true,
             world,

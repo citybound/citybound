@@ -15,7 +15,7 @@ app_dirs = "1.2.1"
 kay = {version = "0.2.11"}
 compact = "0.2.4"
 compact_macros = "0.1.0"
-descartes = {version = "0.1.5", features = ["compact_containers", "serde-serialization"]}
+descartes = {version = "0.1.8", features = ["compact_containers", "serde-serialization"]}
 
 [dependencies.monet]
 path = "../monet"

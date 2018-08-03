@@ -21,7 +21,7 @@ compact = { version = "0.2.5", features = ["serde-serialization"] }
 compact_macros = "0.1.0"
 kay = {version = "0.2.11", default-features = false, features = ["serde-serialization"] }
 stdweb = {version = "0.4.7", optional = true}
-descartes = {version = "0.1.5", features = ["compact_containers", "serde-serialization"]}
+descartes = {version = "0.1.8", features = ["compact_containers", "serde-serialization"]}
 
 [dependencies.monet]
 path = "./engine/monet/"

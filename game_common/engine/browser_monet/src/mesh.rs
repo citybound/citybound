@@ -1,5 +1,5 @@
 pub use descartes::{N, P3, P2, V3, V4, M4, Iso3, Persp3, Into2d, Into3d, WithUniqueOrthogonal,
-Area, Band};
+Area, LinePath};
 
 use compact::CVec;
 
@@ -186,30 +186,37 @@ impl Mesh {
         output
     }
 
-    pub fn from_band(band: &Band, z: N) -> Mesh {
+    pub fn from_path_as_band(path: &LinePath, width: N, z: N) -> Mesh {
+        Self::from_path_as_band_asymmetric(path, width / 2.0, width / 2.0, z)
+    }
+
+    pub fn from_path_as_band_asymmetric(
+        path: &LinePath,
+        width_left: N,
+        width_right: N,
+        z: N,
+    ) -> Mesh {
         fn to_vertex(point: P2, z: N) -> Vertex {
             Vertex {
                 position: [point.x, point.y, z],
             }
         }
 
-        let left = band
-            .path
-            .shift_orthogonally(-band.width_left)
-            .unwrap_or_else(|| band.path.clone());
-        let right = band
-            .path
-            .shift_orthogonally(band.width_right)
-            .unwrap_or_else(|| band.path.clone());
+        let left_points = path
+            .shift_orthogonally_vectors()
+            .zip(path.points.iter())
+            .map(|(shift, point)| point - width_left * shift.0);
+        let right_points = path
+            .shift_orthogonally_vectors()
+            .zip(path.points.iter())
+            .map(|(shift, point)| point + width_right * shift.0);
 
-        let vertices = left
-            .points
-            .iter()
-            .chain(right.points.iter())
-            .map(|&p| to_vertex(p, z))
+        let vertices = left_points
+            .chain(right_points)
+            .map(|p| to_vertex(p, z))
             .collect::<Vec<_>>();
 
-        let left_len = left.points.len();
+        let left_len = path.points.len();
 
         let indices = (0..(left_len - 1))
             .flat_map(|left_i| {

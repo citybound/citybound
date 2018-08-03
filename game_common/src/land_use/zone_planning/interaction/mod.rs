@@ -1,6 +1,5 @@
 use kay::World;
 use compact::CVec;
-use descartes::Band;
 use monet::{RendererID, Mesh, Instance};
 use planning::{PlanResult, PrototypeKind};
 use construction::Action;
@@ -35,17 +34,13 @@ pub fn render_preview(
         {
             if occupancy == LotOccupancy::Vacant {
                 for primitive in &area.primitives {
-                    lot_vacant_outline_mesh += Mesh::from_band(
-                        &Band::new(primitive.boundary.path().clone(), LOT_OUTLINE_WIDTH),
-                        0.1,
-                    );
+                    lot_vacant_outline_mesh +=
+                        Mesh::from_path_as_band(primitive.boundary.path(), LOT_OUTLINE_WIDTH, 0.1);
                 }
             } else {
                 for primitive in &area.primitives {
-                    lot_occupied_outline_mesh += Mesh::from_band(
-                        &Band::new(primitive.boundary.path().clone(), LOT_OUTLINE_WIDTH),
-                        0.1,
-                    );
+                    lot_occupied_outline_mesh +=
+                        Mesh::from_path_as_band(primitive.boundary.path(), LOT_OUTLINE_WIDTH, 0.1);
                 }
             }
 
