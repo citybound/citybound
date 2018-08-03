@@ -6,7 +6,7 @@ use stagemaster::UserInterfaceID;
 use transport::lane::{Lane, LaneID};
 use simulation::Ticks;
 use construction::{ConstructionID, Constructable, ConstructableID};
-use planning::Prototype;
+use planning::{Prototype, PrototypeKind};
 
 pub mod rendering;
 pub mod architecture;
@@ -140,7 +140,7 @@ impl Building {
 
 impl Constructable for Building {
     fn morph(&mut self, new_prototype: &Prototype, report_to: ConstructionID, world: &mut World) {
-        if let Prototype::Lot(ref lot_prototype) = *new_prototype {
+        if let PrototypeKind::Lot(ref lot_prototype) = new_prototype.kind {
             self.lot = lot_prototype.lot.clone();
             rendering::on_destroy(self.id, world);
             rendering::on_add(self.id, &self.lot, self.style, world);

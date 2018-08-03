@@ -5,7 +5,7 @@ use style::colors;
 use style::dimensions::CONTROL_POINT_HANDLE_RADIUS;
 use render_layers::RenderLayers;
 
-use super::{PlanManager, PlanManagerID};
+use super::{PlanManager, PlanManagerID, VersionedGesture};
 use super::interaction::ControlPointRef;
 
 pub fn static_meshes() -> Vec<(&'static str, Mesh)> {
@@ -37,13 +37,13 @@ impl Renderable for PlanManager {
         renderer_id.add_batch(RenderLayers::PlanningGestureDots as u32, dot_mesh, world);
     }
 
-    fn prepare_render(&mut self, renderer_id: RendererID, _frame: usize, world: &mut World) {
+    fn prepare_render(&mut self, renderer_id: RendererID, _frame: usize, _: &mut World) {
         let proposal_id = self
             .ui_state
             .get(renderer_id.as_raw().machine)
             .expect("should have ui state for this renderer")
             .current_proposal;
-        self.try_ensure_preview(renderer_id.as_raw().machine, proposal_id, world);
+        self.try_ensure_preview(renderer_id.as_raw().machine, proposal_id);
     }
 
     fn render(&mut self, renderer_id: RendererID, frame: usize, world: &mut World) {
@@ -54,7 +54,7 @@ impl Renderable for PlanManager {
             .expect("should have ui state for this renderer")
             .current_proposal;
         let (preview, maybe_result_preview, maybe_actions_preview) =
-            self.try_ensure_preview(renderer_id.as_raw().machine, proposal_id, world);
+            self.try_ensure_preview(renderer_id.as_raw().machine, proposal_id);
 
         if let Some(result_preview) = maybe_result_preview {
             for render_fn in &[
@@ -71,7 +71,7 @@ impl Renderable for PlanManager {
             }
         }
 
-        for (i, gesture) in preview.gestures.values().enumerate() {
+        for (i, VersionedGesture(gesture, _)) in preview.gestures.values().enumerate() {
             if gesture.points.len() >= 2 {
                 let line_mesh = if let Some(line_path) = LinePath::new(gesture.points.clone()) {
                     Mesh::from_band(&Band::new(line_path, 0.3), 1.0)
@@ -97,7 +97,7 @@ impl Renderable for PlanManager {
         let control_point_instances = preview
             .gestures
             .pairs()
-            .flat_map(|(gesture_id, gesture)| {
+            .flat_map(|(gesture_id, VersionedGesture(gesture, _))| {
                 gesture
                     .points
                     .iter()
@@ -126,19 +126,19 @@ impl Renderable for PlanManager {
 }
 
 impl PlanManager {
-    pub fn render_preview_new(&self, world: &mut World) -> (Mesh, Mesh, Mesh) {
+    pub fn render_preview_new(&self, _: &mut World) -> (Mesh, Mesh, Mesh) {
         let proposal_id = self
             .ui_state
             .get(self.id.as_raw().machine) // TEMPORARY HACK
             .expect("should have ui state for this renderer")
             .current_proposal;
         let (preview, maybe_result_preview, maybe_actions_preview) =
-            self.try_ensure_preview(self.id.as_raw().machine, proposal_id, world);
+            self.try_ensure_preview(self.id.as_raw().machine, proposal_id);
 
         let lines = preview
             .gestures
             .values()
-            .filter_map(|gesture| {
+            .filter_map(|VersionedGesture(gesture, _)| {
                 if gesture.points.len() >= 2 {
                     if let Some(line_path) = LinePath::new(gesture.points.clone()) {
                         Some(Mesh::from_band(&Band::new(line_path, 0.3), 1.0))

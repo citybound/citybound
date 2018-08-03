@@ -8,7 +8,7 @@ use render_layers::RenderLayers;
 
 use ui_layers::UILayer;
 
-use planning::{Plan, GestureIntent, PlanResult, Prototype, GestureID, ProposalID, PlanManagerID};
+use planning::{PlanHistory, GestureIntent, PlanResult, PrototypeKind, GestureID, ProposalID, PlanManagerID};
 use planning::interaction::{GestureInteractable, GestureInteractableID};
 use construction::Action;
 
@@ -42,14 +42,14 @@ pub fn render_preview(
                     })
                 });
             if corresponding_construction_action_exists {
-                match *prototype {
-                    Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
+                match prototype.kind {
+                    PrototypeKind::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
                         lane_mesh += Mesh::from_band(
                             &Band::new(lane_path.clone(), EFFECTIVE_LANE_WIDTH),
                             0.1,
                         );
                     }
-                    Prototype::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(
+                    PrototypeKind::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(
                         ref lane_path,
                     ))) => {
                         for dash in lane_path.dash(LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH) {
@@ -57,7 +57,7 @@ pub fn render_preview(
                                 Mesh::from_band(&Band::new(dash, LANE_MARKER_WIDTH), 0.1);
                         }
                     }
-                    Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
+                    PrototypeKind::Road(RoadPrototype::Intersection(IntersectionPrototype {
                         ref area,
                         ref connecting_lanes,
                         ..
@@ -133,14 +133,14 @@ pub fn render_preview_new(
                     })
                 });
             if corresponding_construction_action_exists {
-                match *prototype {
-                    Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
+                match prototype.kind {
+                    PrototypeKind::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
                         lane_mesh += Mesh::from_band(
                             &Band::new(lane_path.clone(), EFFECTIVE_LANE_WIDTH),
                             0.1,
                         );
                     }
-                    Prototype::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(
+                    PrototypeKind::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(
                         ref lane_path,
                     ))) => {
                         for dash in lane_path.dash(LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH) {
@@ -148,7 +148,7 @@ pub fn render_preview_new(
                                 Mesh::from_band(&Band::new(dash, LANE_MARKER_WIDTH), 0.1);
                         }
                     }
-                    Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
+                    PrototypeKind::Road(RoadPrototype::Intersection(IntersectionPrototype {
                         ref area,
                         ref connecting_lanes,
                         ..
@@ -278,17 +278,17 @@ impl Interactable3d for LaneCountInteractable {
 }
 
 pub fn spawn_gesture_interactables(
-    plan: &Plan,
+    history: &PlanHistory,
     user_interface: UserInterfaceID,
     plan_manager: PlanManagerID,
     proposal_id: ProposalID,
     world: &mut World,
 ) -> Vec<GestureInteractableID> {
-    let gesture_intent_smooth_paths = gesture_intent_smooth_paths(plan);
+    let gesture_intent_smooth_paths = gesture_intent_smooth_paths(history);
 
     gesture_intent_smooth_paths
         .into_iter()
-        .flat_map(|(gesture_id, road_intent, path)| {
+        .flat_map(|(gesture_id, _, road_intent, path)| {
             path.shift_orthogonally(
                 CENTER_LANE_DISTANCE / 2.0
                     + (f32::from(road_intent.n_lanes_forward) - 0.5) * LANE_DISTANCE,

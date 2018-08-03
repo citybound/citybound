@@ -2,7 +2,7 @@ use kay::World;
 use compact::CVec;
 use descartes::Band;
 use monet::{RendererID, Mesh, Instance};
-use planning::{PlanResult, Prototype};
+use planning::{PlanResult, PrototypeKind};
 use construction::Action;
 use style::colors;
 use style::dimensions::LOT_OUTLINE_WIDTH;
@@ -22,7 +22,7 @@ pub fn render_preview(
     let mut lot_vacant_outline_mesh = Mesh::empty();
 
     for prototype in result_preview.prototypes.values() {
-        if let Prototype::Lot(LotPrototype {
+        if let PrototypeKind::Lot(LotPrototype {
             lot:
                 Lot {
                     ref area,
@@ -31,7 +31,7 @@ pub fn render_preview(
                 },
             occupancy,
             ..
-        }) = *prototype
+        }) = prototype.kind
         {
             if occupancy == LotOccupancy::Vacant {
                 for primitive in &area.primitives {

@@ -103,7 +103,7 @@ impl BrowserUI {
 
     pub fn on_plans_update(
         &mut self,
-        master: &::planning::Plan,
+        master: &::planning::PlanHistory,
         proposals: &CHashMap<::planning::ProposalID, ::planning::Proposal>,
         world: &mut World,
     ) {
@@ -130,8 +130,10 @@ impl BrowserUI {
     ) {
         #[cfg(feature = "browser")]
         {
+            console!(log, "on proposal preview"); 
+
             use ::construction::Action;
-            use ::planning::{Prototype};
+            use ::planning::{Prototype, PrototypeKind};
             use ::transport::transport_planning::{RoadPrototype, LanePrototype, SwitchLanePrototype, IntersectionPrototype};
             use ::transport::rendering::{lane_and_marker_mesh, switch_marker_gap_mesh};
             use ::land_use::zone_planning::{LotPrototype, LotOccupancy, Lot};
@@ -173,8 +175,8 @@ impl BrowserUI {
                     }).next();
 
                 if let Some((is_construct, is_morph)) = corresponding_action_exists {
-                    match *prototype {
-                        Prototype::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
+                    match prototype.kind {
+                        PrototypeKind::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
                             let meshes = lane_and_marker_mesh(lane_path);
                             if is_construct && !is_morph {
                                 lanes_to_construct_mesh += meshes.0;
@@ -184,14 +186,14 @@ impl BrowserUI {
                                 lanes_to_destruct_mesh += meshes.0
                             }
                         }
-                        Prototype::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(
+                        PrototypeKind::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(
                             ref lane_path,
                         ))) => {
                             if is_construct && !is_morph {
                                 switch_lanes_to_construct_marker_gap_mesh += switch_marker_gap_mesh(lane_path);
                             }
                         }
-                        Prototype::Road(RoadPrototype::Intersection(IntersectionPrototype {
+                        PrototypeKind::Road(RoadPrototype::Intersection(IntersectionPrototype {
                             ref connecting_lanes,
                             ..
                         })) => {
@@ -206,7 +208,7 @@ impl BrowserUI {
                                 }
                             }
                         },
-                        Prototype::Lot(LotPrototype{ref lot, occupancy: LotOccupancy::Vacant, ..}) => {
+                        PrototypeKind::Lot(LotPrototype{ref lot, occupancy: LotOccupancy::Vacant, ..}) => {
                             zones_mesh += Mesh::from_area(&lot.area);
                         }
                         _ => {}

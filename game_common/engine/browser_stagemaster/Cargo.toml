@@ -10,10 +10,7 @@ compact = "0.2.4"
 compact_macros = "0.1.0"
 serde = "1"
 serde_derive = "1"
-
-[dependencies.descartes]
-version = "0.1.4"
-features = ["compact_containers", "serde-serialization"]
+descartes = {version = "0.1.5", features = ["compact_containers", "serde-serialization"]}
 
 [dependencies.browser_monet]
 path = "../browser_monet"

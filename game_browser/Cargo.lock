@@ -66,7 +66,7 @@ version = "0.1.0"
 dependencies = [
  "compact 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "compact_macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "descartes 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "descartes 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -83,7 +83,7 @@ dependencies = [
  "browser_monet 0.1.0",
  "compact 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "compact_macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "descartes 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "descartes 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay_codegen 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.70 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -136,7 +136,7 @@ dependencies = [
  "browser_stagemaster 0.1.0",
  "compact 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "compact_macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "descartes 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "descartes 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "imgui 0.0.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -182,7 +182,7 @@ dependencies = [
 
 [[package]]
 name = "descartes"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "compact 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -814,7 +814,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum cloudabi 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "ddfc5b9aa5d4507acaf872de71051dfd0e309860e88966e1051e462a077aac4f"
 "checksum compact 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "f03054f2a407313a3a34a9edf00f74eaf9ed0b93fb048a6e11c314d22d9d4c08"
 "checksum compact_macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3e7847152d72f589722cdae298c7a68a38d072c094440065ed8e05fde90e0e8a"
-"checksum descartes 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "318f99ddc8913c683a45ec628a9e81653acfc91730b2dbdf0f97942bded1700e"
+"checksum descartes 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "bab41bee00e4ea5d48cb9cd1b419407115128f7b64f11bc729d0e31c121cd9f0"
 "checksum discard 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "9a9117502da3c5657cb8e2ca7ffcf52d659f00c78c5127d1ebadc2ebe76465be"
 "checksum dtoa 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "6d301140eb411af13d3115f9a562c85cc6b541ade9dfa314132244aaee7489dd"
 "checksum either 1.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3be565ca5c557d7f59e7cfcf1844f9e3033650c929c6566f511e8005f205c1d0"

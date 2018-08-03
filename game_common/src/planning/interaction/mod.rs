@@ -7,11 +7,11 @@ use ui_layers::UILayer;
 #[cfg(feature = "server")]
 use imgui::ImGuiSetCond_FirstUseEver;
 
-use super::{Plan, PlanResult, GestureID, ProposalID, PlanManager, PlanManagerID, Gesture,
+use super::{Plan, PlanHistory, PlanResult, VersionedGesture, GestureID, ProposalID, PlanManager, PlanManagerID, Gesture,
 GestureIntent};
 use transport::transport_planning::RoadIntent;
 use land_use::zone_planning::{ZoneIntent, LandUse};
-use construction::{Construction, Action};
+use construction::{Action};
 use style::dimensions::CONTROL_POINT_HANDLE_RADIUS;
 use stagemaster::combo::{Bindings, Combo2};
 use browser_ui::BrowserUIID;
@@ -26,7 +26,7 @@ pub struct PlanManagerUIState {
     gesture_ongoing: bool,
     gesture_interactables: CVec<GestureInteractableID>,
     pub selected_points: CVec<ControlPointRef>,
-    current_preview: COption<Plan>,
+    current_preview: COption<PlanHistory>,
     current_result_preview: COption<PlanResult>,
     current_action_preview: COption<CVec<CVec<Action>>>,
     pub user_interface: UserInterfaceID,
@@ -62,7 +62,7 @@ impl PlanManager {
             }
 
             let (_, maybe_result, maybe_actions) =
-                self.try_ensure_preview(world.local_machine_id(), proposal_id, world);
+                self.try_ensure_preview(world.local_machine_id(), proposal_id);
 
             if let (Some(result), Some(actions)) = (maybe_result, maybe_actions) {
                 ui.on_proposal_preview(proposal_id, result.clone(), actions.clone(), world);
@@ -126,8 +126,7 @@ impl PlanManager {
         &self,
         machine_id: MachineID,
         proposal_id: ProposalID,
-        world: &mut World,
-    ) -> (&Plan, Option<&PlanResult>, &Option<CVec<CVec<Action>>>) {
+    ) -> (&PlanHistory, Option<&PlanResult>, &Option<CVec<CVec<Action>>>) {
         let ui_state = self
             .ui_state
             .get(machine_id)
@@ -148,15 +147,11 @@ impl PlanManager {
                     .unwrap()
                     .apply_to_with_ongoing(&self.master_plan);
 
-                match preview_plan.calculate_result(self.master_version) {
+                match preview_plan.calculate_result() {
                     Ok(preview_plan_result) => {
-                        Construction::global_first(world).simulate(
-                            preview_plan_result.clone(),
-                            self.id,
-                            proposal_id,
-                            world,
-                        );
+                        let actions = self.master_result.actions_to(&preview_plan_result);
                         ui_state_mut.current_result_preview = COption(Some(preview_plan_result));
+                        ui_state_mut.current_action_preview = COption(Some(actions));
                     }
                     Err(err) => match err {
                         AreaError::LeftOver(string) => {
@@ -179,22 +174,6 @@ impl PlanManager {
         )
     }
 
-    pub fn on_simulated_actions(
-        &mut self,
-        proposal_id: ProposalID,
-        actions: &CVec<CVec<Action>>,
-        _: &mut World,
-    ) {
-        for state in self
-            .ui_state
-            .values_mut()
-            .filter(|state| state.current_proposal == proposal_id)
-        {
-            // TODO: avoid clone
-            state.current_action_preview = COption(Some(actions.clone()));
-        }
-    }
-
     fn recreate_gesture_interactables_on_machine(
         &mut self,
         machine_id: MachineID,
@@ -213,12 +192,12 @@ impl PlanManager {
             if gesture_ongoing {
                 CVec::new()
             } else {
-                let (preview, ..) = self.try_ensure_preview(machine_id, proposal_id, world);
+                let (preview, ..) = self.try_ensure_preview(machine_id, proposal_id);
 
                 preview
                     .gestures
                     .pairs()
-                    .flat_map(|(gesture_id, gesture)| {
+                    .flat_map(|(gesture_id, VersionedGesture(gesture, _))| {
                         gesture
                             .points
                             .iter()
@@ -313,9 +292,7 @@ impl PlanManager {
     ) {
         let new_gesture = Gesture::new(vec![start].into(), intent.clone());
 
-        let new_step = Plan {
-            gestures: Some((new_gesture_id, new_gesture)).into_iter().collect(),
-        };
+        let new_step = Plan::from_gestures(Some((new_gesture_id, new_gesture)));
 
         self.proposals
             .get_mut(proposal_id)
@@ -375,9 +352,7 @@ impl PlanManager {
                 }
             };
 
-            Plan {
-                gestures: Some((gesture_id, changed_gesture)).into_iter().collect(),
-            }
+            Plan::from_gestures(Some((gesture_id, changed_gesture)))
         };
 
         self.proposals
@@ -416,9 +391,7 @@ impl PlanManager {
                 ..current_gesture.clone()
             };
 
-            Plan {
-                gestures: Some((gesture_id, new_gesture)).into_iter().collect(),
-            }
+            Plan::from_gestures(Some((gesture_id, new_gesture)))
         };
 
         self.proposals
@@ -455,9 +428,7 @@ impl PlanManager {
                 ..current_gesture.clone()
             };
 
-            Plan {
-                gestures: Some((gesture_id, new_gesture)).into_iter().collect(),
-            }
+            Plan::from_gestures(Some((gesture_id, new_gesture)))
         };
 
         self.proposals

@@ -10,13 +10,13 @@ use economy::immigration_and_development::DevelopmentManagerID;
 use itertools::{Itertools, MinMaxResult};
 
 use construction::{ConstructionID, Constructable, ConstructableID};
-use planning::{Prototype, Version};
+use planning::{Prototype, StepID};
 
 #[derive(Compact, Clone)]
 pub struct VacantLot {
     pub id: VacantLotID,
     pub lot: Lot,
-    based_on: Version,
+    based_on: StepID,
 }
 
 impl Lot {
@@ -179,7 +179,7 @@ impl Lot {
 }
 
 impl VacantLot {
-    pub fn spawn(id: VacantLotID, lot: &Lot, based_on: Version, _world: &mut World) -> VacantLot {
+    pub fn spawn(id: VacantLotID, lot: &Lot, based_on: StepID, _world: &mut World) -> VacantLot {
         VacantLot {
             id,
             based_on,

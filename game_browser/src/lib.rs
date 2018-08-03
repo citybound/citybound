@@ -70,6 +70,8 @@ impl MainLoop {
         let maybe_sleep = system.networking_finish_turn();
         let mut next = self.clone();
         
+        // TODO: still do a frame every frame but maybe stall just the actor system
+
         let next_step_in_ms = match maybe_sleep {
             None => {
                 ::stdweb::web::window().request_animation_frame(move |_| next.frame());

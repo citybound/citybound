@@ -49,8 +49,10 @@ function getGestureAsOf(state, proposalId, gestureId) {
             }
         }
     }
-    return state.planning.master.gestures[gestureId];
+    return state.planning.master.gestures[gestureId][0];
 }
+
+let canvas = null;
 
 function moveControlPoint(proposalId, gestureId, pointIdx, newPosition, doneMoving) {
     cityboundBrowser.move_gesture_point(proposalId, gestureId, pointIdx, [newPosition[0], newPosition[1]], doneMoving);
@@ -140,7 +142,7 @@ export function render(state, setState) {
 
     if (state.planning) {
         let gestures = Object.keys(state.planning.master.gestures).map(gestureId =>
-            ({ [gestureId]: Object.assign(state.planning.master.gestures[gestureId], { fromMaster: true }) })
+            ({ [gestureId]: Object.assign(state.planning.master.gestures[gestureId][0], { fromMaster: true }) })
         ).concat(state.planning.currentProposal
             ? state.planning.proposals[state.planning.currentProposal].undoable_history
                 .concat([state.planning.proposals[state.planning.currentProposal].ongoing || { gestures: [] }]).map(step => step.gestures)
@@ -344,9 +346,12 @@ export function render(state, setState) {
         ]),
     ];
 
+    // TODO: invent a better way to preserve identity
+
     const interactables = [
         ...(state.planning.canvasMode.currentGesture ? [] : controlPointsInteractables),
         {
+            id: "planningCanvas",
             shape: {
                 type: "everywhere",
             },
