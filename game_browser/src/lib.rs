@@ -38,7 +38,10 @@ pub fn start() {
 
     js!{ console.log("After setup") }
 
-    let mut main_loop = MainLoop { browser_ui_id };
+    let mut main_loop = MainLoop {
+        browser_ui_id,
+        skip_turn: false,
+    };
 
     unsafe { SYSTEM = Box::into_raw(Box::new(system)) };
 
@@ -48,6 +51,7 @@ pub fn start() {
 #[derive(Copy, Clone)]
 struct MainLoop {
     browser_ui_id: citybound_common::browser_ui::BrowserUIID,
+    skip_turn: bool,
 }
 
 impl MainLoop {
@@ -55,12 +59,17 @@ impl MainLoop {
         let system = unsafe { &mut *SYSTEM };
         let world = &mut system.world();
 
-        system.process_all_messages();
-
-        self.browser_ui_id.on_frame(world);
-        system.process_all_messages();
-
         system.networking_send_and_receive();
+
+        if !self.skip_turn {
+            system.process_all_messages();
+
+            self.browser_ui_id.on_frame(world);
+            system.process_all_messages();
+
+            system.networking_send_and_receive();
+            system.process_all_messages();
+        }
 
         js!{
             window.cbclient.setState(oldState => update(oldState, {
@@ -72,30 +81,16 @@ impl MainLoop {
             window.cbclient.onFrame();
         }
 
-        system.process_all_messages();
-
-        let maybe_sleep = system.networking_finish_turn();
         let mut next = self.clone();
 
-        // TODO: still do a frame every frame but maybe stall just the actor system
+        if self.skip_turn {
+            next.skip_turn = false;
+        } else {
+            let maybe_sleep = system.networking_finish_turn();
+            next.skip_turn = maybe_sleep.is_some();
+        }
 
-        let next_step_in_ms = match maybe_sleep {
-            None => {
-                ::stdweb::web::window().request_animation_frame(move |_| next.frame());
-            }
-            Some(duration) => {
-                let sleep_nanos = duration.subsec_nanos() as u64;
-                let sleep_ms =
-                    (1000 * 1000 * 1000 * duration.as_secs() + sleep_nanos) / (1000 * 1000);
-
-                ::stdweb::web::set_timeout(
-                    move || {
-                        ::stdweb::web::window().request_animation_frame(move |_| next.frame());
-                    },
-                    sleep_ms as u32,
-                );
-            }
-        };
+        ::stdweb::web::window().request_animation_frame(move |_| next.frame());
     }
 }
 
