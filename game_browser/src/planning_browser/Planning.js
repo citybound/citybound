@@ -136,6 +136,11 @@ function implementProposal(proposalId) {
 
 // INTERACTABLES AND RENDER LAYERS
 
+const destructedAsphaltInstance = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.destructedAsphalt]);
+const plannedAsphaltInstance = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.plannedAsphalt]);
+const plannedRoadMarkerInstance = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.plannedRoadMarker]);
+const residentialInstance = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.residential]);
+
 export function render(state, setState) {
     const controlPointsInstances = [];
     const controlPointsInteractables = [];
@@ -219,35 +224,35 @@ export function render(state, setState) {
             decal: true,
             batches: [{
                 mesh: state.planning.rendering.currentPreview.lanesToDestruct,
-                instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.destructedAsphalt])
+                instances: destructedAsphaltInstance
             }]
         },
         {
             decal: true,
             batches: [{
                 mesh: state.planning.rendering.currentPreview.lanesToConstruct,
-                instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.plannedAsphalt])
+                instances: plannedAsphaltInstance
             }]
         },
         {
             decal: true,
             batches: [{
                 mesh: state.planning.rendering.currentPreview.lanesToConstructMarker,
-                instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.plannedRoadMarker])
+                instances: plannedRoadMarkerInstance
             }]
         },
         {
             decal: true,
             batches: [{
                 mesh: state.planning.rendering.currentPreview.switchLanesToConstructMarkerGap,
-                instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.plannedAsphalt])
+                instances: plannedAsphaltInstance
             }]
         },
         {
             decal: true,
             batches: [{
                 mesh: state.planning.rendering.currentPreview.zones,
-                instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.residential])
+                instances: residentialInstance
             }]
         },
         {

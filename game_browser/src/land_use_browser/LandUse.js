@@ -9,6 +9,10 @@ export const initialState = {
     }
 }
 
+const materialInstances = ["wall", "flatRoof", "brickRoof", "field"].map(material =>
+    new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors[material]])
+);
+
 export function render(state, _setState) {
 
     const layers = ["wall", "flatRoof", "brickRoof", "field"].map(material =>
@@ -16,7 +20,7 @@ export function render(state, _setState) {
             decal: false,
             batches: Object.values(state.landUse.rendering[material]).map(housePart => ({
                 mesh: housePart,
-                instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors[material]])
+                instances: materialInstances[material]
             }))
         })
     );

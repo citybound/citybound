@@ -14,6 +14,9 @@ export const initialState = {
     }
 };
 
+const asphaltInstance = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.asphalt]);
+const roadMarkerInstance = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.roadMarker]);
+
 export function render(state, _setState) {
 
     const layers = [
@@ -21,21 +24,21 @@ export function render(state, _setState) {
             decal: true,
             batches: Object.values(state.transport.rendering.laneAsphalt).map(laneAsphalt => ({
                 mesh: laneAsphalt,
-                instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.asphalt])
+                instances: asphaltInstance
             }))
         },
         {
             decal: true,
             batches: Object.values(state.transport.rendering.laneMarker).map(laneMarker => ({
                 mesh: laneMarker,
-                instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.roadMarker])
+                instances: roadMarkerInstance
             }))
         },
         {
             decal: true,
             batches: Object.values(state.transport.rendering.laneMarkerGap).map(laneMarkerGap => ({
                 mesh: laneMarkerGap,
-                instances: new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.asphalt])
+                instances: asphaltInstance
             }))
         },
         {
