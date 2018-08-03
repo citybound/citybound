@@ -7,7 +7,7 @@ use std::collections::HashMap;
 #[derive(Compact, Clone)]
 pub struct BrowserUI {
     id: BrowserUIID,
-    car_instance_buffers: External<HashMap<RawID, Vec<::monet::Instance>>>
+    car_instance_buffers: External<HashMap<RawID, Vec<::monet::Instance>>>,
 }
 
 fn flatten_vertices(vertices: &[::monet::Vertex]) -> &[f32] {
@@ -58,7 +58,10 @@ impl BrowserUI {
             ::land_use::buildings::Building::global_broadcast(world).get_render_info(id, world);
         }
 
-        BrowserUI { id, car_instance_buffers: External::new(HashMap::new()) }
+        BrowserUI {
+            id,
+            car_instance_buffers: External::new(HashMap::new()),
+        }
     }
 
     pub fn on_frame(&mut self, world: &mut World) {
@@ -70,7 +73,8 @@ impl BrowserUI {
             ::planning::PlanManager::global_first(world).get_all_plans(self.id, world);
 
             let maybe_current_proposal_id: Result<Serde<::planning::ProposalID>, _> = js! {
-                return window.cbclient.state.uiMode.startsWith("main/planning") && window.cbclient.state.planning.currentProposal;
+                return (window.cbclient.state.uiMode.startsWith("main/planning") &&
+                    window.cbclient.state.planning.currentProposal);
             }.try_into();
             if let Ok(Serde(current_proposal_id)) = maybe_current_proposal_id {
                 ::planning::PlanManager::global_first(world).get_proposal_preview(
@@ -81,7 +85,8 @@ impl BrowserUI {
             }
 
             ::transport::lane::Lane::global_broadcast(world).get_car_instances(self.id, world);
-            ::transport::lane::SwitchLane::global_broadcast(world).get_car_instances(self.id, world);
+            ::transport::lane::SwitchLane::global_broadcast(world)
+                .get_car_instances(self.id, world);
 
             let mut car_instances = Vec::with_capacity(600_000);
 
@@ -89,7 +94,8 @@ impl BrowserUI {
                 car_instances.extend_from_slice(lane_instances);
             }
 
-            let car_instances_js : ::stdweb::web::TypedArray<f32> = flatten_instances(&car_instances).into();
+            let car_instances_js: ::stdweb::web::TypedArray<f32> =
+                flatten_instances(&car_instances).into();
 
             js! {
                 window.cbclient.setState(oldState => update(oldState, {
@@ -130,11 +136,12 @@ impl BrowserUI {
     ) {
         #[cfg(feature = "browser")]
         {
-            console!(log, "on proposal preview"); 
+            console!(log, "on proposal preview");
 
             use ::construction::Action;
             use ::planning::{Prototype, PrototypeKind};
-            use ::transport::transport_planning::{RoadPrototype, LanePrototype, SwitchLanePrototype, IntersectionPrototype};
+            use ::transport::transport_planning::{RoadPrototype, LanePrototype,
+SwitchLanePrototype, IntersectionPrototype};
             use ::transport::rendering::{lane_and_marker_mesh, switch_marker_gap_mesh};
             use ::land_use::zone_planning::{LotPrototype, LotOccupancy, Lot};
             use ::monet::Mesh;
@@ -146,37 +153,45 @@ impl BrowserUI {
             let mut lanes_to_destruct_mesh = Mesh::empty();
 
             for (prototype_id, prototype) in result.prototypes.pairs() {
-                let corresponding_action_exists =
-                    actions.iter().filter_map(|action_group| {
-                        action_group.iter().filter_map(|action| match *action {
-                            Action::Construct(constructed_prototype_id, _) => {
-                                if constructed_prototype_id == *prototype_id {
-                                    Some((true, false))
-                                } else {
-                                    None
+                let corresponding_action_exists = actions
+                    .iter()
+                    .filter_map(|action_group| {
+                        action_group
+                            .iter()
+                            .filter_map(|action| match *action {
+                                Action::Construct(constructed_prototype_id, _) => {
+                                    if constructed_prototype_id == *prototype_id {
+                                        Some((true, false))
+                                    } else {
+                                        None
+                                    }
                                 }
-                            }
-                            Action::Morph(_, new_prototype_id, _) => {
-                                if new_prototype_id == *prototype_id {
-                                    Some((true, true))
-                                } else {
-                                    None
+                                Action::Morph(_, new_prototype_id, _) => {
+                                    if new_prototype_id == *prototype_id {
+                                        Some((true, true))
+                                    } else {
+                                        None
+                                    }
                                 }
-                            }
-                            Action::Destruct(destructed_prototype_id) => {
-                                if destructed_prototype_id == *prototype_id {
-                                    Some((false, false))
-                                } else {
-                                    None
+                                Action::Destruct(destructed_prototype_id) => {
+                                    if destructed_prototype_id == *prototype_id {
+                                        Some((false, false))
+                                    } else {
+                                        None
+                                    }
                                 }
-                            }
-                            _ => None,
-                        }).next()
-                    }).next();
+                                _ => None,
+                            })
+                            .next()
+                    })
+                    .next();
 
                 if let Some((is_construct, is_morph)) = corresponding_action_exists {
                     match prototype.kind {
-                        PrototypeKind::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
+                        PrototypeKind::Road(RoadPrototype::Lane(LanePrototype(
+                            ref lane_path,
+                            _,
+                        ))) => {
                             let meshes = lane_and_marker_mesh(lane_path);
                             if is_construct && !is_morph {
                                 lanes_to_construct_mesh += meshes.0;
@@ -190,13 +205,16 @@ impl BrowserUI {
                             ref lane_path,
                         ))) => {
                             if is_construct && !is_morph {
-                                switch_lanes_to_construct_marker_gap_mesh += switch_marker_gap_mesh(lane_path);
+                                switch_lanes_to_construct_marker_gap_mesh +=
+                                    switch_marker_gap_mesh(lane_path);
                             }
                         }
-                        PrototypeKind::Road(RoadPrototype::Intersection(IntersectionPrototype {
-                            ref connecting_lanes,
-                            ..
-                        })) => {
+                        PrototypeKind::Road(RoadPrototype::Intersection(
+                            IntersectionPrototype {
+                                ref connecting_lanes,
+                                ..
+                            },
+                        )) => {
                             for &LanePrototype(ref lane_path, _) in
                                 connecting_lanes.values().flat_map(|lanes| lanes)
                             {
@@ -207,15 +225,19 @@ impl BrowserUI {
                                     lanes_to_destruct_mesh += meshes.0;
                                 }
                             }
-                        },
-                        PrototypeKind::Lot(LotPrototype{ref lot, occupancy: LotOccupancy::Vacant, ..}) => {
+                        }
+                        PrototypeKind::Lot(LotPrototype {
+                            ref lot,
+                            occupancy: LotOccupancy::Vacant,
+                            ..
+                        }) => {
                             zones_mesh += Mesh::from_area(&lot.area);
                         }
                         _ => {}
                     }
                 }
             }
-            
+
             js! {
                 window.cbclient.setState(oldState => update(oldState, {
                     planning: {rendering: {
@@ -224,7 +246,9 @@ impl BrowserUI {
                             lanesToConstruct: @{to_js_mesh(&lanes_to_construct_mesh)},
                             lanesToConstructMarker: @{to_js_mesh(&lanes_to_construct_marker_mesh)},
                             lanesToDestruct: @{to_js_mesh(&lanes_to_destruct_mesh)},
-                            switchLanesToConstructMarkerGap: @{to_js_mesh(&switch_lanes_to_construct_marker_gap_mesh)}
+                            switchLanesToConstructMarkerGap: @{
+                                to_js_mesh(&switch_lanes_to_construct_marker_gap_mesh)
+                            }
                         }}
                     }}
                 }));
@@ -232,7 +256,14 @@ impl BrowserUI {
         }
     }
 
-    pub fn on_lane_constructed(&mut self, id: RawID, lane_path: &::descartes::LinePath, is_switch: bool, on_intersection: bool, world: &mut World) {
+    pub fn on_lane_constructed(
+        &mut self,
+        id: RawID,
+        lane_path: &::descartes::LinePath,
+        is_switch: bool,
+        on_intersection: bool,
+        world: &mut World,
+    ) {
         #[cfg(feature = "browser")]
         {
             use ::transport::rendering::{lane_and_marker_mesh, switch_marker_gap_mesh};
@@ -242,11 +273,14 @@ impl BrowserUI {
                 js!{
                     window.cbclient.setState(oldState => update(oldState, {
                         transport: {rendering: {
-                            laneMarkerGap: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&gap_mesh)}}}
+                            laneMarkerGap: {
+                                [@{format!("{:?}", id)}]: {
+                                    "$set": @{to_js_mesh(&gap_mesh)}
+                                }
+                            }
                         }}
                     }));
                 }
-
             } else {
                 let meshes = lane_and_marker_mesh(lane_path);
 
@@ -254,7 +288,11 @@ impl BrowserUI {
                     js!{
                         window.cbclient.setState(oldState => update(oldState, {
                             transport: {rendering: {
-                                laneAsphalt: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.0)}}}
+                                laneAsphalt: {
+                                    [@{format!("{:?}", id)}]: {
+                                        "$set": @{to_js_mesh(&meshes.0)}
+                                    }
+                                }
                             }}
                         }));
                     }
@@ -262,8 +300,16 @@ impl BrowserUI {
                     js!{
                         window.cbclient.setState(oldState => update(oldState, {
                             transport: {rendering: {
-                                laneAsphalt: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.0)}}},
-                                laneMarker: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&((meshes.1).0 + (meshes.1).1))}}}
+                                laneAsphalt: {
+                                    [@{format!("{:?}", id)}]: {
+                                        "$set": @{to_js_mesh(&meshes.0)}
+                                    }
+                                },
+                                laneMarker: {
+                                    [@{format!("{:?}", id)}]: {
+                                        "$set": @{to_js_mesh(&((meshes.1).0 + (meshes.1).1))}
+                                    }
+                                }
                             }}
                         }));
                     }
@@ -272,17 +318,23 @@ impl BrowserUI {
         }
     }
 
-    pub fn on_lane_destructed(&mut self, id: RawID, is_switch: bool, on_intersection: bool, world: &mut World) {
+    pub fn on_lane_destructed(
+        &mut self,
+        id: RawID,
+        is_switch: bool,
+        on_intersection: bool,
+        world: &mut World,
+    ) {
         #[cfg(feature = "browser")]
         {
             if is_switch {
-                    js!{
-                        window.cbclient.setState(oldState => update(oldState, {
-                            transport: {rendering: {
-                                laneMarkerGap: {"$unset": [@{format!("{:?}", id)}]}
-                            }}
-                        }));
-                    }
+                js!{
+                    window.cbclient.setState(oldState => update(oldState, {
+                        transport: {rendering: {
+                            laneMarkerGap: {"$unset": [@{format!("{:?}", id)}]}
+                        }}
+                    }));
+                }
             } else {
                 if on_intersection {
                     js!{
@@ -306,29 +358,52 @@ impl BrowserUI {
         }
     }
 
-    pub fn on_car_instances(&mut self, from_lane: RawID, instances: &CVec<::monet::Instance>, _: &mut World) {
-        self.car_instance_buffers.insert(from_lane, instances.to_vec());
+    pub fn on_car_instances(
+        &mut self,
+        from_lane: RawID,
+        instances: &CVec<::monet::Instance>,
+        _: &mut World,
+    ) {
+        self.car_instance_buffers
+            .insert(from_lane, instances.to_vec());
     }
 
-    pub fn on_building_constructed(&mut self, id: ::land_use::buildings::BuildingID, lot: &::land_use::zone_planning::Lot, style: ::land_use::buildings::BuildingStyle, world: &mut World) {
+    pub fn on_building_constructed(
+        &mut self,
+        id: ::land_use::buildings::BuildingID,
+        lot: &::land_use::zone_planning::Lot,
+        style: ::land_use::buildings::BuildingStyle,
+        world: &mut World,
+    ) {
         #[cfg(feature = "browser")]
         {
-            let meshes = ::land_use::buildings::architecture::build_building(lot, style, &mut ::util::random::seed(id));
+            let meshes = ::land_use::buildings::architecture::build_building(
+                lot,
+                style,
+                &mut ::util::random::seed(id),
+            );
 
             js!{
                 window.cbclient.setState(oldState => update(oldState, {
                     landUse: {rendering: {
                         wall: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.wall)}}},
-                        brickRoof: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.brick_roof)}}},
-                        flatRoof: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.flat_roof)}}},
-                        field: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.field)}}},
+                        brickRoof: {
+                            [@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.brick_roof)}}},
+                        flatRoof: {
+                            [@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.flat_roof)}}},
+                        field: {
+                            [@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.field)}}},
                     }}
                 }));
             }
         }
     }
 
-    pub fn on_building_destructed(&mut self, id: ::land_use::buildings::BuildingID, world: &mut World) {
+    pub fn on_building_destructed(
+        &mut self,
+        id: ::land_use::buildings::BuildingID,
+        world: &mut World,
+    ) {
         #[cfg(feature = "browser")]
         {
             js!{

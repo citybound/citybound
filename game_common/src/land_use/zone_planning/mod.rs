@@ -4,7 +4,8 @@ use land_use::buildings::BuildingStyle;
 
 use transport::transport_planning::RoadPrototype;
 
-use planning::{PlanHistory, VersionedGesture, PlanResult, Prototype, PrototypeKind, GestureIntent, StepID};
+use planning::{PlanHistory, VersionedGesture, PlanResult, Prototype,
+PrototypeKind, GestureIntent, StepID};
 
 pub mod interaction;
 
@@ -99,11 +100,14 @@ pub fn calculate_prototypes(
                 for (paved_area_shape, paved_newest_influence) in &paved_area_areas {
                     let (has_split, maybe_main_piece) = {
                         if let Some(split) = area.split_if_intersects(&paved_area_shape) {
-                            (true, split
-                            .a_minus_b()?
-                            .disjoint()
-                            .into_iter()
-                            .find(|piece| piece.contains(lot.center_point())))
+                            (
+                                true,
+                                split
+                                    .a_minus_b()?
+                                    .disjoint()
+                                    .into_iter()
+                                    .find(|piece| piece.contains(lot.center_point())),
+                            )
                         } else {
                             (false, None)
                         }
@@ -128,7 +132,7 @@ pub fn calculate_prototypes(
                             ..lot.clone()
                         },
                         occupancy: LotOccupancy::Occupied(building_style),
-                        based_on: history.latest_step_id()
+                        based_on: history.latest_step_id(),
                     }),
                     newest_influence,
                 }))
@@ -272,7 +276,7 @@ pub fn calculate_prototypes(
                                 area,
                             },
                             occupancy: LotOccupancy::Vacant,
-                            based_on: history.latest_step_id()
+                            based_on: history.latest_step_id(),
                         }),
                         newest_influence,
                     })

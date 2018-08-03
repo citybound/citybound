@@ -108,7 +108,7 @@ Recommended setup:
 
 * install rustfmt: `rustup component add rustfmt-preview --toolchain nightly-2018-06-02` **and please make sure to use the same version as noted here** (pinned now, but might change from time to time)
 * run rustfmt on the whole repo:
-  `rustfmt ./game/main.rs ./engine/*/src/lib.rs`
+  `rustfmt ./game_common/src/lib.rs ./game_common/engine/*/src/lib.rs ./game_server/main.rs ./game_browser/src/lib.rs`
   (using default settings) - if there are any overlong lines it can't fix, please fix them manually.
 * install clippy: `cargo install -f clippy --vers 0.0.206` **and please make sure to use the same version as noted here** (pinned now, but might change from time to time)
 * Run clippy on the whole repo: `cargo clippy` and adress all warnings in code that you added

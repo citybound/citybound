@@ -8,7 +8,8 @@ use render_layers::RenderLayers;
 
 use ui_layers::UILayer;
 
-use planning::{PlanHistory, GestureIntent, PlanResult, PrototypeKind, GestureID, ProposalID, PlanManagerID};
+use planning::{PlanHistory, GestureIntent, PlanResult, PrototypeKind,
+GestureID, ProposalID, PlanManagerID};
 use planning::interaction::{GestureInteractable, GestureInteractableID};
 use construction::Action;
 

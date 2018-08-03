@@ -4,7 +4,8 @@ RoughEq, PointContainer, AreaError};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
-use planning::{VersionedGesture, StepID, PlanHistory, PlanResult, GestureIntent, Prototype, PrototypeKind, GestureID};
+use planning::{VersionedGesture, StepID, PlanHistory, PlanResult,
+GestureIntent, Prototype, PrototypeKind, GestureID};
 
 mod intersection_connections;
 mod smooth_path;
@@ -167,11 +168,14 @@ pub fn calculate_prototypes(
     let gesture_areas_for_intersection = gesture_intent_smooth_paths
         .iter()
         .map(|&(_, step_id, road_intent, ref path)| {
-            (Band::new_asymmetric(
-                path.clone(),
-                f32::from(road_intent.n_lanes_backward) * LANE_DISTANCE + 0.4 * LANE_DISTANCE,
-                f32::from(road_intent.n_lanes_forward) * LANE_DISTANCE + 0.4 * LANE_DISTANCE,
-            ).as_area(), step_id)
+            (
+                Band::new_asymmetric(
+                    path.clone(),
+                    f32::from(road_intent.n_lanes_backward) * LANE_DISTANCE + 0.4 * LANE_DISTANCE,
+                    f32::from(road_intent.n_lanes_forward) * LANE_DISTANCE + 0.4 * LANE_DISTANCE,
+                ).as_area(),
+                step_id,
+            )
         })
         .collect::<Vec<_>>();
 
@@ -245,32 +249,41 @@ pub fn calculate_prototypes(
             // influence for intersections, but for now the best we can do
             // (before tracking metadata during area boolean operations)
 
-            let newest_influence = gesture_intent_smooth_paths.iter().filter_map(|(_, step, _, path)| {
-                let intersects = area.primitives.iter().any(|primitive| {
-                    let intersections = (primitive.boundary.path(), path).intersect();
-                    !intersections.is_empty() || primitive.contains(path.start()) || primitive.contains(path.end())
-                });
-                if intersects {
-                    Some(*step)
-                } else {
-                    None
-                }
-            }).max_by(|step_a, step_b| 
-                if history.in_order(step_a, step_b).expect("both steps should be in history") {
-                    ::std::cmp::Ordering::Less
-                } else {
-                    ::std::cmp::Ordering::Greater
-                }
-            ).expect("should intersect with at least one road gesture");
+            let newest_influence = gesture_intent_smooth_paths
+                .iter()
+                .filter_map(|(_, step, _, path)| {
+                    let intersects = area.primitives.iter().any(|primitive| {
+                        let intersections = (primitive.boundary.path(), path).intersect();
+                        !intersections.is_empty()
+                            || primitive.contains(path.start())
+                            || primitive.contains(path.end())
+                    });
+                    if intersects {
+                        Some(*step)
+                    } else {
+                        None
+                    }
+                })
+                .max_by(|step_a, step_b| {
+                    if history
+                        .in_order(step_a, step_b)
+                        .expect("both steps should be in history")
+                    {
+                        ::std::cmp::Ordering::Less
+                    } else {
+                        ::std::cmp::Ordering::Greater
+                    }
+                })
+                .expect("should intersect with at least one road gesture");
 
-            Prototype{
+            Prototype {
                 kind: PrototypeKind::Road(RoadPrototype::Intersection(IntersectionPrototype {
                     area,
                     incoming: CHashMap::new(),
                     outgoing: CHashMap::new(),
                     connecting_lanes: CHashMap::new(),
                 })),
-                newest_influence
+                newest_influence,
             }
         })
         .collect();
@@ -289,7 +302,11 @@ pub fn calculate_prototypes(
                     .filter_map(|offset| {
                         path.shift_orthogonally(offset).map(|path| {
                             if offset < 0.0 {
-                                (GestureSideID::new_backward(gesture_i), step_id, path.reverse())
+                                (
+                                    GestureSideID::new_backward(gesture_i),
+                                    step_id,
+                                    path.reverse(),
+                                )
                             } else {
                                 (GestureSideID::new_forward(gesture_i), step_id, path)
                             }
@@ -308,9 +325,13 @@ pub fn calculate_prototypes(
                 let mut end_newest_influence = lane_step_id;
                 let mut cuts = Vec::new();
 
+                use ::planning::PrototypeKind::Road;
+
                 for prototype in &mut intersection_prototypes {
-                    if let Prototype{newest_influence: intersection_newest_influence, kind:PrototypeKind::Road(RoadPrototype::Intersection(ref mut intersection))} =
-                        prototype
+                    if let Prototype {
+                        newest_influence: intersection_newest_influence,
+                        kind: Road(RoadPrototype::Intersection(ref mut intersection)),
+                    } = prototype
                     {
                         let points = (
                             &raw_lane_path,
@@ -342,7 +363,11 @@ pub fn calculate_prototypes(
                                     raw_lane_path.direction_along(*exit_distance),
                                 ),
                             );
-                            cuts.push((*entry_distance, *exit_distance, *intersection_newest_influence));
+                            cuts.push((
+                                *entry_distance,
+                                *exit_distance,
+                                *intersection_newest_influence,
+                            ));
                         } else if points.len() == 1 {
                             if intersection.area.contains(raw_lane_path.start()) {
                                 let exit_distance = points[0].along_a;
@@ -355,7 +380,10 @@ pub fn calculate_prototypes(
                                 );
                                 if exit_distance > start_trim {
                                     start_trim = exit_distance;
-                                    start_newest_influence = history.newer_step(&start_newest_influence, intersection_newest_influence);
+                                    start_newest_influence = history.newer_step(
+                                        &start_newest_influence,
+                                        intersection_newest_influence,
+                                    );
                                 }
                             } else if intersection.area.contains(raw_lane_path.end()) {
                                 let entry_distance = points[0].along_a;
@@ -368,7 +396,10 @@ pub fn calculate_prototypes(
                                 );
                                 if entry_distance < end_trim {
                                     end_trim = entry_distance;
-                                    end_newest_influence = history.newer_step(&end_newest_influence, intersection_newest_influence)
+                                    end_newest_influence = history.newer_step(
+                                        &end_newest_influence,
+                                        intersection_newest_influence,
+                                    )
                                 }
                             }
                         }
@@ -384,9 +415,15 @@ pub fn calculate_prototypes(
 
                 cuts.windows(2)
                     .filter_map(|two_cuts| {
-                        let ((_, exit_distance, exit_newest_influence), (entry_distance, _, entry_newest_influence)) = (two_cuts[0], two_cuts[1]);
-                        let newest_influence = history.newer_step(&exit_newest_influence, &entry_newest_influence);
-                        raw_lane_path.subsection(exit_distance, entry_distance).map(|subsection| (subsection, newest_influence))
+                        let (
+                            (_, exit_distance, exit_newest_influence),
+                            (entry_distance, _, entry_newest_influence),
+                        ) = (two_cuts[0], two_cuts[1]);
+                        let newest_influence =
+                            history.newer_step(&exit_newest_influence, &entry_newest_influence);
+                        raw_lane_path
+                            .subsection(exit_distance, entry_distance)
+                            .map(|subsection| (subsection, newest_influence))
                     })
                     .collect::<Vec<_>>()
             })
@@ -425,7 +462,8 @@ pub fn calculate_prototypes(
                     (left_path, left_outline, left_band, left_newest_influence),
                 )| {
                     let mut intersections = (right_outline, left_outline).intersect();
-                    let newest_influence = history.newer_step(right_newest_influence, left_newest_influence);
+                    let newest_influence =
+                        history.newer_step(right_newest_influence, left_newest_influence);
 
                     if intersections.len() < 2 {
                         vec![]
@@ -490,7 +528,9 @@ pub fn calculate_prototypes(
     };
 
     for prototype in &mut intersection_prototypes {
-        if let PrototypeKind::Road(RoadPrototype::Intersection(ref mut intersection)) = prototype.kind {
+        if let PrototypeKind::Road(RoadPrototype::Intersection(ref mut intersection)) =
+            prototype.kind
+        {
             intersection_connections::create_connecting_lanes(intersection);
         } else {
             unreachable!()
@@ -502,17 +542,29 @@ pub fn calculate_prototypes(
         .chain(
             intersected_lane_paths
                 .into_iter()
-                .map(|(path, newest_influence)| Prototype{kind: PrototypeKind::Road(RoadPrototype::Lane(LanePrototype(path, CVec::new()))), newest_influence}),
+                .map(|(path, newest_influence)| Prototype {
+                    kind: PrototypeKind::Road(RoadPrototype::Lane(LanePrototype(
+                        path,
+                        CVec::new(),
+                    ))),
+                    newest_influence,
+                }),
         )
         .chain(
             switch_lane_paths
                 .into_iter()
-                .map(|(path, newest_influence)| Prototype{kind: PrototypeKind::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(path))), newest_influence}),
+                .map(|(path, newest_influence)| Prototype {
+                    kind: PrototypeKind::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(path))),
+                    newest_influence,
+                }),
         )
         .chain(
             gesture_areas_for_intersection
                 .into_iter()
-                .map(|(shape, newest_influence)| Prototype{kind: PrototypeKind::Road(RoadPrototype::PavedArea(shape)), newest_influence}),
+                .map(|(shape, newest_influence)| Prototype {
+                    kind: PrototypeKind::Road(RoadPrototype::PavedArea(shape)),
+                    newest_influence,
+                }),
         )
         .collect())
 }

@@ -7,8 +7,8 @@ use ui_layers::UILayer;
 #[cfg(feature = "server")]
 use imgui::ImGuiSetCond_FirstUseEver;
 
-use super::{Plan, PlanHistory, PlanResult, VersionedGesture, GestureID, ProposalID, PlanManager, PlanManagerID, Gesture,
-GestureIntent};
+use super::{Plan, PlanHistory, PlanResult, VersionedGesture, GestureID, ProposalID,
+PlanManager, PlanManagerID, Gesture, GestureIntent};
 use transport::transport_planning::RoadIntent;
 use land_use::zone_planning::{ZoneIntent, LandUse};
 use construction::{Action};
@@ -126,7 +126,11 @@ impl PlanManager {
         &self,
         machine_id: MachineID,
         proposal_id: ProposalID,
-    ) -> (&PlanHistory, Option<&PlanResult>, &Option<CVec<CVec<Action>>>) {
+    ) -> (
+        &PlanHistory,
+        Option<&PlanResult>,
+        &Option<CVec<CVec<Action>>>,
+    ) {
         let ui_state = self
             .ui_state
             .get(machine_id)

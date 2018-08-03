@@ -21,8 +21,13 @@ pub fn start() {
 
     js!{ console.log("Before setup") }
 
-    let mut system =
-        kay::ActorSystem::new(kay::Networking::new(1, vec!["localhost:9999", "ws-client"], 50_000, 10, 1));
+    let mut system = kay::ActorSystem::new(kay::Networking::new(
+        1,
+        vec!["localhost:9999", "ws-client"],
+        50_000,
+        10,
+        1,
+    ));
     setup_all(&mut system);
 
     system.networking_connect();
@@ -58,9 +63,11 @@ impl MainLoop {
         system.networking_send_and_receive();
 
         js!{
-            window.cbclient.setState(oldState => update(oldState, {system: {networkingTurns: {"$set": 
-                @{system.networking_debug_all_n_turns()}
-            }}}));
+            window.cbclient.setState(oldState => update(oldState, {
+                system: {networkingTurns: {"$set":
+                    @{system.networking_debug_all_n_turns()}
+                }
+            }}));
 
             window.cbclient.onFrame();
         }
@@ -69,20 +76,24 @@ impl MainLoop {
 
         let maybe_sleep = system.networking_finish_turn();
         let mut next = self.clone();
-        
+
         // TODO: still do a frame every frame but maybe stall just the actor system
 
         let next_step_in_ms = match maybe_sleep {
             None => {
                 ::stdweb::web::window().request_animation_frame(move |_| next.frame());
-            },
+            }
             Some(duration) => {
                 let sleep_nanos = duration.subsec_nanos() as u64;
-                let sleep_ms = (1000*1000*1000 * duration.as_secs() + sleep_nanos)/(1000 * 1000);
+                let sleep_ms =
+                    (1000 * 1000 * 1000 * duration.as_secs() + sleep_nanos) / (1000 * 1000);
 
-                ::stdweb::web::set_timeout(move || {
-                    ::stdweb::web::window().request_animation_frame(move |_| next.frame());
-                }, sleep_ms as u32);
+                ::stdweb::web::set_timeout(
+                    move || {
+                        ::stdweb::web::window().request_animation_frame(move |_| next.frame());
+                    },
+                    sleep_ms as u32,
+                );
             }
         };
     }
