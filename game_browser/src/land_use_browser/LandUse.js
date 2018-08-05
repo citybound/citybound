@@ -9,9 +9,11 @@ export const initialState = {
     }
 }
 
-const materialInstances = ["wall", "flatRoof", "brickRoof", "field"].map(material =>
-    new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors[material]])
-);
+const materialInstances = {};
+
+for (let material of ["wall", "flatRoof", "brickRoof", "field"]) {
+    materialInstances[material] = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors[material]]);
+}
 
 export function render(state, _setState) {
 
