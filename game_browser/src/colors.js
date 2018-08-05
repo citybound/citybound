@@ -15,11 +15,11 @@ export default {
     controlPointCurrentProposal: [0.0, 0.0, 0.0],
     controlPointHover: [0.3, 0.3, 1.0],
 
-    residential: [0.16, 0.67, 0.28],
-    commercial: [0.25, 0.46, 0.9],
-    offices: [0.35, 0.31, 0.8],
-    industrial: [0.95, 0.40, 0.17],
-    agricultural: [0.93, 0.58, 0.14],
-    recreational: [0.17, 0.26, 0.14],
-    official: [0.0, 0.4, 0.4]
+    residential: [0.79, 0.52, 0],//[230, 191, 0],
+    commercial: [0.85, 0.09, 0.05],//[239, 87, 71],
+    offices: [0.68, 0.05, 0.48],//[206, 71, 183],
+    industrial: [0.30, 0.07, 0.63],//[162, 74, 208],
+    agricultural: [0.25, 0.25, 0.15],//[138, 138, 107],
+    recreational: [0.11, 0.41, 0.08],//[95, 171, 81],
+    official: [0.08, 0.24, 0.67],//[81, 134, 213]
 }
