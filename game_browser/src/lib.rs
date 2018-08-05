@@ -40,7 +40,7 @@ pub fn start() {
 
     let mut main_loop = MainLoop {
         browser_ui_id,
-        skip_turn: false,
+        skip_turns: 0,
     };
 
     unsafe { SYSTEM = Box::into_raw(Box::new(system)) };
@@ -51,7 +51,7 @@ pub fn start() {
 #[derive(Copy, Clone)]
 struct MainLoop {
     browser_ui_id: citybound_common::browser_ui::BrowserUIID,
-    skip_turn: bool,
+    skip_turns: u32,
 }
 
 impl MainLoop {
@@ -61,7 +61,7 @@ impl MainLoop {
 
         system.networking_send_and_receive();
 
-        if !self.skip_turn {
+        if self.skip_turns == 0 {
             system.process_all_messages();
 
             self.browser_ui_id.on_frame(world);
@@ -83,11 +83,15 @@ impl MainLoop {
 
         let mut next = self.clone();
 
-        if self.skip_turn {
-            next.skip_turn = false;
+        if self.skip_turns > 0 {
+            next.skip_turns -= 1;
         } else {
             let maybe_sleep = system.networking_finish_turn();
-            next.skip_turn = maybe_sleep.is_some();
+            next.skip_turns = if let Some(duration) = maybe_sleep {
+                duration.subsec_millis()
+            } else {
+                0
+            };
         }
 
         ::stdweb::web::window().request_animation_frame(move |_| next.frame());
