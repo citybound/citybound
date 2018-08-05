@@ -4,7 +4,7 @@ use land_use::buildings::BuildingStyle;
 
 use transport::transport_planning::RoadPrototype;
 
-use planning::{PlanHistory, VersionedGesture, PlanResult, Prototype,
+use planning::{PlanHistory, VersionedGesture, PlanResult, Prototype, PrototypeID,
 PrototypeKind, GestureIntent, StepID};
 
 pub mod interaction;
@@ -75,10 +75,10 @@ pub fn calculate_prototypes(
         .filter_map(|prototype| {
             if let Prototype {
                 kind: PrototypeKind::Road(RoadPrototype::PavedArea(ref shape)),
-                newest_influence,
+                id,
             } = *prototype
             {
-                Some((shape, newest_influence))
+                Some((shape, id))
             } else {
                 None
             }
@@ -95,9 +95,9 @@ pub fn calculate_prototypes(
             }) = gesture.intent
             {
                 let mut area = lot.area.clone();
-                let mut newest_influence = *gesture_step_id;
+                let mut influenced_id = PrototypeID::from_influences(gesture_step_id);
 
-                for (paved_area_shape, paved_newest_influence) in &paved_area_areas {
+                for (paved_area_shape, paved_id) in &paved_area_areas {
                     let (has_split, maybe_main_piece) = {
                         if let Some(split) = area.split_if_intersects(&paved_area_shape) {
                             (
@@ -116,8 +116,7 @@ pub fn calculate_prototypes(
                     if has_split {
                         if let Some(main_piece) = maybe_main_piece {
                             area = main_piece;
-                            newest_influence =
-                                history.newer_step(&newest_influence, paved_newest_influence)
+                            influenced_id = influenced_id.add_influences(paved_id)
                         } else {
                             println!("No piece contains center");
                             return Ok(None);
@@ -134,7 +133,7 @@ pub fn calculate_prototypes(
                         occupancy: LotOccupancy::Occupied(building_style),
                         based_on: history.latest_step_id(),
                     }),
-                    newest_influence,
+                    id: influenced_id,
                 }))
             } else {
                 Ok(None)
@@ -154,7 +153,7 @@ pub fn calculate_prototypes(
                     ..
                 }) = prototype.kind
                 {
-                    (area, prototype.newest_influence)
+                    (area, prototype.id)
                 } else {
                     unreachable!()
                 }
@@ -182,40 +181,36 @@ pub fn calculate_prototypes(
             })
             .collect::<Vec<_>>();
 
-        // let paved_or_built_area = paved_area_areas
-        //     .clone()
-        //     .into_iter()
-        //     .chain(building_areas)
-        //     .try_fold(Area::new(CVec::new()), |union, piece| {
-        //         union.split(piece).union()
-        //     })?;
-
         let paved_or_built_areas = || paved_area_areas.iter().chain(building_areas.iter());
 
-        land_use_areas = land_use_areas
+        let land_use_areas_influenced: Vec<(LandUse, Area, PrototypeID)> = land_use_areas
             .into_iter()
             .flat_map(|(land_use, shape, gesture_step_id)| {
-                let mut shapes = vec![(shape, gesture_step_id)];
+                let mut shapes = vec![(shape, PrototypeID::from_influences(gesture_step_id))];
 
-                for (paved_or_built_area, paved_step_id) in paved_or_built_areas() {
+                for (paved_or_built_area, paved_id) in paved_or_built_areas() {
                     shapes = shapes
                         .into_iter()
-                        .flat_map(|(shape, step_id)| {
+                        .flat_map(|(shape, current_id)| {
                             if let Some(split) = shape.split_if_intersects(paved_or_built_area) {
-                                let newest_influence =
-                                    history.newer_step(&step_id, &paved_step_id);
                                 split
                                     .a_minus_b()
-                                    .into_iter()
+                                    .into_iter() // this just flattens a result
                                     .flat_map(|cut_shapes| {
                                         cut_shapes
                                             .disjoint()
                                             .into_iter()
-                                            .map(|cut_shape| (cut_shape, newest_influence))
+                                            .enumerate()
+                                            .map(|(i, cut_shape)|
+                                                (
+                                                    cut_shape,
+                                                    current_id.add_influences((paved_id, i))
+                                                )
+                                            )
                                     })
                                     .collect()
                             } else {
-                                vec![(shape.clone(), step_id)]
+                                vec![(shape.clone(), current_id)]
                             }
                         })
                         .collect()
@@ -223,26 +218,14 @@ pub fn calculate_prototypes(
 
                 shapes
                     .into_iter()
-                    .map(|(shape, step_id)| (land_use, shape, step_id)).collect::<Vec<_>>()
-                // shape
-                //     .split(&paved_or_built_area)
-                //     .a_minus_b()
-                //     .map(|cut_shapes| {
-                //         cut_shapes
-                //             .disjoint()
-                //             .into_iter()
-                //             .map(|cut_shape| (land_use, cut_shape))
-                //             .collect::<Vec<_>>()
-                //     })
+                    .map(|(shape, id)| (land_use, shape, id))
+                    .collect::<Vec<_>>()
             })
-            // .collect::<Result<Vec<_>, _>>()?
-            // .into_iter()
-            // .flat_map(|areas| areas)
             .collect();
 
-        land_use_areas
+        land_use_areas_influenced
             .into_iter()
-            .filter_map(|(land_use, area, newest_influence)| {
+            .filter_map(|(land_use, area, id)| {
                 let connection_points = area.primitives[0]
                     .boundary
                     .path()
@@ -278,7 +261,7 @@ pub fn calculate_prototypes(
                             occupancy: LotOccupancy::Vacant,
                             based_on: history.latest_step_id(),
                         }),
-                        newest_influence,
+                        id,
                     })
                 }
             })

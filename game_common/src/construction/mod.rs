@@ -37,7 +37,7 @@ pub struct Construction {
     queued_actions: CVec<CVec<Action>>,
 }
 
-#[derive(Compact, Clone, Serialize, Deserialize)]
+#[derive(Compact, Clone, Debug, Serialize, Deserialize)]
 pub enum Action {
     Construct(PrototypeID, Prototype),
     Morph(PrototypeID, PrototypeID, Prototype),

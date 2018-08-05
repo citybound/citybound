@@ -3,6 +3,8 @@ use compact::{CVec, CHashMap};
 use descartes::{P2, AreaError};
 use stagemaster::UserInterfaceID;
 use uuid::Uuid;
+use util::random::{seed, Rng};
+use std::hash::Hash;
 
 use transport::transport_planning::{RoadIntent, RoadPrototype};
 use land_use::zone_planning::{ZoneIntent, BuildingIntent, LotPrototype};
@@ -229,19 +231,25 @@ impl PlanResult {
         let mut to_be_constructed = CVec::new();
 
         for (new_prototype_id, new_prototype) in other.prototypes.pairs() {
-            let maybe_morphable_id = unmatched_existing
-                .pairs()
-                .find(|&(_, other_prototype)| new_prototype.morphable_from(other_prototype))
-                .map(|(id, _)| *id);
-            if let Some(morphable_id) = maybe_morphable_id {
-                unmatched_existing.remove(morphable_id);
-                to_be_morphed.push(Action::Morph(
-                    morphable_id,
-                    *new_prototype_id,
-                    new_prototype.clone(),
-                ));
+            if unmatched_existing.contains_key(*new_prototype_id) {
+                // identical prototype, does not need to change at all
+                unmatched_existing.remove(*new_prototype_id);
             } else {
-                to_be_constructed.push(Action::Construct(*new_prototype_id, new_prototype.clone()))
+                let maybe_morphable_id = unmatched_existing
+                    .pairs()
+                    .find(|&(_, other_prototype)| new_prototype.morphable_from(other_prototype))
+                    .map(|(id, _)| *id);
+                if let Some(morphable_id) = maybe_morphable_id {
+                    unmatched_existing.remove(morphable_id);
+                    to_be_morphed.push(Action::Morph(
+                        morphable_id,
+                        *new_prototype_id,
+                        new_prototype.clone(),
+                    ));
+                } else {
+                    to_be_constructed
+                        .push(Action::Construct(*new_prototype_id, new_prototype.clone()))
+                }
             }
         }
 
@@ -256,8 +264,17 @@ impl PlanResult {
 
 #[derive(Compact, Clone, Serialize, Deserialize, Debug)]
 pub struct Prototype {
+    pub id: PrototypeID,
     pub kind: PrototypeKind,
-    pub newest_influence: StepID,
+}
+
+impl Prototype {
+    pub fn new_with_influences<H: Hash>(influences: H, kind: PrototypeKind) -> Prototype {
+        Prototype {
+            id: PrototypeID::from_influences(influences),
+            kind,
+        }
+    }
 }
 
 #[derive(Compact, Clone, Serialize, Deserialize, Debug)]
@@ -267,11 +284,15 @@ pub enum PrototypeKind {
 }
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Debug)]
-pub struct PrototypeID(Uuid);
+pub struct PrototypeID(u64);
 
 impl PrototypeID {
-    pub fn new() -> PrototypeID {
-        PrototypeID(Uuid::new_v4())
+    pub fn from_influences<H: Hash>(influences: H) -> PrototypeID {
+        PrototypeID(seed(influences).next_u64())
+    }
+
+    pub fn add_influences<H: Hash>(&self, influences: H) -> PrototypeID {
+        PrototypeID(seed((self.0, influences)).next_u64())
     }
 }
 
@@ -289,7 +310,7 @@ impl PlanHistory {
 
             for (id, prototype) in new_prototypes
                 .into_iter()
-                .map(|prototype| (PrototypeID::new(), prototype))
+                .map(|prototype| (prototype.id, prototype))
             {
                 result.prototypes.insert(id, prototype);
             }
@@ -371,6 +392,7 @@ impl PlanManager {
                 let actions = self.master_result.actions_to(&result);
                 Construction::global_first(world).implement(actions, world);
                 self.implemented_proposals.insert(proposal_id, proposal);
+                self.master_result = result;
 
                 let potentially_affected_ui_states = self
                     .ui_state
