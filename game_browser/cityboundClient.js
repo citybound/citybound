@@ -10,6 +10,7 @@ import * as cityboundBrowser from './Cargo.toml';
 import * as Planning from './src/planning_browser/Planning';
 import * as Transport from './src/transport_browser/Transport';
 import * as LandUse from './src/land_use_browser/LandUse';
+import * as Debug from './src/debug/Debug';
 import Stage from './src/stage/Stage';
 import colors from './src/colors';
 
@@ -24,6 +25,7 @@ class CityboundClient extends React.Component {
             planning: Planning.initialState,
             transport: Transport.initialState,
             landUse: LandUse.initialState,
+            debug: Debug.initialState,
             uiMode: "main",
             system: {
                 networkingTurns: ""
@@ -52,17 +54,20 @@ class CityboundClient extends React.Component {
         const [planningLayers, planningInteractables, planningElements] = Planning.render(this.state, this.setState.bind(this));
         const [transportLayers, transportInteractables, transportElements] = Transport.render(this.state, this.setState.bind(this));
         const [landUseLayers, landUseInteractables, landUseElements] = LandUse.render(this.state, this.setState.bind(this));
+        const [debugLayers, debugInteractables, debugElements] = Debug.render(this.state, this.setState.bind(this));
 
         const layers = [
             ...transportLayers,
             ...planningLayers,
             ...landUseLayers,
+            ...debugLayers,
         ];
 
         const interactables = [
             ...planningInteractables,
             ...transportInteractables,
             ...landUseInteractables,
+            ...debugInteractables,
         ];
 
         const { eye, target, verticalFov } = this.state.view;
@@ -97,16 +102,7 @@ class CityboundClient extends React.Component {
                         ...planningElements,
                         ...transportElements,
                         ...landUseElements,
-                        EL("div", { key: "networking", className: "window networking" },
-                            EL("pre", {}, this.state.system.networkingTurns)
-                        ),
-                        EL("div", { key: "rendering", className: "window rendering" },
-                            EL("button", {
-                                onClick: () => this.setState(
-                                    oldState => update(oldState, { rendering: { enabled: { $apply: e => !e } } })
-                                )
-                            }, this.state.rendering.enabled ? "disable rendering" : "enable rendering")
-                        )
+                        ...debugElements,
                     ]),
                     EL(Monet, {
                         key: "canvas",

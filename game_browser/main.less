@@ -3,9 +3,74 @@
     src: url("assets/ClearSans-Regular.ttf") format("ttf"),
 }
 
+@import "./node_modules/antd/dist/antd.less";
+
+@primary-color: #0048ff;
+@font-family: 'Clear Sans', sans-serif;
+@border-radius-base     : 2px;
+@border-radius-sm       : 1px;
+@padding-lg    : 16px; // containers
+@padding-md    : 12px; // small containers and buttons
+@padding-sm    : 8px; // Form controls and items
+@padding-xs    : 4px;  // small items
+@animation-duration-slow: .03s; // Modal
+@animation-duration-base: .02s;
+@animation-duration-fast: .01s; // Tooltip
+
+.ant-btn, .ant-input, .ant-input-number {
+    transition: none;
+}
+
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed, 
+figure, figcaption, footer, header, hgroup, 
+menu, nav, output, ruby, section, summary,
+time, mark, audio, video {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-size: 100%;
+	font: inherit;
+	vertical-align: baseline;
+}
+
 body {
-    margin: 0;
     font-family: 'Clear Sans', sans-serif;
+    font-size: 16px;
+    line-height: 1.45;
+}
+
+h1, h2, h3, h4 {
+    margin-bottom: 0.5em;
+    font-weight: bold;
+}
+
+p {
+    margin-bottom: 1em;
+}
+
+h1 {
+    font-size: 1.602em;
+}
+
+h2 {
+    font-size: 1.424em;
+}
+
+h3 {
+    font-size: 1.266em;
+}
+
+h4 {
+    font-size: 1.125em;
 }
 
 button {
@@ -22,7 +87,7 @@ button {
     height: calc(100% - 2rem);
     display: flex;
     flex-direction: row;
-    align-items: start;
+    align-items: flex-start;
     pointer-events: none;
 }
 
@@ -33,24 +98,33 @@ button {
 .window {
     padding: 1em;
     margin: 0 0.5em;
-    background-color: rgba(240, 240, 240, 0.8);
+    background-color: rgba(255, 255, 255, 0.8);
     border-radius: 2px;
     -webkit-backdrop-filter: blur(10px);
+    opacity: 0.6;
+}
+
+.window:hover {
+    opacity: 1.0;
 }
 
 .toolbar {
     z-index: 3;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 3em;
+    grid-column-gap: 1px;
+    grid-row-gap: 1px;
+    grid-template-rows: 3em;
+    grid-auto-flow: row;
+    margin: 0 0.5em;
 }
 
 .toolbar button {
     width: 3em;
     height: 3em;
     border: none;
-    margin: 0 0.5em 1px 0.5em;
-    margin-top: 0;
-    background-color: rgba(240, 240, 240, 0.8);
+    margin: 0;
+    background-color: rgba(255, 255, 255, 0.8);
     border-radius: 2px;
     -webkit-backdrop-filter: blur(10px);
     background-position: center center;
@@ -65,6 +139,11 @@ button {
 
 .toolbar button.active {
     opacity: 1.0;
+}
+
+#zoning-toolbar {
+    grid-template-rows: 3em 3em;
+    grid-auto-flow: column;
 }
 
 #planning {

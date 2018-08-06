@@ -3,6 +3,7 @@ import React from 'react';
 import { vec3, mat4 } from 'gl-matrix';
 import * as cityboundBrowser from '../../Cargo.toml';
 import uuid from '../uuid';
+import { Button } from 'antd';
 
 const EL = React.createElement;
 
@@ -318,13 +319,37 @@ export function render(state, setState) {
 
     const elements = [
         ...makeToolbar("main-toolbar", ["Inspection", "Planning", "Budgeting"], "main", state.uiMode, setUiMode),
-        ...makeToolbar("planning-toolbar", ["Roads", "Zoning"], "main/planning", state.uiMode, setUiMode),
+        ...(state.uiMode.startsWith("main/planning")
+            ? [EL("div", { key: "proposals", className: "window proposals" }, [
+                ...Object.keys(state.planning.proposals).map(proposalId =>
+                    proposalId == state.planning.currentProposal
+                        ? EL("p", { key: proposalId }, [
+                            EL("h2", {}, "Proposal \"" + proposalId.split("-")[0] + "\""),
+                            EL(Button, {
+                                onClick: () => setState(oldState => update(oldState, { planning: { currentProposal: { $set: null } } }))
+                            }, "Close"),
+                            " ",
+                            EL(Button, {
+                                type: "primary",
+                                onClick: () => setState(implementProposal(state.planning.currentProposal))
+                            }, "Implement")
+                        ])
+                        : EL(Button, {
+                            key: proposalId,
+                            onClick: () => setState(switchToProposal(proposalId))
+                        }, "Open Proposal \"" + proposalId.split("-")[0] + "\"")
+                ),
+            ])]
+            : []),
+        ...(state.planning.currentProposal
+            ? makeToolbar("planning-toolbar", ["Roads", "Zoning"], "main/planning", state.uiMode, setUiMode)
+            : []),
         ...makeToolbar("zoning-toolbar", [
             "Residential",
             "Commercial",
-            "Offices",
-            "Industrial",
+            //"Offices",
             "Agricultural",
+            "Industrial",
             "Recreational",
             "Official"
         ], "main/planning/zoning", state.uiMode, setUiMode,
@@ -333,22 +358,6 @@ export function render(state, setState) {
                 return `rgb(${Math.pow(c[0], 1 / 2.2) * 256}, ${Math.pow(c[1], 1 / 2.2) * 256}, ${Math.pow(c[2], 1 / 2.2) * 256}`
             }
         ),
-        EL("div", { key: "proposals", className: "window proposals" }, [
-            EL("h1", { key: "heading" }, "Proposals"),
-            ...Object.keys(state.planning.proposals).map(proposalId =>
-                proposalId == state.planning.currentProposal
-                    ? EL("p", { key: proposalId }, [
-                        "" + proposalId,
-                        EL("button", {
-                            onClick: () => setState(implementProposal(state.planning.currentProposal))
-                        }, "implement")
-                    ])
-                    : EL("button", {
-                        key: proposalId,
-                        onClick: () => setState(switchToProposal(proposalId))
-                    }, "" + proposalId)
-            ),
-        ]),
     ];
 
     // TODO: invent a better way to preserve identity

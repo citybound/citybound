@@ -100,3 +100,6 @@ impl MainLoop {
 
 mod planning_browser;
 pub use planning_browser::*;
+
+mod debug;
+pub use debug::*;
