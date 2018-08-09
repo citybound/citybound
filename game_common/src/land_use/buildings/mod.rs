@@ -1,7 +1,6 @@
 use kay::{ActorSystem, World, Actor, Fate};
 use compact::{CVec, COption};
 use descartes::P2;
-use stagemaster::UserInterfaceID;
 
 use transport::lane::{Lane, LaneID};
 use simulation::Ticks;
@@ -276,12 +275,8 @@ pub struct MaterializedBuildings {
 
 pub fn setup(system: &mut ActorSystem) {
     system.register::<Building>();
-    rendering::setup(system);
     kay_auto::auto_setup(system);
-}
-
-pub fn spawn(world: &mut World, user_interface: UserInterfaceID) {
-    rendering::spawn(world, user_interface);
+    rendering::auto_setup(system);
 }
 
 mod kay_auto;

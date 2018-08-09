@@ -1,7 +1,6 @@
 use kay::{World, MachineID, ActorSystem, Actor};
 use compact::{CVec, CHashMap};
 use descartes::{P2, AreaError};
-use stagemaster::UserInterfaceID;
 use uuid::Uuid;
 use util::random::{seed, Rng};
 use std::hash::Hash;
@@ -396,17 +395,17 @@ impl PlanManager {
 
                 let potentially_affected_ui_states = self
                     .ui_state
-                    .values()
-                    .map(|state| (state.current_proposal, state.user_interface))
+                    .pairs()
+                    .map(|(machine, state)| (*machine, state.current_proposal))
                     .collect::<Vec<_>>();
 
-                for (current_proposal, user_interface) in potentially_affected_ui_states {
+                for (machine, current_proposal) in potentially_affected_ui_states {
                     if current_proposal == proposal_id {
                         let new_proposal_id = ProposalID::new();
 
                         self.proposals.insert(new_proposal_id, Proposal::new());
 
-                        self.switch_to(user_interface, new_proposal_id, world);
+                        self.switch_to(machine, new_proposal_id, world);
                     }
                 }
 
@@ -414,7 +413,6 @@ impl PlanManager {
                 for old_proposal_id in all_proposal_ids {
                     if old_proposal_id != proposal_id {
                         self.clear_previews(old_proposal_id);
-                        self.recreate_gesture_interactables(old_proposal_id, world);
                     }
                 }
             }
@@ -450,10 +448,10 @@ pub fn setup(system: &mut ActorSystem) {
     interaction::setup(system);
 }
 
-pub fn spawn(world: &mut World, user_interface: UserInterfaceID) -> PlanManagerID {
+pub fn spawn(world: &mut World) -> PlanManagerID {
     let initial_proposal_id = ProposalID::new();
     let plan_manager = PlanManagerID::spawn(initial_proposal_id, world);
-    plan_manager.switch_to(user_interface, initial_proposal_id, world);
+    plan_manager.switch_to(MachineID(0), initial_proposal_id, world);
     plan_manager
 }
 

@@ -15,10 +15,8 @@ pub fn setup(system: &mut ActorSystem) {
     self::microtraffic::setup(system);
     self::pathfinding::setup(system);
     self::rendering::setup(system);
-    self::transport_planning::setup(system);
 }
 
 pub fn spawn(world: &mut World, simulation: SimulationID) {
     self::pathfinding::spawn(world, simulation);
-    self::rendering::spawn(world);
 }

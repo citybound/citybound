@@ -237,8 +237,7 @@ impl Lane {
 }
 
 use super::{PositionRequester, PositionRequesterID};
-use stagemaster::debug::{add_debug_line, add_debug_point};
-use descartes::{P2, V2};
+use descartes::{P2};
 
 #[derive(Compact, Clone)]
 pub struct FailedTripDebugger {
@@ -285,18 +284,10 @@ impl PositionRequester for FailedTripDebugger {
             self.destination_position = Some(position);
         }
 
-        if let (Some(source_position), Some(destination_position)) =
+        if let (Some(_source_position), Some(_destination_position)) =
             (self.source_position, self.destination_position)
         {
-            add_debug_point(source_position, [0.0, 0.0, 1.0], 0.0, world);
-            add_debug_point(destination_position, [1.0, 0.0, 0.0], 0.0, world);
-            add_debug_line(
-                source_position - V2::new(0.3, 0.3),
-                destination_position + V2::new(0.3, 0.3),
-                [1.0, 0.0, 0.0],
-                0.0,
-                world,
-            );
+            // TODO: render this again
             self.id.done(world);
         }
     }

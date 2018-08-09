@@ -1,10 +1,5 @@
 extern crate open;
-
-use kay::{ActorSystem, World};
-#[cfg(feature = "server")]
-use monet::glium::glutin::WindowBuilder;
-use stagemaster::UserInterfaceID;
-use std::time::Instant;
+use std::time::{Instant, Duration};
 
 pub fn ensure_crossplatform_proper_thread<F: Fn() -> () + Send + 'static>(callback: F) {
     // Makes sure that:
@@ -39,7 +34,7 @@ use backtrace::Backtrace;
 use std::fs::File;
 use std::io::Write;
 
-pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
+pub fn set_error_hook() {
     let callback: Box<FnMut(&PanicInfo)> = Box::new(move |panic_info| {
         let title = "SIMULATION BROKE :(";
 
@@ -61,11 +56,6 @@ pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
         let body = format!(
             "WHAT HAPPENED:\n{}\n\nWHERE IT HAPPENED:\n{}\n\nWHERE EXACTLY:\n{:?}",
             message, location, backtrace
-        );
-
-        let small_body = format!(
-            "{}\n{}\nDETAILS IN cb_last_error.txt (AUTO-OPENED)",
-            message, location
         );
 
         let report_guide = "HOW TO REPORT \
@@ -91,68 +81,9 @@ pub fn set_error_hook(ui_id: UserInterfaceID, mut world: World) {
         }
 
         open::that(error_file_path).expect("Couldn't open error file");
-
-        ui_id.add_debug_text(
-            title.to_owned().into(),
-            small_body.into(),
-            [1.0, 0.0, 0.0, 1.0],
-            true,
-            &mut world,
-        );
-        ui_id.on_panic(&mut world);
     });
 
     set_hook(unsafe { ::std::mem::transmute(callback) });
-}
-
-#[cfg(feature = "server")]
-pub fn build_window(machine_id: u8) -> WindowBuilder {
-    WindowBuilder::new()
-        .with_title(format!("Citybound (machine {})", machine_id))
-        .with_dimensions(1920, 1080)
-        .with_multitouch()
-}
-
-pub fn print_version(user_interface: UserInterfaceID, world: &mut World) {
-    user_interface.add_debug_text(
-        "Version".to_owned().into(),
-        ::ENV.version.to_owned().into(),
-        [0.0, 0.0, 0.0, 1.0],
-        true,
-        world,
-    );
-}
-
-pub fn print_instance_counts(system: &mut ActorSystem, user_interface: UserInterfaceID) {
-    let mut info: Vec<_> = system
-        .get_instance_counts()
-        .iter()
-        .map(|(actor, count)| format!("{}: {}", actor, count))
-        .collect();
-    info.sort();
-    user_interface.add_debug_text(
-        "Number of actors".to_owned().into(),
-        info.join("\n").into(),
-        [0.0, 0.0, 0.0, 1.0],
-        false,
-        &mut system.world(),
-    );
-}
-
-pub fn print_network_turn(system: &mut ActorSystem, user_interface: UserInterfaceID) {
-    let mut info: Vec<_> = system
-        .networking_debug_all_n_turns()
-        .iter()
-        .map(|(machine_id, turn)| format!("{}: {}", machine_id.0, turn))
-        .collect();
-    info.sort();
-    user_interface.add_debug_text(
-        "Networking turn".to_owned().into(),
-        info.join("\n").into(),
-        [0.0, 0.0, 0.0, 1.0],
-        false,
-        &mut system.world(),
-    );
 }
 
 pub struct FrameCounter {
@@ -181,16 +112,18 @@ impl FrameCounter {
         self.last_frame = Instant::now();
     }
 
-    pub fn print_fps(&self, user_interface: UserInterfaceID, world: &mut World) {
+    pub fn print_fps(&self) {
         let avg_elapsed_ms = self.elapsed_ms_collected.iter().sum::<f32>()
             / (self.elapsed_ms_collected.len() as f32);
 
-        user_interface.add_debug_text(
-            "Frame".to_owned().into(),
-            format!("{:.1} FPS", 1000.0 * 1.0 / avg_elapsed_ms).into(),
-            [0.0, 0.0, 0.0, 0.5],
-            false,
-            world,
-        );
+        println!("Could achieve {:.1} FPS", 1000.0 * 1.0 / avg_elapsed_ms).into()
+    }
+
+    pub fn sleep_if_faster_than(&self, fps: usize) {
+        let ideal_frame_duration = Duration::from_millis((1000.0 / (fps as f32)) as u64);
+
+        if let Some(pos_difference) = ideal_frame_duration.checked_sub(self.last_frame.elapsed()) {
+            ::std::thread::sleep(pos_difference);
+        }
     }
 }

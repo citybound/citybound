@@ -7,8 +7,6 @@ use transport::transport_planning::RoadPrototype;
 use planning::{PlanHistory, VersionedGesture, PlanResult, Prototype, PrototypeID,
 PrototypeKind, GestureIntent, StepID};
 
-pub mod interaction;
-
 #[derive(Compact, Clone, Serialize, Deserialize)]
 pub enum ZoneIntent {
     LandUse(LandUse),

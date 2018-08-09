@@ -2,10 +2,7 @@ extern crate citybound_common;
 use citybound_common::*;
 
 use kay::Actor;
-use compact::CVec;
-use monet::Grouper;
 use transport::lane::{Lane, SwitchLane};
-use transport::rendering::LaneRenderer;
 use economy::households::family::Family;
 use economy::households::grocery_shop::GroceryShop;
 use economy::households::grain_farm::GrainFarm;
@@ -14,8 +11,6 @@ use economy::households::mill::Mill;
 use economy::households::bakery::Bakery;
 use economy::households::neighboring_town_trade::NeighboringTownTrade;
 use economy::households::tasks::TaskEndScheduler;
-use land_use::buildings::rendering::BuildingRenderer;
-use planning::PlanManager;
 use construction::Construction;
 
 fn main() {
@@ -50,37 +45,12 @@ fn main() {
             Construction::global_first(world).into(),
         ];
         let simulation = simulation::spawn(world, simulatables);
+        util::init::set_error_hook();
 
-        let renderables: CVec<_> = vec![
-            LaneRenderer::global_broadcast(world).into(),
-            Grouper::global_broadcast(world).into(),
-            BuildingRenderer::global_broadcast(world).into(),
-            PlanManager::global_first(world).into(),
-        ].into();
-
-        let machine_id = system.networking_machine_id();
-
-        let (user_interface, renderer) = stagemaster::spawn(
-            world,
-            renderables,
-            *ENV,
-            util::init::build_window(machine_id.0),
-            style::colors::GRASS,
-        );
-
-        simulation.add_to_ui(user_interface, world);
-        ui_layers::spawn(world, user_interface);
-
-        util::init::set_error_hook(user_interface, system.world());
-
-        let plan_manager = planning::spawn(world, user_interface);
+        let plan_manager = planning::spawn(world);
         construction::spawn(world);
         transport::spawn(world, simulation);
         economy::spawn(world, simulation, plan_manager);
-        land_use::spawn(world, user_interface);
-
-        util::init::print_version(user_interface, world);
-
         system.process_all_messages();
 
         let mut frame_counter = util::init::FrameCounter::new();
@@ -88,8 +58,6 @@ fn main() {
 
         loop {
             frame_counter.start_frame();
-
-            user_interface.process_events(world);
 
             system.process_all_messages();
 
@@ -101,37 +69,24 @@ fn main() {
                 simulation.progress(world);
 
                 system.process_all_messages();
-
-                renderer.prepare_render(world);
-
-                system.process_all_messages();
-
-                renderer.render(world);
-
-                system.process_all_messages();
             }
 
             system.networking_send_and_receive();
-
-            frame_counter.print_fps(user_interface, world);
-
-            util::init::print_instance_counts(&mut system, user_interface);
-            util::init::print_network_turn(&mut system, user_interface);
-
-            system.process_all_messages();
-
-            user_interface.start_frame(world);
 
             system.process_all_messages();
 
             if skip_turns > 0 {
                 skip_turns -= 1;
+            //println!("Skipping! {} left", skip_turns);
             } else {
                 let maybe_should_skip = system.networking_finish_turn();
                 if let Some(should_skip) = maybe_should_skip {
-                    skip_turns = should_skip
+                    skip_turns = should_skip.min(100);
                 }
             }
+
+            //frame_counter.print_fps();
+            frame_counter.sleep_if_faster_than(120);
         }
     });
 }

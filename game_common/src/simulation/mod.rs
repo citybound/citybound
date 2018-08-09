@@ -1,6 +1,5 @@
-use kay::{ActorSystem, World, Actor};
+use kay::{ActorSystem, World};
 use compact::CVec;
-use stagemaster::UserInterfaceID;
 
 mod time;
 
@@ -74,33 +73,6 @@ impl Simulation {
         };
         self.sleepers.insert(insert_idx, (wake_up_at, sleeper_id));
     }
-
-    pub fn add_to_ui(&mut self, ui_id: &UserInterfaceID, world: &mut World) {
-        ui_id.add_2d(self.id_as(), world);
-    }
-}
-
-use stagemaster::{Interactable2d, Interactable2dID};
-
-impl Interactable2d for Simulation {
-    #[cfg(feature = "server")]
-    fn draw(&mut self, _world: &mut World, ui: &::imgui::Ui<'static>) {
-        let time = TimeOfDay::from(self.current_instant).hours_minutes();
-
-        ui.window(im_str!("Simulation")).build(|| {
-            ui.text(im_str!("{:02}:{:02}", time.0, time.1));
-            ui.spacing();
-            ui.text(im_str!("Simulation Speed"));
-            ui.same_line(130.0);
-            let _ = ui
-                .slider_int(im_str!("##simulation-speed"), &mut self.speed, 0, 30)
-                .build();
-            ui.spacing();
-        });
-    }
-
-    #[cfg(feature = "browser")]
-    fn draw(&mut self, _world: &mut World, ui: &()) {}
 }
 
 pub fn setup(system: &mut ActorSystem) {

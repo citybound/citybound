@@ -21,16 +21,8 @@ pub mod neighboring_town_trade;
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct MemberIdx(usize);
 
-#[cfg(feature = "server")]
-type UI = External<::imgui::Ui<'static>>;
-#[cfg(feature = "browser")]
-type UI = ();
-
-use kay::External;
-
 use super::market::{Market, Deal, EvaluatedDeal, EvaluationRequester, EvaluationRequesterID,
 TripCostEstimatorID, EvaluatedSearchResult};
-use land_use::buildings::rendering::BuildingInspectorID;
 use super::resources::{Resource, ResourceAmount, ResourceMap, Entry, Inventory};
 use transport::pathfinding::{RoughLocationID, RoughLocation};
 use transport::pathfinding::trip::{TripListener, TripID, TripResult, TripFate};
@@ -901,89 +893,6 @@ pub trait Household:
             }
         } else {
             Fate::Live
-        }
-    }
-
-    #[cfg_attr(feature = "cargo-clippy", allow(useless_format))]
-    fn inspect(&mut self, imgui_ui: &UI, return_to: BuildingInspectorID, world: &mut World) {
-        #[cfg(feature = "server")]
-        {
-            let ui = imgui_ui.steal();
-
-            ui.window(im_str!("Building")).build(|| {
-                ui.tree_node(im_str!("{}", self.household_name()))
-                    .build(|| {
-                        // ui.text(im_str!(
-                        //     "({})",
-                        //     match self.decision_state {
-                        //         DecisionState::None => "",
-                        //         DecisionState::Choosing(_, _, _, _) => ": Waiting for choice",
-                        //         DecisionState::WaitingForTrip(_) => ": Waiting for trip",
-                        //     }
-                        // ));
-                        for resource in Self::interesting_resources() {
-                            if Self::is_shared(*resource) {
-                                ui.text(im_str!("{}", resource));
-                                ui.same_line(130.0);
-                                let amount =
-                                    self.core().resources.get(*resource).cloned().unwrap_or(0.0);
-                                ui.text(im_str!("{:.2}", amount));
-                            }
-                        }
-                        for (i, (member_resources, member_task)) in self
-                            .core()
-                            .member_resources
-                            .iter()
-                            .zip(&self.core().member_tasks)
-                            .enumerate()
-                        {
-                            ui.spacing();
-                            ui.text(im_str!("{}:", self.member_name(MemberIdx(i)),));
-                            ui.text(im_str!(
-                                "({} {})",
-                                match member_task.state {
-                                    TaskState::IdleAt(_) => "Idle after getting",
-                                    TaskState::GettingReadyAt(_) => "Preparing to get",
-                                    TaskState::InTrip(_) => "In trip to get",
-                                    TaskState::StartedAt(..) => "Getting",
-                                },
-                                member_task
-                                    .goal
-                                    .map(|goal| format!("{}", goal.0))
-                                    .unwrap_or_else(|| "nothing".to_owned())
-                            ));
-                            for resource in Self::interesting_resources() {
-                                if !Self::is_shared(*resource) {
-                                    ui.text(im_str!("{}", resource));
-                                    ui.same_line(130.0);
-                                    let amount =
-                                        member_resources.get(*resource).cloned().unwrap_or(0.0);
-                                    ui.text(im_str!("{:.2}", amount));
-                                }
-                            }
-                        }
-                        ui.tree_node(im_str!("Offers")).build(|| {
-                            for offer in &self.core().provided_offers {
-                                ui.text(im_str!("Offer for {}", offer.deal.main_given()));
-                                ui.text(im_str!(
-                                    "{} of max. {} users ({} right now)",
-                                    offer.users.len(),
-                                    offer.max_users,
-                                    offer.active_users.len()
-                                ))
-                            }
-                        });
-                        if DO_HOUSEHOLD_LOGGING {
-                            ui.tree_node(im_str!("Log")).build(|| {
-                                for line in self.core_mut().log.0.lines() {
-                                    ui.text(im_str!("{}", line));
-                                }
-                            });
-                        }
-                    })
-            });
-
-            return_to.ui_drawn(ui, world);
         }
     }
 }

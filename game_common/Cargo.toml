@@ -14,7 +14,6 @@ roaring = "0.5.2"
 open = "1.2.1"
 serde = "1.0"
 serde_derive = "1.0"
-imgui = "0.0.15"
 backtrace = "0.3"
 uuid = { version = "0.6", features = ["v4", "serde"] }
 compact = { version = "0.2.5", features = ["serde-serialization"] }
@@ -25,24 +24,11 @@ descartes = {version = "0.1.8", features = ["compact_containers", "serde-seriali
 
 [dependencies.monet]
 path = "./engine/monet/"
-optional = true
-
-[dependencies.stagemaster]
-path = "./engine/stagemaster/"
-optional = true
-
-[dependencies.browser_monet]
-path = "./engine/browser_monet/"
-optional = true
-
-[dependencies.browser_stagemaster]
-path = "./engine/browser_stagemaster/"
-optional = true
 
 [build-dependencies]
 kay_codegen = {version = "0.1.1", features = ["serde-serialization"]}
 
 [features]
 default = ["server"]
-server = ["monet", "stagemaster", "kay/server"]
-browser = ["browser_monet", "browser_stagemaster", "kay/browser", "stdweb"]
+server = ["kay/server"]
+browser = ["kay/browser", "stdweb"]
