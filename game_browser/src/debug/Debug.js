@@ -4,6 +4,7 @@ import { Button, InputNumber } from 'antd';
 const EL = React.createElement;
 
 export const initialState = {
+    show: false,
     planGridSettings: {
         n: 10,
         spacing: 200
@@ -14,10 +15,10 @@ export const initialState = {
 }
 
 export function render(state, setState) {
-    const elements = [EL("div", { key: "debug", className: "window debug" }, [
+    const elements = state.debug.show ? [EL("div", { key: "debug", className: "window debug" }, [
         EL("h1", {}, "Debugging"),
         ...(state.planning.currentProposal ? [
-            EL("p", { key: "gridPlanning" }, [
+            EL("div", { key: "gridPlanning" }, [
                 "Grid size ",
                 EL(InputNumber, {
                     value: state.debug.planGridSettings.n,
@@ -45,7 +46,7 @@ export function render(state, setState) {
                 }, "Plan grid")
             ]),
         ] : []),
-        EL("p", { key: "carSpawning" }, [
+        EL("div", { key: "carSpawning" }, [
             "Cars per lane (tries) ",
             EL(InputNumber, {
                 value: state.debug.spawnCarsSettings.triesPerLane,
@@ -61,15 +62,23 @@ export function render(state, setState) {
                 )
             }, "Spawn cars")
         ]),
-        EL("p", { key: "rendering" }, [
+        EL("div", { key: "rendering" }, [
             EL(Button, {
                 onClick: () => setState(
                     oldState => update(oldState, { rendering: { enabled: { $apply: e => !e } } })
                 )
             }, state.rendering.enabled ? "Disable rendering" : "Enable rendering")
         ]),
-        EL("pre", {}, state.system.networkingTurns)
-    ])];
+        EL("div", {}, Object.keys(state.system.networkingTurns).map(machine =>
+            EL("div", {}, machine + ": " + state.system.networkingTurns[machine])
+        )),
+        EL("div", {}, Object.keys(state.system.queueLengths).map(actor =>
+            EL("div", {}, actor + ": " + state.system.queueLengths[actor])
+        )),
+        EL("div", {}, Object.keys(state.system.messageStats).map(message =>
+            EL("div", {}, message + ": " + state.system.messageStats[message])
+        )),
+    ])] : [];
 
     return [[], [], elements]
 }

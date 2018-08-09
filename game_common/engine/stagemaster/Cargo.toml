@@ -12,7 +12,7 @@ serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
 app_dirs = "1.2.1"
-kay = {version = "0.2.11"}
+kay = {version = "0.2.15"}
 compact = "0.2.4"
 compact_macros = "0.1.0"
 descartes = {version = "0.1.8", features = ["compact_containers", "serde-serialization"]}

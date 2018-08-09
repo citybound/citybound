@@ -24,10 +24,10 @@ fn main() {
 
         let mut system = Box::new(kay::ActorSystem::new(kay::Networking::new(
             0,
-            vec!["localhost:9999", "ws-client"],
-            50_000,
-            30,
-            1,
+            vec!["127.0.0.1:9999", "ws-client"],
+            3_000,
+            2,
+            5,
         )));
 
         setup_all(&mut system);
@@ -84,6 +84,7 @@ fn main() {
         system.process_all_messages();
 
         let mut frame_counter = util::init::FrameCounter::new();
+        let mut skip_turns = 0;
 
         loop {
             frame_counter.start_frame();
@@ -96,17 +97,19 @@ fn main() {
                 break;
             }
 
-            simulation.progress(world);
+            if skip_turns == 0 {
+                simulation.progress(world);
 
-            system.process_all_messages();
+                system.process_all_messages();
 
-            renderer.prepare_render(world);
+                renderer.prepare_render(world);
 
-            system.process_all_messages();
+                system.process_all_messages();
 
-            renderer.render(world);
+                renderer.render(world);
 
-            system.process_all_messages();
+                system.process_all_messages();
+            }
 
             system.networking_send_and_receive();
 
@@ -121,10 +124,13 @@ fn main() {
 
             system.process_all_messages();
 
-            let maybe_sleep = system.networking_finish_turn();
-
-            if let Some(duration) = maybe_sleep {
-                ::std::thread::sleep(duration);
+            if skip_turns > 0 {
+                skip_turns -= 1;
+            } else {
+                let maybe_should_skip = system.networking_finish_turn();
+                if let Some(should_skip) = maybe_should_skip {
+                    skip_turns = should_skip
+                }
             }
         }
     });

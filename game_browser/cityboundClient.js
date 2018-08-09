@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom';
 import { vec3, mat4 } from 'gl-matrix';
 import ContainerDimensions from 'react-container-dimensions';
 import update from 'immutability-helper';
+import Mousetrap from 'mousetrap';
 window.update = update;
 
 import * as cityboundBrowser from './Cargo.toml';
@@ -41,6 +42,18 @@ class CityboundClient extends React.Component {
         }
 
         this.renderer = React.createRef();
+    }
+
+    componentDidMount() {
+        const inputActions = {
+            "toggleDebugView": () => this.setState(oldState => update(oldState, {
+                debug: { show: { $apply: b => !b } }
+            })),
+            "implementProposal": () => this.setState(Planning.implementProposal(this.state.planning.currentProposal))
+        };
+
+        Mousetrap.bind(',', inputActions["toggleDebugView"]);
+        Mousetrap.bind('command+enter', inputActions["implementProposal"]);
     }
 
     onFrame() {
@@ -91,7 +104,7 @@ class CityboundClient extends React.Component {
 
                 e.preventDefault();
                 return false;
-            }
+            },
         },
             EL(ContainerDimensions, { style: { width: "100%", height: "100%", position: "relative" } }, ({ width, height }) => {
                 const viewMatrix = mat4.lookAt(mat4.create(), eye, target, [0, 0, 1]);

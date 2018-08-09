@@ -8,7 +8,7 @@ build = "src/build.rs"
 fnv = "1.0.3"
 itertools = "0.7.6"
 lyon_tessellation = "0.9.1"
-kay = {version = "0.2.11", default-features = false, features = ["browser"]}
+kay = {version = "0.2.15", default-features = false, features = ["browser"]}
 compact = "0.2.4"
 compact_macros = "0.1.0"
 descartes = "0.1.8"

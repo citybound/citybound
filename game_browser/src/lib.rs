@@ -23,10 +23,10 @@ pub fn start() {
 
     let mut system = kay::ActorSystem::new(kay::Networking::new(
         1,
-        vec!["localhost:9999", "ws-client"],
-        50_000,
-        10,
-        1,
+        vec!["127.0.0.1:9999", "ws-client"],
+        3_000,
+        2,
+        5,
     ));
     setup_all(&mut system);
 
@@ -51,7 +51,7 @@ pub fn start() {
 #[derive(Copy, Clone)]
 struct MainLoop {
     browser_ui_id: citybound_common::browser_ui::BrowserUIID,
-    skip_turns: u32,
+    skip_turns: usize,
 }
 
 impl MainLoop {
@@ -71,14 +71,22 @@ impl MainLoop {
             system.process_all_messages();
         }
 
+        use ::stdweb::serde::Serde;
+
         js!{
             window.cbclient.setState(oldState => update(oldState, {
-                system: {networkingTurns: {"$set":
-                    @{system.networking_debug_all_n_turns()}
+                system: {
+                    networkingTurns: {"$set": @{Serde(system.networking_debug_all_n_turns())}},
+                    queueLengths: {"$set": @{Serde(system.get_queue_lengths())}},
+                    messageStats: {"$set": @{Serde(system.get_message_statistics())}},
                 }
-            }}));
+            }));
 
             window.cbclient.onFrame();
+        }
+
+        if self.skip_turns == 0 {
+            system.reset_message_statistics();
         }
 
         let mut next = self.clone();
@@ -86,12 +94,10 @@ impl MainLoop {
         if self.skip_turns > 0 {
             next.skip_turns -= 1;
         } else {
-            let maybe_sleep = system.networking_finish_turn();
-            next.skip_turns = if let Some(duration) = maybe_sleep {
-                duration.subsec_millis()
-            } else {
-                0
-            };
+            let maybe_should_skip = system.networking_finish_turn();
+            if let Some(should_skip) = maybe_should_skip {
+                next.skip_turns = should_skip
+            }
         }
 
         ::stdweb::web::window().request_animation_frame(move |_| next.frame());

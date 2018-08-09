@@ -124,9 +124,15 @@ pub fn print_version(user_interface: UserInterfaceID, world: &mut World) {
 }
 
 pub fn print_instance_counts(system: &mut ActorSystem, user_interface: UserInterfaceID) {
+    let mut info: Vec<_> = system
+        .get_instance_counts()
+        .iter()
+        .map(|(actor, count)| format!("{}: {}", actor, count))
+        .collect();
+    info.sort();
     user_interface.add_debug_text(
         "Number of actors".to_owned().into(),
-        system.get_instance_counts().into(),
+        info.join("\n").into(),
         [0.0, 0.0, 0.0, 1.0],
         false,
         &mut system.world(),
@@ -134,9 +140,15 @@ pub fn print_instance_counts(system: &mut ActorSystem, user_interface: UserInter
 }
 
 pub fn print_network_turn(system: &mut ActorSystem, user_interface: UserInterfaceID) {
+    let mut info: Vec<_> = system
+        .networking_debug_all_n_turns()
+        .iter()
+        .map(|(machine_id, turn)| format!("{}: {}", machine_id.0, turn))
+        .collect();
+    info.sort();
     user_interface.add_debug_text(
         "Networking turn".to_owned().into(),
-        system.networking_debug_all_n_turns().into(),
+        info.join("\n").into(),
         [0.0, 0.0, 0.0, 1.0],
         false,
         &mut system.world(),

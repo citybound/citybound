@@ -7,6 +7,7 @@
     "gl-matrix": "^2.6.1",
     "immutability-helper": "^2.7.1",
     "monet": "git+https://github.com/aeickhoff/monet.git",
+    "mousetrap": "^1.6.2",
     "msgpack-lite": "^0.1.26",
     "parcel-bundler": "^1.9.4",
     "parcel-plugin-cargo-web": "^0.3.0",

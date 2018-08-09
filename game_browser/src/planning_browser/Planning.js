@@ -130,7 +130,8 @@ function finishGesture(proposalId, gestureId) {
     });
 }
 
-function implementProposal(proposalId) {
+// TODO: remove this once we invent a pattern for keybindings
+export function implementProposal(proposalId) {
     cityboundBrowser.implement_proposal(proposalId);
     return oldState => update(oldState, { planning: { $unset: ['currentProposal'] } });
 }
