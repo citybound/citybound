@@ -10,6 +10,6 @@ This repository contains the code of Citybound, and also a detailed **Design Doc
 
 **Both code and the Design Doc are open for contribution.** You can suggest changes by making a pull request, which can be discussed and refined before deciding if it will be taken fully, partially, or not - documenting both decision and implementation processes publicly.
 
-**→ [Design Doc](game/README.md)**
+**→ [Design Doc](game_common/README.md)**
 
 **→ [Contributing & Development](CONTRIBUTING.md) ([Docs](http://citybound.github.io/citybound), [Gitter](https://gitter.im/citybound/Lobby))**
