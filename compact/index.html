@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `compact` crate."><meta name="keywords" content="rust, rustlang, rust-lang, compact"><title>compact - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Crate compact</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'compact', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='in-band'>Crate <a class="mod" href=''>compact</a></span><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/compact/lib.rs.html#1-40' title='goto source code'>[src]</a></span></h1><div class='docblock'><p>This crate makes it possible to store objects containing dynamic fields
+either compactly in consecutive memory or using traditional heap pointers.</p>
+<p>Bread-and-butter datastructures are offered, they feature:</p>
+<ul>
+<li>transparent access semantics, independent of currently used storage</li>
+<li>automatic spill from exhausted compact storage to heap storage</li>
+<li>recursive re-compaction</li>
+</ul>
+<p>This is used in <code>Kay</code> for:</p>
+<ul>
+<li>Storing actor state compactly in one place for cache coherency and easy persistence</li>
+<li>Sending complex, dynamically-sized messages over boundaries
+such as actors, threads and the network</li>
+</ul>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.CDict.html"
+                                  title='struct compact::CDict'>CDict</a></td>
+                           <td class='docblock-short'>
+                                <p>A simple linear-search key-value dictionary,
+implemented using two <code>CompactVec</code>'s, one for keys, one for values.</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.CHashMap.html"
+                                  title='struct compact::CHashMap'>CHashMap</a></td>
+                           <td class='docblock-short'>
+                                <p>A dynamically-sized open adressing quadratic probing hashmap
+that can be stored in compact sequential storage and
+automatically spills over into free heap storage using <code>Allocator</code>.</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.COption.html"
+                                  title='struct compact::COption'>COption</a></td>
+                           <td class='docblock-short'>
+                                <p>A wrapper to make an <code>Option</code> of a nontrivial <code>Compact</code> possible.
+Unfortunately, we can't blanket-<code>impl</code> that, since that overlaps
+(for the compiler) with the <code>impl</code> for trivial <code>Copy</code> types...</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.CString.html"
+                                  title='struct compact::CString'>CString</a></td>
+                           <td class='docblock-short'>
+                                <p>A compact storage for a <code>String</code>. So far doesn't support direct mutable operations,
+Only conversion from and to <code>String</code>/<code>&amp;str</code></p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.CVec.html"
+                                  title='struct compact::CVec'>CVec</a></td>
+                           <td class='docblock-short'>
+                                <p>A dynamically-sized vector that can be stored in compact sequential storage and
+automatically spills over into free heap storage using <code>Allocator</code>.
+Tries to closely follow the API of <code>std::vec::Vec</code>, but is not complete.</p>
+
+                           </td>
+                       </tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.Compact.html"
+                                  title='trait compact::Compact'>Compact</a></td>
+                           <td class='docblock-short'>
+                                <p>A trait for objects with a statically-sized part and a potential dynamically-sized part
+that can be stored both compactly in consecutive memory or freely on the heap</p>
+
+                           </td>
+                       </tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../";window.currentCrate = "compact";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

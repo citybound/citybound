@@ -1,0 +1,117 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `kay` crate."><meta name="keywords" content="rust, rustlang, rust-lang, kay"><title>kay - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Crate kay</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'kay', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='in-band'>Crate <a class="mod" href=''>kay</a></span><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/kay/lib.rs.html#1-52' title='goto source code'>[src]</a></span></h1><div class='docblock'><p><code>Kay</code> is a high-performance actor system, suitable for simulating millions of entities.</p>
+<p>In <code>Kay</code>, actors concurrently send and receive asynchronous messages, but are
+otherwise completely isloated from each other. Actors can only mutate their own state.</p>
+<p>Have a look at <a href="struct.ActorSystem.html"><code>ActorSystem</code></a>, <a href="struct.World.html"><code>World</code></a>
+and <a href="swarm/struct.Swarm.html"><code>Swarm</code></a> to understand the main abstractions.</p>
+<p>Current Shortcomings:</p>
+<ul>
+<li>Can't deal with messages to dead actors (undefined, often very confusing behaviour)</li>
+</ul>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.ActorSystem.html"
+                                  title='struct kay::ActorSystem'>ActorSystem</a></td>
+                           <td class='docblock-short'>
+                                <p>The main thing inside of which all the magic happens.</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.External.html"
+                                  title='struct kay::External'>External</a></td>
+                           <td class='docblock-short'>
+                                <p>An owning reference to local state outside the actor system that can safely be embedded in
+actor states and passed in messages, as long as they stay on one machine.</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.MachineID.html"
+                                  title='struct kay::MachineID'>MachineID</a></td>
+                           <td class='docblock-short'>
+                                <p>Identifies a machine in the network</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Networking.html"
+                                  title='struct kay::Networking'>Networking</a></td>
+                           <td class='docblock-short'>
+                                <p>Represents all networking environment and networking state
+of an <code>ActorSystem</code></p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Packet.html"
+                                  title='struct kay::Packet'>Packet</a></td>
+                           <td class='docblock-short'>
+                                <p>Combination of a message and its destination recipient id</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.RawID.html"
+                                  title='struct kay::RawID'>RawID</a></td>
+                           <td class='docblock-short'>
+                                <p>A <code>RawID</code> uniquely identifies an <code>Actor</code>, or even a <code>Actor</code> within a <code>Swarm</code></p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.World.html"
+                                  title='struct kay::World'>World</a></td>
+                           <td class='docblock-short'>
+                                <p>Gives limited access to an <a href="struct.ActorSystem.html"><code>ActorSystem</code></a> (typically
+from inside, in a message handler) to identify other actors and send messages to them.</p>
+
+                           </td>
+                       </tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="enum" href="enum.Fate.html"
+                                  title='enum kay::Fate'>Fate</a></td>
+                           <td class='docblock-short'>
+                                <p>Return type of message handling functions, signifying if
+an <code>Actor</code>/<code>Actor</code> should live on after receiving a certain message type.</p>
+
+                           </td>
+                       </tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.Actor.html"
+                                  title='trait kay::Actor'>Actor</a></td>
+                           <td class='docblock-short'>
+                                <p>Trait that Actors instance have to implement for a <a href="struct.Swarm.html"><code>Swarm</code></a>
+so their internally stored instance <code>RawID</code> can be gotten and set.</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.Message.html"
+                                  title='trait kay::Message'>Message</a></td>
+                           <td class='docblock-short'>
+                                <p>Trait that a datastructure must implement in order
+to be sent and received as a message.</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.TraitIDFrom.html"
+                                  title='trait kay::TraitIDFrom'>TraitIDFrom</a></td>
+                           <td class='docblock-short'>
+                                <p>Helper trait that signifies that an actor's <code>TypedID</code> can be converted
+to an actor trait <code>TypedID</code> if that actor implements the corresponding trait.</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.TypedID.html"
+                                  title='trait kay::TypedID'>TypedID</a></td>
+                           <td class='docblock-short'>
+                                <p><code>TypedID</code> is a construct on top of a <code>RawID</code> that can refer
+to a specific kind of actor, or actor trait at compile time</p>
+
+                           </td>
+                       </tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../";window.currentCrate = "kay";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

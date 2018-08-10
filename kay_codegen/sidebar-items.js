@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["HandlerType",""]],"fn":[["generate",""],["scan_and_generate",""]],"struct":[["ActorDef",""],["Handler",""],["Model",""],["TraitDef",""]]});
