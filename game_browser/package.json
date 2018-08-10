@@ -17,6 +17,7 @@
     "react-dom": "^16.4.1"
   },
   "devDependencies": {
+    "check-dependencies": "^1.1.0",
     "less": "^2.7.0"
   }
 }

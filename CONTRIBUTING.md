@@ -2,14 +2,12 @@
 
 * [Reporting bugs](#reporting-bugs)
 * [Contributing to the Design Doc](#contributing-to-the-design-doc)
-* [Compiling Citybound yourself](#compiling-citybound-yourself)
 * [Contributing to the code](#contributing-code)
+* [Compiling and running Citybound yourself](#compiling-and-running-citybound-yourself)
 
 # Reporting Bugs
 
-If the game stops working, it usually displays a red `SIMULATION BROKE :(` message.
-
-More details should be visible in the editor that automatically opens, or in a `cb_last_error.txt` file in your system's temporary directory.
+If the game stops working, it usually displays a `SIMULATION BROKE :(` message in an editor that automatically opens, or in a `cb_last_error.txt` file in your system's temporary directory.
 
 **First look if your issue has already been reported:**
 * [as a Bug](https://github.com/citybound/citybound/issues?utf8=✓&q=is%3Aissue%20label%3A%22P%20Bug%22%20)
@@ -51,27 +49,24 @@ You can make suggestions of every kind:
      * we identify a compromise of a subset of the proposed changes and merge that, or:
      * if our disagreement is too large, the pull request gets closed, but with a thorough explanation from my side
 
-## Compiling Citybound yourself
+# Contributing Code
 
-Currently Citybound is built with Rust `nightly-2018-06-02'
+## Compiling and running Citybound yourself
 
-**If you want a working version of Citybound,** compile a commit that corresponds to a [release](https://github.com/citybound/citybound/releases), since master might temporarily break or represents work-in-progress state.
+**Please note,** newest commits on master might temporarily be broken or represent work-in-progress state.
 
 Recommended setup:
-* Install [rustup](https://rustup.rs/) and [git](https://git-scm.com/)
+* Install the current version of [nodejs](https://nodejs.org/en/ ) and [git](https://git-scm.com/)
 * `git clone https://github.com/citybound/citybound.git`
 * `cd citybound`
-* Windows:
-  * `rustup override add nightly-2018-06-02-x86_64-pc-windows-msvc`
-  * Install the [Visual C++ 2015 Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools), unless you have Visual Studio 2015
-* MacOS:
-  * `rustup override add nightly-2018-06-02-x86_64-apple-darwin`
-* Linux:
-  * `rustup override add nightly-2018-06-02-x86_64-unknown-linux-gnu`
-  * `sudo apt install build-essential` (for Ubuntu)
-* `cargo run --release` (Debug mode is generally too slow to interact with)
-
-# Contributing Code
+* `npm run ensure-tooling`
+  * Follow instructions
+* Start the server with `npm run dev-server`
+  * Might take long the first time - installs and compile dependencies
+* Start the browser packager with `npm run dev-browser`
+  * Might take long the first time - installs and compile dependencies
+  * It should show you which address to open in your browser
+  * If you encounter any weird exceptions in the browser, first try stopping the `dev-browser` script, deleting the `.cache` folder in `game_browser` and re-running `dev-browser` script
 
 ## Guidelines
 
@@ -79,39 +74,9 @@ Recommended setup:
 * **[Have a look at the documentation](http://citybound.github.io/citybound)**
 * **Citybound uses trunk-based development,** meaning a very recent work-in-progress state of the code is always in the master branch. The repository owner usually commits directly to master, or uses short-lived feature branches. Contributors use the common fork/pull-request flow and everyone involved tries to get the changes into master as quickly as possible. The newest commits in master might sometimes be broken and not run.
 
-
-## Getting the recommended dev environment
-
-* Install [Visual Studio Code](https://code.visualstudio.com)
-  * It's a (cross-platform + JS-based + rich plugin ecosystem) Editor like Atom, only snappier - (it also has nothing to do with Visual Studio)
-  * Yes it's actually cool, because Microsoft has started to be cool.
-* Install [the VSCode-Rust Extension](https://marketplace.visualstudio.com/items?itemName=kalitaalexey.vscode-rust)
-  * Let it install everything it wants to
-  * *If you are using Windows and have a space in your user name:*
-    * Create a symbolic link to you user folder that doesn't contain a space
-      * for example `C:\firstname` -> `C:\Users\Firstname Lastname`
-    * Add the following user settings in VSCode
-      * `"rust.cargoHomePath": "C:\\firstname\\.cargo"`,
-      * `"rust.racerPath": "C:\\firstname\\.cargo\\bin\\racer.exe"`,
-      * `"rust.rustLangSrcPath": "C:\\firstname\\.rustup\\toolchains\\nightly-2018-06-02-x86_64-pc-windows-msvc\\lib\\rustlib\\src\\rust\\src"`
-  * Otherwise it "should just work"
-* For debugging 
-  * Linux/MacOS: 
-    * Install the [LLDB Debugger Extension](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb)
-  * Windows:
-    * Install the [C/C++ Extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools)
-    * Select the "(Windows) Debug" Configuration when running the debug program in VS Code
-
-* Now everything should just work! (fingers crossed)
-
 ## Conforming to style
 
-* install rustfmt: `rustup component add rustfmt-preview --toolchain nightly-2018-06-02` **and please make sure to use the same version as noted here** (pinned now, but might change from time to time)
-* run rustfmt on the whole repo:
-  `rustfmt ./game_common/src/lib.rs ./game_common/engine/*/src/lib.rs ./game_server/main.rs ./game_browser/src/lib.rs`
-  (using default settings) - if there are any overlong lines it can't fix, please fix them manually.
-* install clippy: `cargo install -f clippy --vers 0.0.206` **and please make sure to use the same version as noted here** (pinned now, but might change from time to time)
-* Run clippy on the whole repo: `cargo clippy` and adress all warnings in code that you added
+* Run `npm run lint` and fix at least formatting issues that couldn't be fixed automatically. If you have time, adress any best-practises issues it raises.
 
 ## Have a question? Want to discuss something?
 

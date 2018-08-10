@@ -319,7 +319,7 @@ export function render(state, setState) {
     }
 
     const elements = [
-        ...makeToolbar("main-toolbar", ["Inspection", "Planning", "Budgeting"], "main", state.uiMode, setUiMode),
+        ...makeToolbar("main-toolbar", ["Inspection", "Planning"/*, "Budgeting"*/], "main", state.uiMode, setUiMode),
         ...(state.uiMode.startsWith("main/planning")
             ? [EL("div", { key: "proposals", className: "window proposals" }, [
                 ...Object.keys(state.planning.proposals).map(proposalId =>

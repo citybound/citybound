@@ -30,7 +30,7 @@ matrix:
 before_install: set -e
 
 install:
-  - sh ci/install.sh
+  - sh repo_scripts/install.sh
   - source ~/.cargo/env || true
   - rustup component add rustfmt-preview --toolchain $TRAVIS_RUST_VERSION
   - cargo fmt --verbose --version
@@ -44,7 +44,7 @@ script:
 after_script: set +e
 
 after_success:
-  - bash ci/docs.sh
+  - bash repo_scripts/docs.sh
 
 cache: cargo
 before_cache:

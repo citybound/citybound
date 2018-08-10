@@ -102,10 +102,10 @@ button {
     border-radius: 2px;
     -webkit-backdrop-filter: blur(10px);
     opacity: 0.6;
-}
 
-.window:hover {
-    opacity: 1.0;
+    &:hover {
+        opacity: 1.0;
+    }
 }
 
 .toolbar {
@@ -116,35 +116,34 @@ button {
     grid-row-gap: 1px;
     grid-template-rows: 3em;
     grid-auto-flow: row;
+    align-items: center;
+    justify-items: center;
     margin: 0 0.5em;
+
+    button {
+        width: 3em;
+        height: 3em;
+        border: none;
+        margin: 0;
+        background-color: rgba(255, 255, 255, 0.8);
+        border-radius: 2px;
+        -webkit-backdrop-filter: blur(10px);
+        background-position: center center;
+        background-size: 24px 24px;
+        background-repeat: no-repeat no-repeat;
+        opacity: 0.6;
+
+        &:hover {
+            opacity: 0.8;
+        }
+
+        &.active {
+            opacity: 1.0;
+        }
+    }
 }
 
-.toolbar button {
-    width: 3em;
-    height: 3em;
-    border: none;
-    margin: 0;
-    background-color: rgba(255, 255, 255, 0.8);
-    border-radius: 2px;
-    -webkit-backdrop-filter: blur(10px);
-    background-position: center center;
-    background-size: 24px 24px;
-    background-repeat: no-repeat no-repeat;
-    opacity: 0.6;
-}
 
-.toolbar button:hover {
-    opacity: 0.8;
-}
-
-.toolbar button.active {
-    opacity: 1.0;
-}
-
-#zoning-toolbar {
-    grid-template-rows: 3em 3em;
-    grid-auto-flow: column;
-}
 
 #planning {
     background-image: url('./assets/icons/icons8-stationery.png');
@@ -166,36 +165,58 @@ button {
     background-image: url('./assets/icons/icons8-categorize.png');
 }
 
-#zoning-toolbar button {
-    background-blend-mode: overlay;
-}
+#zoning-toolbar {
+    grid-template-columns: initial;
+    grid-template-rows: 2.75em 2.75em;
+    grid-column-gap: 0.5em;
+    grid-row-gap: 0.5em;
+    grid-auto-flow: column;
 
-#residential {
-    background-image: url('./assets/icons/icons8-cottage.png');
-}
+    button {
+        width: 2.75em;
+        height: 2.75em;
+        background-blend-mode: overlay;
+        background-clip: padding-box;
+        border-radius: 1.5em;
+        opacity: 1.0;
+        border: 0.1em solid rgba(255, 255, 255, 0.4);
 
-#commercial {
-    background-image: url('./assets/icons/icons8-shop.png');
-}
+        &:hover {
+            border: 0.1em solid rgba(255, 255, 255, 0.7);
+        }
 
-#offices {
-    background-image: url('./assets/icons/icons8-company.png');
-}
+        &.active {
+            border: 0.1em solid rgba(255, 255, 255, 0.9);
+        }
+    }
 
-#industrial {
-    background-image: url('./assets/icons/icons8-factory.png');
-}
-
-#agricultural {
-    background-image: url('./assets/icons/icons8-farm.png');
-}
-
-#recreational {
-    background-image: url('./assets/icons/icons8-forest.png');
-}
-
-#official {
-    background-image: url('./assets/icons/icons8-city_hall.png');
+    #residential {
+        background-image: url('./assets/icons/icons8-cottage.png');
+    }
+    
+    #commercial {
+        background-image: url('./assets/icons/icons8-shop.png');
+    }
+    
+    #offices {
+        background-image: url('./assets/icons/icons8-company.png');
+    }
+    
+    #industrial {
+        background-image: url('./assets/icons/icons8-factory.png');
+    }
+    
+    #agricultural {
+        background-image: url('./assets/icons/icons8-farm.png');
+    }
+    
+    #recreational {
+        background-image: url('./assets/icons/icons8-forest.png');
+    }
+    
+    #official {
+        background-image: url('./assets/icons/icons8-city_hall.png');
+    }
 }
 
 .window.debug > div {

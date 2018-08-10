@@ -1,0 +1,8 @@
+{
+    "scripts": {
+        "dev-browser": "cd game_browser && ./node_modules/.bin/check-dependencies --install || npm install && npm start",
+        "dev-server": "npm run ensure-tooling -- -q && cargo run --release",
+        "lint": "echo 'CHECKING BEST PRACTISES' && touch game_common/src/lib.rs && cargo clippy && echo 'CHECKING/FIXING FORMATTING' && rustfmt ./game_common/src/lib.rs ./game_common/engine/*/src/lib.rs ./game_server/main.rs ./game_browser/src/lib.rs && echo 'FORMATTING OK'",
+        "ensure-tooling": "node repo_scripts/tooling.js"
+    }
+}
