@@ -3,7 +3,6 @@
     "start": "./node_modules/.bin/parcel index.html"
   },
   "dependencies": {
-    "antd": "^3.1.0",
     "gl-matrix": "^2.6.1",
     "immutability-helper": "^2.7.1",
     "monet": "git+https://github.com/aeickhoff/monet.git",
@@ -18,6 +17,9 @@
   },
   "devDependencies": {
     "check-dependencies": "^1.1.0",
-    "less": "^2.7.0"
+    "less": "^3.8.1"
+  },
+  "less": {
+    "javascriptEnabled": true
   }
 }
