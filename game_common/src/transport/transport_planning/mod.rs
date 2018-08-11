@@ -152,8 +152,7 @@ fn gesture_intent_smooth_paths(
                 }
                 _ => None,
             },
-        )
-        .collect::<Vec<_>>()
+        ).collect::<Vec<_>>()
 }
 
 #[cfg_attr(feature = "cargo-clippy", allow(cyclomatic_complexity))]
@@ -175,8 +174,7 @@ pub fn calculate_prototypes(
                 gesture_id,
                 step_id,
             )
-        })
-        .collect::<Vec<_>>();
+        }).collect::<Vec<_>>();
 
     let mut intersection_areas = gesture_areas_for_intersection
         .iter()
@@ -208,15 +206,13 @@ pub fn calculate_prototypes(
                                         step_id_b,
                                     )),
                                 )
-                            })
-                            .collect()
+                            }).collect()
                     } else {
                         vec![]
                     }
                 }
             },
-        )
-        .collect::<Vec<_>>();
+        ).collect::<Vec<_>>();
 
     // add intersections at the starts and ends of gestures
     const END_INTERSECTION_DEPTH: N = 15.0;
@@ -226,7 +222,8 @@ pub fn calculate_prototypes(
             [
                 (path.start(), path.start_direction()),
                 (path.end(), path.end_direction()),
-            ].into_iter()
+            ]
+                .into_iter()
                 .enumerate()
                 .map(|(i, &(point, direction))| {
                     let orthogonal = direction.orthogonal();
@@ -253,8 +250,7 @@ pub fn calculate_prototypes(
                         ),
                         PrototypeID::from_influences((gesture_id, step_id, i)),
                     )
-                })
-                .collect::<Vec<_>>()
+                }).collect::<Vec<_>>()
         },
     ));
 
@@ -303,8 +299,7 @@ pub fn calculate_prototypes(
                 connecting_lanes: CHashMap::new(),
             })),
             id,
-        })
-        .collect();
+        }).collect();
 
     let intersected_lane_paths = {
         let raw_lane_paths = gesture_intent_smooth_paths
@@ -319,14 +314,12 @@ pub fn calculate_prototypes(
                                 CENTER_LANE_DISTANCE / 2.0 + f32::from(lane_i) * LANE_DISTANCE,
                                 lane_i as i8 + 1,
                             )
-                        })
-                        .chain((0..road_intent.n_lanes_backward).into_iter().map(|lane_i| {
+                        }).chain((0..road_intent.n_lanes_backward).into_iter().map(|lane_i| {
                             (
                                 -(CENTER_LANE_DISTANCE / 2.0 + f32::from(lane_i) * LANE_DISTANCE),
                                 -(lane_i as i8) - 1,
                             )
-                        }))
-                        .filter_map(|(offset, offset_i)| {
+                        })).filter_map(|(offset, offset_i)| {
                             path.shift_orthogonally(offset).map(|path| {
                                 (
                                     if offset < 0.0 {
@@ -335,18 +328,12 @@ pub fn calculate_prototypes(
                                         GestureSideID::new_forward(gesture_i)
                                     },
                                     PrototypeID::from_influences((gesture_id, step_id, offset_i)),
-                                    if offset < 0.0 {
-                                        path.reverse()
-                                    } else {
-                                        path
-                                    },
+                                    if offset < 0.0 { path.reverse() } else { path },
                                 )
                             })
-                        })
-                        .collect::<Vec<_>>()
+                        }).collect::<Vec<_>>()
                 },
-            )
-            .collect::<Vec<_>>();
+            ).collect::<Vec<_>>();
 
         raw_lane_paths
             .into_iter()
@@ -368,7 +355,8 @@ pub fn calculate_prototypes(
                         let points = (
                             &raw_lane_path,
                             intersection.area.primitives[0].boundary.path(),
-                        ).intersect();
+                        )
+                            .intersect();
 
                         if points.len() >= 2 {
                             let entry_distance = points
@@ -446,10 +434,8 @@ pub fn calculate_prototypes(
                         raw_lane_path
                             .subsection(exit_distance, entry_distance)
                             .map(|subsection| (subsection, subsection_id))
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>()
+                    }).collect::<Vec<_>>()
+            }).collect::<Vec<_>>()
     };
 
     let switch_lane_paths = {
@@ -461,8 +447,7 @@ pub fn calculate_prototypes(
                         let band = Band::new(right_path.clone(), SWITCHING_LANE_OVERLAP_TOLERANCE);
                         (right_path, band.outline(), band, id)
                     })
-            })
-            .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
 
         let left_lane_paths_outlines_bands = intersected_lane_paths
             .iter()
@@ -472,8 +457,7 @@ pub fn calculate_prototypes(
                         let band = Band::new(left_path.clone(), SWITCHING_LANE_OVERLAP_TOLERANCE);
                         (left_path, band.outline(), band, id)
                     })
-            })
-            .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
 
         right_lane_paths_outlines_bands
             .iter()
@@ -533,19 +517,16 @@ pub fn calculate_prototypes(
                                 } else {
                                     None
                                 }
-                            })
-                            .coalesce(|prev_subsection, next_subsection| {
+                            }).coalesce(|prev_subsection, next_subsection| {
                                 prev_subsection
                                     .concat(&next_subsection)
                                     .map_err(|_| (prev_subsection, next_subsection))
-                            })
-                            .filter(|subsection| subsection.length() > MIN_SWITCHING_LANE_LENGTH)
+                            }).filter(|subsection| subsection.length() > MIN_SWITCHING_LANE_LENGTH)
                             .map(|subsection| (subsection, switch_id))
                             .collect()
                     }
                 },
-            )
-            .collect::<Vec<_>>()
+            ).collect::<Vec<_>>()
     };
 
     for prototype in &mut intersection_prototypes {
@@ -570,18 +551,15 @@ pub fn calculate_prototypes(
                     ))),
                     id,
                 }),
-        )
-        .chain(switch_lane_paths.into_iter().map(|(path, id)| Prototype {
+        ).chain(switch_lane_paths.into_iter().map(|(path, id)| Prototype {
             kind: PrototypeKind::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(path))),
             id,
-        }))
-        .chain(
+        })).chain(
             gesture_areas_for_intersection
                 .into_iter()
                 .map(|(shape, gesture_id, step_id)| Prototype {
                     kind: PrototypeKind::Road(RoadPrototype::PavedArea(shape)),
                     id: PrototypeID::from_influences((gesture_id, step_id)),
                 }),
-        )
-        .collect())
+        ).collect())
 }

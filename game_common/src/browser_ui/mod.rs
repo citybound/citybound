@@ -230,10 +230,8 @@ SwitchLanePrototype, IntersectionPrototype};
                                         None
                                     }
                                 }
-                            })
-                            .next()
-                    })
-                    .next();
+                            }).next()
+                    }).next();
 
                 if let Some((is_construct, is_morph)) = corresponding_action_exists {
                     match prototype.kind {

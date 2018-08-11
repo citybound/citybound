@@ -117,10 +117,9 @@ pub fn build_building<R: Rng>(
                 building_position + length / 4.0 * building_orientation_orth,
                 building_position - length / 2.0 * building_orientation,
             ].into_iter()
-                .map(|v| Vertex {
-                    position: [v.x, v.y, 3.0],
-                })
-                .collect();
+            .map(|v| Vertex {
+                position: [v.x, v.y, 3.0],
+            }).collect();
 
             let indices = vec![0, 1, 2, 2, 3, 0];
 
@@ -239,7 +238,8 @@ impl Footprint {
             (self.back_left.coords
                 + self.back_right.coords
                 + self.front_left.coords
-                + self.front_right.coords) / 4.0,
+                + self.front_right.coords)
+                / 4.0,
         );
 
         Footprint {
