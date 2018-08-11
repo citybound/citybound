@@ -9,6 +9,9 @@ use std::collections::HashMap;
 pub struct BrowserUI {
     id: BrowserUIID,
     car_instance_buffers: External<HashMap<RawID, Vec<::michelangelo::Instance>>>,
+    master_plan: ::planning::PlanHistory,
+    // TODO: replace this with only known states
+    proposals: External<HashMap<::planning::ProposalID, ::planning::Proposal>>,
 }
 
 fn flatten_vertices(vertices: &[::michelangelo::Vertex]) -> &[f32] {
@@ -62,6 +65,8 @@ impl BrowserUI {
         BrowserUI {
             id,
             car_instance_buffers: External::new(HashMap::new()),
+            master_plan: ::planning::PlanHistory::new(),
+            proposals: External::new(HashMap::new()),
         }
     }
 
@@ -71,7 +76,15 @@ impl BrowserUI {
             use ::stdweb::unstable::TryInto;
             use ::stdweb::serde::Serde;
 
-            ::planning::PlanManager::global_first(world).get_all_plans(self.id, world);
+            ::planning::PlanManager::global_first(world).get_all_plans(
+                self.id,
+                self.master_plan.as_known_state(),
+                self.proposals
+                    .iter()
+                    .map(|(proposal_id, proposal)| (*proposal_id, proposal.as_known_state()))
+                    .collect(),
+                world,
+            );
 
             let maybe_current_proposal_id: Result<Serde<::planning::ProposalID>, _> = js! {
                 return (window.cbclient.state.uiMode.startsWith("main/planning") &&
@@ -110,41 +123,77 @@ impl BrowserUI {
 
     pub fn on_plans_update(
         &mut self,
-        master: &::planning::PlanHistory,
-        proposals: &CHashMap<::planning::ProposalID, ::planning::Proposal>,
-        world: &mut World,
+        master_update: &::planning::PlanHistoryUpdate,
+        proposal_updates: &CHashMap<::planning::ProposalID, ::planning::ProposalUpdate>,
+        _world: &mut World,
     ) {
         #[cfg(feature = "browser")]
         {
             use ::stdweb::serde::Serde;
-            js! {
-                window.cbclient.setState(oldState => update(oldState, {
-                    planning: {
-                        master: {"$set": @{Serde(master)}},
-                        proposals: {"$set": @{Serde(proposals)}}
+            if !master_update.is_empty() {
+                self.master_plan.apply_update(master_update);
+                js! {
+                    window.cbclient.setState(oldState => update(oldState, {
+                        planning: {
+                            master: {"$set": @{Serde(&self.master_plan)}},
+                        }
+                    }));
+                }
+            }
+            for (proposal_id, proposal_update) in proposal_updates.pairs() {
+                match proposal_update {
+                    ::planning::ProposalUpdate::None => {}
+                    ::planning::ProposalUpdate::ChangedOngoing(new_ongoing) => {
+                        js! {
+                            window.cbclient.setState(oldState => update(oldState, {
+                                planning: {
+                                    proposals: {
+                                        [@{Serde(*proposal_id)}]: {
+                                            ongoing: {"$set": @{Serde(new_ongoing)}}
+                                        }
+                                    }
+                                }
+                            }));
+                        }
+                        self.proposals
+                            .get_mut(proposal_id)
+                            .expect("Should already have proposal")
+                            .set_ongoing_step(new_ongoing.clone());
                     }
-                }));
+                    ::planning::ProposalUpdate::ChangedCompletely(new_proposal) => {
+                        js! {
+                            window.cbclient.setState(oldState => update(oldState, {
+                                planning: {
+                                    proposals: {
+                                        [@{Serde(*proposal_id)}]: {"$set": @{Serde(new_proposal)}}
+                                    }
+                                }
+                            }));
+                        }
+                        self.proposals.insert(*proposal_id, new_proposal.clone());
+                    }
+                }
             }
         }
     }
 
     pub fn on_proposal_preview(
         &mut self,
-        proposal: ::planning::ProposalID,
+        _proposal: ::planning::ProposalID,
         result: &::planning::PlanResult,
         actions: &CVec<CVec<::construction::Action>>,
-        world: &mut World,
+        _world: &mut World,
     ) {
         #[cfg(feature = "browser")]
         {
             console!(log, "on proposal preview");
 
             use ::construction::Action;
-            use ::planning::{Prototype, PrototypeKind};
+            use ::planning::{PrototypeKind};
             use ::transport::transport_planning::{RoadPrototype, LanePrototype,
 SwitchLanePrototype, IntersectionPrototype};
             use ::transport::rendering::{lane_mesh, marker_mesh, switch_marker_gap_mesh};
-            use ::land_use::zone_planning::{LotPrototype, LotOccupancy, Lot};
+            use ::land_use::zone_planning::{LotPrototype, LotOccupancy};
             use ::michelangelo::Mesh;
 
             let mut zones_mesh = Mesh::empty();
@@ -181,8 +230,10 @@ SwitchLanePrototype, IntersectionPrototype};
                                         None
                                     }
                                 }
-                            }).next()
-                    }).next();
+                            })
+                            .next()
+                    })
+                    .next();
 
                 if let Some((is_construct, is_morph)) = corresponding_action_exists {
                     match prototype.kind {
@@ -261,7 +312,7 @@ SwitchLanePrototype, IntersectionPrototype};
         lane_path: &::descartes::LinePath,
         is_switch: bool,
         on_intersection: bool,
-        world: &mut World,
+        _world: &mut World,
     ) {
         #[cfg(feature = "browser")]
         {
@@ -323,7 +374,7 @@ SwitchLanePrototype, IntersectionPrototype};
         id: RawID,
         is_switch: bool,
         on_intersection: bool,
-        world: &mut World,
+        _world: &mut World,
     ) {
         #[cfg(feature = "browser")]
         {
@@ -371,7 +422,7 @@ SwitchLanePrototype, IntersectionPrototype};
         id: ::land_use::buildings::BuildingID,
         lot: &::land_use::zone_planning::Lot,
         style: ::land_use::buildings::BuildingStyle,
-        world: &mut World,
+        _world: &mut World,
     ) {
         #[cfg(feature = "browser")]
         {
@@ -400,7 +451,7 @@ SwitchLanePrototype, IntersectionPrototype};
     pub fn on_building_destructed(
         &mut self,
         id: ::land_use::buildings::BuildingID,
-        world: &mut World,
+        _world: &mut World,
     ) {
         #[cfg(feature = "browser")]
         {

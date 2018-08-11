@@ -15,3 +15,6 @@ kay = {version = "0.2.15", default-features = false, features = ["browser"]}
 path = "../game_common"
 default-features = false
 features = ["browser"]
+
+[profile.release]
+debug = true

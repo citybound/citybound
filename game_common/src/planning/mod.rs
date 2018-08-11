@@ -1,10 +1,9 @@
 #![cfg_attr(feature = "cargo-clippy", allow(new_without_default_derive))]
 #![cfg_attr(feature = "cargo-clippy", allow(new_without_default))]
 use kay::{World, MachineID, ActorSystem, Actor};
-use compact::{CVec, CHashMap};
+use compact::{CVec, COption, CHashMap};
 use descartes::{P2, AreaError};
-use uuid::Uuid;
-use util::random::{seed, Rng};
+use util::random::{seed, RngCore, Uuid, uuid};
 use std::hash::Hash;
 
 use transport::transport_planning::{RoadIntent, RoadPrototype};
@@ -18,7 +17,7 @@ pub mod interaction;
 // - everything (Gestures, Prototypes) immutable (helps caching)
 // - everything separated by staggered grid (to save work)
 
-#[derive(Compact, Clone, Serialize, Deserialize)]
+#[derive(Compact, Clone, Debug, Serialize, Deserialize)]
 pub struct Gesture {
     pub points: CVec<P2>,
     pub intent: GestureIntent,
@@ -35,26 +34,26 @@ impl Gesture {
     }
 }
 
-#[derive(Compact, Clone, Serialize, Deserialize)]
+#[derive(Compact, Clone, Debug, Serialize, Deserialize)]
 pub enum GestureIntent {
     Road(RoadIntent),
     Zone(ZoneIntent),
     Building(BuildingIntent),
 }
 
-#[derive(Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Hash, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct GestureID(pub Uuid);
 
 impl GestureID {
     pub fn new() -> GestureID {
-        GestureID(Uuid::new_v4())
+        GestureID(uuid())
     }
 }
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct StepID(pub Uuid);
 
-#[derive(Compact, Clone, Serialize, Deserialize)]
+#[derive(Compact, Clone, Debug, Serialize, Deserialize)]
 pub struct Plan {
     pub step_id: StepID,
     pub gestures: CHashMap<GestureID, Gesture>,
@@ -63,33 +62,33 @@ pub struct Plan {
 impl Plan {
     pub fn new() -> Plan {
         Plan {
-            step_id: StepID(Uuid::new_v4()),
+            step_id: StepID(uuid()),
             gestures: CHashMap::new(),
         }
     }
 
     pub fn from_gestures<I: IntoIterator<Item = (GestureID, Gesture)>>(gestures: I) -> Plan {
         Plan {
-            step_id: StepID(Uuid::new_v4()),
+            step_id: StepID(uuid()),
             gestures: gestures.into_iter().collect(),
         }
     }
 }
 
-#[derive(Compact, Clone, Serialize, Deserialize)]
+#[derive(Compact, Clone, Debug, Serialize, Deserialize)]
 pub struct VersionedGesture(pub Gesture, pub StepID);
 
 #[derive(Compact, Clone, Serialize, Deserialize)]
 pub struct PlanHistory {
     pub gestures: CHashMap<GestureID, VersionedGesture>,
-    steps: CVec<StepID>,
+    pub steps: CVec<StepID>,
 }
 
 impl PlanHistory {
     pub fn new() -> PlanHistory {
         PlanHistory {
             gestures: CHashMap::new(),
-            steps: vec![StepID(Uuid::new_v4())].into(),
+            steps: vec![StepID(uuid())].into(),
         }
     }
 
@@ -147,11 +146,92 @@ impl PlanHistory {
             *step_a
         }
     }
+
+    pub fn as_known_state(&self) -> KnownHistoryState {
+        KnownHistoryState {
+            known_steps: self.steps.clone(),
+        }
+    }
+
+    pub fn update_for(&self, known_state: &KnownHistoryState) -> PlanHistoryUpdate {
+        let first_different_index = self
+            .steps
+            .iter()
+            .zip(known_state.known_steps.iter())
+            .take_while(|(a, b)| a == b)
+            .count();
+
+        PlanHistoryUpdate {
+            steps_to_drop: known_state.known_steps[first_different_index..]
+                .iter()
+                .cloned()
+                .collect(),
+            steps_to_add: self.steps[first_different_index..]
+                .iter()
+                .cloned()
+                .collect(),
+            gestures_to_add: self
+                .gestures
+                .pairs()
+                .filter_map(|(gesture_id, versioned_gesture)| {
+                    if self.steps[first_different_index..].contains(&versioned_gesture.1) {
+                        Some((*gesture_id, versioned_gesture.clone()))
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+        }
+    }
+
+    pub fn apply_update(&mut self, update: &PlanHistoryUpdate) {
+        let gestures_to_drop = self
+            .gestures
+            .pairs()
+            .filter_map(|(gesture_id, versioned_gesture)| {
+                if update.steps_to_drop.contains(&versioned_gesture.1) {
+                    Some(*gesture_id)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        for gesture_id in gestures_to_drop {
+            self.gestures.remove(gesture_id);
+        }
+
+        self.steps
+            .retain(|step| !update.steps_to_drop.contains(step));
+        self.steps.extend(update.steps_to_add.iter().cloned());
+
+        for (new_gesture_id, new_gesture) in update.gestures_to_add.pairs() {
+            self.gestures.insert(*new_gesture_id, new_gesture.clone());
+        }
+    }
 }
 
-// TODO: when applied, proposals can be flattened into the last
-// version of each gesture and all intermediate gestures can be completely removed
-#[derive(Compact, Clone, Serialize, Deserialize)]
+#[derive(Compact, Clone)]
+pub struct KnownHistoryState {
+    known_steps: CVec<StepID>,
+}
+
+#[derive(Compact, Clone, Debug)]
+pub struct PlanHistoryUpdate {
+    steps_to_drop: CVec<StepID>,
+    steps_to_add: CVec<StepID>,
+    gestures_to_add: CHashMap<GestureID, VersionedGesture>,
+}
+
+impl PlanHistoryUpdate {
+    pub fn is_empty(&self) -> bool {
+        self.steps_to_drop.is_empty()
+            && self.steps_to_add.is_empty()
+            && self.gestures_to_add.is_empty()
+    }
+}
+
+#[derive(Compact, Clone, Debug, Serialize, Deserialize)]
 pub struct Proposal {
     undoable_history: CVec<Plan>,
     ongoing: Plan,
@@ -210,6 +290,67 @@ impl Proposal {
     fn apply_to_with_ongoing(&self, base: &PlanHistory) -> PlanHistory {
         base.and_then(self.undoable_history.iter().chain(Some(&self.ongoing)))
     }
+
+    pub fn as_known_state(&self) -> KnownProposalState {
+        KnownProposalState {
+            known_last_undoable: COption(self.undoable_history.last().map(|plan| plan.step_id)),
+            known_ongoing: COption(Some(self.ongoing.step_id)),
+            known_first_redoable: COption(self.redoable_history.first().map(|plan| plan.step_id)),
+        }
+    }
+
+    pub fn update_for(&self, known_state: &KnownProposalState) -> ProposalUpdate {
+        if known_state.known_first_redoable.0.is_none()
+            && known_state.known_ongoing.0.is_none()
+            && known_state.known_first_redoable.0.is_none()
+        {
+            ProposalUpdate::ChangedCompletely(self.clone())
+        } else if self.undoable_history.last().map(|plan| plan.step_id)
+            == known_state.known_last_undoable.0
+            && self.redoable_history.first().map(|plan| plan.step_id)
+                == known_state.known_first_redoable.0
+        {
+            if known_state.known_ongoing.0 == Some(self.ongoing.step_id) {
+                ProposalUpdate::None
+            } else {
+                ProposalUpdate::ChangedOngoing(self.ongoing.clone())
+            }
+        } else {
+            ProposalUpdate::ChangedCompletely(self.clone())
+        }
+    }
+
+    pub fn apply_update(&mut self, update: &ProposalUpdate) {
+        match *update {
+            ProposalUpdate::ChangedOngoing(ref ongoing) => self.set_ongoing_step(ongoing.clone()),
+            ProposalUpdate::ChangedCompletely(ref new_proposal) => *self = new_proposal.clone(),
+            ProposalUpdate::None => {}
+        }
+    }
+}
+
+#[derive(Compact, Clone)]
+pub struct KnownProposalState {
+    known_last_undoable: COption<StepID>,
+    known_ongoing: COption<StepID>,
+    known_first_redoable: COption<StepID>,
+}
+
+impl Default for KnownProposalState {
+    fn default() -> KnownProposalState {
+        KnownProposalState {
+            known_last_undoable: COption(None),
+            known_ongoing: COption(None),
+            known_first_redoable: COption(None),
+        }
+    }
+}
+
+#[derive(Compact, Clone, Debug)]
+pub enum ProposalUpdate {
+    None,
+    ChangedOngoing(Plan),
+    ChangedCompletely(Proposal),
 }
 
 #[derive(Compact, Clone, Serialize, Deserialize, Debug)]
@@ -328,7 +469,7 @@ pub struct ProposalID(pub Uuid);
 
 impl ProposalID {
     pub fn new() -> ProposalID {
-        ProposalID(Uuid::new_v4())
+        ProposalID(uuid())
     }
 }
 
@@ -368,13 +509,15 @@ impl PlanManager {
             .iter()
             .rfold(None, |found, step| {
                 found.or_else(|| step.gestures.get(gesture_id))
-            }).into_iter()
+            })
+            .into_iter()
             .chain(
                 self.master_plan
                     .gestures
                     .get(gesture_id)
                     .map(|VersionedGesture(ref g, _)| g),
-            ).next()
+            )
+            .next()
             .expect("Expected gesture (that point should be added to) to exist!")
     }
 

@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "start": "./node_modules/.bin/parcel index.html"
+    "start": "./node_modules/.bin/parcel index.html --log-level 3"
   },
   "dependencies": {
     "gl-matrix": "^2.6.1",

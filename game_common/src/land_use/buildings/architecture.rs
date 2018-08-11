@@ -1,5 +1,5 @@
 use descartes::{N, P2, WithUniqueOrthogonal};
-use rand::Rng;
+use util::random::{Rng};
 use michelangelo::{Vertex, Mesh};
 
 use super::{Lot, BuildingStyle};
@@ -35,8 +35,8 @@ pub fn build_building<R: Rng>(
 
     match building_type {
         BuildingStyle::FamilyHouse => {
-            let height = 3.0 + 3.0 * rng.next_f32();
-            let entrance_height = 2.0 + rng.next_f32();
+            let height = 3.0 + 3.0 * rng.gen::<f32>();
+            let entrance_height = 2.0 + rng.gen::<f32>();
 
             let (roof_brick_mesh, roof_wall_mesh) =
                 main_footprint.open_gable_roof_mesh(height, 0.3);
@@ -54,7 +54,7 @@ pub fn build_building<R: Rng>(
             }
         }
         BuildingStyle::GroceryShop => {
-            let height = 3.0 + rng.next_f32();
+            let height = 3.0 + rng.gen::<f32>();
             let entrance_height = height - 0.7;
 
             BuildingMesh {
@@ -73,8 +73,8 @@ pub fn build_building<R: Rng>(
             field: Mesh::from_area(&lot.area),
         },
         BuildingStyle::Mill => {
-            let height = 3.0 + rng.next_f32();
-            let tower_height = 5.0 + rng.next_f32();
+            let height = 3.0 + rng.gen::<f32>();
+            let tower_height = 5.0 + rng.gen::<f32>();
 
             let (roof_brick_mesh, roof_wall_mesh) =
                 main_footprint.open_gable_roof_mesh(height, 0.3);
@@ -92,7 +92,7 @@ pub fn build_building<R: Rng>(
             }
         }
         BuildingStyle::Bakery => {
-            let height = 3.0 + rng.next_f32();
+            let height = 3.0 + rng.gen::<f32>();
             let entrance_height = height;
 
             let (entrance_roof_brick_mesh, entrance_roof_wall_mesh) =
@@ -117,9 +117,10 @@ pub fn build_building<R: Rng>(
                 building_position + length / 4.0 * building_orientation_orth,
                 building_position - length / 2.0 * building_orientation,
             ].into_iter()
-            .map(|v| Vertex {
-                position: [v.x, v.y, 3.0],
-            }).collect();
+                .map(|v| Vertex {
+                    position: [v.x, v.y, 3.0],
+                })
+                .collect();
 
             let indices = vec![0, 1, 2, 2, 3, 0];
 
@@ -238,8 +239,7 @@ impl Footprint {
             (self.back_left.coords
                 + self.back_right.coords
                 + self.front_left.coords
-                + self.front_right.coords)
-                / 4.0,
+                + self.front_right.coords) / 4.0,
         );
 
         Footprint {
@@ -256,14 +256,14 @@ pub fn generate_house_footprint<R: Rng>(lot: &Lot, rng: &mut R) -> (Footprint, F
     let building_orientation = lot.connection_points[0].1;
     let building_orientation_orth = building_orientation.orthogonal();
 
-    let footprint_width = 10.0 + rng.next_f32() * 7.0;
-    let footprint_depth = 7.0 + rng.next_f32() * 5.0;
+    let footprint_width = 10.0 + rng.gen::<f32>() * 7.0;
+    let footprint_depth = 7.0 + rng.gen::<f32>() * 5.0;
 
     let entrance_position = building_position
-        + building_orientation * (0.5 - 1.0 * rng.next_f32()) * footprint_width
-        - building_orientation_orth * (rng.next_f32() * 0.3 + 0.1) * footprint_depth;
-    let entrance_width = 5.0 + rng.next_f32() * 4.0;
-    let entrance_depth = 3.0 + rng.next_f32() * 3.0;
+        + building_orientation * (0.5 - 1.0 * rng.gen::<f32>()) * footprint_width
+        - building_orientation_orth * (rng.gen::<f32>() * 0.3 + 0.1) * footprint_depth;
+    let entrance_width = 5.0 + rng.gen::<f32>() * 4.0;
+    let entrance_depth = 3.0 + rng.gen::<f32>() * 3.0;
 
     (
         Footprint {

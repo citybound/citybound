@@ -13,7 +13,7 @@ const PATREON_NAMES: [(&str, &str); 37] = include!("patron_names.txt");
 
 pub fn family_name(id: FamilyID) -> &'static str {
     let mut rng = seed(id);
-    if rng.gen_weighted_bool(10) {
+    if rng.gen_bool(0.1) {
         rng.choose(&PATREON_NAMES).unwrap().1
     } else {
         rng.choose(&LAST_NAMES).unwrap()
@@ -22,7 +22,7 @@ pub fn family_name(id: FamilyID) -> &'static str {
 
 pub fn member_name(id: FamilyID, member: MemberIdx) -> String {
     let mut family_rng = seed(id);
-    let (first_name, last_name) = if family_rng.gen_weighted_bool(10) {
+    let (first_name, last_name) = if family_rng.gen_bool(0.1) {
         let entry = family_rng.choose(&PATREON_NAMES).unwrap();
         if member.0 == 0 {
             *entry

@@ -1,8 +1,9 @@
 use kay::{World, MachineID,   ActorSystem};
-use compact::{CVec, COption};
-use descartes::{P2,   AreaError};
+use compact::{CVec, CHashMap, COption};
+use descartes::{P2, AreaError};
 use super::{Plan, PlanHistory, PlanResult,  GestureID, ProposalID,
-PlanManager, PlanManagerID, Gesture, GestureIntent};
+PlanManager, PlanManagerID, Gesture, GestureIntent,
+KnownHistoryState, KnownProposalState, ProposalUpdate};
 use construction::{Action};
 use browser_ui::BrowserUIID;
 
@@ -19,10 +20,28 @@ pub struct PlanManagerUIState {
 }
 
 impl PlanManager {
-    pub fn get_all_plans(&mut self, ui: BrowserUIID, world: &mut World) {
-        ui.on_plans_update(self.master_plan.clone(), self.proposals.clone(), world);
-        //let (line_meshes, lane_meshes, switching_lane_meshes) = self.render_preview_new(world);
-        //ui.send_preview(line_meshes, lane_meshes, switching_lane_meshes, world);
+    pub fn get_all_plans(
+        &mut self,
+        ui: BrowserUIID,
+        known_master: &KnownHistoryState,
+        known_proposals: &CHashMap<ProposalID, KnownProposalState>,
+        world: &mut World,
+    ) {
+        let master_update = self.master_plan.update_for(known_master);
+        let proposal_updates = self
+            .proposals
+            .pairs()
+            .map(|(proposal_id, proposal)| {
+                (
+                    *proposal_id,
+                    known_proposals
+                        .get(*proposal_id)
+                        .map(|known_state| proposal.update_for(known_state))
+                        .unwrap_or_else(|| ProposalUpdate::ChangedCompletely(proposal.clone())),
+                )
+            })
+            .collect();
+        ui.on_plans_update(master_update, proposal_updates, world);
     }
 
     pub fn get_proposal_preview(

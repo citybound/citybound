@@ -1,5 +1,5 @@
-pub use rand::Rng;
-use rand::SeedableRng;
+pub use rand::{Rng, RngCore, thread_rng};
+pub use uuid::Uuid;
 use fnv::FnvHasher;
 use std::hash::{Hash, Hasher};
 
@@ -9,7 +9,7 @@ pub struct FnvRng {
     seed: u64,
 }
 
-impl Rng for FnvRng {
+impl RngCore for FnvRng {
     fn next_u64(&mut self) -> u64 {
         let current = self.seed;
         let mut hasher = FnvHasher::default();
@@ -21,20 +21,24 @@ impl Rng for FnvRng {
     fn next_u32(&mut self) -> u32 {
         self.next_u64() as u32
     }
-}
 
-impl SeedableRng<u64> for FnvRng {
-    fn from_seed(seed: u64) -> FnvRng {
-        FnvRng { seed }
+    fn fill_bytes(&mut self, _bytes: &mut [u8]) {
+        unimplemented!()
     }
 
-    fn reseed(&mut self, seed: u64) {
-        self.seed = seed;
+    fn try_fill_bytes(&mut self, _bytes: &mut [u8]) -> Result<(), ::rand::Error> {
+        unimplemented!()
     }
 }
 
 pub fn seed<S: Hash>(seed: S) -> FnvRng {
     let mut hasher = FnvHasher::default();
     seed.hash(&mut hasher);
-    FnvRng::from_seed(hasher.finish())
+    FnvRng {
+        seed: hasher.finish(),
+    }
+}
+
+pub fn uuid() -> Uuid {
+    Uuid::from_random_bytes(thread_rng().gen())
 }
