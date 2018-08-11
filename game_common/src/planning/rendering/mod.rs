@@ -1,5 +1,5 @@
 use descartes::{P2, CurvedPath};
-use monet::{Mesh};
+use michelangelo::{Mesh};
 use style::dimensions::CONTROL_POINT_HANDLE_RADIUS;
 
 pub fn static_meshes() -> Vec<(&'static str, Mesh)> {

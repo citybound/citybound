@@ -7,10 +7,10 @@ use std::collections::HashMap;
 #[derive(Compact, Clone)]
 pub struct BrowserUI {
     id: BrowserUIID,
-    car_instance_buffers: External<HashMap<RawID, Vec<::monet::Instance>>>,
+    car_instance_buffers: External<HashMap<RawID, Vec<::michelangelo::Instance>>>,
 }
 
-fn flatten_vertices(vertices: &[::monet::Vertex]) -> &[f32] {
+fn flatten_vertices(vertices: &[::michelangelo::Vertex]) -> &[f32] {
     let new_len = vertices.len() * 3;
     unsafe { ::std::slice::from_raw_parts(vertices.as_ptr() as *const f32, new_len) }
 }
@@ -20,13 +20,13 @@ fn flatten_points(points: &[::descartes::P3]) -> &[f32] {
     unsafe { ::std::slice::from_raw_parts(points.as_ptr() as *const f32, new_len) }
 }
 
-fn flatten_instances(instances: &[::monet::Instance]) -> &[f32] {
+fn flatten_instances(instances: &[::michelangelo::Instance]) -> &[f32] {
     let new_len = instances.len() * 8;
     unsafe { ::std::slice::from_raw_parts(instances.as_ptr() as *const f32, new_len) }
 }
 
 #[cfg(feature = "browser")]
-fn to_js_mesh(mesh: &::monet::Mesh) -> ::stdweb::Value {
+fn to_js_mesh(mesh: &::michelangelo::Mesh) -> ::stdweb::Value {
     let vertices: ::stdweb::web::TypedArray<f32> = flatten_vertices(&mesh.vertices).into();
     let indices: ::stdweb::web::TypedArray<u16> = (&*mesh.indices).into();
 
@@ -144,7 +144,7 @@ impl BrowserUI {
 SwitchLanePrototype, IntersectionPrototype};
             use ::transport::rendering::{lane_mesh, marker_mesh, switch_marker_gap_mesh};
             use ::land_use::zone_planning::{LotPrototype, LotOccupancy, Lot};
-            use ::monet::Mesh;
+            use ::michelangelo::Mesh;
 
             let mut zones_mesh = Mesh::empty();
             let mut lanes_to_construct_mesh = Mesh::empty();
@@ -363,7 +363,7 @@ SwitchLanePrototype, IntersectionPrototype};
     pub fn on_car_instances(
         &mut self,
         from_lane: RawID,
-        instances: &CVec<::monet::Instance>,
+        instances: &CVec<::michelangelo::Instance>,
         _: &mut World,
     ) {
         self.car_instance_buffers

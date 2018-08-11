@@ -126,7 +126,7 @@ dependencies = [
  "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay 0.2.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay_codegen 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "monet 0.1.0",
+ "michelangelo 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "open 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ordered-float 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.3.22 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -411,14 +411,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "monet"
+name = "michelangelo"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "compact 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "compact_macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "descartes 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "kay_codegen 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "lyon_tessellation 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1026,6 +1026,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum lyon_tessellation 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)" = "947874b047bda1177663fa21e62c3d1660f6a4d5feac7a74366982bc058c9f8f"
 "checksum matches 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "100aabe6b8ff4e4a7e32c1c13523379802df0772b82466207ac25b013f193376"
 "checksum matrixmultiply 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)" = "cac1a66eab356036af85ea093101a14223dc6e3f4c02a59b7d572e5b93270bf7"
+"checksum michelangelo 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "46df7f345697f79b5283ee74d4fcc4081416caa306674e1bc7c9534816466cfa"
 "checksum nalgebra 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)" = "4534bc88a178e411e634e1e44e7f2ad6e9bf062ea539f40e579bd49ef2fad056"
 "checksum native-tls 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "f74dbadc8b43df7864539cedb7bc91345e532fdd913cfdc23ad94f4d2d40fbc0"
 "checksum nodrop 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)" = "9a2228dca57108069a5262f2ed8bd2e82496d2e074a06d1ccc7ce1687b6ae0a2"

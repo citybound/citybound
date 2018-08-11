@@ -1,6 +1,6 @@
 use descartes::{N, P2, WithUniqueOrthogonal};
 use rand::Rng;
-use monet::{Vertex, Mesh};
+use michelangelo::{Vertex, Mesh};
 
 use super::{Lot, BuildingStyle};
 

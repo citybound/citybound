@@ -1,7 +1,7 @@
 use descartes::{LinePath, WithUniqueOrthogonal};
 use compact::CVec;
 use kay::{ActorSystem, World, Actor, TypedID};
-use monet::{Instance, Mesh};
+use michelangelo::{Instance, Mesh};
 use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
 
 use style::dimensions::{LANE_DISTANCE, LANE_WIDTH, LANE_MARKER_WIDTH, LANE_MARKER_DASH_GAP,

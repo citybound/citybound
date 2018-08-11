@@ -66,7 +66,7 @@ Recommended setup:
 * Start the browser packager with `npm run dev-browser`
   * Might take long the first time - installs and compile dependencies
   * It should show you which address to open in your browser
-  * If you encounter any weird exceptions in the browser, first try stopping the `dev-browser` script, deleting the `.cache` folder in `game_browser` and re-running `dev-browser` script
+  * If you encounter any weird exceptions in the browser, first try stopping the `dev-browser` script, deleting the `.cache` folder in `game_browser` and re-running `dev-browser` script`
 
 ## Guidelines
 

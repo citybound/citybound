@@ -18,7 +18,7 @@ pub extern crate compact;
 #[macro_use]
 extern crate compact_macros;
 pub extern crate kay;
-pub extern crate monet;
+pub extern crate michelangelo;
 pub extern crate descartes;
 
 #[macro_use]

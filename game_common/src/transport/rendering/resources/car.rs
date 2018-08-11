@@ -9,10 +9,10 @@
 //
 // -2.25-----------X----------2.25
 
-use monet::Vertex;
+use michelangelo::Vertex;
 
-pub fn create() -> ::monet::Mesh {
-    ::monet::Mesh::new(
+pub fn create() -> ::michelangelo::Mesh {
+    ::michelangelo::Mesh::new(
         vec![
             Vertex {
                 position: [-2.25, -0.9, 0.00],

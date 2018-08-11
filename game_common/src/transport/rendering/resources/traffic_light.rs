@@ -13,10 +13,10 @@
 //    0---------3      0.0
 // -0.6----X----0.6
 
-use monet::Vertex;
+use michelangelo::Vertex;
 
-pub fn create() -> ::monet::Mesh {
-    ::monet::Mesh::new(
+pub fn create() -> ::michelangelo::Mesh {
+    ::michelangelo::Mesh::new(
         vec![
             Vertex {
                 position: [-0.6, -0.6, 0.0],
@@ -83,8 +83,8 @@ pub fn create() -> ::monet::Mesh {
     )
 }
 
-pub fn create_light() -> ::monet::Mesh {
-    ::monet::Mesh::new(
+pub fn create_light() -> ::michelangelo::Mesh {
+    ::michelangelo::Mesh::new(
         vec![
             Vertex {
                 position: [-0.7, -0.4, 0.0],
@@ -103,8 +103,8 @@ pub fn create_light() -> ::monet::Mesh {
     )
 }
 
-pub fn create_light_left() -> ::monet::Mesh {
-    ::monet::Mesh::new(
+pub fn create_light_left() -> ::michelangelo::Mesh {
+    ::michelangelo::Mesh::new(
         vec![
             Vertex {
                 position: [-0.7, 0.4, 0.3],
@@ -120,8 +120,8 @@ pub fn create_light_left() -> ::monet::Mesh {
     )
 }
 
-pub fn create_light_right() -> ::monet::Mesh {
-    ::monet::Mesh::new(
+pub fn create_light_right() -> ::michelangelo::Mesh {
+    ::michelangelo::Mesh::new(
         vec![
             Vertex {
                 position: [-0.7, 0.4, 0.0],

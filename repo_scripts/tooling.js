@@ -29,7 +29,7 @@ if (activeToolchains && activeToolchains.includes(NIGHTLY_VERSION)) {
     correctToolchain = true;
 } else {
     console.log("Wrong version of rust set up ⚠️");
-    console.log(activeToolchains.split(/\n/g).map(s => " | " + s).join("\n"));
+    activeToolchains && console.log(activeToolchains.split(/\n/g).map(s => " | " + s).join("\n"));
     console.log("🔧 Overriding with correct nightly (only for this directory)...");
     const nightlySuffix = process.platform === "win32"
         ? "-x86_64-pc-windows-msvc"
