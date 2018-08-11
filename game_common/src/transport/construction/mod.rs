@@ -43,10 +43,8 @@ impl RoadPrototype {
                                     report_to,
                                     world,
                                 )
-                            })
-                            .collect::<Vec<_>>()
-                    })
-                    .collect::<Vec<_>>();
+                            }).collect::<Vec<_>>()
+                    }).collect::<Vec<_>>();
 
                 for id in &ids {
                     id.start_connecting_overlaps(
@@ -164,16 +162,18 @@ impl Lane {
         if other_start.rough_eq_by(self.construction.path.end(), LANE_CONNECTION_TOLERANCE) {
             connected = true;
 
-            let already_a_partner = self.connectivity.interactions.iter().any(|interaction| {
-                match *interaction {
-                    Interaction {
-                        partner_lane,
-                        kind: InteractionKind::Next { .. },
-                        ..
-                    } => partner_lane == other_id.into(),
-                    _ => false,
-                }
-            });
+            let already_a_partner =
+                self.connectivity
+                    .interactions
+                    .iter()
+                    .any(|interaction| match *interaction {
+                        Interaction {
+                            partner_lane,
+                            kind: InteractionKind::Next { .. },
+                            ..
+                        } => partner_lane == other_id.into(),
+                        _ => false,
+                    });
             if !already_a_partner {
                 self.connectivity.interactions.push(Interaction {
                     partner_lane: other_id.into(),
@@ -189,16 +189,18 @@ impl Lane {
         if other_end.rough_eq_by(self.construction.path.start(), LANE_CONNECTION_TOLERANCE) {
             connected = true;
 
-            let already_a_partner = self.connectivity.interactions.iter().any(|interaction| {
-                match *interaction {
-                    Interaction {
-                        partner_lane,
-                        kind: InteractionKind::Previous { .. },
-                        ..
-                    } => partner_lane == other_id.into(),
-                    _ => false,
-                }
-            });
+            let already_a_partner =
+                self.connectivity
+                    .interactions
+                    .iter()
+                    .any(|interaction| match *interaction {
+                        Interaction {
+                            partner_lane,
+                            kind: InteractionKind::Previous { .. },
+                            ..
+                        } => partner_lane == other_id.into(),
+                        _ => false,
+                    });
             if !already_a_partner {
                 self.connectivity.interactions.push(Interaction {
                     partner_lane: other_id.into(),
@@ -263,8 +265,7 @@ impl Lane {
                             intersection,
                             lane_band.outline_distance_to_path_distance(intersection.along_a),
                         )
-                    })
-                    .minmax_by_key(|&(_, distance)| OrderedFloat(distance))
+                    }).minmax_by_key(|&(_, distance)| OrderedFloat(distance))
                 {
                     let other_entry_distance =
                         other_band.outline_distance_to_path_distance(entry_intersection.along_b);
@@ -337,17 +338,19 @@ use transport::pathfinding::trip::{TripResult, TripFate};
 
 impl Unbuildable for Lane {
     fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World) {
-        let interaction_indices_to_remove = self.connectivity
+        // TODO: ugly: untyped RawID shenanigans
+        let interaction_indices_to_remove = self
+            .connectivity
             .interactions
             .iter()
             .enumerate()
-            // TODO: ugly: untyped RawID shenanigans
-            .filter_map(|(i, inter)| if inter.partner_lane.as_raw() == other_id.as_raw() {
-                Some(i)
-            } else {
-                None
-            })
-            .collect::<Vec<_>>();
+            .filter_map(|(i, inter)| {
+                if inter.partner_lane.as_raw() == other_id.as_raw() {
+                    Some(i)
+                } else {
+                    None
+                }
+            }).collect::<Vec<_>>();
 
         let self_as_rough_location = self.id_as();
         self.microtraffic.cars.retain(|car| {
@@ -555,8 +558,7 @@ impl SwitchLane {
                             distance_covered,
                             segment_end_on_other_distance - lane_start_on_other_distance,
                         )
-                    })
-                    .collect();
+                    }).collect();
 
                 let other_is_right = (lane_start_on_other - self.construction.path.start())
                     .dot(&self.construction.path.start_direction().orthogonal())

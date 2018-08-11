@@ -201,8 +201,7 @@ impl DistanceRequester for TripCostEstimator {
                             new_deal.opening_hours.earlier_by(estimated_travel_time);
                         // TODO: adjust resources to incorporate travel costs
                         new_deal
-                    })
-                    .collect(),
+                    }).collect(),
                 ..self.base_result
             }
         } else {

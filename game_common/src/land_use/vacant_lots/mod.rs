@@ -31,8 +31,7 @@ impl Lot {
                     .path()
                     .segments()
                     .map(|segment| segment.midpoint())
-            })
-            .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
 
         self.connection_points
             .iter()
@@ -61,8 +60,7 @@ impl Lot {
                 };
 
                 (point, direction, width, depth)
-            })
-            .collect()
+            }).collect()
     }
 
     pub fn split_for(
@@ -74,21 +72,22 @@ impl Lot {
         let needed_shape = ideal_lot_shape(building_style);
         let width_depth_per_connection_point = self.width_depth_per_connection_point();
 
-        let maybe_suitable_connection_point = width_depth_per_connection_point.iter().find(
-            |&&(_point, _direction, width, depth)| {
-                println!(
-                    "Trying to suggest lot for {:?}. Is: {:?} Needed: {:?}",
-                    building_style,
-                    (width, depth),
-                    needed_shape
-                );
+        let maybe_suitable_connection_point =
+            width_depth_per_connection_point
+                .iter()
+                .find(|&&(_point, _direction, width, depth)| {
+                    println!(
+                        "Trying to suggest lot for {:?}. Is: {:?} Needed: {:?}",
+                        building_style,
+                        (width, depth),
+                        needed_shape
+                    );
 
-                let width_ratio = width / needed_shape.0;
-                let depth_ratio = depth / needed_shape.1;
+                    let width_ratio = width / needed_shape.0;
+                    let depth_ratio = depth / needed_shape.1;
 
-                width_ratio > 0.5 && width_ratio < 2.0 && depth_ratio > 0.5 && depth_ratio < 2.0
-            },
-        );
+                    width_ratio > 0.5 && width_ratio < 2.0 && depth_ratio > 0.5 && depth_ratio < 2.0
+                });
 
         if let Some(&(point, direction, ..)) = maybe_suitable_connection_point {
             // keep only the connection point for the building that matches its shape
@@ -134,8 +133,7 @@ impl Lot {
                                 .into_iter()
                                 .filter(|&(other_point, _)| {
                                     point != other_point && right_split.contains(other_point)
-                                })
-                                .collect(),
+                                }).collect(),
                             area: right_split,
                             ..self.clone()
                         };
@@ -157,8 +155,7 @@ impl Lot {
                                 .into_iter()
                                 .filter(|&(other_point, _)| {
                                     point != other_point && left_split.contains(other_point)
-                                })
-                                .collect(),
+                                }).collect(),
                             area: left_split,
                             ..self.clone()
                         };

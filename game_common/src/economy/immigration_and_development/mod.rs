@@ -120,19 +120,21 @@ impl Sleeper for ImmigrationManager {
                     HouseholdTypeToSpawn::CowFarm
                 } else if dot < family_share + grocery_share + cow_farm_share + veg_farm_share {
                     HouseholdTypeToSpawn::VegetableFarm
-                } else if dot < family_share
-                    + grocery_share
-                    + cow_farm_share
-                    + veg_farm_share
-                    + grain_farm_share
+                } else if dot
+                    < family_share
+                        + grocery_share
+                        + cow_farm_share
+                        + veg_farm_share
+                        + grain_farm_share
                 {
                     HouseholdTypeToSpawn::GrainFarm
-                } else if dot < family_share
-                    + grocery_share
-                    + cow_farm_share
-                    + veg_farm_share
-                    + grain_farm_share
-                    + mill_share
+                } else if dot
+                    < family_share
+                        + grocery_share
+                        + cow_farm_share
+                        + veg_farm_share
+                        + grain_farm_share
+                        + mill_share
                 {
                     HouseholdTypeToSpawn::Mill
                 } else {

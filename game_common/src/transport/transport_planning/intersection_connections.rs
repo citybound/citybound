@@ -179,8 +179,7 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                                     || (role.inner_turn && connector.role.inner_turn)
                                     || (role.straight && connector.role.straight)
                                     || (role.outer_turn && connector.role.outer_turn)
-                            })
-                            .collect::<Vec<_>>();
+                            }).collect::<Vec<_>>();
                         let relevant_incoming_len = relevant_incoming_connectors.len();
 
                         let relevant_outgoing_connectors = outgoing_group
@@ -190,8 +189,7 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                                     || (role.inner_turn && connector.role.inner_turn)
                                     || (role.straight && connector.role.straight)
                                     || (role.outer_turn && connector.role.outer_turn)
-                            })
-                            .collect::<Vec<_>>();
+                            }).collect::<Vec<_>>();
                         let relevant_outgoing_len = relevant_outgoing_connectors.len();
 
                         let lanes = if relevant_incoming_len > 0 && relevant_outgoing_len > 0 {
@@ -210,8 +208,7 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                                     )?.to_line_path();
 
                                     Some(LanePrototype(path, CVec::new()))
-                                })
-                                .collect::<Vec<_>>()
+                                }).collect::<Vec<_>>()
                         } else {
                             vec![]
                         };
@@ -220,10 +217,8 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                             (role, *incoming_gesture_side_id, *outgoing_gesture_side_id),
                             lanes,
                         )
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
+                    }).collect::<Vec<_>>()
+            }).collect::<Vec<_>>();
 
         // find traffic light timings
         let mut phases = Vec::<(Vec<(GestureSideID, GestureSideID)>, usize)>::new();
@@ -234,8 +229,7 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
             .iter()
             .map(|&((_, incoming_id, outgoing_id), ref lanes)| {
                 ((incoming_id, outgoing_id), lanes.clone().into())
-            })
-            .collect();
+            }).collect();
 
         fn compatible(lanes_a: &[LanePrototype], lanes_b: &[LanePrototype]) -> bool {
             lanes_a.iter().cartesian_product(lanes_b).all(
@@ -359,8 +353,7 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                 .flat_map(|&(ref connections_in_phase, duration)| {
                     let in_phase = connections_in_phase.contains(&(incoming_id, outgoing_id));
                     vec![in_phase; duration]
-                })
-                .collect();
+                }).collect();
 
             for &mut LanePrototype(_, ref mut lane_timings) in lanes.iter_mut() {
                 *lane_timings = timings.clone()

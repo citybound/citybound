@@ -116,7 +116,7 @@ impl FrameCounter {
         let avg_elapsed_ms = self.elapsed_ms_collected.iter().sum::<f32>()
             / (self.elapsed_ms_collected.len() as f32);
 
-        println!("Could achieve {:.1} FPS", 1000.0 * 1.0 / avg_elapsed_ms).into()
+        println!("Could achieve {:.1} FPS", 1000.0 * 1.0 / avg_elapsed_ms)
     }
 
     pub fn sleep_if_faster_than(&self, fps: usize) {
@@ -125,5 +125,11 @@ impl FrameCounter {
         if let Some(pos_difference) = ideal_frame_duration.checked_sub(self.last_frame.elapsed()) {
             ::std::thread::sleep(pos_difference);
         }
+    }
+}
+
+impl Default for FrameCounter {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -219,12 +219,7 @@ impl Household for NeighboringTownTrade {
         &[
             //Entertainment,
             //Services,
-            Groceries,
-            Produce,
-            Grain,
-            Flour,
-            BakedGoods,
-            Meat,
+            Groceries, Produce, Grain, Flour, BakedGoods, Meat,
             DairyGoods,
             /* Wood, */
             /*Furniture,

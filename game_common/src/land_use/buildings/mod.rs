@@ -252,8 +252,7 @@ pub fn units_for_style(style: BuildingStyle) -> CVec<Unit> {
                 .chain(vec![
                     Unit(None, UnitType::Dwelling);
                     FAMILIES_PER_NEIGHBORING_TOWN
-                ])
-                .collect()
+                ]).collect()
         }
     }.into()
 }

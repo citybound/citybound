@@ -121,16 +121,16 @@ impl Household for Family {
 
     fn is_shared(resource: Resource) -> bool {
         match resource {
-            Awakeness | Satiety /*| Entertainment | Clothes*/ => false,
-            Money | Groceries /*| Furniture | Devices | Services*/ => true,
+            Awakeness | Satiety => false,
+            Money | Groceries => true,
             _ => unimplemented!(),
         }
     }
 
     fn supplier_shared(resource: Resource) -> bool {
         match resource {
-            Money /*| Entertainment | Clothes*/ => false,
-            Awakeness | Satiety | Groceries /*| Furniture | Devices | Services*/ => true,
+            Money => false,
+            Awakeness | Satiety | Groceries => true,
             _ => unimplemented!(),
         }
     }
@@ -141,11 +141,8 @@ impl Household for Family {
         let bihourly_importance = match resource {
             Awakeness => Some([7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 7, 7]),
             Satiety => Some([0, 0, 5, 5, 1, 5, 5, 1, 5, 5, 1, 1]),
-            //Entertainment => Some([0, 0, 0, 0, 0, 1, 1, 1, 2, 3, 3, 2]),
             Money => Some([0, 0, 3, 3, 5, 5, 5, 3, 3, 1, 1, 1]),
             Groceries => Some([0, 0, 4, 4, 1, 4, 4, 4, 4, 4, 0, 0]),
-            //Furniture | Clothes | Devices | Services => Some(
-            //[0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0]),
             _ => None,
         };
 
@@ -156,9 +153,7 @@ impl Household for Family {
 
     fn interesting_resources() -> &'static [Resource] {
         &[
-            Awakeness,
-            Satiety,
-            //Entertainment,
+            Awakeness, Satiety, //Entertainment,
             Money,
             Groceries,
             /* Furniture, */

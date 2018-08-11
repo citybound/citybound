@@ -45,40 +45,11 @@ pub fn create() -> ::michelangelo::Mesh {
         ],
         vec![
             // front side
-            0,
-            1,
-            2,
-            0,
-            2,
-            3,
-            // left side
-            4,
-            5,
-            1,
-            4,
-            1,
-            0,
-            // back side
-            7,
-            6,
-            5,
-            7,
-            5,
-            4,
-            // right side
-            3,
-            2,
-            6,
-            3,
-            6,
-            7,
-            // top
-            1,
-            5,
-            6,
-            1,
-            6,
-            2,
+            0, 1, 2, 0, 2, 3, // left side
+            4, 5, 1, 4, 1, 0, // back side
+            7, 6, 5, 7, 5, 4, // right side
+            3, 2, 6, 3, 6, 7, // top
+            1, 5, 6, 1, 6, 2,
         ],
     )
 }

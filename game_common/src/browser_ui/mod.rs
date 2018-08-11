@@ -1,4 +1,5 @@
 #![cfg_attr(feature = "server", allow(unused_variables, unused_imports))]
+#![cfg_attr(feature = "cargo-clippy", allow(unused_variables, unused_imports))]
 
 use kay::{World, ActorSystem, Actor, RawID, External};
 use compact::{CVec, CHashMap};
@@ -180,11 +181,8 @@ SwitchLanePrototype, IntersectionPrototype};
                                         None
                                     }
                                 }
-                                _ => None,
-                            })
-                            .next()
-                    })
-                    .next();
+                            }).next()
+                    }).next();
 
                 if let Some((is_construct, is_morph)) = corresponding_action_exists {
                     match prototype.kind {
@@ -337,24 +335,22 @@ SwitchLanePrototype, IntersectionPrototype};
                         }}
                     }));
                 }
+            } else if on_intersection {
+                js!{
+                    window.cbclient.setState(oldState => update(oldState, {
+                        transport: {rendering: {
+                            laneAsphalt: {"$unset": [@{format!("{:?}", id)}]}
+                        }}
+                    }));
+                }
             } else {
-                if on_intersection {
-                    js!{
-                        window.cbclient.setState(oldState => update(oldState, {
-                            transport: {rendering: {
-                                laneAsphalt: {"$unset": [@{format!("{:?}", id)}]}
-                            }}
-                        }));
-                    }
-                } else {
-                    js!{
-                        window.cbclient.setState(oldState => update(oldState, {
-                            transport: {rendering: {
-                                laneAsphalt: {"$unset": [@{format!("{:?}", id)}]},
-                                laneMarker: {"$unset": [@{format!("{:?}", id)}]}
-                            }}
-                        }));
-                    }
+                js!{
+                    window.cbclient.setState(oldState => update(oldState, {
+                        transport: {rendering: {
+                            laneAsphalt: {"$unset": [@{format!("{:?}", id)}]},
+                            laneMarker: {"$unset": [@{format!("{:?}", id)}]}
+                        }}
+                    }));
                 }
             }
         }

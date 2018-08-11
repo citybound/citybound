@@ -68,8 +68,7 @@ pub fn switch_marker_gap_mesh(path: &LinePath) -> Mesh {
         .into_iter()
         .filter_map(|maybe_dash| {
             maybe_dash.map(|dash| Mesh::from_path_as_band(&dash, LANE_MARKER_WIDTH * 2.0, 0.0))
-        })
-        .sum()
+        }).sum()
 }
 
 use browser_ui::BrowserUIID;

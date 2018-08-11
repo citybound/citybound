@@ -128,8 +128,8 @@ impl TimeOfDay {
         TimeOfDay {
             minutes_of_day: ((((self.minutes_of_day as isize - delta.as_minutes() as isize)
                 % MINUTES_PER_DAY as isize)
-                + MINUTES_PER_DAY as isize) as usize % MINUTES_PER_DAY)
-                as u16,
+                + MINUTES_PER_DAY as isize) as usize
+                % MINUTES_PER_DAY) as u16,
         }
     }
 
@@ -144,7 +144,8 @@ impl TimeOfDay {
 impl From<Instant> for TimeOfDay {
     fn from(instant: Instant) -> TimeOfDay {
         TimeOfDay {
-            minutes_of_day: ((BEGINNING_TIME_OF_DAY * 60 + (instant.ticks() / TICKS_PER_SIM_MINUTE))
+            minutes_of_day: ((BEGINNING_TIME_OF_DAY * 60
+                + (instant.ticks() / TICKS_PER_SIM_MINUTE))
                 % MINUTES_PER_DAY) as u16,
         }
     }

@@ -39,8 +39,14 @@ install:
 
 script:
   - cargo build --verbose
-  - cargo fmt --all -- --check
-  - cargo clippy --all --verbose
+  - echo 'CHECKING FORMATTING'
+  - cargo fmt -- ./game_common/src/lib.rs ./game_server/main.rs ./game_browser/src/lib.rs --check
+  - echo 'CHECKING BEST PRACTISES (game_common)'
+  - cargo clippy
+  - echo 'CHECKING BEST PRACTISES (game_browser) -- IGNORE js_export RELATED ERRORS'
+  - cd game_browser
+  - (cargo clippy || true)
+  - cd ..
 
 after_script: set +e
 

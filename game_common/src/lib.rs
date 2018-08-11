@@ -1,5 +1,6 @@
 #![feature(custom_derive, iter_rfold)]
 #![allow(dead_code)]
+#![cfg_attr(feature = "cargo-clippy", allow(trivially_copy_pass_by_ref))]
 #![recursion_limit = "128"]
 // Enable this for memory tracking with Instruments/MacOS
 // and for much better stacktraces for memory issues

@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "cargo-clippy", allow(new_without_default_derive))]
+#![cfg_attr(feature = "cargo-clippy", allow(new_without_default))]
 use kay::{World, MachineID, ActorSystem, Actor};
 use compact::{CVec, CHashMap};
 use descartes::{P2, AreaError};
@@ -366,15 +368,13 @@ impl PlanManager {
             .iter()
             .rfold(None, |found, step| {
                 found.or_else(|| step.gestures.get(gesture_id))
-            })
-            .into_iter()
+            }).into_iter()
             .chain(
                 self.master_plan
                     .gestures
                     .get(gesture_id)
                     .map(|VersionedGesture(ref g, _)| g),
-            )
-            .next()
+            ).next()
             .expect("Expected gesture (that point should be added to) to exist!")
     }
 

@@ -12,7 +12,7 @@ pub fn plan_grid(proposal_id: Serde<::planning::ProposalID>, n: usize, spacing: 
 
     use ::transport::transport_planning::RoadIntent;
     use ::planning::{GestureID, GestureIntent};
-    use ::descartes::{N, P2};
+    use ::descartes::P2;
 
     for x in 0..n {
         let id = GestureID::new();
