@@ -1,5 +1,5 @@
 #![feature(proc_macro)]
-#![feature(custom_attribute)]
+#![feature(use_extern_macros)]
 
 #[macro_use]
 extern crate stdweb;

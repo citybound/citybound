@@ -52,6 +52,9 @@ if (activeToolchains && activeToolchains.includes(NIGHTLY_VERSION)) {
     }
 }
 
+!quiet && console.log("🔧 Ensuring that generic nightly is installed (for browser)...");
+spawnSync("rustup", ["install", "nightly"], { stdio: quiet ? 'ignore' : 'inherit' });
+
 !quiet && console.log("🔧 Ensuring linting tools are installed...");
 spawnSync("rustup", ["component", "add", "rustfmt-preview", "--toolchain", NIGHTLY_VERSION],
     { stdio: quiet ? 'ignore' : 'inherit' }
