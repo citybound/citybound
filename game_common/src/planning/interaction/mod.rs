@@ -1,10 +1,11 @@
 use kay::{World, MachineID,   ActorSystem};
-use compact::{CVec, CHashMap, COption};
+use compact::{CHashMap, COption};
 use descartes::{P2, AreaError};
 use super::{Plan, PlanHistory, PlanResult,  GestureID, ProposalID,
 PlanManager, PlanManagerID, Gesture, GestureIntent,
-KnownHistoryState, KnownProposalState, ProposalUpdate};
-use construction::{Action};
+KnownHistoryState, KnownProposalState, ProposalUpdate,
+KnownPlanResultState, KnownActionGroupsState,
+ActionGroups};
 use browser_ui::BrowserUIID;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -16,7 +17,7 @@ pub struct PlanManagerUIState {
     gesture_ongoing: bool,
     current_preview: COption<PlanHistory>,
     current_result_preview: COption<PlanResult>,
-    current_action_preview: COption<CVec<CVec<Action>>>,
+    current_action_preview: COption<ActionGroups>,
 }
 
 impl PlanManager {
@@ -39,14 +40,17 @@ impl PlanManager {
                         .map(|known_state| proposal.update_for(known_state))
                         .unwrap_or_else(|| ProposalUpdate::ChangedCompletely(proposal.clone())),
                 )
-            }).collect();
+            })
+            .collect();
         ui.on_plans_update(master_update, proposal_updates, world);
     }
 
-    pub fn get_proposal_preview(
+    pub fn get_proposal_preview_update(
         &mut self,
         ui: BrowserUIID,
         proposal_id: ProposalID,
+        known_result: &KnownPlanResultState,
+        known_actions: &KnownActionGroupsState,
         world: &mut World,
     ) {
         // TODO: this is a super ugly hack until we get rid of the native UI
@@ -64,7 +68,12 @@ impl PlanManager {
             self.try_ensure_preview(world.local_machine_id(), proposal_id);
 
         if let (Some(result), Some(actions)) = (maybe_result, maybe_actions) {
-            ui.on_proposal_preview(proposal_id, result.clone(), actions.clone(), world);
+            ui.on_proposal_preview_update(
+                proposal_id,
+                result.update_for(known_result),
+                actions.update_for(known_actions),
+                world,
+            );
         }
     }
 }
@@ -100,11 +109,7 @@ impl PlanManager {
         &self,
         machine_id: MachineID,
         proposal_id: ProposalID,
-    ) -> (
-        &PlanHistory,
-        Option<&PlanResult>,
-        &Option<CVec<CVec<Action>>>,
-    ) {
+    ) -> (&PlanHistory, Option<&PlanResult>, &Option<ActionGroups>) {
         let ui_state = self
             .ui_state
             .get(machine_id)

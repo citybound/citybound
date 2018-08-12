@@ -16,7 +16,7 @@ serde = "1.0"
 serde_derive = "1.0"
 backtrace = "0.3"
 uuid = { version = "0.6", features = ["v4", "serde"] }
-compact = { version = "0.2.5", features = ["serde-serialization"] }
+compact = { version = "0.2.7", features = ["serde-serialization"] }
 compact_macros = "0.1.0"
 kay = {version = "0.2.15", default-features = false, features = ["serde-serialization"] }
 stdweb = {version = "0.4.7", optional = true}

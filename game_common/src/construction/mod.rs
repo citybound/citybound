@@ -1,6 +1,6 @@
 use kay::{World, Fate, ActorSystem};
 use compact::{CVec, CHashMap};
-use planning::{PrototypeID, Prototype, PrototypeKind};
+use planning::{PrototypeID, Prototype, PrototypeKind, Action, ActionGroups};
 use simulation::{Simulatable, SimulatableID, Instant};
 
 pub trait Constructable {
@@ -34,14 +34,7 @@ pub struct Construction {
     id: ConstructionID,
     constructed: CHashMap<PrototypeID, CVec<ConstructableID>>,
     pending_constructables: CVec<ConstructableID>,
-    queued_actions: CVec<CVec<Action>>,
-}
-
-#[derive(Compact, Clone, Debug, Serialize, Deserialize)]
-pub enum Action {
-    Construct(PrototypeID, Prototype),
-    Morph(PrototypeID, PrototypeID, Prototype),
-    Destruct(PrototypeID),
+    queued_action_groups: ActionGroups,
 }
 
 impl Construction {
@@ -50,7 +43,7 @@ impl Construction {
             id,
             constructed: CHashMap::new(),
             pending_constructables: CVec::new(),
-            queued_actions: CVec::new(),
+            queued_action_groups: ActionGroups(CVec::new()),
         }
     }
 
@@ -96,18 +89,20 @@ impl Construction {
             .extend(new_pending_constructables);
     }
 
-    pub fn implement(&mut self, actions_to_implement: &CVec<CVec<Action>>, _world: &mut World) {
-        self.queued_actions.extend(actions_to_implement.clone());
+    pub fn implement(&mut self, actions_to_implement: &ActionGroups, _world: &mut World) {
+        self.queued_action_groups
+            .0
+            .extend(actions_to_implement.0.clone());
     }
 }
 
 impl Simulatable for Construction {
     fn tick(&mut self, _dt: f32, _current_instant: Instant, world: &mut World) {
         if self.pending_constructables.is_empty() {
-            if !self.queued_actions.is_empty() {
+            if !self.queued_action_groups.0.is_empty() {
                 println!("Starting construction group:");
-                let next_action_group = self.queued_actions.remove(0);
-                for action in next_action_group {
+                let next_action_group = self.queued_action_groups.0.remove(0);
+                for action in next_action_group.0 {
                     self.start_action(action, world);
                 }
                 println!("\nFinished construction group:");
@@ -116,7 +111,7 @@ impl Simulatable for Construction {
             println!(
                 "Construction pending: {} - queued groups: {}",
                 self.pending_constructables.len(),
-                self.queued_actions.len()
+                self.queued_action_groups.0.len()
             );
         }
     }

@@ -9,9 +9,12 @@ use std::collections::HashMap;
 pub struct BrowserUI {
     id: BrowserUIID,
     car_instance_buffers: External<HashMap<RawID, Vec<::michelangelo::Instance>>>,
+    // TODO: replace these with only known states and store them in JS only
     master_plan: ::planning::PlanHistory,
-    // TODO: replace this with only known states
     proposals: External<HashMap<::planning::ProposalID, ::planning::Proposal>>,
+    result_preview: External<::planning::PlanResult>,
+    actions_preview: External<::planning::ActionGroups>,
+    awaiting_preview_update: bool,
 }
 
 fn flatten_vertices(vertices: &[::michelangelo::Vertex]) -> &[f32] {
@@ -67,6 +70,9 @@ impl BrowserUI {
             car_instance_buffers: External::new(HashMap::new()),
             master_plan: ::planning::PlanHistory::new(),
             proposals: External::new(HashMap::new()),
+            result_preview: External::new(::planning::PlanResult::new()),
+            actions_preview: External::new(::planning::ActionGroups::new()),
+            awaiting_preview_update: false,
         }
     }
 
@@ -91,11 +97,16 @@ impl BrowserUI {
                     window.cbclient.state.planning.currentProposal);
             }.try_into();
             if let Ok(Serde(current_proposal_id)) = maybe_current_proposal_id {
-                ::planning::PlanManager::global_first(world).get_proposal_preview(
-                    self.id,
-                    current_proposal_id,
-                    world,
-                )
+                if !self.awaiting_preview_update {
+                    ::planning::PlanManager::global_first(world).get_proposal_preview_update(
+                        self.id,
+                        current_proposal_id,
+                        self.result_preview.as_known_state(),
+                        self.actions_preview.as_known_state(),
+                        world,
+                    );
+                    self.awaiting_preview_update = true;
+                }
             }
 
             ::transport::lane::Lane::global_broadcast(world).get_car_instances(self.id, world);
@@ -177,24 +188,25 @@ impl BrowserUI {
         }
     }
 
-    pub fn on_proposal_preview(
+    pub fn on_proposal_preview_update(
         &mut self,
-        _proposal: ::planning::ProposalID,
-        result: &::planning::PlanResult,
-        actions: &CVec<CVec<::construction::Action>>,
+        _proposal_id: ::planning::ProposalID,
+        result_update: &::planning::PlanResultUpdate,
+        actions_update: &::planning::ActionGroupsUpdate,
         _world: &mut World,
     ) {
         #[cfg(feature = "browser")]
         {
-            console!(log, "on proposal preview");
-
-            use ::construction::Action;
-            use ::planning::{PrototypeKind};
+            use ::planning::{PrototypeKind, Action};
             use ::transport::transport_planning::{RoadPrototype, LanePrototype,
 SwitchLanePrototype, IntersectionPrototype};
             use ::transport::rendering::{lane_mesh, marker_mesh, switch_marker_gap_mesh};
             use ::land_use::zone_planning::{LotPrototype, LotOccupancy};
             use ::michelangelo::Mesh;
+
+            self.result_preview.apply_update(result_update);
+            self.actions_preview.apply_update(actions_update);
+            self.awaiting_preview_update = false;
 
             let mut zones_mesh = Mesh::empty();
             let mut lanes_to_construct_mesh = Mesh::empty();
@@ -202,11 +214,14 @@ SwitchLanePrototype, IntersectionPrototype};
             let mut switch_lanes_to_construct_marker_gap_mesh = Mesh::empty();
             let mut lanes_to_destruct_mesh = Mesh::empty();
 
-            for (prototype_id, prototype) in result.prototypes.pairs() {
-                let corresponding_action_exists = actions
+            for (prototype_id, prototype) in self.result_preview.prototypes.pairs() {
+                let corresponding_action_exists = self
+                    .actions_preview
+                    .0
                     .iter()
                     .filter_map(|action_group| {
                         action_group
+                            .0
                             .iter()
                             .filter_map(|action| match *action {
                                 Action::Construct(constructed_prototype_id, _) => {
@@ -230,8 +245,10 @@ SwitchLanePrototype, IntersectionPrototype};
                                         None
                                     }
                                 }
-                            }).next()
-                    }).next();
+                            })
+                            .next()
+                    })
+                    .next();
 
                 if let Some((is_construct, is_morph)) = corresponding_action_exists {
                     match prototype.kind {
