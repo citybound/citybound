@@ -102,7 +102,6 @@ impl BrowserUI {
                         self.id,
                         current_proposal_id,
                         self.result_preview.as_known_state(),
-                        self.actions_preview.as_known_state(),
                         world,
                     );
                     self.awaiting_preview_update = true;
@@ -192,7 +191,7 @@ impl BrowserUI {
         &mut self,
         _proposal_id: ::planning::ProposalID,
         result_update: &::planning::PlanResultUpdate,
-        actions_update: &::planning::ActionGroupsUpdate,
+        actions: &::planning::ActionGroups,
         _world: &mut World,
     ) {
         #[cfg(feature = "browser")]
@@ -205,7 +204,7 @@ SwitchLanePrototype, IntersectionPrototype};
             use ::michelangelo::Mesh;
 
             self.result_preview.apply_update(result_update);
-            self.actions_preview.apply_update(actions_update);
+            *self.actions_preview = actions.clone();
             self.awaiting_preview_update = false;
 
             let mut zones_mesh = Mesh::empty();
@@ -224,14 +223,14 @@ SwitchLanePrototype, IntersectionPrototype};
                             .0
                             .iter()
                             .filter_map(|action| match *action {
-                                Action::Construct(constructed_prototype_id, _) => {
+                                Action::Construct(constructed_prototype_id) => {
                                     if constructed_prototype_id == *prototype_id {
                                         Some((true, false))
                                     } else {
                                         None
                                     }
                                 }
-                                Action::Morph(_, new_prototype_id, _) => {
+                                Action::Morph(_, new_prototype_id) => {
                                     if new_prototype_id == *prototype_id {
                                         Some((true, true))
                                     } else {

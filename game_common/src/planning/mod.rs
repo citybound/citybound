@@ -365,10 +365,11 @@ impl PlanResult {
         }
     }
 
-    pub fn actions_to(&self, other: &PlanResult) -> ActionGroups {
+    pub fn actions_to(&self, other: &PlanResult) -> (ActionGroups, CVec<Prototype>) {
         let mut unmatched_existing = self.prototypes.clone();
         let mut to_be_morphed = CVec::new();
         let mut to_be_constructed = CVec::new();
+        let mut new_prototypes = CVec::new();
 
         for (new_prototype_id, new_prototype) in other.prototypes.pairs() {
             if unmatched_existing.contains_key(*new_prototype_id) {
@@ -381,15 +382,11 @@ impl PlanResult {
                     .map(|(id, _)| *id);
                 if let Some(morphable_id) = maybe_morphable_id {
                     unmatched_existing.remove(morphable_id);
-                    to_be_morphed.push(Action::Morph(
-                        morphable_id,
-                        *new_prototype_id,
-                        new_prototype.clone(),
-                    ));
+                    to_be_morphed.push(Action::Morph(morphable_id, *new_prototype_id));
                 } else {
-                    to_be_constructed
-                        .push(Action::Construct(*new_prototype_id, new_prototype.clone()))
+                    to_be_constructed.push(Action::Construct(*new_prototype_id))
                 }
+                new_prototypes.push(new_prototype.clone());
             }
         }
 
@@ -398,12 +395,15 @@ impl PlanResult {
             .map(|unmatched_id| Action::Destruct(*unmatched_id))
             .collect();
 
-        ActionGroups(
-            vec![
-                IndependentActions(to_be_destructed),
-                IndependentActions(to_be_morphed),
-                IndependentActions(to_be_constructed),
-            ].into(),
+        (
+            ActionGroups(
+                vec![
+                    IndependentActions(to_be_destructed),
+                    IndependentActions(to_be_morphed),
+                    IndependentActions(to_be_constructed),
+                ].into(),
+            ),
+            new_prototypes,
         )
     }
 
@@ -501,10 +501,10 @@ pub struct PlanResultUpdate {
     new_prototypes: CVec<Prototype>,
 }
 
-#[derive(Compact, Clone, Debug, Serialize, Deserialize)]
+#[derive(Compact, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Action {
-    Construct(PrototypeID, Prototype),
-    Morph(PrototypeID, PrototypeID, Prototype),
+    Construct(PrototypeID),
+    Morph(PrototypeID, PrototypeID),
     Destruct(PrototypeID),
 }
 
@@ -516,15 +516,8 @@ impl IndependentActions {
         IndependentActions(CVec::new())
     }
 
-    pub fn as_known_state(&self) -> CVec<ActionKnownState> {
-        self.0
-            .iter()
-            .map(|action| match *action {
-                Action::Construct(id, _) => ActionKnownState::Construct(id),
-                Action::Morph(id_a, id_b, _) => ActionKnownState::Morph(id_a, id_b),
-                Action::Destruct(id) => ActionKnownState::Destruct(id),
-            })
-            .collect()
+    pub fn as_known_state(&self) -> Self {
+        self.clone()
     }
 }
 
@@ -535,125 +528,7 @@ impl ActionGroups {
     pub fn new() -> ActionGroups {
         ActionGroups(CVec::new())
     }
-
-    pub fn as_known_state(&self) -> KnownActionGroupsState {
-        KnownActionGroupsState(
-            self.0
-                .iter()
-                .map(|independent_actions| independent_actions.as_known_state())
-                .collect(),
-        )
-    }
-
-    pub fn update_for(&self, known_state: &KnownActionGroupsState) -> ActionGroupsUpdate {
-        let mut self_iter = self.0.iter();
-        let mut known_iter = known_state.0.iter();
-
-        let mut group_updates = CVec::new();
-
-        loop {
-            let group_update = match (self_iter.next(), known_iter.next()) {
-                (Some(self_group), Some(known_group)) => {
-                    let self_as_known = self_group.as_known_state();
-                    IndependentActionsUpdate {
-                        actions_to_drop: known_group
-                            .iter()
-                            .filter_map(|known_action| {
-                                if self_as_known.contains(known_action) {
-                                    None
-                                } else {
-                                    Some(known_action.clone())
-                                }
-                            })
-                            .collect(),
-                        actions_to_add: self_group
-                            .0
-                            .iter()
-                            .zip(self_as_known)
-                            .filter_map(|(self_action, self_known_action)| {
-                                if known_group.contains(&self_known_action) {
-                                    None
-                                } else {
-                                    Some(self_action.clone())
-                                }
-                            })
-                            .collect(),
-                    }
-                }
-                (Some(self_group), None) => IndependentActionsUpdate {
-                    actions_to_drop: CVec::new(),
-                    actions_to_add: self_group.0.clone(),
-                },
-                (None, Some(known_group)) => IndependentActionsUpdate {
-                    actions_to_drop: known_group.clone(),
-                    actions_to_add: CVec::new(),
-                },
-                (None, None) => {
-                    break;
-                }
-            };
-
-            group_updates.push(group_update);
-        }
-
-        ActionGroupsUpdate(group_updates)
-    }
-
-    pub fn apply_update(&mut self, update: &ActionGroupsUpdate) {
-        while self.0.len() < update.0.len() {
-            self.0.push(IndependentActions::new())
-        }
-
-        for (i, group_update) in update.0.iter().enumerate() {
-            let self_group = &mut self.0[i];
-
-            for action_to_drop in &group_update.actions_to_drop {
-                let index = self_group
-                    .0
-                    .iter()
-                    .rposition(|action| action_to_drop.represents(action))
-                    .expect("Should have action to be dropped");
-                self_group.0.swap_remove(index);
-            }
-
-            self_group.0.extend(group_update.actions_to_add.clone())
-        }
-
-        self.0.retain(|group| !group.0.is_empty());
-    }
 }
-
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum ActionKnownState {
-    Construct(PrototypeID),
-    Morph(PrototypeID, PrototypeID),
-    Destruct(PrototypeID),
-}
-
-impl ActionKnownState {
-    pub fn represents(&self, action: &Action) -> bool {
-        match (action, *self) {
-            (&Action::Construct(id_1, _), ActionKnownState::Construct(id_2)) => id_1 == id_2,
-            (&Action::Destruct(id_1), ActionKnownState::Destruct(id_2)) => id_1 == id_2,
-            (&Action::Morph(id_1_a, id_1_b, _), ActionKnownState::Morph(id_2_a, id_2_b)) => {
-                id_1_a == id_2_a && id_1_b == id_2_b
-            }
-            _ => false,
-        }
-    }
-}
-
-#[derive(Compact, Clone, Debug)]
-pub struct KnownActionGroupsState(CVec<CVec<ActionKnownState>>);
-
-#[derive(Compact, Clone, Debug)]
-pub struct IndependentActionsUpdate {
-    actions_to_drop: CVec<ActionKnownState>,
-    actions_to_add: CVec<Action>,
-}
-
-#[derive(Compact, Clone, Debug)]
-pub struct ActionGroupsUpdate(CVec<IndependentActionsUpdate>);
 
 impl PlanHistory {
     pub fn calculate_result(&self) -> Result<PlanResult, AreaError> {
@@ -748,8 +623,8 @@ impl PlanManager {
 
         match self.master_plan.calculate_result() {
             Ok(result) => {
-                let actions = self.master_result.actions_to(&result);
-                Construction::global_first(world).implement(actions, world);
+                let (actions, new_prototypes) = self.master_result.actions_to(&result);
+                Construction::global_first(world).implement(actions, new_prototypes, world);
                 self.implemented_proposals.insert(proposal_id, proposal);
                 self.master_result = result;
 

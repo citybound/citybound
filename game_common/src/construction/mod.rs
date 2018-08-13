@@ -35,6 +35,7 @@ pub struct Construction {
     constructed: CHashMap<PrototypeID, CVec<ConstructableID>>,
     pending_constructables: CVec<ConstructableID>,
     queued_action_groups: ActionGroups,
+    new_prototypes: CHashMap<PrototypeID, Prototype>,
 }
 
 impl Construction {
@@ -44,6 +45,7 @@ impl Construction {
             constructed: CHashMap::new(),
             pending_constructables: CVec::new(),
             queued_action_groups: ActionGroups(CVec::new()),
+            new_prototypes: CHashMap::new(),
         }
     }
 
@@ -54,18 +56,26 @@ impl Construction {
 
     fn start_action(&mut self, action: Action, world: &mut World) {
         let new_pending_constructables = match action {
-            Action::Construct(prototype_id, prototype) => {
+            Action::Construct(prototype_id) => {
                 print!("C ");
-                let ids = prototype.construct(self.id, world);
+                let new_prototype = self
+                    .new_prototypes
+                    .remove(prototype_id)
+                    .expect("Should have prototype to be constructed");
+                let ids = new_prototype.construct(self.id, world);
                 self.constructed.insert(prototype_id, ids.clone());
                 ids
             }
-            Action::Morph(old_protoype_id, new_prototype_id, new_prototype) => {
+            Action::Morph(old_protoype_id, new_prototype_id) => {
                 print!("M ");
                 let ids = self
                     .constructed
                     .remove(old_protoype_id)
                     .expect("Tried to morph non-constructed prototype");
+                let new_prototype = self
+                    .new_prototypes
+                    .remove(new_prototype_id)
+                    .expect("Should have prototype to be morphed to");
                 for id in &ids {
                     id.morph(new_prototype.clone(), self.id, world);
                 }
@@ -89,10 +99,19 @@ impl Construction {
             .extend(new_pending_constructables);
     }
 
-    pub fn implement(&mut self, actions_to_implement: &ActionGroups, _world: &mut World) {
+    pub fn implement(
+        &mut self,
+        actions_to_implement: &ActionGroups,
+        new_prototypes: &CVec<Prototype>,
+        _world: &mut World,
+    ) {
         self.queued_action_groups
             .0
             .extend(actions_to_implement.0.clone());
+        for new_prototype in new_prototypes {
+            self.new_prototypes
+                .insert(new_prototype.id, new_prototype.clone());
+        }
     }
 }
 

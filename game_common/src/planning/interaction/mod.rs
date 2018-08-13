@@ -4,7 +4,7 @@ use descartes::{P2, AreaError};
 use super::{Plan, PlanHistory, PlanResult,  GestureID, ProposalID,
 PlanManager, PlanManagerID, Gesture, GestureIntent,
 KnownHistoryState, KnownProposalState, ProposalUpdate,
-KnownPlanResultState, KnownActionGroupsState,
+KnownPlanResultState,
 ActionGroups};
 use browser_ui::BrowserUIID;
 
@@ -50,7 +50,6 @@ impl PlanManager {
         ui: BrowserUIID,
         proposal_id: ProposalID,
         known_result: &KnownPlanResultState,
-        known_actions: &KnownActionGroupsState,
         world: &mut World,
     ) {
         // TODO: this is a super ugly hack until we get rid of the native UI
@@ -71,7 +70,7 @@ impl PlanManager {
             ui.on_proposal_preview_update(
                 proposal_id,
                 result.update_for(known_result),
-                actions.update_for(known_actions),
+                actions.clone(),
                 world,
             );
         }
@@ -132,7 +131,7 @@ impl PlanManager {
 
                 match preview_plan.calculate_result() {
                     Ok(preview_plan_result) => {
-                        let actions = self.master_result.actions_to(&preview_plan_result);
+                        let (actions, _) = self.master_result.actions_to(&preview_plan_result);
                         ui_state_mut.current_result_preview = COption(Some(preview_plan_result));
                         ui_state_mut.current_action_preview = COption(Some(actions));
                     }
