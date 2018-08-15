@@ -10,7 +10,12 @@ const EL = React.createElement;
 export const initialState = {
     rendering: {
         staticMeshes: {},
-        currentPreview: {}
+        currentPreview: {
+            lanesToConstructGroups: new Map(),
+            lanesToConstructMarkerGroups: new Map(),
+            lanesToConstructMarkerGapsGroups: new Map(),
+            zonesGroups: new Map(),
+        }
     },
     master: {
         gestures: {}
@@ -221,41 +226,39 @@ export function render(state, setState) {
         }
     }
 
+    const { lanesToConstructGroups,
+        lanesToConstructMarkerGroups,
+        lanesToConstructMarkerGapsGroups,
+        zonesGroups } = state.planning.rendering.currentPreview;
+
     const layers = [
         {
             decal: true,
-            batches: [{
-                mesh: state.planning.rendering.currentPreview.lanesToDestruct,
-                instances: destructedAsphaltInstance
-            }]
-        },
-        {
-            decal: true,
-            batches: [{
-                mesh: state.planning.rendering.currentPreview.lanesToConstruct,
+            batches: [...lanesToConstructGroups.values()].map(groupMesh => ({
+                mesh: groupMesh,
                 instances: plannedAsphaltInstance
-            }]
+            }))
         },
         {
             decal: true,
-            batches: [{
-                mesh: state.planning.rendering.currentPreview.lanesToConstructMarker,
+            batches: [...lanesToConstructMarkerGroups.values()].map(groupMesh => ({
+                mesh: groupMesh,
                 instances: plannedRoadMarkerInstance
-            }]
+            }))
         },
         {
             decal: true,
-            batches: [{
-                mesh: state.planning.rendering.currentPreview.switchLanesToConstructMarkerGap,
+            batches: [...lanesToConstructMarkerGapsGroups.values()].map(groupMesh => ({
+                mesh: groupMesh,
                 instances: plannedAsphaltInstance
-            }]
+            }))
         },
         {
             decal: true,
-            batches: [{
-                mesh: state.planning.rendering.currentPreview.zones,
+            batches: [...zonesGroups.values()].map(groupMesh => ({
+                mesh: groupMesh,
                 instances: residentialInstance
-            }]
+            }))
         },
         {
             decal: true,

@@ -21,7 +21,7 @@ compact_macros = "0.1.0"
 kay = {version = "0.2.15", default-features = false, features = ["serde-serialization"] }
 stdweb = {version = "0.4.7", optional = true}
 descartes = {version = "0.1.8", features = ["compact_containers", "serde-serialization"]}
-michelangelo = "0.1.0"
+michelangelo = "0.1.1"
 
 [build-dependencies]
 kay_codegen = {version = "0.1.1", features = ["serde-serialization"]}

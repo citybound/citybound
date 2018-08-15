@@ -40,8 +40,7 @@ impl PlanManager {
                         .map(|known_state| proposal.update_for(known_state))
                         .unwrap_or_else(|| ProposalUpdate::ChangedCompletely(proposal.clone())),
                 )
-            })
-            .collect();
+            }).collect();
         ui.on_plans_update(master_update, proposal_updates, world);
     }
 

@@ -4,29 +4,63 @@
 use kay::{World, ActorSystem, Actor, RawID, External};
 use compact::{CVec, CHashMap};
 use std::collections::HashMap;
+use descartes::LinePath;
+use michelangelo::{MeshGrouper, Instance};
+use planning::{ProposalID, Proposal, PrototypeID, PlanHistory, PlanResult,
+PlanHistoryUpdate, ProposalUpdate, PlanResultUpdate, ActionGroups};
 
 #[derive(Compact, Clone)]
 pub struct BrowserUI {
     id: BrowserUIID,
-    car_instance_buffers: External<HashMap<RawID, Vec<::michelangelo::Instance>>>,
-    // TODO: replace these with only known states and store them in JS only
-    master_plan: ::planning::PlanHistory,
-    proposals: External<HashMap<::planning::ProposalID, ::planning::Proposal>>,
-    result_preview: External<::planning::PlanResult>,
-    actions_preview: External<::planning::ActionGroups>,
-    awaiting_preview_update: bool,
+    state: External<BrowserUINonPersistedState>,
 }
 
+impl ::std::ops::Deref for BrowserUI {
+    type Target = BrowserUINonPersistedState;
+
+    fn deref(&self) -> &BrowserUINonPersistedState {
+        &self.state
+    }
+}
+
+impl ::std::ops::DerefMut for BrowserUI {
+    fn deref_mut(&mut self) -> &mut BrowserUINonPersistedState {
+        &mut self.state
+    }
+}
+
+pub struct BrowserUINonPersistedState {
+    car_instance_buffers: HashMap<RawID, Vec<::michelangelo::Instance>>,
+    // TODO: replace these with only known states and store them in JS only
+    master_plan: PlanHistory,
+    proposals: HashMap<ProposalID, Proposal>,
+    result_preview: PlanResult,
+    actions_preview: ActionGroups,
+    awaiting_preview_update: bool,
+    // planning geometry
+    lanes_to_construct_grouper: MeshGrouper<PrototypeID>,
+    lanes_to_construct_marker_grouper: MeshGrouper<PrototypeID>,
+    lanes_to_construct_marker_gaps_grouper: MeshGrouper<PrototypeID>,
+    zones_grouper: MeshGrouper<PrototypeID>,
+    // transport geometry
+    asphalt_grouper: MeshGrouper<RawID>,
+    lane_marker_grouper: MeshGrouper<RawID>,
+    lane_marker_gaps_grouper: MeshGrouper<RawID>,
+}
+
+#[cfg(feature = "browser")]
 fn flatten_vertices(vertices: &[::michelangelo::Vertex]) -> &[f32] {
     let new_len = vertices.len() * 3;
     unsafe { ::std::slice::from_raw_parts(vertices.as_ptr() as *const f32, new_len) }
 }
 
+#[cfg(feature = "browser")]
 fn flatten_points(points: &[::descartes::P3]) -> &[f32] {
     let new_len = points.len() * 3;
     unsafe { ::std::slice::from_raw_parts(points.as_ptr() as *const f32, new_len) }
 }
 
+#[cfg(feature = "browser")]
 fn flatten_instances(instances: &[::michelangelo::Instance]) -> &[f32] {
     let new_len = instances.len() * 8;
     unsafe { ::std::slice::from_raw_parts(instances.as_ptr() as *const f32, new_len) }
@@ -44,6 +78,21 @@ fn to_js_mesh(mesh: &::michelangelo::Mesh) -> ::stdweb::Value {
         };
     };
     value
+}
+
+#[cfg(feature = "browser")]
+fn updated_groups_to_js(group_changes: Vec<::michelangelo::GroupChange>) -> ::stdweb::Array {
+    ::stdweb::Array::from(
+        group_changes
+            .iter()
+            .map(|change| {
+                ::stdweb::Array::from(vec![
+                    ::stdweb::Value::from(change.group_id as u32),
+                    to_js_mesh(&change.new_group_mesh),
+                ])
+            })
+            .collect::<Vec<_>>(),
+    )
 }
 
 impl BrowserUI {
@@ -67,12 +116,21 @@ impl BrowserUI {
 
         BrowserUI {
             id,
-            car_instance_buffers: External::new(HashMap::new()),
-            master_plan: ::planning::PlanHistory::new(),
-            proposals: External::new(HashMap::new()),
-            result_preview: External::new(::planning::PlanResult::new()),
-            actions_preview: External::new(::planning::ActionGroups::new()),
-            awaiting_preview_update: false,
+            state: External::new(BrowserUINonPersistedState {
+                car_instance_buffers: HashMap::new(),
+                master_plan: ::planning::PlanHistory::new(),
+                proposals: HashMap::new(),
+                result_preview: ::planning::PlanResult::new(),
+                actions_preview: ::planning::ActionGroups::new(),
+                awaiting_preview_update: false,
+                lanes_to_construct_grouper: MeshGrouper::new(2000),
+                lanes_to_construct_marker_grouper: MeshGrouper::new(2000),
+                lanes_to_construct_marker_gaps_grouper: MeshGrouper::new(2000),
+                zones_grouper: MeshGrouper::new(2000),
+                asphalt_grouper: MeshGrouper::new(2000),
+                lane_marker_grouper: MeshGrouper::new(2000),
+                lane_marker_gaps_grouper: MeshGrouper::new(2000),
+            }),
         }
     }
 
@@ -92,7 +150,7 @@ impl BrowserUI {
                 world,
             );
 
-            let maybe_current_proposal_id: Result<Serde<::planning::ProposalID>, _> = js! {
+            let maybe_current_proposal_id: Result<Serde<ProposalID>, _> = js! {
                 return (window.cbclient.state.uiMode.startsWith("main/planning") &&
                     window.cbclient.state.planning.currentProposal);
             }.try_into();
@@ -133,8 +191,8 @@ impl BrowserUI {
 
     pub fn on_plans_update(
         &mut self,
-        master_update: &::planning::PlanHistoryUpdate,
-        proposal_updates: &CHashMap<::planning::ProposalID, ::planning::ProposalUpdate>,
+        master_update: &PlanHistoryUpdate,
+        proposal_updates: &CHashMap<ProposalID, ProposalUpdate>,
         _world: &mut World,
     ) {
         #[cfg(feature = "browser")]
@@ -152,8 +210,8 @@ impl BrowserUI {
             }
             for (proposal_id, proposal_update) in proposal_updates.pairs() {
                 match proposal_update {
-                    ::planning::ProposalUpdate::None => {}
-                    ::planning::ProposalUpdate::ChangedOngoing(new_ongoing) => {
+                    ProposalUpdate::None => {}
+                    ProposalUpdate::ChangedOngoing(new_ongoing) => {
                         js! {
                             window.cbclient.setState(oldState => update(oldState, {
                                 planning: {
@@ -170,7 +228,7 @@ impl BrowserUI {
                             .expect("Should already have proposal")
                             .set_ongoing_step(new_ongoing.clone());
                     }
-                    ::planning::ProposalUpdate::ChangedCompletely(new_proposal) => {
+                    ProposalUpdate::ChangedCompletely(new_proposal) => {
                         js! {
                             window.cbclient.setState(oldState => update(oldState, {
                                 planning: {
@@ -189,141 +247,171 @@ impl BrowserUI {
 
     pub fn on_proposal_preview_update(
         &mut self,
-        _proposal_id: ::planning::ProposalID,
-        result_update: &::planning::PlanResultUpdate,
-        actions: &::planning::ActionGroups,
+        _proposal_id: ProposalID,
+        result_update: &PlanResultUpdate,
+        new_actions: &ActionGroups,
         _world: &mut World,
     ) {
         #[cfg(feature = "browser")]
         {
-            use ::planning::{PrototypeKind, Action};
+            use ::planning::PrototypeKind;
             use ::transport::transport_planning::{RoadPrototype, LanePrototype,
 SwitchLanePrototype, IntersectionPrototype};
             use ::transport::rendering::{lane_mesh, marker_mesh, switch_marker_gap_mesh};
-            use ::land_use::zone_planning::{LotPrototype, LotOccupancy};
+            use ::land_use::zone_planning::LotPrototype;
             use ::michelangelo::Mesh;
 
-            self.result_preview.apply_update(result_update);
-            *self.actions_preview = actions.clone();
-            self.awaiting_preview_update = false;
+            let mut lanes_to_construct_add = Vec::new();
+            let mut lanes_to_construct_rem = Vec::new();
 
-            let mut zones_mesh = Mesh::empty();
-            let mut lanes_to_construct_mesh = Mesh::empty();
-            let mut lanes_to_construct_marker_mesh = Mesh::empty();
-            let mut switch_lanes_to_construct_marker_gap_mesh = Mesh::empty();
-            let mut lanes_to_destruct_mesh = Mesh::empty();
+            let mut lanes_to_construct_marker_add = Vec::new();
+            let mut lanes_to_construct_marker_rem = Vec::new();
 
-            for (prototype_id, prototype) in self.result_preview.prototypes.pairs() {
-                let corresponding_action_exists = self
-                    .actions_preview
-                    .0
-                    .iter()
-                    .filter_map(|action_group| {
-                        action_group
-                            .0
-                            .iter()
-                            .filter_map(|action| match *action {
-                                Action::Construct(constructed_prototype_id) => {
-                                    if constructed_prototype_id == *prototype_id {
-                                        Some((true, false))
-                                    } else {
-                                        None
-                                    }
-                                }
-                                Action::Morph(_, new_prototype_id) => {
-                                    if new_prototype_id == *prototype_id {
-                                        Some((true, true))
-                                    } else {
-                                        None
-                                    }
-                                }
-                                Action::Destruct(destructed_prototype_id) => {
-                                    if destructed_prototype_id == *prototype_id {
-                                        Some((false, false))
-                                    } else {
-                                        None
-                                    }
-                                }
-                            })
-                            .next()
-                    })
-                    .next();
+            let mut lanes_to_construct_marker_gaps_add = Vec::new();
+            let mut lanes_to_construct_marker_gaps_rem = Vec::new();
 
-                if let Some((is_construct, is_morph)) = corresponding_action_exists {
-                    match prototype.kind {
-                        PrototypeKind::Road(RoadPrototype::Lane(LanePrototype(
-                            ref lane_path,
-                            _,
-                        ))) => {
-                            let mesh = lane_mesh(lane_path);
-                            if is_construct && !is_morph {
-                                lanes_to_construct_mesh += mesh;
-                                let marker_meshes = marker_mesh(lane_path);
-                                lanes_to_construct_marker_mesh += marker_meshes.0;
-                                lanes_to_construct_marker_mesh += marker_meshes.1;
-                            } else if !is_construct {
-                                lanes_to_destruct_mesh += mesh;
-                            }
+            let mut zones_add = Vec::new();
+            let mut zones_rem = Vec::new();
+
+            for prototype_id in &result_update.prototypes_to_drop {
+                let prototype = self
+                    .result_preview
+                    .prototypes
+                    .get(*prototype_id)
+                    .expect("Should have prototype about to be dropped");
+
+                let corresponding_action = self.actions_preview.corresponding_action(*prototype_id);
+                match prototype.kind {
+                    PrototypeKind::Road(RoadPrototype::Lane(_)) => match corresponding_action {
+                        Some(ref action) if action.is_construct() => {
+                            lanes_to_construct_rem.push(*prototype_id);
+                            lanes_to_construct_marker_rem.push(*prototype_id);
                         }
-                        PrototypeKind::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(
-                            ref lane_path,
-                        ))) => {
-                            if is_construct && !is_morph {
-                                switch_lanes_to_construct_marker_gap_mesh +=
-                                    switch_marker_gap_mesh(lane_path);
-                            }
+                        _ => {}
+                    },
+                    PrototypeKind::Road(RoadPrototype::SwitchLane(_)) => match corresponding_action
+                    {
+                        Some(ref action) if action.is_construct() => {
+                            lanes_to_construct_marker_gaps_rem.push(*prototype_id);
                         }
-                        PrototypeKind::Road(RoadPrototype::Intersection(
-                            IntersectionPrototype {
-                                ref connecting_lanes,
-                                ..
-                            },
-                        )) => {
+                        _ => {}
+                    },
+                    PrototypeKind::Road(RoadPrototype::Intersection(_)) => {
+                        match corresponding_action {
+                            Some(ref action) if action.is_construct() => {
+                                lanes_to_construct_rem.push(*prototype_id);
+                            }
+                            _ => {}
+                        }
+                    }
+                    PrototypeKind::Lot(LotPrototype { ref lot, .. }) => {
+                        zones_rem.push(*prototype_id);
+                    }
+                    _ => {}
+                }
+            }
+
+            for new_prototype in &result_update.new_prototypes {
+                let corresponding_action = new_actions.corresponding_action(new_prototype.id);
+                match new_prototype.kind {
+                    PrototypeKind::Road(RoadPrototype::Lane(LanePrototype(ref lane_path, _))) => {
+                        match corresponding_action {
+                            Some(ref action) if action.is_construct() => {
+                                lanes_to_construct_add
+                                    .push((new_prototype.id, lane_mesh(lane_path)));
+                                let marker = marker_mesh(lane_path);
+                                lanes_to_construct_marker_add
+                                    .push((new_prototype.id, marker.0 + marker.1));
+                            }
+                            _ => {}
+                        }
+                    }
+                    PrototypeKind::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(
+                        ref lane_path,
+                    ))) => match corresponding_action {
+                        Some(ref action) if action.is_construct() => {
+                            lanes_to_construct_marker_gaps_add
+                                .push((new_prototype.id, switch_marker_gap_mesh(lane_path)));
+                        }
+                        _ => {}
+                    },
+                    PrototypeKind::Road(RoadPrototype::Intersection(IntersectionPrototype {
+                        ref connecting_lanes,
+                        ..
+                    })) => match corresponding_action {
+                        Some(ref action) if action.is_construct() => {
+                            let mut intersection_mesh = Mesh::empty();
                             for &LanePrototype(ref lane_path, _) in
                                 connecting_lanes.values().flat_map(|lanes| lanes)
                             {
-                                let mesh = lane_mesh(lane_path);
-                                if is_construct && !is_morph {
-                                    lanes_to_construct_mesh += mesh;
-                                } else if !is_construct {
-                                    lanes_to_destruct_mesh += mesh;
-                                }
+                                intersection_mesh += lane_mesh(lane_path);
                             }
-                        }
-                        PrototypeKind::Lot(LotPrototype {
-                            ref lot,
-                            occupancy: LotOccupancy::Vacant,
-                            ..
-                        }) => {
-                            zones_mesh += Mesh::from_area(&lot.area);
+                            lanes_to_construct_add.push((new_prototype.id, intersection_mesh))
                         }
                         _ => {}
+                    },
+                    PrototypeKind::Lot(LotPrototype { ref lot, .. }) => {
+                        zones_add.push((new_prototype.id, Mesh::from_area(&lot.area)));
                     }
+                    _ => {}
                 }
             }
+
+            let updated_lanes_to_construct_groups = self
+                .lanes_to_construct_grouper
+                .update(lanes_to_construct_rem, lanes_to_construct_add);
+
+            let updated_lanes_to_construct_marker_groups = self
+                .lanes_to_construct_marker_grouper
+                .update(lanes_to_construct_marker_rem, lanes_to_construct_marker_add);
+
+            let updated_lanes_to_construct_marker_gaps_groups =
+                self.lanes_to_construct_marker_gaps_grouper.update(
+                    lanes_to_construct_marker_gaps_rem,
+                    lanes_to_construct_marker_gaps_add,
+                );
+
+            let updated_zones_groups = self.zones_grouper.update(zones_rem, zones_add);
 
             js! {
                 window.cbclient.setState(oldState => update(oldState, {
                     planning: {rendering: {
-                        currentPreview: {"$set": {
-                            zones: @{to_js_mesh(&zones_mesh)},
-                            lanesToConstruct: @{to_js_mesh(&lanes_to_construct_mesh)},
-                            lanesToConstructMarker: @{to_js_mesh(&lanes_to_construct_marker_mesh)},
-                            lanesToDestruct: @{to_js_mesh(&lanes_to_destruct_mesh)},
-                            switchLanesToConstructMarkerGap: @{
-                                to_js_mesh(&switch_lanes_to_construct_marker_gap_mesh)
+                        currentPreview: {
+                            lanesToConstructGroups: {
+                                "$add": @{updated_groups_to_js(
+                                    updated_lanes_to_construct_groups
+                                )}
+                            },
+                            lanesToConstructMarkerGroups: {
+                                "$add": @{updated_groups_to_js(
+                                    updated_lanes_to_construct_marker_groups
+                                )}
+                            },
+                            lanesToConstructMarkerGapsGroups: {
+                                "$add": @{updated_groups_to_js(
+                                    updated_lanes_to_construct_marker_gaps_groups
+                                )}
+                            },
+                            zonesGroups: {
+                                "$add": @{updated_groups_to_js(
+                                    updated_zones_groups
+                                )}
                             }
-                        }}
+                        }
                     }}
                 }));
             }
+
+            self.result_preview.apply_update(result_update);
+            self.actions_preview = new_actions.clone();
+            self.awaiting_preview_update = false;
         }
     }
 
     pub fn on_lane_constructed(
         &mut self,
         id: RawID,
-        lane_path: &::descartes::LinePath,
+        lane_path: &LinePath,
         is_switch: bool,
         on_intersection: bool,
         _world: &mut World,
@@ -332,48 +420,54 @@ SwitchLanePrototype, IntersectionPrototype};
         {
             use ::transport::rendering::{lane_mesh, marker_mesh, switch_marker_gap_mesh};
             if is_switch {
-                let gap_mesh = switch_marker_gap_mesh(lane_path);
+                let updated_lane_marker_gaps_groups = self
+                    .lane_marker_gaps_grouper
+                    .update(None, Some((id, switch_marker_gap_mesh(lane_path))));
 
                 js!{
                     window.cbclient.setState(oldState => update(oldState, {
                         transport: {rendering: {
-                            laneMarkerGap: {
-                                [@{format!("{:?}", id)}]: {
-                                    "$set": @{to_js_mesh(&gap_mesh)}
-                                }
+                            laneMarkerGapGroups: {
+                                "$add": @{updated_groups_to_js(
+                                    updated_lane_marker_gaps_groups
+                                )}
                             }
                         }}
                     }));
                 }
             } else {
                 let mesh = lane_mesh(lane_path);
+                let updated_asphalt_groups = self.asphalt_grouper.update(None, Some((id, mesh)));
 
                 if on_intersection {
                     js!{
                         window.cbclient.setState(oldState => update(oldState, {
                             transport: {rendering: {
-                                laneAsphalt: {
-                                    [@{format!("{:?}", id)}]: {
-                                        "$set": @{to_js_mesh(&mesh)}
-                                    }
+                                laneAsphaltGroups: {
+                                    "$add": @{updated_groups_to_js(
+                                        updated_asphalt_groups
+                                    )}
                                 }
                             }}
                         }));
                     }
                 } else {
                     let marker_meshes = marker_mesh(lane_path);
+                    let updated_lane_marker_groups = self
+                        .lane_marker_grouper
+                        .update(None, Some((id, marker_meshes.0 + marker_meshes.1)));
                     js!{
                         window.cbclient.setState(oldState => update(oldState, {
                             transport: {rendering: {
-                                laneAsphalt: {
-                                    [@{format!("{:?}", id)}]: {
-                                        "$set": @{to_js_mesh(&mesh)}
-                                    }
+                                laneAsphaltGroups: {
+                                    "$add": @{updated_groups_to_js(
+                                        updated_asphalt_groups
+                                    )}
                                 },
-                                laneMarker: {
-                                    [@{format!("{:?}", id)}]: {
-                                        "$set": @{to_js_mesh(&(marker_meshes.0 + marker_meshes.1))}
-                                    }
+                                laneMarkerGroups: {
+                                    "$add": @{updated_groups_to_js(
+                                        updated_lane_marker_groups
+                                    )}
                                 }
                             }}
                         }));
@@ -393,29 +487,54 @@ SwitchLanePrototype, IntersectionPrototype};
         #[cfg(feature = "browser")]
         {
             if is_switch {
+                let updated_lane_marker_gaps_groups =
+                    self.lane_marker_gaps_grouper.update(Some(id), None);
+
                 js!{
                     window.cbclient.setState(oldState => update(oldState, {
                         transport: {rendering: {
-                            laneMarkerGap: {"$unset": [@{format!("{:?}", id)}]}
-                        }}
-                    }));
-                }
-            } else if on_intersection {
-                js!{
-                    window.cbclient.setState(oldState => update(oldState, {
-                        transport: {rendering: {
-                            laneAsphalt: {"$unset": [@{format!("{:?}", id)}]}
+                            laneMarkerGapGroups: {
+                                "$add": @{updated_groups_to_js(
+                                    updated_lane_marker_gaps_groups
+                                )}
+                            }
                         }}
                     }));
                 }
             } else {
-                js!{
-                    window.cbclient.setState(oldState => update(oldState, {
-                        transport: {rendering: {
-                            laneAsphalt: {"$unset": [@{format!("{:?}", id)}]},
-                            laneMarker: {"$unset": [@{format!("{:?}", id)}]}
-                        }}
-                    }));
+                let updated_asphalt_groups = self.asphalt_grouper.update(Some(id), None);
+
+                if on_intersection {
+                    js!{
+                        window.cbclient.setState(oldState => update(oldState, {
+                            transport: {rendering: {
+                                laneAsphaltGroups: {
+                                    "$add": @{updated_groups_to_js(
+                                        updated_asphalt_groups
+                                    )}
+                                }
+                            }}
+                        }));
+                    }
+                } else {
+                    let updated_lane_marker_groups =
+                        self.lane_marker_grouper.update(Some(id), None);
+                    js!{
+                        window.cbclient.setState(oldState => update(oldState, {
+                            transport: {rendering: {
+                                laneAsphaltGroups: {
+                                    "$add": @{updated_groups_to_js(
+                                        updated_asphalt_groups
+                                    )}
+                                },
+                                laneMarkerGroups: {
+                                    "$add": @{updated_groups_to_js(
+                                        updated_lane_marker_groups
+                                    )}
+                                }
+                            }}
+                        }));
+                    }
                 }
             }
         }
@@ -424,7 +543,7 @@ SwitchLanePrototype, IntersectionPrototype};
     pub fn on_car_instances(
         &mut self,
         from_lane: RawID,
-        instances: &CVec<::michelangelo::Instance>,
+        instances: &CVec<Instance>,
         _: &mut World,
     ) {
         self.car_instance_buffers

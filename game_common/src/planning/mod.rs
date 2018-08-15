@@ -179,8 +179,7 @@ impl PlanHistory {
                     } else {
                         None
                     }
-                })
-                .collect(),
+                }).collect(),
         }
     }
 
@@ -194,8 +193,7 @@ impl PlanHistory {
                 } else {
                     None
                 }
-            })
-            .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
 
         for gesture_id in gestures_to_drop {
             self.gestures.remove(gesture_id);
@@ -423,8 +421,7 @@ impl PlanResult {
                 } else {
                     Some(*known_prototype_id)
                 }
-            })
-            .collect();
+            }).collect();
 
         let new_prototypes = self
             .prototypes
@@ -435,8 +432,7 @@ impl PlanResult {
                 } else {
                     Some(prototype.clone())
                 }
-            })
-            .collect();
+            }).collect();
 
         PlanResultUpdate {
             prototypes_to_drop,
@@ -497,8 +493,8 @@ pub struct KnownPlanResultState {
 
 #[derive(Compact, Clone, Debug)]
 pub struct PlanResultUpdate {
-    prototypes_to_drop: CVec<PrototypeID>,
-    new_prototypes: CVec<Prototype>,
+    pub prototypes_to_drop: CVec<PrototypeID>,
+    pub new_prototypes: CVec<Prototype>,
 }
 
 #[derive(Compact, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -506,6 +502,32 @@ pub enum Action {
     Construct(PrototypeID),
     Morph(PrototypeID, PrototypeID),
     Destruct(PrototypeID),
+}
+
+impl Action {
+    pub fn is_construct(&self) -> bool {
+        if let Action::Construct(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_morph(&self) -> bool {
+        if let Action::Morph(..) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_destruct(&self) -> bool {
+        if let Action::Destruct(_) = self {
+            true
+        } else {
+            false
+        }
+    }
 }
 
 #[derive(Compact, Clone, Debug, Serialize, Deserialize)]
@@ -527,6 +549,39 @@ pub struct ActionGroups(pub CVec<IndependentActions>);
 impl ActionGroups {
     pub fn new() -> ActionGroups {
         ActionGroups(CVec::new())
+    }
+
+    pub fn corresponding_action(&self, prototype_id: PrototypeID) -> Option<Action> {
+        self.0
+            .iter()
+            .filter_map(|action_group| {
+                action_group
+                    .0
+                    .iter()
+                    .filter_map(|action| match *action {
+                        Action::Construct(constructed_prototype_id) => {
+                            if constructed_prototype_id == prototype_id {
+                                Some(action.clone())
+                            } else {
+                                None
+                            }
+                        }
+                        Action::Morph(_, new_prototype_id) => {
+                            if new_prototype_id == prototype_id {
+                                Some(action.clone())
+                            } else {
+                                None
+                            }
+                        }
+                        Action::Destruct(destructed_prototype_id) => {
+                            if destructed_prototype_id == prototype_id {
+                                Some(action.clone())
+                            } else {
+                                None
+                            }
+                        }
+                    }).next()
+            }).next()
     }
 }
 
@@ -601,15 +656,13 @@ impl PlanManager {
             .iter()
             .rfold(None, |found, step| {
                 found.or_else(|| step.gestures.get(gesture_id))
-            })
-            .into_iter()
+            }).into_iter()
             .chain(
                 self.master_plan
                     .gestures
                     .get(gesture_id)
                     .map(|VersionedGesture(ref g, _)| g),
-            )
-            .next()
+            ).next()
             .expect("Expected gesture (that point should be added to) to exist!")
     }
 

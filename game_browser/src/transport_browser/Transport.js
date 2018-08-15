@@ -7,9 +7,9 @@ export const initialState = {
         staticMeshes: {
             car: carMesh
         },
-        laneAsphalt: {},
-        laneMarker: {},
-        laneMarkerGap: {},
+        laneAsphaltGroups: new Map(),
+        laneMarkerGroups: new Map(),
+        laneMarkerGapGroups: new Map(),
         carInstances: []
     }
 };
@@ -22,22 +22,22 @@ export function render(state, _setState) {
     const layers = [
         {
             decal: true,
-            batches: Object.values(state.transport.rendering.laneAsphalt).map(laneAsphalt => ({
-                mesh: laneAsphalt,
+            batches: [...state.transport.rendering.laneAsphaltGroups.values()].map(groupMesh => ({
+                mesh: groupMesh,
                 instances: asphaltInstance
             }))
         },
         {
             decal: true,
-            batches: Object.values(state.transport.rendering.laneMarker).map(laneMarker => ({
-                mesh: laneMarker,
+            batches: [...state.transport.rendering.laneMarkerGroups.values()].map(groupMesh => ({
+                mesh: groupMesh,
                 instances: roadMarkerInstance
             }))
         },
         {
             decal: true,
-            batches: Object.values(state.transport.rendering.laneMarkerGap).map(laneMarkerGap => ({
-                mesh: laneMarkerGap,
+            batches: [...state.transport.rendering.laneMarkerGapGroups.values()].map(groupMesh => ({
+                mesh: groupMesh,
                 instances: asphaltInstance
             }))
         },

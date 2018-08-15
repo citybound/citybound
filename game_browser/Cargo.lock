@@ -105,7 +105,7 @@ dependencies = [
  "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay 0.2.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay_codegen 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "michelangelo 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "michelangelo 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "open 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ordered-float 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -325,7 +325,7 @@ dependencies = [
 
 [[package]]
 name = "michelangelo"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "compact 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -790,7 +790,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum lyon_tessellation 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)" = "947874b047bda1177663fa21e62c3d1660f6a4d5feac7a74366982bc058c9f8f"
 "checksum matches 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "835511bab37c34c47da5cb44844bea2cfde0236db0b506f90ea4224482c9774a"
 "checksum matrixmultiply 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)" = "cac1a66eab356036af85ea093101a14223dc6e3f4c02a59b7d572e5b93270bf7"
-"checksum michelangelo 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "46df7f345697f79b5283ee74d4fcc4081416caa306674e1bc7c9534816466cfa"
+"checksum michelangelo 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "645956dcce32d69b1a0340b364f4982aa9d344654a224a6c1486f40c806a0de0"
 "checksum nalgebra 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)" = "4534bc88a178e411e634e1e44e7f2ad6e9bf062ea539f40e579bd49ef2fad056"
 "checksum nodrop 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)" = "9a2228dca57108069a5262f2ed8bd2e82496d2e074a06d1ccc7ce1687b6ae0a2"
 "checksum num-complex 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "68de83578789e0fbda3fa923035be83cf8bfd3b30ccfdecd5aa89bf8601f408e"
