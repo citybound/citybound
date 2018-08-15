@@ -54,8 +54,8 @@ impl Construction {
             .retain(|pending_constructable| *pending_constructable != id);
     }
 
-    fn start_action(&mut self, action: Action, world: &mut World) {
-        let new_pending_constructables = match action {
+    fn start_action(&mut self, action: &Action, world: &mut World) {
+        let new_pending_constructables = match *action {
             Action::Construct(prototype_id) => {
                 print!("C ");
                 let new_prototype = self
@@ -122,7 +122,7 @@ impl Simulatable for Construction {
                 println!("Starting construction group:");
                 let next_action_group = self.queued_action_groups.0.remove(0);
                 for action in next_action_group.0 {
-                    self.start_action(action, world);
+                    self.start_action(&action, world);
                 }
                 println!("\nFinished construction group:");
             }

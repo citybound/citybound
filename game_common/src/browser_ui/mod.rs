@@ -90,8 +90,7 @@ fn updated_groups_to_js(group_changes: Vec<::michelangelo::GroupChange>) -> ::st
                     ::stdweb::Value::from(change.group_id as u32),
                     to_js_mesh(&change.new_group_mesh),
                 ])
-            })
-            .collect::<Vec<_>>(),
+            }).collect::<Vec<_>>(),
     )
 }
 
