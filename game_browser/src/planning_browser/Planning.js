@@ -49,7 +49,7 @@ function getGestureAsOf(state, proposalId, gestureId) {
     if (proposalId && state.planning.proposals[proposalId]) {
         let proposal = state.planning.proposals[proposalId];
         for (let i = proposal.undoable_history.length - 1; i >= 0; i--) {
-            let gestureInStep = proposal.undoable_history[i][gestureId];
+            let gestureInStep = proposal.undoable_history[i].gestures[gestureId];
             if (gestureInStep) {
                 return gestureInStep;
             }
@@ -57,8 +57,6 @@ function getGestureAsOf(state, proposalId, gestureId) {
     }
     return state.planning.master.gestures[gestureId][0];
 }
-
-let canvas = null;
 
 function moveControlPoint(proposalId, gestureId, pointIdx, newPosition, doneMoving) {
     cityboundBrowser.move_gesture_point(proposalId, gestureId, pointIdx, [newPosition[0], newPosition[1]], doneMoving);
