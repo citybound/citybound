@@ -1,3 +1,11 @@
+function toLinFloat(rgb) {
+    return [
+        Math.pow(rgb[0]/256, 2.2),
+        Math.pow(rgb[1]/256, 2.2),
+        Math.pow(rgb[2]/256, 2.2),
+    ]
+}
+
 export default {
     grass: [0.79, 0.88, 0.67],
     asphalt: [0.7, 0.7, 0.7],
@@ -15,11 +23,11 @@ export default {
     controlPointCurrentProposal: [0.0, 0.061, 1.0],//[0, 72, 255]
     controlPointHover: [1.0, 1.0, 1.0],
 
-    residential: [0.79, 0.52, 0],//[230, 191, 0],
-    commercial: [0.85, 0.09, 0.05],//[239, 87, 71],
-    offices: [0.68, 0.05, 0.48],//[206, 71, 183],
-    industrial: [0.30, 0.07, 0.63],//[162, 74, 208],
-    agricultural: [0.25, 0.25, 0.15],//[138, 138, 107],
-    recreational: [0.11, 0.41, 0.08],//[95, 171, 81],
-    official: [0.08, 0.24, 0.67],//[81, 134, 213]
+    residential: toLinFloat([234, 203, 82]),
+    commercial: toLinFloat([213, 94, 0]),
+    offices: toLinFloat([0, 0, 0]),
+    industrial: toLinFloat([119, 66, 95]),
+    agricultural: toLinFloat([136, 136, 108]),
+    recreational: toLinFloat([124, 192, 124]),
+    official: toLinFloat([39, 150, 221]),
 }

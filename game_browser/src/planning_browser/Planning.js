@@ -374,7 +374,7 @@ export function render(state, setState) {
                 type: "everywhere",
             },
             zIndex: 1,
-            cursorHover: "crosshair",
+            cursorHover: state.uiMode.startsWith("main/planning/") ? "crosshair" : "normal",
             cursorActive: "pointer",
             onEvent: e => {
                 const canvasMode = state.planning.canvasMode;

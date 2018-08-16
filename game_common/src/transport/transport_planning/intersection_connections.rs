@@ -205,7 +205,7 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                                         start.direction,
                                         end.position,
                                         end.direction,
-                                    )?.to_line_path();
+                                    )?.to_line_path_with_max_angle(0.6);
 
                                     Some(LanePrototype(path, CVec::new()))
                                 }).collect::<Vec<_>>()

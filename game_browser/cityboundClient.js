@@ -1,7 +1,7 @@
 import Monet from 'monet';
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { vec3, mat4 } from 'gl-matrix';
+import { vec3, mat4, quat } from 'gl-matrix';
 import ContainerDimensions from 'react-container-dimensions';
 import update from 'immutability-helper';
 import Mousetrap from 'mousetrap';
@@ -37,7 +37,15 @@ class CityboundClient extends React.Component {
             view: {
                 eye: [-150, -150, 150],
                 target: [0, 0, 0],
-                verticalFov: 0.3 * Math.PI
+                verticalFov: 0.3 * Math.PI,
+                rotating: false,
+                zooming: false,
+                rotateXSensitivity: 0.01,
+                rotateYSensitivity: -0.01,
+                panXSensitivity: -1,
+                panYSensitivity: -1,
+                zoomSensitivity: -3,
+                pinchToZoom: true
             }
         }
 
@@ -49,11 +57,27 @@ class CityboundClient extends React.Component {
             "toggleDebugView": () => this.setState(oldState => update(oldState, {
                 debug: { show: { $apply: b => !b } }
             })),
+            "startRotateEye": () => this.setState(oldState => update(oldState, {
+                view: { rotating: {$set: true} }
+            })),
+            "stopRotateEye": () => this.setState(oldState => update(oldState, {
+                view: { rotating: {$set: false} }
+            })),
+            "startZoomEye": () => this.setState(oldState => update(oldState, {
+                view: { zooming: {$set: true} }
+            })),
+            "stopZoomEye": () => this.setState(oldState => update(oldState, {
+                view: { zooming: {$set: false} }
+            })),
             "implementProposal": () => this.setState(Planning.implementProposal(this.state.planning.currentProposal))
         };
 
         Mousetrap.bind(',', inputActions["toggleDebugView"]);
         Mousetrap.bind('command+enter', inputActions["implementProposal"]);
+        Mousetrap.bind('alt', inputActions["startRotateEye"], 'keydown');
+        Mousetrap.bind('alt', inputActions["stopRotateEye"], 'keyup');
+        Mousetrap.bind('ctrl', inputActions["startZoomEye"], 'keydown');
+        Mousetrap.bind('ctrl', inputActions["stopZoomEye"], 'keyup');
     }
 
     onFrame() {
@@ -88,19 +112,83 @@ class CityboundClient extends React.Component {
         return EL("div", {
             style: { width: "100%", height: "100%" },
             onWheel: e => {
-                const forward = vec3.sub(vec3.create(), target, eye);
-                forward[2] = 0;
-                vec3.normalize(forward, forward);
-                const sideways = vec3.rotateZ(vec3.create(), forward, vec3.create(), Math.PI / 2.0);
+                if (this.state.view.rotating) {
+                    const eyeRotatedHorizontal = vec3.rotateZ(
+                        vec3.create(),
+                        eye,
+                        target,
+                        e.deltaX * this.state.view.rotateXSensitivity
+                    );
 
-                const delta = vec3.scaleAndAdd(vec3.create(), vec3.scale(vec3.create(), forward, -e.deltaY), sideways, -e.deltaX);
+                    const forward = vec3.sub(vec3.create(), target, eyeRotatedHorizontal);
+                    forward[2] = 0;
+                    vec3.normalize(forward, forward);
+                    const sideways = vec3.rotateZ(vec3.create(), forward, vec3.create(), Math.PI / 2.0);
 
-                this.setState(oldState => ({
-                    view: Object.assign(oldState.view, {
-                        eye: vec3.add(vec3.create(), oldState.view.eye, delta),
-                        target: vec3.add(vec3.create(), oldState.view.target, delta),
-                    })
-                }));
+                    const verticalRotation = quat.setAxisAngle(
+                        quat.create(),
+                        sideways,
+                        e.deltaY * this.state.view.rotateYSensitivity
+                    );
+
+                    const eyeRotatedBoth = vec3.transformQuat(
+                        vec3.create(),
+                        eyeRotatedHorizontal,
+                        verticalRotation
+                    );
+
+                    if (eyeRotatedBoth[2] > 10) {
+                        this.setState(oldState => ({
+                            view: Object.assign(oldState.view, {
+                                eye: eyeRotatedBoth,
+                            })
+                        }));
+                    }
+
+                } else if (this.state.view.zooming || (this.state.view.pinchToZoom && e.ctrlKey)) {
+                    const forward = vec3.sub(vec3.create(), target, eye);
+                    vec3.normalize(forward, forward);
+
+                    const delta = this.state.view.zoomSensitivity * e.deltaY;
+                    const eyeZoomed = vec3.scaleAndAdd(
+                        vec3.create(),
+                        eye,
+                        forward,
+                        delta
+                    );
+
+                    if (eyeZoomed[2] > 10) {
+                        this.setState(oldState => ({
+                            view: Object.assign(oldState.view, {
+                                eye: eyeZoomed
+                            })
+                        }));
+                    }
+                } else {
+                    const forward = vec3.sub(vec3.create(), target, eye);
+                    forward[2] = 0;
+                    vec3.normalize(forward, forward);
+                    const sideways = vec3.rotateZ(vec3.create(), forward, vec3.create(), Math.PI / 2.0);
+
+                    const heightBasedMultiplier = eye[2] / 150;
+
+                    const delta = vec3.scaleAndAdd(vec3.create(),
+                        vec3.scale(
+                            vec3.create(),
+                            forward,
+                            e.deltaY * this.state.view.panYSensitivity * heightBasedMultiplier
+                        ),
+                        sideways,
+                        e.deltaX * this.state.view.panXSensitivity * heightBasedMultiplier
+                    );
+    
+                    this.setState(oldState => ({
+                        view: Object.assign(oldState.view, {
+                            eye: vec3.add(vec3.create(), oldState.view.eye, delta),
+                            target: vec3.add(vec3.create(), oldState.view.target, delta),
+                        })
+                    }));
+                }
 
                 e.preventDefault();
                 return false;

@@ -148,7 +148,7 @@ fn gesture_intent_smooth_paths(
             |(gesture_id, VersionedGesture(gesture, step_id))| match gesture.intent {
                 GestureIntent::Road(ref road_intent) if gesture.points.len() >= 2 => {
                     smooth_path::smooth_path_from(&gesture.points)
-                        .map(|path| (*gesture_id, *step_id, *road_intent, path.to_line_path()))
+                        .map(|path| (*gesture_id, *step_id, *road_intent, path.to_line_path_with_max_angle(0.06)))
                 }
                 _ => None,
             },
