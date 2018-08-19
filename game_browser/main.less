@@ -46,6 +46,24 @@ body {
     font-family: 'Clear Sans', sans-serif;
     font-size: 16px;
     line-height: 1.45;
+    background-color: #c9e0ab;
+}
+
+#logo {
+    position: absolute;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 1000;
+    opacity: 0.1;
+}
+
+#version {
+    position: absolute;
+    right: 1rem;
+    bottom: 0.8rem;
+    z-index: 1000;
+    opacity: 0.2;
+    font-size: 0.8em;
 }
 
 h1, h2, h3, h4 {
@@ -81,19 +99,32 @@ button {
 
 .ui2d {
     position: absolute;
+    width: 100%;
+    height: 100%;
     z-index: 3;
-    padding: 1rem;
-    width: calc(100% - 2rem);
-    height: calc(100% - 2rem);
+    padding: 1rem 0.5rem;
+    pointer-events: none;
     display: flex;
     flex-direction: row;
     align-items: flex-start;
-    pointer-events: none;
 }
 
 .ui2d * {
     pointer-events: auto;
 }
+
+.ui2dTools {
+    position: absolute;
+    bottom: 0;
+    z-index: 4;
+    padding: 1rem 0.5rem;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background-color: #ffffff87;
+}
+
 
 .window {
     padding: 1em;
@@ -115,7 +146,7 @@ button {
     grid-column-gap: 1px;
     grid-row-gap: 1px;
     grid-template-rows: 3em;
-    grid-auto-flow: row;
+    grid-auto-flow: column;
     align-items: center;
     justify-items: center;
     margin: 0 0.5em;
@@ -167,7 +198,6 @@ button {
 
 #zoning-toolbar {
     grid-template-columns: initial;
-    grid-template-rows: 2.75em 2.75em;
     grid-column-gap: 0.5em;
     grid-row-gap: 0.5em;
     grid-auto-flow: column;

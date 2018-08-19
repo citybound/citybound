@@ -24,7 +24,8 @@ export default class Stage extends React.Component {
                     const oldHoveredInteractable = this.hoveredInteractable;
                     this.hoveredInteractable = this.findInteractableBelow(cursorPosition3d);
 
-                    if (!oldHoveredInteractable || (oldHoveredInteractable.id !== this.hoveredInteractable.id)) {
+                    if (!oldHoveredInteractable
+                        || (oldHoveredInteractable.id !== (this.hoveredInteractable && this.hoveredInteractable.id))) {
                         oldHoveredInteractable && oldHoveredInteractable.onEvent({ hover: { end: cursorPosition3d } });
                         this.hoveredInteractable && this.hoveredInteractable.onEvent({ hover: { start: cursorPosition3d } });
                     } else {

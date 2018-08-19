@@ -44,7 +44,7 @@ class CityboundClient extends React.Component {
                 rotateYSensitivity: -0.01,
                 panXSensitivity: -1,
                 panYSensitivity: -1,
-                zoomSensitivity: -3,
+                zoomSensitivity: -5,
                 pinchToZoom: true
             }
         }
@@ -58,16 +58,10 @@ class CityboundClient extends React.Component {
                 debug: { show: { $apply: b => !b } }
             })),
             "startRotateEye": () => this.setState(oldState => update(oldState, {
-                view: { rotating: {$set: true} }
+                view: { rotating: { $set: true } }
             })),
             "stopRotateEye": () => this.setState(oldState => update(oldState, {
-                view: { rotating: {$set: false} }
-            })),
-            "startZoomEye": () => this.setState(oldState => update(oldState, {
-                view: { zooming: {$set: true} }
-            })),
-            "stopZoomEye": () => this.setState(oldState => update(oldState, {
-                view: { zooming: {$set: false} }
+                view: { rotating: { $set: false } }
             })),
             "implementProposal": () => this.setState(Planning.implementProposal(this.state.planning.currentProposal))
         };
@@ -76,8 +70,6 @@ class CityboundClient extends React.Component {
         Mousetrap.bind('command+enter', inputActions["implementProposal"]);
         Mousetrap.bind('alt', inputActions["startRotateEye"], 'keydown');
         Mousetrap.bind('alt', inputActions["stopRotateEye"], 'keyup');
-        Mousetrap.bind('ctrl', inputActions["startZoomEye"], 'keydown');
-        Mousetrap.bind('ctrl', inputActions["stopZoomEye"], 'keyup');
     }
 
     onFrame() {
@@ -88,24 +80,19 @@ class CityboundClient extends React.Component {
     }
 
     render() {
-        const [planningLayers, planningInteractables, planningElements] = Planning.render(this.state, this.setState.bind(this));
-        const [transportLayers, transportInteractables, transportElements] = Transport.render(this.state, this.setState.bind(this));
-        const [landUseLayers, landUseInteractables, landUseElements] = LandUse.render(this.state, this.setState.bind(this));
-        const [debugLayers, debugInteractables, debugElements] = Debug.render(this.state, this.setState.bind(this));
-
-        const layers = [
-            ...transportLayers,
-            ...planningLayers,
-            ...landUseLayers,
-            ...debugLayers,
+        const uiAspects = [
+            Planning,
+            Transport,
+            LandUse,
+            Debug
         ];
 
-        const interactables = [
-            ...planningInteractables,
-            ...transportInteractables,
-            ...landUseInteractables,
-            ...debugInteractables,
-        ];
+        const uiAspectsRendered = uiAspects.map(aspect => aspect.render(this.state, this.setState.bind(this)));
+
+        const layers = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.layers || []), []);
+        const interactables = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.interactables || []), []);
+        const tools = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.tools || []), []);
+        const windows = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.windows || []), []);
 
         const { eye, target, verticalFov } = this.state.view;
 
@@ -137,7 +124,7 @@ class CityboundClient extends React.Component {
                         verticalRotation
                     );
 
-                    if (eyeRotatedBoth[2] > 10) {
+                    if (eyeRotatedBoth[2] > 10 && vec3.dot(forward, vec3.sub(vec3.create(), target, eyeRotatedBoth)) > 0) {
                         this.setState(oldState => ({
                             view: Object.assign(oldState.view, {
                                 eye: eyeRotatedBoth,
@@ -149,7 +136,9 @@ class CityboundClient extends React.Component {
                     const forward = vec3.sub(vec3.create(), target, eye);
                     vec3.normalize(forward, forward);
 
-                    const delta = this.state.view.zoomSensitivity * e.deltaY;
+                    const heightBasedMultiplier = vec3.dist(target, eye) / 200;
+
+                    const delta = this.state.view.zoomSensitivity * e.deltaY * heightBasedMultiplier;
                     const eyeZoomed = vec3.scaleAndAdd(
                         vec3.create(),
                         eye,
@@ -170,7 +159,7 @@ class CityboundClient extends React.Component {
                     vec3.normalize(forward, forward);
                     const sideways = vec3.rotateZ(vec3.create(), forward, vec3.create(), Math.PI / 2.0);
 
-                    const heightBasedMultiplier = eye[2] / 150;
+                    const heightBasedMultiplier = vec3.dist(target, eye) / 200;
 
                     const delta = vec3.scaleAndAdd(vec3.create(),
                         vec3.scale(
@@ -181,7 +170,7 @@ class CityboundClient extends React.Component {
                         sideways,
                         e.deltaX * this.state.view.panXSensitivity * heightBasedMultiplier
                     );
-    
+
                     this.setState(oldState => ({
                         view: Object.assign(oldState.view, {
                             eye: vec3.add(vec3.create(), oldState.view.eye, delta),
@@ -199,11 +188,11 @@ class CityboundClient extends React.Component {
                 const perspectiveMatrix = mat4.perspective(mat4.create(), verticalFov, width / height, 0.1, 50000);
 
                 return EL("div", { style: { width, height } }, [
+                    EL("div", { key: "ui2dTools", className: "ui2dTools" }, [
+                        ...tools
+                    ]),
                     EL("div", { key: "ui2d", className: "ui2d" }, [
-                        ...planningElements,
-                        ...transportElements,
-                        ...landUseElements,
-                        ...debugElements,
+                        ...windows
                     ]),
                     EL(Monet, {
                         key: "canvas",

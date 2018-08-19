@@ -27,5 +27,5 @@ export function render(state, _setState) {
         })
     );
 
-    return [layers, [], []];
+    return { layers };
 }

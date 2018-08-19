@@ -29,6 +29,10 @@ impl PlanManager {
         world: &mut World,
     ) {
         let master_update = self.master_plan.update_for(known_master);
+        let mut unmatched_known_proposals = known_proposals
+            .keys()
+            .cloned()
+            .collect::<::std::collections::HashSet<_>>();
         let proposal_updates = self
             .proposals
             .pairs()
@@ -37,11 +41,23 @@ impl PlanManager {
                     *proposal_id,
                     known_proposals
                         .get(*proposal_id)
-                        .map(|known_state| proposal.update_for(known_state))
+                        .map(|known_state| {
+                            unmatched_known_proposals.remove(proposal_id);
+                            proposal.update_for(known_state)
+                        })
                         .unwrap_or_else(|| ProposalUpdate::ChangedCompletely(proposal.clone())),
                 )
-            }).collect();
-        ui.on_plans_update(master_update, proposal_updates, world);
+            })
+            .collect::<Vec<_>>();
+        let proposal_updates_with_removals = proposal_updates
+            .into_iter()
+            .chain(
+                unmatched_known_proposals
+                    .into_iter()
+                    .map(|unmatched_id| (unmatched_id, ProposalUpdate::Removed)),
+            )
+            .collect();
+        ui.on_plans_update(master_update, proposal_updates_with_removals, world);
     }
 
     pub fn get_proposal_preview_update(

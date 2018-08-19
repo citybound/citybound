@@ -90,7 +90,8 @@ fn updated_groups_to_js(group_changes: Vec<::michelangelo::GroupChange>) -> ::st
                     ::stdweb::Value::from(change.group_id as u32),
                     to_js_mesh(&change.new_group_mesh),
                 ])
-            }).collect::<Vec<_>>(),
+            })
+            .collect::<Vec<_>>(),
     )
 }
 
@@ -238,6 +239,18 @@ impl BrowserUI {
                             }));
                         }
                         self.proposals.insert(*proposal_id, new_proposal.clone());
+                    }
+                    ProposalUpdate::Removed => {
+                        js! {
+                           window.cbclient.setState(oldState => update(oldState, {
+                               planning: {
+                                   proposals: {
+                                       "$unset": [@{Serde(*proposal_id)}]
+                                   }
+                               }
+                           }));
+                        }
+                        self.proposals.remove(proposal_id);
                     }
                 }
             }

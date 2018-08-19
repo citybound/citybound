@@ -15,70 +15,83 @@ export const initialState = {
 }
 
 export function render(state, setState) {
-    const elements = state.debug.show ? [EL("div", { key: "debug", className: "window debug" }, [
-        EL("h1", {}, "Debugging"),
-        ...(state.planning.currentProposal ? [
-            EL("div", { key: "gridPlanning" }, [
-                "Grid size ",
+    const connectionTolerance = 4;
+    const turnDiff = state.system.networkingTurns[0] - state.system.networkingTurns[1];
+    const connectionIssue = state.system.networkingTurns[0] === 0
+        ? "Connecting to server..."
+        : (turnDiff > connectionTolerance
+            ? "Catching up with server... " + turnDiff
+            : (turnDiff < -connectionTolerance
+                ? "Waiting for server... " + (-turnDiff)
+                : ""));
+
+    const windows = [
+        ...state.debug.show ? [EL("div", { key: "debug", className: "window debug" }, [
+            EL("h1", {}, "Debugging"),
+            ...(state.planning.currentProposal ? [
+                EL("div", { key: "gridPlanning" }, [
+                    "Grid size ",
+                    EL(InputNumber, {
+                        value: state.debug.planGridSettings.n,
+                        onChange: (n) => setState(oldState => update(oldState, {
+                            debug: { planGridSettings: { n: { $set: n } } }
+                        })),
+                        min: 0
+                    }),
+                    " Spacing ",
+                    EL(InputNumber, {
+                        value: state.debug.planGridSettings.spacing,
+                        onChange: (spacing) => setState(oldState => update(oldState, {
+                            debug: { planGridSettings: { spacing: { $set: n } } }
+                        })),
+                        step: 10.0,
+                        min: 0
+                    }),
+                    " ",
+                    EL(Button, {
+                        onClick: () => cityboundBrowser.plan_grid(
+                            state.planning.currentProposal,
+                            state.debug.planGridSettings.n,
+                            state.debug.planGridSettings.spacing
+                        )
+                    }, "Plan grid")
+                ]),
+            ] : [EL("div", {}, "(open a proposal to plan a grid)")]),
+            EL("div", { key: "carSpawning" }, [
+                "Cars per lane (tries) ",
                 EL(InputNumber, {
-                    value: state.debug.planGridSettings.n,
-                    onChange: (n) => setState(oldState => update(oldState, {
-                        debug: { planGridSettings: { n: { $set: n } } }
+                    value: state.debug.spawnCarsSettings.triesPerLane,
+                    onChange: (triesPerLane) => setState(oldState => update(oldState, {
+                        debug: { spawnCarsSettings: { triesPerLane: { $set: triesPerLane } } }
                     })),
-                    min: 0
-                }),
-                " Spacing ",
-                EL(InputNumber, {
-                    value: state.debug.planGridSettings.spacing,
-                    onChange: (spacing) => setState(oldState => update(oldState, {
-                        debug: { planGridSettings: { spacing: { $set: n } } }
-                    })),
-                    step: 10.0,
-                    min: 0
+                    min: 1
                 }),
                 " ",
                 EL(Button, {
-                    onClick: () => cityboundBrowser.plan_grid(
-                        state.planning.currentProposal,
-                        state.debug.planGridSettings.n,
-                        state.debug.planGridSettings.spacing
+                    onClick: () => cityboundBrowser.spawn_cars(
+                        state.debug.spawnCarsSettings.triesPerLane
                     )
-                }, "Plan grid")
+                }, "Spawn cars")
             ]),
-        ] : []),
-        EL("div", { key: "carSpawning" }, [
-            "Cars per lane (tries) ",
-            EL(InputNumber, {
-                value: state.debug.spawnCarsSettings.triesPerLane,
-                onChange: (triesPerLane) => setState(oldState => update(oldState, {
-                    debug: { spawnCarsSettings: { triesPerLane: { $set: triesPerLane } } }
-                })),
-                min: 1
-            }),
-            " ",
-            EL(Button, {
-                onClick: () => cityboundBrowser.spawn_cars(
-                    state.debug.spawnCarsSettings.triesPerLane
-                )
-            }, "Spawn cars")
-        ]),
-        EL("div", { key: "rendering" }, [
-            EL(Button, {
-                onClick: () => setState(
-                    oldState => update(oldState, { rendering: { enabled: { $apply: e => !e } } })
-                )
-            }, state.rendering.enabled ? "Disable rendering" : "Enable rendering")
-        ]),
-        EL("div", {}, Object.keys(state.system.networkingTurns).map(machine =>
-            EL("div", {}, machine + ": " + state.system.networkingTurns[machine])
-        )),
-        EL("div", {}, Object.keys(state.system.queueLengths).map(actor =>
-            EL("div", {}, actor + ": " + state.system.queueLengths[actor])
-        )),
-        EL("div", {}, Object.keys(state.system.messageStats).map(message =>
-            EL("div", {}, message + ": " + state.system.messageStats[message])
-        )),
-    ])] : [];
+            EL("div", { key: "rendering" }, [
+                EL(Button, {
+                    onClick: () => setState(
+                        oldState => update(oldState, { rendering: { enabled: { $apply: e => !e } } })
+                    )
+                }, state.rendering.enabled ? "Disable rendering" : "Enable rendering")
+            ]),
+            EL("div", {}, Object.keys(state.system.networkingTurns).map(machine =>
+                EL("div", {}, machine + ": " + state.system.networkingTurns[machine])
+            )),
+            EL("div", {}, Object.keys(state.system.queueLengths).map(actor =>
+                EL("div", {}, actor + ": " + state.system.queueLengths[actor])
+            )),
+            EL("div", {}, Object.keys(state.system.messageStats).map(message =>
+                EL("div", {}, message + ": " + state.system.messageStats[message])
+            )),
+        ])] : [],
+        ...connectionIssue ? [EL("div", { className: "window connection" }, connectionIssue)] : []
+    ];
 
-    return [[], [], elements]
+    return { windows }
 }

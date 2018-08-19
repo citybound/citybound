@@ -3,7 +3,8 @@ import React from 'react';
 import { vec3, mat4 } from 'gl-matrix';
 import * as cityboundBrowser from '../../Cargo.toml';
 import uuid from '../uuid';
-import { Button } from 'antd';
+import { Button, Select } from 'antd';
+const Option = Select.Option;
 
 const EL = React.createElement;
 
@@ -136,7 +137,11 @@ function finishGesture(proposalId, gestureId) {
 // TODO: remove this once we invent a pattern for keybindings
 export function implementProposal(proposalId) {
     cityboundBrowser.implement_proposal(proposalId);
-    return oldState => update(oldState, { planning: { $unset: ['currentProposal'] } });
+    return oldState => update(oldState, {
+        planning: {
+            $unset: ['currentProposal'],
+        }
+    });
 }
 
 // INTERACTABLES AND RENDER LAYERS
@@ -319,29 +324,46 @@ export function render(state, setState) {
         setState(oldState => update(oldState, updateOp))
     }
 
-    const elements = [
+    const tools = [
         ...makeToolbar("main-toolbar", ["Inspection", "Planning"/*, "Budgeting"*/], "main", state.uiMode, setUiMode),
         ...(state.uiMode.startsWith("main/planning")
-            ? [EL("div", { key: "proposals", className: "window proposals" }, [
-                ...Object.keys(state.planning.proposals).map(proposalId =>
-                    proposalId == state.planning.currentProposal
-                        ? EL("p", { key: proposalId }, [
-                            EL("h2", {}, "Proposal \"" + proposalId.split("-")[0] + "\""),
-                            EL(Button, {
-                                onClick: () => setState(oldState => update(oldState, { planning: { currentProposal: { $set: null } } }))
-                            }, "Close"),
-                            " ",
-                            EL(Button, {
-                                type: "primary",
-                                onClick: () => setState(implementProposal(state.planning.currentProposal))
-                            }, "Implement")
-                        ])
-                        : EL(Button, {
-                            key: proposalId,
-                            onClick: () => setState(switchToProposal(proposalId))
-                        }, "Open Proposal \"" + proposalId.split("-")[0] + "\"")
-                ),
-            ])]
+            // ? [EL("div", { key: "proposals", className: "window proposals" }, [
+            //     ...Object.keys(state.planning.proposals).map(proposalId =>
+            //         proposalId == state.planning.currentProposal
+            //             ? EL("p", { key: proposalId }, [
+            //                 EL("h2", {}, "Proposal \"" + proposalId.split("-")[0] + "\""),
+            //                 EL(Button, {
+            //                     onClick: () => setState(oldState => update(oldState, { planning: { currentProposal: { $set: null } } }))
+            //                 }, "Close"),
+            //                 " ",
+            //                 EL(Button, {
+            //                     type: "primary",
+            //                     onClick: () => setState(implementProposal(state.planning.currentProposal))
+            //                 }, "Implement")
+            //             ])
+            //             : EL(Button, {
+            //                 key: proposalId,
+            //                 onClick: () => setState(switchToProposal(proposalId))
+            //             }, "Open Proposal \"" + proposalId.split("-")[0] + "\"")
+            //     ),
+            // ])]
+            ? [EL(Select, {
+                style: { width: 200 },
+                showSearch: true,
+                placeholder: "Open a proposal",
+                optionFilterProp: "children",
+                onChange: (value) => setState(switchToProposal(value)),
+                value: state.planning.currentProposal
+            },
+                Object.keys(state.planning.proposals).map(proposalId =>
+                    EL(Option, { value: proposalId }, "Proposal '" + proposalId.split("-")[0] + "'")
+                )
+            ), ...state.planning.currentProposal ? [
+                EL(Button, {
+                    type: "primary",
+                    onClick: () => setState(implementProposal(state.planning.currentProposal))
+                }, "Implement")
+            ] : []]
             : []),
         ...(state.planning.currentProposal
             ? makeToolbar("planning-toolbar", ["Roads", "Zoning"], "main/planning", state.uiMode, setUiMode)
@@ -406,8 +428,8 @@ export function render(state, setState) {
     ]
 
     if (state.uiMode.startsWith("main/planning") && state.planning.currentProposal) {
-        return [layers, interactables, elements];
+        return { layers, interactables, tools };
     } else {
-        return [[], [], elements];
+        return { tools };
     }
 }
