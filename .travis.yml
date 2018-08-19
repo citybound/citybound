@@ -34,7 +34,7 @@ install:
   - source ~/.cargo/env || true
   - rustup component add rustfmt-preview --toolchain $TRAVIS_RUST_VERSION
   - cargo fmt --verbose --version
-  - cargo component add clippy-preview --toolchain $TRAVIS_RUST_VERSION
+  - rustup component add clippy-preview --toolchain $TRAVIS_RUST_VERSION
   - cargo clippy --verbose --version
 
 script:
