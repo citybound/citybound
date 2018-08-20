@@ -50,17 +50,18 @@ body {
 }
 
 #logo {
+    width: 8rem;
     position: absolute;
-    right: 1rem;
-    bottom: 1rem;
+    right: 0.75rem;
+    top: 0.25rem;
     z-index: 1000;
     opacity: 0.1;
 }
 
 #version {
     position: absolute;
-    right: 1rem;
-    bottom: 0.8rem;
+    right: 0.75rem;
+    top: 2.75rem;
     z-index: 1000;
     opacity: 0.2;
     font-size: 0.8em;
@@ -117,12 +118,12 @@ button {
     position: absolute;
     bottom: 0;
     z-index: 4;
-    padding: 1rem 0.5rem;
+    padding: 0.5rem 0;
     width: 100%;
     display: flex;
     flex-direction: row;
     align-items: center;
-    background-color: #ffffff87;
+    background-color: #000;
 }
 
 
@@ -143,33 +144,36 @@ button {
     z-index: 3;
     display: grid;
     grid-template-columns: 3em;
-    grid-column-gap: 1px;
-    grid-row-gap: 1px;
-    grid-template-rows: 3em;
+    grid-column-gap: 2px;
+    grid-row-gap: 2px;
+    grid-template-rows: 2.5em;
     grid-auto-flow: column;
     align-items: center;
     justify-items: center;
     margin: 0 0.5em;
 
     button {
-        width: 3em;
-        height: 3em;
+        width: 3rem;
+        height: 2rem;
         border: none;
         margin: 0;
-        background-color: rgba(255, 255, 255, 0.8);
+        background-color: #bbbbbb;
         border-radius: 2px;
+        border: 1px solid transparent;
         -webkit-backdrop-filter: blur(10px);
         background-position: center center;
         background-size: 24px 24px;
         background-repeat: no-repeat no-repeat;
-        opacity: 0.6;
+        filter: invert(100%);
 
         &:hover {
-            opacity: 0.8;
+            border: 1px solid #000000;
         }
 
         &.active {
-            opacity: 1.0;
+            filter: none;
+            background-color: #ffffff;
+            border: 1px solid transparent;
         }
     }
 }
@@ -209,14 +213,18 @@ button {
         background-clip: padding-box;
         border-radius: 1.5em;
         opacity: 1.0;
-        border: 0.1em solid rgba(255, 255, 255, 0.4);
+        border: 1px solid #555555;
+        padding: 2px;
+        background-clip: content-box;
+
+        filter: none;
 
         &:hover {
-            border: 0.1em solid rgba(255, 255, 255, 0.7);
+            border: 1px solid #fff;
         }
 
         &.active {
-            border: 0.1em solid rgba(255, 255, 255, 0.9);
+            border: 3px solid #fff;
         }
     }
 

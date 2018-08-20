@@ -4,9 +4,19 @@ import { vec3, mat4 } from 'gl-matrix';
 import * as cityboundBrowser from '../../Cargo.toml';
 import uuid from '../uuid';
 import { Button, Select } from 'antd';
+import { solidColorShader } from 'monet';
 const Option = Select.Option;
 
 const EL = React.createElement;
+
+const LAND_USES = [
+    "Residential",
+    "Commercial",
+    "Industrial",
+    "Agricultural",
+    "Recreational",
+    "Official",
+];
 
 export const initialState = {
     rendering: {
@@ -15,7 +25,8 @@ export const initialState = {
             lanesToConstructGroups: new Map(),
             lanesToConstructMarkerGroups: new Map(),
             lanesToConstructMarkerGapsGroups: new Map(),
-            zonesGroups: new Map(),
+            zoneGroups: new Map(LAND_USES.map(landUse => [landUse, new Map()])),
+            zoneOutlineGroups: new Map(LAND_USES.map(landUse => [landUse, new Map()])),
         }
     },
     master: {
@@ -149,7 +160,34 @@ export function implementProposal(proposalId) {
 const destructedAsphaltInstance = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.destructedAsphalt]);
 const plannedAsphaltInstance = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.plannedAsphalt]);
 const plannedRoadMarkerInstance = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.plannedRoadMarker]);
-const residentialInstance = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.residential]);
+const landUseInstances = new Map(LAND_USES.map(landUse => [landUse, new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors[landUse]])]));
+
+const stripedShaders = [
+    "mod(p.x + p.y, 6.0) < 2.0 && mod(p.x - p.y, 6.0) > 2.0",
+    "mod(p.x + p.y, 6.0) > 2.0 && mod(p.x + p.y, 6.0) < 4.0 && mod(p.x - p.y, 6.0) > 2.0",
+    "mod(p.x + p.y, 6.0) > 4.0 && mod(p.x - p.y, 6.0) > 2.0"
+].map(condition => ({
+    vertex: solidColorShader.vertex,
+    fragment: `
+precision mediump float;
+varying vec3 p;
+varying vec3 color;
+void main() {
+    if (${condition}) {
+        gl_FragColor = vec4(pow(color, vec3(1.0/2.2)), 1.0);
+    } else {
+        discard;
+    }
+}`}));
+
+const shadersForLandUses = {
+    Residential: stripedShaders[0],
+    Commercial: stripedShaders[1],
+    Industrial: stripedShaders[2],
+    Agricultural: stripedShaders[1],
+    Recreational: stripedShaders[2],
+    Official: stripedShaders[2]
+};
 
 export function render(state, setState) {
     const controlPointsInstances = [];
@@ -171,8 +209,8 @@ export function render(state, setState) {
 
             for (let [pointIdx, point] of gesture.points.entries()) {
 
-                let isRelevant = (gesture.intent.Road && state.uiMode === "main/planning/roads")
-                    || (gesture.intent.Zone && state.uiMode.startsWith("main/planning/zoning"));
+                let isRelevant = (gesture.intent.Road && state.uiMode === "main/Planning/Roads")
+                    || (gesture.intent.Zone && state.uiMode.startsWith("main/Planning/Zoning"));
 
                 if (isRelevant) {
                     let isHovered = gestureId == hoveredGestureId && pointIdx == hoveredPointIdx;
@@ -232,7 +270,7 @@ export function render(state, setState) {
     const { lanesToConstructGroups,
         lanesToConstructMarkerGroups,
         lanesToConstructMarkerGapsGroups,
-        zonesGroups } = state.planning.rendering.currentPreview;
+        zoneGroups, zoneOutlineGroups } = state.planning.rendering.currentPreview;
 
     const layers = [
         {
@@ -256,13 +294,28 @@ export function render(state, setState) {
                 instances: plannedAsphaltInstance
             }))
         },
-        {
+        ...[...zoneGroups.entries()].map(([landUse, groups]) => ({
             decal: true,
-            batches: [...zonesGroups.values()].map(groupMesh => ({
+            batches: [...groups.values()].map(groupMesh => ({
                 mesh: groupMesh,
-                instances: residentialInstance
+                instances: landUseInstances.get(landUse)
             }))
-        },
+        })),
+        ...[...zoneGroups.entries()].reverse().map(([landUse, groups]) => ({
+            decal: true,
+            shader: shadersForLandUses[landUse],
+            batches: [...groups.values()].map(groupMesh => ({
+                mesh: groupMesh,
+                instances: landUseInstances.get(landUse)
+            }))
+        })),
+        ...[...zoneOutlineGroups.entries()].map(([landUse, groups]) => ({
+            decal: true,
+            batches: [...groups.values()].map(groupMesh => ({
+                mesh: groupMesh,
+                instances: landUseInstances.get(landUse)
+            }))
+        })),
         {
             decal: true,
             batches: [{
@@ -275,7 +328,7 @@ export function render(state, setState) {
     function makeToolbar(id, descriptions, prefix, uiMode, setMode, colorMap) {
         if (uiMode.startsWith(prefix)) {
             return [EL("div", { id, className: "toolbar" }, descriptions.map(description => {
-                const descriptionSlug = description.toLowerCase().replace(/\s/g, "-")
+                const descriptionSlug = description;
                 return EL("button", {
                     id: descriptionSlug,
                     key: descriptionSlug,
@@ -292,7 +345,7 @@ export function render(state, setState) {
 
     const setUiMode = uiMode => {
         let updateOp = { uiMode: { $set: uiMode } };
-        if (uiMode === "main/planning/roads") {
+        if (uiMode === "main/Planning/Roads") {
             updateOp.planning = {
                 canvasMode: {
                     intent: {
@@ -305,13 +358,14 @@ export function render(state, setState) {
                     }
                 }
             }
-        } else if (uiMode === "main/planning/zoning/residential") {
+        } else if (uiMode.startsWith("main/Planning/Zoning/")) {
+            let [landUse] = uiMode.split(/\//g).slice(-1);
             updateOp.planning = {
                 canvasMode: {
                     intent: {
                         $set: {
                             Zone: {
-                                LandUse: "Residential"
+                                LandUse: landUse
                             }
                         }
                     }
@@ -325,30 +379,10 @@ export function render(state, setState) {
     }
 
     const tools = [
-        ...makeToolbar("main-toolbar", ["Inspection", "Planning"/*, "Budgeting"*/], "main", state.uiMode, setUiMode),
-        ...(state.uiMode.startsWith("main/planning")
-            // ? [EL("div", { key: "proposals", className: "window proposals" }, [
-            //     ...Object.keys(state.planning.proposals).map(proposalId =>
-            //         proposalId == state.planning.currentProposal
-            //             ? EL("p", { key: proposalId }, [
-            //                 EL("h2", {}, "Proposal \"" + proposalId.split("-")[0] + "\""),
-            //                 EL(Button, {
-            //                     onClick: () => setState(oldState => update(oldState, { planning: { currentProposal: { $set: null } } }))
-            //                 }, "Close"),
-            //                 " ",
-            //                 EL(Button, {
-            //                     type: "primary",
-            //                     onClick: () => setState(implementProposal(state.planning.currentProposal))
-            //                 }, "Implement")
-            //             ])
-            //             : EL(Button, {
-            //                 key: proposalId,
-            //                 onClick: () => setState(switchToProposal(proposalId))
-            //             }, "Open Proposal \"" + proposalId.split("-")[0] + "\"")
-            //     ),
-            // ])]
+        ...makeToolbar("main-toolbar", ["Inspection", "Planning"], "main", state.uiMode, setUiMode),
+        ...(state.uiMode.startsWith("main/Planning")
             ? [EL(Select, {
-                style: { width: 200 },
+                style: { width: 180 },
                 showSearch: true,
                 placeholder: "Open a proposal",
                 optionFilterProp: "children",
@@ -366,17 +400,16 @@ export function render(state, setState) {
             ] : []]
             : []),
         ...(state.planning.currentProposal
-            ? makeToolbar("planning-toolbar", ["Roads", "Zoning"], "main/planning", state.uiMode, setUiMode)
+            ? makeToolbar("planning-toolbar", ["Roads", "Zoning"], "main/Planning", state.uiMode, setUiMode)
             : []),
         ...makeToolbar("zoning-toolbar", [
             "Residential",
             "Commercial",
-            //"Offices",
-            "Agricultural",
             "Industrial",
+            "Agricultural",
             "Recreational",
             "Official"
-        ], "main/planning/zoning", state.uiMode, setUiMode,
+        ], "main/Planning/Zoning", state.uiMode, setUiMode,
             zone => {
                 let c = colors[zone];
                 return `rgb(${Math.pow(c[0], 1 / 2.2) * 256}, ${Math.pow(c[1], 1 / 2.2) * 256}, ${Math.pow(c[2], 1 / 2.2) * 256}`
@@ -394,7 +427,7 @@ export function render(state, setState) {
                 type: "everywhere",
             },
             zIndex: 1,
-            cursorHover: state.uiMode.startsWith("main/planning/") ? "crosshair" : "normal",
+            cursorHover: state.uiMode.startsWith("main/Planning/") ? "crosshair" : "normal",
             cursorActive: "pointer",
             onEvent: e => {
                 const canvasMode = state.planning.canvasMode;
@@ -427,7 +460,7 @@ export function render(state, setState) {
         }
     ]
 
-    if (state.uiMode.startsWith("main/planning") && state.planning.currentProposal) {
+    if (state.uiMode.startsWith("main/Planning") && state.planning.currentProposal) {
         return { layers, interactables, tools };
     } else {
         return { tools };

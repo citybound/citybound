@@ -73,7 +73,6 @@ class CityboundClient extends React.Component {
     }
 
     onFrame() {
-        console.log("on frame");
         if (this.state.rendering.enabled) {
             this.renderer.current.renderFrame();
         }

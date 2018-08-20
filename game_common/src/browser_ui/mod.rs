@@ -8,6 +8,7 @@ use descartes::LinePath;
 use michelangelo::{MeshGrouper, Instance};
 use planning::{ProposalID, Proposal, PrototypeID, PlanHistory, PlanResult,
 PlanHistoryUpdate, ProposalUpdate, PlanResultUpdate, ActionGroups};
+use ::land_use::zone_planning::{LandUse, LAND_USES};
 
 #[derive(Compact, Clone)]
 pub struct BrowserUI {
@@ -41,7 +42,8 @@ pub struct BrowserUINonPersistedState {
     lanes_to_construct_grouper: MeshGrouper<PrototypeID>,
     lanes_to_construct_marker_grouper: MeshGrouper<PrototypeID>,
     lanes_to_construct_marker_gaps_grouper: MeshGrouper<PrototypeID>,
-    zones_grouper: MeshGrouper<PrototypeID>,
+    zone_groupers: HashMap<LandUse, MeshGrouper<PrototypeID>>,
+    zone_outline_groupers: HashMap<LandUse, MeshGrouper<PrototypeID>>,
     // transport geometry
     asphalt_grouper: MeshGrouper<RawID>,
     lane_marker_grouper: MeshGrouper<RawID>,
@@ -126,7 +128,14 @@ impl BrowserUI {
                 lanes_to_construct_grouper: MeshGrouper::new(2000),
                 lanes_to_construct_marker_grouper: MeshGrouper::new(2000),
                 lanes_to_construct_marker_gaps_grouper: MeshGrouper::new(2000),
-                zones_grouper: MeshGrouper::new(2000),
+                zone_groupers: LAND_USES
+                    .into_iter()
+                    .map(|land_use| (*land_use, MeshGrouper::new(2000)))
+                    .collect(),
+                zone_outline_groupers: LAND_USES
+                    .into_iter()
+                    .map(|land_use| (*land_use, MeshGrouper::new(2000)))
+                    .collect(),
                 asphalt_grouper: MeshGrouper::new(2000),
                 lane_marker_grouper: MeshGrouper::new(2000),
                 lane_marker_gaps_grouper: MeshGrouper::new(2000),
@@ -151,7 +160,7 @@ impl BrowserUI {
             );
 
             let maybe_current_proposal_id: Result<Serde<ProposalID>, _> = js! {
-                return (window.cbclient.state.uiMode.startsWith("main/planning") &&
+                return (window.cbclient.state.uiMode.startsWith("main/Planning") &&
                     window.cbclient.state.planning.currentProposal);
             }.try_into();
             if let Ok(Serde(current_proposal_id)) = maybe_current_proposal_id {
@@ -282,8 +291,23 @@ SwitchLanePrototype, IntersectionPrototype};
             let mut lanes_to_construct_marker_gaps_add = Vec::new();
             let mut lanes_to_construct_marker_gaps_rem = Vec::new();
 
-            let mut zones_add = Vec::new();
-            let mut zones_rem = Vec::new();
+            let mut zones_add: HashMap<LandUse, _> = LAND_USES
+                .into_iter()
+                .map(|land_use| (*land_use, Vec::new()))
+                .collect();
+            let mut zones_rem: HashMap<LandUse, _> = LAND_USES
+                .into_iter()
+                .map(|land_use| (*land_use, Vec::new()))
+                .collect();
+
+            let mut zone_outlines_add: HashMap<LandUse, _> = LAND_USES
+                .into_iter()
+                .map(|land_use| (*land_use, Vec::new()))
+                .collect();
+            let mut zone_outlines_rem: HashMap<LandUse, _> = LAND_USES
+                .into_iter()
+                .map(|land_use| (*land_use, Vec::new()))
+                .collect();
 
             for prototype_id in &result_update.prototypes_to_drop {
                 let prototype = self
@@ -317,7 +341,16 @@ SwitchLanePrototype, IntersectionPrototype};
                         }
                     }
                     PrototypeKind::Lot(LotPrototype { ref lot, .. }) => {
-                        zones_rem.push(*prototype_id);
+                        for land_use in &lot.land_uses {
+                            zones_rem
+                                .get_mut(land_use)
+                                .expect("Should have land use to update removes")
+                                .push(*prototype_id);
+                            zone_outlines_rem
+                                .get_mut(land_use)
+                                .expect("Should have land use to update removes")
+                                .push(*prototype_id);
+                        }
                     }
                     _ => {}
                 }
@@ -363,7 +396,23 @@ SwitchLanePrototype, IntersectionPrototype};
                         _ => {}
                     },
                     PrototypeKind::Lot(LotPrototype { ref lot, .. }) => {
-                        zones_add.push((new_prototype.id, Mesh::from_area(&lot.area)));
+                        let mesh = Mesh::from_area(&lot.area);
+                        let outline_mesh = Mesh::from_path_as_band_asymmetric(
+                            lot.area.primitives[0].boundary.path(),
+                            1.5,
+                            -0.5,
+                            0.0,
+                        );
+                        for land_use in &lot.land_uses {
+                            zones_add
+                                .get_mut(land_use)
+                                .expect("Should have land use to update adds")
+                                .push((new_prototype.id, mesh.clone()));
+                            zone_outlines_add
+                                .get_mut(land_use)
+                                .expect("Should have land use to update adds")
+                                .push((new_prototype.id, outline_mesh.clone()));
+                        }
                     }
                     _ => {}
                 }
@@ -383,7 +432,45 @@ SwitchLanePrototype, IntersectionPrototype};
                     lanes_to_construct_marker_gaps_add,
                 );
 
-            let updated_zones_groups = self.zones_grouper.update(zones_rem, zones_add);
+            let updated_zones_all_groups: ::stdweb::Object = self
+                .zone_groupers
+                .iter_mut()
+                .map(|(land_use, grouper)| {
+                    let rem = zones_rem
+                        .remove(land_use)
+                        .expect("Should have land use removes");
+                    let add = zones_add
+                        .remove(land_use)
+                        .expect("Should have land use adds");
+                    let updated_groups_js = updated_groups_to_js(grouper.update(rem, add));
+                    let add_op: ::stdweb::Object = Some(("$add", updated_groups_js))
+                        .into_iter()
+                        .collect::<HashMap<_, _>>()
+                        .into();
+                    (land_use.to_string(), add_op)
+                })
+                .collect::<HashMap<_, _>>()
+                .into();
+
+            let updated_zones_all_outline_groups: ::stdweb::Object = self
+                .zone_outline_groupers
+                .iter_mut()
+                .map(|(land_use, grouper)| {
+                    let rem = zone_outlines_rem
+                        .remove(land_use)
+                        .expect("Should have land use removes");
+                    let add = zone_outlines_add
+                        .remove(land_use)
+                        .expect("Should have land use adds");
+                    let updated_groups_js = updated_groups_to_js(grouper.update(rem, add));
+                    let add_op: ::stdweb::Object = Some(("$add", updated_groups_js))
+                        .into_iter()
+                        .collect::<HashMap<_, _>>()
+                        .into();
+                    (land_use.to_string(), add_op)
+                })
+                .collect::<HashMap<_, _>>()
+                .into();
 
             js! {
                 window.cbclient.setState(oldState => update(oldState, {
@@ -404,11 +491,8 @@ SwitchLanePrototype, IntersectionPrototype};
                                     updated_lanes_to_construct_marker_gaps_groups
                                 )}
                             },
-                            zonesGroups: {
-                                "$add": @{updated_groups_to_js(
-                                    updated_zones_groups
-                                )}
-                            }
+                            zoneGroups: @{updated_zones_all_groups},
+                            zoneOutlineGroups: @{updated_zones_all_outline_groups}
                         }
                     }}
                 }));

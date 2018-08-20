@@ -14,7 +14,7 @@ pub enum ZoneIntent {
     SetBack(u8),
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
 pub enum LandUse {
     Residential,
     Commercial,
@@ -23,6 +23,21 @@ pub enum LandUse {
     Recreational,
     Official,
 }
+
+impl ::std::fmt::Display for LandUse {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        ::std::fmt::Debug::fmt(self, f)
+    }
+}
+
+pub const LAND_USES: [LandUse; 6] = [
+    LandUse::Residential,
+    LandUse::Commercial,
+    LandUse::Industrial,
+    LandUse::Agricultural,
+    LandUse::Recreational,
+    LandUse::Official,
+];
 
 #[derive(Compact, Clone, Serialize, Deserialize, Debug)]
 pub struct Lot {
@@ -80,7 +95,8 @@ pub fn calculate_prototypes(
             } else {
                 None
             }
-        }).collect::<Vec<_>>();
+        })
+        .collect::<Vec<_>>();
 
     let building_prototypes = history
         .gestures
@@ -135,7 +151,8 @@ pub fn calculate_prototypes(
             } else {
                 Ok(None)
             }
-        }).collect::<Result<Vec<_>, _>>()?
+        })
+        .collect::<Result<Vec<_>, _>>()?
         .into_iter()
         .filter_map(|maybe_proto| maybe_proto)
         .collect::<Vec<_>>();
@@ -153,7 +170,8 @@ pub fn calculate_prototypes(
                 } else {
                     unreachable!()
                 }
-            }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
 
         let mut land_use_areas = history
             .gestures
@@ -164,7 +182,8 @@ pub fn calculate_prototypes(
                 } else {
                     None
                 }
-            }).filter_map(|(land_use, points, step_id)| {
+            })
+            .filter_map(|(land_use, points, step_id)| {
                 Some((
                     land_use,
                     Area::new_simple(ClosedLinePath::new(LinePath::new(
@@ -172,7 +191,8 @@ pub fn calculate_prototypes(
                     )?)?),
                     step_id,
                 ))
-            }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
 
         let paved_or_built_areas = || paved_area_areas.iter().chain(building_areas.iter());
 
@@ -198,18 +218,21 @@ pub fn calculate_prototypes(
                                                 )
                                             },
                                         )
-                                    }).collect()
+                                    })
+                                    .collect()
                             } else {
                                 vec![(shape.clone(), current_id)]
                             }
-                        }).collect()
+                        })
+                        .collect()
                 }
 
                 shapes
                     .into_iter()
                     .map(|(shape, id)| (land_use, shape, id))
                     .collect::<Vec<_>>()
-            }).collect();
+            })
+            .collect();
 
         land_use_areas_influenced
             .into_iter()
@@ -224,12 +247,14 @@ pub fn calculate_prototypes(
                             .iter()
                             .map(|ratio| (segment.along(length * ratio), -segment.direction()))
                             .collect::<Vec<_>>()
-                    }).filter(|&(point, _dir)| {
+                    })
+                    .filter(|&(point, _dir)| {
                         // TODO: this is a horribly slow way to find connection points
                         paved_area_areas
                             .iter()
                             .any(|(paved_area, _)| paved_area.contains(point))
-                    }).collect::<CVec<_>>();
+                    })
+                    .collect::<CVec<_>>();
 
                 if connection_points.is_empty() {
                     println!("No connection point found");
@@ -250,7 +275,8 @@ pub fn calculate_prototypes(
                         id,
                     })
                 }
-            }).collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
     };
 
     Ok(vacant_lot_prototypes
