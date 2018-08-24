@@ -1,8 +1,8 @@
-pub const TICKS_PER_SIM_SECOND: usize = 3;
-pub const TICKS_PER_SIM_MINUTE: usize = 60 * TICKS_PER_SIM_SECOND;
+pub const TICKS_PER_SIM_SECOND: u32 = 3;
+pub const TICKS_PER_SIM_MINUTE: u32 = 60 * TICKS_PER_SIM_SECOND;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Ticks(pub usize);
+pub struct Ticks(pub u32);
 
 impl From<Duration> for Ticks {
     fn from(d_secs: Duration) -> Ticks {
@@ -11,11 +11,11 @@ impl From<Duration> for Ticks {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Duration(pub usize);
+pub struct Duration(pub u32);
 
 impl Duration {
     pub fn from_seconds(seconds: usize) -> Self {
-        Duration(seconds)
+        Duration(seconds as u32)
     }
 
     pub fn from_minutes(minutes: usize) -> Self {
@@ -58,15 +58,15 @@ impl ::std::ops::AddAssign for Duration {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct Instant(usize);
+pub struct Instant(u32);
 
 impl Instant {
     pub fn new(ticks: usize) -> Self {
-        Instant(ticks)
+        Instant(ticks as u32)
     }
 
     pub fn ticks(&self) -> usize {
-        self.0
+        self.0 as usize
     }
 
     pub fn iticks(&self) -> isize {
@@ -128,8 +128,8 @@ impl TimeOfDay {
         TimeOfDay {
             minutes_of_day: ((((self.minutes_of_day as isize - delta.as_minutes() as isize)
                 % MINUTES_PER_DAY as isize)
-                + MINUTES_PER_DAY as isize) as usize
-                % MINUTES_PER_DAY) as u16,
+                + MINUTES_PER_DAY as isize) as usize % MINUTES_PER_DAY)
+                as u16,
         }
     }
 
@@ -145,7 +145,7 @@ impl From<Instant> for TimeOfDay {
     fn from(instant: Instant) -> TimeOfDay {
         TimeOfDay {
             minutes_of_day: ((BEGINNING_TIME_OF_DAY * 60
-                + (instant.ticks() / TICKS_PER_SIM_MINUTE))
+                + (instant.ticks() / TICKS_PER_SIM_MINUTE as usize))
                 % MINUTES_PER_DAY) as u16,
         }
     }

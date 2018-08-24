@@ -73,6 +73,10 @@ impl Simulation {
         };
         self.sleepers.insert(insert_idx, (wake_up_at, sleeper_id));
     }
+
+    pub fn get_info(&mut self, requester: ::browser_ui::BrowserUIID, world: &mut World) {
+        requester.on_simulation_info(self.current_instant, self.speed, world);
+    }
 }
 
 pub fn setup(system: &mut ActorSystem) {

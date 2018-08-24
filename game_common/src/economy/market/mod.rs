@@ -193,15 +193,15 @@ impl DistanceRequester for TripCostEstimator {
                     .evaluated_deals
                     .iter()
                     .map(|evaluated_deal| {
-                        let estimated_travel_time =
-                            Duration((distance / ASSUMED_AVG_SPEED) as usize);
+                        let estimated_travel_time = Duration((distance / ASSUMED_AVG_SPEED) as u32);
                         let mut new_deal = evaluated_deal.clone();
                         new_deal.deal.duration += estimated_travel_time;
                         new_deal.opening_hours =
                             new_deal.opening_hours.earlier_by(estimated_travel_time);
                         // TODO: adjust resources to incorporate travel costs
                         new_deal
-                    }).collect(),
+                    })
+                    .collect(),
                 ..self.base_result
             }
         } else {

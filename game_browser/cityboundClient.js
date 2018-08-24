@@ -11,6 +11,7 @@ import * as cityboundBrowser from './Cargo.toml';
 import * as Planning from './src/planning_browser/Planning';
 import * as Transport from './src/transport_browser/Transport';
 import * as LandUse from './src/land_use_browser/LandUse';
+import * as Simulation from './src/simulation_browser/Simulation';
 import * as Debug from './src/debug/Debug';
 import Stage from './src/stage/Stage';
 import colors from './src/colors';
@@ -34,6 +35,7 @@ class CityboundClient extends React.Component {
             rendering: {
                 enabled: true
             },
+            simulation: Simulation.initialState,
             view: {
                 eye: [-150, -150, 150],
                 target: [0, 0, 0],

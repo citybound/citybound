@@ -159,6 +159,8 @@ impl BrowserUI {
                 world,
             );
 
+            ::simulation::Simulation::global_first(world).get_info(self.id, world);
+
             let maybe_current_proposal_id: Result<Serde<ProposalID>, _> = js! {
                 return (window.cbclient.state.uiMode.startsWith("main/Planning") &&
                     window.cbclient.state.planning.currentProposal);
@@ -193,6 +195,27 @@ impl BrowserUI {
                     transport: {rendering: {
                         carInstances: {"$set": @{car_instances_js}}
                     }}
+                }))
+            }
+        }
+    }
+
+    pub fn on_simulation_info(
+        &mut self,
+        current_instant: ::simulation::Instant,
+        speed: i32,
+        world: &mut World,
+    ) {
+        #[cfg(feature = "browser")]
+        {
+            use ::stdweb::serde::Serde;
+            js! {
+                window.cbclient.setState(oldState => update(oldState, {
+                    simulation: {
+                        ticks: {"$set": @{current_instant.ticks() as u32}},
+                        time: {"$set": @{Serde(::simulation::TimeOfDay::from(current_instant).hours_minutes())}},
+                        speed: {"$set": @{speed}}
+                    }
                 }))
             }
         }
