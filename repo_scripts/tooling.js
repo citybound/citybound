@@ -22,14 +22,14 @@ if (rustupV && rustupV.startsWith("rustup")) {
 
 let rustupShow = execSync('rustup show', { encoding: 'utf8' });
 
-let activeToolchains = rustupShow.split(/^active toolchain$/m)[1];
+let activeToolchains = (rustupShow.match(/^(.+?)\s+\(directory override(.+?)$/m) || [null, null])[1];
 
 if (activeToolchains && activeToolchains.includes(NIGHTLY_VERSION)) {
     !quiet && console.log("Correct rust nightly set up ✅");
     correctToolchain = true;
 } else {
     console.log("Wrong version of rust set up ⚠️");
-    activeToolchains && console.log(activeToolchains.split(/\n/g).map(s => " | " + s).join("\n"));
+    console.log(rustupShow.split(/\n/g).map(s => " | " + s).join("\n"));
     console.log("🔧 Overriding with correct nightly (only for this directory)...");
     const nightlySuffix = process.platform === "win32"
         ? "-x86_64-pc-windows-msvc"
@@ -43,7 +43,7 @@ if (activeToolchains && activeToolchains.includes(NIGHTLY_VERSION)) {
 
     let rustupShow2 = execSync('rustup show', { encoding: 'utf8' });
 
-    let activeToolchains2 = rustupShow2.split(/^active toolchain$/m)[1];
+    let activeToolchains2 = (rustupShow2.match(/^(.+?)\s+\(directory override(.+?)$/m) || [null, null])[1];
     if (activeToolchains2 && activeToolchains2.includes(NIGHTLY_VERSION)) {
         !quiet && console.log("Correct rust nightly set up ✅");
     } else {
@@ -53,9 +53,6 @@ if (activeToolchains && activeToolchains.includes(NIGHTLY_VERSION)) {
         process.exit(1);
     }
 }
-
-!quiet && console.log("🔧 Ensuring that generic nightly is installed (for browser)...");
-spawnSync("rustup", ["install", "nightly"], { stdio: quiet ? 'ignore' : 'inherit' });
 
 !quiet && console.log("🔧 Ensuring linting tools are installed...");
 spawnSync("rustup", ["component", "add", "rustfmt-preview", "--toolchain", NIGHTLY_VERSION],
