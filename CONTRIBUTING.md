@@ -61,12 +61,9 @@ Recommended setup:
 * `cd citybound`
 * `npm run ensure-tooling`
   * Follow instructions
-* Start the server with `npm run dev-server`
+* Build the browser UI + build the server + run the server with `npm start`
   * Might take long the first time - installs and compile dependencies
-* Start the browser packager with `npm run dev-browser`
-  * Might take long the first time - installs and compile dependencies
-  * It should show you which address to open in your browser
-  * If you encounter any weird exceptions in the browser, first try stopping the `dev-browser` script, deleting the `.cache` folder in `game_browser` and re-running `dev-browser` script`
+* Open the displayed address in your browser
 
 ## Guidelines
 

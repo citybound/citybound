@@ -15,7 +15,7 @@ export const initialState = {
 }
 
 export function render(state, setState) {
-    const connectionTolerance = 4;
+    const connectionTolerance = window.cbNetworkSettings.acceptableTurnDistance + 3;
     const turnDiff = state.system.networkingTurns[0] - state.system.networkingTurns[1];
     const connectionIssue = state.system.networkingTurns[0] === 0
         ? "Connecting to server..."

@@ -1,6 +1,6 @@
 // Place your settings in this file to overwrite default and user settings.
 {
     "editor.formatOnSave": true,
-    "rust-client.channel": "nightly-2018-06-02-x86_64-apple-darwin",
+    "rust-client.channel": "nightly-2018-08-06",
     "debug.allowBreakpointsEverywhere": true
 }

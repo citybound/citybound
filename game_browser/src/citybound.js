@@ -7,14 +7,14 @@ import update from 'immutability-helper';
 import Mousetrap from 'mousetrap';
 window.update = update;
 
-import * as cityboundBrowser from './Cargo.toml';
-import * as Planning from './src/planning_browser/Planning';
-import * as Transport from './src/transport_browser/Transport';
-import * as LandUse from './src/land_use_browser/LandUse';
-import * as Simulation from './src/simulation_browser/Simulation';
-import * as Debug from './src/debug/Debug';
-import Stage from './src/stage/Stage';
-import colors from './src/colors';
+import * as cityboundBrowser from '../Cargo.toml';
+import * as Planning from './planning_browser/Planning';
+import * as Transport from './transport_browser/Transport';
+import * as LandUse from './land_use_browser/LandUse';
+import * as Simulation from './simulation_browser/Simulation';
+import * as Debug from './debug/Debug';
+import Stage from './stage/Stage';
+import colors from './colors';
 
 
 const EL = React.createElement;

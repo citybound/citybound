@@ -14,8 +14,15 @@
                 id="Citybound" fill="#000000"></path>
         </g>
     </svg>
-    <div id="version">ALPHA 0.1.4</div>
-    <script src="./cityboundClient.js"></script>
+    <div id="version">CB_VERSION</div>
+    <script>
+        window.cbNetworkSettings = {
+            batchMessageBytes: CB_BATCH_MESSAGE_BYTES,
+            acceptableTurnDistance: CB_ACCEPTABLE_TURN_DISTANCE,
+            skipTurnsPerTurnAhead: CB_SKIP_TURNS_PER_TURN_AHEAD
+        };
+    </script>
+    <script src="./src/citybound.js"></script>
 </body>
 
 </html>

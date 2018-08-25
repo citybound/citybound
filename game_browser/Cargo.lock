@@ -89,7 +89,7 @@ name = "citybound_browser"
 version = "0.3.0"
 dependencies = [
  "citybound_common 0.3.0",
- "kay 0.2.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kay 0.2.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "stdweb 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -103,7 +103,7 @@ dependencies = [
  "descartes 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "kay 0.2.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kay 0.2.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay_codegen 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "michelangelo 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "open 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -244,7 +244,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "kay"
-version = "0.2.15"
+version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "byteorder 1.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -780,7 +780,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum idna 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "38f09e0f0b1fb55fdee1f17470ad800da77af5186a1a76c026b679358b7e844e"
 "checksum itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)" = "f58856976b776fedd95533137617a02fb25719f40e7d9b01c7043cd65474f450"
 "checksum itoa 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "5adb58558dcd1d786b5f0bd15f3226ee23486e24b7b58304b60f64dc68e62606"
-"checksum kay 0.2.15 (registry+https://github.com/rust-lang/crates.io-index)" = "795e3bd267cf50dece8ba6168263fcc525891e430317b54a1e99bd547dda3053"
+"checksum kay 0.2.16 (registry+https://github.com/rust-lang/crates.io-index)" = "e1d514123d14b1eaa8dc49f69538680559becbf1e251500980e9f5d992f27a13"
 "checksum kay_codegen 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d2a246c0bb72686380aad191a371200d674c00716b11e63926fae703e09d3f70"
 "checksum lazy_static 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)" = "76f033c7ad61445c5b347c7382dd1237847eb1bce590fe50365dcb33d546be73"
 "checksum libc 0.2.43 (registry+https://github.com/rust-lang/crates.io-index)" = "76e3a3ef172f1a0b9a9ff0dd1491ae5e6c948b94479a3021819ba7d860c8645d"

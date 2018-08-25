@@ -22,13 +22,28 @@ pub fn start() {
 
     js!{ console.log("Before setup") }
 
+    let server_host = js!{
+        return window.location.hostname;
+    }.into_string()
+    .unwrap();
+
+    let mut network_settings = ::std::collections::HashMap::from(
+        js!{
+            return window.cbNetworkSettings;
+        }.into_object()
+        .unwrap(),
+    );
+
+    use stdweb::unstable::TryFrom;
+
     let mut system = kay::ActorSystem::new(kay::Networking::new(
         1,
-        vec!["127.0.0.1:9999", "ws-client"],
-        3_000,
-        2,
-        5,
+        vec![format!("{}:{}", server_host, 9999), "ws-client".to_owned()],
+        u32::try_from(network_settings.remove("batchMessageBytes").unwrap()).unwrap() as usize,
+        u32::try_from(network_settings.remove("acceptableTurnDistance").unwrap()).unwrap() as usize,
+        u32::try_from(network_settings.remove("skipTurnsPerTurnAhead").unwrap()).unwrap() as usize,
     ));
+
     setup_all(&mut system);
 
     system.networking_connect();

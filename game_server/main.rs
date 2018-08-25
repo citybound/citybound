@@ -1,6 +1,12 @@
 extern crate citybound_common;
 use citybound_common::*;
 
+extern crate rouille;
+use rouille::Response;
+
+extern crate clap;
+use clap::{Arg, App};
+
 use kay::Actor;
 use transport::lane::{Lane, SwitchLane};
 use economy::households::family::Family;
@@ -13,16 +19,139 @@ use economy::households::neighboring_town_trade::NeighboringTownTrade;
 use economy::households::tasks::TaskEndScheduler;
 use construction::Construction;
 
+const VERSION: &str = include_str!("../.version");
+
 fn main() {
-    util::init::ensure_crossplatform_proper_thread(|| {
+    let arg_matches = App::new("citybound")
+        .version(VERSION.trim())
+        .author("ae play (Anselm Eickhoff)")
+        .about("The city is us.")
+        .arg(
+            Arg::with_name("mode")
+                .long("mode")
+                .value_name("local/lan/internet")
+                .display_order(0)
+                .possible_values(&["local", "lan", "internet"])
+                .default_value("local")
+                .help("Where to expose the simulation. Sets defaults other settings."),
+        ).arg(
+            Arg::with_name("bind")
+                .long("bind")
+                .value_name("host:port")
+                .default_value_ifs(&[
+                    ("mode", Some("local"), "localhost:1234"),
+                    ("mode", Some("lan"), "0.0.0.0:1234"),
+                    ("mode", Some("internet"), "0.0.0.0:1234"),
+                ]).help("Address and port to serve the browser UI from"),
+        ).arg(
+            Arg::with_name("bind-sim")
+                .long("bind-sim")
+                .value_name("host:port")
+                .default_value_ifs(&[
+                    ("mode", Some("local"), "localhost:9999"),
+                    ("mode", Some("lan"), "0.0.0.0:9999"),
+                    ("mode", Some("internet"), "0.0.0.0:9999"),
+                ]).help("Address and port to accept connections to the simulation from"),
+        ).arg(
+            Arg::with_name("batch-msg-b")
+                .long("batch-msg-bytes")
+                .value_name("n-bytes")
+                .default_value("5000")
+                .help("How many bytes of simulation messages to batch"),
+        ).arg(
+            Arg::with_name("ok-turn-dist")
+                .long("ok-turn-dist")
+                .value_name("n-turns")
+                .default_value_ifs(&[
+                    ("mode", Some("local"), "2"),
+                    ("mode", Some("lan"), "10"),
+                    ("mode", Some("internet"), "30"),
+                ]).help("How many network turns client/server can be behind before skipping"),
+        ).arg(
+            Arg::with_name("skip-ratio")
+                .long("skip-ratio")
+                .value_name("n-turns")
+                .default_value("5")
+                .help("How many network turns to skip if server/client are ahead"),
+        ).get_matches();
+
+    let serve_host_port = arg_matches.value_of("bind").unwrap().to_owned();
+    let arg_matches_2 = arg_matches.clone();
+
+    let my_host = format!(
+        "{}:{}",
+        match arg_matches.value_of("mode").unwrap() {
+            "local" => "localhost",
+            "lan" => "<your LAN IP>",
+            "internet" => "<your public IP>",
+            _ => unreachable!(),
+        },
+        serve_host_port.split(":").nth(1).unwrap(),
+    );
+
+    ::std::thread::spawn(move || {
+        println!("╭───────────────────────────────────────────╮");
+        println!("│ {: ^41} │", format!("Citybound {}", VERSION.trim()));
+        println!("│ {: ^41} │", format!("Running at http://{}", my_host));
+        println!("╰───────────────────────────────────────────╯");
+
+        rouille::start_server(serve_host_port, move |request| {
+            if request.raw_url() == "/" {
+                use std::fs::File;
+                use std::io::Read;
+
+                let mut src = File::open("./game_browser/dist/index.html").unwrap();
+                let mut template = String::new();
+                src.read_to_string(&mut template).unwrap();
+
+                let rendered = template
+                    .replace("CB_VERSION", VERSION.trim())
+                    .replace(
+                        "CB_BATCH_MESSAGE_BYTES",
+                        arg_matches_2.value_of("batch-msg-b").unwrap(),
+                    ).replace(
+                        "CB_ACCEPTABLE_TURN_DISTANCE",
+                        arg_matches_2.value_of("ok-turn-dist").unwrap(),
+                    ).replace(
+                        "CB_SKIP_TURNS_PER_TURN_AHEAD",
+                        arg_matches_2.value_of("skip-ratio").unwrap(),
+                    );
+
+                return Response::html(rendered);
+            }
+            {
+                println!("{:?} loaded page", request.remote_addr());
+
+                let response = rouille::match_assets(&request, "./game_browser/dist/");
+
+                if response.is_success() {
+                    return response;
+                }
+            }
+            Response::html("404 error.").with_status_code(404)
+        });
+    });
+
+    util::init::ensure_crossplatform_proper_thread(move || {
         util::init::first_time_open_wiki_release_page();
 
         let mut system = Box::new(kay::ActorSystem::new(kay::Networking::new(
             0,
-            vec!["127.0.0.1:9999", "ws-client"],
-            3_000,
-            2,
-            5,
+            vec![
+                arg_matches.value_of("bind-sim").unwrap().to_owned(),
+                "ws-client".to_owned(),
+            ],
+            arg_matches
+                .value_of("batch-msg-b")
+                .unwrap()
+                .parse()
+                .unwrap(),
+            arg_matches
+                .value_of("ok-turn-dist")
+                .unwrap()
+                .parse()
+                .unwrap(),
+            arg_matches.value_of("skip-ratio").unwrap().parse().unwrap(),
         )));
 
         setup_all(&mut system);

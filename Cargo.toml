@@ -16,6 +16,10 @@ exclude = [
 name = "citybound"
 path = "./game_server/main.rs"
 
+[dependencies]
+rouille = "2.1.0"
+clap = "2.32.0"
+
 [dependencies.citybound_common]
 path = "./game_common"
 
