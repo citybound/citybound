@@ -22,7 +22,7 @@ matrix:
 before_install: set -e
 
 install:
-  - curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain none
+  - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain none
   - npm run ensure-tooling
 
 script:
