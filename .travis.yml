@@ -29,6 +29,7 @@ install:
   - npm run ensure-tooling
 
 script:
+  - git fetch --unshallow
   - npm run build
   - npm run lint-check
 
