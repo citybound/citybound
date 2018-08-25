@@ -25,6 +25,7 @@ before_install: set -e
 
 install:
   - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain none
+  - run source $HOME/.cargo/env
   - npm run ensure-tooling
 
 script:
