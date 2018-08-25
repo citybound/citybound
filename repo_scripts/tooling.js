@@ -48,6 +48,8 @@ if (activeToolchains && activeToolchains.includes(NIGHTLY_VERSION)) {
         !quiet && console.log("Correct rust nightly set up ✅");
     } else {
         console.log("Failed to install correct toolchain 🛑");
+        console.log("rustup show output:");
+        console.log(rustupShow2);
         process.exit(1);
     }
 }
