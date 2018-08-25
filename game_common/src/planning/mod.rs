@@ -179,8 +179,7 @@ impl PlanHistory {
                     } else {
                         None
                     }
-                })
-                .collect(),
+                }).collect(),
         }
     }
 
@@ -194,8 +193,7 @@ impl PlanHistory {
                 } else {
                     None
                 }
-            })
-            .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
 
         for gesture_id in gestures_to_drop {
             self.gestures.remove(gesture_id);
@@ -427,8 +425,7 @@ impl PlanResult {
                 } else {
                     Some(*known_prototype_id)
                 }
-            })
-            .collect();
+            }).collect();
 
         let new_prototypes = self
             .prototypes
@@ -439,8 +436,7 @@ impl PlanResult {
                 } else {
                     Some(prototype.clone())
                 }
-            })
-            .collect();
+            }).collect();
 
         PlanResultUpdate {
             prototypes_to_drop,
@@ -588,10 +584,8 @@ impl ActionGroups {
                                 None
                             }
                         }
-                    })
-                    .next()
-            })
-            .next()
+                    }).next()
+            }).next()
     }
 }
 
@@ -666,15 +660,13 @@ impl PlanManager {
             .iter()
             .rfold(None, |found, step| {
                 found.or_else(|| step.gestures.get(gesture_id))
-            })
-            .into_iter()
+            }).into_iter()
             .chain(
                 self.master_plan
                     .gestures
                     .get(gesture_id)
                     .map(|VersionedGesture(ref g, _)| g),
-            )
-            .next()
+            ).next()
             .expect("Expected gesture (that point should be added to) to exist!")
     }
 

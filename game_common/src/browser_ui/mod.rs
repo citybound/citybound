@@ -1,5 +1,8 @@
 #![cfg_attr(feature = "server", allow(unused_variables, unused_imports))]
-#![cfg_attr(feature = "cargo-clippy", allow(unused_variables, unused_imports))]
+#![cfg_attr(
+    feature = "cargo-clippy",
+    allow(unused_variables, unused_imports)
+)]
 
 use kay::{World, ActorSystem, Actor, RawID, External};
 use compact::{CVec, CHashMap};
@@ -92,8 +95,7 @@ fn updated_groups_to_js(group_changes: Vec<::michelangelo::GroupChange>) -> ::st
                     ::stdweb::Value::from(change.group_id as u32),
                     to_js_mesh(&change.new_group_mesh),
                 ])
-            })
-            .collect::<Vec<_>>(),
+            }).collect::<Vec<_>>(),
     )
 }
 
@@ -213,7 +215,9 @@ impl BrowserUI {
                 window.cbclient.setState(oldState => update(oldState, {
                     simulation: {
                         ticks: {"$set": @{current_instant.ticks() as u32}},
-                        time: {"$set": @{Serde(::simulation::TimeOfDay::from(current_instant).hours_minutes())}},
+                        time: {"$set": @{
+                            Serde(::simulation::TimeOfDay::from(current_instant).hours_minutes())
+                        }},
                         speed: {"$set": @{speed}}
                     }
                 }))
@@ -471,8 +475,7 @@ SwitchLanePrototype, IntersectionPrototype};
                         .collect::<HashMap<_, _>>()
                         .into();
                     (land_use.to_string(), add_op)
-                })
-                .collect::<HashMap<_, _>>()
+                }).collect::<HashMap<_, _>>()
                 .into();
 
             let updated_zones_all_outline_groups: ::stdweb::Object = self
@@ -491,8 +494,7 @@ SwitchLanePrototype, IntersectionPrototype};
                         .collect::<HashMap<_, _>>()
                         .into();
                     (land_use.to_string(), add_op)
-                })
-                .collect::<HashMap<_, _>>()
+                }).collect::<HashMap<_, _>>()
                 .into();
 
             js! {

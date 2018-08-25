@@ -44,19 +44,16 @@ impl PlanManager {
                         .map(|known_state| {
                             unmatched_known_proposals.remove(proposal_id);
                             proposal.update_for(known_state)
-                        })
-                        .unwrap_or_else(|| ProposalUpdate::ChangedCompletely(proposal.clone())),
+                        }).unwrap_or_else(|| ProposalUpdate::ChangedCompletely(proposal.clone())),
                 )
-            })
-            .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
         let proposal_updates_with_removals = proposal_updates
             .into_iter()
             .chain(
                 unmatched_known_proposals
                     .into_iter()
                     .map(|unmatched_id| (unmatched_id, ProposalUpdate::Removed)),
-            )
-            .collect();
+            ).collect();
         ui.on_plans_update(master_update, proposal_updates_with_removals, world);
     }
 

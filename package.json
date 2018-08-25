@@ -2,9 +2,10 @@
     "scripts": {
         "build-browser": "cd game_browser && ./node_modules/.bin/check-dependencies --install || npm install && npm run build",
         "build-server": "git describe --dirty > .version && npm run ensure-tooling -- -q && cargo build --release",
-        "build": "echo 'Building browser UI' && npm run build-browser && echo 'Building server' && npm run build-server",
-        "start": "npm run build && ./target/release/citybound",
+        "build": "echo 'BUILDING SERVER' && npm run build-server && echo 'BUILDING BROWSER UI' && npm run build-browser",
+        "start": "npm run build && echo 'RUNNING' && ./target/release/citybound",
         "lint": "echo 'CHECKING BEST PRACTISES (game_common)' && touch game_common/src/lib.rs && cargo clippy && echo 'CHECKING BEST PRACTISES (game_browser) -- IGNORE js_export RELATED ERRORS' && touch game_browser/src/lib.rs && cd game_browser && (cargo clippy || true) && cd .. && echo 'CHECKING/FIXING FORMATTING' && cargo fmt -- ./game_common/src/lib.rs ./game_server/main.rs ./game_browser/src/lib.rs",
+        "lint-check": "echo 'CHECKING BEST PRACTISES (game_common)' && touch game_common/src/lib.rs && cargo clippy && echo 'CHECKING BEST PRACTISES (game_browser) -- IGNORE js_export RELATED ERRORS' && touch game_browser/src/lib.rs && cd game_browser && (cargo clippy || true) && cd .. && echo 'CHECKING FORMATTING' && cargo fmt -- ./game_common/src/lib.rs ./game_server/main.rs ./game_browser/src/lib.rs  --check",
         "ensure-tooling": "node repo_scripts/tooling.js"
     }
 }

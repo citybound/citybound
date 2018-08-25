@@ -1,15 +1,7 @@
-# Based on the "trust" template v0.1.1
-# https://github.com/japaric/trust/tree/v0.1.1
-
 dist: trusty
-language: rust
-services: docker
+language: node_js
 sudo: required
-
-# TODO This is the Rust channel that build jobs will use by default but can be
-# overridden on a case by case basis down below
-rust: nightly-2018-08-06
-osx_image: xcode8.2
+osx_image: xcode9.4
 
 env:
   global:
@@ -30,28 +22,14 @@ matrix:
 before_install: set -e
 
 install:
-  - sh repo_scripts/install.sh
-  - source ~/.cargo/env || true
-  - rustup component add rustfmt-preview --toolchain $TRAVIS_RUST_VERSION
-  - cargo fmt --verbose --version
-  - rustup component add clippy-preview --toolchain $TRAVIS_RUST_VERSION
-  - cargo clippy --verbose --version
+  - curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain none
+  - npm run ensure-tooling
 
 script:
-  - cargo build --verbose
-  - echo 'CHECKING FORMATTING'
-  - cargo fmt -- ./game_common/src/lib.rs ./game_server/main.rs ./game_browser/src/lib.rs --check
-  - echo 'CHECKING BEST PRACTISES (game_common)'
-  - cargo clippy
-  - echo 'CHECKING BEST PRACTISES (game_browser) -- IGNORE js_export RELATED ERRORS'
-  - cd game_browser
-  - (cargo clippy || true)
-  - cd ..
+  - npm run build
+  - npm run lint-check
 
 after_script: set +e
-
-after_success:
-  - bash repo_scripts/docs.sh
 
 cache: cargo
 before_cache:

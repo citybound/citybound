@@ -156,8 +156,7 @@ pub trait Household:
                 } else {
                     None
                 }
-            })
-            .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
 
         for member_to_reset in members_to_reset {
             self.reset_member_task(member_to_reset, world);
@@ -206,8 +205,7 @@ pub trait Household:
                 .filter_map(|(idx, m)| match m.state {
                     TaskState::IdleAt(loc) => Some((idx, loc)),
                     _ => None,
-                })
-                .collect::<Vec<_>>();
+                }).collect::<Vec<_>>();
             let mut rng = seed((current_instant.ticks(), self.id()));
             let maybe_idle_idx_loc = rng.choose(&idle_members_idx_loc);
             if let Some(&(idle_member_idx, location)) = maybe_idle_idx_loc {
@@ -234,8 +232,7 @@ pub trait Household:
                 } else {
                     None
                 }
-            })
-            .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
         resource_graveness.sort_by_key(|&(_r, i)| OrderedFloat(i));
 
         resource_graveness.truncate(N_TOP_PROBLEMS);
@@ -400,8 +397,7 @@ pub trait Household:
                     ).as_str(),
                 );
                 improvement_strength
-            })
-            .sum();
+            }).sum();
 
         resource_graveness_improvement / evaluated.deal.duration.as_seconds()
     }
@@ -554,8 +550,7 @@ pub trait Household:
                 } else {
                     None
                 }
-            })
-            .next()
+            }).next()
             .expect("Should have a matching task");
         {
             let id_as_household = self.id_as();
@@ -670,7 +665,8 @@ pub trait Household:
 
     fn on_tick(&mut self, current_instant: Instant, world: &mut World) {
         if (current_instant.ticks() + self.id().as_raw().instance_id as usize)
-            % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) as usize == 0
+            % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) as usize
+            == 0
         {
             self.decay(Duration(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world);
         }

@@ -128,8 +128,8 @@ impl TimeOfDay {
         TimeOfDay {
             minutes_of_day: ((((self.minutes_of_day as isize - delta.as_minutes() as isize)
                 % MINUTES_PER_DAY as isize)
-                + MINUTES_PER_DAY as isize) as usize % MINUTES_PER_DAY)
-                as u16,
+                + MINUTES_PER_DAY as isize) as usize
+                % MINUTES_PER_DAY) as u16,
         }
     }
 

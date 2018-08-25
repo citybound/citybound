@@ -110,7 +110,8 @@ const UPDATE_EVERY_N_SECS: u32 = 4;
 impl Simulatable for VegetableFarm {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
         if (current_instant.ticks() + self.id.as_raw().instance_id as usize)
-            % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) as usize == 0
+            % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) as usize
+            == 0
         {
             self.decay(Duration(UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND), world);
         }

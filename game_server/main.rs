@@ -86,7 +86,7 @@ fn main() {
             "internet" => "<your public IP>",
             _ => unreachable!(),
         },
-        serve_host_port.split(":").nth(1).unwrap(),
+        serve_host_port.split(':').nth(1).unwrap(),
     );
 
     ::std::thread::spawn(move || {
