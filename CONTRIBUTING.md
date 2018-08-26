@@ -56,9 +56,12 @@ You can make suggestions of every kind:
 **Please note,** newest commits on master might temporarily be broken or represent work-in-progress state.
 
 Recommended setup:
-* Install the current version of [nodejs](https://nodejs.org/en/ ) and [git](https://git-scm.com/)
-  * Windows/Mac: run the installers from the respective homepages
-  * Ubuntu: `sudo apt install npm nodejs git curl`
+* Install prerequisites
+  * Windows/Mac: download and run the installers of [nodejs](https://nodejs.org/en/) and [git](https://git-scm.com/)
+  * Windows: additionally install the Visual Studio 2017 build tools from http://aka.ms/buildtools
+  * Ubuntu: `sudo apt install npm nodejs git curl libssl-dev pkg-config`
+* **Windows: run all following steps inside the Git Bash that came with Git**
+  * if you have followed all necessary steps, but Git Bash complains about not finding a command (such as node or rustup), try restarting Git Bash first and `cd citybound` again
 * `git clone https://github.com/citybound/citybound.git`
 * `cd citybound`
 * `npm run ensure-tooling`
