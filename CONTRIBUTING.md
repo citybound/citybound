@@ -57,10 +57,15 @@ You can make suggestions of every kind:
 
 Recommended setup:
 * Install the current version of [nodejs](https://nodejs.org/en/ ) and [git](https://git-scm.com/)
+  * Windows/Mac: run the installers from the respective homepages
+  * Ubuntu: `sudo apt install npm nodejs git curl`
 * `git clone https://github.com/citybound/citybound.git`
 * `cd citybound`
 * `npm run ensure-tooling`
   * Follow instructions
+  * install rustup if asked to
+    * (Mac/Ubuntu: run `source $HOME/.cargo/env` like it suggests)
+    * then rerun `npm run ensure-tooling`
 * Build the browser UI + build the server + run the server with `npm start`
   * Might take long the first time - installs and compile dependencies
 * Open the displayed address in your browser
