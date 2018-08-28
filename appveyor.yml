@@ -8,8 +8,6 @@ install:
   - rustup-init -yv --default-toolchain none --default-host x86_64-pc-windows-msvc
   - set PATH=%PATH%;%USERPROFILE%\.cargo\bin
   - ps: Install-Product node $env:nodejs_version
-  - rustc -vV
-  - cargo -vV
   - npm run ensure-tooling
 
 build_script:
