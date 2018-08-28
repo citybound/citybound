@@ -1,0 +1,22 @@
+os: Visual Studio 2015
+
+environment:
+  nodejs_version: "10"
+
+install:
+  - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
+  - rustup-init -yv --default-toolchain none --default-host x86_64-pc-windows-msvc
+  - set PATH=%PATH%;%USERPROFILE%\.cargo\bin
+  - ps: Install-Product node $env:nodejs_version
+  - rustc -vV
+  - cargo -vV
+
+build:
+  - npm run build
+
+deploy:
+  provider: S3
+  access_key_id: "%S3_ACCESS_ID%"
+  secret_access_key: "%S3_ACCESS_KEY%"
+  bucket: citybound.livebuilds
+  region: eu-west-1

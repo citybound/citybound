@@ -21,14 +21,27 @@ matrix:
     #- env: TARGET=x86_64-apple-darwin DISABLE_TESTS=1
     #  os: osx
 
+before_cache:
+  # Travis can't cache files that are not readable by "others"
+  - chmod -R a+r $HOME/.cargo
+  - chmod -R a+r $HOME/.rustup
+  - chmod -R a+r target
+  - chmod -R a+r game_browser/target
+
+cache:
+  directories:
+    - $HOME/.cargo
+    - $HOME/.rustup
+    - target
+    - game_browser/target
+
+
 addons:
   artifacts:
     s3_region: "eu-west-1"
     debug: true
     paths:
-    - ./target/release/citybound-linux.tar.gz
-    target_paths:
-    - /test/
+    - $(ls *-linux.tar.gz | tr "\n" ":")
 
 before_install: set -e
 
@@ -41,16 +54,12 @@ script:
   - git fetch --unshallow
   - npm run build
   - cd target/release/
-  - tar -pczf citybound-linux.tar.gz citybound
-  - cd ..
+  - tar -pczf citybound-$(cat ../../.version)-linux.tar.gz citybound
+  - mv citybound-$(cat ../../.version)-linux.tar.gz ../..
+  - cd ../..
   #- npm run lint-check
 
 after_script: set +e
-
-cache: cargo
-before_cache:
-  # Travis can't cache files that are not readable by "others"
-  - chmod -R a+r $HOME/.cargo
 
 branches:
   except:
