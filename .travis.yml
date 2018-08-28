@@ -21,6 +21,15 @@ matrix:
     #- env: TARGET=x86_64-apple-darwin DISABLE_TESTS=1
     #  os: osx
 
+addons:
+  artifacts:
+    s3_region: "eu-west-1"
+    debug: true
+    paths:
+    - ./target/release/citybound-linux.tar.gz
+    target_paths:
+    - /test/
+
 before_install: set -e
 
 install:
@@ -31,7 +40,10 @@ install:
 script:
   - git fetch --unshallow
   - npm run build
-  - npm run lint-check
+  - cd target/release/
+  - tar -pczf citybound-linux.tar.gz citybound
+  - cd ..
+  #- npm run lint-check
 
 after_script: set +e
 
