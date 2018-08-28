@@ -10,8 +10,9 @@ install:
   - ps: Install-Product node $env:nodejs_version
   - rustc -vV
   - cargo -vV
+  - npm run ensure-tooling
 
-build:
+build_script:
   - npm run build
 
 deploy:
@@ -20,3 +21,4 @@ deploy:
   secret_access_key: "%S3_ACCESS_KEY%"
   bucket: citybound.livebuilds
   region: eu-west-1
+  artifact: 
