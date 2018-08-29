@@ -15,8 +15,8 @@ build_script:
   - npm install
   - cd ..
   - npm run build
-  - for /f %x in ('type .version') do ren ./target/release/citybound.exe citybound-%x-windows.exe
-  - for /f %x in ('type .version') do appveyor PushArtifact ./target/release/citybound-%x-windows.exe
+  - for /f %x in ('type .version') do ren target\release\citybound.exe citybound-%x-windows.exe
+  - for /f %x in ('type .version') do appveyor PushArtifact target\release\citybound-%x-windows.exe
 
 deploy:
   provider: S3
