@@ -45,11 +45,10 @@ install:
 
 script:
   - npm run build
+  - ls
   - cd target/release/
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then tar -pczf citybound-$(cat ../../.version)-linux.tar.gz citybound ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mv citybound-$(cat ../../.version)-linux.tar.gz ../.. ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then zip citybound-$(cat ../../.version)-osx.zip citybound ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mv citybound-$(cat ../../.version)-osx.zip ../.. ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then tar -pczf citybound-$(cat ../../.version)-linux.tar.gz citybound && mv citybound-$(cat ../../.version)-linux.tar.gz ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then zip citybound-$(cat ../../.version)-osx.zip citybound  && mv citybound-$(cat ../../.version)-osx.zip ../.. ; fi
   - cd ../..
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then npm run lint-check ; fi
 
