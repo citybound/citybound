@@ -2,6 +2,8 @@ language: node_js
 node_js:
   - "10.9.0"
 sudo: required
+git:
+  depth: 9999999
 
 matrix:
   include:
@@ -42,7 +44,6 @@ install:
   - npm run ensure-tooling
 
 script:
-  - git fetch --depth=1000000 --tags
   - npm run build
   - cd target/release/
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then tar -pczf citybound-$(cat ../../.version)-linux.tar.gz citybound ; fi
