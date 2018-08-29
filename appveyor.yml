@@ -12,11 +12,15 @@ install:
 
 build_script:
   - npm run build
+  - for /f %x in ('type .version') do ren ./target/release/citybound.exe citybound-%x-windows.exe
+  - for /f %x in ('type .version') do appveyor PushArtifact ./target/release/citybound-%x-windows.exe
 
 deploy:
   provider: S3
-  access_key_id: "%S3_ACCESS_ID%"
-  secret_access_key: "%S3_ACCESS_KEY%"
+  access_key_id:
+    secure: jg+s3osFzmQXcD8igyJe3uuCdDdECyeuhvG3XSaVEF0=
+  secret_access_key:
+    secure: w0s1TKSKrKsI24IImGeX2EMeLoLgEckwTB50oBRO2PeFU0nbJLCT8nS9c6SQGVw6
   bucket: citybound.livebuilds
   region: eu-west-1
-  artifact: 
+  folder: /

@@ -1,6 +1,6 @@
 {
     "scripts": {
-        "build-browser": "cd game_browser && ./node_modules/.bin/check-dependencies --install || npm install && npm run build",
+        "build-browser": "cd game_browser && node ./node_modules/.bin/check-dependencies --install || npm install && npm run build",
         "build-server": "git describe --dirty > .version && npm run ensure-tooling -- -q && cargo build --release",
         "build": "echo 'BUILDING SERVER' && npm run build-server && echo 'BUILDING BROWSER UI' && npm run build-browser",
         "start": "npm run build && echo 'RUNNING' && ./target/release/citybound",

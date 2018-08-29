@@ -23,14 +23,12 @@ matrix:
 
 before_cache:
   # Travis can't cache files that are not readable by "others"
-  - chmod -R a+r $HOME/.cargo
   - chmod -R a+r $HOME/.rustup
   - chmod -R a+r target
   - chmod -R a+r game_browser/target
 
 cache:
   directories:
-    - $HOME/.cargo
     - $HOME/.rustup
     - target
     - game_browser/target
@@ -59,7 +57,7 @@ script:
   - tar -pczf citybound-$(cat ../../.version)-linux.tar.gz citybound
   - mv citybound-$(cat ../../.version)-linux.tar.gz ../..
   - cd ../..
-  #- npm run lint-check
+  - npm run lint-check
 
 after_script: set +e
 
