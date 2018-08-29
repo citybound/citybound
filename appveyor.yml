@@ -12,7 +12,7 @@ install:
 
 build_script:
   - cd game_browser
-  - npm install
+  - npm install --no-save
   - cd ..
   - npm run build
   - for /f %%x in ('type .version') do ren "target\\release\\citybound.exe" "citybound-%%x-windows.exe"

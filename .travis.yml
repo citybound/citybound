@@ -36,7 +36,10 @@ addons:
     target_paths:
     - /
 
-before_install: set -e
+before_install:
+  - set -e
+  # https://github.com/travis-ci/travis-ci/issues/8920#issuecomment-352767521
+  - python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"
 
 install:
   - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain none
@@ -47,7 +50,7 @@ script:
   - npm run build
   - ls
   - cd target/release/
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then tar -pczf citybound-$(cat ../../.version)-linux.tar.gz citybound && mv citybound-$(cat ../../.version)-linux.tar.gz ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then tar -pczf citybound-$(cat ../../.version)-linux.tar.gz citybound && mv citybound-$(cat ../../.version)-linux.tar.gz ../.. ; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then zip citybound-$(cat ../../.version)-osx.zip citybound  && mv citybound-$(cat ../../.version)-osx.zip ../.. ; fi
   - cd ../..
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then npm run lint-check ; fi
