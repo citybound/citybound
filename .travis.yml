@@ -42,7 +42,7 @@ install:
   - npm run ensure-tooling
 
 script:
-  - git fetch --unshallow
+  - git fetch --depth=1000000
   - npm run build
   - cd target/release/
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then tar -pczf citybound-$(cat ../../.version)-linux.tar.gz citybound ; fi
@@ -50,7 +50,7 @@ script:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then zip citybound-$(cat ../../.version)-osx.zip citybound ; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mv citybound-$(cat ../../.version)-osx.zip ../.. ; fi
   - cd ../..
-  - npm run lint-check
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then npm run lint-check ; fi
 
 after_script: set +e
 
