@@ -1,35 +1,25 @@
-dist: trusty
 language: node_js
 node_js:
   - "10.9.0"
 sudo: required
-osx_image: xcode9.4
-
-env:
-  global:
-    # default job
-    - TARGET=x86_64-unknown-linux-gnu
 
 matrix:
-  # TODO These are all the build jobs. Adjust as necessary. Comment out what you
-  # don't need
   include:
     # Linux
-    # - env: TARGET=x86_64-unknown-linux-gnu  # this is the default job
+    - os: linux
+      dist: trusty
 
     # OSX
-    #- env: TARGET=x86_64-apple-darwin DISABLE_TESTS=1
-    #  os: osx
+    - os: osx
+      osx_image: xcode9.4
 
 before_cache:
   # Travis can't cache files that are not readable by "others"
-  - chmod -R a+r $HOME/.rustup
   - chmod -R a+r target
   - chmod -R a+r game_browser/target
 
 cache:
   directories:
-    - $HOME/.rustup
     - target
     - game_browser/target
 
@@ -40,6 +30,7 @@ addons:
     debug: true
     paths:
     - $(ls *-linux.tar.gz | tr "\n" ":")
+    - $(ls *-osx.zip | tr "\n" ":")
     target_paths:
     - /
 
@@ -54,8 +45,10 @@ script:
   - git fetch --unshallow
   - npm run build
   - cd target/release/
-  - tar -pczf citybound-$(cat ../../.version)-linux.tar.gz citybound
-  - mv citybound-$(cat ../../.version)-linux.tar.gz ../..
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then tar -pczf citybound-$(cat ../../.version)-linux.tar.gz citybound ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mv citybound-$(cat ../../.version)-linux.tar.gz ../.. ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then zip citybound-$(cat ../../.version)-osx.zip citybound ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mv citybound-$(cat ../../.version)-osx.zip ../.. ; fi
   - cd ../..
   - npm run lint-check
 
