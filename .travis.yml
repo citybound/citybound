@@ -19,12 +19,15 @@ before_cache:
   # Travis can't cache files that are not readable by "others"
   - chmod -R a+r target
   - chmod -R a+r game_browser/target
+  - chmod -R a+r $HOME/.rustup
+  - chmod -R a+r $HOME/.cargo
 
 cache:
   directories:
     - target
     - game_browser/target
-
+    - $HOME/.rustup
+    - $HOME/.cargo
 
 addons:
   artifacts:
@@ -41,7 +44,7 @@ before_install:
   - python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"
 
 install:
-  - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain none
+  - curl https://sh.rustup.rs -sSf | sh -s -- -y
   - source $HOME/.cargo/env
   - npm run ensure-tooling
 
