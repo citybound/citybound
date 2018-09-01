@@ -466,3 +466,11 @@ export function render(state, setState) {
         return { tools };
     }
 }
+
+export function bindInputs(state, setState) {
+    const inputActions = {
+        "implementProposal": () => setState(Planning.implementProposal(state.planning.currentProposal))
+    }
+
+    Mousetrap.bind('command+enter', inputActions["implementProposal"]);
+}

@@ -9,7 +9,7 @@
     "monet": "git+https://github.com/aeickhoff/monet.git",
     "mousetrap": "^1.6.2",
     "msgpack-lite": "^0.1.26",
-    "parcel-bundler": "^1.9.4",
+    "parcel-bundler": "^1.9.7",
     "parcel-plugin-cargo-web": "git+https://github.com/aeickhoff/parcel-plugin-cargo-web.git",
     "react": "^16.4.1",
     "react-addons-update": "^15.6.2",

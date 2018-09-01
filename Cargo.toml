@@ -19,6 +19,7 @@ path = "./game_server/main.rs"
 [dependencies]
 rouille = "2.1.0"
 clap = "2.32.0"
+rust-embed-flag = {git = "https://github.com/aeickhoff/rust-embed"}
 
 [dependencies.citybound_common]
 path = "./game_common"
@@ -31,3 +32,5 @@ codegen-units = 4
 debug = true
 codegen-units = 4
 
+[features]
+embed_assets = ["rust-embed-flag/embed_assets"]

@@ -14,7 +14,8 @@ build_script:
   - cd game_browser
   - npm install --no-save
   - cd ..
-  - npm run build
+  - npm run build-browser
+  - npm run build-server-bundle
   - for /f %%x in ('type .version') do ren "target\\release\\citybound.exe" "citybound-%%x-windows.exe"
   - for /f %%x in ('type .version') do appveyor PushArtifact "target\\release\\citybound-%%x-windows.exe"
 

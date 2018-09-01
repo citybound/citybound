@@ -95,3 +95,13 @@ export function render(state, setState) {
 
     return { windows }
 }
+
+export function bindInputs(state, setState) {
+    const inputActions = {
+        "toggleDebugView": () => setState(oldState => update(oldState, {
+            debug: { show: { $apply: b => !b } }
+        })),
+    }
+
+    Mousetrap.bind(',', inputActions["toggleDebugView"]);
+}

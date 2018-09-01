@@ -2,7 +2,14 @@ extern crate citybound_common;
 use citybound_common::*;
 
 extern crate rouille;
-use rouille::Response;
+use rouille::{Response, extension_to_mime};
+
+#[macro_use]
+extern crate rust_embed_flag;
+
+#[derive(RustEmbed)]
+#[folder = "game_browser/dist/"]
+struct Asset;
 
 extern crate clap;
 use clap::{Arg, App};
@@ -97,12 +104,12 @@ fn main() {
 
         rouille::start_server(serve_host_port, move |request| {
             if request.raw_url() == "/" {
-                use std::fs::File;
-                use std::io::Read;
+                println!("{:?} loaded page", request.remote_addr());
 
-                let mut src = File::open("./game_browser/dist/index.html").unwrap();
-                let mut template = String::new();
-                src.read_to_string(&mut template).unwrap();
+                let template = std::str::from_utf8(
+                    &Asset::get("index.html").expect("index.html should exist as asset"),
+                ).unwrap()
+                .to_owned();
 
                 let rendered = template
                     .replace("CB_VERSION", VERSION.trim())
@@ -117,18 +124,18 @@ fn main() {
                         arg_matches_2.value_of("skip-ratio").unwrap(),
                     );
 
-                return Response::html(rendered);
-            }
-            {
-                println!("{:?} loaded page", request.remote_addr());
-
-                let response = rouille::match_assets(&request, "./game_browser/dist/");
-
-                if response.is_success() {
-                    return response;
+                Response::html(rendered)
+            } else {
+                if let Some(asset) = Asset::get(&request.url()[1..]) {
+                    Response::from_data(
+                        extension_to_mime(request.url().split('.').last().unwrap_or("")),
+                        asset,
+                    )
+                } else {
+                    Response::html(format!("404 error. Not found: {}", request.url()))
+                        .with_status_code(404)
                 }
             }
-            Response::html("404 error.").with_status_code(404)
         });
     });
 

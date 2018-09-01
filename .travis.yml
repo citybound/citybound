@@ -49,11 +49,13 @@ install:
   - npm run ensure-tooling
 
 script:
-  - npm run build
+  - npm run build-browser
+  - npm run build-server-bundle
   - ls
   - cd target/release/
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then tar -pczf citybound-$(cat ../../.version)-linux.tar.gz citybound && mv citybound-$(cat ../../.version)-linux.tar.gz ../.. ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then zip citybound-$(cat ../../.version)-osx.zip citybound  && mv citybound-$(cat ../../.version)-osx.zip ../.. ; fi
+  - mv citybound citybound-$(cat ../../.version)
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then tar -pczf citybound-$(cat ../../.version)-linux.tar.gz citybound-$(cat ../../.version) && mv citybound-$(cat ../../.version)-linux.tar.gz ../.. ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then zip citybound-$(cat ../../.version)-osx.zip citybound-$(cat ../../.version)  && mv citybound-$(cat ../../.version)-osx.zip ../.. ; fi
   - cd ../..
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then npm run lint-check ; fi
 

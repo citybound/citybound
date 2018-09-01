@@ -2,7 +2,8 @@
     "scripts": {
         "build-browser": "cd game_browser && (node ./node_modules/.bin/check-dependencies --install || npm install) && npm run build",
         "build-server": "git describe --dirty > .version && npm run ensure-tooling -- -q && cargo build --release",
-        "build": "echo 'BUILDING BROWSER UI' && npm run build-browser && echo 'BUILDING SERVER' && npm run build-server",
+        "build-server-bundle": "git describe --dirty > .version && npm run ensure-tooling -- -q && cargo build --release --features embed_assets",
+        "build": "echo 'BUILDING SERVER' && npm run build-server && echo 'BUILDING BROWSER UI' && npm run build-browser",
         "start": "npm run build && echo 'RUNNING' && ./target/release/citybound",
         "lint-clippy-server": "echo 'CHECKING BEST PRACTISES (game_common)' && touch game_common/src/lib.rs && cargo clippy",
         "lint-clippy-browser": "echo 'CHECKING BEST PRACTISES (game_browser) -- IGNORE js_export RELATED ERRORS' && touch game_browser/src/lib.rs && cd game_browser && (cargo clippy || true) && cd ..",
