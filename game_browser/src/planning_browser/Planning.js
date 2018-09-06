@@ -396,8 +396,8 @@ export function render(state, setState) {
             "Official"
         ], "main/Planning/Zoning", state.uiMode, setUiMode,
             zone => {
-                let c = colors[zone];
-                return `rgb(${Math.pow(c[0], 1 / 2.2) * 256}, ${Math.pow(c[1], 1 / 2.2) * 256}, ${Math.pow(c[2], 1 / 2.2) * 256}`
+                let c = colors[zone].map(component => Math.round(Math.pow(component, 1 / 2.2) * 256));
+                return `rgb(${c[0]}, ${c[1]}, ${c[2]})`
             }
         ),
     ];

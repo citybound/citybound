@@ -10,8 +10,8 @@ export function makeToolbar(id, descriptions, prefix, uiMode, setMode, colorMap)
                 key: descriptionSlug,
                 alt: description,
                 className: uiMode.startsWith(prefix + "/" + descriptionSlug) ? "active" : "",
+                style: colorMap ? { backgroundColor: colorMap(descriptionSlug) } : {},
                 onClick: () => setMode(prefix + "/" + descriptionSlug),
-                style: colorMap ? { backgroundColor: colorMap(descriptionSlug) } : {}
             })
         }))]
     } else {
