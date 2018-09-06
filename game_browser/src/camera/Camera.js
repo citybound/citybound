@@ -23,26 +23,26 @@ export const settingSpec = {
 export function bindInputs(state, setState) {
     const inputActions = {
         "startRotateEye": () => setState(oldState => update(oldState, {
-            view: { rotating: { $set: true } }
+            camera: { rotating: { $set: true } }
         })),
         "stopRotateEye": () => setState(oldState => update(oldState, {
-            view: { rotating: { $set: false } }
+            camera: { rotating: { $set: false } }
         })),
     };
 
-    Mousetrap.bind(state.settings.view.rotateKey, inputActions["startRotateEye"], 'keydown');
-    Mousetrap.bind(state.settings.view.rotateKey, inputActions["stopRotateEye"], 'keyup');
+    Mousetrap.bind(state.settings.camera.rotateKey, inputActions["startRotateEye"], 'keydown');
+    Mousetrap.bind(state.settings.camera.rotateKey, inputActions["stopRotateEye"], 'keyup');
 }
 
 export function onWheel(e, state, setState) {
-    const { eye, target } = state.view;
+    const { eye, target } = state.camera;
 
-    if (state.view.rotating) {
+    if (state.camera.rotating) {
         const eyeRotatedHorizontal = vec3.rotateZ(
             vec3.create(),
             eye,
             target,
-            e.deltaX * state.settings.view.rotateXSensitivity
+            e.deltaX * state.settings.camera.rotateXSensitivity
         );
 
         const forward = vec3.sub(vec3.create(), target, eyeRotatedHorizontal);
@@ -53,7 +53,7 @@ export function onWheel(e, state, setState) {
         const verticalRotation = quat.setAxisAngle(
             quat.create(),
             sideways,
-            e.deltaY * state.settings.view.rotateYSensitivity
+            e.deltaY * state.settings.camera.rotateYSensitivity
         );
 
         const eyeRotatedBoth = vec3.transformQuat(
@@ -64,19 +64,19 @@ export function onWheel(e, state, setState) {
 
         if (eyeRotatedBoth[2] > 10 && vec3.dot(forward, vec3.sub(vec3.create(), target, eyeRotatedBoth)) > 0) {
             setState(oldState => ({
-                view: Object.assign(oldState.view, {
+                camera: Object.assign(oldState.camera, {
                     eye: eyeRotatedBoth,
                 })
             }));
         }
 
-    } else if (state.view.zooming || (state.settings.view.pinchToZoom && e.ctrlKey)) {
+    } else if (state.camera.zooming || (state.settings.camera.pinchToZoom && e.ctrlKey)) {
         const forward = vec3.sub(vec3.create(), target, eye);
         vec3.normalize(forward, forward);
 
         const heightBasedMultiplier = vec3.dist(target, eye) / 200;
 
-        const delta = state.settings.view.zoomSensitivity * e.deltaY * heightBasedMultiplier;
+        const delta = state.settings.camera.zoomSensitivity * e.deltaY * heightBasedMultiplier;
         const eyeZoomed = vec3.scaleAndAdd(
             vec3.create(),
             eye,
@@ -86,7 +86,7 @@ export function onWheel(e, state, setState) {
 
         if (eyeZoomed[2] > 10) {
             setState(oldState => ({
-                view: Object.assign(oldState.view, {
+                camera: Object.assign(oldState.camera, {
                     eye: eyeZoomed
                 })
             }));
@@ -103,23 +103,23 @@ export function onWheel(e, state, setState) {
             vec3.scale(
                 vec3.create(),
                 forward,
-                e.deltaY * state.settings.view.panYSensitivity * heightBasedMultiplier
+                e.deltaY * state.settings.camera.panYSensitivity * heightBasedMultiplier
             ),
             sideways,
-            e.deltaX * state.settings.view.panXSensitivity * heightBasedMultiplier
+            e.deltaX * state.settings.camera.panXSensitivity * heightBasedMultiplier
         );
 
         setState(oldState => ({
-            view: Object.assign(oldState.view, {
-                eye: vec3.add(vec3.create(), oldState.view.eye, delta),
-                target: vec3.add(vec3.create(), oldState.view.target, delta),
+            camera: Object.assign(oldState.camera, {
+                eye: vec3.add(vec3.create(), oldState.camera.eye, delta),
+                target: vec3.add(vec3.create(), oldState.camera.target, delta),
             })
         }));
     }
 }
 
 export function getMatrices(state, width, height) {
-    const { eye, target, verticalFov } = state.view;
+    const { eye, target, verticalFov } = state.camera;
 
     return {
         viewMatrix: mat4.lookAt(mat4.create(), eye, target, [0, 0, 1]),

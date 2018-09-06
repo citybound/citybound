@@ -6,7 +6,7 @@ import update from 'immutability-helper';
 window.update = update;
 
 import * as cityboundBrowser from '../Cargo.toml';
-import * as View from './view/View';
+import * as Camera from './camera/Camera';
 import * as Planning from './planning_browser/Planning';
 import * as Transport from './transport_browser/Transport';
 import * as LandUse from './land_use_browser/LandUse';
@@ -20,7 +20,7 @@ import loadSettings from './settings';
 const EL = React.createElement;
 
 const settingSpecs = {
-    view: View.settingSpec,
+    camera: Camera.settingSpec,
     debug: Debug.settingsSpec,
     planning: Planning.settingsSpec,
     rendering: {
@@ -45,7 +45,7 @@ class CityboundClient extends React.Component {
                 enabled: true
             },
             simulation: Simulation.initialState,
-            view: View.initialState,
+            camera: Camera.initialState,
 
             settings: loadSettings(settingSpecs)
         }
@@ -54,7 +54,7 @@ class CityboundClient extends React.Component {
     }
 
     componentDidMount() {
-        View.bindInputs(this.state, this.setState.bind(this));
+        Camera.bindInputs(this.state, this.setState.bind(this));
         Debug.bindInputs(this.state, this.setState.bind(this));
         Planning.bindInputs(this.state, this.setState.bind(this));
     }
@@ -81,13 +81,13 @@ class CityboundClient extends React.Component {
         const tools = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.tools || []), []).concat(settingsTools);
         const windows = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.windows || []), []).concat(settingsWindows);
 
-        const { eye, target, verticalFov } = this.state.view;
+        const { eye, target, verticalFov } = this.state.camera;
 
         return EL("div", {
             style: { width: "100%", height: "100%" },
         },
             EL(ContainerDimensions, { style: { width: "100%", height: "100%", position: "relative" } }, ({ width, height }) => {
-                const { viewMatrix, perspectiveMatrix } = View.getMatrices(this.state, width, height);
+                const { viewMatrix, perspectiveMatrix } = Camera.getMatrices(this.state, width, height);
 
                 return EL("div", { style: { width, height } }, [
                     EL("div", { key: "ui2dTools", className: "ui2dTools" }, [
@@ -96,14 +96,6 @@ class CityboundClient extends React.Component {
                     EL("div", { key: "ui2d", className: "ui2d" }, [
                         ...windows
                     ]),
-                    EL("div", {
-                        onWheel: e => {
-                            View.onWheel(e, this.state, this.setState.bind(this));
-                            e.preventDefault();
-                            return false;
-                        },
-                        style: { width, height, position: "absolute", top: 0, left: 0, zIndex: 1 }
-                    }),
                     EL(Monet, {
                         key: "canvas",
                         ref: this.renderer,
@@ -118,7 +110,12 @@ class CityboundClient extends React.Component {
                         interactables,
                         width, height,
                         eye, target, verticalFov,
-                        style: { width, height, position: "absolute", top: 0, left: 0 }
+                        style: { width, height, position: "absolute", top: 0, left: 0 },
+                        onWheel: e => {
+                            Camera.onWheel(e, this.state, this.setState.bind(this));
+                            e.preventDefault();
+                            return false;
+                        },
                     })
                 ])
             })

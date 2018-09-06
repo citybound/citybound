@@ -11,6 +11,7 @@ export default class Stage extends React.Component {
                     ? (this.activeInteractable.cursorActive || "pointer")
                     : (this.hoveredInteractable ? (this.hoveredInteractable.cursorHover || "pointer") : "default")
             }),
+            onWheel: this.props.onWheel,
             onMouseMove: e => {
                 const { eye, target, verticalFov, width, height } = this.props;
                 const elementRect = e.target.getBoundingClientRect();

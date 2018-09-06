@@ -24,7 +24,7 @@ descartes = {version = "0.1.8", features = ["compact_containers", "serde-seriali
 michelangelo = "0.1.1"
 
 [build-dependencies]
-kay_codegen = {version = "0.1.3", features = ["serde-serialization"]}
+kay_codegen = {version = "0.1.4", features = ["serde-serialization"]}
 
 [features]
 default = ["server"]
