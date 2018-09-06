@@ -23,6 +23,9 @@ const settingSpecs = {
     view: View.settingSpec,
     debug: Debug.settingsSpec,
     planning: Planning.settingsSpec,
+    rendering: {
+        retinaFactor: { default: 2, description: "Oversampling/Retina Factor", min: 0.5, max: 4.0, step: 0.1 }
+    }
 };
 
 class CityboundClient extends React.Component {
@@ -82,11 +85,6 @@ class CityboundClient extends React.Component {
 
         return EL("div", {
             style: { width: "100%", height: "100%" },
-            onWheel: e => {
-                View.onWheel(e, this.state, this.setState.bind(this));
-                e.preventDefault();
-                return false;
-            },
         },
             EL(ContainerDimensions, { style: { width: "100%", height: "100%", position: "relative" } }, ({ width, height }) => {
                 const { viewMatrix, perspectiveMatrix } = View.getMatrices(this.state, width, height);
@@ -98,12 +96,20 @@ class CityboundClient extends React.Component {
                     EL("div", { key: "ui2d", className: "ui2d" }, [
                         ...windows
                     ]),
+                    EL("div", {
+                        onWheel: e => {
+                            View.onWheel(e, this.state, this.setState.bind(this));
+                            e.preventDefault();
+                            return false;
+                        },
+                        style: { width, height, position: "absolute", top: 0, left: 0, zIndex: 1 }
+                    }),
                     EL(Monet, {
                         key: "canvas",
                         ref: this.renderer,
                         layers,
                         width, height,
-                        retinaFactor: 2,
+                        retinaFactor: this.state.settings.rendering.retinaFactor,
                         viewMatrix, perspectiveMatrix,
                         clearColor: [...colors.grass, 1.0]
                     }),
