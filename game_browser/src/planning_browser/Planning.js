@@ -4,8 +4,10 @@ import { vec3, mat4 } from 'gl-matrix';
 import * as cityboundBrowser from '../../Cargo.toml';
 import uuid from '../uuid';
 import { Button, Select } from 'antd';
-import { solidColorShader } from 'monet';
 const Option = Select.Option;
+
+import { solidColorShader } from 'monet';
+import { makeToolbar } from '../toolbar';
 
 const EL = React.createElement;
 
@@ -42,10 +44,12 @@ export const initialState = {
         addToEnd: true,
         previousClick: null,
     },
-    settings: {
-        finishGestureDistance: 3.0
-    }
 };
+
+export const settingsSpec = {
+    implementProposalKey: { default: 'command+enter', description: "Implement Plan Key" },
+    finishGestureDistance: { default: 3.0, description: "Finish Gesture Double-Click Distance", min: 0.5, max: 10.0, step: 0.1 }
+}
 
 // STATE MUTATING ACTIONS
 
@@ -145,10 +149,9 @@ function finishGesture(proposalId, gestureId) {
     });
 }
 
-// TODO: remove this once we invent a pattern for keybindings
-export function implementProposal(proposalId) {
-    cityboundBrowser.implement_proposal(proposalId);
-    return oldState => update(oldState, {
+function implementProposal(oldState) {
+    cityboundBrowser.implement_proposal(oldState.planning.currentProposal);
+    return update(oldState, {
         planning: {
             $unset: ['currentProposal'],
         }
@@ -325,24 +328,6 @@ export function render(state, setState) {
         }
     ];
 
-    function makeToolbar(id, descriptions, prefix, uiMode, setMode, colorMap) {
-        if (uiMode.startsWith(prefix)) {
-            return [EL("div", { id, className: "toolbar" }, descriptions.map(description => {
-                const descriptionSlug = description;
-                return EL("button", {
-                    id: descriptionSlug,
-                    key: descriptionSlug,
-                    alt: description,
-                    className: uiMode.startsWith(prefix + "/" + descriptionSlug) ? "active" : "",
-                    onClick: () => setMode(prefix + "/" + descriptionSlug),
-                    style: colorMap ? { backgroundColor: colorMap(descriptionSlug) } : {}
-                })
-            }))]
-        } else {
-            return []
-        }
-    }
-
     const setUiMode = uiMode => {
         let updateOp = { uiMode: { $set: uiMode } };
         if (uiMode === "main/Planning/Roads") {
@@ -395,7 +380,7 @@ export function render(state, setState) {
             ), ...state.planning.currentProposal ? [
                 EL(Button, {
                     type: "primary",
-                    onClick: () => setState(implementProposal(state.planning.currentProposal))
+                    onClick: () => setState(implementProposal)
                 }, "Implement")
             ] : []]
             : []),
@@ -442,7 +427,7 @@ export function render(state, setState) {
                 if (e.drag && e.drag.end) {
                     if (canvasMode.currentGesture) {
                         if (canvasMode.previousClick
-                            && vec3.dist(e.drag.end, canvasMode.previousClick) < state.planning.settings.finishGestureDistance) {
+                            && vec3.dist(e.drag.end, canvasMode.previousClick) < state.settings.planning.finishGestureDistance) {
                             setState(finishGesture(state.planning.currentProposal, canvasMode.currentGesture));
                         } else {
                             setState(addControlPoint(
@@ -469,8 +454,8 @@ export function render(state, setState) {
 
 export function bindInputs(state, setState) {
     const inputActions = {
-        "implementProposal": () => setState(Planning.implementProposal(state.planning.currentProposal))
+        "implementProposal": () => setState(implementProposal)
     }
 
-    Mousetrap.bind('command+enter', inputActions["implementProposal"]);
+    Mousetrap.bind(state.settings.planning.implementProposalKey, inputActions["implementProposal"]);
 }

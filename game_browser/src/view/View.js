@@ -8,17 +8,20 @@ export const initialState = {
     verticalFov: 0.3 * Math.PI,
     rotating: false,
     zooming: false,
-    rotateXSensitivity: 0.01,
-    rotateYSensitivity: -0.01,
-    panXSensitivity: -1,
-    panYSensitivity: -1,
-    zoomSensitivity: -5,
-    pinchToZoom: true
 }
 
-export function bindInputs(_state, setState) {
-    const inputActions = {
+export const settingSpec = {
+    rotateKey: { default: 'alt', description: "Rotation Key" },
+    rotateXSensitivity: { default: 0.01, min: -0.5, max: 0.5, step: 0.01, description: "Rotate sensitivity ↔︎" },
+    rotateYSensitivity: { default: -0.01, min: -0.5, max: 0.5, step: 0.01, description: "Rotate sensitivity ↕︎" },
+    panXSensitivity: { default: -1, min: -10, max: 10, step: 0.1, description: "Pan sensitivity ↔︎" },
+    panYSensitivity: { default: -1, min: -10, max: 10, step: 0.1, description: "Pan sensitivity ↕︎" },
+    zoomSensitivity: { default: -5, min: -10, max: 10, step: 0.1, description: "Zoom sensitivity" },
+    pinchToZoom: { default: true, description: "Enable Pinch/Ctrl‑To‑Zoom" },
+}
 
+export function bindInputs(state, setState) {
+    const inputActions = {
         "startRotateEye": () => setState(oldState => update(oldState, {
             view: { rotating: { $set: true } }
         })),
@@ -27,8 +30,8 @@ export function bindInputs(_state, setState) {
         })),
     };
 
-    Mousetrap.bind('alt', inputActions["startRotateEye"], 'keydown');
-    Mousetrap.bind('alt', inputActions["stopRotateEye"], 'keyup');
+    Mousetrap.bind(state.settings.view.rotateKey, inputActions["startRotateEye"], 'keydown');
+    Mousetrap.bind(state.settings.view.rotateKey, inputActions["stopRotateEye"], 'keyup');
 }
 
 export function onWheel(e, state, setState) {
@@ -39,7 +42,7 @@ export function onWheel(e, state, setState) {
             vec3.create(),
             eye,
             target,
-            e.deltaX * state.view.rotateXSensitivity
+            e.deltaX * state.settings.view.rotateXSensitivity
         );
 
         const forward = vec3.sub(vec3.create(), target, eyeRotatedHorizontal);
@@ -50,7 +53,7 @@ export function onWheel(e, state, setState) {
         const verticalRotation = quat.setAxisAngle(
             quat.create(),
             sideways,
-            e.deltaY * state.view.rotateYSensitivity
+            e.deltaY * state.settings.view.rotateYSensitivity
         );
 
         const eyeRotatedBoth = vec3.transformQuat(
@@ -67,13 +70,13 @@ export function onWheel(e, state, setState) {
             }));
         }
 
-    } else if (state.view.zooming || (state.view.pinchToZoom && e.ctrlKey)) {
+    } else if (state.view.zooming || (state.settings.view.pinchToZoom && e.ctrlKey)) {
         const forward = vec3.sub(vec3.create(), target, eye);
         vec3.normalize(forward, forward);
 
         const heightBasedMultiplier = vec3.dist(target, eye) / 200;
 
-        const delta = state.view.zoomSensitivity * e.deltaY * heightBasedMultiplier;
+        const delta = state.settings.view.zoomSensitivity * e.deltaY * heightBasedMultiplier;
         const eyeZoomed = vec3.scaleAndAdd(
             vec3.create(),
             eye,
@@ -100,10 +103,10 @@ export function onWheel(e, state, setState) {
             vec3.scale(
                 vec3.create(),
                 forward,
-                e.deltaY * state.view.panYSensitivity * heightBasedMultiplier
+                e.deltaY * state.settings.view.panYSensitivity * heightBasedMultiplier
             ),
             sideways,
-            e.deltaX * state.view.panXSensitivity * heightBasedMultiplier
+            e.deltaX * state.settings.view.panXSensitivity * heightBasedMultiplier
         );
 
         setState(oldState => ({

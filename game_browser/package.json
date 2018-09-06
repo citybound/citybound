@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "build": "./node_modules/.bin/parcel build index.html --no-minify --log-level 3"
+    "build": "./node_modules/.bin/parcel build index.html --no-minify --log-level 3",
+    "start": "./node_modules/.bin/parcel watch index.html --no-hmr --log-level 3"
   },
   "dependencies": {
     "antd": "^3.8.1",

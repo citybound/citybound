@@ -14,6 +14,10 @@ export const initialState = {
     }
 }
 
+export const settingsSpec = {
+    toggleDebugWindowKey: { default: ',', description: "Debug Window Key" }
+}
+
 export function render(state, setState) {
     const connectionTolerance = window.cbNetworkSettings.acceptableTurnDistance + 3;
     const turnDiff = state.system.networkingTurns[0] - state.system.networkingTurns[1];
@@ -103,5 +107,5 @@ export function bindInputs(state, setState) {
         })),
     }
 
-    Mousetrap.bind(',', inputActions["toggleDebugView"]);
+    Mousetrap.bind(state.settings.debug.toggleDebugWindowKey, inputActions["toggleDebugView"]);
 }

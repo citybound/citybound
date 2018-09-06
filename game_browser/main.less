@@ -130,10 +130,10 @@ button {
 .window {
     padding: 1em;
     margin: 0 0.5em;
-    background-color: rgba(255, 255, 255, 0.8);
+    background-color: #ffffff;
     border-radius: 2px;
     -webkit-backdrop-filter: blur(10px);
-    opacity: 0.6;
+    opacity: 0.5;
 
     &:hover {
         opacity: 1.0;
@@ -186,6 +186,42 @@ button {
 
 #inspection {
     background-image: url('./assets/icons/icons8-visible.png');
+}
+
+#settings-toolbar {
+    margin-left: auto;
+}
+
+#settings {
+    background-image: url('./assets/icons/icons8-menu.png');
+}
+
+.window.settings {
+    min-width: 50em;
+}
+
+.formItem {
+    display: flex;
+    justify-content: left;
+    align-items: center;
+    border-top: 1px solid #eee;
+
+    & > * {
+        margin-left: 1em;
+        margin-right: 1em;
+    }
+
+    label {
+        width: 10em;
+    }
+
+    input {
+        width: auto;
+    }
+
+    .ant-slider {
+        flex-grow: 1;
+    }
 }
 
 #budgeting {

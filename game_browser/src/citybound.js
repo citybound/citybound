@@ -12,10 +12,18 @@ import * as Transport from './transport_browser/Transport';
 import * as LandUse from './land_use_browser/LandUse';
 import * as Simulation from './simulation_browser/Simulation';
 import * as Debug from './debug/Debug';
+import * as Settings from './settings';
 import Stage from './stage/Stage';
 import colors from './colors';
+import loadSettings from './settings';
 
 const EL = React.createElement;
+
+const settingSpecs = {
+    view: View.settingSpec,
+    debug: Debug.settingsSpec,
+    planning: Planning.settingsSpec,
+};
 
 class CityboundClient extends React.Component {
     constructor(props) {
@@ -35,6 +43,8 @@ class CityboundClient extends React.Component {
             },
             simulation: Simulation.initialState,
             view: View.initialState,
+
+            settings: loadSettings(settingSpecs)
         }
 
         this.renderer = React.createRef();
@@ -57,15 +67,16 @@ class CityboundClient extends React.Component {
             Planning,
             Transport,
             LandUse,
-            Debug
+            Debug,
         ];
 
         const uiAspectsRendered = uiAspects.map(aspect => aspect.render(this.state, this.setState.bind(this)));
+        const { tools: settingsTools, windows: settingsWindows } = Settings.render(this.state, settingSpecs, this.setState.bind(this));
 
         const layers = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.layers || []), []);
         const interactables = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.interactables || []), []);
-        const tools = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.tools || []), []);
-        const windows = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.windows || []), []);
+        const tools = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.tools || []), []).concat(settingsTools);
+        const windows = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.windows || []), []).concat(settingsWindows);
 
         const { eye, target, verticalFov } = this.state.view;
 

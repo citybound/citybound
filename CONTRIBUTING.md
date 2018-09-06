@@ -69,8 +69,11 @@ Recommended setup:
   * install rustup if asked to
     * (Mac/Ubuntu: run `source $HOME/.cargo/env` like it suggests)
     * then rerun `npm run ensure-tooling`
-* Build the browser UI + build the server + run the server with `npm start`
+* Build the server + run the server with `npm start`
   * Might take long the first time - installs and compile dependencies
+* In a separate window, continuously build the browser UI with `npm run watch-browser`
+  * Might take long the first time - installs and compile dependencies
+  * Recompiles automatically after changes, just reload browser to get them
 * Open the displayed address in your browser
 
 ## Guidelines
