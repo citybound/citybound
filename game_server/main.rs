@@ -140,8 +140,6 @@ fn main() {
     });
 
     util::init::ensure_crossplatform_proper_thread(move || {
-        util::init::first_time_open_wiki_release_page();
-
         let mut system = Box::new(kay::ActorSystem::new(kay::Networking::new(
             0,
             vec![
