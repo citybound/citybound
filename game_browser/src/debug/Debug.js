@@ -15,7 +15,7 @@ export const initialState = {
 }
 
 export const settingsSpec = {
-    toggleDebugWindowKey: { default: ',', description: "Debug Window Key" }
+    toggleDebugWindowKey: { default: { key: '.' }, description: "Toggle Debug Window" }
 }
 
 export function render(state, setState) {
@@ -107,5 +107,5 @@ export function bindInputs(state, setState) {
         })),
     }
 
-    Mousetrap.bind(state.settings.debug.toggleDebugWindowKey, inputActions["toggleDebugView"]);
+    Mousetrap.bind(state.settings.debug.toggleDebugWindowKey.key, inputActions["toggleDebugView"]);
 }

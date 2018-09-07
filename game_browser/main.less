@@ -200,6 +200,7 @@ button {
     min-width: 50em;
     max-height: calc(100% - 4em);
     overflow-y: auto;
+    margin-left: auto;
 }
 
 .formItem {
@@ -207,6 +208,7 @@ button {
     justify-content: left;
     align-items: center;
     border-top: 1px solid #eee;
+    min-height: 3em;
 
     & > * {
         margin-left: 1em;
@@ -219,6 +221,10 @@ button {
 
     input {
         width: auto;
+    }
+
+    .ant-select {
+        min-width: 10em;
     }
 
     .ant-slider {

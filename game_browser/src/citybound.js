@@ -61,6 +61,7 @@ class CityboundClient extends React.Component {
 
     onFrame() {
         if (this.state.rendering.enabled) {
+            Camera.onFrame(this.state, this.setState.bind(this));
             this.renderer.current.renderFrame();
         }
     }
@@ -81,13 +82,13 @@ class CityboundClient extends React.Component {
         const tools = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.tools || []), []).concat(settingsTools);
         const windows = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.windows || []), []).concat(settingsWindows);
 
-        const { eye, target, verticalFov } = this.state.camera;
+        const verticalFov = this.state.settings.camera.verticalFov * Math.PI;
 
         return EL("div", {
             style: { width: "100%", height: "100%" },
         },
             EL(ContainerDimensions, { style: { width: "100%", height: "100%", position: "relative" } }, ({ width, height }) => {
-                const { viewMatrix, perspectiveMatrix } = Camera.getMatrices(this.state, width, height);
+                const { eye, target, viewMatrix, perspectiveMatrix } = Camera.getMatrices(this.state, width, height);
 
                 return EL("div", { style: { width, height } }, [
                     EL("div", { key: "ui2dTools", className: "ui2dTools" }, [
@@ -116,6 +117,9 @@ class CityboundClient extends React.Component {
                             e.preventDefault();
                             return false;
                         },
+                        onMouseMove: e => {
+                            Camera.onMouseMove(e, this.state, this.setState.bind(this));
+                        }
                     })
                 ])
             })

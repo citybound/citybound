@@ -33,6 +33,8 @@ export default class Stage extends React.Component {
                         this.hoveredInteractable && this.hoveredInteractable.onEvent({ hover: { now: cursorPosition3d } });
                     }
                 }
+
+                this.props.onMouseMove(e);
             },
             onMouseDown: e => {
                 const { eye, target, verticalFov, width, height } = this.props;

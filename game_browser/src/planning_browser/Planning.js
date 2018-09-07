@@ -47,7 +47,11 @@ export const initialState = {
 };
 
 export const settingsSpec = {
-    implementProposalKey: { default: 'command+enter', description: "Implement Plan Key" },
+    implementProposalKey: {
+        default: {
+            key: /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? 'command+enter' : 'ctrl+enter'
+        }, description: "Implement Plan"
+    },
     finishGestureDistance: { default: 3.0, description: "Finish Gesture Double-Click Distance", min: 0.5, max: 10.0, step: 0.1 }
 }
 
@@ -457,5 +461,5 @@ export function bindInputs(state, setState) {
         "implementProposal": () => setState(implementProposal)
     }
 
-    Mousetrap.bind(state.settings.planning.implementProposalKey, inputActions["implementProposal"]);
+    Mousetrap.bind(state.settings.planning.implementProposalKey.key, inputActions["implementProposal"]);
 }
