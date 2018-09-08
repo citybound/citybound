@@ -1,3 +1,28 @@
+const StackTrace = require("stacktrace-js");
+
+function displayError(prefix, error) {
+    const el = document.getElementById("errors");
+    el.className = "errorsHappened";
+
+    StackTrace.fromError(error).then(stackFrames => {
+        document.getElementById("errorsloading").className = "loaded";
+        el.insertAdjacentHTML("beforeend", `<h2>${prefix}: ${error.message}</h2>`);
+        for (let frame of stackFrames) {
+            const fileName = frame.fileName.replace(window.location.origin, "");
+            el.insertAdjacentHTML("beforeend", `${frame.functionName} in ${fileName} ${frame.lineNumber}:${frame.columnNumber}<br/>`)
+        }
+        el.insertAdjacentHTML("beforeend", '<br/>');
+    }).catch(() => alert("Error diplaying error, lol."));
+}
+
+window.onerror = function (msg, file, line, col, error) {
+    displayError("Error", error);
+};
+
+window.addEventListener('unhandledrejection', function (e) {
+    displayError("Unhandled Rejection", e.reason);
+});
+
 import Monet from 'monet';
 import React from 'react';
 import ReactDOM from 'react-dom';
@@ -16,7 +41,6 @@ import * as Settings from './settings';
 import Stage from './stage/Stage';
 import colors from './colors';
 import loadSettings from './settings';
-import renderOrder from './renderOrder';
 
 const EL = React.createElement;
 

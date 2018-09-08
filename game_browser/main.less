@@ -98,6 +98,56 @@ button {
     outline: none;
 }
 
+#errors {
+    display: none;
+    position: absolute;
+    width: 40%;
+    height: 40%;
+    right: 1rem;
+    bottom: 4.5rem;
+    background: #b51717;
+    color: #fff;
+    padding: 1em;
+    border-radius: 0.2em;
+    z-index: 9999;
+    overflow-y: auto;
+    font-size: 0.7em;
+
+    #close {
+        position: absolute;
+        top: 0.2rem;
+        right: 0;
+        background-color: transparent;
+        color: #fff;
+        font-size: 2em;
+    }
+
+    h1, h2 {
+        color: #fff;
+    }
+
+    a {
+        display: inline-block;
+        background-color: #fff;
+        padding: 0.3em 0.5em;
+        border-radius: 0.2em;
+        margin-right: 0.5em;
+
+        &:hover {
+            background-color: @primary-color;
+            color: #fff;
+        }
+    }
+
+    &.errorsHappened {
+        display: block;
+    }
+}
+
+#errorsloading.loaded {
+    display: none;
+}
+
 .ui2d {
     position: absolute;
     width: 100%;
