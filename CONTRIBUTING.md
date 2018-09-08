@@ -73,10 +73,9 @@ Recommended setup:
    * `npm run watch-browser` to continuously build the browser UI 
      * Might take long the first time - installs and compile dependencies
      * Recompiles automatically after changes, just reload browser to get them
-     * If in the beginning there is an exception message about "Cannot find module" ignore it - it'll only be there the first time
    * `npm start` to build and then run the server
      * Might take long the first time - installs and compile dependencies
-     * If you get a bug about the /game_browser/dist directory missing, wait for `npm run watch-browser` to complete, then restart `npm start`
+     * If you get a bug about the `game_browser/dist` directory missing, wait for `npm run watch-browser` to complete, then restart `npm start`
 
 * Open the displayed address in your browser
 
