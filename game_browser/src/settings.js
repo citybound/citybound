@@ -1,11 +1,15 @@
-import { makeToolbar } from './toolbar';
+import { Toolbar } from './toolbar';
 import React from 'react';
 import { Button, Input, Slider, InputNumber, Switch, Select } from 'antd';
 const Option = Select.Option;
 
 const EL = React.createElement;
 
-export default function loadSettings(specs) {
+export const initialState = {
+    visble: false
+}
+
+export function loadSettings(specs) {
     const loadedSettings = {};
 
     for (let aspect of Object.keys(specs)) {
@@ -185,13 +189,14 @@ const ALL_KEYS_NAMES_ALTS = {
 }
 
 export function render(state, specs, setState) {
-    const setUiMode = uiMode => {
-        let updateOp = { uiMode: { $set: uiMode } };
-        setState(oldState => update(oldState, updateOp))
-    };
-
-    let tools = makeToolbar("settings-toolbar", ["Settings"], "main", state.uiMode, setUiMode);
-    let windows = state.uiMode == "main/Settings" ? [
+    let tools = EL(Toolbar, {
+        id: "settings-toolbar",
+        options: { settings: { description: "Settings" } },
+        value: state.settingsMeta.visible && "settings",
+        onChange: () =>
+            setState(oldState => update(oldState, { settingsMeta: { visible: { $apply: old => !old } } }))
+    });
+    let windows = state.settingsMeta.visible &&
         EL("div", { key: "debug", className: "window settings" }, [
             EL("h1", {}, "Settings"),
             EL("p", {}, "If you change key assignments, you'll need to reload the tab"),
@@ -286,7 +291,6 @@ export function render(state, specs, setState) {
                     )
                 ]
             )
-        ])
-    ] : [];
+        ]);
     return { tools, windows };
 }

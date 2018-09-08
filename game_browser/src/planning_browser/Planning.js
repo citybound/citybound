@@ -1,4 +1,4 @@
-import colors from '../colors';
+import colors, { toCSS, fromLinFloat } from '../colors';
 import renderOrder from '../renderOrder';
 import React from 'react';
 import { vec3, mat4 } from 'gl-matrix';
@@ -8,7 +8,7 @@ import { Button, Select } from 'antd';
 const Option = Select.Option;
 
 import { solidColorShader } from 'monet';
-import { makeToolbar } from '../toolbar';
+import { Toolbar } from '../toolbar';
 
 const EL = React.createElement;
 
@@ -22,6 +22,7 @@ const LAND_USES = [
 ];
 
 export const initialState = {
+    planningMode: null,
     rendering: {
         staticMeshes: {},
         currentPreview: {
@@ -217,8 +218,8 @@ export function render(state, setState) {
 
             for (let [pointIdx, point] of gesture.points.entries()) {
 
-                let isRelevant = (gesture.intent.Road && state.uiMode === "main/Planning/Roads")
-                    || (gesture.intent.Zone && state.uiMode.startsWith("main/Planning/Zoning"));
+                let isRelevant = (gesture.intent.Road && state.planning.planningMode === "roads")
+                    || (gesture.intent.Zone && state.planning.planningMode === "zoning");
 
                 if (isRelevant) {
                     let isHovered = gestureId == hoveredGestureId && pointIdx == hoveredPointIdx;
@@ -340,45 +341,15 @@ export function render(state, setState) {
         }
     ];
 
-    const setUiMode = uiMode => {
-        let updateOp = { uiMode: { $set: uiMode } };
-        if (uiMode === "main/Planning/Roads") {
-            updateOp.planning = {
-                canvasMode: {
-                    intent: {
-                        $set: {
-                            Road: {
-                                n_lanes_forward: 2,
-                                n_lanes_backward: 2
-                            }
-                        }
-                    }
-                }
-            }
-        } else if (uiMode.startsWith("main/Planning/Zoning/")) {
-            let [landUse] = uiMode.split(/\//g).slice(-1);
-            updateOp.planning = {
-                canvasMode: {
-                    intent: {
-                        $set: {
-                            Zone: {
-                                LandUse: landUse
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            updateOp.planning = { canvasMode: { intent: { $set: null } } }
-        }
-
-        setState(oldState => update(oldState, updateOp))
-    }
-
     const tools = [
-        ...makeToolbar("main-toolbar", ["Inspection", "Planning"], "main", state.uiMode, setUiMode),
-        ...(state.uiMode.startsWith("main/Planning")
-            ? [EL(Select, {
+        EL(Toolbar, {
+            id: "main-toolbar",
+            options: { inspection: { description: "Inspection" }, planning: { description: "Planning" } },
+            value: state.uiMode,
+            onChange: newMode => setState({ uiMode: newMode })
+        }),
+        state.uiMode == 'planning' && [
+            EL(Select, {
                 style: { width: 180 },
                 showSearch: true,
                 placeholder: "Open a proposal",
@@ -389,29 +360,45 @@ export function render(state, setState) {
                 Object.keys(state.planning.proposals).map(proposalId =>
                     EL(Option, { value: proposalId }, "Proposal '" + proposalId.split("-")[0] + "'")
                 )
-            ), ...state.planning.currentProposal ? [
-                EL(Button, {
-                    type: "primary",
-                    onClick: () => setState(implementProposal)
-                }, "Implement")
-            ] : []]
-            : []),
-        ...(state.planning.currentProposal
-            ? makeToolbar("planning-toolbar", ["Roads", "Zoning"], "main/Planning", state.uiMode, setUiMode)
-            : []),
-        ...makeToolbar("zoning-toolbar", [
-            "Residential",
-            "Commercial",
-            "Industrial",
-            "Agricultural",
-            "Recreational",
-            "Official"
-        ], "main/Planning/Zoning", state.uiMode, setUiMode,
-            zone => {
-                let c = colors[zone].map(component => Math.round(Math.pow(component, 1 / 2.2) * 256));
-                return `rgb(${c[0]}, ${c[1]}, ${c[2]})`
-            }
-        ),
+            ),
+            state.planning.currentProposal &&
+            EL(Button, {
+                type: "primary",
+                onClick: () => setState(implementProposal)
+            }, "Implement"),
+            state.planning.currentProposal &&
+            EL(Toolbar, {
+                id: "planning-toolbar",
+                options: { roads: { description: "Roads" }, zoning: { description: "Zoning" } },
+                value: state.planning.planningMode,
+                onChange: (value) => setState(oldState => update(oldState, {
+                    planning: {
+                        planningMode: { $set: value },
+                        canvasMode: { intent: { $set: value == "roads" ? { Road: { n_lanes_forward: 2, n_lanes_backward: 2 } } : null } }
+                    }
+                }))
+            }),
+            state.planning.currentProposal && state.planning.planningMode == "zoning" &&
+            EL(Toolbar, {
+                id: "zoning-toolbar",
+                options: {
+                    Residential: { description: "Residential", color: toCSS(fromLinFloat(colors["Residential"])) },
+                    Commercial: { description: "Commercial", color: toCSS(fromLinFloat(colors["Commercial"])) },
+                    Industrial: { description: "Industrial", color: toCSS(fromLinFloat(colors["Industrial"])) },
+                    Agricultural: { description: "Agricultural", color: toCSS(fromLinFloat(colors["Agricultural"])) },
+                    Recreational: { description: "Recreational", color: toCSS(fromLinFloat(colors["Recreational"])) },
+                    Official: { description: "Official", color: toCSS(fromLinFloat(colors["Official"])) }
+                },
+                value: state.planning.canvasMode.intent && state.planning.canvasMode.intent.Zone && state.planning.canvasMode.intent.Zone.LandUse,
+                onChange: newLandUse => setState(oldState => update(oldState, {
+                    planning: {
+                        canvasMode: {
+                            intent: { $set: { Zone: { LandUse: newLandUse } } }
+                        }
+                    }
+                }))
+            })
+        ],
     ];
 
     // TODO: invent a better way to preserve identity
@@ -424,7 +411,7 @@ export function render(state, setState) {
                 type: "everywhere",
             },
             zIndex: 1,
-            cursorHover: state.uiMode.startsWith("main/Planning/") ? "crosshair" : "normal",
+            cursorHover: state.uiMode == "planning" ? "crosshair" : "normal",
             cursorActive: "pointer",
             onEvent: e => {
                 const canvasMode = state.planning.canvasMode;
@@ -457,7 +444,7 @@ export function render(state, setState) {
         }
     ]
 
-    if (state.uiMode.startsWith("main/Planning") && state.planning.currentProposal) {
+    if (state.uiMode == "planning" && state.planning.currentProposal) {
         return { layers, interactables, tools };
     } else {
         return { tools };

@@ -40,7 +40,6 @@ import * as Debug from './debug/Debug';
 import * as Settings from './settings';
 import Stage from './stage/Stage';
 import colors from './colors';
-import loadSettings from './settings';
 
 const EL = React.createElement;
 
@@ -62,7 +61,7 @@ class CityboundClient extends React.Component {
             transport: Transport.initialState,
             landUse: LandUse.initialState,
             debug: Debug.initialState,
-            uiMode: "main",
+            uiMode: null,
             system: {
                 networkingTurns: ""
             },
@@ -72,7 +71,8 @@ class CityboundClient extends React.Component {
             simulation: Simulation.initialState,
             camera: Camera.initialState,
 
-            settings: loadSettings(settingSpecs)
+            settingsMeta: Settings.initialState,
+            settings: Settings.loadSettings(settingSpecs)
         }
 
         this.renderer = React.createRef();

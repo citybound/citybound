@@ -164,7 +164,7 @@ impl BrowserUI {
             ::simulation::Simulation::global_first(world).get_info(self.id, world);
 
             let maybe_current_proposal_id: Result<Serde<ProposalID>, _> = js! {
-                return (window.cbclient.state.uiMode.startsWith("main/Planning") &&
+                return (window.cbclient.state.uiMode == "planning" &&
                     window.cbclient.state.planning.currentProposal);
             }.try_into();
             if let Ok(Serde(current_proposal_id)) = maybe_current_proposal_id {

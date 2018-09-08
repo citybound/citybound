@@ -6,6 +6,18 @@ function toLinFloat(rgb) {
     ]
 }
 
+export function fromLinFloat(rgb) {
+    return [
+        Math.pow(rgb[0], 1 / 2.2) * 256,
+        Math.pow(rgb[1], 1 / 2.2) * 256,
+        Math.pow(rgb[2], 1 / 2.2) * 256,
+    ]
+}
+
+export function toCSS(rgb) {
+    return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`
+}
+
 function mix(a, b, alpha) {
     return [
         a[0] * alpha + b[0] * (1 - alpha),
