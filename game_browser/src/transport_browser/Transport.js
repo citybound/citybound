@@ -1,4 +1,5 @@
 import colors from '../colors';
+import renderOrder from '../renderOrder';
 import update from 'immutability-helper';
 import carMesh from './carMesh';
 
@@ -21,6 +22,7 @@ export function render(state, _setState) {
 
     const layers = [
         {
+            renderOrder: renderOrder.asphalt,
             decal: true,
             batches: [...state.transport.rendering.laneAsphaltGroups.values()].map(groupMesh => ({
                 mesh: groupMesh,
@@ -28,6 +30,7 @@ export function render(state, _setState) {
             }))
         },
         {
+            renderOrder: renderOrder.asphaltMarker,
             decal: true,
             batches: [...state.transport.rendering.laneMarkerGroups.values()].map(groupMesh => ({
                 mesh: groupMesh,
@@ -35,6 +38,7 @@ export function render(state, _setState) {
             }))
         },
         {
+            renderOrder: renderOrder.asphaltMarkerGap,
             decal: true,
             batches: [...state.transport.rendering.laneMarkerGapGroups.values()].map(groupMesh => ({
                 mesh: groupMesh,
@@ -42,6 +46,7 @@ export function render(state, _setState) {
             }))
         },
         {
+            renderOrder: renderOrder.cars,
             decal: false,
             batches: [{
                 mesh: state.transport.rendering.staticMeshes.car,

@@ -16,6 +16,7 @@ import * as Settings from './settings';
 import Stage from './stage/Stage';
 import colors from './colors';
 import loadSettings from './settings';
+import renderOrder from './renderOrder';
 
 const EL = React.createElement;
 
@@ -81,6 +82,8 @@ class CityboundClient extends React.Component {
         const interactables = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.interactables || []), []);
         const tools = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.tools || []), []).concat(settingsTools);
         const windows = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.windows || []), []).concat(settingsWindows);
+
+        layers.sort((a, b) => a.renderOrder - b.renderOrder)
 
         const verticalFov = this.state.settings.camera.verticalFov * Math.PI;
 

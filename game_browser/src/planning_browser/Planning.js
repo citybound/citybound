@@ -1,4 +1,5 @@
 import colors from '../colors';
+import renderOrder from '../renderOrder';
 import React from 'react';
 import { vec3, mat4 } from 'gl-matrix';
 import * as cityboundBrowser from '../../Cargo.toml';
@@ -281,6 +282,7 @@ export function render(state, setState) {
 
     const layers = [
         {
+            renderOrder: renderOrder.addedGesturesAsphalt,
             decal: true,
             batches: [...lanesToConstructGroups.values()].map(groupMesh => ({
                 mesh: groupMesh,
@@ -288,6 +290,7 @@ export function render(state, setState) {
             }))
         },
         {
+            renderOrder: renderOrder.addedGesturesMarker,
             decal: true,
             batches: [...lanesToConstructMarkerGroups.values()].map(groupMesh => ({
                 mesh: groupMesh,
@@ -295,6 +298,7 @@ export function render(state, setState) {
             }))
         },
         {
+            renderOrder: renderOrder.addedGesturesMarkerGap,
             decal: true,
             batches: [...lanesToConstructMarkerGapsGroups.values()].map(groupMesh => ({
                 mesh: groupMesh,
@@ -302,6 +306,7 @@ export function render(state, setState) {
             }))
         },
         ...[...zoneGroups.entries()].map(([landUse, groups]) => ({
+            renderOrder: renderOrder.addedGesturesZones,
             decal: true,
             batches: [...groups.values()].map(groupMesh => ({
                 mesh: groupMesh,
@@ -309,6 +314,7 @@ export function render(state, setState) {
             }))
         })),
         ...[...zoneGroups.entries()].reverse().map(([landUse, groups]) => ({
+            renderOrder: renderOrder.addedGesturesZonesStipple,
             decal: true,
             shader: shadersForLandUses[landUse],
             batches: [...groups.values()].map(groupMesh => ({
@@ -317,6 +323,7 @@ export function render(state, setState) {
             }))
         })),
         ...[...zoneOutlineGroups.entries()].map(([landUse, groups]) => ({
+            renderOrder: renderOrder.addedGesturesZonesOutlines,
             decal: true,
             batches: [...groups.values()].map(groupMesh => ({
                 mesh: groupMesh,
@@ -324,6 +331,7 @@ export function render(state, setState) {
             }))
         })),
         {
+            renderOrder: renderOrder.gestureInteractables,
             decal: true,
             batches: [{
                 mesh: state.planning.rendering.staticMeshes.GestureDot,

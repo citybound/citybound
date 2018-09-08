@@ -52,9 +52,8 @@ script:
   - npm run build-browser
   - npm run build-server-bundle
   - cd target/release/
-  - mv citybound citybound-$(cat ../../.version)
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then tar -pczf citybound-$(cat ../../.version)-linux.tar.gz citybound-$(cat ../../.version) && mv citybound-$(cat ../../.version)-linux.tar.gz ../.. ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then zip citybound-$(cat ../../.version)-osx.zip citybound-$(cat ../../.version)  && mv citybound-$(cat ../../.version)-osx.zip ../.. ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mv citybound citybound-$(cat ../../.version) && tar -pczf citybound-$(cat ../../.version)-linux.tar.gz citybound-$(cat ../../.version) && mv citybound-$(cat ../../.version)-linux.tar.gz ../.. ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mv citybound citybound-$(cat ../../.version).command && zip citybound-$(cat ../../.version)-osx.zip citybound-$(cat ../../.version).command  && mv citybound-$(cat ../../.version)-osx.zip ../.. ; fi
   - cd ../..
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then npm run lint-check ; fi
 
