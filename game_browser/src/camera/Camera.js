@@ -78,9 +78,10 @@ export function bindInputs(state, setState) {
                 headingDistanceAtGestureStart: {
                     $set: {
                         distance: oldState.camera.distance,
-                        heading: oldState.camera.heading
+                        heading: oldState.camera.heading,
                     }
                 },
+                gestureClientPos: { $set: [e.clientX, e.clientY] }
             }
         }));
 
@@ -88,16 +89,24 @@ export function bindInputs(state, setState) {
     })
 
     document.addEventListener("gesturechange", e => {
-        console.log(e.scale);
         setState(oldState => {
             const delta = e.scale - 1.0;
             const scaledDelta = delta * oldState.settings.camera.zoomSensitivity / 3.0
             const scaledMul = Math.max(1.0 + scaledDelta, 0.01);
             const newDistance = oldState.camera.headingDistanceAtGestureStart.distance / scaledMul;
+
+            const fakeWheelEvent = {
+                deltaX: -(e.clientX - oldState.camera.gestureClientPos[0]),
+                deltaY: -(e.clientY - oldState.camera.gestureClientPos[1]),
+            };
+
+            onWheel(fakeWheelEvent, oldState, setState);
+
             return update(oldState, {
                 camera: {
                     distance: { $set: Math.max(MIN_DISTANCE, newDistance) },
-                    heading: { $set: oldState.camera.headingDistanceAtGestureStart.heading + e.rotation * 0.03 * oldState.settings.camera.rotateXSensitivity }
+                    heading: { $set: oldState.camera.headingDistanceAtGestureStart.heading + e.rotation * 0.03 * oldState.settings.camera.rotateXSensitivity },
+                    gestureClientPos: { $set: [e.clientX, e.clientY] }
                 }
             })
         });

@@ -3,6 +3,51 @@ import { vec3, vec4, mat4 } from 'gl-matrix';
 
 export default class Stage extends React.Component {
     render() {
+        const onMouseDown = e => {
+            const { eye, target, verticalFov, width, height } = this.props;
+            const elementRect = e.target.getBoundingClientRect();
+            const cursorPosition3d = this.projectCursor(eye, target, verticalFov, width, height, e, elementRect);
+
+            this.activeInteractable = this.findInteractableBelow(cursorPosition3d);
+            this.activeInteractable && this.activeInteractable.onEvent({ drag: { start: cursorPosition3d } });
+            this.dragStart = cursorPosition3d;
+        };
+        const onMouseMove = e => {
+            const { eye, target, verticalFov, width, height } = this.props;
+            const elementRect = e.target.getBoundingClientRect();
+            const cursorPosition3d = this.projectCursor(eye, target, verticalFov, width, height, e, elementRect);
+
+            this.props.cursorMoved && this.props.cursorMoved(cursorPosition3d);
+
+            if (this.activeInteractable) {
+                this.activeInteractable.onEvent({ drag: { start: this.dragStart, now: cursorPosition3d } })
+            } else {
+                const oldHoveredInteractable = this.hoveredInteractable;
+                this.hoveredInteractable = this.findInteractableBelow(cursorPosition3d);
+
+                if (!oldHoveredInteractable
+                    || (oldHoveredInteractable.id !== (this.hoveredInteractable && this.hoveredInteractable.id))) {
+                    oldHoveredInteractable && oldHoveredInteractable.onEvent({ hover: { end: cursorPosition3d } });
+                    this.hoveredInteractable && this.hoveredInteractable.onEvent({ hover: { start: cursorPosition3d } });
+                } else {
+                    this.hoveredInteractable && this.hoveredInteractable.onEvent({ hover: { now: cursorPosition3d } });
+                }
+            }
+
+            this.props.onMouseMove(e);
+        };
+        const onMouseUp = e => {
+            const { eye, target, verticalFov, width, height } = this.props;
+            const elementRect = e.target.getBoundingClientRect();
+            const cursorPosition3d = this.projectCursor(eye, target, verticalFov, width, height, e, elementRect);
+
+            if (this.activeInteractable) {
+                this.activeInteractable.onEvent({ drag: { start: this.dragStart, end: cursorPosition3d } });
+                this.activeInteractable = null;
+                this.dragStart = null;
+            }
+        };
+
         return React.createElement("div", {
             style: Object.assign({}, this.props.style, {
                 width: this.props.width, height: this.props.height,
@@ -12,50 +57,15 @@ export default class Stage extends React.Component {
                     : (this.hoveredInteractable ? (this.hoveredInteractable.cursorHover || "pointer") : "default")
             }),
             onWheel: this.props.onWheel,
-            onMouseMove: e => {
-                const { eye, target, verticalFov, width, height } = this.props;
-                const elementRect = e.target.getBoundingClientRect();
-                const cursorPosition3d = this.projectCursor(eye, target, verticalFov, width, height, e, elementRect);
-
-                this.props.cursorMoved && this.props.cursorMoved(cursorPosition3d);
-
-                if (this.activeInteractable) {
-                    this.activeInteractable.onEvent({ drag: { start: this.dragStart, now: cursorPosition3d } })
-                } else {
-                    const oldHoveredInteractable = this.hoveredInteractable;
-                    this.hoveredInteractable = this.findInteractableBelow(cursorPosition3d);
-
-                    if (!oldHoveredInteractable
-                        || (oldHoveredInteractable.id !== (this.hoveredInteractable && this.hoveredInteractable.id))) {
-                        oldHoveredInteractable && oldHoveredInteractable.onEvent({ hover: { end: cursorPosition3d } });
-                        this.hoveredInteractable && this.hoveredInteractable.onEvent({ hover: { start: cursorPosition3d } });
-                    } else {
-                        this.hoveredInteractable && this.hoveredInteractable.onEvent({ hover: { now: cursorPosition3d } });
-                    }
-                }
-
-                this.props.onMouseMove(e);
-            },
-            onMouseDown: e => {
-                const { eye, target, verticalFov, width, height } = this.props;
-                const elementRect = e.target.getBoundingClientRect();
-                const cursorPosition3d = this.projectCursor(eye, target, verticalFov, width, height, e, elementRect);
-
-                this.activeInteractable = this.findInteractableBelow(cursorPosition3d);
-                this.activeInteractable && this.activeInteractable.onEvent({ drag: { start: cursorPosition3d } });
-                this.dragStart = cursorPosition3d;
-            },
-            onMouseUp: e => {
-                const { eye, target, verticalFov, width, height } = this.props;
-                const elementRect = e.target.getBoundingClientRect();
-                const cursorPosition3d = this.projectCursor(eye, target, verticalFov, width, height, e, elementRect);
-
-                if (this.activeInteractable) {
-                    this.activeInteractable.onEvent({ drag: { start: this.dragStart, end: cursorPosition3d } });
-                    this.activeInteractable = null;
-                    this.dragStart = null;
-                }
-            }
+            onMouseMove,
+            onMouseDown,
+            onMouseUp,
+            onPointerDown: onMouseDown,
+            onPointerMove: onMouseMove,
+            onPointerUp: onMouseUp,
+            onTouchStart: e => onMouseDown(e.changedTouches[0]),
+            onTouchMove: e => onMouseMove(e.changedTouches[0]),
+            onTouchEnd: e => onMouseUp(e.changedTouches[0])
         });
     }
 
