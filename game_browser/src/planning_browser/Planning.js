@@ -31,6 +31,7 @@ export const initialState = {
             lanesToConstructMarkerGapsGroups: new Map(),
             zoneGroups: new Map(LAND_USES.map(landUse => [landUse, new Map()])),
             zoneOutlineGroups: new Map(LAND_USES.map(landUse => [landUse, new Map()])),
+            buildingOutlinesGroup: new Map(),
         }
     },
     master: {
@@ -170,6 +171,7 @@ const destructedAsphaltInstance = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...
 const plannedAsphaltInstance = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.plannedAsphalt]);
 const plannedRoadMarkerInstance = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.plannedRoadMarker]);
 const landUseInstances = new Map(LAND_USES.map(landUse => [landUse, new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors[landUse]])]));
+const buildingOutlinesInstance = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.buildingOutlines]);
 
 const stripedShaders = [
     "mod(p.x + p.y, 6.0) < 2.0 && mod(p.x - p.y, 6.0) > 2.0",
@@ -279,7 +281,8 @@ export function render(state, setState) {
     const { lanesToConstructGroups,
         lanesToConstructMarkerGroups,
         lanesToConstructMarkerGapsGroups,
-        zoneGroups, zoneOutlineGroups } = state.planning.rendering.currentPreview;
+        zoneGroups, zoneOutlineGroups,
+        buildingOutlinesGroup } = state.planning.rendering.currentPreview;
 
     const layers = [
         {
@@ -331,6 +334,14 @@ export function render(state, setState) {
                 instances: landUseInstances.get(landUse)
             }))
         })),
+        {
+            renderOrder: renderOrder.buildingOutlines,
+            decal: true,
+            batches: [...buildingOutlinesGroup.values()].map(groupMesh => ({
+                mesh: groupMesh,
+                instances: buildingOutlinesInstance
+            }))
+        },
         {
             renderOrder: renderOrder.gestureInteractables,
             decal: true,

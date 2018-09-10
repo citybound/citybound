@@ -12,7 +12,9 @@ impl Prototype {
     fn construct(&self, report_to: ConstructionID, world: &mut World) -> CVec<ConstructableID> {
         match self.kind {
             PrototypeKind::Road(ref road_prototype) => road_prototype.construct(report_to, world),
-            PrototypeKind::Lot(ref lot_prototype) => lot_prototype.construct(report_to, world),
+            PrototypeKind::Lot(ref lot_prototype) => {
+                lot_prototype.construct(self.id, report_to, world)
+            }
         }
     }
 

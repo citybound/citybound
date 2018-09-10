@@ -6,10 +6,10 @@ use super::{Lot, BuildingStyle};
 
 pub fn ideal_lot_shape(building_style: BuildingStyle) -> (f32, f32) {
     match building_style {
-        BuildingStyle::FamilyHouse => (15.0, 30.0),
-        BuildingStyle::GroceryShop => (10.0, 30.0),
-        BuildingStyle::Bakery => (15.0, 30.0),
-        BuildingStyle::Mill => (15.0, 30.0),
+        BuildingStyle::FamilyHouse => (20.0, 30.0),
+        BuildingStyle::GroceryShop => (15.0, 20.0),
+        BuildingStyle::Bakery => (20.0, 30.0),
+        BuildingStyle::Mill => (20.0, 30.0),
         BuildingStyle::Field => (50.0, 100.0),
         BuildingStyle::NeighboringTownConnection => (5.0, 5.0),
     }
@@ -29,7 +29,7 @@ pub fn build_building<R: Rng>(
     rng: &mut R,
 ) -> BuildingMesh {
     let building_position = lot.center_point();
-    let building_orientation = lot.connection_points[0].1;
+    let building_orientation = lot.best_road_connection().1;
 
     let (main_footprint, entrance_footprint) = generate_house_footprint(lot, rng);
 
@@ -253,7 +253,7 @@ impl Footprint {
 
 pub fn generate_house_footprint<R: Rng>(lot: &Lot, rng: &mut R) -> (Footprint, Footprint) {
     let building_position = lot.center_point();
-    let building_orientation = lot.connection_points[0].1;
+    let building_orientation = lot.best_road_connection().1;
     let building_orientation_orth = building_orientation.orthogonal();
 
     let footprint_width = 10.0 + rng.gen::<f32>() * 7.0;

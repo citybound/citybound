@@ -138,7 +138,7 @@ class CityboundClient extends React.Component {
                         interactables,
                         width, height,
                         eye, target, verticalFov,
-                        style: { width, height, position: "absolute", top: 0, left: 0, '-webkit-overflow-scrolling': 'touch' },
+                        style: { width, height, position: "absolute", top: 0, left: 0 },
                         onWheel: e => {
                             Camera.onWheel(e, this.state, this.setState.bind(this));
                             e.preventDefault();

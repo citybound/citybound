@@ -1,6 +1,6 @@
 use kay::{World, Fate, ActorSystem};
-use descartes::{P2, V2, Area, WithUniqueOrthogonal, ClosedLinePath, LinePath,
-PointContainer, AreaError};
+use compact::CVec;
+use descartes::{N, P2, V2, Area, WithUniqueOrthogonal, ClosedLinePath, LinePath, AreaError};
 use ordered_float::OrderedFloat;
 
 use land_use::zone_planning::{Lot, BuildingIntent};
@@ -10,17 +10,17 @@ use economy::immigration_and_development::DevelopmentManagerID;
 use itertools::{Itertools, MinMaxResult};
 
 use construction::{ConstructionID, Constructable, ConstructableID};
-use planning::{Prototype, StepID};
+use planning::{Prototype, PrototypeID};
 
 #[derive(Compact, Clone)]
 pub struct VacantLot {
     pub id: VacantLotID,
     pub lot: Lot,
-    based_on: StepID,
+    based_on: PrototypeID,
 }
 
 impl Lot {
-    pub fn width_depth_per_connection_point(&self) -> Vec<(P2, V2, f32, f32)> {
+    pub fn width_depth_per_road_connection(&self) -> Vec<(P2, V2, f32, f32)> {
         let midpoints = self
             .area
             .primitives
@@ -33,9 +33,9 @@ impl Lot {
                     .map(|segment| segment.midpoint())
             }).collect::<Vec<_>>();
 
-        self.connection_points
-            .iter()
-            .map(|&(point, direction)| {
+        self.all_road_connections()
+            .into_iter()
+            .map(|(point, direction)| {
                 let depth_direction = direction;
                 let width_direction = depth_direction.orthogonal();
 
@@ -68,115 +68,161 @@ impl Lot {
         building_style: BuildingStyle,
         allow_left_split: bool,
         allow_right_split: bool,
+        max_width_after_splitting: N,
+        recursion_depth: usize,
     ) -> Result<Option<Lot>, AreaError> {
         let needed_shape = ideal_lot_shape(building_style);
-        let width_depth_per_connection_point = self.width_depth_per_connection_point();
-
-        let maybe_suitable_connection_point =
-            width_depth_per_connection_point
+        let debug_padding: String = ::std::iter::repeat(" ").take(recursion_depth).collect();
+        println!(
+            "{}Trying to suggest lot for {:?}. Road Boundaries {:?}",
+            debug_padding,
+            building_style,
+            self.road_boundaries
                 .iter()
-                .find(|&&(_point, _direction, width, depth)| {
-                    println!(
-                        "Trying to suggest lot for {:?}. Is: {:?} Needed: {:?}",
-                        building_style,
-                        (width, depth),
-                        needed_shape
-                    );
+                .map(|path| path.length())
+                .collect::<Vec<_>>(),
+        );
 
-                    let width_ratio = width / needed_shape.0;
-                    let depth_ratio = depth / needed_shape.1;
-
-                    width_ratio > 0.5 && width_ratio < 2.0 && depth_ratio > 0.5 && depth_ratio < 2.0
-                });
-
-        if let Some(&(point, direction, ..)) = maybe_suitable_connection_point {
-            // keep only the connection point for the building that matches its shape
-            Ok(Some(Lot {
-                connection_points: vec![(point, direction)].into(),
-                ..self.clone()
-            }))
-        } else {
-            let maybe_too_wide_connection_points = width_depth_per_connection_point.iter().filter(
-                |&&(_point, _direction, width, depth)| {
-                    let width_ratio = width / needed_shape.0;
-                    let depth_ratio = depth / needed_shape.1;
-
-                    width_ratio > 2.0 && depth_ratio > 0.5 && depth_ratio < 2.0
-                },
+        for (point, direction, width, depth) in self.width_depth_per_road_connection() {
+            println!(
+                "{}Is: {:?} Needed: {:?}",
+                debug_padding,
+                (width, depth),
+                needed_shape
             );
 
-            for &(point, direction, ..) in maybe_too_wide_connection_points {
-                let orthogonal = direction.orthogonal();
+            // make sure that we're making progress after recursing
+            if width < max_width_after_splitting {
+                let width_ratio = width / needed_shape.0;
+                let depth_ratio = depth / needed_shape.1;
 
-                let corners = vec![
-                    point + needed_shape.1 * direction,
-                    point + needed_shape.1 * direction + 1_000.0 * orthogonal,
-                    point - 500.0 * direction + 1_000.0 * orthogonal,
-                    point - 500.0 * direction,
-                    point + needed_shape.1 * direction,
-                ];
+                if width_ratio > 0.5 && width_ratio < 2.0 && depth_ratio > 0.5 && depth_ratio < 2.0
+                {
+                    return Ok(Some(self.clone()));
+                } else if width_ratio > 2.0 && depth_ratio > 0.5 {
+                    let orthogonal = direction.orthogonal();
 
-                let splitting_area = Area::new_simple(
-                    ClosedLinePath::new(LinePath::new(corners.into()).unwrap()).unwrap(),
-                );
+                    let corners = vec![
+                        point + needed_shape.1 * direction,
+                        point + needed_shape.1 * direction + 1_000.0 * orthogonal,
+                        point - 500.0 * direction + 1_000.0 * orthogonal,
+                        point - 500.0 * direction,
+                        point + needed_shape.1 * direction,
+                    ];
 
-                println!("Attempting width split");
+                    let splitting_area = Area::new_simple(
+                        ClosedLinePath::new(LinePath::new(corners.into()).unwrap()).unwrap(),
+                    );
 
-                let split = self.area.split(&splitting_area);
+                    println!("{}Attempting width split", debug_padding);
 
-                if allow_right_split {
-                    for right_split in split.intersection()?.disjoint() {
-                        let split_lot = Lot {
-                            connection_points: self
-                                .connection_points
-                                .clone()
-                                .into_iter()
-                                .filter(|&(other_point, _)| {
-                                    point != other_point && right_split.contains(other_point)
-                                }).collect(),
-                            area: right_split,
-                            ..self.clone()
-                        };
+                    let split = self.area.split(&splitting_area);
 
-                        // recurse!
-                        println!("Got right split lot, checking suitability");
-                        if let Some(ok_split_lot) =
-                            split_lot.split_for(building_style, false, true)?
-                        {
-                            return Ok(Some(ok_split_lot));
+                    if allow_right_split {
+                        for right_split in split.intersection()?.disjoint() {
+                            let road_boundaries = new_road_boundaries(
+                                &self.road_boundaries,
+                                right_split.primitives[0].boundary.path(),
+                            );
+
+                            if !road_boundaries.is_empty() {
+                                let split_lot = Lot {
+                                    road_boundaries,
+                                    area: right_split,
+                                    ..self.clone()
+                                };
+
+                                // recurse!
+                                println!(
+                                    "{}Got right split lot, checking suitability",
+                                    debug_padding,
+                                );
+                                if let Some(ok_split_lot) = split_lot.split_for(
+                                    building_style,
+                                    true, //false,
+                                    true,
+                                    width * 0.66,
+                                    recursion_depth + 1,
+                                )? {
+                                    return Ok(Some(ok_split_lot));
+                                }
+                            }
                         }
                     }
-                } else if allow_left_split {
-                    for left_split in split.a_minus_b()?.disjoint() {
-                        let split_lot = Lot {
-                            connection_points: self
-                                .connection_points
-                                .clone()
-                                .into_iter()
-                                .filter(|&(other_point, _)| {
-                                    point != other_point && left_split.contains(other_point)
-                                }).collect(),
-                            area: left_split,
-                            ..self.clone()
-                        };
+                    if allow_left_split {
+                        for left_split in split.a_minus_b()?.disjoint() {
+                            let road_boundaries = new_road_boundaries(
+                                &self.road_boundaries,
+                                left_split.primitives[0].boundary.path(),
+                            );
 
-                        // recurse!
-                        println!("Got right split lot, checking suitability");
-                        if let Some(ok_split_lot) =
-                            split_lot.split_for(building_style, true, false)?
-                        {
-                            return Ok(Some(ok_split_lot));
+                            if !road_boundaries.is_empty() {
+                                let split_lot = Lot {
+                                    road_boundaries,
+                                    area: left_split,
+                                    ..self.clone()
+                                };
+
+                                // recurse!
+                                println!(
+                                    "{}Got right split lot, checking suitability",
+                                    debug_padding,
+                                );
+                                if let Some(ok_split_lot) = split_lot.split_for(
+                                    building_style,
+                                    true,
+                                    true, //false,
+                                    width * 0.66,
+                                    recursion_depth + 1,
+                                )? {
+                                    return Ok(Some(ok_split_lot));
+                                }
+                            }
                         }
                     }
                 }
             }
-            Ok(None)
         }
+        Ok(None)
     }
 }
 
+fn new_road_boundaries(old_road_bundaries: &[LinePath], new_boundary: &LinePath) -> CVec<LinePath> {
+    new_boundary
+        .points
+        .iter()
+        .batching(|points_it| {
+            let mut consecutive_points = CVec::new();
+
+            loop {
+                if let Some(point) = points_it.next() {
+                    if old_road_bundaries
+                        .iter()
+                        .any(|old_boundary| old_boundary.includes(*point))
+                    {
+                        consecutive_points.push(*point);
+                    } else {
+                        break;
+                    }
+                } else if consecutive_points.is_empty() {
+                    return None;
+                } else {
+                    break;
+                }
+            }
+
+            Some(LinePath::new(consecutive_points))
+        }).filter_map(|maybe_new_boundary| maybe_new_boundary)
+        .collect()
+}
+
 impl VacantLot {
-    pub fn spawn(id: VacantLotID, lot: &Lot, based_on: StepID, _world: &mut World) -> VacantLot {
+    pub fn spawn(
+        id: VacantLotID,
+        lot: &Lot,
+        based_on: PrototypeID,
+        _world: &mut World,
+    ) -> VacantLot {
         VacantLot {
             id,
             based_on,
@@ -191,7 +237,10 @@ impl VacantLot {
         world: &mut World,
     ) {
         println!("Trying suggest");
-        match self.lot.split_for(building_style, true, true) {
+        match self
+            .lot
+            .split_for(building_style, true, true, ::std::f32::INFINITY, 0)
+        {
             Ok(Some(suitable_lot)) => requester.on_suggested_lot(
                 BuildingIntent {
                     lot: suitable_lot,

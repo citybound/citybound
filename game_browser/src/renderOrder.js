@@ -12,6 +12,7 @@ export default {
     addedGesturesAsphalt: i++,
     addedGesturesMarker: i++,
     addedGesturesMarkerGap: i++,
+    buildingOutlines: i++,
     building3D: i++,
     gestureInteractables: i++,
     cars: i++

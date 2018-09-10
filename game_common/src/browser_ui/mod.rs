@@ -47,6 +47,7 @@ pub struct BrowserUINonPersistedState {
     lanes_to_construct_marker_gaps_grouper: MeshGrouper<PrototypeID>,
     zone_groupers: HashMap<LandUse, MeshGrouper<PrototypeID>>,
     zone_outline_groupers: HashMap<LandUse, MeshGrouper<PrototypeID>>,
+    building_outlines_grouper: MeshGrouper<PrototypeID>,
     // transport geometry
     asphalt_grouper: MeshGrouper<RawID>,
     lane_marker_grouper: MeshGrouper<RawID>,
@@ -138,6 +139,7 @@ impl BrowserUI {
                     .into_iter()
                     .map(|land_use| (*land_use, MeshGrouper::new(2000)))
                     .collect(),
+                building_outlines_grouper: MeshGrouper::new(2000),
                 asphalt_grouper: MeshGrouper::new(2000),
                 lane_marker_grouper: MeshGrouper::new(2000),
                 lane_marker_gaps_grouper: MeshGrouper::new(2000),
@@ -306,7 +308,7 @@ impl BrowserUI {
             use ::transport::transport_planning::{RoadPrototype, LanePrototype,
 SwitchLanePrototype, IntersectionPrototype};
             use ::transport::rendering::{lane_mesh, marker_mesh, switch_marker_gap_mesh};
-            use ::land_use::zone_planning::LotPrototype;
+            use ::land_use::zone_planning::{LotPrototype, LotOccupancy};
             use ::michelangelo::Mesh;
 
             let mut lanes_to_construct_add = Vec::new();
@@ -335,6 +337,9 @@ SwitchLanePrototype, IntersectionPrototype};
                 .into_iter()
                 .map(|land_use| (*land_use, Vec::new()))
                 .collect();
+
+            let mut building_outlines_add = Vec::new();
+            let mut building_outlines_rem = Vec::new();
 
             for prototype_id in &result_update.prototypes_to_drop {
                 let prototype = self
@@ -367,18 +372,23 @@ SwitchLanePrototype, IntersectionPrototype};
                             _ => {}
                         }
                     }
-                    PrototypeKind::Lot(LotPrototype { ref lot, .. }) => {
-                        for land_use in &lot.land_uses {
-                            zones_rem
-                                .get_mut(land_use)
-                                .expect("Should have land use to update removes")
-                                .push(*prototype_id);
-                            zone_outlines_rem
-                                .get_mut(land_use)
-                                .expect("Should have land use to update removes")
-                                .push(*prototype_id);
+                    PrototypeKind::Lot(LotPrototype {
+                        ref lot, occupancy, ..
+                    }) => match occupancy {
+                        LotOccupancy::Vacant => {
+                            for land_use in &lot.land_uses {
+                                zones_rem
+                                    .get_mut(land_use)
+                                    .expect("Should have land use to update removes")
+                                    .push(*prototype_id);
+                                zone_outlines_rem
+                                    .get_mut(land_use)
+                                    .expect("Should have land use to update removes")
+                                    .push(*prototype_id);
+                            }
                         }
-                    }
+                        LotOccupancy::Occupied(_) => building_outlines_rem.push(*prototype_id),
+                    },
                     _ => {}
                 }
             }
@@ -422,7 +432,9 @@ SwitchLanePrototype, IntersectionPrototype};
                         }
                         _ => {}
                     },
-                    PrototypeKind::Lot(LotPrototype { ref lot, .. }) => {
+                    PrototypeKind::Lot(LotPrototype {
+                        ref lot, occupancy, ..
+                    }) => {
                         let mesh = Mesh::from_area(&lot.area);
                         let outline_mesh = Mesh::from_path_as_band_asymmetric(
                             lot.area.primitives[0].boundary.path(),
@@ -430,15 +442,22 @@ SwitchLanePrototype, IntersectionPrototype};
                             -0.5,
                             0.0,
                         );
-                        for land_use in &lot.land_uses {
-                            zones_add
-                                .get_mut(land_use)
-                                .expect("Should have land use to update adds")
-                                .push((new_prototype.id, mesh.clone()));
-                            zone_outlines_add
-                                .get_mut(land_use)
-                                .expect("Should have land use to update adds")
-                                .push((new_prototype.id, outline_mesh.clone()));
+                        match occupancy {
+                            LotOccupancy::Vacant => {
+                                for land_use in &lot.land_uses {
+                                    zones_add
+                                        .get_mut(land_use)
+                                        .expect("Should have land use to update adds")
+                                        .push((new_prototype.id, mesh.clone()));
+                                    zone_outlines_add
+                                        .get_mut(land_use)
+                                        .expect("Should have land use to update adds")
+                                        .push((new_prototype.id, outline_mesh.clone()));
+                                }
+                            }
+                            LotOccupancy::Occupied(_) => {
+                                building_outlines_add.push((new_prototype.id, outline_mesh))
+                            }
                         }
                     }
                     _ => {}
@@ -497,6 +516,10 @@ SwitchLanePrototype, IntersectionPrototype};
                 }).collect::<HashMap<_, _>>()
                 .into();
 
+            let updated_building_outlines_groups = self
+                .building_outlines_grouper
+                .update(building_outlines_rem, building_outlines_add);
+
             js! {
                 window.cbclient.setState(oldState => update(oldState, {
                     planning: {rendering: {
@@ -517,7 +540,12 @@ SwitchLanePrototype, IntersectionPrototype};
                                 )}
                             },
                             zoneGroups: @{updated_zones_all_groups},
-                            zoneOutlineGroups: @{updated_zones_all_outline_groups}
+                            zoneOutlineGroups: @{updated_zones_all_outline_groups},
+                            buildingOutlinesGroup: {
+                                "$add": @{updated_groups_to_js(
+                                    updated_building_outlines_groups
+                                )}
+                            },
                         }
                     }}
                 }));

@@ -5,13 +5,17 @@ use land_use::zone_planning::{LotPrototype, LotOccupancy};
 use land_use::vacant_lots::VacantLotID;
 use land_use::buildings::BuildingID;
 use construction::{ConstructionID, ConstructableID};
+use planning::PrototypeID;
 
 impl LotPrototype {
-    pub fn construct(&self, report_to: ConstructionID, world: &mut World) -> CVec<ConstructableID> {
+    pub fn construct(
+        &self,
+        self_id: PrototypeID,
+        report_to: ConstructionID,
+        world: &mut World,
+    ) -> CVec<ConstructableID> {
         let id = match self.occupancy {
-            LotOccupancy::Vacant => {
-                VacantLotID::spawn(self.lot.clone(), self.based_on, world).into()
-            }
+            LotOccupancy::Vacant => VacantLotID::spawn(self.lot.clone(), self_id, world).into(),
             LotOccupancy::Occupied(building_style) => {
                 BuildingID::spawn(building_style, self.lot.clone(), world).into()
             }

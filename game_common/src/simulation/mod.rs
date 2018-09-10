@@ -34,7 +34,7 @@ impl Simulation {
             simulatables: simulatables.clone(),
             current_instant: Instant::new(0),
             sleepers: CVec::new(),
-            speed: 1,
+            speed: 10,
         }
     }
 
