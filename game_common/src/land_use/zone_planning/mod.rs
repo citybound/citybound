@@ -1,11 +1,13 @@
 use compact::CVec;
-use descartes::{P2, V2, Area, ClosedLinePath, LinePath, PointContainer, AreaError};
+use descartes::{P2, V2, Area, ClosedLinePath, LinePath, PointContainer,
+AreaError, WithUniqueOrthogonal};
 use land_use::buildings::BuildingStyle;
+use ordered_float::OrderedFloat;
 
 use transport::transport_planning::RoadPrototype;
 
 use planning::{PlanHistory, VersionedGesture, PlanResult, Prototype, PrototypeID,
-PrototypeKind, GestureIntent, StepID};
+PrototypeKind, GestureIntent};
 
 #[derive(Compact, Clone, Debug, Serialize, Deserialize)]
 pub enum ZoneIntent {
@@ -45,7 +47,7 @@ pub struct Lot {
     pub land_uses: CVec<LandUse>,
     pub max_height: u8,
     pub set_back: u8,
-    pub connection_points: CVec<(P2, V2)>,
+    pub road_boundaries: CVec<LinePath>,
 }
 
 impl Lot {
@@ -56,6 +58,31 @@ impl Lot {
                 sum_point + outline.along(i as f32 * (outline.length() / 10.0)).coords
             }) / 10.0,
         )
+    }
+
+    pub fn best_road_connection(&self) -> (P2, V2) {
+        let longest_boundary = self
+            .road_boundaries
+            .iter()
+            .max_by_key(|path| OrderedFloat(path.length()))
+            .expect("Should always have a boundary");
+        let length = longest_boundary.length();
+        (
+            longest_boundary.along(length / 2.0),
+            -longest_boundary.direction_along(length / 2.0).orthogonal(),
+        )
+    }
+
+    pub fn all_road_connections(&self) -> Vec<(P2, V2)> {
+        self.road_boundaries
+            .iter()
+            .map(|boundary| {
+                let length = boundary.length();
+                (
+                    boundary.along(length / 2.0),
+                    -boundary.direction_along(length / 2.0).orthogonal(),
+                )
+            }).collect()
     }
 }
 
@@ -69,7 +96,6 @@ pub struct BuildingIntent {
 pub struct LotPrototype {
     pub lot: Lot,
     pub occupancy: LotOccupancy,
-    pub based_on: StepID,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
@@ -143,7 +169,6 @@ pub fn calculate_prototypes(
                             ..lot.clone()
                         },
                         occupancy: LotOccupancy::Occupied(building_style),
-                        based_on: history.latest_step_id(),
                     }),
                     id: influenced_id,
                 }))
@@ -229,38 +254,42 @@ pub fn calculate_prototypes(
         land_use_areas_influenced
             .into_iter()
             .filter_map(|(land_use, area, id)| {
-                let connection_points = area.primitives[0]
+                let road_boundary_segments = area.primitives[0]
                     .boundary
                     .path()
                     .segments()
-                    .flat_map(|segment| {
-                        let length = segment.length();
-                        (&[0.25, 0.5, 0.75])
-                            .iter()
-                            .map(|ratio| (segment.along(length * ratio), -segment.direction()))
-                            .collect::<Vec<_>>()
-                    }).filter(|&(point, _dir)| {
+                    .filter(|&segment| {
                         // TODO: this is a horribly slow way to find connection points
                         paved_area_areas
                             .iter()
-                            .any(|(paved_area, _)| paved_area.contains(point))
-                    }).collect::<CVec<_>>();
+                            .any(|(paved_area, _)| paved_area.contains(segment.midpoint()))
+                    }).collect::<Vec<_>>();
 
-                if connection_points.is_empty() {
-                    println!("No connection point found");
+                if road_boundary_segments.is_empty() {
+                    println!("No road boundary found");
                     None
                 } else {
+                    let mut road_boundary_paths: Vec<LinePath> = road_boundary_segments
+                        .into_iter()
+                        .map(|segment| {
+                            LinePath::new(vec![segment.start(), segment.end()].into()).unwrap()
+                        }).collect();
+
+                    let _ = ::descartes::util::join_within_vec(
+                        &mut road_boundary_paths,
+                        |path_a, path_b| path_a.concat(path_b).map(Some),
+                    );
+
                     Some(Prototype {
                         kind: PrototypeKind::Lot(LotPrototype {
                             lot: Lot {
                                 land_uses: vec![land_use].into(),
                                 max_height: 0,
                                 set_back: 0,
-                                connection_points,
+                                road_boundaries: road_boundary_paths.into(),
                                 area,
                             },
                             occupancy: LotOccupancy::Vacant,
-                            based_on: history.latest_step_id(),
                         }),
                         id,
                     })

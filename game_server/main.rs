@@ -125,16 +125,14 @@ fn main() {
                     );
 
                 Response::html(rendered)
+            } else if let Some(asset) = Asset::get(&request.url()[1..]) {
+                Response::from_data(
+                    extension_to_mime(request.url().split('.').last().unwrap_or("")),
+                    asset,
+                )
             } else {
-                if let Some(asset) = Asset::get(&request.url()[1..]) {
-                    Response::from_data(
-                        extension_to_mime(request.url().split('.').last().unwrap_or("")),
-                        asset,
-                    )
-                } else {
-                    Response::html(format!("404 error. Not found: {}", request.url()))
-                        .with_status_code(404)
-                }
+                Response::html(format!("404 error. Not found: {}", request.url()))
+                    .with_status_code(404)
             }
         });
     });

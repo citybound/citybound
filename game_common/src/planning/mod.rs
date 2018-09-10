@@ -722,13 +722,18 @@ impl PlanManager {
     pub fn implement_artificial_proposal(
         &mut self,
         proposal: &Proposal,
-        based_on: StepID,
+        based_on: &CVec<PrototypeID>,
         world: &mut World,
     ) {
-        if based_on == self.master_plan.latest_step_id() {
+        if based_on
+            .iter()
+            .all(|prototype_id| self.master_result.prototypes.contains_key(*prototype_id))
+        {
             let proposal_id = ProposalID::new();
             self.proposals.insert(proposal_id, proposal.clone());
             self.implement(proposal_id, world);
+        } else {
+            println!("Tried to implement artificial proposal based on outdated prototypes");
         }
     }
 }

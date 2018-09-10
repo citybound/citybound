@@ -15,7 +15,7 @@ export function fromLinFloat(rgb) {
 }
 
 export function toCSS(rgb) {
-    return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`
+    return `rgb(${Math.round(rgb[0])}, ${Math.round(rgb[1])}, ${Math.round(rgb[2])})`
 }
 
 function mix(a, b, alpha) {
@@ -40,6 +40,7 @@ export default {
     plannedAsphalt: [1.0, 1.0, 1.0],
     plannedRoadMarker: [0.6, 0.6, 0.6],
     destructedAsphalt: [1.0, 0.0, 0.0],
+    buildingOutlines: [0.0, 0.0, 0.0],
 
     controlPointMaster: [0.3, 0.3, 1.0],
     controlPointCurrentProposal: [0.0, 0.061, 1.0],//[0, 72, 255]
