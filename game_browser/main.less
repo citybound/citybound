@@ -55,17 +55,15 @@ body {
 #logo {
     width: 8rem;
     position: absolute;
-    right: 0.75rem;
-    top: 0.25rem;
-    z-index: 1000;
+    right: 1.25rem;
+    top: 0.5rem;
     opacity: 0.1;
 }
 
 #version {
     position: absolute;
-    right: 0.75rem;
-    top: 2.75rem;
-    z-index: 1000;
+    right: 1.25rem;
+    top: 3rem;
     opacity: 0.2;
     font-size: 0.8em;
 }
@@ -116,20 +114,11 @@ button {
     overflow-y: auto;
     font-size: 0.7em;
 
-    #close {
-        position: absolute;
-        top: 0.2rem;
-        right: 0;
-        background-color: transparent;
-        color: #fff;
-        font-size: 2em;
-    }
-
     h1, h2 {
         color: #fff;
     }
 
-    a {
+    p a {
         display: inline-block;
         background-color: #fff;
         padding: 0.3em 0.5em;
@@ -145,6 +134,16 @@ button {
     &.errorsHappened {
         display: block;
     }
+}
+
+.close-window {
+    position: absolute;
+    top: 0.2rem;
+    right: 0.4em;
+    background-color: transparent;
+    font-size: 2em;
+    color: inherit;
+    z-index: 1000;
 }
 
 #errorsloading.loaded {
@@ -163,7 +162,7 @@ button {
     align-items: flex-start;
 }
 
-.ui2d * {
+.ui2d > * {
     pointer-events: auto;
 }
 
@@ -181,6 +180,7 @@ button {
 
 
 .window {
+    position: relative;
     padding: 1em;
     margin: 0 0.5em;
     background-color: #ffffff;
@@ -241,19 +241,52 @@ button {
     background-image: url('./assets/icons/icons8-visible.png');
 }
 
-#settings-toolbar {
+#menu-toolbar {
     margin-left: auto;
 }
 
-#settings {
+#menu {
     background-image: url('./assets/icons/icons8-menu.png');
 }
 
-.window.settings {
-    min-width: 50em;
-    max-height: calc(100% - 4em);
-    overflow-y: auto;
+.patron {
+    display: inline-block;
+    border: 0.1em solid #333;
+    border-radius: 0.3em;
+    padding: 0.1em 0.4em 0.2em 0.4em;
+    margin-right: 0.4em;
+    margin-bottom: 0.4em;
+}
+
+.window.menu {
+    width: 50em;
+    height: calc(100% - 3.5em);
     margin-left: auto;
+    z-index: 2000;
+
+    .ant-tabs {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+
+        .ant-tabs-content {
+            overflow-y: auto;
+        }
+    }
+
+    &:after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        right: 0.5rem;
+        width: 0;
+        height: 0;
+        border: 8px solid transparent;
+        border-top-color: #ffffff;
+        border-bottom: 0;
+        margin-left: -8px;
+        margin-bottom: -8px;
+    }
 }
 
 .formItem {

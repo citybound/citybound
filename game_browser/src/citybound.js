@@ -12,7 +12,11 @@ function displayError(prefix, error) {
             el.insertAdjacentHTML("beforeend", `${frame.functionName} in ${fileName} ${frame.lineNumber}:${frame.columnNumber}<br/>`)
         }
         el.insertAdjacentHTML("beforeend", '<br/>');
-    }).catch(() => alert("Error diplaying error, lol."));
+    }).catch(() => {
+        document.getElementById("errorsloading").className = "loaded";
+        el.insertAdjacentHTML("beforeend", `<h2>${prefix}: ${error.message}</h2>`);
+        el.insertAdjacentHTML("beforeend", 'failed to gather error origin :(');
+    });
 }
 
 window.onerror = function (msg, file, line, col, error) {
@@ -38,6 +42,7 @@ import * as LandUse from './land_use_browser/LandUse';
 import * as Simulation from './simulation_browser/Simulation';
 import * as Debug from './debug/Debug';
 import * as Settings from './settings';
+import * as Menu from './menu';
 import Stage from './stage/Stage';
 import colors from './colors';
 
@@ -71,7 +76,7 @@ class CityboundClient extends React.Component {
             simulation: Simulation.initialState,
             camera: Camera.initialState,
 
-            settingsMeta: Settings.initialState,
+            menu: Menu.initalState,
             settings: Settings.loadSettings(settingSpecs)
         }
 
@@ -100,12 +105,12 @@ class CityboundClient extends React.Component {
         ];
 
         const uiAspectsRendered = uiAspects.map(aspect => aspect.render(this.state, this.setState.bind(this)));
-        const { tools: settingsTools, windows: settingsWindows } = Settings.render(this.state, settingSpecs, this.setState.bind(this));
+        const { tools: menuTools, windows: menuWindows } = Menu.render(this.state, settingSpecs, this.setState.bind(this));
 
         const layers = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.layers || []), []);
         const interactables = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.interactables || []), []);
-        const tools = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.tools || []), []).concat(settingsTools);
-        const windows = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.windows || []), []).concat(settingsWindows);
+        const tools = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.tools || []), []).concat(menuTools);
+        const windows = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.windows || []), []).concat(menuWindows);
 
         layers.sort((a, b) => a.renderOrder - b.renderOrder)
 

@@ -1,13 +1,8 @@
-import { Toolbar } from './toolbar';
 import React from 'react';
 import { Button, Input, Slider, InputNumber, Switch, Select } from 'antd';
 const Option = Select.Option;
 
 const EL = React.createElement;
-
-export const initialState = {
-    visble: false
-}
 
 export function loadSettings(specs) {
     const loadedSettings = {};
@@ -188,109 +183,101 @@ const ALL_KEYS_NAMES_ALTS = {
     '?': 'question mark',
 }
 
-export function render(state, specs, setState) {
-    let tools = EL(Toolbar, {
-        id: "settings-toolbar",
-        options: { settings: { description: "Settings" } },
-        value: state.settingsMeta.visible && "settings",
-        onChange: () =>
-            setState(oldState => update(oldState, { settingsMeta: { visible: { $apply: old => !old } } }))
-    });
-    let windows = state.settingsMeta.visible &&
-        EL("div", { key: "debug", className: "window settings" }, [
-            EL("h1", {}, "Settings"),
-            EL("p", {}, "If you change key assignments, you'll need to reload the tab"),
-            EL(Button, {
-                onClick: () => {
-                    localStorage.clear();
-                    setState({ settings: loadSettings(specs) })
-                }
-            }, "Reset all to defaults"),
-            ...Object.keys(specs).map(aspect =>
-                [
-                    EL("h2", {}, aspect),
-                    EL("div", { className: "form" },
-                        ...Object.keys(specs[aspect]).map(key => {
-                            let spec = specs[aspect][key];
-                            const onChange = newValue => {
-                                setState(oldState => update(oldState, {
-                                    settings: {
-                                        [aspect]: {
-                                            [key]: { $set: newValue }
-                                        }
-                                    }
-                                }));
+export function Settings(props) {
+    const { state, specs, setState } = props;
 
-                                localStorage["cbsettings:" + aspect + ":" + key] = JSON.stringify(newValue);
+    return EL("div", { key: "settings", className: "settings" }, [
+        EL("p", {}, "If you change key assignments, you'll need to reload the tab"),
+        EL(Button, {
+            onClick: () => {
+                localStorage.clear();
+                setState({ settings: loadSettings(specs) })
+            }
+        }, "Reset all to defaults"),
+        ...Object.keys(specs).map(aspect =>
+            [
+                EL("h2", {}, aspect),
+                EL("div", { className: "form" },
+                    ...Object.keys(specs[aspect]).map(key => {
+                        let spec = specs[aspect][key];
+                        const onChange = newValue => {
+                            setState(oldState => update(oldState, {
+                                settings: {
+                                    [aspect]: {
+                                        [key]: { $set: newValue }
+                                    }
+                                }
+                            }));
+
+                            localStorage["cbsettings:" + aspect + ":" + key] = JSON.stringify(newValue);
+                        };
+
+                        const onChangeInput = event => onChange(event.target.value);
+
+                        let inputEls = [];
+
+                        if (typeof spec.default === "number") {
+                            const marks = {
+                                [spec.min]: spec.min,
+                                [spec.max]: spec.max
                             };
 
-                            const onChangeInput = event => onChange(event.target.value);
-
-                            let inputEls = [];
-
-                            if (typeof spec.default === "number") {
-                                const marks = {
-                                    [spec.min]: spec.min,
-                                    [spec.max]: spec.max
-                                };
-
-                                if (spec.min && spec.min < 0) {
-                                    marks[0] = 0;
-                                }
-
-                                inputEls = [
-                                    EL(Slider, {
-                                        value: state.settings[aspect][key],
-                                        onChange,
-                                        marks,
-                                        included: !spec.min || spec.min > 0,
-                                        min: spec.min, max: spec.max, step: spec.step
-                                    }),
-                                    EL(InputNumber, {
-                                        value: state.settings[aspect][key],
-                                        onChange,
-                                        min: spec.min, max: spec.max, step: spec.step
-                                    })
-                                ]
-                            } else if (typeof spec.default === "boolean") {
-                                inputEls = [
-                                    spec.falseDescription || "",
-                                    EL(Switch, { checked: state.settings[aspect][key], onChange }),
-                                    spec.trueDescription || "",
-                                ]
-                            } else if (typeof spec.default === "string") {
-                                inputEls = [
-                                    EL(Input, { value: state.settings[aspect][key], onChange: onChangeInput })
-                                ]
-                            } else if (spec.default.key) {
-                                let splitKeys = state.settings[aspect][key].key.split("+");
-                                splitKeys = splitKeys.length === 1 && splitKeys[0] === "" ? [] : splitKeys;
-                                inputEls = [
-                                    EL(Select, {
-                                        key: aspect + key,
-                                        value: splitKeys,
-                                        onChange: keys => onChange({ key: keys.join("+") }),
-                                        optionFilterProp: 'children',
-                                        mode: 'multiple',
-                                        filterOption: (input, option) => option.props.value.toLowerCase().includes(input.toLowerCase())
-                                            || (ALL_KEYS_NAMES_ALTS[option.props.value] || "").toLowerCase().includes(input.toLowerCase())
-                                            || option.props.children.toLowerCase().includes(input.toLowerCase())
-                                    },
-                                        Object.keys(ALL_KEYS_NAMES).map(keyCode =>
-                                            EL(Option, { key: keyCode, value: keyCode, }, ALL_KEYS_NAMES[keyCode])
-                                        )
-                                    )
-                                ]
+                            if (spec.min && spec.min < 0) {
+                                marks[0] = 0;
                             }
 
-                            return EL("div", { className: "formItem" }, [
-                                EL("label", {}, spec.description || key),
-                                ...inputEls
-                            ])
-                        })
-                    )
-                ]
-            )
-        ]);
-    return { tools, windows };
+                            inputEls = [
+                                EL(Slider, {
+                                    value: state.settings[aspect][key],
+                                    onChange,
+                                    marks,
+                                    included: !spec.min || spec.min > 0,
+                                    min: spec.min, max: spec.max, step: spec.step
+                                }),
+                                EL(InputNumber, {
+                                    value: state.settings[aspect][key],
+                                    onChange,
+                                    min: spec.min, max: spec.max, step: spec.step
+                                })
+                            ]
+                        } else if (typeof spec.default === "boolean") {
+                            inputEls = [
+                                spec.falseDescription || "",
+                                EL(Switch, { checked: state.settings[aspect][key], onChange }),
+                                spec.trueDescription || "",
+                            ]
+                        } else if (typeof spec.default === "string") {
+                            inputEls = [
+                                EL(Input, { value: state.settings[aspect][key], onChange: onChangeInput })
+                            ]
+                        } else if (spec.default.key) {
+                            let splitKeys = state.settings[aspect][key].key.split("+");
+                            splitKeys = splitKeys.length === 1 && splitKeys[0] === "" ? [] : splitKeys;
+                            inputEls = [
+                                EL(Select, {
+                                    key: aspect + key,
+                                    value: splitKeys,
+                                    onChange: keys => onChange({ key: keys.join("+") }),
+                                    optionFilterProp: 'children',
+                                    mode: 'multiple',
+                                    filterOption: (input, option) => option.props.value.toLowerCase().includes(input.toLowerCase())
+                                        || (ALL_KEYS_NAMES_ALTS[option.props.value] || "").toLowerCase().includes(input.toLowerCase())
+                                        || option.props.children.toLowerCase().includes(input.toLowerCase())
+                                },
+                                    Object.keys(ALL_KEYS_NAMES).map(keyCode =>
+                                        EL(Option, { key: keyCode, value: keyCode, }, ALL_KEYS_NAMES[keyCode])
+                                    )
+                                )
+                            ]
+                        }
+
+                        return EL("div", { className: "formItem" }, [
+                            EL("label", {}, spec.description || key),
+                            ...inputEls
+                        ])
+                    })
+                )
+            ]
+        )
+    ]);
 }

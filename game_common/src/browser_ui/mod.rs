@@ -374,21 +374,21 @@ SwitchLanePrototype, IntersectionPrototype};
                     }
                     PrototypeKind::Lot(LotPrototype {
                         ref lot, occupancy, ..
-                    }) => match occupancy {
-                        LotOccupancy::Vacant => {
-                            for land_use in &lot.land_uses {
-                                zones_rem
-                                    .get_mut(land_use)
-                                    .expect("Should have land use to update removes")
-                                    .push(*prototype_id);
-                                zone_outlines_rem
-                                    .get_mut(land_use)
-                                    .expect("Should have land use to update removes")
-                                    .push(*prototype_id);
-                            }
+                    }) => {
+                        if let LotOccupancy::Occupied(_) = occupancy {
+                            building_outlines_rem.push(*prototype_id)
                         }
-                        LotOccupancy::Occupied(_) => building_outlines_rem.push(*prototype_id),
-                    },
+                        for land_use in &lot.land_uses {
+                            zones_rem
+                                .get_mut(land_use)
+                                .expect("Should have land use to update removes")
+                                .push(*prototype_id);
+                            zone_outlines_rem
+                                .get_mut(land_use)
+                                .expect("Should have land use to update removes")
+                                .push(*prototype_id);
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -442,22 +442,24 @@ SwitchLanePrototype, IntersectionPrototype};
                             -0.5,
                             0.0,
                         );
-                        match occupancy {
-                            LotOccupancy::Vacant => {
-                                for land_use in &lot.land_uses {
-                                    zones_add
-                                        .get_mut(land_use)
-                                        .expect("Should have land use to update adds")
-                                        .push((new_prototype.id, mesh.clone()));
-                                    zone_outlines_add
-                                        .get_mut(land_use)
-                                        .expect("Should have land use to update adds")
-                                        .push((new_prototype.id, outline_mesh.clone()));
-                                }
-                            }
-                            LotOccupancy::Occupied(_) => {
-                                building_outlines_add.push((new_prototype.id, outline_mesh))
-                            }
+                        if let LotOccupancy::Occupied(_) = occupancy {
+                            let thin_outline_mesh = Mesh::from_path_as_band_asymmetric(
+                                lot.area.primitives[0].boundary.path(),
+                                0.75,
+                                -0.25,
+                                0.0,
+                            );
+                            building_outlines_add.push((new_prototype.id, thin_outline_mesh))
+                        }
+                        for land_use in &lot.land_uses {
+                            zones_add
+                                .get_mut(land_use)
+                                .expect("Should have land use to update adds")
+                                .push((new_prototype.id, mesh.clone()));
+                            zone_outlines_add
+                                .get_mut(land_use)
+                                .expect("Should have land use to update adds")
+                                .push((new_prototype.id, outline_mesh.clone()));
                         }
                     }
                     _ => {}

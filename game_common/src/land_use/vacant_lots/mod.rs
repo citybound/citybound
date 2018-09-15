@@ -236,21 +236,28 @@ impl VacantLot {
         requester: DevelopmentManagerID,
         world: &mut World,
     ) {
-        println!("Trying suggest");
-        match self
+        if self
             .lot
-            .split_for(building_style, true, true, ::std::f32::INFINITY, 0)
+            .land_uses
+            .iter()
+            .any(|land_use| building_style.can_appear_in(land_use))
         {
-            Ok(Some(suitable_lot)) => requester.on_suggested_lot(
-                BuildingIntent {
-                    lot: suitable_lot,
-                    building_style,
-                },
-                self.based_on,
-                world,
-            ),
-            Ok(None) => {}
-            Err(_err) => println!("Geometry"),
+            println!("Trying suggest");
+            match self
+                .lot
+                .split_for(building_style, true, true, ::std::f32::INFINITY, 0)
+            {
+                Ok(Some(suitable_lot)) => requester.on_suggested_lot(
+                    BuildingIntent {
+                        lot: suitable_lot,
+                        building_style,
+                    },
+                    self.based_on,
+                    world,
+                ),
+                Ok(None) => {}
+                Err(_err) => println!("Geometry"),
+            }
         }
     }
 }

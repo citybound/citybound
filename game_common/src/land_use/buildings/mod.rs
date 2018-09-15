@@ -13,7 +13,7 @@ pub mod architecture;
 use economy::households::HouseholdID;
 use transport::pathfinding::PreciseLocation;
 use economy::immigration_and_development::ImmigrationManagerID;
-use land_use::zone_planning::Lot;
+use land_use::zone_planning::{Lot, LandUse};
 
 #[derive(Copy, Clone)]
 pub struct Unit(Option<HouseholdID>, UnitType);
@@ -39,6 +39,19 @@ pub enum BuildingStyle {
     Mill,
     Bakery,
     NeighboringTownConnection,
+}
+
+impl BuildingStyle {
+    pub fn can_appear_in(&self, land_use: &LandUse) -> bool {
+        match (self, land_use) {
+            (BuildingStyle::FamilyHouse, LandUse::Residential) => true,
+            (BuildingStyle::GroceryShop, LandUse::Commercial) => true,
+            (BuildingStyle::Mill, LandUse::Commercial) => true,
+            (BuildingStyle::Bakery, LandUse::Commercial) => true,
+            (BuildingStyle::Field, LandUse::Agricultural) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Compact, Clone)]
