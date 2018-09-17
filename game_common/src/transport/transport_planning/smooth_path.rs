@@ -17,7 +17,7 @@ pub fn smooth_path_from(points: &[P2]) -> Option<CurvedPath> {
     for (i, point_pair) in points.windows(2).enumerate() {
         let first_corner = point_pair[0];
         let second_corner = point_pair[1];
-        let previous_center_point = if i < 1 {
+        let previous_center_point = if i == 0 {
             &first_corner
         } else {
             &center_points[i - 1]
@@ -54,9 +54,11 @@ pub fn smooth_path_from(points: &[P2]) -> Option<CurvedPath> {
             collected_path = collected_path.map_or(Some(valid_connecting_line.clone()), |path| {
                 path.concat(&valid_connecting_line).ok()
             });
+            previous_point = start;
+        } else {
+            previous_point = end;
         }
 
-        previous_point = start;
         previous_direction = direction;
     }
 
