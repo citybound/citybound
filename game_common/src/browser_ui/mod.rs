@@ -207,7 +207,7 @@ impl BrowserUI {
     pub fn on_simulation_info(
         &mut self,
         current_instant: ::simulation::Instant,
-        speed: i32,
+        speed: u16,
         world: &mut World,
     ) {
         #[cfg(feature = "browser")]

@@ -102,6 +102,7 @@ class CityboundClient extends React.Component {
             Transport,
             LandUse,
             Debug,
+            Simulation,
         ];
 
         const uiAspectsRendered = uiAspects.map(aspect => aspect.render(this.state, this.setState.bind(this)));

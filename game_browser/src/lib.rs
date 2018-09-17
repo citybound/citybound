@@ -125,3 +125,6 @@ pub use planning_browser::*;
 
 mod debug;
 pub use debug::*;
+
+mod simulation_browser;
+pub use simulation_browser::*;

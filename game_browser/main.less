@@ -53,11 +53,11 @@ body {
 }
 
 #logo {
-    width: 8rem;
+    width: 6rem;
     position: absolute;
     right: 1.25rem;
     top: 0.5rem;
-    opacity: 0.1;
+    opacity: 0.3;
 }
 
 #version {
@@ -65,7 +65,7 @@ body {
     right: 1.25rem;
     top: 3rem;
     opacity: 0.2;
-    font-size: 0.8em;
+    font-size: 0.6em;
 }
 
 h1, h2, h3, h4 {
@@ -391,4 +391,44 @@ button {
     margin-bottom: 1em;
     max-height: 10em;
     overflow-y: auto;
+}
+
+.sim-time {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 1000;
+    font-size: 1.1em;
+    color: #000;
+    opacity: 0.4;
+    width: 9em;
+
+    &:hover {
+        opacity: 1;
+
+        .ant-slider {
+            opacity: 1;
+        }
+
+        .ant-slider-mark {
+            opacity: 1;
+        }
+    }
+
+    .ant-slider {
+        float: right;
+        margin: 0.5em 0;
+        width: 7em;
+        opacity: 0.4;
+    }
+
+    .ant-slider-mark {
+        opacity: 0;
+        font-size: 0.7em;
+    }
+}
+
+.sim-time-colon {
+    position: relative;
+    top: -0.07em;
 }

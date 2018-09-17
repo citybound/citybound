@@ -20,7 +20,7 @@ pub struct Simulation {
     simulatables: CVec<SimulatableID>,
     current_instant: Instant,
     sleepers: CVec<(Instant, SleeperID)>,
-    speed: i32,
+    speed: u16,
 }
 
 impl Simulation {
@@ -34,7 +34,7 @@ impl Simulation {
             simulatables: simulatables.clone(),
             current_instant: Instant::new(0),
             sleepers: CVec::new(),
-            speed: 10,
+            speed: 1,
         }
     }
 
@@ -76,6 +76,10 @@ impl Simulation {
 
     pub fn get_info(&mut self, requester: ::browser_ui::BrowserUIID, world: &mut World) {
         requester.on_simulation_info(self.current_instant, self.speed, world);
+    }
+
+    pub fn set_speed(&mut self, speed: u16, _world: &mut World) {
+        self.speed = speed as u16;
     }
 }
 
