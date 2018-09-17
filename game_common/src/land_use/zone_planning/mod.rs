@@ -207,9 +207,11 @@ pub fn calculate_prototypes(
             }).filter_map(|(land_use, points, step_id)| {
                 Some((
                     land_use,
-                    Area::new_simple(ClosedLinePath::new(LinePath::new(
-                        points.iter().chain(points.first()).cloned().collect(),
-                    )?)?),
+                    Area::new_simple(
+                        ClosedLinePath::new(LinePath::new(
+                            points.iter().chain(points.first()).cloned().collect(),
+                        )?)?.to_clockwise(),
+                    ),
                     step_id,
                 ))
             }).collect::<Vec<_>>();

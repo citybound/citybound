@@ -99,7 +99,7 @@ class PatronCredits extends React.Component {
     }
 
     componentDidMount() {
-        fetch("https://cb-patrons-app.now.sh").then(response =>
+        fetch("https://cb-patrons-app.now.sh/v1/members").then(response =>
             response.json().then(patrons => {
                 patrons.sort((a, b) => b.attributes.lifetime_support_cents - a.attributes.lifetime_support_cents);
                 this.setState({ patrons: patrons })
@@ -128,42 +128,8 @@ class GithubMilestone extends React.Component {
     }
 
     componentDidMount() {
-        fetch("https://api.github.com/graphql", {
-            method: "POST",
-            body: JSON.stringify({
-                query: `
-                query { 
-                    repository(owner: "citybound", name: "citybound") {
-                      milestone(number: 4) {
-                        title
-                        description
-                        open: issues(first:100, states: [OPEN]) {
-                          edges {
-                            node {
-                              id
-                              title
-                              bodyHTML
-                            }
-                          }
-                        }
-                        closed: issues(first:100, states: [CLOSED]) {
-                          edges {
-                            node {
-                              id
-                              title
-                              bodyHTML
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                `}),
-            headers: new Headers({
-                'Authorization': "Bearer b6ac6bffa0b8b1db0d755df503f954c5e5e88a93"
-            })
-        }).then(response =>
-            response.json().then(json => this.setState(json.data.repository.milestone))
+        fetch("https://cb-github-app.now.sh/v1/current_milestone").then(response =>
+            response.json().then(json => json.data && this.setState(json.data.repository.milestone))
         )
     }
 
@@ -182,7 +148,7 @@ class GithubMilestone extends React.Component {
 
         return [
             EL("h2", {}, this.state.title || "loading milestone..."),
-            EL(Progress, { percent: this.state.open ? this.state.open.edges.length / (this.state.closed.edges.length + this.state.open.edges.length) * 100 : 0 }),
+            EL(Progress, { percent: this.state.open ? Math.floor(this.state.closed.edges.length / (this.state.closed.edges.length + this.state.open.edges.length) * 100) : 0 }),
             EL("h3", {}, "TODO:"),
             this.state.open && EL(Collapse, {}, this.state.open.edges.map(renderIssueEdge(true))),
             EL("h3", {}, "DONE:"),
