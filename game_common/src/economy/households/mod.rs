@@ -975,6 +975,7 @@ impl HouseholdLog {
     pub fn log(&mut self, string: &str) {
         if DO_HOUSEHOLD_LOGGING {
             self.0.push_str(string);
+            println!("{}", string);
         }
     }
 }

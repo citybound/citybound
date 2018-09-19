@@ -447,7 +447,8 @@ impl Lane {
     }
 }
 
-use land_use::buildings::{BuildingID, MIN_LANE_BUILDING_DISTANCE};
+use land_use::buildings::{BuildingID};
+use style::dimensions::LANE_DISTANCE;
 use transport::pathfinding::PreciseLocation;
 
 impl Lane {
@@ -462,14 +463,16 @@ impl Lane {
                 let path = &self.construction.path;
                 let distance = path.distance_to(lot_position);
 
-                if distance >= MIN_LANE_BUILDING_DISTANCE
-                    && distance <= 1.7 * MIN_LANE_BUILDING_DISTANCE
-                {
-                    if let Some((offset, projected_point)) = path.project_with_max_distance(
-                        lot_position,
-                        1.7 * MIN_LANE_BUILDING_DISTANCE,
-                        0.5,
-                    ) {
+                println!(
+                    "Building {:?} lane {:?} distance: {}",
+                    building, self.id, distance
+                );
+
+                if distance <= 3.0 * LANE_DISTANCE {
+                    if let Some((offset, projected_point)) =
+                        path.project_with_max_distance(lot_position, 0.5, 3.0 * LANE_DISTANCE)
+                    {
+                        println!("Projected: {}", offset);
                         building.reconnect(
                             PreciseLocation { location, offset },
                             projected_point,

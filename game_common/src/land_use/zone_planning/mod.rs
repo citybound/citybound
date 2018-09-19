@@ -4,7 +4,7 @@ AreaError, WithUniqueOrthogonal};
 use land_use::buildings::BuildingStyle;
 use ordered_float::OrderedFloat;
 
-use transport::transport_planning::RoadPrototype;
+use transport::transport_planning::{RoadPrototype, LanePrototype};
 
 use planning::{PlanHistory, VersionedGesture, PlanResult, Prototype, PrototypeID,
 PrototypeKind, GestureIntent};
@@ -180,6 +180,89 @@ pub fn calculate_prototypes(
         .filter_map(|maybe_proto| maybe_proto)
         .collect::<Vec<_>>();
 
+    let mut neighboring_town_distance_per_octant = vec![
+        (0.0, None),
+        (0.0, None),
+        (0.0, None),
+        (0.0, None),
+        (0.0, None),
+        (0.0, None),
+        (0.0, None),
+        (0.0, None),
+    ];
+
+    for prototype in current_result.prototypes.values() {
+        if let PrototypeKind::Road(RoadPrototype::Lane(LanePrototype(ref path, _))) = prototype.kind
+        {
+            let distance = (path.start() - P2::new(0.0, 0.0)).norm();
+            if distance > 300.0 {
+                let (x, y) = (path.start().x, path.start().y);
+                let octant = if x > 0.0 {
+                    if y > 0.0 {
+                        if x > y {
+                            0
+                        } else {
+                            1
+                        }
+                    } else if x > y {
+                        2
+                    } else {
+                        3
+                    }
+                } else if y > 0.0 {
+                    if x > y {
+                        4
+                    } else {
+                        5
+                    }
+                } else if x > y {
+                    6
+                } else {
+                    7
+                };
+
+                if distance > neighboring_town_distance_per_octant[octant].0 {
+                    let direction = path.start_direction();
+                    let direction_orth = path.start_direction().orthogonal();
+
+                    let corners: CVec<P2> = vec![
+                        path.start() + 3.0 * direction_orth,
+                        path.start() + 3.0 * direction_orth + 10.0 * direction,
+                        path.start() + 13.0 * direction_orth + 10.0 * direction,
+                        path.start() + 13.0 * direction_orth,
+                        path.start() + 3.0 * direction_orth,
+                    ].into();
+
+                    if let Some(road_boundary) = LinePath::new(vec![corners[0], corners[1]].into())
+                    {
+                        if let Some(path) = LinePath::new(corners) {
+                            if let Some(area_boundary) = ClosedLinePath::new(path) {
+                                neighboring_town_distance_per_octant[octant] = (
+                                    distance,
+                                    Some(Prototype {
+                                        kind: PrototypeKind::Lot(LotPrototype {
+                                            occupancy: LotOccupancy::Occupied(
+                                                BuildingStyle::NeighboringTownConnection,
+                                            ),
+                                            lot: Lot {
+                                                road_boundaries: vec![road_boundary].into(),
+                                                area: Area::new_simple(area_boundary),
+                                                land_uses: CVec::new(),
+                                                max_height: 0,
+                                                set_back: 0,
+                                            },
+                                        }),
+                                        id: PrototypeID::from_influences(prototype.id),
+                                    }),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     let vacant_lot_prototypes = {
         let building_areas = building_prototypes
             .iter()
@@ -302,5 +385,9 @@ pub fn calculate_prototypes(
     Ok(vacant_lot_prototypes
         .into_iter()
         .chain(building_prototypes)
-        .collect())
+        .chain(
+            neighboring_town_distance_per_octant
+                .into_iter()
+                .filter_map(|pair| pair.1),
+        ).collect())
 }

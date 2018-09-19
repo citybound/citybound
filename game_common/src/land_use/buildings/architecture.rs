@@ -108,14 +108,14 @@ pub fn build_building<R: Rng>(
             }
         }
         BuildingStyle::NeighboringTownConnection => {
-            let length = 100.0;
+            let length = 20.0;
             let building_orientation_orth = building_orientation.orthogonal();
 
             let vertices = vec![
-                building_position - length / 4.0 * building_orientation_orth,
-                building_position + length / 2.0 * building_orientation,
-                building_position + length / 4.0 * building_orientation_orth,
-                building_position - length / 2.0 * building_orientation,
+                building_position - length / 4.0 * building_orientation,
+                building_position + length / 2.0 * building_orientation_orth,
+                building_position + length / 4.0 * building_orientation,
+                building_position - length / 2.0 * building_orientation_orth,
             ].into_iter()
             .map(|v| Vertex {
                 position: [v.x, v.y, 3.0],

@@ -84,7 +84,8 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
             let n_lanes = incoming_group.len();
 
             let has_inner_turn = intersection.outgoing.values().any(|outgoing_group| {
-                role_between_groups(incoming_group, outgoing_group).inner_turn
+                let role = role_between_groups(incoming_group, outgoing_group);
+                role.inner_turn || role.u_turn
             });
             let has_straight = intersection
                 .outgoing
@@ -125,7 +126,8 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
             let n_lanes = outgoing_group.len();
 
             let has_inner_turn = intersection.incoming.values().any(|incoming_group| {
-                role_between_groups(incoming_group, outgoing_group).inner_turn
+                let role = role_between_groups(incoming_group, outgoing_group);
+                role.inner_turn || role.u_turn
             });
             let has_straight = intersection
                 .incoming
@@ -146,18 +148,18 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                     (true, false, true) => ((n_lanes / 2).max(1), (n_lanes / 2).max(1)),
                 };
 
-            for (l, incoming_lane) in outgoing_group.iter_mut().enumerate() {
+            for (l, outgoing_lane) in outgoing_group.iter_mut().enumerate() {
                 if l == 0 && has_inner_turn {
-                    incoming_lane.role.u_turn = true;
+                    outgoing_lane.role.u_turn = true;
                 }
                 if l < n_inner_turn_lanes {
-                    incoming_lane.role.inner_turn = true;
+                    outgoing_lane.role.inner_turn = true;
                 }
                 if n_lanes < 3 || l >= n_inner_turn_lanes && l < n_lanes - n_outer_turn_lanes {
-                    incoming_lane.role.straight = true;
+                    outgoing_lane.role.straight = true;
                 }
                 if l >= n_lanes - n_outer_turn_lanes {
-                    incoming_lane.role.outer_turn = true;
+                    outgoing_lane.role.outer_turn = true;
                 }
             }
         }

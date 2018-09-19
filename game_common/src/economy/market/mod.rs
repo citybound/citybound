@@ -166,10 +166,10 @@ impl LocationRequester for TripCostEstimator {
                 .node
                 .get_distance_to(destination.location, self.id_as(), world);
         } else if self.n_resolved == 2 {
-            // println!(
-            //     "Either source or dest not resolvable for {}",
-            //     r_info(self.base_result.resource).0
-            // );
+            println!(
+                "Either source or dest not resolvable for {}",
+                self.base_result.resource
+            );
             self.requester.on_result(
                 EvaluatedSearchResult {
                     resource: self.base_result.resource,

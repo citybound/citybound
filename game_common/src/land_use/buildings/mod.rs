@@ -212,9 +212,10 @@ impl Sleeper for Building {
                 self.started_reconnect = false;
             }
         } else {
+            println!("Trying to connect building {:?}", self.id);
             Lane::global_broadcast(world).try_reconnect_building(
                 self.id,
-                self.lot.center_point(),
+                self.lot.best_road_connection().0,
                 world,
             );
             Simulation::local_first(world).wake_up_in(
@@ -235,6 +236,7 @@ impl Building {
         world: &mut World,
     ) {
         if self.location.is_none() {
+            println!("{:?} reconnected to {:?}", self.id, new_location);
             self.location = Some(new_location);
             new_location.node.add_attachee(self.id_as(), world);
         }
@@ -269,11 +271,6 @@ pub fn units_for_style(style: BuildingStyle) -> CVec<Unit> {
         }
     }.into()
 }
-
-pub const MIN_ROAD_LENGTH_TO_TOWN: f32 = 4000.0;
-const MIN_NEIGHBORING_TOWN_DISTANCE: f32 = 2000.0;
-
-pub const MIN_LANE_BUILDING_DISTANCE: f32 = 15.0;
 
 #[derive(Compact, Clone, Default)]
 pub struct BuildingPlanResultDelta {
