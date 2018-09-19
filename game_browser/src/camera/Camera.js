@@ -18,7 +18,7 @@ export const initialState = {
 export const settingSpec = {
     scrollingPans: { default: false, description: "Meaning of scrolling", falseDescription: "Zooming", trueDescription: "Panning (For Multitouch Trackpad)" },
     pinchToZoom: { default: true, description: "Pinch‑to‑zoom", falseDescription: "Off", trueDescription: "On" },
-    zoomSensitivity: { default: 5, min: -10, max: 10, step: 0.1, description: "Zoom sensitivity" },
+    zoomSensitivity: { default: 0.3, min: -10, max: 10, step: 0.1, description: "Zoom sensitivity" },
     mousePanKey: { default: { key: 'shift' }, description: "Pan with mouse" },
     panXSensitivity: { default: 1, min: -10, max: 10, step: 0.1, description: "Pan sensitivity ↔︎" },
     panYSensitivity: { default: 1, min: -10, max: 10, step: 0.1, description: "Pan sensitivity ↕︎" },
@@ -26,7 +26,7 @@ export const settingSpec = {
     keyboardPanKeyBackward: { default: { key: 'down' }, description: "Pan ↓" },
     keyboardPanKeyLeft: { default: { key: 'left' }, description: "Pan ←" },
     keyboardPanKeyRight: { default: { key: 'right' }, description: "Pan →" },
-    keyboardPanSpeed: { default: 1, min: -10, max: 10, step: 0.1, description: "Pan keys speed" },
+    keyboardPanSpeed: { default: 0.6, min: -10, max: 10, step: 0.1, description: "Pan keys speed" },
     rotateKey: { default: { key: 'alt' }, description: "Rotate with mouse" },
     rotateXSensitivity: { default: 1, min: -10, max: 10, step: 0.1, description: "Rotate sensitivity ↔︎" },
     rotateYSensitivity: { default: 1, min: -10, max: 10, step: 0.1, description: "Rotate sensitivity ↕︎" },

@@ -81,17 +81,18 @@ class CityboundClient extends React.Component {
         }
 
         this.renderer = React.createRef();
+        this.boundSetState = this.setState.bind(this);
     }
 
     componentDidMount() {
-        Camera.bindInputs(this.state, this.setState.bind(this));
-        Debug.bindInputs(this.state, this.setState.bind(this));
-        Planning.bindInputs(this.state, this.setState.bind(this));
+        Camera.bindInputs(this.state, this.boundSetState);
+        Debug.bindInputs(this.state, this.boundSetState);
+        Planning.bindInputs(this.state, this.boundSetState);
     }
 
     onFrame() {
         if (this.state.rendering.enabled) {
-            Camera.onFrame(this.state, this.setState.bind(this));
+            Camera.onFrame(this.state, this.boundSetState);
             this.renderer.current.renderFrame();
         }
     }
@@ -105,8 +106,8 @@ class CityboundClient extends React.Component {
             Simulation,
         ];
 
-        const uiAspectsRendered = uiAspects.map(aspect => aspect.render(this.state, this.setState.bind(this)));
-        const { tools: menuTools, windows: menuWindows } = Menu.render(this.state, settingSpecs, this.setState.bind(this));
+        const uiAspectsRendered = uiAspects.map(aspect => aspect.render(this.state, this.boundSetState));
+        const { tools: menuTools, windows: menuWindows } = Menu.render(this.state, settingSpecs, this.boundSetState);
 
         const layers = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.layers || []), []);
         const interactables = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.interactables || []), []);
@@ -146,12 +147,12 @@ class CityboundClient extends React.Component {
                         eye, target, verticalFov,
                         style: { width, height, position: "absolute", top: 0, left: 0 },
                         onWheel: e => {
-                            Camera.onWheel(e, this.state, this.setState.bind(this));
+                            Camera.onWheel(e, this.state, this.boundSetState);
                             e.preventDefault();
                             return false;
                         },
                         onMouseMove: e => {
-                            Camera.onMouseMove(e, this.state, this.setState.bind(this));
+                            Camera.onMouseMove(e, this.state, this.boundSetState);
                         }
                     })
                 ])

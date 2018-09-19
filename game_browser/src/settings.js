@@ -183,101 +183,116 @@ const ALL_KEYS_NAMES_ALTS = {
     '?': 'question mark',
 }
 
-export function Settings(props) {
-    const { state, specs, setState } = props;
+export class Settings extends React.Component {
+    constructor(props) {
+        super(props);
+        const { specs, setState } = props;
 
-    return EL("div", { key: "settings", className: "settings" }, [
-        EL("p", {}, "If you change key assignments, you'll need to reload the tab"),
-        EL(Button, {
-            onClick: () => {
-                localStorage.clear();
-                setState({ settings: loadSettings(specs) })
-            }
-        }, "Reset all to defaults"),
-        ...Object.keys(specs).map(aspect =>
-            [
-                EL("h2", {}, aspect),
-                EL("div", { className: "form" },
-                    ...Object.keys(specs[aspect]).map(key => {
-                        let spec = specs[aspect][key];
-                        const onChange = newValue => {
-                            setState(oldState => update(oldState, {
-                                settings: {
-                                    [aspect]: {
-                                        [key]: { $set: newValue }
+        this.closeSettings = () => {
+            localStorage.clear();
+            setState({ settings: loadSettings(specs) })
+        }
+    }
+
+    shouldComponentUpdate(nextProps) {
+        return this.props.currentSettings != nextProps.currentSettings || this.props.setState != nextProps.setState || this.props.specs != nextProps.specs
+    }
+
+    render() {
+        const { currentSettings, setState, specs } = this.props;
+
+        return EL("div", { key: "settings", className: "settings" }, [
+            EL("p", {}, "If you change key assignments, you'll need to reload the tab"),
+            EL(Button, {
+                onClick: this.closeSettings
+            }, "Reset all to defaults"),
+            ...Object.keys(specs).map(aspect =>
+                [
+                    EL("h2", {}, aspect),
+                    EL("div", { className: "form" },
+                        ...Object.keys(specs[aspect]).map(key => {
+                            let spec = specs[aspect][key];
+
+                            const onChange = newValue => {
+                                setState(oldState => update(oldState, {
+                                    settings: {
+                                        [aspect]: {
+                                            [key]: { $set: newValue }
+                                        }
                                     }
-                                }
-                            }));
+                                }));
 
-                            localStorage["cbsettings:" + aspect + ":" + key] = JSON.stringify(newValue);
-                        };
-
-                        const onChangeInput = event => onChange(event.target.value);
-
-                        let inputEls = [];
-
-                        if (typeof spec.default === "number") {
-                            const marks = {
-                                [spec.min]: spec.min,
-                                [spec.max]: spec.max
+                                localStorage["cbsettings:" + aspect + ":" + key] = JSON.stringify(newValue);
                             };
 
-                            if (spec.min && spec.min < 0) {
-                                marks[0] = 0;
+                            const onChangeInput = event => this.onChange(event.target.value);
+
+                            let inputEls = [];
+
+                            if (typeof spec.default === "number") {
+                                const marks = {
+                                    [spec.min]: spec.min,
+                                    [spec.max]: spec.max
+                                };
+
+                                if (spec.min && spec.min < 0) {
+                                    marks[0] = 0;
+                                }
+
+                                inputEls = [
+                                    EL(Slider, {
+                                        value: currentSettings[aspect][key],
+                                        onChange,
+                                        marks,
+                                        included: !spec.min || spec.min > 0,
+                                        min: spec.min, max: spec.max, step: spec.step
+                                    }),
+                                    EL(InputNumber, {
+                                        value: currentSettings[aspect][key],
+                                        onChange,
+                                        min: spec.min, max: spec.max, step: spec.step
+                                    })
+                                ]
+                            } else if (typeof spec.default === "boolean") {
+                                inputEls = [
+                                    spec.falseDescription || "",
+                                    EL(Switch, { checked: currentSettings[aspect][key], onChange }),
+                                    spec.trueDescription || "",
+                                ]
+                            } else if (typeof spec.default === "string") {
+                                inputEls = [
+                                    EL(Input, { value: currentSettings[aspect][key], onChangeInput })
+                                ]
+                            } else if (spec.default.key) {
+                                let splitKeys = currentSettings[aspect][key].key.split("+");
+                                splitKeys = splitKeys.length === 1 && splitKeys[0] === "" ? [] : splitKeys;
+                                inputEls = [
+                                    EL(Select, {
+                                        key: aspect + key,
+                                        value: splitKeys,
+                                        onChange: keys => onChange({ key: keys.join("+") }),
+                                        optionFilterProp: 'children',
+                                        mode: 'multiple',
+                                        filterOption: (input, option) => option.props.value.toLowerCase().includes(input.toLowerCase())
+                                            || (ALL_KEYS_NAMES_ALTS[option.props.value] || "").toLowerCase().includes(input.toLowerCase())
+                                            || option.props.children.toLowerCase().includes(input.toLowerCase())
+                                    },
+                                        Object.keys(ALL_KEYS_NAMES).map(keyCode =>
+                                            EL(Option, { key: keyCode, value: keyCode, }, ALL_KEYS_NAMES[keyCode])
+                                        )
+                                    )
+                                ]
                             }
 
-                            inputEls = [
-                                EL(Slider, {
-                                    value: state.settings[aspect][key],
-                                    onChange,
-                                    marks,
-                                    included: !spec.min || spec.min > 0,
-                                    min: spec.min, max: spec.max, step: spec.step
-                                }),
-                                EL(InputNumber, {
-                                    value: state.settings[aspect][key],
-                                    onChange,
-                                    min: spec.min, max: spec.max, step: spec.step
-                                })
-                            ]
-                        } else if (typeof spec.default === "boolean") {
-                            inputEls = [
-                                spec.falseDescription || "",
-                                EL(Switch, { checked: state.settings[aspect][key], onChange }),
-                                spec.trueDescription || "",
-                            ]
-                        } else if (typeof spec.default === "string") {
-                            inputEls = [
-                                EL(Input, { value: state.settings[aspect][key], onChange: onChangeInput })
-                            ]
-                        } else if (spec.default.key) {
-                            let splitKeys = state.settings[aspect][key].key.split("+");
-                            splitKeys = splitKeys.length === 1 && splitKeys[0] === "" ? [] : splitKeys;
-                            inputEls = [
-                                EL(Select, {
-                                    key: aspect + key,
-                                    value: splitKeys,
-                                    onChange: keys => onChange({ key: keys.join("+") }),
-                                    optionFilterProp: 'children',
-                                    mode: 'multiple',
-                                    filterOption: (input, option) => option.props.value.toLowerCase().includes(input.toLowerCase())
-                                        || (ALL_KEYS_NAMES_ALTS[option.props.value] || "").toLowerCase().includes(input.toLowerCase())
-                                        || option.props.children.toLowerCase().includes(input.toLowerCase())
-                                },
-                                    Object.keys(ALL_KEYS_NAMES).map(keyCode =>
-                                        EL(Option, { key: keyCode, value: keyCode, }, ALL_KEYS_NAMES[keyCode])
-                                    )
-                                )
-                            ]
-                        }
-
-                        return EL("div", { className: "formItem" }, [
-                            EL("label", {}, spec.description || key),
-                            ...inputEls
-                        ])
-                    })
-                )
-            ]
-        )
-    ]);
+                            return EL("div", { className: "formItem" }, [
+                                EL("label", {}, spec.description || key),
+                                ...inputEls
+                            ])
+                        })
+                    )
+                ]
+            )
+        ]);
+    }
 }
+

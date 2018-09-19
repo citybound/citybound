@@ -41,7 +41,22 @@ export function render(state, settingsSpecs, setState) {
                 EL("h3", {}, "Upcoming Release:"),
                 EL(GithubMilestone, {})
             ]),
-            EL(TabPane, { tab: "Credits", key: 2 }, [
+            EL(TabPane, { tab: "Tutorial", key: 2 }, [
+                EL("h3", {}, "Please note that this tutorial is super bare-bones, but it should get you going."),
+                EL("p", {}, "(You can open and close this whole window while following the tutorial by clicking the menu icon)"),
+                EL("p", {}, "Click the pencil & ruler icon to go into planning mode."),
+                EL("p", {}, "Click the empty dropdown and choose the only existing proposal."),
+                EL("p", {}, "Go to road planning mode by clicking the road icon."),
+                EL("p", {}, "Start a new road by clicking on the map. Double click finishes a stroke."),
+                EL("p", {}, "You can move control points of existing points around, but nothing more yet (no undo, delete, extend road yet)."),
+                EL("p", {}, "Go to zone planning mode by clicking the zone icon next to the road icon."),
+                EL("p", {}, "Draw zone shapes by selecting a zone type, then clicking on the map to define its corners. Double clicking finishes a shape."),
+                EL("p", {}, "(A zone has to touch a road to become active)"),
+                EL("h3", {}, "Finally, press implement to implement your proposal plan."),
+                EL("p", {}, "Speed up time using the slider next to the clock in the top left corner and see what happens"),
+                EL("p", {}, "You can also start a new proposal by choosing the only existing proposal in the dropdown again."),
+            ]),
+            EL(TabPane, { tab: "Credits", key: 3 }, [
                 svg,
                 EL("h3", {}, ["Citybound is being developed by ", EL("span", { className: "patron" }, "Anselm Eickhoff")]),
                 EL("h4", {}, "It is made possible by the generous support of these Patrons:"),
@@ -60,8 +75,8 @@ export function render(state, settingsSpecs, setState) {
                     EL("li", {}, "Kuala Lumpur"),
                 ])
             ]),
-            EL(TabPane, { tab: "Settings", key: 3 }, [
-                EL(Settings, { state, specs: settingsSpecs, setState }),
+            EL(TabPane, { tab: "Settings", key: 4 }, [
+                EL(Settings, { currentSettings: state.settings, specs: settingsSpecs, setState }),
             ])
         ])
     ]);
