@@ -97,10 +97,12 @@ fn main() {
     );
 
     ::std::thread::spawn(move || {
+        println!("  {: ^41}  ", format!("Citybound {}", VERSION.trim()));
+        println!("  {: ^41}  ", "please connect with your browser");
         println!("╭───────────────────────────────────────────╮");
-        println!("│ {: ^41} │", format!("Citybound {}", VERSION.trim()));
-        println!("│ {: ^41} │", format!("Running at http://{}", my_host));
+        println!("│ {: ^41} │", format!("http://{}", my_host));
         println!("╰───────────────────────────────────────────╯");
+        println!("SIMULATION LOG:");
 
         rouille::start_server(serve_host_port, move |request| {
             if request.raw_url() == "/" {

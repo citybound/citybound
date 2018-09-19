@@ -2,6 +2,7 @@ import React from 'react';
 import { Toolbar } from './toolbar';
 import { Settings } from './settings';
 import { Collapse, Checkbox, Tabs, Progress } from 'antd';
+import aePlayLogo from '../assets/ae_play.png';
 
 const Panel = Collapse.Panel;
 const TabPane = Tabs.TabPane;
@@ -10,7 +11,7 @@ const EL = React.createElement;
 
 export const initalState = {
     visible: true,
-    tab: "about"
+    tabKey: "about"
 }
 
 export function render(state, settingsSpecs, setState) {
@@ -31,35 +32,23 @@ export function render(state, settingsSpecs, setState) {
 
     let windows = state.menu.visible && EL("div", { key: "debug", className: "window menu" }, [
         EL("a", { className: "close-window", onClick: () => setState(oldState => update(oldState, { menu: { visible: { $set: false } } })) }, "×"),
-        EL(Tabs, { type: "card", size: "large" }, [
-            EL(TabPane, { tab: "About", key: 1 }, [
+        EL(Tabs, { type: "card", size: "large", activeKey: state.menu.tabKey, onChange: newTabKey => setState(oldState => update(oldState, { menu: { tabKey: { $set: newTabKey } } })) }, [
+            EL(TabPane, { tab: "About", key: "about" }, [
                 svg,
+                EL("a", { className: "become-patron", href: "https://patreon.com/citybound", target: "_blank" }, " "),
                 EL("h2", {}, window.cbversion),
                 EL("p", {}, "THIS IS A LIVE BUILD OF CITYBOUND AND THUS NOT A STABLE RELEASE."),
-                EL("p", { style: { width: "30em" } }, "Expect nothing to work and a lot to be missing. See the tasks below (from Github) to get an overview of the most glaring known issues and tasks in the currently upcoming next release."),
+                EL("p", { style: { width: "30em" } }, "Expect nothing to work and a lot to be missing. See the issues below (from Github) to get an overview of the most glaring known problems and remaining tasks for the currently upcoming release."),
                 EL("p", {}, EL(UpdateChecker)),
                 EL("h3", {}, "Upcoming Release:"),
                 EL(GithubMilestone, {})
             ]),
-            EL(TabPane, { tab: "Tutorial", key: 2 }, [
-                EL("h3", {}, "Please note that this tutorial is super bare-bones, but it should get you going."),
-                EL("p", {}, "(You can open and close this whole window while following the tutorial by clicking the menu icon)"),
-                EL("p", {}, "Click the pencil & ruler icon to go into planning mode."),
-                EL("p", {}, "Click the empty dropdown and choose the only existing proposal."),
-                EL("p", {}, "Go to road planning mode by clicking the road icon."),
-                EL("p", {}, "Start a new road by clicking on the map. Double click finishes a stroke."),
-                EL("p", {}, "You can move control points of existing points around, but nothing more yet (no undo, delete, extend road yet)."),
-                EL("p", {}, "Go to zone planning mode by clicking the zone icon next to the road icon."),
-                EL("p", {}, "Draw zone shapes by selecting a zone type, then clicking on the map to define its corners. Double clicking finishes a shape."),
-                EL("p", {}, "(A zone has to touch a road to become active)"),
-                EL("h3", {}, "Finally, press implement to implement your proposal plan."),
-                EL("p", {}, "Speed up time using the slider next to the clock in the top left corner and see what happens"),
-                EL("p", {}, "You can also start a new proposal by choosing the only existing proposal in the dropdown again."),
-            ]),
-            EL(TabPane, { tab: "Credits", key: 3 }, [
+            EL(TabPane, { tab: "Credits", key: "credits" }, [
                 svg,
-                EL("h3", {}, ["Citybound is being developed by ", EL("span", { className: "patron" }, "Anselm Eickhoff")]),
-                EL("h4", {}, "It is made possible by the generous support of these Patrons:"),
+                EL("a", { className: "become-patron", href: "https://patreon.com/citybound", target: "_blank" }, " "),
+                EL("p", {}, ["is being developed by:"]),
+                EL("p", {}, [EL("img", { src: aePlayLogo, width: 60 }), " aka. Anselm Eickhoff"]),
+                EL("h4", {}, "With the generous support of these Patrons:"),
                 EL("p", {},
                     EL(PatronCredits, {})
                 ),
@@ -75,7 +64,25 @@ export function render(state, settingsSpecs, setState) {
                     EL("li", {}, "Kuala Lumpur"),
                 ])
             ]),
-            EL(TabPane, { tab: "Settings", key: 4 }, [
+            EL(TabPane, { tab: "Tutorial", key: "tutorial" }, [
+                EL("p", {}, "Please note that this tutorial is super bare-bones, but it should get you going."),
+                EL("p", {}, "(You can open and close this whole window while following the tutorial by clicking the menu icon)"),
+                EL("h3", {}, "Click the pencil & ruler icon to go into planning mode."),
+                EL("p", {}, "Click the empty dropdown and choose the only existing proposal."),
+                EL("h2", {}, "Planning Roads"),
+                EL("p", {}, "Go to road planning mode by clicking the road icon."),
+                EL("p", {}, "Start a new road by clicking on the map. Double click finishes a stroke. You can move control points of existing points around, but nothing more yet (no undo, delete, extend road yet)."),
+                EL("h2", {}, "Planning Zones"),
+                EL("p", {}, "Go to zone planning mode by clicking the zone icon next to the road icon. Draw zone shapes by selecting a zone type, then clicking on the map to define its corners. Double clicking finishes a shape. (A zone has to touch a road to become useable)"),
+                EL("p", {}, "Changes to zones need to be implemented to become effective."),
+                EL("h2", {}, "Implementing Proposals"),
+                EL("p", {}, "Press implement to implement your proposal plan."),
+                EL("h2", {}, "Further Steps"),
+                EL("p", {}, "Speed up time using the slider next to the clock in the top left corner and see what happens."),
+                EL("p", {}, "You can also start a new proposal by choosing the only existing proposal in the dropdown again."),
+                EL("p", {}, "Roads that lead further away automatically get a neighboring town connection (white diamond). These move as you expand your town."),
+            ]),
+            EL(TabPane, { tab: "Settings & Controls", key: "settings" }, [
                 EL(Settings, { currentSettings: state.settings, specs: settingsSpecs, setState }),
             ])
         ])

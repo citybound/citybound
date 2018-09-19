@@ -251,18 +251,20 @@ button {
 
 .patron {
     display: inline-block;
-    border: 0.1em solid #333;
+    border: 0.1em solid #f96854;;
     border-radius: 0.3em;
     padding: 0.1em 0.4em 0.2em 0.4em;
     margin-right: 0.4em;
     margin-bottom: 0.4em;
+    color: #f96854;;
 }
 
 .window.menu {
-    width: 50em;
+    width: 40em;
     height: calc(100% - 3.5em);
     margin-left: auto;
     z-index: 2000;
+    padding-bottom: 0;
 
     .ant-tabs {
         display: flex;
@@ -320,6 +322,22 @@ button {
     .ant-slider {
         flex-grow: 1;
     }
+}
+
+.become-patron {
+    display: block;
+    float: right;
+    width: 20em;
+    height: 4em;
+    margin-top: 0.5em;
+    margin-bottom: 1em;
+    padding-top: 0em;
+    padding-bottom: 0em;
+    background-color: #f96854;
+    background-image: url("./assets/patron.png");
+    background-position: 50% 55%;
+    background-size: 217px;
+    background-repeat: no-repeat;
 }
 
 #budgeting {

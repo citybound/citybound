@@ -366,7 +366,7 @@ export function render(state, setState) {
                 placeholder: "Open a proposal",
                 optionFilterProp: "children",
                 onChange: (value) => setState(switchToProposal(value)),
-                value: state.planning.currentProposal
+                value: state.planning.currentProposal || undefined
             },
                 Object.keys(state.planning.proposals).map(proposalId =>
                     EL(Option, { value: proposalId }, "Proposal '" + proposalId.split("-")[0] + "'")
