@@ -48,6 +48,7 @@ export function render(state, settingsSpecs, setState) {
                 EL("p", {},
                     EL(PatronCredits, {})
                 ),
+                EL("h4", {}, "Icons by icons8.com"),
                 EL("h4", {}, "Cities I developed Citybound in:"),
                 EL("ul", {}, [
                     EL("li", {}, "Munich"),
