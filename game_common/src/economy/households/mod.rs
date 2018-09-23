@@ -53,7 +53,7 @@ pub trait Household:
     fn graveness(resource: Resource, amount: ResourceAmount, time: TimeOfDay) -> f32 {
         -amount * Self::importance(resource, time)
     }
-    fn interesting_resources() -> &'static [Resource];
+    const INTERESTING_RESOURCES: &'static [Resource];
     fn decay(&mut self, dt: Duration, world: &mut World);
 
     fn household_name(&self) -> String;

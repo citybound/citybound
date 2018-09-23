@@ -92,14 +92,12 @@ impl Household for Bakery {
             .unwrap_or(0.0)
     }
 
-    fn interesting_resources() -> &'static [Resource] {
-        &[
-            Resource::Money,
-            Resource::Flour,
-            Resource::DairyGoods,
-            Resource::BakedGoods,
-        ]
-    }
+    const INTERESTING_RESOURCES: &'static [Resource] = &[
+        Resource::Money,
+        Resource::Flour,
+        Resource::DairyGoods,
+        Resource::BakedGoods,
+    ];
 
     fn decay(&mut self, dt: Duration, _: &mut World) {
         {

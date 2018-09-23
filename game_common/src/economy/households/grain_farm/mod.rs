@@ -80,9 +80,10 @@ impl Household for GrainFarm {
         0.0
     }
 
-    fn interesting_resources() -> &'static [Resource] {
-        &[Resource::Money, Resource::Grain]
-    }
+    const INTERESTING_RESOURCES: &'static [Resource] = &[
+        Resource::Money,
+        Resource::Grain
+    ];
 
     fn decay(&mut self, dt: Duration, _: &mut World) {
         {

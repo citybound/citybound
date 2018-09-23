@@ -89,9 +89,9 @@ impl Household for Mill {
             .unwrap_or(0.0)
     }
 
-    fn interesting_resources() -> &'static [Resource] {
-        &[Resource::Money, Resource::Grain, Resource::Flour]
-    }
+    const INTERESTING_RESOURCES: &'static [Resource] = &[
+        Resource::Money, Resource::Grain, Resource::Flour
+    ];
 
     fn decay(&mut self, dt: Duration, _: &mut World) {
         {

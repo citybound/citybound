@@ -215,19 +215,17 @@ impl Household for NeighboringTownTrade {
         1.0
     }
 
-    fn interesting_resources() -> &'static [Resource] {
-        &[
-            //Entertainment,
-            //Services,
-            Groceries, Produce, Grain, Flour, BakedGoods, Meat,
-            DairyGoods,
-            /* Wood, */
-            /*Furniture,
-             *TextileGoods,
-             *Clothes,
-             *Devices, */
-        ]
-    }
+    const INTERESTING_RESOURCES: &'static [Resource] = &[
+        //Entertainment,
+        //Services,
+        Groceries, Produce, Grain, Flour, BakedGoods, Meat,
+        DairyGoods,
+        /* Wood, */
+        /*Furniture,
+          *TextileGoods,
+          *Clothes,
+          *Devices, */
+    ];
 
     fn decay(&mut self, _dt: Duration, _: &mut World) {}
 

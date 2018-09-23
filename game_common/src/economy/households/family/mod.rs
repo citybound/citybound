@@ -151,17 +151,15 @@ impl Household for Family {
             .unwrap_or(0.0)
     }
 
-    fn interesting_resources() -> &'static [Resource] {
-        &[
-            Awakeness, Satiety, //Entertainment,
-            Money,
-            Groceries,
-            /* Furniture, */
-            /*Clothes,
-             *Devices,
-             *Services, */
-        ]
-    }
+    const INTERESTING_RESOURCES: &'static [Resource] = &[
+        Awakeness, Satiety, //Entertainment,
+        Money,
+        Groceries,
+        /* Furniture, */
+        /*Clothes,
+         *Devices,
+         *Services, */
+    ];
 
     fn decay(&mut self, dt: Duration, _: &mut World) {
         for (i, member_resources) in self.core.member_resources.iter_mut().enumerate() {

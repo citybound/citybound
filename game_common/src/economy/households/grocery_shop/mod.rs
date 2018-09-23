@@ -91,11 +91,9 @@ impl Household for GroceryShop {
             .unwrap_or(0.0)
     }
 
-    fn interesting_resources() -> &'static [Resource] {
-        &[
-            Money, Groceries, Produce, Grain, Flour, BakedGoods, Meat, DairyGoods,
-        ]
-    }
+    const INTERESTING_RESOURCES: &'static [Resource] = &[
+        Money, Groceries, Produce, Grain, Flour, BakedGoods, Meat, DairyGoods,
+    ];
 
     fn decay(&mut self, dt: Duration, _: &mut World) {
         {
