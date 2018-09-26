@@ -9,12 +9,6 @@ LANE_MARKER_DASH_LENGTH};
 
 use itertools::Itertools;
 
-#[path = "./resources/car.rs"]
-mod car;
-
-#[path = "./resources/traffic_light.rs"]
-mod traffic_light;
-
 impl Lane {
     fn car_instances(&self) -> CVec<Instance> {
         let mut cars_iter = self.microtraffic.cars.iter();

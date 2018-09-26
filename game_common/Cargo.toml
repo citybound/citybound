@@ -16,12 +16,12 @@ serde = "1.0"
 serde_derive = "1.0"
 backtrace = "0.3"
 uuid = { version = "0.6", features = ["v4", "serde"] }
-compact = { version = "0.2.7", features = ["serde-serialization"] }
+compact = { version = "0.2.9", features = ["serde-serialization"] }
 compact_macros = "0.1.0"
-kay = {version = "0.2.17", default-features = false, features = ["serde-serialization"] }
+kay = {version = "0.2.19", default-features = false, features = ["serde-serialization"] }
 stdweb = {version = "0.4.7", optional = true}
-descartes = {version = "0.1.10", features = ["compact_containers", "serde-serialization"]}
-michelangelo = "0.1.1"
+descartes = {version = "0.1.12", features = ["compact_containers", "serde-serialization"]}
+michelangelo = "0.1.3"
 
 [build-dependencies]
 kay_codegen = {version = "0.1.4", features = ["serde-serialization"]}

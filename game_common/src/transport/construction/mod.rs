@@ -108,11 +108,9 @@ pub trait Unbuildable {
 }
 
 use fnv::FnvHashMap;
-use std::cell::UnsafeCell;
-thread_local!(
-    static MEMOIZED_BANDS_OUTLINES: UnsafeCell<FnvHashMap<LaneLikeID, (Band, ClosedLinePath)>> =
-        UnsafeCell::new(FnvHashMap::default());
-);
+
+// TODO: not thread safe for now
+static mut MEMOIZED_BANDS_OUTLINES: Option<FnvHashMap<LaneLikeID, (Band, ClosedLinePath)>> = None;
 
 impl Lane {
     pub fn spawn_and_connect(
@@ -233,88 +231,89 @@ impl Lane {
         reply_needed: bool,
         world: &mut World,
     ) {
-        MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
-            let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
-            let &(ref lane_band, ref lane_outline) = memoized_bands_outlines
+        let &(ref lane_band, ref lane_outline) = unsafe {
+            MEMOIZED_BANDS_OUTLINES
+                .get_or_insert_with(FnvHashMap::default)
                 .entry(self.id_as())
                 .or_insert_with(|| {
                     let band = Band::new(self.construction.path.clone(), 4.5);
                     let outline = band.outline();
                     (band, outline)
-                }) as &(Band, ClosedLinePath);
+                }) as &(Band, ClosedLinePath)
+        };
 
-            let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
-            let &(ref other_band, ref other_outline) = memoized_bands_outlines
+        let &(ref other_band, ref other_outline) = unsafe {
+            MEMOIZED_BANDS_OUTLINES
+                .get_or_insert_with(FnvHashMap::default)
                 .entry(other_id.into())
                 .or_insert_with(|| {
                     let band = Band::new(other_path.clone(), 4.5);
                     let outline = band.outline();
                     (band, outline)
-                })
-                as &(Band, ClosedLinePath);
+                }) as &(Band, ClosedLinePath)
+        };
 
-            let intersections = (lane_outline, other_outline).intersect();
-            if intersections.len() >= 2 {
-                if let ::itertools::MinMaxResult::MinMax(
-                    (entry_intersection, entry_distance),
-                    (exit_intersection, exit_distance),
-                ) = intersections
-                    .iter()
-                    .map(|intersection| {
-                        (
-                            intersection,
-                            lane_band.outline_distance_to_path_distance(intersection.along_a),
-                        )
-                    }).minmax_by_key(|&(_, distance)| OrderedFloat(distance))
+        let intersections = (lane_outline, other_outline).intersect();
+        if intersections.len() >= 2 {
+            if let ::itertools::MinMaxResult::MinMax(
+                (entry_intersection, entry_distance),
+                (exit_intersection, exit_distance),
+            ) = intersections
+                .iter()
+                .map(|intersection| {
+                    (
+                        intersection,
+                        lane_band.outline_distance_to_path_distance(intersection.along_a),
+                    )
+                }).minmax_by_key(|&(_, distance)| OrderedFloat(distance))
+            {
+                let other_entry_distance =
+                    other_band.outline_distance_to_path_distance(entry_intersection.along_b);
+                let other_exit_distance =
+                    other_band.outline_distance_to_path_distance(exit_intersection.along_b);
+
+                let overlap_kind = if other_path
+                    .direction_along(other_entry_distance)
+                    .rough_eq_by(self.construction.path.direction_along(entry_distance), 0.1)
+                    || other_path
+                        .direction_along(other_exit_distance)
+                        .rough_eq_by(self.construction.path.direction_along(exit_distance), 0.1)
                 {
-                    let other_entry_distance =
-                        other_band.outline_distance_to_path_distance(entry_intersection.along_b);
-                    let other_exit_distance =
-                        other_band.outline_distance_to_path_distance(exit_intersection.along_b);
-
-                    let overlap_kind = if other_path
-                        .direction_along(other_entry_distance)
-                        .rough_eq_by(self.construction.path.direction_along(entry_distance), 0.1)
-                        || other_path
-                            .direction_along(other_exit_distance)
-                            .rough_eq_by(self.construction.path.direction_along(exit_distance), 0.1)
-                    {
-                        // ::stagemaster::geometry::CPath::add_debug_path(
-                        //     self.construction.path
-                        //         .subsection(entry_distance, exit_distance).unwrap(),
-                        //     [1.0, 0.5, 0.0],
-                        //     0.3
-                        // );
-                        OverlapKind::Parallel
-                    } else {
-                        // ::stagemaster::geometry::CPath::add_debug_path(
-                        //     self.construction.path
-                        //         .subsection(entry_distance, exit_distance).unwrap(),
-                        //     [1.0, 0.0, 0.0],
-                        //     0.3
-                        // );
-                        OverlapKind::Conflicting
-                    };
-
-                    self.connectivity.interactions.push(Interaction {
-                        partner_lane: other_id.into(),
-                        start: entry_distance,
-                        partner_start: other_entry_distance.min(other_exit_distance),
-                        kind: InteractionKind::Overlap {
-                            end: exit_distance,
-                            partner_end: other_exit_distance.max(other_entry_distance),
-                            kind: overlap_kind,
-                        },
-                    });
+                    // ::stagemaster::geometry::CPath::add_debug_path(
+                    //     self.construction.path
+                    //         .subsection(entry_distance, exit_distance).unwrap(),
+                    //     [1.0, 0.5, 0.0],
+                    //     0.3
+                    // );
+                    OverlapKind::Parallel
                 } else {
-                    panic!("both entry and exit should exist")
-                }
-            }
+                    // ::stagemaster::geometry::CPath::add_debug_path(
+                    //     self.construction.path
+                    //         .subsection(entry_distance, exit_distance).unwrap(),
+                    //     [1.0, 0.0, 0.0],
+                    //     0.3
+                    // );
+                    OverlapKind::Conflicting
+                };
 
-            if reply_needed {
-                other_id.connect_overlaps(self.id, self.construction.path.clone(), false, world);
+                self.connectivity.interactions.push(Interaction {
+                    partner_lane: other_id.into(),
+                    start: entry_distance,
+                    partner_start: other_entry_distance.min(other_exit_distance),
+                    kind: InteractionKind::Overlap {
+                        end: exit_distance,
+                        partner_end: other_exit_distance.max(other_entry_distance),
+                        kind: overlap_kind,
+                    },
+                });
+            } else {
+                panic!("both entry and exit should exist")
             }
-        });
+        }
+
+        if reply_needed {
+            other_id.connect_overlaps(self.id, self.construction.path.clone(), false, world);
+        }
     }
 
     pub fn connect_to_switch(&mut self, other_id: SwitchLaneID, world: &mut World) {
@@ -399,10 +398,11 @@ impl Unbuildable for Lane {
             disconnects_remaining += 1;
         }
         super::rendering::on_unbuild(self, world);
-        MEMOIZED_BANDS_OUTLINES.with(|memoized_bands_outlines_cell| {
-            let memoized_bands_outlines = unsafe { &mut *memoized_bands_outlines_cell.get() };
-            memoized_bands_outlines.remove(&self.id_as())
-        });
+        unsafe {
+            MEMOIZED_BANDS_OUTLINES
+                .get_or_insert_with(FnvHashMap::default)
+                .remove(&self.id_as());
+        }
         if disconnects_remaining == 0 {
             self.finalize(report_to, world);
             Fate::Die
