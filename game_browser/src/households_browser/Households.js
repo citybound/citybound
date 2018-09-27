@@ -70,15 +70,34 @@ class BuildingInfo extends React.Component {
 
     render() {
         return <div className="window building">
-            <h1>{this.props.inspectedBuilding}</h1>
+            <p>Building ID {this.props.inspectedBuilding}</p>
             {this.props.inspectedBuildingState && [
-                <h2>Building {this.props.inspectedBuildingState.style}</h2>,
+                <h1>{this.props.inspectedBuildingState.style}</h1>,
                 this.props.inspectedBuildingState.households.map(id => [
-                    <h4>Household {id}</h4>,
-                    this.props.householdInfo[id] && <p>{this.props.householdInfo[id].core.member_resources.length} members</p>
+                    <h3>Household {id}</h3>,
+                    this.props.householdInfo[id] && <HouseholdInfo core={this.props.householdInfo[id].core} id={id} />
                 ])
             ]}
         </div>;
     }
 }
 
+function HouseholdInfo(props) {
+    const { resources, member_resources, member_tasks } = props.core;
+
+    return [
+        resources.entries.map(([resource, amount]) =>
+            <p>{resource}: {amount}</p>
+        ),
+        member_resources.map((memberResources, memberI) =>
+            [
+                <h4>Member {memberI}</h4>,
+                member_tasks[memberI].goal && <p>Goal: {member_tasks[memberI].goal}</p>,
+                member_tasks[memberI].state && <p>Goal: {JSON.stringify(member_tasks[memberI].state)}</p>,
+                memberResources.entries.map(([resource, amount]) =>
+                    <p>{resource}: {amount}</p>
+                ),
+            ]
+        )
+    ]
+}

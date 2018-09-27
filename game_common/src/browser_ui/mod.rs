@@ -796,9 +796,6 @@ SwitchLanePrototype, IntersectionPrototype};
                         }
                     }
                 }));
-
-                console.log("Before crash");
-                console.log(@{Serde(core)});
             }
         }
     }
