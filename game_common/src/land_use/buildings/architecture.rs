@@ -260,35 +260,35 @@ pub fn generate_house_footprint<R: Rng>(lot: &Lot, rng: &mut R) -> (Footprint, F
     let footprint_depth = 7.0 + rng.gen::<f32>() * 5.0;
 
     let entrance_position = building_position
-        + building_orientation * (0.5 - 1.0 * rng.gen::<f32>()) * footprint_width
-        - building_orientation_orth * (rng.gen::<f32>() * 0.3 + 0.1) * footprint_depth;
+        + building_orientation_orth * (0.5 - 1.0 * rng.gen::<f32>()) * footprint_width
+        + building_orientation * (rng.gen::<f32>() * 0.3 + 0.1) * footprint_depth;
     let entrance_width = 5.0 + rng.gen::<f32>() * 4.0;
     let entrance_depth = 3.0 + rng.gen::<f32>() * 3.0;
 
     (
         Footprint {
-            back_right: building_position + building_orientation * footprint_width / 2.0
-                - building_orientation_orth * footprint_depth / 2.0,
+            back_right: building_position + building_orientation_orth * footprint_width / 2.0
+                - building_orientation * footprint_depth / 2.0,
             back_left: building_position
-                - building_orientation * footprint_width / 2.0
-                - building_orientation_orth * footprint_depth / 2.0,
-            front_left: building_position - building_orientation * footprint_width / 2.0
-                + building_orientation_orth * footprint_depth / 2.0,
+                - building_orientation_orth * footprint_width / 2.0
+                - building_orientation * footprint_depth / 2.0,
+            front_left: building_position - building_orientation_orth * footprint_width / 2.0
+                + building_orientation * footprint_depth / 2.0,
             front_right: building_position
-                + building_orientation * footprint_width / 2.0
-                + building_orientation_orth * footprint_depth / 2.0,
+                + building_orientation_orth * footprint_width / 2.0
+                + building_orientation * footprint_depth / 2.0,
         },
         Footprint {
             back_right: entrance_position
-                + building_orientation_orth * entrance_width / 2.0
-                + building_orientation * entrance_depth / 2.0,
-            back_left: entrance_position - building_orientation_orth * entrance_width / 2.0
-                + building_orientation * entrance_depth / 2.0,
+                + building_orientation * entrance_width / 2.0
+                + building_orientation_orth * entrance_depth / 2.0,
+            back_left: entrance_position - building_orientation * entrance_width / 2.0
+                + building_orientation_orth * entrance_depth / 2.0,
             front_left: entrance_position
-                - building_orientation_orth * entrance_width / 2.0
-                - building_orientation * entrance_depth / 2.0,
-            front_right: entrance_position + building_orientation_orth * entrance_width / 2.0
-                - building_orientation * entrance_depth / 2.0,
+                - building_orientation * entrance_width / 2.0
+                - building_orientation_orth * entrance_depth / 2.0,
+            front_right: entrance_position + building_orientation * entrance_width / 2.0
+                - building_orientation_orth * entrance_depth / 2.0,
         },
     )
 }
