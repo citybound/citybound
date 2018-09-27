@@ -100,16 +100,20 @@ class UpdateChecker extends React.Component {
         fetch("http://citybound.livebuilds.s3-eu-west-1.amazonaws.com/?delimiter=/").then(response =>
             response.text().then(text =>
                 this.setState({ versions: text.match(/citybound-v\d.\d.\d-\d+-\w+-osx/g).map(str => str.replace("citybound-", "").replace("-osx", "")) })
-            ));
+            )).catch(() => this.setState({ failed: true }));;
     }
 
     render() {
-        let allVersions = this.state.versions.concat([window.cbversion]);
-        allVersions.sort();
-        if (allVersions[allVersions.length - 1] == window.cbversion) {
-            return "You have the newest live build."
+        if (this.state.failed) {
+            return "Couldn't check for newest live builds."
         } else {
-            return EL("h3", {}, ["Newer live build available: ", EL("a", { href: "http://aeplay.co/citybound-livebuilds" }, allVersions[allVersions.length - 1])])
+            let allVersions = this.state.versions.concat([window.cbversion]);
+            allVersions.sort();
+            if (allVersions[allVersions.length - 1] == window.cbversion) {
+                return "You have the newest live build."
+            } else {
+                return EL("h3", {}, ["Newer live build available: ", EL("a", { href: "http://aeplay.co/citybound-livebuilds" }, allVersions[allVersions.length - 1])])
+            }
         }
     }
 }
@@ -126,7 +130,7 @@ class PatronCredits extends React.Component {
             response.json().then(patrons => {
                 patrons.sort((a, b) => b.attributes.lifetime_support_cents - a.attributes.lifetime_support_cents);
                 this.setState({ patrons: patrons })
-            }));
+            })).catch(() => this.setState({ failed: true }));
     }
 
     render() {
@@ -139,7 +143,7 @@ class PatronCredits extends React.Component {
                     fontSize: 2 * Math.log2(lifetime_support_cents),
                 }
             }, full_name);
-        }) || "Loading patrons..."
+        }) || (this.state.failed ? "Couldn't load patrons." : "Loading patrons...")
     }
 }
 
@@ -153,7 +157,7 @@ class GithubMilestone extends React.Component {
     componentDidMount() {
         fetch("https://cb-github-app.now.sh/v1/current_milestone").then(response =>
             response.json().then(json => json.data && this.setState(json.data.repository.milestone))
-        )
+        ).catch(() => this.setState({ failed: true }));
     }
 
     render() {
@@ -170,7 +174,7 @@ class GithubMilestone extends React.Component {
         };
 
         return [
-            EL("h2", {}, this.state.title || "loading milestone..."),
+            EL("h2", {}, this.state.title || (this.state.failed ? "Couldn't load milestone." : "loading milestone...")),
             EL(Progress, { percent: this.state.open ? Math.floor(this.state.closed.edges.length / (this.state.closed.edges.length + this.state.open.edges.length) * 100) : 0 }),
             EL("h3", {}, "TODO:"),
             this.state.open && EL(Collapse, {}, this.state.open.edges.map(renderIssueEdge(true))),
