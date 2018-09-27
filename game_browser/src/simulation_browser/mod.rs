@@ -1,5 +1,4 @@
 use kay::Actor;
-use stdweb::serde::Serde;
 use stdweb::js_export;
 use SYSTEM;
 

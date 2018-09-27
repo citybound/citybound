@@ -3,21 +3,21 @@ use economy::market::Deal;
 use super::{HouseholdID, MemberIdx};
 use simulation::TimeOfDayRange;
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct OfferIdx(pub u16);
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct OfferID {
     pub household: HouseholdID,
     pub idx: OfferIdx,
 }
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize)]
 pub struct Offer {
     pub offering_member: MemberIdx,
     pub opening_hours: TimeOfDayRange,
     pub deal: Deal,
-    pub max_users: usize,
+    pub max_users: u32,
     pub is_internal: bool,
     pub users: CVec<(HouseholdID, Option<MemberIdx>)>,
     pub active_users: CVec<(HouseholdID, MemberIdx)>,
@@ -39,7 +39,7 @@ impl Offer {
             users: CVec::new(),
             active_users: CVec::new(),
             is_internal,
-            max_users,
+            max_users: max_users as u32,
             being_withdrawn: false,
         }
     }

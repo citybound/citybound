@@ -128,3 +128,6 @@ pub use debug::*;
 
 mod simulation_browser;
 pub use simulation_browser::*;
+
+mod households_browser;
+pub use households_browser::*;

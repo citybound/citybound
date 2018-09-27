@@ -39,6 +39,7 @@ import * as Camera from './camera/Camera';
 import * as Planning from './planning_browser/Planning';
 import * as Transport from './transport_browser/Transport';
 import * as LandUse from './land_use_browser/LandUse';
+import * as Households from './households_browser/Households';
 import * as Simulation from './simulation_browser/Simulation';
 import * as Debug from './debug/Debug';
 import * as Settings from './settings';
@@ -65,6 +66,7 @@ class CityboundClient extends React.Component {
             planning: Planning.initialState,
             transport: Transport.initialState,
             landUse: LandUse.initialState,
+            households: Households.initialState,
             debug: Debug.initialState,
             uiMode: null,
             system: {
@@ -102,6 +104,7 @@ class CityboundClient extends React.Component {
             Planning,
             Transport,
             LandUse,
+            Households,
             Debug,
             Simulation,
         ];

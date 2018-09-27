@@ -8,7 +8,7 @@ use super::OfferID;
 
 use super::{HouseholdID, MemberIdx};
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum TaskState {
     GettingReadyAt(RoughLocationID),
     InTrip(TripID),
@@ -16,7 +16,7 @@ pub enum TaskState {
     IdleAt(RoughLocationID),
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct Task {
     pub goal: Option<(Resource, OfferID)>,
     pub duration: Duration,

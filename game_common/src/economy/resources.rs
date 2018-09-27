@@ -1,4 +1,4 @@
-#[derive(Copy, Clone, Debug, Hash, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Hash, PartialOrd, Ord, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Resource {
     Awakeness,
     Satiety,
@@ -55,10 +55,10 @@ use compact::{CVec, Compact};
 
 pub type ResourceAmount = f32;
 
-#[derive(Compact, Clone, Debug)]
+#[derive(Compact, Clone, Debug, Serialize, Deserialize)]
 pub struct Entry<AssociatedValue: Compact>(pub Resource, pub AssociatedValue);
 
-#[derive(Compact, Clone, Debug)]
+#[derive(Compact, Clone, Debug, Serialize, Deserialize)]
 pub struct ResourceMap<AssociatedValue: Compact> {
     entries: CVec<Entry<AssociatedValue>>,
 }

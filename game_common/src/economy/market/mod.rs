@@ -5,7 +5,7 @@ use super::households::OfferID;
 use simulation::{TimeOfDayRange, Duration, Instant};
 use transport::pathfinding::{RoughLocationID, LocationRequesterID};
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize, Deserialize)]
 pub struct Deal {
     pub duration: Duration,
     pub delta: Inventory,
@@ -85,7 +85,7 @@ impl Market {
     }
 }
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize, Deserialize)]
 pub struct EvaluatedDeal {
     pub offer: OfferID,
     pub deal: Deal,

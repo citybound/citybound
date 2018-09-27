@@ -378,7 +378,7 @@ impl Unbuildable for Lane {
             self.connectivity.interactions.remove(idx);
         }
         // TODO: untyped RawID shenanigans
-        let other_as_lanelike = unsafe { LaneLikeID::from_raw(other_id.as_raw()) };
+        let other_as_lanelike = LaneLikeID::from_raw(other_id.as_raw());
         super::pathfinding::on_disconnect(self, other_as_lanelike);
         other_id.on_confirm_disconnect(world);
     }
@@ -393,7 +393,7 @@ impl Unbuildable for Lane {
             .unique()
         {
             // TODO: untyped RawID shenanigans
-            let id_as_unbuildable = unsafe { UnbuildableID::from_raw(id.as_raw()) };
+            let id_as_unbuildable = UnbuildableID::from_raw(id.as_raw());
             id_as_unbuildable.disconnect(self.id_as(), world);
             disconnects_remaining += 1;
         }

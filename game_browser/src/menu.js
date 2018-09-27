@@ -67,7 +67,7 @@ export function render(state, settingsSpecs, setState) {
             EL(TabPane, { tab: "Tutorial", key: "tutorial" }, [
                 EL("p", {}, "Please note that this tutorial is super bare-bones, but it should get you going."),
                 EL("p", {}, "(You can open and close this whole window while following the tutorial by clicking the menu icon)"),
-                EL("h3", {}, "Click the pencil & ruler icon to go into planning mode."),
+                EL("h3", {}, "Click the pencil icon to go into planning mode."),
                 EL("p", {}, "Click the empty dropdown and choose the only existing proposal."),
                 EL("h2", {}, "Planning Roads"),
                 EL("p", {}, "Go to road planning mode by clicking the road icon."),

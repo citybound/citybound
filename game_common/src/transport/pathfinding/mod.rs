@@ -468,7 +468,7 @@ fn successors<'a>(lane: &'a Lane) -> impl Iterator<Item = NodeID> + 'a {
                 partner_lane,
                 kind: InteractionKind::Next { .. },
                 ..
-            } => Some(unsafe { NodeID::from_raw(partner_lane.as_raw()) }),
+            } => Some(NodeID::from_raw(partner_lane.as_raw())),
             _ => None,
         })
 }
@@ -489,21 +489,13 @@ fn predecessors<'a>(lane: &'a Lane) -> impl Iterator<Item = (u8, NodeID, bool)> 
                         ..
                     },
                 ..
-            } => Some((
-                i as u8,
-                unsafe { NodeID::from_raw(partner_lane.as_raw()) },
-                true,
-            )),
+            } => Some((i as u8, NodeID::from_raw(partner_lane.as_raw()), true)),
             // TODO: ugly: untyped RawID shenanigans
             Interaction {
                 partner_lane,
                 kind: InteractionKind::Previous { .. },
                 ..
-            } => Some((
-                i as u8,
-                unsafe { NodeID::from_raw(partner_lane.as_raw()) },
-                false,
-            )),
+            } => Some((i as u8, NodeID::from_raw(partner_lane.as_raw()), false)),
             _ => None,
         })
 }
@@ -531,7 +523,7 @@ impl Node for SwitchLane {
 
     fn query_routes(&mut self, requester: NodeID, _is_switch: bool, world: &mut World) {
         // TODO: ugly: untyped RawID shenanigans
-        let requester_lane = unsafe { LaneID::from_raw(requester.as_raw()) };
+        let requester_lane = LaneID::from_raw(requester.as_raw());
         if let Some(other_lane) = self.other_side(requester_lane) {
             let other_lane: NodeID = other_lane.into();
             other_lane.query_routes(self.id_as(), true, world);
@@ -544,7 +536,7 @@ impl Node for SwitchLane {
         from: NodeID,
         world: &mut World,
     ) {
-        let from_lane = unsafe { LaneID::from_raw(from.as_raw()) };
+        let from_lane = LaneID::from_raw(from.as_raw());
         if let Some(other_lane) = self.other_side(from_lane) {
             let other_lane: NodeID = other_lane.into();
             other_lane.on_routes(
@@ -569,7 +561,7 @@ impl Node for SwitchLane {
     }
 
     fn forget_routes(&mut self, forget: &CVec<Location>, from: NodeID, world: &mut World) {
-        let from_lane = unsafe { LaneID::from_raw(from.as_raw()) };
+        let from_lane = LaneID::from_raw(from.as_raw());
         if let Some(other_lane) = self.other_side(from_lane) {
             let other_lane: NodeID = other_lane.into();
             other_lane.forget_routes(forget.clone(), self.id_as(), world);
@@ -583,7 +575,7 @@ impl Node for SwitchLane {
         hops_from_landmark: u8,
         world: &mut World,
     ) {
-        let from_lane = unsafe { LaneID::from_raw(from.as_raw()) };
+        let from_lane = LaneID::from_raw(from.as_raw());
         if let Some(other_lane) = self.other_side(from_lane) {
             let other_lane: NodeID = other_lane.into();
             other_lane.join_landmark(
@@ -683,7 +675,7 @@ impl Lane {
         for &Location { node, .. } in self.pathfinding.routes.keys() {
             // TODO: ugly: untyped RawID shenanigans
             if node.as_raw().local_broadcast() == Lane::local_broadcast(world).as_raw() {
-                let lane = unsafe { LaneID::from_raw(node.as_raw()) };
+                let lane = LaneID::from_raw(node.as_raw());
                 lane.highlight_as_connected(self.id, world);
             }
         }
@@ -693,7 +685,7 @@ impl Lane {
         for &Location { node, .. } in self.pathfinding.routes.keys() {
             // TODO: ugly: untyped RawID shenanigans
             if node.as_raw().local_broadcast() == Lane::local_broadcast(world).as_raw() {
-                let lane = unsafe { LaneID::from_raw(node.as_raw()) };
+                let lane = LaneID::from_raw(node.as_raw());
                 lane.stop_highlight_as_connected(self.id, world);
             }
         }

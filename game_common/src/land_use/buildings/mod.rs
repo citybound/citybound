@@ -2,7 +2,7 @@ use kay::{ActorSystem, World, Actor, Fate};
 use compact::{CVec, COption};
 use descartes::P2;
 
-use transport::lane::{Lane, LaneID};
+use transport::lane::Lane;
 use simulation::Ticks;
 use construction::{ConstructionID, Constructable, ConstructableID};
 use planning::{Prototype, PrototypeKind};
@@ -14,6 +14,7 @@ use economy::households::HouseholdID;
 use transport::pathfinding::PreciseLocation;
 use economy::immigration_and_development::ImmigrationManagerID;
 use land_use::zone_planning::{Lot, LandUse};
+use browser_ui::BrowserUIID;
 
 #[derive(Copy, Clone)]
 pub struct Unit(Option<HouseholdID>, UnitType);
@@ -277,9 +278,10 @@ pub struct BuildingPlanResultDelta {
     buildings_to_destroy: CVec<BuildingID>,
 }
 
-#[derive(Compact, Clone, Default)]
-pub struct MaterializedBuildings {
-    buildings: CVec<(P2, BuildingID, LaneID)>,
+impl Building {
+    pub fn get_ui_info(&mut self, requester: BrowserUIID, world: &mut World) {
+        requester.on_building_ui_info(self.id, self.style, self.all_households().into(), world);
+    }
 }
 
 pub fn setup(system: &mut ActorSystem) {

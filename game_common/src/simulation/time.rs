@@ -10,7 +10,7 @@ impl From<Duration> for Ticks {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Duration(pub u32);
 
 impl Duration {
@@ -57,7 +57,7 @@ impl ::std::ops::AddAssign for Duration {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
 pub struct Instant(u32);
 
 impl Instant {
@@ -102,7 +102,7 @@ impl<D: Into<Ticks>> ::std::ops::SubAssign<D> for Instant {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct TimeOfDay {
     minutes_of_day: u16,
 }
@@ -185,7 +185,7 @@ impl<D: Into<Duration>> ::std::ops::SubAssign<D> for TimeOfDay {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct TimeOfDayRange {
     pub start: TimeOfDay,
     pub end: TimeOfDay,

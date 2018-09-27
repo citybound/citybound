@@ -12,6 +12,9 @@ use michelangelo::{MeshGrouper, Instance};
 use planning::{ProposalID, Proposal, PrototypeID, PlanHistory, PlanResult,
 PlanHistoryUpdate, ProposalUpdate, PlanResultUpdate, ActionGroups};
 use ::land_use::zone_planning::{LandUse, LAND_USES};
+use kay::TypedID;
+#[cfg(feature = "browser")]
+use stdweb::serde::Serde;
 
 #[derive(Compact, Clone)]
 pub struct BrowserUI {
@@ -151,7 +154,6 @@ impl BrowserUI {
         #[cfg(feature = "browser")]
         {
             use ::stdweb::unstable::TryInto;
-            use ::stdweb::serde::Serde;
 
             ::planning::PlanManager::global_first(world).get_all_plans(
                 self.id,
@@ -212,7 +214,6 @@ impl BrowserUI {
     ) {
         #[cfg(feature = "browser")]
         {
-            use ::stdweb::serde::Serde;
             js! {
                 window.cbclient.setState(oldState => update(oldState, {
                     simulation: {
@@ -235,7 +236,6 @@ impl BrowserUI {
     ) {
         #[cfg(feature = "browser")]
         {
-            use ::stdweb::serde::Serde;
             if !master_update.is_empty() {
                 self.master_plan.apply_update(master_update);
                 js! {
@@ -719,14 +719,17 @@ SwitchLanePrototype, IntersectionPrototype};
             js!{
                 window.cbclient.setState(oldState => update(oldState, {
                     landUse: {rendering: {
-                        wall: {[@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.wall)}}},
+                        wall: {[@{Serde(id)}]: {"$set": @{to_js_mesh(&meshes.wall)}}},
                         brickRoof: {
-                            [@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.brick_roof)}}},
+                            [@{Serde(id)}]: {"$set": @{to_js_mesh(&meshes.brick_roof)}}},
                         flatRoof: {
-                            [@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.flat_roof)}}},
+                            [@{Serde(id)}]: {"$set": @{to_js_mesh(&meshes.flat_roof)}}},
                         field: {
-                            [@{format!("{:?}", id)}]: {"$set": @{to_js_mesh(&meshes.field)}}},
-                    }}
+                            [@{Serde(id)}]: {"$set": @{to_js_mesh(&meshes.field)}}},
+                    }},
+                    households: {buildingPositions: {[@{Serde(id)}]: {
+                        "$set": @{Serde(lot.center_point())}
+                    }}}
                 }));
             }
         }
@@ -742,12 +745,60 @@ SwitchLanePrototype, IntersectionPrototype};
             js!{
                 window.cbclient.setState(oldState => update(oldState, {
                     landUse: {rendering: {
-                        wall: {"$unset": [@{format!("{:?}", id)}]},
-                        brickRoof: {"$unset": [@{format!("{:?}", id)}]},
-                        flatRoof: {"$unset": [@{format!("{:?}", id)}]},
-                        field: {"$unset": [@{format!("{:?}", id)}]},
-                    }}
+                        wall: {"$unset": [@{Serde(id)}]},
+                        brickRoof: {"$unset": [@{Serde(id)}]},
+                        flatRoof: {"$unset": [@{Serde(id)}]},
+                        field: {"$unset": [@{Serde(id)}]},
+                    }},
+                    households: {buildingPositions: {"$unset": [@{Serde(id)}]}}
                 }));
+            }
+        }
+    }
+
+    pub fn on_building_ui_info(
+        &mut self,
+        id: ::land_use::buildings::BuildingID,
+        style: ::land_use::buildings::BuildingStyle,
+        households: &CVec<::economy::households::HouseholdID>,
+        _world: &mut World,
+    ) {
+        #[cfg(feature = "browser")]
+        {
+            js!{
+                window.cbclient.setState(oldState => update(oldState, {
+                    households: {
+                        inspectedBuildingState: {"$set": {
+                            households: @{Serde(households)},
+                            style: @{Serde(style)},
+                        }}
+                    }
+                }));
+            }
+        }
+    }
+
+    pub fn on_household_ui_info(
+        &mut self,
+        id: ::economy::households::HouseholdID,
+        core: &::economy::households::HouseholdCore,
+        _world: &mut World,
+    ) {
+        #[cfg(feature = "browser")]
+        {
+            js!{
+                window.cbclient.setState(oldState => update(oldState, {
+                    households: {
+                        householdInfo: {
+                            [@{Serde(id)}]: {"$set": {
+                                core: @{Serde(core)}
+                            }}
+                        }
+                    }
+                }));
+
+                console.log("Before crash");
+                console.log(@{Serde(core)});
             }
         }
     }

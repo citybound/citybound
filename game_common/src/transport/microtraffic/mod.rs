@@ -293,7 +293,7 @@ impl Simulatable for Lane {
                     ..
                 } = *interaction
                 {
-                    unsafe { LaneID::from_raw(partner_lane.as_raw()) }.on_signal_changed(
+                    LaneID::from_raw(partner_lane.as_raw()).on_signal_changed(
                         self.id_as(),
                         self.microtraffic.green,
                         world,
