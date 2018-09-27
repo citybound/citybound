@@ -1,7 +1,6 @@
 import React from 'react';
 import * as cityboundBrowser from '../../Cargo.toml';
 import update from 'immutability-helper';
-const EL = React.createElement;
 
 export const initialState = {
     buildingPositions: {},
@@ -17,7 +16,7 @@ export function render(state, setState) {
 
     const { inspectedBuilding, inspectedBuildingState, householdInfo } = state.households;
 
-    const windows = inspectedBuilding && EL(BuildingInfo, { inspectedBuilding, inspectedBuildingState, householdInfo });
+    const windows = inspectedBuilding && <BuildingInfo {...{ inspectedBuilding, inspectedBuildingState, householdInfo }} />;
 
     const interactables = Object.keys(state.households.buildingPositions).map(buildingId => {
         const buildingPosition2d = state.households.buildingPositions[buildingId];
@@ -70,16 +69,16 @@ class BuildingInfo extends React.Component {
     }
 
     render() {
-        return EL("div", { className: "window building" }, [
-            EL("h1", {}, this.props.inspectedBuilding),
-            this.props.inspectedBuildingState && [
-                EL("h2", {}, "Building" + this.props.inspectedBuildingState.style),
+        return <div className="window building">
+            <h1>{this.props.inspectedBuilding}</h1>
+            {this.props.inspectedBuildingState && [
+                <h2>Building {this.props.inspectedBuildingState.style}</h2>,
                 this.props.inspectedBuildingState.households.map(id => [
-                    EL("h4", {}, "Household " + id),
-                    this.props.householdInfo[id] && EL("p", {}, this.props.householdInfo[id].core.member_resources.length + " members")
+                    <h4>Household {id}</h4>,
+                    this.props.householdInfo[id] && <p>{this.props.householdInfo[id].core.member_resources.length} members</p>
                 ])
-            ]
-        ]);
+            ]}
+        </div>;
     }
 }
 

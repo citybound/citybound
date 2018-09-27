@@ -47,8 +47,6 @@ import * as Menu from './menu';
 import Stage from './stage/Stage';
 import colors from './colors';
 
-const EL = React.createElement;
-
 const settingSpecs = {
     camera: Camera.settingSpec,
     debug: Debug.settingsSpec,
@@ -121,49 +119,39 @@ class CityboundClient extends React.Component {
 
         const verticalFov = this.state.settings.camera.verticalFov * Math.PI;
 
-        return EL("div", {
-            style: { width: "100%", height: "100%" },
-        },
-            EL(ContainerDimensions, { style: { width: "100%", height: "100%", position: "relative" } }, ({ width, height }) => {
+        return <div style={{ width: "100%", height: "100%" }}>
+            <ContainerDimensions style={{ width: "100%", height: "100%", position: "relative" }}>{({ width, height }) => {
                 const { eye, target, viewMatrix, perspectiveMatrix } = Camera.getMatrices(this.state, width, height);
 
-                return EL("div", { style: { width, height } }, [
-                    EL("div", { key: "ui2dTools", className: "ui2dTools" }, [
-                        ...tools
-                    ]),
-                    EL("div", { key: "ui2d", className: "ui2d" }, [
-                        ...windows
-                    ]),
-                    EL(Monet, {
-                        key: "canvas",
-                        ref: this.renderer,
-                        layers,
-                        width, height,
-                        retinaFactor: this.state.settings.rendering.retinaFactor,
-                        viewMatrix, perspectiveMatrix,
-                        clearColor: [...colors.grass, 1.0]
-                    }),
-                    EL(Stage, {
-                        key: "stage",
-                        interactables,
-                        width, height,
-                        eye, target, verticalFov,
-                        style: { width, height, position: "absolute", top: 0, left: 0 },
-                        onWheel: e => {
+                return <div style={{ width, height }}>
+                    <div key="ui2dTools" className="ui2dTools">
+                        {tools}
+                    </div>
+                    <div key="ui2d" className="ui2d">
+                        {windows}
+                    </div>
+                    <Monet key="canvas" ref={this.renderer}
+                        retinaFactor={this.state.settings.rendering.retinaFactor}
+                        clearColor={[...colors.grass, 1.0]}
+                        {... { layers, width, height, viewMatrix, perspectiveMatrix }} />
+                    <Stage key="stage"
+                        style={{ width, height, position: "absolute", top: 0, left: 0 }}
+                        onWheel={e => {
                             Camera.onWheel(e, this.state, this.boundSetState);
                             e.preventDefault();
                             return false;
-                        },
-                        onMouseMove: e => {
+                        }}
+                        onMouseMove={e => {
                             Camera.onMouseMove(e, this.state, this.boundSetState);
-                        }
-                    })
-                ])
-            })
-        );
+                        }}
+                        {...{ interactables, width, height, eye, target, verticalFov }}
+                    />
+                </div>
+            }}</ContainerDimensions>
+        </div>;
     }
 }
 
-window.cbclient = ReactDOM.render(EL(CityboundClient), document.getElementById('app'));
+window.cbclient = ReactDOM.render(<CityboundClient />, document.getElementById('app'));
 
 cityboundBrowser.start();

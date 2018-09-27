@@ -7,21 +7,17 @@ import aePlayLogo from '../assets/ae_play.png';
 const Panel = Collapse.Panel;
 const TabPane = Tabs.TabPane;
 
-const EL = React.createElement;
-
 export const initalState = {
     visible: true,
     tabKey: "about"
 }
 
 export function render(state, settingsSpecs, setState) {
-    let tools = EL(Toolbar, {
-        id: "menu-toolbar",
-        options: { menu: { description: "Menu" } },
-        value: state.menu.visible && "menu",
-        onChange: () =>
-            setState(oldState => update(oldState, { menu: { visible: { $apply: old => !old } } }))
-    });
+    let tools = <Toolbar id="menu-toolbar"
+        options={{ menu: { description: "Menu" } }}
+        value={state.menu.visible && "menu"}
+        onChange={() => setState(oldState => update(oldState, { menu: { visible: { $apply: old => !old } } }))}
+    />;
 
     let svg = <svg width="197px" height="57px" viewBox="0 0 197 57" version="1.1" xmlns="http://www.w3.org/2000/svg">
         <g id="Citybound" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
@@ -30,63 +26,61 @@ export function render(state, settingsSpecs, setState) {
         </g>
     </svg>;
 
-    let windows = state.menu.visible && EL("div", { key: "debug", className: "window menu" }, [
-        EL("a", { className: "close-window", onClick: () => setState(oldState => update(oldState, { menu: { visible: { $set: false } } })) }, "×"),
-        EL(Tabs, { type: "card", size: "large", activeKey: state.menu.tabKey, onChange: newTabKey => setState(oldState => update(oldState, { menu: { tabKey: { $set: newTabKey } } })) }, [
-            EL(TabPane, { tab: "About", key: "about" }, [
-                svg,
-                EL("a", { className: "become-patron", href: "https://patreon.com/citybound", target: "_blank" }, " "),
-                EL("h2", {}, window.cbversion),
-                EL("p", {}, "THIS IS A LIVE BUILD OF CITYBOUND AND THUS NOT A STABLE RELEASE."),
-                EL("p", { style: { width: "30em" } }, "Expect nothing to work and a lot to be missing. See the issues below (from Github) to get an overview of the most glaring known problems and remaining tasks for the currently upcoming release."),
-                EL("p", {}, EL(UpdateChecker)),
-                EL("h3", {}, "Upcoming Release:"),
-                EL(GithubMilestone, {})
-            ]),
-            EL(TabPane, { tab: "Credits", key: "credits" }, [
-                svg,
-                EL("a", { className: "become-patron", href: "https://patreon.com/citybound", target: "_blank" }, " "),
-                EL("p", {}, ["is being developed by:"]),
-                EL("p", {}, [EL("img", { src: aePlayLogo, width: 60 }), " aka. Anselm Eickhoff"]),
-                EL("h4", {}, "With the generous support of these Patrons:"),
-                EL("p", {},
-                    EL(PatronCredits, {})
-                ),
-                EL("h4", {}, "Icons by icons8.com"),
-                EL("h4", {}, "Cities I developed Citybound in:"),
-                EL("ul", {}, [
-                    EL("li", {}, "Munich"),
-                    EL("li", {}, "Saint Petersburg"),
-                    EL("li", {}, "Reykjavík"),
-                    EL("li", {}, "Bangkok"),
-                    EL("li", {}, "Singapore"),
-                    EL("li", {}, "Denpasar"),
-                    EL("li", {}, "Kuala Lumpur"),
-                ])
-            ]),
-            EL(TabPane, { tab: "Tutorial", key: "tutorial" }, [
-                EL("p", {}, "Please note that this tutorial is super bare-bones, but it should get you going."),
-                EL("p", {}, "(You can open and close this whole window while following the tutorial by clicking the menu icon)"),
-                EL("h3", {}, "Click the pencil icon to go into planning mode."),
-                EL("p", {}, "Click the empty dropdown and choose the only existing proposal."),
-                EL("h2", {}, "Planning Roads"),
-                EL("p", {}, "Go to road planning mode by clicking the road icon."),
-                EL("p", {}, "Start a new road by clicking on the map. Double click finishes a stroke. You can move control points of existing points around, but nothing more yet (no undo, delete, extend road yet)."),
-                EL("h2", {}, "Planning Zones"),
-                EL("p", {}, "Go to zone planning mode by clicking the zone icon next to the road icon. Draw zone shapes by selecting a zone type, then clicking on the map to define its corners. Double clicking finishes a shape. (A zone has to touch a road to become useable)"),
-                EL("p", {}, "Changes to zones need to be implemented to become effective."),
-                EL("h2", {}, "Implementing Proposals"),
-                EL("p", {}, "Press implement to implement your proposal plan."),
-                EL("h2", {}, "Further Steps"),
-                EL("p", {}, "Speed up time using the slider next to the clock in the top left corner and see what happens."),
-                EL("p", {}, "You can also start a new proposal by choosing the only existing proposal in the dropdown again."),
-                EL("p", {}, "Roads that lead further away automatically get a neighboring town connection (white diamond). These move as you expand your town."),
-            ]),
-            EL(TabPane, { tab: "Settings & Controls", key: "settings" }, [
-                EL(Settings, { currentSettings: state.settings, specs: settingsSpecs, setState }),
-            ])
-        ])
-    ]);
+    let windows = state.menu.visible && <div key="debug" className="window menu">
+        <a className="close-window" onClick={() => setState(oldState => update(oldState, { menu: { visible: { $set: false } } }))}>×</a>
+        <Tabs type="card" size="large" activeKey={state.menu.tabKey} onChange={newTabKey => setState(oldState => update(oldState, { menu: { tabKey: { $set: newTabKey } } }))}>
+            <TabPane tab="About" key="about">
+                {svg}
+                <a className="become-patron" href="https://patreon.com/citybound" target="_blank">" "</a>
+                <h2>{window.cbversion}</h2>
+                <p>THIS IS A LIVE BUILD OF CITYBOUND AND THUS NOT A STABLE RELEASE.</p>
+                <p style={{ width: "30em" }}>Expect nothing to work and a lot to be missing. See the issues below (from Github) to get an overview of the most glaring known problems and remaining tasks for the currently upcoming release.</p>
+                <p><UpdateChecker /></p>
+                <h3>Upcoming Release:</h3>
+                <GithubMilestone />
+            </TabPane>
+            <TabPane tab="Credits" key="credits">
+                {svg}
+                <a className="become-patron" href="https://patreon.com/citybound" target="_blank">" "</a>
+                <p>is being developed by:</p>
+                <p><img src={aePlayLogo} width={60} /> aka. Anselm Eickhoff</p>
+                <h4>With the generous support of these Patrons:</h4>
+                <p><PatronCredits /></p>
+                <h4>Icons by icons8.com</h4>
+                <h4>Cities I developed Citybound in:</h4>
+                <ul>
+                    <li>Munich</li>
+                    <li>Saint Petersburg</li>
+                    <li>Reykjavík</li>
+                    <li>Bangkok</li>
+                    <li>Singapore</li>
+                    <li>Denpasar</li>
+                    <li>Kuala Lumpur</li>
+                </ul>
+            </TabPane>
+            <TabPane tab="Tutorial" key="tutorial">
+                <p>Please note that this tutorial is super bare-bones, but it should get you going.</p>
+                <p>(You can open and close this whole window while following the tutorial by clicking the menu icon)</p>
+                <h3>"Click the pencil icon to go into planning mode.</h3>
+                <p>Click the empty dropdown and choose the only existing proposal.</p>
+                <h2>Planning Roads</h2>
+                <p>Go to road planning mode by clicking the road icon.</p>
+                <p>Start a new road by clicking on the map. Double click finishes a stroke. You can move control points of existing points around, but nothing more yet (no undo, delete, extend road yet).</p>
+                <h2>Planning Zones</h2>
+                <p>Go to zone planning mode by clicking the zone icon next to the road icon. Draw zone shapes by selecting a zone type, then clicking on the map to define its corners. Double clicking finishes a shape. (A zone has to touch a road to become useable)</p>
+                <p>Changes to zones need to be implemented to become effective.</p>
+                <h2>Implementing Proposals</h2>
+                <p>Press implement to implement your proposal plan.</p>
+                <h2>Further Steps</h2>
+                <p>Speed up time using the slider next to the clock in the top left corner and see what happens.</p>
+                <p>You can also start a new proposal by choosing the only existing proposal in the dropdown again.</p>
+                <p>Roads that lead further away automatically get a neighboring town connection (white diamond). These move as you expand your town.</p>
+            </TabPane>
+            <TabPane tab="Settings &amp; Controls" key="settings">
+                <Settings currentSettings={state.settings} specs={settingsSpecs} {...{ setState }} />
+            </TabPane>
+        </Tabs>
+    </div>;
     return { tools, windows };
 }
 
@@ -112,7 +106,7 @@ class UpdateChecker extends React.Component {
             if (allVersions[allVersions.length - 1] == window.cbversion) {
                 return "You have the newest live build."
             } else {
-                return EL("h3", {}, ["Newer live build available: ", EL("a", { href: "http://aeplay.co/citybound-livebuilds" }, allVersions[allVersions.length - 1])])
+                return <h3>Newer live build available: <a href="http://aeplay.co/citybound-livebuilds">{allVersions[allVersions.length - 1]}</a></h3>;
             }
         }
     }
@@ -137,12 +131,10 @@ class PatronCredits extends React.Component {
         return this.state.patrons.map(patron => {
             const { currently_entitled_amount_cents, full_name,
                 lifetime_support_cents, patron_status, pledge_relationship_start } = patron.attributes;
-            return !!lifetime_support_cents && EL("span", {
-                className: "patron",
-                style: {
-                    fontSize: 2 * Math.log2(lifetime_support_cents),
-                }
-            }, full_name);
+            return !!lifetime_support_cents && <span className="patron"
+                style={{ fontSize: 2 * Math.log2(lifetime_support_cents), }}>
+                {full_name}
+            </span>
         }) || (this.state.failed ? "Couldn't load patrons." : "Loading patrons...")
     }
 }
@@ -164,22 +156,21 @@ class GithubMilestone extends React.Component {
         const renderIssueEdge = open => edge => {
             let checkable = (edge.node.bodyHTML.match(/task-list-item-checkbox/g) || []).length;
             let checked = (edge.node.bodyHTML.match(/checked/g) || []).length;
-            return EL(Panel, {
-                header: EL("div", { style: { pointerEvents: "none" } },
-                    EL(Checkbox, { checked: !open },
-                        edge.node.title + (checkable ? " (" + checked + "/" + checkable + ")" : "")
-                    )
-                ), key: edge.node.id
-            }, EL("div", { dangerouslySetInnerHTML: { __html: edge.node.bodyHTML } }))
+            return <Panel key={edge.node.id}
+                header={<div style={{ pointerEvents: "none" }}>
+                    <Checkbox checked={!open} >{edge.node.title + (checkable ? " (" + checked + "/" + checkable + ")" : "")}</Checkbox>
+                </div>}>
+                <div dangerouslySetInnerHTML={{ __html: edge.node.bodyHTML }}></div>
+            </Panel>;
         };
 
         return [
-            EL("h2", {}, this.state.title || (this.state.failed ? "Couldn't load milestone." : "loading milestone...")),
-            EL(Progress, { percent: this.state.open ? Math.floor(this.state.closed.edges.length / (this.state.closed.edges.length + this.state.open.edges.length) * 100) : 0 }),
-            EL("h3", {}, "TODO:"),
-            this.state.open && EL(Collapse, {}, this.state.open.edges.map(renderIssueEdge(true))),
-            EL("h3", {}, "DONE:"),
-            this.state.closed && EL(Collapse, {}, this.state.closed.edges.map(renderIssueEdge(false)))
+            <h2>{this.state.title || (this.state.failed ? "Couldn't load milestone." : "loading milestone...")}</h2>,
+            <Progress percent={this.state.open ? Math.floor(this.state.closed.edges.length / (this.state.closed.edges.length + this.state.open.edges.length) * 100) : 0} />,
+            <h3>TODO:</h3>,
+            this.state.open && <Collapse>{this.state.open.edges.map(renderIssueEdge(true))}</Collapse>,
+            <h3>DONE:</h3>,
+            this.state.closed && <Collapse>{this.state.closed.edges.map(renderIssueEdge(false))}</Collapse>
         ]
     }
 }

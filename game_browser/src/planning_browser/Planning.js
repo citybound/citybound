@@ -10,8 +10,6 @@ const Option = Select.Option;
 import { solidColorShader } from 'monet';
 import { Toolbar } from '../toolbar';
 
-const EL = React.createElement;
-
 const LAND_USES = [
     "Residential",
     "Commercial",
@@ -353,63 +351,54 @@ export function render(state, setState) {
     ];
 
     const tools = [
-        EL(Toolbar, {
-            id: "main-toolbar",
-            options: { inspection: { description: "Inspection" }, planning: { description: "Planning" } },
-            value: state.uiMode,
-            onChange: newMode => setState({ uiMode: newMode })
-        }),
+        <Toolbar id="main-toolbar"
+            options={{ inspection: { description: "Inspection" }, planning: { description: "Planning" } }}
+            value={state.uiMode}
+            onChange={newMode => setState({ uiMode: newMode })} />,
         state.uiMode == 'planning' && [
-            EL(Select, {
-                style: { width: 180 },
-                showSearch: true,
-                placeholder: "Open a proposal",
-                optionFilterProp: "children",
-                onChange: (value) => setState(switchToProposal(value)),
-                value: state.planning.currentProposal || undefined
-            },
-                Object.keys(state.planning.proposals).map(proposalId =>
-                    EL(Option, { value: proposalId }, "Proposal '" + proposalId.split("-")[0] + "'")
-                )
-            ),
+            <Select
+                style={{ width: 180 }}
+                showSearch={true}
+                placeholder="Open a proposal"
+                optionFilterProp="children"
+                onChange={(value) => setState(switchToProposal(value))}
+                value={state.planning.currentProposal || undefined}
+            >{Object.keys(state.planning.proposals).map(proposalId =>
+                <Option value={proposalId}>Proposal '{proposalId.split("-")[0]}'</Option>
+            )}</Select>,
             state.planning.currentProposal &&
-            EL(Button, {
-                type: "primary",
-                onClick: () => setState(implementProposal)
-            }, "Implement"),
+            <Button type="primary"
+                onClick={() => setState(implementProposal)}
+            >Implement</Button>,
             state.planning.currentProposal &&
-            EL(Toolbar, {
-                id: "planning-toolbar",
-                options: { roads: { description: "Roads" }, zoning: { description: "Zoning" } },
-                value: state.planning.planningMode,
-                onChange: (value) => setState(oldState => update(oldState, {
+            <Toolbar id="planning-toolbar"
+                options={{ roads: { description: "Roads" }, zoning: { description: "Zoning" } }}
+                value={state.planning.planningMode}
+                onChange={(value) => setState(oldState => update(oldState, {
                     planning: {
                         planningMode: { $set: value },
                         canvasMode: { intent: { $set: value == "roads" ? { Road: { n_lanes_forward: 2, n_lanes_backward: 2 } } : null } }
                     }
-                }))
-            }),
+                }))} />,
             state.planning.currentProposal && state.planning.planningMode == "zoning" &&
-            EL(Toolbar, {
-                id: "zoning-toolbar",
-                options: {
+            <Toolbar id="zoning-toolbar"
+                options={{
                     Residential: { description: "Residential", color: toCSS(fromLinFloat(colors["Residential"])) },
                     Commercial: { description: "Commercial", color: toCSS(fromLinFloat(colors["Commercial"])) },
                     Industrial: { description: "Industrial", color: toCSS(fromLinFloat(colors["Industrial"])) },
                     Agricultural: { description: "Agricultural", color: toCSS(fromLinFloat(colors["Agricultural"])) },
                     Recreational: { description: "Recreational", color: toCSS(fromLinFloat(colors["Recreational"])) },
                     Official: { description: "Official", color: toCSS(fromLinFloat(colors["Official"])) }
-                },
-                value: state.planning.canvasMode.intent && state.planning.canvasMode.intent.Zone && state.planning.canvasMode.intent.Zone.LandUse,
-                onChange: newLandUse => setState(oldState => update(oldState, {
+                }}
+                value={state.planning.canvasMode.intent && state.planning.canvasMode.intent.Zone && state.planning.canvasMode.intent.Zone.LandUse}
+                onChange={newLandUse => setState(oldState => update(oldState, {
                     planning: {
                         canvasMode: {
                             intent: { $set: { Zone: { LandUse: newLandUse } } }
                         }
                     }
-                }))
-            })
-        ],
+                }))} />
+        ]
     ];
 
     // TODO: invent a better way to preserve identity

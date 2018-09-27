@@ -2,8 +2,6 @@ import React from 'react';
 import { Button, Input, Slider, InputNumber, Switch, Select } from 'antd';
 const Option = Select.Option;
 
-const EL = React.createElement;
-
 export function loadSettings(specs) {
     const loadedSettings = {};
 
@@ -201,16 +199,14 @@ export class Settings extends React.Component {
     render() {
         const { currentSettings, setState, specs } = this.props;
 
-        return EL("div", { key: "settings", className: "settings" }, [
-            EL("p", {}, "If you change key assignments, you'll need to reload the tab"),
-            EL(Button, {
-                onClick: this.closeSettings
-            }, "Reset all to defaults"),
-            ...Object.keys(specs).map(aspect =>
+        return <div key="settings" className="settings">
+            <p>If you change key assignments, you'll need to reload the tab</p>
+            <Button onClick={this.closeSettings}>Reset all to defaults</Button>
+            {Object.keys(specs).map(aspect =>
                 [
-                    EL("h2", {}, aspect),
-                    EL("div", { className: "form" },
-                        ...Object.keys(specs[aspect]).map(key => {
+                    <h2>{aspect}</h2>,
+                    <div className="form">
+                        {Object.keys(specs[aspect]).map(key => {
                             let spec = specs[aspect][key];
 
                             const onChange = newValue => {
@@ -240,59 +236,55 @@ export class Settings extends React.Component {
                                 }
 
                                 inputEls = [
-                                    EL(Slider, {
-                                        value: currentSettings[aspect][key],
-                                        onChange,
-                                        marks,
-                                        included: !spec.min || spec.min > 0,
-                                        min: spec.min, max: spec.max, step: spec.step
-                                    }),
-                                    EL(InputNumber, {
-                                        value: currentSettings[aspect][key],
-                                        onChange,
-                                        min: spec.min, max: spec.max, step: spec.step
-                                    })
-                                ]
+                                    <Slider
+                                        value={currentSettings[aspect][key]}
+                                        included={!spec.min || spec.min > 0}
+                                        min={spec.min} max={spec.max} step={spec.step}
+                                        {...{ onChange, marks }}
+                                    />,
+                                    <InputNumber
+                                        value={currentSettings[aspect][key]}
+                                        min={spec.min} max={spec.max} step={spec.step}
+                                        {...{ onChange }}
+                                    />
+                                ];
                             } else if (typeof spec.default === "boolean") {
                                 inputEls = [
                                     spec.falseDescription || "",
-                                    EL(Switch, { checked: currentSettings[aspect][key], onChange }),
+                                    <Switch checked={currentSettings[aspect][key]} {...{ onChange }} />,
                                     spec.trueDescription || "",
-                                ]
+                                ];
                             } else if (typeof spec.default === "string") {
-                                inputEls = [
-                                    EL(Input, { value: currentSettings[aspect][key], onChangeInput })
-                                ]
+                                inputEls = <Input value={currentSettings[aspect][key]} {...{ onChangeInput }} />;
                             } else if (spec.default.key) {
                                 let splitKeys = currentSettings[aspect][key].key.split("+");
                                 splitKeys = splitKeys.length === 1 && splitKeys[0] === "" ? [] : splitKeys;
                                 inputEls = [
-                                    EL(Select, {
-                                        key: aspect + key,
-                                        value: splitKeys,
-                                        onChange: keys => onChange({ key: keys.join("+") }),
-                                        optionFilterProp: 'children',
-                                        mode: 'multiple',
-                                        filterOption: (input, option) => option.props.value.toLowerCase().includes(input.toLowerCase())
+                                    <Select key={aspect + key}
+                                        value={splitKeys}
+                                        onChange={keys => onChange({ key: keys.join("+") })}
+                                        optionFilterProp="children"
+                                        mode="multiple"
+                                        filterOption={(input, option) => option.props.value.toLowerCase().includes(input.toLowerCase())
                                             || (ALL_KEYS_NAMES_ALTS[option.props.value] || "").toLowerCase().includes(input.toLowerCase())
-                                            || option.props.children.toLowerCase().includes(input.toLowerCase())
-                                    },
-                                        Object.keys(ALL_KEYS_NAMES).map(keyCode =>
-                                            EL(Option, { key: keyCode, value: keyCode, }, ALL_KEYS_NAMES[keyCode])
-                                        )
-                                    )
+                                            || option.props.children.toLowerCase().includes(input.toLowerCase())}
+                                    >
+                                        {Object.keys(ALL_KEYS_NAMES).map(keyCode =>
+                                            <Option key={keyCode} value={keyCode}>{ALL_KEYS_NAMES[keyCode]}</Option>
+                                        )}
+                                    </Select>
                                 ]
                             }
 
-                            return EL("div", { className: "formItem" }, [
-                                EL("label", {}, spec.description || key),
-                                ...inputEls
-                            ])
-                        })
-                    )
+                            return <div className="formItem">
+                                <label>{spec.description || key}</label>
+                                {inputEls}
+                            </div>;
+                        })}
+                    </div>
                 ]
-            )
-        ]);
+            )}
+        </div>;
     }
 }
 
