@@ -92,8 +92,8 @@ function HouseholdInfo(props) {
         member_resources.map((memberResources, memberI) =>
             [
                 <h4>Member {memberI}</h4>,
-                member_tasks[memberI].goal && <p>Goal: {member_tasks[memberI].goal}</p>,
-                member_tasks[memberI].state && <p>Goal: {JSON.stringify(member_tasks[memberI].state)}</p>,
+                member_tasks[memberI].goal && <p>Goal: {JSON.stringify(member_tasks[memberI].goal)}</p>,
+                member_tasks[memberI].state && <p>State: {JSON.stringify(member_tasks[memberI].state)}</p>,
                 memberResources.entries.map(([resource, amount]) =>
                     <p>{resource}: {amount}</p>
                 ),
