@@ -1,8 +1,8 @@
 {
   "scripts": {
     "build-rust": "cargo-web build && copyfiles -f 'target/wasm32-unknown-unknown/release/citybound_browser.wasm' dist",
-    "build": "npm run build-rust && ./node_modules/.bin/parcel build index.html --no-minify --log-level 3",
-    "start": "npm run build-rust && ./node_modules/.bin/parcel watch index.html --no-hmr --log-level 3"
+    "build": "npm run build-rust && parcel build index.html --no-minify --log-level 3",
+    "start": "npm run build-rust && parcel watch index.html --no-hmr --log-level 3"
   },
   "dependencies": {
     "antd": "^3.8.1",
