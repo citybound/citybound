@@ -108,7 +108,7 @@ impl BrowserUI {
         {
             for (name, mesh) in ::planning::rendering::static_meshes() {
                 js! {
-                    window.cbclient.setState(oldState => update(oldState, {
+                    window.cbReactApp.setState(oldState => update(oldState, {
                         planning: {rendering: {staticMeshes: {
                             [@{name}]: {"$set": @{to_js_mesh(&mesh)}}
                         }}}
@@ -167,8 +167,8 @@ impl BrowserUI {
             ::simulation::Simulation::global_first(world).get_info(self.id, world);
 
             let maybe_current_proposal_id: Result<Serde<ProposalID>, _> = js! {
-                return (window.cbclient.state.uiMode == "planning" &&
-                    window.cbclient.state.planning.currentProposal);
+                return (window.cbReactApp.state.uiMode == "planning" &&
+                    window.cbReactApp.state.planning.currentProposal);
             }.try_into();
             if let Ok(Serde(current_proposal_id)) = maybe_current_proposal_id {
                 if !self.awaiting_preview_update {
@@ -196,7 +196,7 @@ impl BrowserUI {
                 flatten_instances(&car_instances).into();
 
             js! {
-                window.cbclient.setState(oldState => update(oldState, {
+                window.cbReactApp.setState(oldState => update(oldState, {
                     transport: {rendering: {
                         carInstances: {"$set": @{car_instances_js}}
                     }}
@@ -214,7 +214,7 @@ impl BrowserUI {
         #[cfg(feature = "browser")]
         {
             js! {
-                window.cbclient.setState(oldState => update(oldState, {
+                window.cbReactApp.setState(oldState => update(oldState, {
                     simulation: {
                         ticks: {"$set": @{current_instant.ticks() as u32}},
                         time: {"$set": @{
@@ -238,7 +238,7 @@ impl BrowserUI {
             if !master_update.is_empty() {
                 self.master_plan.apply_update(master_update);
                 js! {
-                    window.cbclient.setState(oldState => update(oldState, {
+                    window.cbReactApp.setState(oldState => update(oldState, {
                         planning: {
                             master: {"$set": @{Serde(&self.master_plan)}},
                         }
@@ -250,7 +250,7 @@ impl BrowserUI {
                     ProposalUpdate::None => {}
                     ProposalUpdate::ChangedOngoing(new_ongoing) => {
                         js! {
-                            window.cbclient.setState(oldState => update(oldState, {
+                            window.cbReactApp.setState(oldState => update(oldState, {
                                 planning: {
                                     proposals: {
                                         [@{Serde(*proposal_id)}]: {
@@ -267,7 +267,7 @@ impl BrowserUI {
                     }
                     ProposalUpdate::ChangedCompletely(new_proposal) => {
                         js! {
-                            window.cbclient.setState(oldState => update(oldState, {
+                            window.cbReactApp.setState(oldState => update(oldState, {
                                 planning: {
                                     proposals: {
                                         [@{Serde(*proposal_id)}]: {"$set": @{Serde(new_proposal)}}
@@ -279,7 +279,7 @@ impl BrowserUI {
                     }
                     ProposalUpdate::Removed => {
                         js! {
-                           window.cbclient.setState(oldState => update(oldState, {
+                           window.cbReactApp.setState(oldState => update(oldState, {
                                planning: {
                                    proposals: {
                                        "$unset": [@{Serde(*proposal_id)}]
@@ -522,7 +522,7 @@ SwitchLanePrototype, IntersectionPrototype};
                 .update(building_outlines_rem, building_outlines_add);
 
             js! {
-                window.cbclient.setState(oldState => update(oldState, {
+                window.cbReactApp.setState(oldState => update(oldState, {
                     planning: {rendering: {
                         currentPreview: {
                             lanesToConstructGroups: {
@@ -575,7 +575,7 @@ SwitchLanePrototype, IntersectionPrototype};
                     .update(None, Some((id, switch_marker_gap_mesh(lane_path))));
 
                 js!{
-                    window.cbclient.setState(oldState => update(oldState, {
+                    window.cbReactApp.setState(oldState => update(oldState, {
                         transport: {rendering: {
                             laneMarkerGapGroups: {
                                 "$add": @{updated_groups_to_js(
@@ -591,7 +591,7 @@ SwitchLanePrototype, IntersectionPrototype};
 
                 if on_intersection {
                     js!{
-                        window.cbclient.setState(oldState => update(oldState, {
+                        window.cbReactApp.setState(oldState => update(oldState, {
                             transport: {rendering: {
                                 laneAsphaltGroups: {
                                     "$add": @{updated_groups_to_js(
@@ -607,7 +607,7 @@ SwitchLanePrototype, IntersectionPrototype};
                         .lane_marker_grouper
                         .update(None, Some((id, marker_meshes.0 + marker_meshes.1)));
                     js!{
-                        window.cbclient.setState(oldState => update(oldState, {
+                        window.cbReactApp.setState(oldState => update(oldState, {
                             transport: {rendering: {
                                 laneAsphaltGroups: {
                                     "$add": @{updated_groups_to_js(
@@ -641,7 +641,7 @@ SwitchLanePrototype, IntersectionPrototype};
                     self.lane_marker_gaps_grouper.update(Some(id), None);
 
                 js!{
-                    window.cbclient.setState(oldState => update(oldState, {
+                    window.cbReactApp.setState(oldState => update(oldState, {
                         transport: {rendering: {
                             laneMarkerGapGroups: {
                                 "$add": @{updated_groups_to_js(
@@ -656,7 +656,7 @@ SwitchLanePrototype, IntersectionPrototype};
 
                 if on_intersection {
                     js!{
-                        window.cbclient.setState(oldState => update(oldState, {
+                        window.cbReactApp.setState(oldState => update(oldState, {
                             transport: {rendering: {
                                 laneAsphaltGroups: {
                                     "$add": @{updated_groups_to_js(
@@ -670,7 +670,7 @@ SwitchLanePrototype, IntersectionPrototype};
                     let updated_lane_marker_groups =
                         self.lane_marker_grouper.update(Some(id), None);
                     js!{
-                        window.cbclient.setState(oldState => update(oldState, {
+                        window.cbReactApp.setState(oldState => update(oldState, {
                             transport: {rendering: {
                                 laneAsphaltGroups: {
                                     "$add": @{updated_groups_to_js(
@@ -716,7 +716,7 @@ SwitchLanePrototype, IntersectionPrototype};
             );
 
             js!{
-                window.cbclient.setState(oldState => update(oldState, {
+                window.cbReactApp.setState(oldState => update(oldState, {
                     landUse: {rendering: {
                         wall: {[@{Serde(id)}]: {"$set": @{to_js_mesh(&meshes.wall)}}},
                         brickRoof: {
@@ -747,7 +747,7 @@ SwitchLanePrototype, IntersectionPrototype};
         #[cfg(feature = "browser")]
         {
             js!{
-                window.cbclient.setState(oldState => update(oldState, {
+                window.cbReactApp.setState(oldState => update(oldState, {
                     landUse: {rendering: {
                         wall: {"$unset": [@{Serde(id)}]},
                         brickRoof: {"$unset": [@{Serde(id)}]},
@@ -770,7 +770,7 @@ SwitchLanePrototype, IntersectionPrototype};
         #[cfg(feature = "browser")]
         {
             js!{
-                window.cbclient.setState(oldState => update(oldState, {
+                window.cbReactApp.setState(oldState => update(oldState, {
                     households: {
                         inspectedBuildingState: {"$set": {
                             households: @{Serde(households)},
@@ -791,7 +791,7 @@ SwitchLanePrototype, IntersectionPrototype};
         #[cfg(feature = "browser")]
         {
             js!{
-                window.cbclient.setState(oldState => update(oldState, {
+                window.cbReactApp.setState(oldState => update(oldState, {
                     households: {
                         householdInfo: {
                             [@{Serde(id)}]: {"$set": {

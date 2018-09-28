@@ -57,7 +57,7 @@ require('../target/wasm32-unknown-unknown/release/citybound_browser').then(cbRus
         }
     };
 
-    class CityboundClient extends React.Component {
+    class CityboundReactApp extends React.Component {
         constructor(props) {
             super(props);
 
@@ -153,7 +153,7 @@ require('../target/wasm32-unknown-unknown/release/citybound_browser').then(cbRus
         }
     }
 
-    window.cbclient = ReactDOM.render(<CityboundClient />, document.getElementById('app'));
+    window.cbReactApp = ReactDOM.render(<CityboundReactApp />, document.getElementById('app'));
 
     cbRustBrowser.start();
 });

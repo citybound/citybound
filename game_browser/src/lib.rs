@@ -90,7 +90,7 @@ impl MainLoop {
         use ::stdweb::serde::Serde;
 
         js!{
-            window.cbclient.setState(oldState => update(oldState, {
+            window.cbReactApp.setState(oldState => update(oldState, {
                 system: {
                     networkingTurns: {"$set": @{Serde(system.networking_debug_all_n_turns())}},
                     queueLengths: {"$set": @{Serde(system.get_queue_lengths())}},
@@ -98,7 +98,7 @@ impl MainLoop {
                 }
             }));
 
-            window.cbclient.onFrame();
+            window.cbReactApp.onFrame();
         }
 
         if self.skip_turns == 0 {
