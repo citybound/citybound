@@ -3,6 +3,7 @@ import update from 'immutability-helper';
 
 export const initialState = {
     buildingPositions: {},
+    buildingShapes: {},
     inspectedBuilding: null,
     inspectedBuildingState: null,
     householdInfo: {},
@@ -15,18 +16,23 @@ export function render(state, setState) {
 
     const { inspectedBuilding, inspectedBuildingState, householdInfo } = state.households;
 
-    const windows = inspectedBuilding && <BuildingInfo {...{ inspectedBuilding, inspectedBuildingState, householdInfo }} />;
+    const closeWindow = () => setState(oldState => update(oldState, {
+        households: {
+            inspectedBuilding: { $set: null },
+            inspectedBuildingState: { $set: null },
+        }
+    }));
 
-    const interactables = Object.keys(state.households.buildingPositions).map(buildingId => {
-        const buildingPosition2d = state.households.buildingPositions[buildingId];
-        const buildingPosition = [buildingPosition2d[0], buildingPosition2d[1], 0];
+    const windows = inspectedBuilding && <BuildingInfo {...{ inspectedBuilding, inspectedBuildingState, householdInfo, closeWindow }} />;
+
+    const interactables = Object.keys(state.households.buildingShapes).map(buildingId => {
+        const buildingShape = state.households.buildingShapes[buildingId];
 
         return {
             id: buildingId,
             shape: {
-                type: "circle",
-                center: buildingPosition,
-                radius: 3
+                type: "polygon",
+                area: buildingShape,
             },
             zIndex: 2,
             cursorHover: "pointer",
@@ -70,6 +76,7 @@ class BuildingInfo extends React.Component {
     render() {
         return <div className="window building">
             <p>Building ID {this.props.inspectedBuilding}</p>
+            <a className="close-window" onClick={this.props.closeWindow}>×</a>
             {this.props.inspectedBuildingState && [
                 <h1>{this.props.inspectedBuildingState.style}</h1>,
                 this.props.inspectedBuildingState.households.map(id => [

@@ -12,7 +12,6 @@ use michelangelo::{MeshGrouper, Instance};
 use planning::{ProposalID, Proposal, PrototypeID, PlanHistory, PlanResult,
 PlanHistoryUpdate, ProposalUpdate, PlanResultUpdate, ActionGroups};
 use ::land_use::zone_planning::{LandUse, LAND_USES};
-use kay::TypedID;
 #[cfg(feature = "browser")]
 use stdweb::serde::Serde;
 
@@ -210,7 +209,7 @@ impl BrowserUI {
         &mut self,
         current_instant: ::simulation::Instant,
         speed: u16,
-        world: &mut World,
+        _world: &mut World,
     ) {
         #[cfg(feature = "browser")]
         {
@@ -727,9 +726,14 @@ SwitchLanePrototype, IntersectionPrototype};
                         field: {
                             [@{Serde(id)}]: {"$set": @{to_js_mesh(&meshes.field)}}},
                     }},
-                    households: {buildingPositions: {[@{Serde(id)}]: {
-                        "$set": @{Serde(lot.center_point())}
-                    }}}
+                    households: {
+                        buildingPositions: {[@{Serde(id)}]: {
+                            "$set": @{Serde(lot.center_point())}
+                        }},
+                        buildingShapes: {[@{Serde(id)}]: {
+                            "$set": @{Serde(lot.area.clone())}
+                        }}
+                    }
                 }));
             }
         }

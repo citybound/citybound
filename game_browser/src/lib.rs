@@ -131,3 +131,11 @@ pub use simulation_browser::*;
 
 mod households_browser;
 pub use households_browser::*;
+
+use stdweb::serde::Serde;
+
+#[js_export]
+pub fn point_in_area(point: Serde<descartes::P2>, area: Serde<descartes::Area>) -> bool {
+    use ::descartes::PointContainer;
+    area.0.contains(point.0)
+}
