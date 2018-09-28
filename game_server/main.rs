@@ -129,7 +129,11 @@ fn main() {
                 Response::html(rendered)
             } else if let Some(asset) = Asset::get(&request.url()[1..]) {
                 Response::from_data(
-                    extension_to_mime(request.url().split('.').last().unwrap_or("")),
+                    if request.url().ends_with(".wasm") {
+                        "application/wasm"
+                    } else {
+                        extension_to_mime(request.url().split('.').last().unwrap_or(""))
+                    },
                     asset,
                 )
             } else {

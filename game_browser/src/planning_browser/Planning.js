@@ -2,7 +2,6 @@ import colors, { toCSS, fromLinFloat } from '../colors';
 import renderOrder from '../renderOrder';
 import React from 'react';
 import { vec3, mat4 } from 'gl-matrix';
-import * as cityboundBrowser from '../../Cargo.toml';
 import uuid from '../uuid';
 import { Button, Select } from 'antd';
 const Option = Select.Option;
@@ -80,7 +79,7 @@ function getGestureAsOf(state, proposalId, gestureId) {
 }
 
 function moveControlPoint(proposalId, gestureId, pointIdx, newPosition, doneMoving) {
-    cityboundBrowser.move_gesture_point(proposalId, gestureId, pointIdx, [newPosition[0], newPosition[1]], doneMoving);
+    cbRustBrowser.move_gesture_point(proposalId, gestureId, pointIdx, [newPosition[0], newPosition[1]], doneMoving);
 
     if (!doneMoving) {
 
@@ -113,7 +112,7 @@ function moveControlPoint(proposalId, gestureId, pointIdx, newPosition, doneMovi
 function startNewGesture(proposalId, intent, startPoint) {
     let gestureId = uuid();
 
-    cityboundBrowser.start_new_gesture(proposalId, gestureId, intent, [startPoint[0], startPoint[1]]);
+    cbRustBrowser.start_new_gesture(proposalId, gestureId, intent, [startPoint[0], startPoint[1]]);
 
     return oldState => update(oldState, {
         planning: {
@@ -127,7 +126,7 @@ function startNewGesture(proposalId, intent, startPoint) {
 }
 
 function addControlPoint(proposalId, gestureId, point, addToEnd, doneAdding) {
-    cityboundBrowser.add_control_point(proposalId, gestureId, [point[0], point[1]], addToEnd, doneAdding);
+    cbRustBrowser.add_control_point(proposalId, gestureId, [point[0], point[1]], addToEnd, doneAdding);
 
     if (doneAdding) {
         return oldState => update(oldState, {
@@ -143,7 +142,7 @@ function addControlPoint(proposalId, gestureId, point, addToEnd, doneAdding) {
 }
 
 function finishGesture(proposalId, gestureId) {
-    cityboundBrowser.finish_gesture();
+    cbRustBrowser.finish_gesture();
 
     return oldState => update(oldState, {
         planning: {
@@ -155,7 +154,7 @@ function finishGesture(proposalId, gestureId) {
 }
 
 function implementProposal(oldState) {
-    cityboundBrowser.implement_proposal(oldState.planning.currentProposal);
+    cbRustBrowser.implement_proposal(oldState.planning.currentProposal);
     return update(oldState, {
         planning: {
             $unset: ['currentProposal'],

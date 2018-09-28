@@ -1,7 +1,6 @@
 import React from 'react';
 import { Slider } from 'antd';
 import update from 'immutability-helper';
-import * as cityboundBrowser from '../../Cargo.toml';
 
 export const initialState = {
     ticks: 0,
@@ -20,7 +19,7 @@ export function render(state, setState) {
             marks={{ 0: "||", 1: "1x", 3: "4x", 6: "32x" }}
             onChange={newSpeedLog => {
                 const newSpeed = newSpeedLog == 0 ? 0 : Math.pow(2, newSpeedLog - 1);
-                cityboundBrowser.set_sim_speed(newSpeed);
+                cbRustBrowser.set_sim_speed(newSpeed);
                 setState(oldState => update(oldState, { simulation: { speed: { $set: newSpeed } } }));
             }}
             tipFormatter={speed => speed ? `Speed: ${Math.pow(2, speed - 1)}x` : "Pause"}

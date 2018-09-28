@@ -1,5 +1,4 @@
 import React from 'react';
-import * as cityboundBrowser from '../../Cargo.toml';
 import update from 'immutability-helper';
 
 export const initialState = {
@@ -50,10 +49,10 @@ class BuildingInfo extends React.Component {
         super(props);
 
         this.refresh = () => {
-            cityboundBrowser.get_building_info(this.props.inspectedBuilding);
+            cbRustBrowser.get_building_info(this.props.inspectedBuilding);
             if (this.props.inspectedBuildingState) {
                 for (let householdId of this.props.inspectedBuildingState.households) {
-                    cityboundBrowser.get_household_info(householdId);
+                    cbRustBrowser.get_household_info(householdId);
                 }
             }
         }

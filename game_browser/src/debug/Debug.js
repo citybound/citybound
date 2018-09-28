@@ -1,5 +1,4 @@
 import React from 'react';
-import * as cityboundBrowser from '../../Cargo.toml';
 import { Button, InputNumber } from 'antd';
 
 export const initialState = {
@@ -50,7 +49,7 @@ export function render(state, setState) {
                         min={0} />
 
                     <Button
-                        onClick={() => cityboundBrowser.plan_grid(
+                        onClick={() => cbRustBrowser.plan_grid(
                             state.planning.currentProposal,
                             state.debug.planGridSettings.n,
                             state.debug.planGridSettings.spacing
@@ -67,7 +66,7 @@ export function render(state, setState) {
                         debug: { spawnCarsSettings: { triesPerLane: { $set: triesPerLane } } }
                     }))}
                     min={1} /> <Button
-                        onClick={() => cityboundBrowser.spawn_cars(
+                        onClick={() => cbRustBrowser.spawn_cars(
                             state.debug.spawnCarsSettings.triesPerLane
                         )}>Spawn cars</Button>
             </div>

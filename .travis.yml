@@ -46,11 +46,11 @@ before_install:
 install:
   - curl https://sh.rustup.rs -sSf | sh -s -- -y
   - source $HOME/.cargo/env
-  - travis_wait npm run ensure-tooling
+  - npm run ensure-tooling
 
 script:
-  - travis_wait npm run build-browser
-  - travis_wait npm run build-server-bundle
+  - npm run build-browser
+  - npm run build-server-bundle
   - cd target/release/
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mv citybound citybound-$(cat ../../.version) && tar -pczf citybound-$(cat ../../.version)-linux.tar.gz citybound-$(cat ../../.version) && mv citybound-$(cat ../../.version)-linux.tar.gz ../.. ; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mv citybound citybound-$(cat ../../.version).command && zip citybound-$(cat ../../.version)-osx.zip citybound-$(cat ../../.version).command  && mv citybound-$(cat ../../.version)-osx.zip ../.. ; fi
