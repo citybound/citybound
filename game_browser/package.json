@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build-rust": "cargo-web build && cp target/wasm32-unknown-unknown/release/citybound_browser.wasm dist",
+    "build-rust": "cargo-web build && copyfiles -f 'target/wasm32-unknown-unknown/release/citybound_browser.wasm' dist",
     "build": "npm run build-rust && ./node_modules/.bin/parcel build index.html --no-minify --log-level 3",
     "start": "npm run build-rust && ./node_modules/.bin/parcel watch index.html --no-hmr --log-level 3"
   },
@@ -19,6 +19,7 @@
     "stacktrace-js": "^2.0.0"
   },
   "devDependencies": {
+    "copyfiles": "^2.1.0",
     "less": "^3.8.1"
   },
   "less": {
