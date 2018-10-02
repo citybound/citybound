@@ -31,7 +31,7 @@ export function render(state, settingsSpecs, setState) {
         <Tabs type="card" size="large" activeKey={state.menu.tabKey} onChange={newTabKey => setState(oldState => update(oldState, { menu: { tabKey: { $set: newTabKey } } }))}>
             <TabPane tab="About" key="about">
                 {svg}
-                <a className="become-patron" href="https://patreon.com/citybound" target="_blank">" "</a>
+                <a className="become-patron" href="https://patreon.com/citybound" target="_blank"> </a>
                 <h2>{window.cbversion}</h2>
                 <p>THIS IS A LIVE BUILD OF CITYBOUND AND THUS NOT A STABLE RELEASE.</p>
                 <p style={{ width: "30em" }}>Expect nothing to work and a lot to be missing. See the issues below (from Github) to get an overview of the most glaring known problems and remaining tasks for the currently upcoming release.</p>
@@ -41,7 +41,7 @@ export function render(state, settingsSpecs, setState) {
             </TabPane>
             <TabPane tab="Credits" key="credits">
                 {svg}
-                <a className="become-patron" href="https://patreon.com/citybound" target="_blank">" "</a>
+                <a className="become-patron" href="https://patreon.com/citybound" target="_blank"> </a>
                 <p>is being developed by:</p>
                 <p><img src={aePlayLogo} width={60} /> aka. Anselm Eickhoff</p>
                 <h4>With the generous support of these Patrons:</h4>

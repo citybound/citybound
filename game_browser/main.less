@@ -207,37 +207,50 @@ button {
 
     button {
         width: 3rem;
-        height: 2rem;
+        height: 3rem;
+        padding: 0.5rem 0;
         border: none;
         margin: 0;
-        background-color: #bbbbbb;
-        border-radius: 2px;
-        border: 1px solid transparent;
-        -webkit-backdrop-filter: blur(10px);
-        background-position: center center;
-        background-size: 24px 24px;
-        background-repeat: no-repeat no-repeat;
-        filter: invert(100%);
+        background-color: transparent;
 
-        &:hover {
+        .button-icon {
+            height: 100%;
+            background-color: #bbbbbb;
+            border-radius: 2px;
+            border: 1px solid transparent;
+            background-position: center center;
+            background-size: 24px 24px;
+            background-repeat: no-repeat no-repeat;
+            -webkit-backdrop-filter: blur(10px);
+            filter: invert(100%);
+        }
+
+        &:hover .button-icon {
             border: 1px solid #000000;
         }
 
-        &.active {
+        &.active .button-icon {
             filter: none;
             background-color: #ffffff;
             border: 1px solid transparent;
+        }
+
+        &.disabled .button-icon {
+            filter: invert(30%);
+            opacity: 0.31;
+            border: none;
+            cursor: default;
         }
     }
 }
 
 
 
-#planning {
+#planning .button-icon {
     background-image: url('./assets/icons/icons8-pencil.png');
 }
 
-#inspection {
+#inspection .button-icon {
     background-image: url('./assets/icons/icons8-visible.png');
 }
 
@@ -245,7 +258,7 @@ button {
     margin-left: auto;
 }
 
-#menu {
+#menu .button-icon {
     background-image: url('./assets/icons/icons8-menu.png');
 }
 
@@ -340,15 +353,24 @@ button {
     background-repeat: no-repeat;
 }
 
-#budgeting {
+#budgeting .button-icon {
     background-image: url('./assets/icons/icons8-cash.png');
 }
 
-#roads {
+#undo .button-icon {
+    background-image: url('./assets/icons/icons8-undo.png');
+}
+
+#redo .button-icon {
+    background-image: url('./assets/icons/icons8-redo.png');
+}
+
+
+#roads .button-icon {
     background-image: url('./assets/icons/icons8-road.png');
 }
 
-#zoning {
+#zoning .button-icon {
     background-image: url('./assets/icons/icons8-categorize.png');
 }
 
@@ -361,50 +383,52 @@ button {
     button {
         width: 2.75em;
         height: 2.75em;
-        background-blend-mode: overlay;
-        background-clip: padding-box;
-        border-radius: 1.5em;
-        opacity: 1.0;
-        border: 1px solid #555555;
-        padding: 2px;
-        background-clip: content-box;
+        padding: 0;
+        .button-icon {
+            background-blend-mode: overlay;
+            background-clip: padding-box;
+            border-radius: 1.5em;
+            opacity: 1.0;
+            border: 1px solid #555555;
+            padding: 2px;
+            background-clip: content-box;
+            filter: none;
+        }
 
-        filter: none;
-
-        &:hover {
+        &:hover .button-icon {
             border: 1px solid #fff;
         }
 
-        &.active {
+        &.active .button-icon {
             border: 3px solid #fff;
         }
     }
 
-    #residential {
+    #residential .button-icon {
         background-image: url('./assets/icons/icons8-cottage.png');
     }
     
-    #commercial {
+    #commercial .button-icon {
         background-image: url('./assets/icons/icons8-shop.png');
     }
     
-    #offices {
+    #offices .button-icon {
         background-image: url('./assets/icons/icons8-company.png');
     }
     
-    #industrial {
+    #industrial .button-icon {
         background-image: url('./assets/icons/icons8-factory.png');
     }
     
-    #agricultural {
+    #agricultural .button-icon {
         background-image: url('./assets/icons/icons8-farm.png');
     }
     
-    #recreational {
+    #recreational .button-icon {
         background-image: url('./assets/icons/icons8-forest.png');
     }
     
-    #official {
+    #official .button-icon {
         background-image: url('./assets/icons/icons8-city_hall.png');
     }
 }

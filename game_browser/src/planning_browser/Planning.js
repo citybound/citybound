@@ -52,6 +52,16 @@ export const settingsSpec = {
             key: /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? 'command+enter' : 'ctrl+enter'
         }, description: "Implement Plan"
     },
+    undoKey: {
+        default: {
+            key: /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? 'command+z' : 'ctrl+z'
+        }, description: "Undo Plan Step"
+    },
+    redoKey: {
+        default: {
+            key: /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? 'command+shift+z' : 'ctrl+shift+z'
+        }, description: "Redo Plan Step"
+    },
     finishGestureDistance: { default: 3.0, description: "Finish Gesture Double-Click Distance", min: 0.5, max: 10.0, step: 0.1 }
 }
 
@@ -365,38 +375,46 @@ export function render(state, setState) {
             >{Object.keys(state.planning.proposals).map(proposalId =>
                 <Option value={proposalId}>Proposal '{proposalId.split("-")[0]}'</Option>
             )}</Select>,
-            state.planning.currentProposal &&
-            <Button type="primary"
-                onClick={() => setState(implementProposal)}
-            >Implement</Button>,
-            state.planning.currentProposal &&
-            <Toolbar id="planning-toolbar"
-                options={{ roads: { description: "Roads" }, zoning: { description: "Zoning" } }}
-                value={state.planning.planningMode}
-                onChange={(value) => setState(oldState => update(oldState, {
-                    planning: {
-                        planningMode: { $set: value },
-                        canvasMode: { intent: { $set: value == "roads" ? { Road: { n_lanes_forward: 2, n_lanes_backward: 2 } } : null } }
-                    }
-                }))} />,
-            state.planning.currentProposal && state.planning.planningMode == "zoning" &&
-            <Toolbar id="zoning-toolbar"
-                options={{
-                    Residential: { description: "Residential", color: toCSS(fromLinFloat(colors["Residential"])) },
-                    Commercial: { description: "Commercial", color: toCSS(fromLinFloat(colors["Commercial"])) },
-                    Industrial: { description: "Industrial", color: toCSS(fromLinFloat(colors["Industrial"])) },
-                    Agricultural: { description: "Agricultural", color: toCSS(fromLinFloat(colors["Agricultural"])) },
-                    Recreational: { description: "Recreational", color: toCSS(fromLinFloat(colors["Recreational"])) },
-                    Official: { description: "Official", color: toCSS(fromLinFloat(colors["Official"])) }
-                }}
-                value={state.planning.canvasMode.intent && state.planning.canvasMode.intent.Zone && state.planning.canvasMode.intent.Zone.LandUse}
-                onChange={newLandUse => setState(oldState => update(oldState, {
-                    planning: {
-                        canvasMode: {
-                            intent: { $set: { Zone: { LandUse: newLandUse } } }
+            state.planning.currentProposal && [
+                <Button type="primary"
+                    onClick={() => setState(implementProposal)}
+                >Implement</Button>,
+                <Toolbar id="planning-history-toolbar"
+                    options={{
+                        undo: { description: "Undo", disabled: !state.planning.proposals[state.planning.currentProposal].undoable_history.length },
+                        redo: { description: "Redo", disabled: !state.planning.proposals[state.planning.currentProposal].redoable_history.length },
+                    }}
+                    onChange={value => value == "undo" ? cbRustBrowser.undo(state.planning.currentProposal) : cbRustBrowser.redo(state.planning.currentProposal)}
+                />,
+                state.planning.currentProposal &&
+                <Toolbar id="planning-toolbar"
+                    options={{ roads: { description: "Roads" }, zoning: { description: "Zoning" } }}
+                    value={state.planning.planningMode}
+                    onChange={(value) => setState(oldState => update(oldState, {
+                        planning: {
+                            planningMode: { $set: value },
+                            canvasMode: { intent: { $set: value == "roads" ? { Road: { n_lanes_forward: 2, n_lanes_backward: 2 } } : null } }
                         }
-                    }
-                }))} />
+                    }))} />,
+                state.planning.currentProposal && state.planning.planningMode == "zoning" &&
+                <Toolbar id="zoning-toolbar"
+                    options={{
+                        Residential: { description: "Residential", color: toCSS(fromLinFloat(colors["Residential"])) },
+                        Commercial: { description: "Commercial", color: toCSS(fromLinFloat(colors["Commercial"])) },
+                        Industrial: { description: "Industrial", color: toCSS(fromLinFloat(colors["Industrial"])) },
+                        Agricultural: { description: "Agricultural", color: toCSS(fromLinFloat(colors["Agricultural"])) },
+                        Recreational: { description: "Recreational", color: toCSS(fromLinFloat(colors["Recreational"])) },
+                        Official: { description: "Official", color: toCSS(fromLinFloat(colors["Official"])) }
+                    }}
+                    value={state.planning.canvasMode.intent && state.planning.canvasMode.intent.Zone && state.planning.canvasMode.intent.Zone.LandUse}
+                    onChange={newLandUse => setState(oldState => update(oldState, {
+                        planning: {
+                            canvasMode: {
+                                intent: { $set: { Zone: { LandUse: newLandUse } } }
+                            }
+                        }
+                    }))} />
+            ]
         ]
     ];
 
@@ -452,8 +470,12 @@ export function render(state, setState) {
 
 export function bindInputs(state, setState) {
     const inputActions = {
-        "implementProposal": () => setState(implementProposal)
+        "implementProposal": () => setState(implementProposal),
+        "undo": () => setState(oldState => { cbRustBrowser.undo(oldState.planning.currentProposal); return oldState }),
+        "redo": () => setState(oldState => { cbRustBrowser.redo(oldState.planning.currentProposal); return oldState })
     }
 
     Mousetrap.bind(state.settings.planning.implementProposalKey.key, inputActions["implementProposal"]);
+    Mousetrap.bind(state.settings.planning.undoKey.key, inputActions["undo"]);
+    Mousetrap.bind(state.settings.planning.redoKey.key, inputActions["redo"]);
 }

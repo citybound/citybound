@@ -1,4 +1,3 @@
-#![feature(proc_macro)]
 #![feature(use_extern_macros)]
 
 #[macro_use]

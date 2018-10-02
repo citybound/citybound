@@ -70,6 +70,20 @@ pub fn finish_gesture() {
 }
 
 #[js_export]
+pub fn undo(proposal_id: Serde<::planning::ProposalID>) {
+    let system = unsafe { &mut *SYSTEM };
+    let world = &mut system.world();
+    ::planning::PlanManager::global_first(world).undo(proposal_id.0, world)
+}
+
+#[js_export]
+pub fn redo(proposal_id: Serde<::planning::ProposalID>) {
+    let system = unsafe { &mut *SYSTEM };
+    let world = &mut system.world();
+    ::planning::PlanManager::global_first(world).redo(proposal_id.0, world)
+}
+
+#[js_export]
 pub fn implement_proposal(proposal_id: Serde<::planning::ProposalID>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
