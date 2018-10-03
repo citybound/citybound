@@ -81,9 +81,9 @@ pub trait Household:
 
     fn provide_deal(&mut self, deal: &Deal, member: MemberIdx, _: &mut World) {
         let core = self.core_mut();
-        let provide_awakeness =
-            deal.delta.len() == 1 && deal.delta.get(Resource::Awakeness).is_some();
-        if !provide_awakeness {
+        let provide_wakefulness =
+            deal.delta.len() == 1 && deal.delta.get(Resource::Wakefulness).is_some();
+        if !provide_wakefulness {
             deal.delta.take_from_shared_private(
                 &mut core.resources,
                 &mut core.member_resources[member.as_idx()],

@@ -1,6 +1,6 @@
 #[derive(Copy, Clone, Debug, Hash, PartialOrd, Ord, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Resource {
-    Awakeness,
+    Wakefulness,
     Satiety,
     //Entertainment,
     //Services,
@@ -30,7 +30,7 @@ impl ::std::fmt::Display for Resource {
 impl Resource {
     pub fn description(&self) -> &'static str {
         match *self {
-            Awakeness => "How much energy a person has.",
+            Wakefulness => "How much energy a person has.",
             Satiety => "How little hungry a person is.",
             // Entertainment => "How entertained a person is.",
             // Services => "How many services a person or business needs.",

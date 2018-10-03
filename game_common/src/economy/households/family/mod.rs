@@ -40,14 +40,14 @@ impl Family {
             vec![Offer::new(
                 MemberIdx(0),
                 TimeOfDayRange::new(16, 0, 11, 0),
-                Deal::new(Some((Awakeness, 3.0)), Duration::from_hours(1)),
+                Deal::new(Some((Wakefulness, 3.0)), Duration::from_hours(1)),
                 1,
                 true,
             )].into(),
         );
 
         core.used_offers.insert(
-            Awakeness,
+            Wakefulness,
             OfferID {
                 household: id.into(),
                 idx: OfferIdx(0),
@@ -121,7 +121,7 @@ impl Household for Family {
 
     fn is_shared(resource: Resource) -> bool {
         match resource {
-            Awakeness | Satiety => false,
+            Wakefulness | Satiety => false,
             Money | Groceries => true,
             _ => unimplemented!(),
         }
@@ -130,7 +130,7 @@ impl Household for Family {
     fn supplier_shared(resource: Resource) -> bool {
         match resource {
             Money => false,
-            Awakeness | Satiety | Groceries => true,
+            Wakefulness | Satiety | Groceries => true,
             _ => unimplemented!(),
         }
     }
@@ -139,7 +139,7 @@ impl Household for Family {
         let hour = time.hours_minutes().0;
 
         let bihourly_importance = match resource {
-            Awakeness => Some([7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 7, 7]),
+            Wakefulness => Some([7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 7, 7]),
             Satiety => Some([0, 0, 5, 5, 1, 5, 5, 1, 5, 5, 1, 1]),
             Money => Some([0, 0, 3, 3, 5, 5, 5, 3, 3, 1, 1, 1]),
             Groceries => Some([0, 0, 4, 4, 1, 4, 4, 4, 4, 4, 0, 0]),
@@ -153,7 +153,8 @@ impl Household for Family {
 
     fn interesting_resources() -> &'static [Resource] {
         &[
-            Awakeness, Satiety, //Entertainment,
+            Wakefulness,
+            Satiety, //Entertainment,
             Money,
             Groceries,
             /* Furniture, */
@@ -167,8 +168,8 @@ impl Household for Family {
         for (i, member_resources) in self.core.member_resources.iter_mut().enumerate() {
             {
                 let individuality = seed((self.id, i)).gen_range(0.8, 1.2);
-                let awakeness = member_resources.mut_entry_or(Awakeness, 0.0);
-                *awakeness -= 1.0 * individuality * dt.as_hours();
+                let wakefulness = member_resources.mut_entry_or(Wakefulness, 0.0);
+                *wakefulness -= 1.0 * individuality * dt.as_hours();
             }
             {
                 let individuality = seed((self.id, i, 1u8)).gen_range(0.8, 1.2);
