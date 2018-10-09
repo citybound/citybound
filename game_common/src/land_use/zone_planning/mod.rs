@@ -1,6 +1,6 @@
 use compact::CVec;
 use descartes::{P2, V2, Area, ClosedLinePath, LinePath, PointContainer,
-AreaError, WithUniqueOrthogonal};
+AreaError, WithUniqueOrthogonal, Segment};
 use land_use::buildings::BuildingStyle;
 use ordered_float::OrderedFloat;
 
@@ -69,7 +69,9 @@ impl Lot {
         let length = longest_boundary.length();
         (
             longest_boundary.along(length / 2.0),
-            -longest_boundary.direction_along(length / 2.0).orthogonal(),
+            -longest_boundary
+                .direction_along(length / 2.0)
+                .orthogonal_right(),
         )
     }
 
@@ -80,7 +82,7 @@ impl Lot {
                 let length = boundary.length();
                 (
                     boundary.along(length / 2.0),
-                    -boundary.direction_along(length / 2.0).orthogonal(),
+                    -boundary.direction_along(length / 2.0).orthogonal_right(),
                 )
             }).collect()
     }
@@ -223,7 +225,7 @@ pub fn calculate_prototypes(
 
                 if distance > neighboring_town_distance_per_octant[octant].0 {
                     let direction = path.start_direction();
-                    let direction_orth = path.start_direction().orthogonal();
+                    let direction_orth = path.start_direction().orthogonal_right();
 
                     let corners: CVec<P2> = vec![
                         path.start() + 3.0 * direction_orth,

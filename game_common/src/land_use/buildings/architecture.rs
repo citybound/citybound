@@ -109,7 +109,7 @@ pub fn build_building<R: Rng>(
         }
         BuildingStyle::NeighboringTownConnection => {
             let length = 20.0;
-            let building_orientation_orth = building_orientation.orthogonal();
+            let building_orientation_orth = building_orientation.orthogonal_right();
 
             let vertices = vec![
                 building_position - length / 4.0 * building_orientation,
@@ -254,7 +254,7 @@ impl Footprint {
 pub fn generate_house_footprint<R: Rng>(lot: &Lot, rng: &mut R) -> (Footprint, Footprint) {
     let building_position = lot.center_point();
     let building_orientation = lot.best_road_connection().1;
-    let building_orientation_orth = building_orientation.orthogonal();
+    let building_orientation_orth = building_orientation.orthogonal_right();
 
     let footprint_width = 10.0 + rng.gen::<f32>() * 7.0;
     let footprint_depth = 7.0 + rng.gen::<f32>() * 5.0;

@@ -1,10 +1,10 @@
-use descartes::{P2, CurvedPath};
+use descartes::{P2, ArcLinePath};
 use michelangelo::{Mesh};
 use style::dimensions::CONTROL_POINT_HANDLE_RADIUS;
 
 pub fn static_meshes() -> Vec<(&'static str, Mesh)> {
     let dot_mesh = Mesh::from_path_as_band(
-        &CurvedPath::circle(P2::new(0.0, 0.0), CONTROL_POINT_HANDLE_RADIUS)
+        &ArcLinePath::circle(P2::new(0.0, 0.0), CONTROL_POINT_HANDLE_RADIUS)
             .unwrap()
             .to_line_path(),
         0.3,

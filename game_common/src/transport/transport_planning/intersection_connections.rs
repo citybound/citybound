@@ -1,5 +1,5 @@
 use compact::CVec;
-use descartes::{CurvedPath, Intersect, WithUniqueOrthogonal,
+use descartes::{ArcLinePath, Intersect, WithUniqueOrthogonal,
 RoughEq};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
@@ -11,7 +11,7 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
     // sort intersection connectors from inner to outer lanes
     for incoming_group in intersection.incoming.values_mut() {
         let base_position = incoming_group[0].position;
-        let direction_right = incoming_group[0].direction.orthogonal();
+        let direction_right = incoming_group[0].direction.orthogonal_right();
         incoming_group.sort_by_key(|connector| {
             OrderedFloat((connector.position - base_position).dot(&direction_right))
         });
@@ -19,7 +19,7 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
 
     for outgoing_group in intersection.outgoing.values_mut() {
         let base_position = outgoing_group[0].position;
-        let direction_right = outgoing_group[0].direction.orthogonal();
+        let direction_right = outgoing_group[0].direction.orthogonal_right();
         outgoing_group.sort_by_key(|connector| {
             OrderedFloat((connector.position - base_position).dot(&direction_right))
         });
@@ -42,7 +42,7 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                 outer_turn: false,
             }
         } else {
-            let is_right_of = connection_direction.dot(&straight.orthogonal()) > 0.0;
+            let is_right_of = connection_direction.dot(&straight.orthogonal_right()) > 0.0;
 
             if is_right_of {
                 ConnectionRole {
@@ -202,7 +202,7 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                                         [l.min(relevant_incoming_len - 1)];
                                     let end = relevant_outgoing_connectors
                                         [l.min(relevant_outgoing_len - 1)];
-                                    let path = CurvedPath::biarc(
+                                    let path = ArcLinePath::biarc(
                                         start.position,
                                         start.direction,
                                         end.position,

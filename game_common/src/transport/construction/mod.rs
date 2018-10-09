@@ -1,6 +1,6 @@
 use compact::CVec;
 use kay::{ActorSystem, World, Fate, Actor, TypedID};
-use descartes::{N, P2, Band, LinePath, ClosedLinePath, RoughEq, Intersect, WithUniqueOrthogonal};
+use descartes::{N, P2, Band, LinePath, ClosedLinePath, Segment, RoughEq, Intersect, WithUniqueOrthogonal};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
@@ -564,7 +564,7 @@ impl SwitchLane {
                     }).collect();
 
                 let other_is_right = (lane_start_on_other - self.construction.path.start())
-                    .dot(&self.construction.path.start_direction().orthogonal())
+                    .dot(&self.construction.path.start_direction().orthogonal_right())
                     > 0.0;
 
                 if other_is_right {

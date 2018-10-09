@@ -1,6 +1,6 @@
 use compact::{CHashMap, CVec};
 use descartes::{N, P2, V2, Band, LinePath, ClosedLinePath, Area, Intersect, WithUniqueOrthogonal,
-RoughEq, PointContainer, AreaError};
+RoughEq, PointContainer, AreaError, ArcOrLineSegment, Segment};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
@@ -138,6 +138,18 @@ impl IntersectionPrototype {
     }
 }
 
+pub fn simplify_road_path(points: CVec<P2>) -> CVec<P2> {
+    smooth_path::smooth_path_from(&points)
+        .map(|path| {
+            path.segments()
+                .flat_map(|segment| match segment {
+                    ArcOrLineSegment::Line(line) => vec![line.start()],
+                    ArcOrLineSegment::Arc(arc) => vec![arc.start(), arc.apex()],
+                }).chain(points.last().cloned())
+                .collect()
+        }).unwrap_or(points)
+}
+
 fn gesture_intent_smooth_paths(
     history: &PlanHistory,
 ) -> Vec<(GestureID, StepID, RoadIntent, LinePath)> {
@@ -232,7 +244,7 @@ pub fn calculate_prototypes(
                 .into_iter()
                 .enumerate()
                 .map(|(i, &(point, direction))| {
-                    let orthogonal = direction.orthogonal();
+                    let orthogonal = direction.orthogonal_right();
                     let half_depth = direction * END_INTERSECTION_DEPTH / 2.0;
                     let width_backward = orthogonal
                         * (f32::from(road_intent.n_lanes_backward) * LANE_DISTANCE
@@ -277,9 +289,17 @@ pub fn calculate_prototypes(
                     .split_if_intersects(other)
                     .map(|split| split.union())
                 {
-                    area_being_added = hopefully_union?.disjoint().remove(0);
-                    area_being_added_influences.add_influences(other_influences);
-                    true
+                    match hopefully_union {
+                        Ok(union) => {
+                            area_being_added = union.disjoint().remove(0);
+                            area_being_added_influences.add_influences(other_influences);
+                            true
+                        }
+                        Err(err) => {
+                            println!("Intersection union error:\n{:?}", err);
+                            true
+                        }
+                    }
                 } else {
                     false
                 }

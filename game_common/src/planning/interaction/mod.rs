@@ -226,7 +226,7 @@ impl PlanManager {
                         .chain(Some(new_point))
                         .collect(),
                     ..current_gesture.clone()
-                }
+                } //.simplify()
             } else {
                 Gesture {
                     points: Some(new_point)
@@ -234,7 +234,7 @@ impl PlanManager {
                         .chain(current_gesture.points.iter().cloned())
                         .collect(),
                     ..current_gesture.clone()
-                }
+                } //.simplify()
             };
 
             Plan::from_gestures(Some((gesture_id, changed_gesture)))
@@ -266,6 +266,10 @@ impl PlanManager {
     ) {
         let current_change = {
             let current_gesture = self.get_current_version_of(gesture_id, proposal_id);
+
+            if point_index as usize >= current_gesture.points.len() {
+                return;
+            }
 
             let mut new_gesture_points = current_gesture.points.clone();
             new_gesture_points[point_index as usize] = new_position;

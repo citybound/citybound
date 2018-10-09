@@ -37,7 +37,7 @@ impl Lot {
             .into_iter()
             .map(|(point, direction)| {
                 let depth_direction = direction;
-                let width_direction = depth_direction.orthogonal();
+                let width_direction = depth_direction.orthogonal_right();
 
                 let depth = if let MinMaxResult::MinMax(front, back) = midpoints
                     .iter()
@@ -100,7 +100,7 @@ impl Lot {
                 {
                     return Ok(Some(self.clone()));
                 } else if width_ratio > 2.0 && depth_ratio > 0.5 {
-                    let orthogonal = direction.orthogonal();
+                    let orthogonal = direction.orthogonal_right();
 
                     let corners = vec![
                         point + needed_shape.1 * direction,

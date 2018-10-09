@@ -1,4 +1,4 @@
-use descartes::{LinePath, WithUniqueOrthogonal};
+use descartes::{LinePath, Segment, WithUniqueOrthogonal};
 use compact::CVec;
 use kay::{ActorSystem, World, Actor, TypedID};
 use michelangelo::{Instance, Mesh};
@@ -101,10 +101,10 @@ impl SwitchLane {
             {
                 let position2d = segment.along(*car.position - distance_pair[0]);
                 let direction = segment.direction();
-                let rotated_direction =
-                    (direction + 0.3 * car.switch_velocity * direction.orthogonal()).normalize();
+                let rotated_direction = (direction
+                    + 0.3 * car.switch_velocity * direction.orthogonal_right()).normalize();
                 let shifted_position2d =
-                    position2d + 2.5 * direction.orthogonal() * car.switch_position;
+                    position2d + 2.5 * direction.orthogonal_right() * car.switch_position;
                 car_instances.push(Instance {
                     instance_position: [shifted_position2d.x, shifted_position2d.y, 0.0],
                     instance_direction: [rotated_direction.x, rotated_direction.y],
