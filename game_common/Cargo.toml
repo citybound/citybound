@@ -20,8 +20,8 @@ compact = { version = "0.2.13", features = ["serde-serialization"] }
 compact_macros = "0.1.0"
 kay = {version = "0.2.21", default-features = false, features = ["serde-serialization"] }
 stdweb = {version = "0.4.7", optional = true}
-descartes = {path = "../../rust-libs/descartes", features = ["compact_containers", "serde-serialization"]}
-michelangelo = {path = "../../rust-libs/michelangelo"}
+descartes = {version = "0.1.13", features = ["compact_containers", "serde-serialization"]}
+michelangelo = {version = "0.1.4"}
 
 [build-dependencies]
 kay_codegen = {version = "0.1.7", features = ["serde-serialization"]}
