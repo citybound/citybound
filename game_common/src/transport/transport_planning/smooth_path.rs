@@ -269,7 +269,8 @@ impl PartialPath {
             self.0
                 .into_iter()
                 .coalesce(|part_a, part_b| {
-                    let (start, maybe_start_direction, end, maybe_end_direction, combined_targets): (P2, Option<V2>, P2, Option<V2>, Vec<P2>) =
+                    let (start, maybe_start_direction, end, maybe_end_direction, combined_targets):
+                            (P2, Option<V2>, P2, Option<V2>, Vec<P2>) =
                         match (&part_a, &part_b) {
                             (
                                 &PartialPathSegment::Curve {
@@ -339,8 +340,8 @@ impl PartialPath {
                         };
 
                     let maybe_merged =
-                        curve_to_path(start, maybe_start_direction, end, maybe_end_direction).and_then(
-                            |combined_curve_path| {
+                        curve_to_path(start, maybe_start_direction, end, maybe_end_direction)
+                            .and_then(|combined_curve_path| {
                                 let combined_curve_path_linearized =
                                     combined_curve_path.to_line_path_with_max_angle(0.06);
                                 if combined_targets.iter().all(|target| {
@@ -357,8 +358,7 @@ impl PartialPath {
                                 } else {
                                     None
                                 }
-                            },
-                        );
+                            });
 
                     maybe_merged.ok_or((part_a, part_b))
                 }).collect(),
@@ -444,13 +444,16 @@ pub fn smooth_path_from(points: &[P2]) -> Option<ArcLinePath> {
     }]);
     let solved = initial
         .find_lines()
-        .simplify().simplify()
+        .simplify()
+        .simplify()
         .smooth_corners(2.0)
         .smooth_corners(5.0)
-        .simplify().simplify()
+        .simplify()
+        .simplify()
         .smooth_corners(10.0)
         .smooth_corners(20.0)
-        .simplify().simplify();
+        .simplify()
+        .simplify();
     solved.to_arc_line_path()
 }
 

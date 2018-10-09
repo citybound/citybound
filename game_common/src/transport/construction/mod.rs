@@ -1,6 +1,7 @@
 use compact::CVec;
 use kay::{ActorSystem, World, Fate, Actor, TypedID};
-use descartes::{N, P2, Band, LinePath, ClosedLinePath, Segment, RoughEq, Intersect, WithUniqueOrthogonal};
+use descartes::{N, P2, Band, LinePath, ClosedLinePath, Segment,
+RoughEq, Intersect, WithUniqueOrthogonal};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
