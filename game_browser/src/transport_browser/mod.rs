@@ -3,7 +3,7 @@ use compact::CVec;
 use std::collections::HashMap;
 use descartes::LinePath;
 use michelangelo::{MeshGrouper, Instance};
-use browser_ui::{FrameListener, FrameListenerID, flatten_instances, updated_groups_to_js};
+use browser_utils::{FrameListener, FrameListenerID, flatten_instances, updated_groups_to_js};
 
 #[derive(Compact, Clone)]
 pub struct BrowserTransportUI {

@@ -55,15 +55,20 @@ pub fn start() {
     ));
 
     setup_common(&mut system);
-    browser_ui::setup(&mut system);
+    browser_utils::auto_setup(&mut system);
     planning_browser::setup(&mut system);
     transport_browser::setup(&mut system);
+    simulation_browser::setup(&mut system);
+    land_use_browser::setup(&mut system);
+    households_browser::setup(&mut system);
 
     system.networking_connect();
 
-    browser_ui::spawn(&mut system.world());
     planning_browser::spawn(&mut system.world());
     transport_browser::spawn(&mut system.world());
+    simulation_browser::spawn(&mut system.world());
+    land_use_browser::spawn(&mut system.world());
+    households_browser::spawn(&mut system.world());
 
     system.process_all_messages();
 
@@ -91,7 +96,7 @@ impl MainLoop {
         if self.skip_turns == 0 {
             system.process_all_messages();
 
-            browser_ui::FrameListenerID::local_broadcast(world).on_frame(world);
+            browser_utils::FrameListenerID::local_broadcast(world).on_frame(world);
             system.process_all_messages();
 
             system.networking_send_and_receive();
@@ -136,7 +141,8 @@ pub mod debug;
 pub mod simulation_browser;
 pub mod households_browser;
 pub mod transport_browser;
-pub mod browser_ui;
+pub mod land_use_browser;
+pub mod browser_utils;
 
 use stdweb::serde::Serde;
 

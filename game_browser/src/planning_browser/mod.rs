@@ -7,7 +7,7 @@ use planning::{ProposalID, Proposal, PrototypeID, PlanHistory, PlanResult,
 PlanHistoryUpdate, ProposalUpdate, PlanResultUpdate, ActionGroups};
 use ::land_use::zone_planning::{LandUse, LAND_USES};
 use planning::ui::{PlanningUI, PlanningUIID};
-use browser_ui::{updated_groups_to_js, to_js_mesh, FrameListener, FrameListenerID};
+use browser_utils::{updated_groups_to_js, to_js_mesh, FrameListener, FrameListenerID};
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use stdweb::js_export;
