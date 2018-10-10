@@ -14,7 +14,7 @@ use construction::{ConstructionID, Constructable, ConstructableID};
 use super::transport_planning::{RoadPrototype, LanePrototype, SwitchLanePrototype,
 IntersectionPrototype};
 
-use style::dimensions::{LANE_CONNECTION_TOLERANCE, MAX_SWITCHING_LANE_DISTANCE,
+use dimensions::{LANE_CONNECTION_TOLERANCE, MAX_SWITCHING_LANE_DISTANCE,
 MIN_SWITCHING_LANE_LENGTH};
 
 impl RoadPrototype {
@@ -449,7 +449,7 @@ impl Lane {
 }
 
 use land_use::buildings::{BuildingID};
-use style::dimensions::LANE_DISTANCE;
+use dimensions::LANE_DISTANCE;
 use transport::pathfinding::PreciseLocation;
 
 impl Lane {

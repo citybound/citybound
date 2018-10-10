@@ -158,10 +158,26 @@ pub struct BrowserPlanningUINonPersistedState {
     building_outlines_grouper: MeshGrouper<PrototypeID>,
 }
 
+use descartes::{P2, ArcLinePath};
+use michelangelo::{Mesh};
+use dimensions::CONTROL_POINT_HANDLE_RADIUS;
+
+pub fn static_meshes() -> Vec<(&'static str, Mesh)> {
+    let dot_mesh = Mesh::from_path_as_band(
+        &ArcLinePath::circle(P2::new(0.0, 0.0), CONTROL_POINT_HANDLE_RADIUS)
+            .unwrap()
+            .to_line_path(),
+        0.3,
+        1.0,
+    );
+
+    vec![("GestureDot", dot_mesh)]
+}
+
 impl BrowserPlanningUI {
     pub fn spawn(id: BrowserPlanningUIID, _world: &mut World) -> BrowserPlanningUI {
         {
-            for (name, mesh) in ::planning::rendering::static_meshes() {
+            for (name, mesh) in static_meshes() {
                 js! {
                     window.cbReactApp.setState(oldState => update(oldState, {
                         planning: {rendering: {staticMeshes: {

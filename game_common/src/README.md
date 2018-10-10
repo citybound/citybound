@@ -45,7 +45,7 @@
 
 * ~~[Engine](../engine/README.md)~~
 * Simulated World
-  * [Simulation Core](core/README.md) (30% alpha)
+  * [Simulation Core](simulation/README.md) (30% alpha)
   * [Transport](transport/README.md) (20% alpha)
   * [Economy & Household Behaviour](economy/README.md) (5% alpha)
   * ~~[Construction](construction/README.md)~~ (20% alpha)

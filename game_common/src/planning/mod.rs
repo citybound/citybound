@@ -10,7 +10,6 @@ use transport::transport_planning::{RoadIntent, RoadPrototype};
 use land_use::zone_planning::{ZoneIntent, BuildingIntent, LotPrototype};
 use construction::ConstructionID;
 
-pub mod rendering;
 pub mod interaction;
 pub mod ui;
 
@@ -752,7 +751,6 @@ impl PlanManager {
 pub fn setup(system: &mut ActorSystem) {
     system.register::<PlanManager>();
     auto_setup(system);
-    rendering::auto_setup(system);
     interaction::setup(system);
     ui::auto_setup(system);
 }

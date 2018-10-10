@@ -4,7 +4,7 @@ use kay::{ActorSystem, World, TypedID, RawID};
 use michelangelo::{Instance, Mesh};
 use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
 
-use style::dimensions::{LANE_DISTANCE, LANE_WIDTH, LANE_MARKER_WIDTH, LANE_MARKER_DASH_GAP,
+use dimensions::{LANE_DISTANCE, LANE_WIDTH, LANE_MARKER_WIDTH, LANE_MARKER_DASH_GAP,
 LANE_MARKER_DASH_LENGTH};
 
 use itertools::Itertools;
@@ -138,13 +138,6 @@ impl SwitchLane {
         ui.on_car_instances(self.id.as_raw(), self.car_instances(), world);
     }
 }
-
-const CONSTRUCTION_ANIMATION_DELAY: f32 = 120.0;
-
-const DEBUG_VIEW_LANDMARKS: bool = false;
-const DEBUG_VIEW_SIGNALS: bool = false;
-const DEBUG_VIEW_OBSTACLES: bool = false;
-const DEBUG_VIEW_TRANSFER_OBSTACLES: bool = false;
 
 pub fn on_build(lane: &Lane, world: &mut World) {
     TransportUIID::global_broadcast(world).on_lane_constructed(

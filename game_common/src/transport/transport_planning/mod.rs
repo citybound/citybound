@@ -9,7 +9,7 @@ GestureIntent, Prototype, PrototypeKind, GestureID};
 
 mod intersection_connections;
 mod smooth_path;
-use style::dimensions::{LANE_DISTANCE, CENTER_LANE_DISTANCE, MIN_SWITCHING_LANE_LENGTH,
+use dimensions::{LANE_DISTANCE, CENTER_LANE_DISTANCE, MIN_SWITCHING_LANE_LENGTH,
 SWITCHING_LANE_OVERLAP_TOLERANCE};
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]

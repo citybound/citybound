@@ -62,13 +62,6 @@ impl Obstacle {
             max_velocity: INFINITY,
         }
     }
-    fn far_behind() -> Obstacle {
-        Obstacle {
-            position: OrderedFloat(-INFINITY),
-            velocity: 0.0,
-            max_velocity: 20.0,
-        }
-    }
     fn offset_by(&self, delta: f32) -> Obstacle {
         Obstacle {
             position: OrderedFloat(*self.position + delta),

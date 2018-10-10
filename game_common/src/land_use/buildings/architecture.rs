@@ -232,23 +232,6 @@ impl Footprint {
             Mesh::new(vertices, wall_indices),
         )
     }
-
-    fn scale(&self, factor: f32) -> Footprint {
-        let center = P2::from_coordinates(
-            (self.back_left.coords
-                + self.back_right.coords
-                + self.front_left.coords
-                + self.front_right.coords)
-                / 4.0,
-        );
-
-        Footprint {
-            back_left: center + factor * (self.back_left - center),
-            back_right: center + factor * (self.back_right - center),
-            front_left: center + factor * (self.front_left - center),
-            front_right: center + factor * (self.front_right - center),
-        }
-    }
 }
 
 pub fn generate_house_footprint<R: Rng>(lot: &Lot, rng: &mut R) -> (Footprint, Footprint) {

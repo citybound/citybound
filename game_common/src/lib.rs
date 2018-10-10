@@ -1,6 +1,4 @@
-#![feature(custom_derive, iter_rfold)]
-#![allow(dead_code)]
-#![cfg_attr(feature = "cargo-clippy", allow(trivially_copy_pass_by_ref))]
+#![feature(custom_derive)]
 #![recursion_limit = "128"]
 // Enable this for memory tracking with Instruments/MacOS
 // and for much better stacktraces for memory issues
@@ -37,7 +35,7 @@ pub mod planning;
 pub mod construction;
 pub mod economy;
 pub mod land_use;
-pub mod style;
+pub mod dimensions;
 
 pub fn setup_common(system: &mut kay::ActorSystem) {
     for setup_fn in &[
