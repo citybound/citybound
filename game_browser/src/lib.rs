@@ -57,19 +57,19 @@ pub fn start() {
     setup_common(&mut system);
     browser_ui::setup(&mut system);
     planning_browser::setup(&mut system);
+    transport_browser::setup(&mut system);
 
     system.networking_connect();
 
     browser_ui::spawn(&mut system.world());
     planning_browser::spawn(&mut system.world());
+    transport_browser::spawn(&mut system.world());
 
     system.process_all_messages();
 
     js!{ console.log("After setup") }
 
-    let mut main_loop = MainLoop {
-        skip_turns: 0,
-    };
+    let mut main_loop = MainLoop { skip_turns: 0 };
 
     unsafe { SYSTEM = Box::into_raw(Box::new(system)) };
 
@@ -131,19 +131,12 @@ impl MainLoop {
     }
 }
 
-mod planning_browser;
-pub use planning_browser::*;
-
-mod debug;
-pub use debug::*;
-
-mod simulation_browser;
-pub use simulation_browser::*;
-
-mod households_browser;
-pub use households_browser::*;
-
-mod browser_ui;
+pub mod planning_browser;
+pub mod debug;
+pub mod simulation_browser;
+pub mod households_browser;
+pub mod transport_browser;
+pub mod browser_ui;
 
 use stdweb::serde::Serde;
 

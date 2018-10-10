@@ -1,37 +1,10 @@
-use kay::{World, ActorSystem, Actor, RawID, External, TypedID};
+use kay::{World, ActorSystem, Actor, TypedID};
 use compact::CVec;
-use std::collections::HashMap;
-use descartes::LinePath;
-use michelangelo::{MeshGrouper, Instance};
 use stdweb::serde::Serde;
 
 #[derive(Compact, Clone)]
 pub struct BrowserUI {
     id: BrowserUIID,
-    state: External<BrowserUINonPersistedState>,
-}
-
-impl ::std::ops::Deref for BrowserUI {
-    type Target = BrowserUINonPersistedState;
-
-    fn deref(&self) -> &BrowserUINonPersistedState {
-        &self.state
-    }
-}
-
-impl ::std::ops::DerefMut for BrowserUI {
-    fn deref_mut(&mut self) -> &mut BrowserUINonPersistedState {
-        &mut self.state
-    }
-}
-
-pub struct BrowserUINonPersistedState {
-    car_instance_buffers: HashMap<RawID, Vec<::michelangelo::Instance>>,
-    
-    // transport geometry
-    asphalt_grouper: MeshGrouper<RawID>,
-    lane_marker_grouper: MeshGrouper<RawID>,
-    lane_marker_gaps_grouper: MeshGrouper<RawID>,
 }
 
 pub fn flatten_vertices(vertices: &[::michelangelo::Vertex]) -> &[f32] {
@@ -77,49 +50,17 @@ pub trait FrameListener {
 impl BrowserUI {
     pub fn spawn(id: BrowserUIID, world: &mut World) -> BrowserUI {
         {
-            ::transport::lane::LaneID::global_broadcast(world).get_render_info(id.into(), world);
-            ::transport::lane::SwitchLaneID::global_broadcast(world)
-                .get_render_info(id.into(), world);
             ::land_use::buildings::BuildingID::global_broadcast(world)
                 .get_render_info(id.into(), world);
         }
 
-        BrowserUI {
-            id,
-            state: External::new(BrowserUINonPersistedState {
-                car_instance_buffers: HashMap::new(),
-                asphalt_grouper: MeshGrouper::new(2000),
-                lane_marker_grouper: MeshGrouper::new(2000),
-                lane_marker_gaps_grouper: MeshGrouper::new(2000),
-            }),
-        }
+        BrowserUI { id }
     }
 }
 
 impl FrameListener for BrowserUI {
     fn on_frame(&mut self, world: &mut World) {
         ::simulation::SimulationID::global_first(world).get_info(self.id_as(), world);
-
-        ::transport::lane::LaneID::global_broadcast(world).get_car_instances(self.id_as(), world);
-        ::transport::lane::SwitchLaneID::global_broadcast(world)
-            .get_car_instances(self.id_as(), world);
-
-        let mut car_instances = Vec::with_capacity(600_000);
-
-        for lane_instances in self.car_instance_buffers.values() {
-            car_instances.extend_from_slice(lane_instances);
-        }
-
-        let car_instances_js: ::stdweb::web::TypedArray<f32> =
-            flatten_instances(&car_instances).into();
-
-        js! {
-            window.cbReactApp.setState(oldState => update(oldState, {
-                transport: {rendering: {
-                    carInstances: {"$set": @{car_instances_js}}
-                }}
-            }))
-        }
     }
 }
 
@@ -143,142 +84,6 @@ impl SimulationUI for BrowserUI {
                 }
             }))
         }
-    }
-}
-
-
-
-use transport::ui::{TransportUI, TransportUIID};
-
-impl TransportUI for BrowserUI {
-    fn on_lane_constructed(
-        &mut self,
-        id: RawID,
-        lane_path: &LinePath,
-        is_switch: bool,
-        on_intersection: bool,
-        _world: &mut World,
-    ) {
-        use ::transport::ui::{lane_mesh, marker_mesh, switch_marker_gap_mesh};
-        if is_switch {
-            let updated_lane_marker_gaps_groups = self
-                .lane_marker_gaps_grouper
-                .update(None, Some((id, switch_marker_gap_mesh(lane_path))));
-
-            js!{
-                window.cbReactApp.setState(oldState => update(oldState, {
-                    transport: {rendering: {
-                        laneMarkerGapGroups: {
-                            "$add": @{updated_groups_to_js(
-                                updated_lane_marker_gaps_groups
-                            )}
-                        }
-                    }}
-                }));
-            }
-        } else {
-            let mesh = lane_mesh(lane_path);
-            let updated_asphalt_groups = self.asphalt_grouper.update(None, Some((id, mesh)));
-
-            if on_intersection {
-                js!{
-                    window.cbReactApp.setState(oldState => update(oldState, {
-                        transport: {rendering: {
-                            laneAsphaltGroups: {
-                                "$add": @{updated_groups_to_js(
-                                    updated_asphalt_groups
-                                )}
-                            }
-                        }}
-                    }));
-                }
-            } else {
-                let marker_meshes = marker_mesh(lane_path);
-                let updated_lane_marker_groups = self
-                    .lane_marker_grouper
-                    .update(None, Some((id, marker_meshes.0 + marker_meshes.1)));
-                js!{
-                    window.cbReactApp.setState(oldState => update(oldState, {
-                        transport: {rendering: {
-                            laneAsphaltGroups: {
-                                "$add": @{updated_groups_to_js(
-                                    updated_asphalt_groups
-                                )}
-                            },
-                            laneMarkerGroups: {
-                                "$add": @{updated_groups_to_js(
-                                    updated_lane_marker_groups
-                                )}
-                            }
-                        }}
-                    }));
-                }
-            }
-        }
-    }
-
-    fn on_lane_destructed(
-        &mut self,
-        id: RawID,
-        is_switch: bool,
-        on_intersection: bool,
-        _world: &mut World,
-    ) {
-        if is_switch {
-            let updated_lane_marker_gaps_groups =
-                self.lane_marker_gaps_grouper.update(Some(id), None);
-
-            js!{
-                window.cbReactApp.setState(oldState => update(oldState, {
-                    transport: {rendering: {
-                        laneMarkerGapGroups: {
-                            "$add": @{updated_groups_to_js(
-                                updated_lane_marker_gaps_groups
-                            )}
-                        }
-                    }}
-                }));
-            }
-        } else {
-            let updated_asphalt_groups = self.asphalt_grouper.update(Some(id), None);
-
-            if on_intersection {
-                js!{
-                    window.cbReactApp.setState(oldState => update(oldState, {
-                        transport: {rendering: {
-                            laneAsphaltGroups: {
-                                "$add": @{updated_groups_to_js(
-                                    updated_asphalt_groups
-                                )}
-                            }
-                        }}
-                    }));
-                }
-            } else {
-                let updated_lane_marker_groups = self.lane_marker_grouper.update(Some(id), None);
-                js!{
-                    window.cbReactApp.setState(oldState => update(oldState, {
-                        transport: {rendering: {
-                            laneAsphaltGroups: {
-                                "$add": @{updated_groups_to_js(
-                                    updated_asphalt_groups
-                                )}
-                            },
-                            laneMarkerGroups: {
-                                "$add": @{updated_groups_to_js(
-                                    updated_lane_marker_groups
-                                )}
-                            }
-                        }}
-                    }));
-                }
-            }
-        }
-    }
-
-    fn on_car_instances(&mut self, from_lane: RawID, instances: &CVec<Instance>, _: &mut World) {
-        self.car_instance_buffers
-            .insert(from_lane, instances.to_vec());
     }
 }
 
