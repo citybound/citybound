@@ -230,7 +230,7 @@ impl Lane {
     pub fn manually_spawn_car_add_lane(&self, world: &mut World) {
         if !self.connectivity.on_intersection {
             // TODO: ugly/wrong
-            TripCreator::local_first(world).add_lane_for_trip(self.id, world);
+            TripCreatorID::local_first(world).add_lane_for_trip(self.id, world);
         }
     }
 }

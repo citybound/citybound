@@ -1,6 +1,6 @@
 #![cfg_attr(feature = "cargo-clippy", allow(new_without_default_derive))]
 #![cfg_attr(feature = "cargo-clippy", allow(new_without_default))]
-use kay::{World, MachineID, ActorSystem, Actor};
+use kay::{World, MachineID, ActorSystem, TypedID};
 use compact::{CVec, COption, CHashMap};
 use descartes::{P2, AreaError};
 use util::random::{seed, RngCore, Uuid, uuid};
@@ -8,10 +8,11 @@ use std::hash::Hash;
 
 use transport::transport_planning::{RoadIntent, RoadPrototype};
 use land_use::zone_planning::{ZoneIntent, BuildingIntent, LotPrototype};
-use construction::Construction;
+use construction::ConstructionID;
 
 pub mod rendering;
 pub mod interaction;
+pub mod ui;
 
 // idea for improvement:
 // - everything (Gestures, Prototypes) immutable (helps caching)
@@ -691,7 +692,7 @@ impl PlanManager {
         match self.master_plan.calculate_result() {
             Ok(result) => {
                 let (actions, new_prototypes) = self.master_result.actions_to(&result);
-                Construction::global_first(world).implement(actions, new_prototypes, world);
+                ConstructionID::global_first(world).implement(actions, new_prototypes, world);
                 self.implemented_proposals.insert(proposal_id, proposal);
                 self.master_result = result;
 
@@ -753,6 +754,7 @@ pub fn setup(system: &mut ActorSystem) {
     auto_setup(system);
     rendering::auto_setup(system);
     interaction::setup(system);
+    ui::auto_setup(system);
 }
 
 pub fn spawn(world: &mut World) -> PlanManagerID {

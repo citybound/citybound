@@ -1,6 +1,6 @@
 use kay::{ActorSystem, World, Actor, TypedID, Fate};
 use compact::{CVec, CDict, COption, CString};
-use simulation::{Duration, TimeOfDay, Instant, Ticks, Simulation, TICKS_PER_SIM_SECOND, Sleeper,
+use simulation::{Duration, TimeOfDay, Instant, Ticks, SimulationID, TICKS_PER_SIM_SECOND, Sleeper,
 Simulatable};
 use util::async_counter::AsyncCounter;
 use util::random::{seed, Rng};
@@ -8,15 +8,10 @@ use ordered_float::OrderedFloat;
 
 pub mod tasks;
 pub mod offers;
+pub mod ui;
 
-pub mod family;
-pub mod grocery_shop;
-pub mod grain_farm;
-pub mod cow_farm;
-pub mod vegetable_farm;
-pub mod mill;
-pub mod bakery;
-pub mod neighboring_town_trade;
+pub mod household_kinds;
+use self::household_kinds::*;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct MemberIdx(u32);
@@ -31,14 +26,13 @@ impl MemberIdx {
     }
 }
 
-use super::market::{Market, Deal, EvaluatedDeal, EvaluationRequester, EvaluationRequesterID,
+use super::market::{MarketID, Deal, EvaluatedDeal, EvaluationRequester, EvaluationRequesterID,
 TripCostEstimatorID, EvaluatedSearchResult};
 use super::resources::{Resource, ResourceAmount, ResourceMap, Entry, Inventory};
 use transport::pathfinding::{RoughLocationID, RoughLocation};
 use transport::pathfinding::trip::{TripListener, TripID, TripResult, TripFate};
-use self::tasks::{Task, TaskState, TaskEndScheduler};
+use self::tasks::{Task, TaskState, TaskEndSchedulerID};
 pub use self::offers::{Offer, OfferIdx, OfferID};
-use browser_ui::BrowserUIID;
 
 const N_TOP_PROBLEMS: usize = 5;
 const DECISION_PAUSE: Ticks = Ticks(200);
@@ -113,7 +107,7 @@ pub trait Household:
         self.core_mut()
             .log
             .log(format!("Reset member {}\n", member.as_idx()).as_str());
-        TaskEndScheduler::local_first(world).deschedule(self.id_as(), member, world);
+        TaskEndSchedulerID::local_first(world).deschedule(self.id_as(), member, world);
 
         self.stop_task(member, None, world);
     }
@@ -197,7 +191,7 @@ pub trait Household:
         }
 
         for (idx, offer) in self.core().provided_offers.iter().enumerate() {
-            Market::local_first(world).withdraw(
+            MarketID::local_first(world).withdraw(
                 offer.deal.main_given(),
                 OfferID {
                     household: self.id_as(),
@@ -268,7 +262,7 @@ pub trait Household:
         let top_problems = self.top_problems(member, time);
 
         if top_problems.is_empty() {
-            Simulation::local_first(world).wake_up_in(DECISION_PAUSE, self.id_as(), world);
+            SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, self.id_as(), world);
         } else {
             let mut decision_entries = CDict::<Resource, DecisionResourceEntry>::new();
             let id_as_eval_requester = self.id_as();
@@ -300,7 +294,7 @@ pub trait Household:
                 } else {
                     core.log
                         .log(format!(" -> Doing market query for {}\n", resource).as_str());
-                    Market::global_first(world).search(
+                    MarketID::global_first(world).search(
                         instant,
                         location,
                         resource,
@@ -497,7 +491,7 @@ pub trait Household:
                 .log
                 .log("Didn't find any suitable offers at all\n");
             self.core_mut().decision_state = DecisionState::None;
-            Simulation::local_first(world).wake_up_in(DECISION_PAUSE, id_as_sleeper, world);
+            SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, id_as_sleeper, world);
         }
 
         fn most_useful_evaluated_deal(
@@ -533,7 +527,7 @@ pub trait Household:
         self.core_mut().decision_state =
             if let DecisionState::WaitingForTrip(member) = self.core().decision_state {
                 self.core_mut().member_tasks[member.as_idx()].state = TaskState::InTrip(trip);
-                Simulation::local_first(world).wake_up_in(DECISION_PAUSE, self.id_as(), world);
+                SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, self.id_as(), world);
                 DecisionState::None
             } else {
                 panic!("Should be in waiting for trip state")
@@ -633,7 +627,7 @@ pub trait Household:
         world: &mut World,
     ) {
         self.core_mut().log.log("Started task\n");
-        TaskEndScheduler::local_first(world).schedule(
+        TaskEndSchedulerID::local_first(world).schedule(
             start + self.core().member_tasks[member.as_idx()].duration,
             self.id_as(),
             member,
@@ -682,7 +676,7 @@ pub trait Household:
                     .stopped_actively_using(offer.idx, self.id_as(), member, world);
             }
 
-            Simulation::local_first(world).wake_up_in(Ticks(0), self.id_as(), world);
+            SimulationID::local_first(world).wake_up_in(Ticks(0), self.id_as(), world);
         }
     }
 
@@ -787,7 +781,7 @@ pub trait Household:
         if !offer.users.contains(&(user, using_member)) {
             offer.users.push((user, using_member));
             if !offer.is_internal && offer.users.len() >= offer.max_users as usize {
-                Market::global_first(world).withdraw(
+                MarketID::global_first(world).withdraw(
                     offer.deal.main_given(),
                     OfferID {
                         household: id_as_household,
@@ -832,7 +826,7 @@ pub trait Household:
                 && users_before >= offer.max_users as usize
                 && offer.users.len() < offer.max_users as usize
             {
-                Market::global_first(world).register(
+                MarketID::global_first(world).register(
                     offer.deal.main_given(),
                     OfferID {
                         household: id_as_household,
@@ -915,7 +909,7 @@ pub trait Household:
         }
     }
 
-    fn get_ui_info(&mut self, requester: BrowserUIID, world: &mut World) {
+    fn get_ui_info(&mut self, requester: ui::HouseholdUIID, world: &mut World) {
         requester.on_household_ui_info(self.id_as(), self.core().clone(), world);
     }
 }
@@ -969,7 +963,7 @@ impl HouseholdCore {
         assert!(n_members > 0);
 
         for (idx, offer) in provided_offers.iter().enumerate() {
-            Market::local_first(world).register(
+            MarketID::local_first(world).register(
                 offer.deal.main_given(),
                 OfferID {
                     household: owner,
@@ -1018,6 +1012,7 @@ pub fn setup(system: &mut ActorSystem) {
     mill::setup(system);
     bakery::setup(system);
     neighboring_town_trade::setup(system);
+    ui::auto_setup(system);
 }
 
 pub fn spawn(world: &mut World) {

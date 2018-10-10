@@ -3,18 +3,24 @@ name = "citybound_browser"
 version = "0.3.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 license = "AGPL-3.0"
+build = "./build.rs"
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
 stdweb = "0.4.7"
-kay = {version = "0.2.17", default-features = false, features = ["browser"]}
+serde = "1.0"
+serde_derive = "1.0"
+compact_macros = "0.1.0"
+kay = {version = "0.3.0", default-features = false, features = ["browser"]}
 
 [dependencies.citybound_common]
 path = "../game_common"
 default-features = false
-features = ["browser"]
+
+[build-dependencies]
+kay_codegen = {version = "0.2.0", features = ["serde-serialization"]}
 
 [profile.release]
 debug = true

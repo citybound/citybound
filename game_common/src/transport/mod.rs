@@ -1,7 +1,7 @@
 pub mod lane;
 pub mod construction;
 pub mod microtraffic;
-pub mod rendering;
+pub mod ui;
 
 pub mod transport_planning;
 pub mod pathfinding;
@@ -14,7 +14,7 @@ pub fn setup(system: &mut ActorSystem) {
     self::construction::setup(system);
     self::microtraffic::setup(system);
     self::pathfinding::setup(system);
-    self::rendering::setup(system);
+    self::ui::setup(system);
 }
 
 pub fn spawn(world: &mut World, simulation: SimulationID) {

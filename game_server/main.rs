@@ -14,17 +14,17 @@ struct Asset;
 extern crate clap;
 use clap::{Arg, App};
 
-use kay::Actor;
-use transport::lane::{Lane, SwitchLane};
-use economy::households::family::Family;
-use economy::households::grocery_shop::GroceryShop;
-use economy::households::grain_farm::GrainFarm;
-use economy::households::cow_farm::CowFarm;
-use economy::households::mill::Mill;
-use economy::households::bakery::Bakery;
-use economy::households::neighboring_town_trade::NeighboringTownTrade;
-use economy::households::tasks::TaskEndScheduler;
-use construction::Construction;
+use kay::TypedID;
+use transport::lane::{LaneID, SwitchLaneID};
+use economy::households::household_kinds::family::FamilyID;
+use economy::households::household_kinds::grocery_shop::GroceryShopID;
+use economy::households::household_kinds::grain_farm::GrainFarmID;
+use economy::households::household_kinds::cow_farm::CowFarmID;
+use economy::households::household_kinds::mill::MillID;
+use economy::households::household_kinds::bakery::BakeryID;
+use economy::households::household_kinds::neighboring_town_trade::NeighboringTownTradeID;
+use economy::households::tasks::TaskEndSchedulerID;
+use construction::ConstructionID;
 
 const VERSION: &str = include_str!("../.version");
 
@@ -163,24 +163,24 @@ fn main() {
             arg_matches.value_of("skip-ratio").unwrap().parse().unwrap(),
         )));
 
-        setup_all(&mut system);
+        setup_common(&mut system);
 
         let world = &mut system.world();
 
         system.networking_connect();
 
         let simulatables = vec![
-            Lane::local_broadcast(world).into(),
-            SwitchLane::local_broadcast(world).into(),
-            Family::local_broadcast(world).into(),
-            GroceryShop::local_broadcast(world).into(),
-            GrainFarm::local_broadcast(world).into(),
-            CowFarm::local_broadcast(world).into(),
-            Mill::local_broadcast(world).into(),
-            Bakery::local_broadcast(world).into(),
-            NeighboringTownTrade::local_broadcast(world).into(),
-            TaskEndScheduler::local_first(world).into(),
-            Construction::global_first(world).into(),
+            LaneID::local_broadcast(world).into(),
+            SwitchLaneID::local_broadcast(world).into(),
+            FamilyID::local_broadcast(world).into(),
+            GroceryShopID::local_broadcast(world).into(),
+            GrainFarmID::local_broadcast(world).into(),
+            CowFarmID::local_broadcast(world).into(),
+            MillID::local_broadcast(world).into(),
+            BakeryID::local_broadcast(world).into(),
+            NeighboringTownTradeID::local_broadcast(world).into(),
+            TaskEndSchedulerID::local_first(world).into(),
+            ConstructionID::global_first(world).into(),
         ];
         let simulation = simulation::spawn(world, simulatables);
         util::init::set_error_hook();

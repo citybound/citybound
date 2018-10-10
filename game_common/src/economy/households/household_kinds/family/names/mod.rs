@@ -1,5 +1,5 @@
 use super::FamilyID;
-use super::super::MemberIdx;
+use economy::households::MemberIdx;
 use util::random::{seed, Rng};
 
 // names taken from https://github.com/icebob/fakerator

@@ -122,7 +122,7 @@ impl Lane {
         report_to: ConstructionID,
         world: &mut World,
     ) -> Lane {
-        Lane::global_broadcast(world).connect(
+        LaneID::global_broadcast(world).connect(
             id,
             path.start(),
             path.end(),
@@ -131,7 +131,7 @@ impl Lane {
             world,
         );
         if !on_intersection {
-            SwitchLane::global_broadcast(world).connect_switch_to_normal(id, path.clone(), world);
+            SwitchLaneID::global_broadcast(world).connect_switch_to_normal(id, path.clone(), world);
         }
         report_to.action_done(id.into(), world);
         Lane::spawn(id, path, on_intersection, timings, world)
@@ -398,7 +398,7 @@ impl Unbuildable for Lane {
             id_as_unbuildable.disconnect(self.id_as(), world);
             disconnects_remaining += 1;
         }
-        super::rendering::on_unbuild(self, world);
+        super::ui::on_unbuild(self, world);
         unsafe {
             MEMOIZED_BANDS_OUTLINES
                 .get_or_insert_with(FnvHashMap::default)
@@ -493,10 +493,10 @@ impl SwitchLane {
         report_to: ConstructionID,
         world: &mut World,
     ) -> SwitchLane {
-        Lane::global_broadcast(world).connect_to_switch(id, world);
+        LaneID::global_broadcast(world).connect_to_switch(id, world);
 
         let lane = SwitchLane::spawn(id, path, world);
-        super::rendering::on_build_switch(&lane, world);
+        super::ui::on_build_switch(&lane, world);
 
         report_to.action_done(id.into(), world);
 
@@ -612,7 +612,7 @@ impl Unbuildable for SwitchLane {
         if let Some((right_id, _)) = self.connectivity.right {
             Into::<UnbuildableID>::into(right_id).disconnect(self.id_as(), world);
         }
-        super::rendering::on_unbuild_switch(self, world);
+        super::ui::on_unbuild_switch(self, world);
         if self.connectivity.left.is_none() && self.connectivity.right.is_none() {
             self.finalize(report_to, world);
             Fate::Die

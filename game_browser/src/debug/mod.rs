@@ -1,14 +1,18 @@
-use kay::Actor;
+use kay::{Actor, TypedID};
 use stdweb::serde::Serde;
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use stdweb::js_export;
 use SYSTEM;
 
-#[js_export]
+#[cfg_attr(
+    all(target_arch = "wasm32", target_os = "unknown"),
+    js_export
+)]
 pub fn plan_grid(proposal_id: Serde<::planning::ProposalID>, n: usize, spacing: Serde<f32>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
 
-    let plan_manager = ::planning::PlanManager::global_first(world);
+    let plan_manager = ::planning::PlanManagerID::global_first(world);
 
     use ::transport::transport_planning::RoadIntent;
     use ::planning::{GestureID, GestureIntent};
@@ -45,12 +49,15 @@ pub fn plan_grid(proposal_id: Serde<::planning::ProposalID>, n: usize, spacing: 
     }
 }
 
-#[js_export]
+#[cfg_attr(
+    all(target_arch = "wasm32", target_os = "unknown"),
+    js_export
+)]
 pub fn spawn_cars(tries_per_lane: usize) {
     use transport::lane::Lane;
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
     for _ in 0..tries_per_lane {
-        Lane::global_broadcast(world).manually_spawn_car_add_lane(world);
+        ::transport::lane::LaneID::global_broadcast(world).manually_spawn_car_add_lane(world);
     }
 }

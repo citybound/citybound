@@ -8,7 +8,7 @@ use land_use::buildings::BuildingID;
 use transport::pathfinding::RoughLocationID;
 use transport::pathfinding::trip::{TripListener, TripListenerID, TripID, TripResult};
 
-use super::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer};
+use economy::households::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer};
 
 #[derive(Compact, Clone)]
 pub struct NeighboringTownTrade {
@@ -252,7 +252,7 @@ impl Sleeper for NeighboringTownTrade {
     }
 }
 
-use super::ResultAspect;
+use economy::households::ResultAspect;
 
 impl EvaluationRequester for NeighboringTownTrade {
     fn expect_n_results(&mut self, resource: Resource, n: u32, world: &mut World) {

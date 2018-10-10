@@ -1,6 +1,6 @@
 use descartes::{LinePath, Segment, WithUniqueOrthogonal};
 use compact::CVec;
-use kay::{ActorSystem, World, Actor, TypedID};
+use kay::{ActorSystem, World, TypedID, RawID};
 use michelangelo::{Instance, Mesh};
 use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
 
@@ -8,6 +8,26 @@ use style::dimensions::{LANE_DISTANCE, LANE_WIDTH, LANE_MARKER_WIDTH, LANE_MARKE
 LANE_MARKER_DASH_LENGTH};
 
 use itertools::Itertools;
+
+pub trait TransportUI {
+    fn on_lane_constructed(
+        &mut self,
+        id: RawID,
+        lane_path: &LinePath,
+        is_switch: bool,
+        on_intersection: bool,
+        _world: &mut World,
+    );
+
+    fn on_lane_destructed(
+        &mut self,
+        id: RawID,
+        is_switch: bool,
+        on_intersection: bool,
+        _world: &mut World,
+    );
+    fn on_car_instances(&mut self, from_lane: RawID, instances: &CVec<Instance>, _: &mut World);
+}
 
 impl Lane {
     fn car_instances(&self) -> CVec<Instance> {
@@ -30,7 +50,7 @@ impl Lane {
         car_instances
     }
 
-    pub fn get_car_instances(&self, ui: BrowserUIID, world: &mut World) {
+    pub fn get_car_instances(&self, ui: TransportUIID, world: &mut World) {
         ui.on_car_instances(self.id.as_raw(), self.car_instances(), world);
     }
 }
@@ -65,10 +85,8 @@ pub fn switch_marker_gap_mesh(path: &LinePath) -> Mesh {
         }).sum()
 }
 
-use browser_ui::BrowserUIID;
-
 impl Lane {
-    pub fn get_render_info(&mut self, ui: BrowserUIID, world: &mut World) {
+    pub fn get_render_info(&mut self, ui: TransportUIID, world: &mut World) {
         ui.on_lane_constructed(
             self.id.as_raw(),
             self.construction.path.clone(),
@@ -80,7 +98,7 @@ impl Lane {
 }
 
 impl SwitchLane {
-    pub fn get_render_info(&mut self, ui: BrowserUIID, world: &mut World) {
+    pub fn get_render_info(&mut self, ui: TransportUIID, world: &mut World) {
         ui.on_lane_constructed(
             self.id.as_raw(),
             self.construction.path.clone(),
@@ -116,7 +134,7 @@ impl SwitchLane {
         car_instances
     }
 
-    pub fn get_car_instances(&mut self, ui: BrowserUIID, world: &mut World) {
+    pub fn get_car_instances(&mut self, ui: TransportUIID, world: &mut World) {
         ui.on_car_instances(self.id.as_raw(), self.car_instances(), world);
     }
 }
@@ -128,10 +146,8 @@ const DEBUG_VIEW_SIGNALS: bool = false;
 const DEBUG_VIEW_OBSTACLES: bool = false;
 const DEBUG_VIEW_TRANSFER_OBSTACLES: bool = false;
 
-use browser_ui::BrowserUI;
-
 pub fn on_build(lane: &Lane, world: &mut World) {
-    BrowserUI::global_broadcast(world).on_lane_constructed(
+    TransportUIID::global_broadcast(world).on_lane_constructed(
         lane.id.as_raw(),
         lane.construction.path.clone(),
         false,
@@ -141,7 +157,7 @@ pub fn on_build(lane: &Lane, world: &mut World) {
 }
 
 pub fn on_build_switch(lane: &SwitchLane, world: &mut World) {
-    BrowserUI::global_broadcast(world).on_lane_constructed(
+    TransportUIID::global_broadcast(world).on_lane_constructed(
         lane.id.as_raw(),
         lane.construction.path.clone(),
         true,
@@ -151,7 +167,7 @@ pub fn on_build_switch(lane: &SwitchLane, world: &mut World) {
 }
 
 pub fn on_unbuild(lane: &Lane, world: &mut World) {
-    BrowserUI::global_broadcast(world).on_lane_destructed(
+    TransportUIID::global_broadcast(world).on_lane_destructed(
         lane.id.as_raw(),
         false,
         lane.connectivity.on_intersection,
@@ -160,7 +176,7 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
 }
 
 pub fn on_unbuild_switch(lane: &SwitchLane, world: &mut World) {
-    BrowserUI::global_broadcast(world).on_lane_destructed(lane.id.as_raw(), true, false, world);
+    TransportUIID::global_broadcast(world).on_lane_destructed(lane.id.as_raw(), true, false, world);
 }
 
 pub fn setup(system: &mut ActorSystem) {

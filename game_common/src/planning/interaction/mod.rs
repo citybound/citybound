@@ -6,7 +6,7 @@ PlanManager, PlanManagerID, Gesture, GestureIntent,
 KnownHistoryState, KnownProposalState, ProposalUpdate,
 KnownPlanResultState,
 ActionGroups};
-use browser_ui::BrowserUIID;
+use super::ui::PlanningUIID;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ControlPointRef(pub GestureID, pub usize);
@@ -23,7 +23,7 @@ pub struct PlanManagerUIState {
 impl PlanManager {
     pub fn get_all_plans(
         &mut self,
-        ui: BrowserUIID,
+        ui: PlanningUIID,
         known_master: &KnownHistoryState,
         known_proposals: &CHashMap<ProposalID, KnownProposalState>,
         world: &mut World,
@@ -59,7 +59,7 @@ impl PlanManager {
 
     pub fn get_proposal_preview_update(
         &mut self,
-        ui: BrowserUIID,
+        ui: PlanningUIID,
         proposal_id: ProposalID,
         known_result: &KnownPlanResultState,
         world: &mut World,

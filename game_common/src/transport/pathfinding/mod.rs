@@ -674,7 +674,7 @@ impl Lane {
     pub fn start_debug_connectivity(&self, world: &mut World) {
         for &Location { node, .. } in self.pathfinding.routes.keys() {
             // TODO: ugly: untyped RawID shenanigans
-            if node.as_raw().local_broadcast() == Lane::local_broadcast(world).as_raw() {
+            if node.as_raw().local_broadcast() == LaneID::local_broadcast(world).as_raw() {
                 let lane = LaneID::from_raw(node.as_raw());
                 lane.highlight_as_connected(self.id, world);
             }
@@ -684,7 +684,7 @@ impl Lane {
     pub fn stop_debug_connectivity(&self, world: &mut World) {
         for &Location { node, .. } in self.pathfinding.routes.keys() {
             // TODO: ugly: untyped RawID shenanigans
-            if node.as_raw().local_broadcast() == Lane::local_broadcast(world).as_raw() {
+            if node.as_raw().local_broadcast() == LaneID::local_broadcast(world).as_raw() {
                 let lane = LaneID::from_raw(node.as_raw());
                 lane.stop_highlight_as_connected(self.id, world);
             }

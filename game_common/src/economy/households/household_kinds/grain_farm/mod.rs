@@ -5,25 +5,25 @@ use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
 use land_use::buildings::BuildingID;
 
-use super::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer};
+use economy::households::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer};
 
 #[derive(Compact, Clone)]
-pub struct Bakery {
-    id: BakeryID,
+pub struct GrainFarm {
+    id: GrainFarmID,
     site: BuildingID,
     core: HouseholdCore,
 }
 
-impl Bakery {
+impl GrainFarm {
     pub fn move_into(
-        id: BakeryID,
+        id: GrainFarmID,
         site: BuildingID,
         simulation: SimulationID,
         world: &mut World,
-    ) -> Bakery {
+    ) -> GrainFarm {
         simulation.wake_up_in(Ticks(0), id.into(), world);
 
-        Bakery {
+        GrainFarm {
             id,
             site,
             core: HouseholdCore::new(
@@ -36,20 +36,17 @@ impl Bakery {
                         MemberIdx(0),
                         TimeOfDayRange::new(7, 0, 20, 0),
                         Deal::new(
-                            vec![
-                                (Resource::BakedGoods, 100.0),
-                                (Resource::Money, -100.0 * 2.5),
-                            ],
+                            vec![(Resource::Grain, 200.0), (Resource::Money, -200.0 * 0.13)],
                             Duration::from_minutes(10),
                         ),
-                        30,
+                        4,
                         false,
                     ),
                     Offer::new(
                         MemberIdx(0),
                         TimeOfDayRange::new(5, 0, 15, 0),
-                        Deal::new(Some((Resource::Money, 50.0)), Duration::from_hours(5)),
-                        3,
+                        Deal::new(Some((Resource::Money, 40.0)), Duration::from_hours(4)),
+                        2,
                         false,
                     ),
                 ].into(),
@@ -58,7 +55,7 @@ impl Bakery {
     }
 }
 
-impl Household for Bakery {
+impl Household for GrainFarm {
     fn core(&self) -> &HouseholdCore {
         &self.core
     }
@@ -79,42 +76,18 @@ impl Household for Bakery {
         true
     }
 
-    fn importance(resource: Resource, time: TimeOfDay) -> f32 {
-        let hour = time.hours_minutes().0;
-
-        let bihourly_importance = match resource {
-            Flour | DairyGoods => Some([0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0]),
-            _ => None,
-        };
-
-        bihourly_importance
-            .map(|lookup| lookup[hour / 2] as f32)
-            .unwrap_or(0.0)
+    fn importance(_: Resource, _: TimeOfDay) -> f32 {
+        0.0
     }
 
     fn interesting_resources() -> &'static [Resource] {
-        &[
-            Resource::Money,
-            Resource::Flour,
-            Resource::DairyGoods,
-            Resource::BakedGoods,
-        ]
+        &[Resource::Money, Resource::Grain]
     }
 
     fn decay(&mut self, dt: Duration, _: &mut World) {
         {
-            let baked = self.core.resources.mut_entry_or(BakedGoods, 0.0);
-            *baked += 300.0 * dt.as_days();
-        }
-
-        {
-            let flour = self.core.resources.mut_entry_or(Flour, 0.0);
-            *flour += 300.0 * 0.1 * dt.as_days();
-        }
-
-        {
-            let dairy = self.core.resources.mut_entry_or(DairyGoods, 0.0);
-            *dairy += 300.0 * 0.05 * dt.as_days();
+            let grain = self.core.resources.mut_entry_or(Grain, 0.0);
+            *grain += 800.0 * dt.as_days();
         }
     }
 
@@ -123,18 +96,18 @@ impl Household for Bakery {
     }
 
     fn household_name(&self) -> String {
-        "Bakery".to_owned()
+        "Grain Farm".to_owned()
     }
 
     fn member_name(&self, member: MemberIdx) -> String {
-        format!("Baker {}", member.0 + 1)
+        format!("Farmer {}", member.0 + 1)
     }
 }
 
 use simulation::{Simulatable, SimulatableID, Sleeper, SleeperID, Instant, TICKS_PER_SIM_SECOND};
 const UPDATE_EVERY_N_SECS: u32 = 4;
 
-impl Simulatable for Bakery {
+impl Simulatable for GrainFarm {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
         if (current_instant.ticks() + self.id.as_raw().instance_id as usize)
             % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) as usize
@@ -145,20 +118,20 @@ impl Simulatable for Bakery {
     }
 }
 
-impl Sleeper for Bakery {
+impl Sleeper for GrainFarm {
     fn wake(&mut self, current_instant: Instant, world: &mut World) {
         self.update_core(current_instant, world);
     }
 }
 
-impl EvaluationRequester for Bakery {
+impl EvaluationRequester for GrainFarm {
     fn expect_n_results(&mut self, _r: Resource, _n: u32, _: &mut World) {}
     fn on_result(&mut self, _e: &EvaluatedSearchResult, _: &mut World) {}
 }
 
 use transport::pathfinding::{RoughLocationID, RoughLocation, RoughLocationResolve};
 
-impl RoughLocation for Bakery {
+impl RoughLocation for GrainFarm {
     fn resolve(&self) -> RoughLocationResolve {
         RoughLocationResolve::SameAs(self.site())
     }
@@ -166,7 +139,7 @@ impl RoughLocation for Bakery {
 
 use transport::pathfinding::trip::{TripListener, TripListenerID, TripID, TripResult};
 
-impl TripListener for Bakery {
+impl TripListener for GrainFarm {
     fn trip_created(&mut self, trip: TripID, world: &mut World) {
         self.on_trip_created(trip, world);
     }
@@ -184,7 +157,7 @@ impl TripListener for Bakery {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.register::<Bakery>();
+    system.register::<GrainFarm>();
     auto_setup(system);
 }
 

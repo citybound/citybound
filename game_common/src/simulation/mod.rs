@@ -2,6 +2,7 @@ use kay::{ActorSystem, World};
 use compact::CVec;
 
 mod time;
+pub mod ui;
 
 pub use self::time::{Instant, Ticks, Duration, TICKS_PER_SIM_MINUTE, TICKS_PER_SIM_SECOND,
 TimeOfDay, TimeOfDayRange};
@@ -73,19 +74,12 @@ impl Simulation {
         };
         self.sleepers.insert(insert_idx, (wake_up_at, sleeper_id));
     }
-
-    pub fn get_info(&mut self, requester: ::browser_ui::BrowserUIID, world: &mut World) {
-        requester.on_simulation_info(self.current_instant, self.speed, world);
-    }
-
-    pub fn set_speed(&mut self, speed: u16, _world: &mut World) {
-        self.speed = speed as u16;
-    }
 }
 
 pub fn setup(system: &mut ActorSystem) {
     system.register::<Simulation>();
     auto_setup(system);
+    ui::auto_setup(system);
 }
 
 pub fn spawn(world: &mut World, simulatables: Vec<SimulatableID>) -> SimulationID {

@@ -13,7 +13,7 @@ use transport::pathfinding::RoughLocationID;
 pub mod names;
 use self::names::{family_name, member_name};
 
-use super::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer, OfferID, OfferIdx};
+use economy::households::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer, OfferID, OfferIdx};
 
 #[derive(Compact, Clone)]
 pub struct Family {
@@ -66,7 +66,7 @@ impl Sleeper for Family {
     }
 }
 
-use super::ResultAspect;
+use economy::households::ResultAspect;
 
 impl EvaluationRequester for Family {
     fn expect_n_results(&mut self, resource: Resource, n: u32, world: &mut World) {

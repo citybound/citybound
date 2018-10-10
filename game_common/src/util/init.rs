@@ -17,18 +17,6 @@ pub fn ensure_crossplatform_proper_thread<F: Fn() -> () + Send + 'static>(callba
     }
 }
 
-pub fn first_time_open_wiki_release_page() {
-    let mut dir = ::std::env::temp_dir();
-    dir.push("cb_seen_wiki.txt");
-    if !::std::path::Path::new(&dir).exists() {
-        let url = "https://github.com/citybound/citybound/wiki/TODO";
-        if let Err(_err) = open::that(url) {
-            println!("Please open {:?} in your browser!", url);
-        };
-        ::std::fs::File::create(dir).expect("should be able to create tmp file");
-    }
-}
-
 use std::panic::{set_hook, PanicInfo};
 use backtrace::Backtrace;
 use std::fs::File;

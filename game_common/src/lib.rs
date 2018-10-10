@@ -25,9 +25,6 @@ pub extern crate descartes;
 
 #[macro_use]
 extern crate serde_derive;
-#[cfg(feature = "browser")]
-#[macro_use]
-extern crate stdweb;
 
 pub const ENV_NAME: &str = "Citybound";
 pub const ENV_AUTHOR: &str = "ae play";
@@ -41,9 +38,8 @@ pub mod construction;
 pub mod economy;
 pub mod land_use;
 pub mod style;
-pub mod browser_ui;
 
-pub fn setup_all(system: &mut kay::ActorSystem) {
+pub fn setup_common(system: &mut kay::ActorSystem) {
     for setup_fn in &[
         simulation::setup,
         planning::setup,
@@ -51,7 +47,6 @@ pub fn setup_all(system: &mut kay::ActorSystem) {
         transport::setup,
         economy::setup,
         land_use::setup,
-        browser_ui::setup,
     ] {
         setup_fn(system)
     }

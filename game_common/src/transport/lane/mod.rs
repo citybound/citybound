@@ -34,7 +34,7 @@ impl Lane {
             pathfinding: PathfindingInfo::default(),
         };
 
-        super::rendering::on_build(&lane, world);
+        super::ui::on_build(&lane, world);
 
         lane
     }

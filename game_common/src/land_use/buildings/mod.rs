@@ -1,9 +1,9 @@
-use kay::{ActorSystem, World, Actor, Fate};
+use kay::{ActorSystem, World, Actor, Fate, TypedID};
 use compact::{CVec, COption};
 use descartes::P2;
 
-use transport::lane::Lane;
-use simulation::Ticks;
+use transport::lane::LaneID;
+use simulation::{Ticks, SimulationID};
 use construction::{ConstructionID, Constructable, ConstructableID};
 use planning::{Prototype, PrototypeKind};
 
@@ -14,7 +14,7 @@ use economy::households::HouseholdID;
 use transport::pathfinding::PreciseLocation;
 use economy::immigration_and_development::ImmigrationManagerID;
 use land_use::zone_planning::{Lot, LandUse};
-use browser_ui::BrowserUIID;
+use super::ui::{LandUseUIID};
 
 #[derive(Copy, Clone)]
 pub struct Unit(Option<HouseholdID>, UnitType);
@@ -74,7 +74,7 @@ impl Building {
 
         rendering::on_add(id, lot, style, world);
 
-        Simulation::local_first(world).wake_up_in(
+        SimulationID::local_first(world).wake_up_in(
             Ticks::from(Duration::from_minutes(10)),
             id.into(),
             world,
@@ -149,6 +149,10 @@ impl Building {
             .action_done(self.id.into(), world);
         Fate::Die
     }
+
+    pub fn get_ui_info(&mut self, requester: LandUseUIID, world: &mut World) {
+        requester.on_building_ui_info(self.id, self.style, self.all_households().into(), world);
+    }
 }
 
 impl Constructable for Building {
@@ -179,7 +183,7 @@ impl Constructable for Building {
 }
 
 use transport::pathfinding::{Location, Attachee, AttacheeID};
-use simulation::{Simulation, Sleeper, SleeperID, Duration};
+use simulation::{Sleeper, SleeperID, Duration};
 
 impl Attachee for Building {
     fn location_changed(
@@ -195,7 +199,7 @@ impl Attachee for Building {
                 .location = new;
         } else {
             self.location = None;
-            Simulation::local_first(world).wake_up_in(
+            SimulationID::local_first(world).wake_up_in(
                 Ticks::from(Duration::from_minutes(10)),
                 self.id_as(),
                 world,
@@ -214,12 +218,12 @@ impl Sleeper for Building {
             }
         } else {
             println!("Trying to connect building {:?}", self.id);
-            Lane::global_broadcast(world).try_reconnect_building(
+            LaneID::global_broadcast(world).try_reconnect_building(
                 self.id,
                 self.lot.best_road_connection().0,
                 world,
             );
-            Simulation::local_first(world).wake_up_in(
+            SimulationID::local_first(world).wake_up_in(
                 Ticks::from(Duration::from_minutes(10)),
                 self.id_as(),
                 world,
@@ -276,12 +280,6 @@ pub fn units_for_style(style: BuildingStyle) -> CVec<Unit> {
 #[derive(Compact, Clone, Default)]
 pub struct BuildingPlanResultDelta {
     buildings_to_destroy: CVec<BuildingID>,
-}
-
-impl Building {
-    pub fn get_ui_info(&mut self, requester: BrowserUIID, world: &mut World) {
-        requester.on_building_ui_info(self.id, self.style, self.all_households().into(), world);
-    }
 }
 
 pub fn setup(system: &mut ActorSystem) {

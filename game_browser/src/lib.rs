@@ -1,11 +1,19 @@
 #![feature(use_extern_macros)]
+#![recursion_limit = "128"]
 
 #[macro_use]
 extern crate stdweb;
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use stdweb::js_export;
+
+#[macro_use]
+extern crate serde_derive;
 
 extern crate kay;
 use kay::ActorSystem;
+
+#[macro_use]
+extern crate compact_macros;
 
 extern crate citybound_common;
 use citybound_common::*;
@@ -15,7 +23,10 @@ use std::panic;
 // TODO: not thread safe for now
 static mut SYSTEM: *mut ActorSystem = 0 as *mut ActorSystem;
 
-#[js_export]
+#[cfg_attr(
+    all(target_arch = "wasm32", target_os = "unknown"),
+    js_export
+)]
 pub fn start() {
     panic::set_hook(Box::new(|info| console!(error, info.to_string())));
 
@@ -43,11 +54,12 @@ pub fn start() {
         u32::try_from(network_settings.remove("skipTurnsPerTurnAhead").unwrap()).unwrap() as usize,
     ));
 
-    setup_all(&mut system);
+    setup_common(&mut system);
+    browser_ui::setup(&mut system);
 
     system.networking_connect();
 
-    let browser_ui_id = citybound_common::browser_ui::BrowserUIID::spawn(&mut system.world());
+    let browser_ui_id = browser_ui::BrowserUIID::spawn(&mut system.world());
 
     system.process_all_messages();
 
@@ -65,7 +77,7 @@ pub fn start() {
 
 #[derive(Copy, Clone)]
 struct MainLoop {
-    browser_ui_id: citybound_common::browser_ui::BrowserUIID,
+    browser_ui_id: browser_ui::BrowserUIID,
     skip_turns: usize,
 }
 
@@ -131,9 +143,14 @@ pub use simulation_browser::*;
 mod households_browser;
 pub use households_browser::*;
 
+mod browser_ui;
+
 use stdweb::serde::Serde;
 
-#[js_export]
+#[cfg_attr(
+    all(target_arch = "wasm32", target_os = "unknown"),
+    js_export
+)]
 pub fn point_in_area(point: Serde<descartes::P2>, area: Serde<descartes::Area>) -> bool {
     use ::descartes::PointContainer;
     area.0.contains(point.0)

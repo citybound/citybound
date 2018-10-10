@@ -1,9 +1,13 @@
-use kay::Actor;
+use kay::{Actor, TypedID};
 use stdweb::serde::Serde;
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use stdweb::js_export;
 use SYSTEM;
 
-#[js_export]
+#[cfg_attr(
+    all(target_arch = "wasm32", target_os = "unknown"),
+    js_export
+)]
 pub fn move_gesture_point(
     proposal_id: Serde<::planning::ProposalID>,
     gesture_id: Serde<::planning::GestureID>,
@@ -13,7 +17,7 @@ pub fn move_gesture_point(
 ) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
-    ::planning::PlanManager::global_first(world).move_control_point(
+    ::planning::PlanManagerID::global_first(world).move_control_point(
         proposal_id.0,
         gesture_id.0,
         point_idx,
@@ -23,7 +27,10 @@ pub fn move_gesture_point(
     );
 }
 
-#[js_export]
+#[cfg_attr(
+    all(target_arch = "wasm32", target_os = "unknown"),
+    js_export
+)]
 pub fn start_new_gesture(
     proposal_id: Serde<::planning::ProposalID>,
     gesture_id: Serde<::planning::GestureID>,
@@ -32,7 +39,7 @@ pub fn start_new_gesture(
 ) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
-    ::planning::PlanManager::global_first(world).start_new_gesture(
+    ::planning::PlanManagerID::global_first(world).start_new_gesture(
         proposal_id.0,
         ::kay::MachineID(0),
         gesture_id.0,
@@ -42,7 +49,10 @@ pub fn start_new_gesture(
     )
 }
 
-#[js_export]
+#[cfg_attr(
+    all(target_arch = "wasm32", target_os = "unknown"),
+    js_export
+)]
 pub fn add_control_point(
     proposal_id: Serde<::planning::ProposalID>,
     gesture_id: Serde<::planning::GestureID>,
@@ -52,7 +62,7 @@ pub fn add_control_point(
 ) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
-    ::planning::PlanManager::global_first(world).add_control_point(
+    ::planning::PlanManagerID::global_first(world).add_control_point(
         proposal_id.0,
         gesture_id.0,
         new_point.0,
@@ -62,30 +72,42 @@ pub fn add_control_point(
     )
 }
 
-#[js_export]
+#[cfg_attr(
+    all(target_arch = "wasm32", target_os = "unknown"),
+    js_export
+)]
 pub fn finish_gesture() {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
-    ::planning::PlanManager::global_first(world).finish_gesture(::kay::MachineID(0), world)
+    ::planning::PlanManagerID::global_first(world).finish_gesture(::kay::MachineID(0), world)
 }
 
-#[js_export]
+#[cfg_attr(
+    all(target_arch = "wasm32", target_os = "unknown"),
+    js_export
+)]
 pub fn undo(proposal_id: Serde<::planning::ProposalID>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
-    ::planning::PlanManager::global_first(world).undo(proposal_id.0, world)
+    ::planning::PlanManagerID::global_first(world).undo(proposal_id.0, world)
 }
 
-#[js_export]
+#[cfg_attr(
+    all(target_arch = "wasm32", target_os = "unknown"),
+    js_export
+)]
 pub fn redo(proposal_id: Serde<::planning::ProposalID>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
-    ::planning::PlanManager::global_first(world).redo(proposal_id.0, world)
+    ::planning::PlanManagerID::global_first(world).redo(proposal_id.0, world)
 }
 
-#[js_export]
+#[cfg_attr(
+    all(target_arch = "wasm32", target_os = "unknown"),
+    js_export
+)]
 pub fn implement_proposal(proposal_id: Serde<::planning::ProposalID>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
-    ::planning::PlanManager::global_first(world).implement(proposal_id.0, world);
+    ::planning::PlanManagerID::global_first(world).implement(proposal_id.0, world);
 }

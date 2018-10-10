@@ -1,19 +1,20 @@
-use kay::{World, Actor, ActorSystem};
+use kay::{World, ActorSystem, TypedID};
 use compact::COption;
-use land_use::buildings::{UnitType, Building, BuildingID, UnitIdx};
+use land_use::buildings::{UnitType, BuildingID, UnitIdx};
 use simulation::{Sleeper, SleeperID, Instant, SimulationID, Duration};
 use util::random::{seed, Rng};
 
-use economy::households::family::FamilyID;
-use economy::households::grocery_shop::GroceryShopID;
-use economy::households::cow_farm::CowFarmID;
-use economy::households::grain_farm::GrainFarmID;
-use economy::households::vegetable_farm::VegetableFarmID;
-use economy::households::mill::MillID;
-use economy::households::bakery::BakeryID;
-use economy::households::neighboring_town_trade::NeighboringTownTradeID;
+use economy::households::household_kinds;
+use self::household_kinds::family::FamilyID;
+use self::household_kinds::grocery_shop::GroceryShopID;
+use self::household_kinds::cow_farm::CowFarmID;
+use self::household_kinds::grain_farm::GrainFarmID;
+use self::household_kinds::vegetable_farm::VegetableFarmID;
+use self::household_kinds::mill::MillID;
+use self::household_kinds::bakery::BakeryID;
+use self::household_kinds::neighboring_town_trade::NeighboringTownTradeID;
 use land_use::buildings::BuildingStyle;
-use land_use::vacant_lots::VacantLot;
+use land_use::vacant_lots::VacantLotID;
 use land_use::zone_planning::BuildingIntent;
 use planning::{PlanManagerID, Proposal, PrototypeID, Plan, GestureID, Gesture, GestureIntent};
 
@@ -145,7 +146,7 @@ impl Sleeper for ImmigrationManager {
 
                 let required_unit_type = unit_type_for(household_type_to_spawn);
 
-                Building::global_broadcast(world).try_offer_unit(
+                BuildingID::global_broadcast(world).try_offer_unit(
                     required_unit_type,
                     self.id,
                     world,
@@ -238,7 +239,7 @@ impl DevelopmentManager {
         if self.building_to_develop.is_none() {
             println!("Trying to develop {:?}", building_style);
             self.building_to_develop = COption(Some(building_style));
-            VacantLot::global_broadcast(world).suggest_lot(building_style, self.id, world);
+            VacantLotID::global_broadcast(world).suggest_lot(building_style, self.id, world);
             self.simulation
                 .wake_up_in(Duration::from_minutes(10).into(), self.id.into(), world);
         }
