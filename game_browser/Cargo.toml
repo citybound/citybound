@@ -9,7 +9,7 @@ build = "./build.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-stdweb = "0.4.7"
+stdweb = "0.4.9"
 serde = "1.0"
 serde_derive = "1.0"
 compact_macros = "0.1.0"

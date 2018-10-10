@@ -6,16 +6,16 @@ license = "AGPL-3.0"
 build = "./build.rs"
 
 [dependencies]
-ordered-float = "0.5.0"
-itertools = "0.7.6"
+ordered-float = "1.0.1"
+itertools = "0.7.8"
 rand = { version = "0.5", features = ["stdweb"] }
-fnv = "1.0.5"
+fnv = "1.0.6"
 roaring = "0.5.2"
-open = "1.2.1"
+open = "1.2.2"
 serde = "1.0"
 serde_derive = "1.0"
 backtrace = "0.3"
-uuid = { version = "0.6", features = ["v4", "serde"] }
+uuid = { version = "0.7.1", features = ["v4", "serde"] }
 compact = { version = "0.2.13", features = ["serde-serialization"] }
 compact_macros = "0.1.0"
 kay = {version = "0.3.0", default-features = false, features = ["serde-serialization"] }

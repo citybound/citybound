@@ -1,8 +1,8 @@
 const util = require('util');
 const { execSync, spawnSync } = require('child_process');
 
-const NIGHTLY_VERSION = "nightly-2018-08-06";
-const NIGHTLY_VERSION_BROWSER = "nightly-2018-07-31";
+const NIGHTLY_VERSION = "nightly-2018-10-10";
+const NIGHTLY_VERSION_BROWSER = "nightly-2018-10-10";
 const CARGO_WEB_VERSION = "0.6.16";
 let quiet = process.argv[2] == "-q";
 

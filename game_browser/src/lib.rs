@@ -1,4 +1,3 @@
-#![feature(use_extern_macros)]
 #![recursion_limit = "128"]
 
 #[macro_use]
