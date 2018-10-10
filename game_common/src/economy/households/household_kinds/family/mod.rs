@@ -13,7 +13,8 @@ use transport::pathfinding::RoughLocationID;
 pub mod names;
 use self::names::{family_name, member_name};
 
-use economy::households::{Household, HouseholdID, HouseholdCore, MemberIdx, Offer, OfferID, OfferIdx};
+use economy::households::{Household, HouseholdID, HouseholdCore,
+MemberIdx, Offer, OfferID, OfferIdx};
 
 #[derive(Compact, Clone)]
 pub struct Family {
