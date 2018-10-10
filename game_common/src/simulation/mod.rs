@@ -1,4 +1,4 @@
-use kay::{ActorSystem, World};
+use kay::{ActorSystem, World, TypedID};
 use compact::CVec;
 
 mod time;
@@ -18,21 +18,15 @@ pub trait Sleeper {
 #[derive(Compact, Clone)]
 pub struct Simulation {
     id: SimulationID,
-    simulatables: CVec<SimulatableID>,
     current_instant: Instant,
     sleepers: CVec<(Instant, SleeperID)>,
     speed: u16,
 }
 
 impl Simulation {
-    pub fn spawn(
-        id: SimulationID,
-        simulatables: &CVec<SimulatableID>,
-        _: &mut World,
-    ) -> Simulation {
+    pub fn spawn(id: SimulationID, _: &mut World) -> Simulation {
         Simulation {
             id,
-            simulatables: simulatables.clone(),
             current_instant: Instant::new(0),
             sleepers: CVec::new(),
             speed: 1,
@@ -41,13 +35,11 @@ impl Simulation {
 
     pub fn progress(&mut self, world: &mut World) {
         for _ in 0..self.speed {
-            for simulatable in &self.simulatables {
-                simulatable.tick(
-                    1.0 / (TICKS_PER_SIM_SECOND as f32),
-                    self.current_instant,
-                    world,
-                );
-            }
+            SimulatableID::global_broadcast(world).tick(
+                1.0 / (TICKS_PER_SIM_SECOND as f32),
+                self.current_instant,
+                world,
+            );
             while self
                 .sleepers
                 .last()
@@ -82,8 +74,8 @@ pub fn setup(system: &mut ActorSystem) {
     ui::auto_setup(system);
 }
 
-pub fn spawn(world: &mut World, simulatables: Vec<SimulatableID>) -> SimulationID {
-    SimulationID::spawn(simulatables.into(), world)
+pub fn spawn(world: &mut World) -> SimulationID {
+    SimulationID::spawn(world)
 }
 
 mod kay_auto;

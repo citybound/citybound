@@ -1,4 +1,4 @@
-use kay::{Actor, TypedID};
+use kay::TypedID;
 use stdweb::serde::Serde;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use stdweb::js_export;

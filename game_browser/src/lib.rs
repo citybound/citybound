@@ -10,7 +10,7 @@ use stdweb::js_export;
 extern crate serde_derive;
 
 extern crate kay;
-use kay::ActorSystem;
+use kay::{ActorSystem, TypedID};
 
 #[macro_use]
 extern crate compact_macros;
@@ -56,17 +56,18 @@ pub fn start() {
 
     setup_common(&mut system);
     browser_ui::setup(&mut system);
+    planning_browser::setup(&mut system);
 
     system.networking_connect();
 
-    let browser_ui_id = browser_ui::BrowserUIID::spawn(&mut system.world());
+    browser_ui::spawn(&mut system.world());
+    planning_browser::spawn(&mut system.world());
 
     system.process_all_messages();
 
     js!{ console.log("After setup") }
 
     let mut main_loop = MainLoop {
-        browser_ui_id,
         skip_turns: 0,
     };
 
@@ -77,7 +78,6 @@ pub fn start() {
 
 #[derive(Copy, Clone)]
 struct MainLoop {
-    browser_ui_id: browser_ui::BrowserUIID,
     skip_turns: usize,
 }
 
@@ -91,7 +91,7 @@ impl MainLoop {
         if self.skip_turns == 0 {
             system.process_all_messages();
 
-            self.browser_ui_id.on_frame(world);
+            browser_ui::FrameListenerID::local_broadcast(world).on_frame(world);
             system.process_all_messages();
 
             system.networking_send_and_receive();

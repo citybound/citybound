@@ -14,18 +14,6 @@ struct Asset;
 extern crate clap;
 use clap::{Arg, App};
 
-use kay::TypedID;
-use transport::lane::{LaneID, SwitchLaneID};
-use economy::households::household_kinds::family::FamilyID;
-use economy::households::household_kinds::grocery_shop::GroceryShopID;
-use economy::households::household_kinds::grain_farm::GrainFarmID;
-use economy::households::household_kinds::cow_farm::CowFarmID;
-use economy::households::household_kinds::mill::MillID;
-use economy::households::household_kinds::bakery::BakeryID;
-use economy::households::household_kinds::neighboring_town_trade::NeighboringTownTradeID;
-use economy::households::tasks::TaskEndSchedulerID;
-use construction::ConstructionID;
-
 const VERSION: &str = include_str!("../.version");
 
 fn main() {
@@ -169,20 +157,7 @@ fn main() {
 
         system.networking_connect();
 
-        let simulatables = vec![
-            LaneID::local_broadcast(world).into(),
-            SwitchLaneID::local_broadcast(world).into(),
-            FamilyID::local_broadcast(world).into(),
-            GroceryShopID::local_broadcast(world).into(),
-            GrainFarmID::local_broadcast(world).into(),
-            CowFarmID::local_broadcast(world).into(),
-            MillID::local_broadcast(world).into(),
-            BakeryID::local_broadcast(world).into(),
-            NeighboringTownTradeID::local_broadcast(world).into(),
-            TaskEndSchedulerID::local_first(world).into(),
-            ConstructionID::global_first(world).into(),
-        ];
-        let simulation = simulation::spawn(world, simulatables);
+        let simulation = simulation::spawn(world);
         util::init::set_error_hook();
 
         let plan_manager = planning::spawn(world);

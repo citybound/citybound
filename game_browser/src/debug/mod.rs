@@ -1,4 +1,4 @@
-use kay::{Actor, TypedID};
+use kay::TypedID;
 use stdweb::serde::Serde;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use stdweb::js_export;
@@ -54,7 +54,6 @@ pub fn plan_grid(proposal_id: Serde<::planning::ProposalID>, n: usize, spacing: 
     js_export
 )]
 pub fn spawn_cars(tries_per_lane: usize) {
-    use transport::lane::Lane;
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
     for _ in 0..tries_per_lane {
