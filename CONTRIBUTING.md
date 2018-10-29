@@ -26,7 +26,7 @@ If not, [create a new issue](https://github.com/aeickhoff/citybound/issues/new).
 
 # Contributing to the Design Doc
 
-The [Design Doc](game/README.md) outlines the philosophy and decisions that I follow when implementing Citybound.
+The [Design Doc](game_common/src/README.md) outlines the philosophy and decisions that I follow when implementing Citybound.
 
 You can make suggestions of every kind:
 
