@@ -434,31 +434,23 @@ export function render(state, setState) {
                 const canvasMode = state.planning.canvasMode;
                 if (e.hover && e.hover.now) {
                     if (canvasMode.currentGesture) {
-                        let lastPointDistance = vec3.dist(e.hover.now, canvasMode.previousClick);
-                        if (lastPointDistance > 10.0 && lastPointDistance < 20.0) {
-                            setState(addControlPoint(
-                                state.planning.currentProposal, canvasMode.currentGesture,
-                                e.hover.now, canvasMode.addToEnd, true
-                            ))
-                        } else {
-                            setState(addControlPoint(
-                                state.planning.currentProposal, canvasMode.currentGesture,
-                                e.hover.now, canvasMode.addToEnd, false
-                            ))
-                        }
+                        setState(addControlPoint(
+                            state.planning.currentProposal, canvasMode.currentGesture,
+                            e.hover.now, canvasMode.addToEnd, false
+                        ))
                     }
                 }
                 if (e.drag && e.drag.end) {
                     if (canvasMode.currentGesture) {
-                        // if (canvasMode.previousClick
-                        //     && vec3.dist(e.drag.end, canvasMode.previousClick) < state.settings.planning.finishGestureDistance) {
-                        setState(finishGesture(state.planning.currentProposal, canvasMode.currentGesture));
-                        // } else {
-                        //     setState(addControlPoint(
-                        //         state.planning.currentProposal, canvasMode.currentGesture,
-                        //         e.drag.end, canvasMode.addToEnd, true
-                        //     ))
-                        // }
+                        if (canvasMode.previousClick
+                            && vec3.dist(e.drag.end, canvasMode.previousClick) < state.settings.planning.finishGestureDistance) {
+                            setState(finishGesture(state.planning.currentProposal, canvasMode.currentGesture));
+                        } else {
+                            setState(addControlPoint(
+                                state.planning.currentProposal, canvasMode.currentGesture,
+                                e.drag.end, canvasMode.addToEnd, true
+                            ))
+                        }
                     } else if (canvasMode.intent) {
                         setState(startNewGesture(
                             state.planning.currentProposal, canvasMode.intent, e.drag.end

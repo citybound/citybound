@@ -1,15 +1,16 @@
 use compact::CVec;
 use descartes::{P2, V2, Area, ClosedLinePath, LinePath, PointContainer,
-AreaError, WithUniqueOrthogonal, Segment};
+AreaError, WithUniqueOrthogonal, AreaEmbedding, AreaFilter};
 use land_use::buildings::BuildingStyle;
 use ordered_float::OrderedFloat;
+use itertools::Itertools;
 
 use transport::transport_planning::{RoadPrototype, LanePrototype};
 
 use planning::{PlanHistory, VersionedGesture, PlanResult, Prototype, PrototypeID,
-PrototypeKind, GestureIntent};
+PrototypeKind, GestureIntent, GestureID, StepID};
 
-#[derive(Compact, Clone, Debug, Serialize, Deserialize)]
+#[derive(Compact, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ZoneIntent {
     LandUse(LandUse),
     MaxHeight(u8),
@@ -110,70 +111,96 @@ pub fn calculate_prototypes(
     history: &PlanHistory,
     current_result: &PlanResult,
 ) -> Result<Vec<Prototype>, AreaError> {
-    let paved_area_areas = current_result
-        .prototypes
-        .values()
-        .filter_map(|prototype| {
-            if let Prototype {
-                kind: PrototypeKind::Road(RoadPrototype::PavedArea(ref shape)),
-                id,
-            } = *prototype
-            {
-                Some((shape, id))
-            } else {
-                None
-            }
-        }).collect::<Vec<_>>();
+    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+    enum ZoneEmbeddingLabel {
+        Paved(PrototypeID),
+        Building(GestureID, StepID),
+        Zone(ZoneIntent, GestureID, StepID),
+    };
 
+    let mut zone_embedding = AreaEmbedding::new(30.0);
+
+    for prototype in current_result.prototypes.values() {
+        if let Prototype {
+            kind: PrototypeKind::Road(RoadPrototype::PavedArea(ref area)),
+            id,
+        } = *prototype
+        {
+            zone_embedding.insert(area.clone(), ZoneEmbeddingLabel::Paved(id))
+        }
+    }
+
+    for (gesture_id, VersionedGesture(gesture, step_id)) in history.gestures.pairs() {
+        if let GestureIntent::Building(BuildingIntent { ref lot, .. }) = gesture.intent {
+            zone_embedding.insert(
+                lot.area.clone(),
+                ZoneEmbeddingLabel::Building(*gesture_id, *step_id),
+            );
+        }
+    }
+
+    // see what's left of original building lots after subtracting (potentially new) paved areas
     let building_prototypes = history
         .gestures
-        .values()
-        .map(|VersionedGesture(gesture, gesture_step_id)| {
+        .pairs()
+        .map(|(&gesture_id, &VersionedGesture(ref gesture, step_id))| {
             if let GestureIntent::Building(BuildingIntent {
                 ref lot,
                 building_style,
             }) = gesture.intent
             {
-                let mut area = lot.area.clone();
-                let mut influenced_id = PrototypeID::from_influences(gesture_step_id);
+                let leftover_areas_with_pieces = zone_embedding
+                    .view(
+                        AreaFilter::Function(Box::new(move |labels| {
+                            labels.contains(&ZoneEmbeddingLabel::Building(gesture_id, step_id))
+                        })).and(AreaFilter::Function(Box::new(|labels| {
+                            labels.iter().all(|label| match label {
+                                ZoneEmbeddingLabel::Paved(_) => false,
+                                _ => true,
+                            })
+                        }))),
+                    ).get_areas_with_pieces()?;
 
-                for (paved_area_shape, paved_id) in &paved_area_areas {
-                    let (has_split, maybe_main_piece) = {
-                        if let Some(split) = area.split_if_intersects(&paved_area_shape) {
-                            (
-                                true,
-                                split
-                                    .a_minus_b()?
-                                    .disjoint()
-                                    .into_iter()
-                                    .find(|piece| piece.contains(lot.center_point())),
-                            )
-                        } else {
-                            (false, None)
-                        }
-                    };
+                let maybe_main_area_with_pieces = leftover_areas_with_pieces
+                    .into_iter()
+                    .find(|(area, _pieces)| area.contains(lot.center_point()));
 
-                    if has_split {
-                        if let Some(main_piece) = maybe_main_piece {
-                            area = main_piece;
-                            influenced_id = influenced_id.add_influences(paved_id)
-                        } else {
-                            println!("No piece contains center");
-                            return Ok(None);
-                        }
+                if let Some((main_area, main_area_pieces)) = maybe_main_area_with_pieces {
+                    let mut influenced_id = PrototypeID::from_influences(gesture_id);
+                    influenced_id = influenced_id.add_influences(step_id);
+
+                    influenced_id = influenced_id.add_influences(vec![
+                        main_area_pieces[0].0.points[0].x.to_bits(),
+                        main_area_pieces[0].0.points[0].y.to_bits(),
+                    ]);
+
+                    for paved_id in main_area_pieces
+                        .into_iter()
+                        .flat_map(|(_piece, piece_area_label)| {
+                            Some(piece_area_label.own_right_label)
+                                .into_iter()
+                                .chain(piece_area_label.right_labels)
+                        }).filter(|label| match label {
+                            ZoneEmbeddingLabel::Paved(_) => true,
+                            _ => false,
+                        }).unique()
+                    {
+                        influenced_id = influenced_id.add_influences(paved_id);
                     }
-                }
 
-                Ok(Some(Prototype {
-                    kind: PrototypeKind::Lot(LotPrototype {
-                        lot: Lot {
-                            area,
-                            ..lot.clone()
-                        },
-                        occupancy: LotOccupancy::Occupied(building_style),
-                    }),
-                    id: influenced_id,
-                }))
+                    Ok(Some(Prototype {
+                        kind: PrototypeKind::Lot(LotPrototype {
+                            lot: Lot {
+                                area: main_area,
+                                ..lot.clone()
+                            },
+                            occupancy: LotOccupancy::Occupied(building_style),
+                        }),
+                        id: influenced_id,
+                    }))
+                } else {
+                    Ok(None)
+                }
             } else {
                 Ok(None)
             }
@@ -265,124 +292,90 @@ pub fn calculate_prototypes(
         }
     }
 
-    let vacant_lot_prototypes = {
-        let building_areas = building_prototypes
-            .iter()
-            .map(|prototype| {
-                if let PrototypeKind::Lot(LotPrototype {
-                    lot: Lot { ref area, .. },
-                    ..
-                }) = prototype.kind
-                {
-                    (area, prototype.id)
-                } else {
-                    unreachable!()
-                }
-            }).collect::<Vec<_>>();
+    for (gesture_id, VersionedGesture(gesture, step_id)) in history.gestures.pairs() {
+        if let GestureIntent::Zone(ref zone_intent) = gesture.intent {
+            if let Some(area) = LinePath::new(
+                gesture
+                    .points
+                    .iter()
+                    .chain(gesture.points.first())
+                    .cloned()
+                    .collect(),
+            ).and_then(|line_path| ClosedLinePath::new(line_path))
+            .map(|closed_line_path| Area::new_simple(closed_line_path.to_clockwise()))
+            {
+                zone_embedding.insert(
+                    area,
+                    ZoneEmbeddingLabel::Zone(zone_intent.clone(), *gesture_id, *step_id),
+                );
+            }
+        }
+    }
 
-        let mut land_use_areas = history
-            .gestures
-            .values()
-            .filter_map(|VersionedGesture(gesture, step_id)| {
-                if let GestureIntent::Zone(ZoneIntent::LandUse(land_use)) = gesture.intent {
-                    Some((land_use, &gesture.points, *step_id))
-                } else {
-                    None
-                }
-            }).filter_map(|(land_use, points, step_id)| {
-                Some((
-                    land_use,
-                    Area::new_simple(
-                        ClosedLinePath::new(LinePath::new(
-                            points.iter().chain(points.first()).cloned().collect(),
-                        )?)?.to_clockwise(),
-                    ),
-                    step_id,
-                ))
-            }).collect::<Vec<_>>();
+    // remove paved and existing buildings to get vacant lots
+    let mut vacant_lot_prototypes = vec![];
 
-        let paved_or_built_areas = || paved_area_areas.iter().chain(building_areas.iter());
-
-        let land_use_areas_influenced: Vec<(LandUse, Area, PrototypeID)> = land_use_areas
-            .into_iter()
-            .flat_map(|(land_use, shape, gesture_step_id)| {
-                let mut shapes = vec![(shape, PrototypeID::from_influences(gesture_step_id))];
-
-                for (paved_or_built_area, paved_id) in paved_or_built_areas() {
-                    shapes = shapes
-                        .into_iter()
-                        .flat_map(|(shape, current_id)| {
-                            if let Some(split) = shape.split_if_intersects(paved_or_built_area) {
-                                split
-                                    .a_minus_b()
-                                    .into_iter()
-                                    .flat_map(|cut_shapes| {
-                                        cut_shapes.disjoint().into_iter().enumerate().map(
-                                            |(i, cut_shape)| {
-                                                (
-                                                    cut_shape,
-                                                    current_id.add_influences((paved_id, i)),
-                                                )
-                                            },
-                                        )
-                                    }).collect()
-                            } else {
-                                vec![(shape.clone(), current_id)]
-                            }
-                        }).collect()
-                }
-
-                shapes
-                    .into_iter()
-                    .map(|(shape, id)| (land_use, shape, id))
-                    .collect::<Vec<_>>()
-            }).collect();
-
-        land_use_areas_influenced
-            .into_iter()
-            .filter_map(|(land_use, area, id)| {
-                let road_boundary_segments = area.primitives[0]
-                    .boundary
-                    .path()
-                    .segments()
-                    .filter(|&segment| {
-                        // TODO: this is a horribly slow way to find connection points
-                        paved_area_areas
-                            .iter()
-                            .any(|(paved_area, _)| paved_area.contains(segment.midpoint()))
-                    }).collect::<Vec<_>>();
-
-                if road_boundary_segments.is_empty() {
-                    println!("No road boundary found");
-                    None
-                } else {
-                    let mut road_boundary_paths: Vec<LinePath> = road_boundary_segments
-                        .into_iter()
-                        .map(|segment| {
-                            LinePath::new(vec![segment.start(), segment.end()].into()).unwrap()
-                        }).collect();
-
-                    let _ = ::descartes::util::join_within_vec(
-                        &mut road_boundary_paths,
-                        |path_a, path_b| path_a.concat(path_b).map(Some),
-                    );
-
-                    Some(Prototype {
-                        kind: PrototypeKind::Lot(LotPrototype {
-                            lot: Lot {
-                                land_uses: vec![land_use].into(),
-                                max_height: 0,
-                                set_back: 0,
-                                road_boundaries: road_boundary_paths.into(),
-                                area,
-                            },
-                            occupancy: LotOccupancy::Vacant,
-                        }),
-                        id,
+    for &land_use in &LAND_USES {
+        let areas_with_pieces = zone_embedding
+            .view(
+                AreaFilter::Function(Box::new(move |labels| {
+                    labels.iter().any(|label| match label {
+                        ZoneEmbeddingLabel::Zone(ZoneIntent::LandUse(label_land_use), ..)
+                            if *label_land_use == land_use =>
+                        {
+                            true
+                        }
+                        _ => false,
                     })
+                })).and(AreaFilter::Function(Box::new(|labels| {
+                    labels.iter().all(|label| match label {
+                        ZoneEmbeddingLabel::Building(..) => false,
+                        ZoneEmbeddingLabel::Paved(_) => false,
+                        _ => true,
+                    })
+                }))),
+            ).get_areas_with_pieces()?;
+        for (area, pieces) in areas_with_pieces {
+            let influenced_id = PrototypeID::from_influences(
+                pieces
+                    .iter()
+                    .flat_map(|(_piece, piece_area_label)| {
+                        Some(&piece_area_label.own_right_label)
+                            .into_iter()
+                            .chain(piece_area_label.right_labels.iter())
+                    }).unique()
+                    .collect::<Vec<_>>(),
+            );
+
+            let road_boundaries = pieces.into_iter().filter_map(|(piece, piece_area_label)| {
+                if Some(&piece_area_label.own_right_label)
+                    .into_iter()
+                    .chain(piece_area_label.left_labels.iter())
+                    .any(|label| match label {
+                        ZoneEmbeddingLabel::Paved(_) => true,
+                        _ => false,
+                    }) {
+                    Some(piece)
+                } else {
+                    None
                 }
-            }).collect::<Vec<_>>()
-    };
+            });
+
+            vacant_lot_prototypes.push(Prototype {
+                kind: PrototypeKind::Lot(LotPrototype {
+                    lot: Lot {
+                        land_uses: vec![land_use].into(),
+                        max_height: 0,
+                        set_back: 0,
+                        road_boundaries: road_boundaries.collect(),
+                        area,
+                    },
+                    occupancy: LotOccupancy::Vacant,
+                }),
+                id: influenced_id,
+            })
+        }
+    }
 
     Ok(vacant_lot_prototypes
         .into_iter()

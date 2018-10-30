@@ -144,7 +144,7 @@ impl PartialPath {
                                 if let Some((end_idx, end)) =
                                     remaining_points.iter().enumerate().rev().find(
                                         |(potential_end_idx, potential_end)| {
-                                            *potential_end_idx > start_idx + 1 && {
+                                            *potential_end_idx > start_idx && {
                                                 let direction_orth = (*potential_end - start)
                                                     .orthogonal_right()
                                                     .normalize();

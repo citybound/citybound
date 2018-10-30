@@ -65,7 +65,7 @@ export function render(state, settingsSpecs, setState) {
                 <p>Click the empty dropdown and choose the only existing proposal.</p>
                 <h2>Planning Roads</h2>
                 <p>Go to road planning mode by clicking the road icon.</p>
-                <p>Start a new road by clicking on the map and moving the mouse. Clicking again finishes a stroke. You can move control points of existing points around, but nothing more yet (delete, extend road yet).</p>
+                <p>Start a new road by clicking on the map and continuing to click to add road nodes. To finish a road, doubleclick when placing the last node. You can move control points of existing points around, but nothing more yet (delete, extend road yet).</p>
                 <h2>Planning Zones</h2>
                 <p>Go to zone planning mode by clicking the zone icon next to the road icon. Draw zone shapes by selecting a zone type, then clicking on the map to define its corners. Double clicking finishes a shape. (A zone has to touch a road to become useable)</p>
                 <p>Changes to zones need to be implemented to become effective.</p>
