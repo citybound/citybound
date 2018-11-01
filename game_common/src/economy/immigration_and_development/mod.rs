@@ -74,7 +74,7 @@ impl ImmigrationManager {
         development_manager: DevelopmentManagerID,
         world: &mut World,
     ) -> ImmigrationManager {
-        simulation.wake_up_in(Duration::from_minutes(10).into(), id.into(), world);
+        simulation.wake_up_in(IMMIGRATION_PACE.into(), id.into(), world);
 
         ImmigrationManager {
             id,
@@ -90,6 +90,8 @@ pub enum ImmigrationManagerState {
     Idle,
     FindingBuilding(HouseholdTypeToSpawn),
 }
+
+const IMMIGRATION_PACE: Duration = Duration(10);
 
 impl Sleeper for ImmigrationManager {
     fn wake(&mut self, current_instant: Instant, world: &mut World) {
@@ -164,7 +166,7 @@ impl Sleeper for ImmigrationManager {
         };
 
         self.simulation
-            .wake_up_in(Duration::from_minutes(10).into(), self.id.into(), world);
+            .wake_up_in(IMMIGRATION_PACE.into(), self.id.into(), world);
     }
 }
 
@@ -241,7 +243,7 @@ impl DevelopmentManager {
             self.building_to_develop = COption(Some(building_style));
             VacantLotID::global_broadcast(world).suggest_lot(building_style, self.id, world);
             self.simulation
-                .wake_up_in(Duration::from_minutes(10).into(), self.id.into(), world);
+                .wake_up_in(IMMIGRATION_PACE.into(), self.id.into(), world);
         }
     }
 
