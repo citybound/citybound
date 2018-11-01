@@ -29,7 +29,8 @@ export const initialState = {
             zoneGroups: new Map(LAND_USES.map(landUse => [landUse, new Map()])),
             zoneOutlineGroups: new Map(LAND_USES.map(landUse => [landUse, new Map()])),
             buildingOutlinesGroup: new Map(),
-        }
+        },
+        roadCenterLines: {}
     },
     master: {
         gestures: {}
@@ -38,6 +39,7 @@ export const initialState = {
     },
     currentProposal: null,
     hoveredControlPoint: {},
+    hoveredInsertPoint: null,
     canvasMode: {
         intent: null,
         currentGesture: null,
@@ -151,6 +153,16 @@ function addControlPoint(proposalId, gestureId, point, addToEnd, doneAdding) {
     }
 }
 
+function insertControlPoint(proposalId, gestureId, point, doneInserting) {
+    cbRustBrowser.insert_control_point(proposalId, gestureId, [point[0], point[1]], doneInserting);
+
+    return oldState => update(oldState, {
+        planning: {
+            $unset: ["hoveredInsertPoint"]
+        }
+    });
+}
+
 function finishGesture(proposalId, gestureId) {
     cbRustBrowser.finish_gesture();
 
@@ -247,20 +259,12 @@ export function render(state, setState) {
                             center: [point[0], point[1], 0],
                             radius: 3
                         },
-                        zIndex: 2,
+                        zIndex: 3,
                         cursorHover: "grab",
                         cursorActive: "grabbing",
                         onEvent: e => {
                             if (e.hover) {
-                                if (e.hover.start) {
-                                    setState(update(state, {
-                                        planning: {
-                                            hoveredControlPoint: {
-                                                $set: { gestureId, pointIdx }
-                                            }
-                                        }
-                                    }))
-                                } else if (e.hover.end) {
+                                if (e.hover.end) {
                                     setState(update(state, {
                                         planning: {
                                             hoveredControlPoint: {
@@ -268,20 +272,74 @@ export function render(state, setState) {
                                             }
                                         }
                                     }))
+                                } else if (e.hover.start) {
+                                    setState(update(state, {
+                                        planning: {
+                                            hoveredControlPoint: {
+                                                $set: { gestureId, pointIdx }
+                                            },
+                                            $unset: ["hoveredInsertPoint"]
+                                        }
+                                    }))
                                 }
                             }
 
                             if (e.drag) {
-                                if (e.drag.now) {
-                                    setState(moveControlPoint(state.planning.currentProposal, gestureId, pointIdx, e.drag.now, false));
-                                } else if (e.drag.end) {
+                                if (e.drag.end) {
                                     setState(moveControlPoint(state.planning.currentProposal, gestureId, pointIdx, e.drag.end, true));
+                                } else if (e.drag.now) {
+                                    setState(moveControlPoint(state.planning.currentProposal, gestureId, pointIdx, e.drag.now, false));
                                 }
                             }
                         }
                     })
                 }
             }
+        }
+    }
+
+    const roadCenterInteractables = [];
+
+    if (state.planning.planningMode === "roads") {
+        for (let gestureId of Object.keys(state.planning.rendering.roadCenterLines)) {
+            let centerLine = state.planning.rendering.roadCenterLines[gestureId];
+
+            roadCenterInteractables.push({
+                shape: {
+                    type: "path",
+                    path: centerLine,
+                    maxDistance: 1.5
+                },
+                zIndex: 2,
+                cursorHover: "pointer",
+                cursorActive: "grabbing",
+                onEvent: e => {
+                    if (e.drag) {
+                        if (e.drag.end) {
+                            setState(insertControlPoint(state.planning.currentProposal, gestureId, e.drag.end, true));
+                        } else if (e.drag.now) {
+                            setState(insertControlPoint(state.planning.currentProposal, gestureId, e.drag.now, false));
+                        }
+                    }
+                    if (e.hover) {
+                        if (e.hover.end) {
+                            setState(update(state, {
+                                planning: {
+                                    $unset: ["hoveredInsertPoint"]
+                                }
+                            }))
+                        } else if (e.hover.now) {
+                            setState(update(state, {
+                                planning: {
+                                    hoveredInsertPoint: {
+                                        $set: e.hover.now
+                                    }
+                                }
+                            }))
+                        }
+                    }
+                }
+            })
         }
     }
 
@@ -355,7 +413,13 @@ export function render(state, setState) {
             batches: [{
                 mesh: state.planning.rendering.staticMeshes.GestureDot,
                 instances: new Float32Array(controlPointsInstances)
-            }]
+            },
+            ...(state.planning.hoveredInsertPoint ? [
+                {
+                    mesh: state.planning.rendering.staticMeshes.GestureDot,
+                    instances: new Float32Array([state.planning.hoveredInsertPoint[0], state.planning.hoveredInsertPoint[1], 0.0, 0.7, 0.0, ...colors.controlPointCurrentProposal])
+                }
+            ] : [])]
         }
     ];
 
@@ -422,6 +486,7 @@ export function render(state, setState) {
 
     const interactables = [
         ...(state.planning.canvasMode.currentGesture ? [] : controlPointsInteractables),
+        ...(state.planning.canvasMode.currentGesture ? [] : roadCenterInteractables),
         {
             id: "planningCanvas",
             shape: {

@@ -153,3 +153,19 @@ pub fn point_in_area(point: Serde<descartes::P2>, area: Serde<descartes::Area>) 
     use ::descartes::PointContainer;
     area.0.contains(point.0)
 }
+
+#[cfg_attr(
+    all(target_arch = "wasm32", target_os = "unknown"),
+    js_export
+)]
+pub fn point_close_to_path(
+    point: Serde<descartes::P2>,
+    path: Serde<descartes::LinePath>,
+    max_distance: Serde<descartes::N>,
+) -> Serde<Option<descartes::P2>> {
+    Serde(
+        path.0
+            .project_with_max_distance(point.0, descartes::THICKNESS, max_distance.0)
+            .map(|(_along, point)| point),
+    )
+}

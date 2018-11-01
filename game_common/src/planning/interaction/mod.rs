@@ -1,6 +1,6 @@
 use kay::{World, MachineID,   ActorSystem};
 use compact::{CHashMap, COption};
-use descartes::{P2, AreaError};
+use descartes::{P2, AreaError, LinePath};
 use super::{Plan, PlanHistory, PlanResult,  GestureID, ProposalID,
 PlanManager, PlanManagerID, Gesture, GestureIntent,
 KnownHistoryState, KnownProposalState, ProposalUpdate,
@@ -75,12 +75,13 @@ impl PlanManager {
             self.switch_to(MachineID(0), proposal_id, world);
         }
 
-        let (_, maybe_result, maybe_actions) =
+        let (plan_history, maybe_result, maybe_actions) =
             self.try_ensure_preview(world.local_machine_id(), proposal_id);
 
         if let (Some(result), Some(actions)) = (maybe_result, maybe_actions) {
             ui.on_proposal_preview_update(
                 proposal_id,
+                plan_history.clone(),
                 result.update_for(known_result),
                 actions.clone(),
                 world,
@@ -236,6 +237,55 @@ impl PlanManager {
                     ..current_gesture.clone()
                 } //.simplify()
             };
+
+            Plan::from_gestures(Some((gesture_id, changed_gesture)))
+        };
+
+        self.proposals
+            .get_mut(proposal_id)
+            .unwrap()
+            .set_ongoing_step(new_step);
+
+        if commit {
+            self.proposals
+                .get_mut(proposal_id)
+                .unwrap()
+                .start_new_step();
+        }
+
+        self.clear_previews(proposal_id);
+    }
+
+    pub fn insert_control_point(
+        &mut self,
+        proposal_id: ProposalID,
+        gesture_id: GestureID,
+        new_point: P2,
+        commit: bool,
+        _: &mut World,
+    ) {
+        let new_step = {
+            let current_gesture = self.get_current_version_of(gesture_id, proposal_id);
+
+            let new_point_idx = LinePath::new(current_gesture.points.clone())
+                .and_then(|path| {
+                    path.project(new_point)
+                        .and_then(|(inserted_along, _projected)| {
+                            path.distances
+                                .iter()
+                                .position(|point_i_along| *point_i_along >= inserted_along)
+                        })
+                }).unwrap_or(current_gesture.points.len());
+
+            let changed_gesture = Gesture {
+                points: current_gesture.points[..new_point_idx]
+                    .iter()
+                    .cloned()
+                    .chain(Some(new_point))
+                    .chain(current_gesture.points[new_point_idx..].iter().cloned())
+                    .collect(),
+                ..current_gesture.clone()
+            }; //.simplify()
 
             Plan::from_gestures(Some((gesture_id, changed_gesture)))
         };

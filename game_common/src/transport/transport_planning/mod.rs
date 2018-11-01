@@ -149,7 +149,7 @@ pub fn simplify_road_path(points: CVec<P2>) -> CVec<P2> {
         }).unwrap_or(points)
 }
 
-fn gesture_intent_smooth_paths(
+pub fn gesture_intent_smooth_paths(
     history: &PlanHistory,
 ) -> Vec<(GestureID, StepID, RoadIntent, LinePath)> {
     history

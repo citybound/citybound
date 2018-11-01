@@ -44,7 +44,7 @@ export default {
 
     controlPointMaster: [0.3, 0.3, 1.0],
     controlPointCurrentProposal: [0.0, 0.061, 1.0],//[0, 72, 255]
-    controlPointHover: [1.0, 1.0, 1.0],
+    controlPointHover: [0.3, 0.361, 1.0],
 
     Residential: mix(toLinFloat([234, 203, 82]), grass, 0.9),
     Commercial: mix(toLinFloat([213, 94, 0]), grass, 0.9),

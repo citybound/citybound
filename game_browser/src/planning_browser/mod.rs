@@ -2,8 +2,9 @@ use stdweb::serde::Serde;
 use kay::{World, Actor, External, ActorSystem, TypedID};
 use compact::{CHashMap};
 use std::collections::HashMap;
+use descartes::LinePath;
 use michelangelo::{MeshGrouper};
-use planning::{ProposalID, Proposal, PrototypeID, PlanHistory, PlanResult,
+use planning::{ProposalID, Proposal, GestureID, PrototypeID, PlanHistory, PlanResult,
 PlanHistoryUpdate, ProposalUpdate, PlanResultUpdate, ActionGroups};
 use ::land_use::zone_planning::{LandUse, LAND_USES};
 use planning::ui::{PlanningUI, PlanningUIID};
@@ -77,6 +78,27 @@ pub fn add_control_point(
         new_point.0,
         add_to_end,
         done_adding,
+        world,
+    )
+}
+
+#[cfg_attr(
+    all(target_arch = "wasm32", target_os = "unknown"),
+    js_export
+)]
+pub fn insert_control_point(
+    proposal_id: Serde<::planning::ProposalID>,
+    gesture_id: Serde<::planning::GestureID>,
+    new_point: Serde<::descartes::P2>,
+    done_inserting: bool,
+) {
+    let system = unsafe { &mut *SYSTEM };
+    let world = &mut system.world();
+    ::planning::PlanManagerID::global_first(world).insert_control_point(
+        proposal_id.0,
+        gesture_id.0,
+        new_point.0,
+        done_inserting,
         world,
     )
 }
@@ -313,6 +335,7 @@ impl PlanningUI for BrowserPlanningUI {
     fn on_proposal_preview_update(
         &mut self,
         _proposal_id: ProposalID,
+        effective_history: &PlanHistory,
         result_update: &PlanResultUpdate,
         new_actions: &ActionGroups,
         _world: &mut World,
@@ -531,6 +554,12 @@ SwitchLanePrototype, IntersectionPrototype};
             .building_outlines_grouper
             .update(building_outlines_rem, building_outlines_add);
 
+        let road_center_lines: HashMap<GestureID, LinePath> =
+            ::transport::transport_planning::gesture_intent_smooth_paths(effective_history)
+                .into_iter()
+                .map(|(gesture_id, _, _, path)| (gesture_id, path))
+                .collect();
+
         js! {
             window.cbReactApp.setState(oldState => update(oldState, {
                 planning: {rendering: {
@@ -557,7 +586,8 @@ SwitchLanePrototype, IntersectionPrototype};
                                 updated_building_outlines_groups
                             )}
                         },
-                    }
+                    },
+                    roadCenterLines: {"$set": @{Serde(road_center_lines)}},
                 }}
             }));
         }

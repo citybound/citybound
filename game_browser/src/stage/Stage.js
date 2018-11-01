@@ -77,9 +77,11 @@ export default class Stage extends React.Component {
                 ? vec3.dist(cursorPosition3d, interactable.shape.center) < interactable.shape.radius
                 : (interactable.shape.type == "polygon"
                     ? cbRustBrowser.point_in_area([cursorPosition3d[0], cursorPosition3d[1]], interactable.shape.area)
-                    : (interactable.shape.type == "everywhere"
-                        ? true
-                        : false));
+                    : (interactable.shape.type == "path"
+                        ? cbRustBrowser.point_close_to_path([cursorPosition3d[0], cursorPosition3d[1]], interactable.shape.path, interactable.shape.maxDistance)
+                        : (interactable.shape.type == "everywhere"
+                            ? true
+                            : false)));
 
             if (below) {
                 return interactable;
