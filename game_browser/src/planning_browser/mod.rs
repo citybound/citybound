@@ -107,6 +107,27 @@ pub fn insert_control_point(
     all(target_arch = "wasm32", target_os = "unknown"),
     js_export
 )]
+pub fn split_gesture(
+    proposal_id: Serde<::planning::ProposalID>,
+    gesture_id: Serde<::planning::GestureID>,
+    split_at: Serde<::descartes::P2>,
+    done_inserting: bool,
+) {
+    let system = unsafe { &mut *SYSTEM };
+    let world = &mut system.world();
+    ::planning::PlanManagerID::global_first(world).split_gesture(
+        proposal_id.0,
+        gesture_id.0,
+        split_at.0,
+        done_inserting,
+        world,
+    )
+}
+
+#[cfg_attr(
+    all(target_arch = "wasm32", target_os = "unknown"),
+    js_export
+)]
 pub fn finish_gesture() {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
@@ -190,10 +211,16 @@ pub fn static_meshes() -> Vec<(&'static str, Mesh)> {
             .unwrap()
             .to_line_path(),
         0.3,
-        1.0,
+        0.2,
     );
 
-    vec![("GestureDot", dot_mesh)]
+    let split_mesh = Mesh::from_path_as_band(
+        &LinePath::new(vec![P2::new(0.0, -10.0), P2::new(0.0, 10.0)].into()).unwrap(),
+        0.3,
+        0.2,
+    );
+
+    vec![("GestureDot", dot_mesh), ("GestureSplit", split_mesh)]
 }
 
 impl BrowserPlanningUI {

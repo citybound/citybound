@@ -8,9 +8,13 @@ export default class Stage extends React.Component {
             const elementRect = e.target.getBoundingClientRect();
             const cursorPosition3d = this.projectCursor(eye, target, verticalFov, width, height, e, elementRect);
 
-            this.activeInteractable = this.findInteractableBelow(cursorPosition3d);
-            this.activeInteractable && this.activeInteractable.onEvent({ drag: { start: cursorPosition3d } });
-            this.dragStart = cursorPosition3d;
+            const maybeInteractableInfo = this.findInteractableBelow(cursorPosition3d);
+            if (maybeInteractableInfo) {
+                const [newActiveInteractable, hoveredPosition, hoveredDirection] = maybeInteractableInfo;
+                this.activeInteractable = newActiveInteractable;
+                this.activeInteractable.onEvent({ drag: { start: hoveredPosition } });
+                this.dragStart = cursorPosition3d;
+            }
         };
         const onMouseMove = e => {
             const { eye, target, verticalFov, width, height } = this.props;
@@ -23,14 +27,24 @@ export default class Stage extends React.Component {
                 this.activeInteractable.onEvent({ drag: { start: this.dragStart, now: cursorPosition3d } })
             } else {
                 const oldHoveredInteractable = this.hoveredInteractable;
-                this.hoveredInteractable = this.findInteractableBelow(cursorPosition3d);
+                const maybeInteractableInfo = this.findInteractableBelow(cursorPosition3d);
+                let stopOldHover = false;
 
-                if (!oldHoveredInteractable
-                    || (oldHoveredInteractable.id !== (this.hoveredInteractable && this.hoveredInteractable.id))) {
-                    oldHoveredInteractable && oldHoveredInteractable.onEvent({ hover: { end: cursorPosition3d } });
-                    this.hoveredInteractable && this.hoveredInteractable.onEvent({ hover: { start: cursorPosition3d } });
+                if (maybeInteractableInfo) {
+                    const [newHoveredInteractable, hoveredPosition, hoveredDirection] = maybeInteractableInfo;
+                    this.hoveredInteractable = newHoveredInteractable;
+                    if (!oldHoveredInteractable || oldHoveredInteractable.id !== this.hoveredInteractable.id) {
+                        this.hoveredInteractable.onEvent({ hover: { start: hoveredPosition } });
+                        stopOldHover = true;
+                    } else {
+                        this.hoveredInteractable.onEvent({ hover: { now: hoveredPosition, direction: hoveredDirection } });
+                    }
                 } else {
-                    this.hoveredInteractable && this.hoveredInteractable.onEvent({ hover: { now: cursorPosition3d } });
+                    stopOldHover = true;
+                }
+
+                if (stopOldHover) {
+                    oldHoveredInteractable && oldHoveredInteractable.onEvent({ hover: { end: cursorPosition3d } });
                 }
             }
 
@@ -73,18 +87,18 @@ export default class Stage extends React.Component {
         const interactables = [...this.props.interactables];
         interactables.sort((a, b) => b.zIndex - a.zIndex);
         for (let interactable of interactables) {
-            let below = interactable.shape.type == "circle"
-                ? vec3.dist(cursorPosition3d, interactable.shape.center) < interactable.shape.radius
-                : (interactable.shape.type == "polygon"
-                    ? cbRustBrowser.point_in_area([cursorPosition3d[0], cursorPosition3d[1]], interactable.shape.area)
-                    : (interactable.shape.type == "path"
-                        ? cbRustBrowser.point_close_to_path([cursorPosition3d[0], cursorPosition3d[1]], interactable.shape.path, interactable.shape.maxDistance)
-                        : (interactable.shape.type == "everywhere"
-                            ? true
-                            : false)));
-
-            if (below) {
-                return interactable;
+            if (interactable.shape.type == "circle" && vec3.dist(cursorPosition3d, interactable.shape.center) < interactable.shape.radius) {
+                return [interactable, cursorPosition3d, null];
+            } else if (interactable.shape.type == "polygon" && cbRustBrowser.point_in_area([cursorPosition3d[0], cursorPosition3d[1]], interactable.shape.area)) {
+                return [interactable, cursorPosition3d, null];
+            } else if (interactable.shape.type == "path") {
+                const maybeProjected = cbRustBrowser.point_close_to_path([cursorPosition3d[0], cursorPosition3d[1]], interactable.shape.path, interactable.shape.maxDistanceRight, interactable.shape.maxDistanceLeft);
+                if (maybeProjected) {
+                    const [point, projectedPoint, direction] = maybeProjected;
+                    return [interactable, [...projectedPoint, 0.0], [...direction, 0.0]];
+                }
+            } else if (interactable.shape.type == "everywhere") {
+                return [interactable, cursorPosition3d, null];
             }
         }
 

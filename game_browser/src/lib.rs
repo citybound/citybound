@@ -161,11 +161,21 @@ pub fn point_in_area(point: Serde<descartes::P2>, area: Serde<descartes::Area>) 
 pub fn point_close_to_path(
     point: Serde<descartes::P2>,
     path: Serde<descartes::LinePath>,
-    max_distance: Serde<descartes::N>,
-) -> Serde<Option<descartes::P2>> {
+    max_distance_right: Serde<descartes::N>,
+    max_distance_left: Serde<descartes::N>,
+) -> Serde<Option<(descartes::P2, descartes::P2, descartes::V2)>> {
+    use ::descartes::WithUniqueOrthogonal;
     Serde(
         path.0
-            .project_with_max_distance(point.0, descartes::THICKNESS, max_distance.0)
-            .map(|(_along, point)| point),
+            .project(point.0)
+            .and_then(|(distance, projected_point)| {
+                let direction = path.0.direction_along(distance);
+                let orth_distance = (point.0 - projected_point).dot(&direction.orthogonal_right());
+                if orth_distance >= -max_distance_left.0 && orth_distance <= max_distance_right.0 {
+                    Some((point.0, projected_point, direction))
+                } else {
+                    None
+                }
+            }),
     )
 }

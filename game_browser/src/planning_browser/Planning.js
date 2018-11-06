@@ -151,6 +151,16 @@ function insertControlPoint(proposalId, gestureId, point, doneInserting) {
     });
 }
 
+function splitGesture(proposalId, gestureId, splitAt, doneSplitting) {
+    cbRustBrowser.split_gesture(proposalId, gestureId, [splitAt[0], splitAt[1]], doneSplitting);
+
+    return oldState => update(oldState, {
+        planning: {
+            $unset: ["hoveredInsertPoint"]
+        }
+    });
+}
+
 function finishGesture(proposalId, gestureId) {
     cbRustBrowser.finish_gesture();
 
@@ -238,7 +248,7 @@ export function render(state, setState) {
                             center: [point[0], point[1], 0],
                             radius: 3
                         },
-                        zIndex: 3,
+                        zIndex: 4,
                         cursorHover: "grab",
                         cursorActive: "grabbing",
                         onEvent: e => {
@@ -284,12 +294,14 @@ export function render(state, setState) {
             let centerLine = state.planning.rendering.roadCenterLines[gestureId];
 
             roadCenterInteractables.push({
+                id: gestureId + "insert",
                 shape: {
                     type: "path",
                     path: centerLine,
-                    maxDistance: 1.5
+                    maxDistanceLeft: 2,
+                    maxDistanceRight: 2,
                 },
-                zIndex: 2,
+                zIndex: 3,
                 cursorHover: "pointer",
                 cursorActive: "grabbing",
                 onEvent: e => {
@@ -312,6 +324,45 @@ export function render(state, setState) {
                                 planning: {
                                     hoveredInsertPoint: {
                                         $set: e.hover.now
+                                    }
+                                }
+                            }))
+                        }
+                    }
+                }
+            });
+
+            roadCenterInteractables.push({
+                id: gestureId + "split",
+                shape: {
+                    type: "path",
+                    path: centerLine,
+                    maxDistanceLeft: 5,
+                    maxDistanceRight: 5,
+                },
+                zIndex: 2,
+                cursorHover: "col-resize",
+                cursorActive: "col-resize",
+                onEvent: e => {
+                    if (e.drag) {
+                        if (e.drag.end) {
+                            setState(splitGesture(state.planning.currentProposal, gestureId, e.drag.end, true));
+                        } else if (e.drag.now) {
+                            setState(splitGesture(state.planning.currentProposal, gestureId, e.drag.now, false));
+                        }
+                    }
+                    if (e.hover) {
+                        if (e.hover.end) {
+                            setState(update(state, {
+                                planning: {
+                                    $unset: ["hoveredSplitPoint"]
+                                }
+                            }))
+                        } else if (e.hover.now) {
+                            setState(update(state, {
+                                planning: {
+                                    hoveredSplitPoint: {
+                                        $set: { point: e.hover.now, direction: e.hover.direction }
                                     }
                                 }
                             }))
@@ -396,9 +447,34 @@ export function render(state, setState) {
             ...(state.planning.hoveredInsertPoint ? [
                 {
                     mesh: state.planning.rendering.staticMeshes.GestureDot,
-                    instances: new Float32Array([state.planning.hoveredInsertPoint[0], state.planning.hoveredInsertPoint[1], 0.0, 0.7, 0.0, ...colors.controlPointCurrentProposal])
+                    instances: new Float32Array([
+                        state.planning.hoveredInsertPoint[0],
+                        state.planning.hoveredInsertPoint[1],
+                        0.0,
+                        0.7, // scaled down
+                        0.0,
+                        ...colors.controlPointCurrentProposal
+                    ])
                 }
             ] : [])]
+        },
+        {
+            renderOrder: renderOrder.gestureInteractables,
+            decal: true,
+            batches: [
+                ...(state.planning.hoveredSplitPoint ? [
+                    {
+                        mesh: state.planning.rendering.staticMeshes.GestureSplit,
+                        instances: new Float32Array([
+                            state.planning.hoveredSplitPoint.point[0],
+                            state.planning.hoveredSplitPoint.point[1],
+                            0.0,
+                            state.planning.hoveredSplitPoint.direction[0],
+                            state.planning.hoveredSplitPoint.direction[1],
+                            ...colors.controlPointCurrentProposal
+                        ])
+                    }
+                ] : [])]
         }
     ];
 

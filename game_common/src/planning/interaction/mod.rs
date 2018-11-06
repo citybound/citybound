@@ -349,6 +349,74 @@ impl PlanManager {
         }
     }
 
+    pub fn split_gesture(
+        &mut self,
+        proposal_id: ProposalID,
+        gesture_id: GestureID,
+        split_at: P2,
+        commit: bool,
+        _: &mut World,
+    ) {
+        let maybe_new_step = {
+            let current_gesture = self.get_current_version_of(gesture_id, proposal_id);
+
+            if let Some((split_at_idx, point_before, point_after)) =
+                LinePath::new(current_gesture.points.clone()).and_then(|path| {
+                    path.project(split_at)
+                        .and_then(|(split_along, _projected)| {
+                            path.distances
+                                .iter()
+                                .position(|point_i_along| *point_i_along >= split_along)
+                                .map(|idx| {
+                                    let point_before = path.along(split_along - 5.0);
+                                    let point_after = path.along(split_along + 5.0);
+                                    (idx, point_before, point_after)
+                                })
+                        })
+                }) {
+                let first_half = Gesture {
+                    points: current_gesture.points[..split_at_idx]
+                        .iter()
+                        .cloned()
+                        .chain(Some(point_before))
+                        .collect(),
+                    ..current_gesture.clone()
+                }; //.simplify()
+
+                let second_half = Gesture {
+                    points: Some(point_after)
+                        .into_iter()
+                        .chain(current_gesture.points[split_at_idx..].iter().cloned())
+                        .collect(),
+                    ..current_gesture.clone()
+                }; //.simplify()
+
+                Some(Plan::from_gestures(vec![
+                    (gesture_id, first_half),
+                    (GestureID::new(), second_half),
+                ]))
+            } else {
+                None
+            }
+        };
+
+        if let Some(new_step) = maybe_new_step {
+            self.proposals
+                .get_mut(proposal_id)
+                .unwrap()
+                .set_ongoing_step(new_step);
+
+            if commit {
+                self.proposals
+                    .get_mut(proposal_id)
+                    .unwrap()
+                    .start_new_step();
+            }
+
+            self.clear_previews(proposal_id);
+        }
+    }
+
     pub fn set_intent(
         &mut self,
         proposal_id: ProposalID,
