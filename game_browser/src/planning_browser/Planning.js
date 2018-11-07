@@ -270,7 +270,7 @@ export function render(state, setState) {
                         onEvent: e => {
                             if (e.hover) {
                                 if (e.hover.end) {
-                                    setState(update(state, {
+                                    setState(state => update(state, {
                                         planning: {
                                             hoveredControlPoint: {
                                                 $set: {}
@@ -278,7 +278,7 @@ export function render(state, setState) {
                                         }
                                     }))
                                 } else if (e.hover.start) {
-                                    setState(update(state, {
+                                    setState(state => update(state, {
                                         planning: {
                                             hoveredControlPoint: {
                                                 $set: { gestureId, pointIdx }
@@ -330,13 +330,13 @@ export function render(state, setState) {
                     }
                     if (e.hover) {
                         if (e.hover.end) {
-                            setState(update(state, {
+                            setState(state => update(state, {
                                 planning: {
                                     $unset: ["hoveredInsertPoint"]
                                 }
                             }))
                         } else if (e.hover.now) {
-                            setState(update(state, {
+                            setState(state => update(state, {
                                 planning: {
                                     hoveredInsertPoint: {
                                         $set: e.hover.now
@@ -369,13 +369,13 @@ export function render(state, setState) {
                     }
                     if (e.hover) {
                         if (e.hover.end) {
-                            setState(update(state, {
+                            setState(state => update(state, {
                                 planning: {
                                     $unset: ["hoveredSplitPoint"]
                                 }
                             }))
                         } else if (e.hover.now) {
-                            setState(update(state, {
+                            setState(state => update(state, {
                                 planning: {
                                     hoveredSplitPoint: {
                                         $set: { point: e.hover.now, direction: e.hover.direction }
@@ -422,13 +422,13 @@ export function render(state, setState) {
                     }
                     if (e.hover) {
                         if (e.hover.end) {
-                            setState(update(state, {
+                            setState(state => update(state, {
                                 planning: {
                                     $unset: ["hoveredChangeNLanesPoint"]
                                 }
                             }))
                         } else if (e.hover.now) {
-                            setState(update(state, {
+                            setState(state => update(state, {
                                 planning: {
                                     hoveredChangeNLanesPoint: {
                                         $set: { point: e.hover.now, direction: e.hover.direction }
