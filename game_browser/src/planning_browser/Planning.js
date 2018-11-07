@@ -4,6 +4,7 @@ import { vec3, mat4 } from 'gl-matrix';
 import uuid from '../uuid';
 import { solidColorShader } from 'monet';
 import * as PlanningMenu from './PlanningMenu';
+import { vec2 } from 'gl-matrix';
 
 const LAND_USES = [
     "Residential",
@@ -26,7 +27,7 @@ export const initialState = {
             zoneOutlineGroups: new Map(LAND_USES.map(landUse => [landUse, new Map()])),
             buildingOutlinesGroup: new Map(),
         },
-        roadCenterLines: {}
+        roadInfos: {}
     },
     master: {
         gestures: {}
@@ -36,6 +37,8 @@ export const initialState = {
     currentProposal: null,
     hoveredControlPoint: {},
     hoveredInsertPoint: null,
+    hoveredSplitPoint: null,
+    hoveredChangeNLanesPoint: null,
     canvasMode: {
         intent: null,
         currentGesture: null,
@@ -156,7 +159,17 @@ function splitGesture(proposalId, gestureId, splitAt, doneSplitting) {
 
     return oldState => update(oldState, {
         planning: {
-            $unset: ["hoveredInsertPoint"]
+            $unset: ["hoveredSplitPoint"]
+        }
+    });
+}
+
+function setNLanes(proposalId, gestureId, nLanesForward, nLanesBackward, doneChanging) {
+    cbRustBrowser.set_n_lanes(proposalId, gestureId, nLanesForward, nLanesBackward, doneChanging);
+
+    return oldState => update(oldState, {
+        planning: {
+            $unset: ["hoveredChangeNLanesPoint"]
         }
     });
 }
@@ -208,6 +221,9 @@ const shadersForLandUses = {
     Official: stripedShaders[2]
 };
 
+// TODO: share constants with Rust somehow
+const LANE_DISTANCE = 0.8 * 3.9;
+
 export function render(state, setState) {
     const controlPointsInstances = [];
     const controlPointsInteractables = [];
@@ -248,7 +264,7 @@ export function render(state, setState) {
                             center: [point[0], point[1], 0],
                             radius: 3
                         },
-                        zIndex: 4,
+                        zIndex: 5,
                         cursorHover: "grab",
                         cursorActive: "grabbing",
                         onEvent: e => {
@@ -290,8 +306,8 @@ export function render(state, setState) {
     const roadCenterInteractables = [];
 
     if (state.planning.planningMode === "roads") {
-        for (let gestureId of Object.keys(state.planning.rendering.roadCenterLines)) {
-            let centerLine = state.planning.rendering.roadCenterLines[gestureId];
+        for (let gestureId of Object.keys(state.planning.rendering.roadInfos)) {
+            let { centerLine, outline, nLanesForward, nLanesBackward } = state.planning.rendering.roadInfos[gestureId];
 
             roadCenterInteractables.push({
                 id: gestureId + "insert",
@@ -301,7 +317,7 @@ export function render(state, setState) {
                     maxDistanceLeft: 2,
                     maxDistanceRight: 2,
                 },
-                zIndex: 3,
+                zIndex: 4,
                 cursorHover: "pointer",
                 cursorActive: "grabbing",
                 onEvent: e => {
@@ -337,10 +353,10 @@ export function render(state, setState) {
                 shape: {
                     type: "path",
                     path: centerLine,
-                    maxDistanceLeft: 5,
-                    maxDistanceRight: 5,
+                    maxDistanceLeft: LANE_DISTANCE * nLanesBackward,
+                    maxDistanceRight: LANE_DISTANCE * nLanesForward,
                 },
-                zIndex: 2,
+                zIndex: 3,
                 cursorHover: "col-resize",
                 cursorActive: "col-resize",
                 onEvent: e => {
@@ -362,6 +378,59 @@ export function render(state, setState) {
                             setState(update(state, {
                                 planning: {
                                     hoveredSplitPoint: {
+                                        $set: { point: e.hover.now, direction: e.hover.direction }
+                                    }
+                                }
+                            }))
+                        }
+                    }
+                }
+            })
+
+            roadCenterInteractables.push({
+                id: gestureId + "changeNLanes",
+                shape: {
+                    type: "path",
+                    path: centerLine,
+                    maxDistanceLeft: LANE_DISTANCE * nLanesBackward + 2,
+                    maxDistanceRight: LANE_DISTANCE * nLanesForward + 2,
+                },
+                zIndex: 2,
+                cursorHover: "ew-resize",
+                cursorActive: "ew-resize",
+                onEvent: e => {
+                    if (e.drag) {
+                        if (e.drag.end || e.drag.now) {
+                            const position = e.drag.end || e.drag.now;
+                            const { projectedPosition, direction } = e.drag;
+                            const orthogonalRightDirection = [direction[1], -direction[0]];
+
+                            const vector = vec2.sub(vec2.create(), position, projectedPosition);
+                            const orthogonalDistance = vec2.dot(vector, orthogonalRightDirection);
+
+                            let newNLanesForward = nLanesForward;
+                            let newNLanesBackward = nLanesBackward;
+
+                            if (orthogonalDistance > 0.0) {
+                                newNLanesForward = Math.max(0.0, Math.round(orthogonalDistance / 3.0));
+                            } else {
+                                newNLanesBackward = Math.max(0.0, Math.round(-orthogonalDistance / 3.0));
+                            }
+
+                            setState(setNLanes(state.planning.currentProposal, gestureId, newNLanesForward, newNLanesBackward, e.drag.end ? true : false));
+                        }
+                    }
+                    if (e.hover) {
+                        if (e.hover.end) {
+                            setState(update(state, {
+                                planning: {
+                                    $unset: ["hoveredChangeNLanesPoint"]
+                                }
+                            }))
+                        } else if (e.hover.now) {
+                            setState(update(state, {
+                                planning: {
+                                    hoveredChangeNLanesPoint: {
                                         $set: { point: e.hover.now, direction: e.hover.direction }
                                     }
                                 }
@@ -471,6 +540,24 @@ export function render(state, setState) {
                             0.0,
                             state.planning.hoveredSplitPoint.direction[0],
                             state.planning.hoveredSplitPoint.direction[1],
+                            ...colors.controlPointCurrentProposal
+                        ])
+                    }
+                ] : [])]
+        },
+        {
+            renderOrder: renderOrder.gestureInteractables,
+            decal: true,
+            batches: [
+                ...(state.planning.hoveredChangeNLanesPoint ? [
+                    {
+                        mesh: state.planning.rendering.staticMeshes.GestureChangeNLanes,
+                        instances: new Float32Array([
+                            state.planning.hoveredChangeNLanesPoint.point[0],
+                            state.planning.hoveredChangeNLanesPoint.point[1],
+                            0.0,
+                            state.planning.hoveredChangeNLanesPoint.direction[0],
+                            state.planning.hoveredChangeNLanesPoint.direction[1],
                             ...colors.controlPointCurrentProposal
                         ])
                     }

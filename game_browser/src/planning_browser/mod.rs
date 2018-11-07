@@ -128,6 +128,31 @@ pub fn split_gesture(
     all(target_arch = "wasm32", target_os = "unknown"),
     js_export
 )]
+pub fn set_n_lanes(
+    proposal_id: Serde<::planning::ProposalID>,
+    gesture_id: Serde<::planning::GestureID>,
+    n_lanes_forward: usize,
+    n_lanes_backward: usize,
+    done_changing: bool,
+) {
+    let system = unsafe { &mut *SYSTEM };
+    let world = &mut system.world();
+    ::planning::PlanManagerID::global_first(world).set_intent(
+        proposal_id.0,
+        gesture_id.0,
+        ::planning::GestureIntent::Road(::transport::transport_planning::RoadIntent {
+            n_lanes_forward: n_lanes_forward as u8,
+            n_lanes_backward: n_lanes_backward as u8,
+        }),
+        done_changing,
+        world,
+    )
+}
+
+#[cfg_attr(
+    all(target_arch = "wasm32", target_os = "unknown"),
+    js_export
+)]
 pub fn finish_gesture() {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
@@ -220,7 +245,17 @@ pub fn static_meshes() -> Vec<(&'static str, Mesh)> {
         0.2,
     );
 
-    vec![("GestureDot", dot_mesh), ("GestureSplit", split_mesh)]
+    let change_n_lanes_mesh = Mesh::from_path_as_band(
+        &LinePath::new(vec![P2::new(-3.0, 0.0), P2::new(3.0, 0.0)].into()).unwrap(),
+        0.3,
+        0.2,
+    );
+
+    vec![
+        ("GestureDot", dot_mesh),
+        ("GestureSplit", split_mesh),
+        ("GestureChangeNLanes", change_n_lanes_mesh),
+    ]
 }
 
 impl BrowserPlanningUI {
@@ -581,11 +616,38 @@ SwitchLanePrototype, IntersectionPrototype};
             .building_outlines_grouper
             .update(building_outlines_rem, building_outlines_add);
 
-        let road_center_lines: HashMap<GestureID, LinePath> =
+        #[derive(Serialize, Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct RoadInfo {
+            center_line: LinePath,
+            outline: LinePath,
+            n_lanes_forward: usize,
+            n_lanes_backward: usize,
+        }
+
+        let road_infos: HashMap<GestureID, RoadInfo> =
             ::transport::transport_planning::gesture_intent_smooth_paths(effective_history)
                 .into_iter()
-                .map(|(gesture_id, _, _, path)| (gesture_id, path))
-                .collect();
+                .map(|(gesture_id, _, road_intent, path)| {
+                    (
+                        gesture_id,
+                        RoadInfo {
+                            outline: ::descartes::Band::new_asymmetric(
+                                path.clone(),
+                                f32::from(road_intent.n_lanes_backward)
+                                    * ::dimensions::LANE_DISTANCE
+                                    + 0.4 * ::dimensions::LANE_DISTANCE,
+                                f32::from(road_intent.n_lanes_forward)
+                                    * ::dimensions::LANE_DISTANCE
+                                    + 0.4 * ::dimensions::LANE_DISTANCE,
+                            ).outline()
+                            .0,
+                            center_line: path,
+                            n_lanes_forward: road_intent.n_lanes_forward as usize,
+                            n_lanes_backward: road_intent.n_lanes_backward as usize,
+                        },
+                    )
+                }).collect();
 
         js! {
             window.cbReactApp.setState(oldState => update(oldState, {
@@ -614,7 +676,7 @@ SwitchLanePrototype, IntersectionPrototype};
                             )}
                         },
                     },
-                    roadCenterLines: {"$set": @{Serde(road_center_lines)}},
+                    roadInfos: {"$set": @{Serde(road_infos)}},
                 }}
             }));
         }

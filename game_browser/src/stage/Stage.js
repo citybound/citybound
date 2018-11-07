@@ -10,10 +10,12 @@ export default class Stage extends React.Component {
 
             const maybeInteractableInfo = this.findInteractableBelow(cursorPosition3d);
             if (maybeInteractableInfo) {
-                const [newActiveInteractable, hoveredPosition, hoveredDirection] = maybeInteractableInfo;
+                const [newActiveInteractable, projectedPosition, direction] = maybeInteractableInfo;
                 this.activeInteractable = newActiveInteractable;
-                this.activeInteractable.onEvent({ drag: { start: hoveredPosition } });
+                this.activeInteractable.onEvent({ drag: { start: projectedPosition }, projectedPosition, direction });
                 this.dragStart = cursorPosition3d;
+                this.dragStartProjectedPosition = projectedPosition;
+                this.dragStartDirection = direction;
             }
         };
         const onMouseMove = e => {
@@ -24,7 +26,14 @@ export default class Stage extends React.Component {
             this.props.cursorMoved && this.props.cursorMoved(cursorPosition3d);
 
             if (this.activeInteractable) {
-                this.activeInteractable.onEvent({ drag: { start: this.dragStart, now: cursorPosition3d } })
+                this.activeInteractable.onEvent({
+                    drag: {
+                        start: this.dragStart,
+                        projectedPosition: this.dragStartProjectedPosition,
+                        direction: this.dragStartDirection,
+                        now: cursorPosition3d,
+                    }
+                })
             } else {
                 const oldHoveredInteractable = this.hoveredInteractable;
                 const maybeInteractableInfo = this.findInteractableBelow(cursorPosition3d);
@@ -34,10 +43,20 @@ export default class Stage extends React.Component {
                     const [newHoveredInteractable, hoveredPosition, hoveredDirection] = maybeInteractableInfo;
                     this.hoveredInteractable = newHoveredInteractable;
                     if (!oldHoveredInteractable || oldHoveredInteractable.id !== this.hoveredInteractable.id) {
-                        this.hoveredInteractable.onEvent({ hover: { start: hoveredPosition } });
+                        this.hoveredInteractable.onEvent({
+                            hover: {
+                                start: hoveredPosition,
+                                direction: hoveredDirection
+                            }
+                        });
                         stopOldHover = true;
                     } else {
-                        this.hoveredInteractable.onEvent({ hover: { now: hoveredPosition, direction: hoveredDirection } });
+                        this.hoveredInteractable.onEvent({
+                            hover: {
+                                now: hoveredPosition,
+                                direction: hoveredDirection
+                            }
+                        });
                     }
                 } else {
                     stopOldHover = true;
@@ -56,7 +75,14 @@ export default class Stage extends React.Component {
             const cursorPosition3d = this.projectCursor(eye, target, verticalFov, width, height, e, elementRect);
 
             if (this.activeInteractable) {
-                this.activeInteractable.onEvent({ drag: { start: this.dragStart, end: cursorPosition3d } });
+                this.activeInteractable.onEvent({
+                    drag: {
+                        start: this.dragStart,
+                        projectedPosition: this.dragStartProjectedPosition,
+                        direction: this.dragStartDirection,
+                        end: cursorPosition3d,
+                    }
+                });
                 this.activeInteractable = null;
                 this.dragStart = null;
             }
