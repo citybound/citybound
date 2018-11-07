@@ -128,6 +128,8 @@ function startNewGesture(proposalId, intent, startPoint) {
     });
 }
 
+
+
 function addControlPoint(proposalId, gestureId, point, addToEnd, doneAdding) {
     cbRustBrowser.add_control_point(proposalId, gestureId, [point[0], point[1]], addToEnd, doneAdding);
 
@@ -250,6 +252,9 @@ export function render(state, setState) {
                 if (isRelevant) {
                     let isHovered = gestureId == hoveredGestureId && pointIdx == hoveredPointIdx;
 
+                    let isFirst = pointIdx == 0;
+                    let isLast = pointIdx == gesture.points.length - 1;
+
                     controlPointsInstances.push.apply(controlPointsInstances, [
                         point[0], point[1], 0,
                         1.0, 0.0,
@@ -291,7 +296,19 @@ export function render(state, setState) {
 
                             if (e.drag) {
                                 if (e.drag.end) {
-                                    setState(moveControlPoint(state.planning.currentProposal, gestureId, pointIdx, e.drag.end, true));
+                                    if ((isFirst || isLast) && vec3.dist(e.drag.end, e.drag.start) < state.settings.planning.finishGestureDistance) {
+                                        setState(oldState => update(oldState, {
+                                            planning: {
+                                                canvasMode: {
+                                                    currentGesture: { $set: gestureId },
+                                                    addToEnd: { $set: isLast },
+                                                    previousClick: { $set: e.drag.start }
+                                                }
+                                            }
+                                        }))
+                                    } else {
+                                        setState(moveControlPoint(state.planning.currentProposal, gestureId, pointIdx, e.drag.end, true));
+                                    }
                                 } else if (e.drag.now) {
                                     setState(moveControlPoint(state.planning.currentProposal, gestureId, pointIdx, e.drag.now, false));
                                 }
