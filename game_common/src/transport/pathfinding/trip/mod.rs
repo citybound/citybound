@@ -1,7 +1,7 @@
 use kay::{World, ActorSystem, Fate, TypedID, Actor};
 use compact::CVec;
 use ordered_float::OrderedFloat;
-use simulation::Instant;
+use time::Instant;
 
 use transport::lane::LaneID;
 use super::{PreciseLocation, RoughLocationID, LocationRequester, LocationRequesterID};
@@ -161,8 +161,8 @@ impl LocationRequester for Trip {
     }
 }
 
-use simulation::{SimulationID, Sleeper, SleeperID};
-use simulation::Ticks;
+use time::{TimeID, Sleeper, SleeperID};
+use time::Ticks;
 use super::super::microtraffic::{LaneLikeID, LaneCar, Obstacle};
 
 pub trait TripListener {
@@ -180,15 +180,15 @@ pub trait TripListener {
 #[derive(Compact, Clone)]
 pub struct TripCreator {
     id: TripCreatorID,
-    simulation: SimulationID,
+    time: TimeID,
     lanes: CVec<LaneID>,
 }
 
 impl TripCreator {
-    pub fn spawn(id: TripCreatorID, simulation: SimulationID, _: &mut World) -> TripCreator {
+    pub fn spawn(id: TripCreatorID, time: TimeID, _: &mut World) -> TripCreator {
         TripCreator {
             id,
-            simulation,
+            time,
             lanes: CVec::new(),
         }
     }
@@ -197,7 +197,7 @@ impl TripCreator {
         self.lanes.push(lane_id);
 
         if self.lanes.len() > 1 {
-            self.simulation.wake_up_in(Ticks(50), self.id_as(), world);
+            self.time.wake_up_in(Ticks(50), self.id_as(), world);
         }
     }
 }
@@ -299,8 +299,8 @@ pub fn setup(system: &mut ActorSystem) {
     auto_setup(system);
 }
 
-pub fn spawn(world: &mut World, simulation: SimulationID) {
-    TripCreatorID::spawn(simulation, world);
+pub fn spawn(world: &mut World, time: TimeID) {
+    TripCreatorID::spawn(time, world);
 }
 
 mod kay_auto;

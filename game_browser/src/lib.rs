@@ -57,7 +57,7 @@ pub fn start() {
     browser_utils::auto_setup(&mut system);
     planning_browser::setup(&mut system);
     transport_browser::setup(&mut system);
-    simulation_browser::setup(&mut system);
+    time_browser::setup(&mut system);
     land_use_browser::setup(&mut system);
     households_browser::setup(&mut system);
 
@@ -65,7 +65,7 @@ pub fn start() {
 
     planning_browser::spawn(&mut system.world());
     transport_browser::spawn(&mut system.world());
-    simulation_browser::spawn(&mut system.world());
+    time_browser::spawn(&mut system.world());
     land_use_browser::spawn(&mut system.world());
     households_browser::spawn(&mut system.world());
 
@@ -137,7 +137,7 @@ impl MainLoop {
 
 pub mod planning_browser;
 pub mod debug;
-pub mod simulation_browser;
+pub mod time_browser;
 pub mod households_browser;
 pub mod transport_browser;
 pub mod land_use_browser;

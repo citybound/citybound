@@ -1,13 +1,13 @@
 use kay::{ActorSystem, World, TypedID};
 use compact::CVec;
 
-mod time;
+mod units;
 pub mod ui;
 
-pub use self::time::{Instant, Ticks, Duration, TICKS_PER_SIM_MINUTE, TICKS_PER_SIM_SECOND,
+pub use self::units::{Instant, Ticks, Duration, TICKS_PER_SIM_MINUTE, TICKS_PER_SIM_SECOND,
 TimeOfDay, TimeOfDayRange};
 
-pub trait Simulatable {
+pub trait Temporal {
     fn tick(&mut self, dt: f32, current_instant: Instant, world: &mut World);
 }
 
@@ -16,16 +16,16 @@ pub trait Sleeper {
 }
 
 #[derive(Compact, Clone)]
-pub struct Simulation {
-    id: SimulationID,
+pub struct Time {
+    id: TimeID,
     current_instant: Instant,
     sleepers: CVec<(Instant, SleeperID)>,
     speed: u16,
 }
 
-impl Simulation {
-    pub fn spawn(id: SimulationID, _: &mut World) -> Simulation {
-        Simulation {
+impl Time {
+    pub fn spawn(id: TimeID, _: &mut World) -> Time {
+        Time {
             id,
             current_instant: Instant::new(0),
             sleepers: CVec::new(),
@@ -35,7 +35,7 @@ impl Simulation {
 
     pub fn progress(&mut self, world: &mut World) {
         for _ in 0..self.speed {
-            SimulatableID::global_broadcast(world).tick(
+            TemporalID::global_broadcast(world).tick(
                 1.0 / (TICKS_PER_SIM_SECOND as f32),
                 self.current_instant,
                 world,
@@ -69,13 +69,13 @@ impl Simulation {
 }
 
 pub fn setup(system: &mut ActorSystem) {
-    system.register::<Simulation>();
+    system.register::<Time>();
     auto_setup(system);
     ui::auto_setup(system);
 }
 
-pub fn spawn(world: &mut World) -> SimulationID {
-    SimulationID::spawn(world)
+pub fn spawn(world: &mut World) -> TimeID {
+    TimeID::spawn(world)
 }
 
 mod kay_auto;

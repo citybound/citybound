@@ -1,7 +1,7 @@
 use kay::{World, Fate, ActorSystem};
 use compact::{CVec, CHashMap};
 use planning::{PrototypeID, Prototype, PrototypeKind, Action, ActionGroups};
-use simulation::{Simulatable, SimulatableID, Instant};
+use time::{Temporal, TemporalID, Instant};
 
 pub trait Constructable {
     fn morph(&mut self, new_prototype: &Prototype, report_to: ConstructionID, world: &mut World);
@@ -117,7 +117,7 @@ impl Construction {
     }
 }
 
-impl Simulatable for Construction {
+impl Temporal for Construction {
     fn tick(&mut self, _dt: f32, _current_instant: Instant, world: &mut World) {
         if self.pending_constructables.is_empty() {
             if !self.queued_action_groups.0.is_empty() {

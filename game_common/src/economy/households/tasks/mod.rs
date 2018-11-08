@@ -1,6 +1,6 @@
 use kay::{ActorSystem, World};
 use compact::CVec;
-use simulation::{Instant, Duration, Simulatable, SimulatableID};
+use time::{Instant, Duration, Temporal, TemporalID};
 use transport::pathfinding::RoughLocationID;
 use transport::pathfinding::trip::TripID;
 use super::super::resources::Resource;
@@ -70,7 +70,7 @@ impl TaskEndScheduler {
     }
 }
 
-impl Simulatable for TaskEndScheduler {
+impl Temporal for TaskEndScheduler {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
         while self
             .task_ends

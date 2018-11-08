@@ -128,7 +128,7 @@ impl DerefMut for TransferringLaneCar {
     }
 }
 
-use simulation::Instant;
+use time::Instant;
 
 pub trait LaneLike {
     fn add_car(
@@ -143,7 +143,7 @@ pub trait LaneLike {
 
 use self::pathfinding::RoutingInfo;
 
-use simulation::{Simulatable, SimulatableID};
+use time::{Temporal, TemporalID};
 
 const TRAFFIC_LOGIC_THROTTLING: usize = 10;
 const PATHFINDING_THROTTLING: usize = 10;
@@ -248,7 +248,7 @@ impl Lane {
     }
 }
 
-impl Simulatable for Lane {
+impl Temporal for Lane {
     fn tick(&mut self, dt: f32, current_instant: Instant, world: &mut World) {
         let dt = dt / MICROTRAFFIC_UNREALISTIC_SLOWDOWN;
 
@@ -545,7 +545,7 @@ impl LaneLike for SwitchLane {
     }
 }
 
-impl Simulatable for SwitchLane {
+impl Temporal for SwitchLane {
     fn tick(&mut self, dt: f32, current_instant: Instant, world: &mut World) {
         let dt = dt / MICROTRAFFIC_UNREALISTIC_SLOWDOWN;
 

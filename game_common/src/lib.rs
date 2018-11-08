@@ -11,7 +11,6 @@ extern crate itertools;
 extern crate rand;
 extern crate fnv;
 extern crate roaring;
-extern crate backtrace;
 extern crate uuid;
 
 pub extern crate compact;
@@ -24,12 +23,8 @@ pub extern crate descartes;
 #[macro_use]
 extern crate serde_derive;
 
-pub const ENV_NAME: &str = "Citybound";
-pub const ENV_AUTHOR: &str = "ae play";
-pub const ENV_VERSION: &str = "0.4.0";
-
 pub mod util;
-pub mod simulation;
+pub mod time;
 pub mod transport;
 pub mod planning;
 pub mod construction;
@@ -39,7 +34,7 @@ pub mod dimensions;
 
 pub fn setup_common(system: &mut kay::ActorSystem) {
     for setup_fn in &[
-        simulation::setup,
+        time::setup,
         planning::setup,
         construction::setup,
         transport::setup,

@@ -1,5 +1,5 @@
 use kay::{ActorSystem, World, TypedID, Actor};
-use simulation::{TimeOfDay, TimeOfDayRange, Duration, SimulationID, Ticks};
+use time::{TimeOfDay, TimeOfDayRange, Duration, TimeID, Ticks};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
@@ -15,13 +15,8 @@ pub struct CowFarm {
 }
 
 impl CowFarm {
-    pub fn move_into(
-        id: CowFarmID,
-        site: BuildingID,
-        simulation: SimulationID,
-        world: &mut World,
-    ) -> CowFarm {
-        simulation.wake_up_in(Ticks(0), id.into(), world);
+    pub fn move_into(id: CowFarmID, site: BuildingID, time: TimeID, world: &mut World) -> CowFarm {
+        time.wake_up_in(Ticks(0), id.into(), world);
 
         CowFarm {
             id,
@@ -141,10 +136,10 @@ impl Household for CowFarm {
     }
 }
 
-use simulation::{Simulatable, SimulatableID, Sleeper, SleeperID, Instant, TICKS_PER_SIM_SECOND};
+use time::{Temporal, TemporalID, Sleeper, SleeperID, Instant, TICKS_PER_SIM_SECOND};
 const UPDATE_EVERY_N_SECS: u32 = 4;
 
-impl Simulatable for CowFarm {
+impl Temporal for CowFarm {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
         if (current_instant.ticks() + self.id.as_raw().instance_id as usize)
             % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) as usize

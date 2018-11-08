@@ -2,7 +2,7 @@ use kay::{ActorSystem, Fate, World, Actor};
 use compact::{CVec, CDict};
 use super::resources::{Inventory, Entry, Resource, ResourceAmount};
 use super::households::OfferID;
-use simulation::{TimeOfDayRange, Duration, Instant};
+use time::{TimeOfDayRange, Duration, Instant};
 use transport::pathfinding::{RoughLocationID, LocationRequesterID};
 
 #[derive(Compact, Clone, Serialize, Deserialize)]

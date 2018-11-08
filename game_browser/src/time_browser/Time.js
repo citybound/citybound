@@ -10,17 +10,17 @@ export const initialState = {
 
 export function render(state, setState) {
     const windows = <div className="sim-time">
-        {(state.simulation.time[0] + "").padStart(2, "0")}
+        {(state.time.time[0] + "").padStart(2, "0")}
         <span className="sim-time-colon">:</span>
-        {(state.simulation.time[1] + "").padStart(2, "0")}
+        {(state.time.time[1] + "").padStart(2, "0")}
         <Slider className="sim-speed"
-            value={state.simulation.speed == 0 ? 0 : Math.log2(state.simulation.speed) + 1}
+            value={state.time.speed == 0 ? 0 : Math.log2(state.time.speed) + 1}
             min={0} max={6}
             marks={{ 0: "||", 1: "1x", 3: "4x", 6: "32x" }}
             onChange={newSpeedLog => {
                 const newSpeed = newSpeedLog == 0 ? 0 : Math.pow(2, newSpeedLog - 1);
                 cbRustBrowser.set_sim_speed(newSpeed);
-                setState(oldState => update(oldState, { simulation: { speed: { $set: newSpeed } } }));
+                setState(oldState => update(oldState, { time: { speed: { $set: newSpeed } } }));
             }}
             tipFormatter={speed => speed ? `Speed: ${Math.pow(2, speed - 1)}x` : "Pause"}
         />

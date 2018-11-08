@@ -19,6 +19,8 @@ path = "./game_server/main.rs"
 [dependencies]
 rouille = "2.1.0"
 clap = "2.32.0"
+open = "1.2.2"
+backtrace = "0.3"
 rust-embed-flag = {git = "https://github.com/aeickhoff/rust-embed"}
 
 [dependencies.citybound_common]

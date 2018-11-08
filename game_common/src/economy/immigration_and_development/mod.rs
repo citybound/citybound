@@ -1,7 +1,7 @@
 use kay::{World, ActorSystem, TypedID};
 use compact::COption;
 use land_use::buildings::{UnitType, BuildingID, UnitIdx};
-use simulation::{Sleeper, SleeperID, Instant, SimulationID, Duration};
+use time::{Sleeper, SleeperID, Instant, TimeID, Duration};
 use util::random::{seed, Rng};
 
 use economy::households::household_kinds;
@@ -62,7 +62,7 @@ pub fn building_style_for(household_type: HouseholdTypeToSpawn) -> BuildingStyle
 #[derive(Compact, Clone)]
 pub struct ImmigrationManager {
     id: ImmigrationManagerID,
-    simulation: SimulationID,
+    time: TimeID,
     development_manager: DevelopmentManagerID,
     state: ImmigrationManagerState,
 }
@@ -70,15 +70,15 @@ pub struct ImmigrationManager {
 impl ImmigrationManager {
     pub fn spawn(
         id: ImmigrationManagerID,
-        simulation: SimulationID,
+        time: TimeID,
         development_manager: DevelopmentManagerID,
         world: &mut World,
     ) -> ImmigrationManager {
-        simulation.wake_up_in(IMMIGRATION_PACE.into(), id.into(), world);
+        time.wake_up_in(IMMIGRATION_PACE.into(), id.into(), world);
 
         ImmigrationManager {
             id,
-            simulation,
+            time,
             development_manager,
             state: ImmigrationManagerState::Idle,
         }
@@ -165,7 +165,7 @@ impl Sleeper for ImmigrationManager {
             }
         };
 
-        self.simulation
+        self.time
             .wake_up_in(IMMIGRATION_PACE.into(), self.id.into(), world);
     }
 }
@@ -179,29 +179,28 @@ impl ImmigrationManager {
 
                 let household_id = match household_type_to_spawn {
                     HouseholdTypeToSpawn::Family => {
-                        FamilyID::move_into(3, building_id, self.simulation, world).into()
+                        FamilyID::move_into(3, building_id, self.time, world).into()
                     }
                     HouseholdTypeToSpawn::GroceryShop => {
-                        GroceryShopID::move_into(building_id, self.simulation, world).into()
+                        GroceryShopID::move_into(building_id, self.time, world).into()
                     }
                     HouseholdTypeToSpawn::GrainFarm => {
-                        GrainFarmID::move_into(building_id, self.simulation, world).into()
+                        GrainFarmID::move_into(building_id, self.time, world).into()
                     }
                     HouseholdTypeToSpawn::CowFarm => {
-                        CowFarmID::move_into(building_id, self.simulation, world).into()
+                        CowFarmID::move_into(building_id, self.time, world).into()
                     }
                     HouseholdTypeToSpawn::VegetableFarm => {
-                        VegetableFarmID::move_into(building_id, self.simulation, world).into()
+                        VegetableFarmID::move_into(building_id, self.time, world).into()
                     }
                     HouseholdTypeToSpawn::Mill => {
-                        MillID::move_into(building_id, self.simulation, world).into()
+                        MillID::move_into(building_id, self.time, world).into()
                     }
                     HouseholdTypeToSpawn::Bakery => {
-                        BakeryID::move_into(building_id, self.simulation, world).into()
+                        BakeryID::move_into(building_id, self.time, world).into()
                     }
                     HouseholdTypeToSpawn::NeighboringTownTrade => {
-                        NeighboringTownTradeID::move_into(building_id, self.simulation, world)
-                            .into()
+                        NeighboringTownTradeID::move_into(building_id, self.time, world).into()
                     }
                 };
 
@@ -217,7 +216,7 @@ impl ImmigrationManager {
 #[derive(Compact, Clone)]
 pub struct DevelopmentManager {
     id: DevelopmentManagerID,
-    simulation: SimulationID,
+    time: TimeID,
     plan_manager: PlanManagerID,
     building_to_develop: COption<BuildingStyle>,
 }
@@ -225,13 +224,13 @@ pub struct DevelopmentManager {
 impl DevelopmentManager {
     pub fn spawn(
         id: DevelopmentManagerID,
-        simulation: SimulationID,
+        time: TimeID,
         plan_manager: PlanManagerID,
         _world: &mut World,
     ) -> DevelopmentManager {
         DevelopmentManager {
             id,
-            simulation,
+            time,
             plan_manager,
             building_to_develop: COption(None),
         }
@@ -242,7 +241,7 @@ impl DevelopmentManager {
             println!("Trying to develop {:?}", building_style);
             self.building_to_develop = COption(Some(building_style));
             VacantLotID::global_broadcast(world).suggest_lot(building_style, self.id, world);
-            self.simulation
+            self.time
                 .wake_up_in(IMMIGRATION_PACE.into(), self.id.into(), world);
         }
     }
@@ -285,9 +284,9 @@ pub fn setup(system: &mut ActorSystem) {
     auto_setup(system);
 }
 
-pub fn spawn(world: &mut World, simulation: SimulationID, plan_manager: PlanManagerID) {
-    let development_manager = DevelopmentManagerID::spawn(simulation, plan_manager, world);
-    ImmigrationManagerID::spawn(simulation, development_manager, world);
+pub fn spawn(world: &mut World, time: TimeID, plan_manager: PlanManagerID) {
+    let development_manager = DevelopmentManagerID::spawn(time, plan_manager, world);
+    ImmigrationManagerID::spawn(time, development_manager, world);
 }
 
 mod kay_auto;

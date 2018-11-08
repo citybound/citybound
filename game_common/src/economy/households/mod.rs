@@ -1,7 +1,7 @@
 use kay::{ActorSystem, World, Actor, TypedID, Fate};
 use compact::{CVec, CDict, COption, CString};
-use simulation::{Duration, TimeOfDay, Instant, Ticks, SimulationID, TICKS_PER_SIM_SECOND, Sleeper,
-Simulatable};
+use time::{Duration, TimeOfDay, Instant, Ticks, TimeID, TICKS_PER_SIM_SECOND, Sleeper,
+Temporal};
 use util::async_counter::AsyncCounter;
 use util::random::{seed, Rng};
 use ordered_float::OrderedFloat;
@@ -46,7 +46,7 @@ impl Into<RoughLocationID> for HouseholdID {
 }
 
 pub trait Household:
-    Actor + EvaluationRequester + Sleeper + Simulatable + TripListener + RoughLocation
+    Actor + EvaluationRequester + Sleeper + Temporal + TripListener + RoughLocation
 {
     fn core(&self) -> &HouseholdCore;
     fn core_mut(&mut self) -> &mut HouseholdCore;
@@ -262,7 +262,7 @@ pub trait Household:
         let top_problems = self.top_problems(member, time);
 
         if top_problems.is_empty() {
-            SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, self.id_as(), world);
+            TimeID::local_first(world).wake_up_in(DECISION_PAUSE, self.id_as(), world);
         } else {
             let mut decision_entries = CDict::<Resource, DecisionResourceEntry>::new();
             let id_as_eval_requester = self.id_as();
@@ -491,7 +491,7 @@ pub trait Household:
                 .log
                 .log("Didn't find any suitable offers at all\n");
             self.core_mut().decision_state = DecisionState::None;
-            SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, id_as_sleeper, world);
+            TimeID::local_first(world).wake_up_in(DECISION_PAUSE, id_as_sleeper, world);
         }
 
         fn most_useful_evaluated_deal(
@@ -527,7 +527,7 @@ pub trait Household:
         self.core_mut().decision_state =
             if let DecisionState::WaitingForTrip(member) = self.core().decision_state {
                 self.core_mut().member_tasks[member.as_idx()].state = TaskState::InTrip(trip);
-                SimulationID::local_first(world).wake_up_in(DECISION_PAUSE, self.id_as(), world);
+                TimeID::local_first(world).wake_up_in(DECISION_PAUSE, self.id_as(), world);
                 DecisionState::None
             } else {
                 panic!("Should be in waiting for trip state")
@@ -676,7 +676,7 @@ pub trait Household:
                     .stopped_actively_using(offer.idx, self.id_as(), member, world);
             }
 
-            SimulationID::local_first(world).wake_up_in(Ticks(0), self.id_as(), world);
+            TimeID::local_first(world).wake_up_in(Ticks(0), self.id_as(), world);
         }
     }
 

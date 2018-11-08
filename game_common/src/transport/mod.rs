@@ -7,7 +7,7 @@ pub mod transport_planning;
 pub mod pathfinding;
 
 use kay::{ActorSystem, World};
-use simulation::SimulationID;
+use time::TimeID;
 
 pub fn setup(system: &mut ActorSystem) {
     self::lane::setup(system);
@@ -17,6 +17,6 @@ pub fn setup(system: &mut ActorSystem) {
     self::ui::setup(system);
 }
 
-pub fn spawn(world: &mut World, simulation: SimulationID) {
-    self::pathfinding::spawn(world, simulation);
+pub fn spawn(world: &mut World, time: TimeID) {
+    self::pathfinding::spawn(world, time);
 }

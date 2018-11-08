@@ -1,6 +1,6 @@
 use kay::{ActorSystem, World};
 
-use simulation::SimulationID;
+use time::TimeID;
 use planning::PlanManagerID;
 
 pub mod resources;
@@ -14,8 +14,8 @@ pub fn setup(system: &mut ActorSystem) {
     immigration_and_development::setup(system);
 }
 
-pub fn spawn(world: &mut World, simulation: SimulationID, plan_manager: PlanManagerID) {
+pub fn spawn(world: &mut World, time: TimeID, plan_manager: PlanManagerID) {
     market::spawn(world);
     households::spawn(world);
-    immigration_and_development::spawn(world, simulation, plan_manager);
+    immigration_and_development::spawn(world, time, plan_manager);
 }

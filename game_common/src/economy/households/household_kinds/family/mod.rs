@@ -1,8 +1,8 @@
 use kay::{ActorSystem, World, Actor};
 use util::random::{seed, Rng};
 
-use simulation::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, SimulationID, Simulatable,
-SimulatableID};
+use time::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, TimeID, Temporal,
+TemporalID};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
@@ -28,10 +28,10 @@ impl Family {
         id: FamilyID,
         n_members: u32,
         home: BuildingID,
-        simulation: SimulationID,
+        time: TimeID,
         world: &mut World,
     ) -> Family {
-        simulation.wake_up_in(Ticks(0), id.into(), world);
+        time.wake_up_in(Ticks(0), id.into(), world);
 
         let mut core = HouseholdCore::new(
             id.into(),
@@ -59,7 +59,7 @@ impl Family {
     }
 }
 
-use simulation::{Sleeper, SleeperID};
+use time::{Sleeper, SleeperID};
 
 impl Sleeper for Family {
     fn wake(&mut self, current_instant: Instant, world: &mut World) {
@@ -218,7 +218,7 @@ impl Household for Family {
     }
 }
 
-impl Simulatable for Family {
+impl Temporal for Family {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
         self.on_tick(current_instant, world);
     }

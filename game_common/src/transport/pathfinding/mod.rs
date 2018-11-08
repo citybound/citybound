@@ -3,7 +3,7 @@ use kay::{ActorSystem, World, TypedID, Actor};
 use descartes::{P2};
 use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
 use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
-use simulation::Instant;
+use time::Instant;
 
 // TODO: MAKE TRANSFER LANE NOT PARTICIPATE AT ALL IN PATHFINDING -> MUCH SIMPLER
 
@@ -700,15 +700,15 @@ impl Lane {
     }
 }
 
-use simulation::SimulationID;
+use time::TimeID;
 
 pub fn setup(system: &mut ActorSystem) {
     trip::setup(system);
     auto_setup(system);
 }
 
-pub fn spawn(world: &mut World, simulation: SimulationID) {
-    trip::spawn(world, simulation);
+pub fn spawn(world: &mut World, time: TimeID) {
+    trip::spawn(world, time);
 }
 
 mod kay_auto;

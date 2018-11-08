@@ -37,7 +37,7 @@ import * as Planning from './planning_browser/Planning';
 import * as Transport from './transport_browser/Transport';
 import * as LandUse from './land_use_browser/LandUse';
 import * as Households from './households_browser/Households';
-import * as Simulation from './simulation_browser/Simulation';
+import * as Time from './time_browser/Time';
 import * as Debug from './debug/Debug';
 import * as Settings from './settings';
 import * as Menu from './menu';
@@ -74,7 +74,7 @@ require('../target/wasm32-unknown-unknown/release/citybound_browser').then(cbRus
                 rendering: {
                     enabled: true
                 },
-                simulation: Simulation.initialState,
+                time: Time.initialState,
                 camera: Camera.initialState,
 
                 menu: Menu.initalState,
@@ -105,7 +105,7 @@ require('../target/wasm32-unknown-unknown/release/citybound_browser').then(cbRus
                 LandUse,
                 Households,
                 Debug,
-                Simulation,
+                Time,
             ];
 
             const uiAspectsRendered = uiAspects.map(aspect => aspect.render(this.state, this.boundSetState));

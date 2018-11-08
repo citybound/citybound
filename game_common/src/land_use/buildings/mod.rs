@@ -3,7 +3,7 @@ use compact::{CVec, COption};
 use descartes::P2;
 
 use transport::lane::LaneID;
-use simulation::{Ticks, SimulationID};
+use time::{Ticks, TimeID};
 use construction::{ConstructionID, Constructable, ConstructableID};
 use planning::{Prototype, PrototypeKind};
 
@@ -74,7 +74,7 @@ impl Building {
 
         rendering::on_add(id, lot, style, world);
 
-        SimulationID::local_first(world).wake_up_in(
+        TimeID::local_first(world).wake_up_in(
             Ticks::from(Duration::from_minutes(10)),
             id.into(),
             world,
@@ -183,7 +183,7 @@ impl Constructable for Building {
 }
 
 use transport::pathfinding::{Location, Attachee, AttacheeID};
-use simulation::{Sleeper, SleeperID, Duration};
+use time::{Sleeper, SleeperID, Duration};
 
 impl Attachee for Building {
     fn location_changed(
@@ -199,7 +199,7 @@ impl Attachee for Building {
                 .location = new;
         } else {
             self.location = None;
-            SimulationID::local_first(world).wake_up_in(
+            TimeID::local_first(world).wake_up_in(
                 Ticks::from(Duration::from_minutes(10)),
                 self.id_as(),
                 world,
@@ -223,7 +223,7 @@ impl Sleeper for Building {
                 self.lot.best_road_connection().0,
                 world,
             );
-            SimulationID::local_first(world).wake_up_in(
+            TimeID::local_first(world).wake_up_in(
                 Ticks::from(Duration::from_minutes(10)),
                 self.id_as(),
                 world,
@@ -249,7 +249,7 @@ impl Building {
 }
 
 use transport::pathfinding::{RoughLocation, RoughLocationID, RoughLocationResolve};
-use simulation::Instant;
+use time::Instant;
 
 impl RoughLocation for Building {
     fn resolve(&self) -> RoughLocationResolve {

@@ -1,6 +1,6 @@
 use kay::{ActorSystem, World, Actor};
-use simulation::{TimeOfDay, TimeOfDayRange, Duration, Instant, Simulatable, SimulatableID,
-SimulationID, Ticks};
+use time::{TimeOfDay, TimeOfDayRange, Duration, Instant, Temporal, TemporalID,
+TimeID, Ticks};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
@@ -21,10 +21,10 @@ impl NeighboringTownTrade {
     pub fn move_into(
         id: NeighboringTownTradeID,
         town: BuildingID,
-        simulation: SimulationID,
+        time: TimeID,
         world: &mut World,
     ) -> Self {
-        simulation.wake_up_in(Ticks(0), id.into(), world);
+        time.wake_up_in(Ticks(0), id.into(), world);
 
         let offers = vec![
             Offer::new(
@@ -244,7 +244,7 @@ impl Household for NeighboringTownTrade {
     }
 }
 
-use simulation::{Sleeper, SleeperID};
+use time::{Sleeper, SleeperID};
 
 impl Sleeper for NeighboringTownTrade {
     fn wake(&mut self, current_instant: Instant, world: &mut World) {
@@ -290,7 +290,7 @@ impl TripListener for NeighboringTownTrade {
     }
 }
 
-impl Simulatable for NeighboringTownTrade {
+impl Temporal for NeighboringTownTrade {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
         self.on_tick(current_instant, world);
     }

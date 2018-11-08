@@ -1,5 +1,5 @@
 use kay::{ActorSystem, World, TypedID, Actor};
-use simulation::{TimeOfDay, TimeOfDayRange, Duration, SimulationID, Ticks};
+use time::{TimeOfDay, TimeOfDayRange, Duration, TimeID, Ticks};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
@@ -18,10 +18,10 @@ impl GroceryShop {
     pub fn move_into(
         id: GroceryShopID,
         site: BuildingID,
-        simulation: SimulationID,
+        time: TimeID,
         world: &mut World,
     ) -> GroceryShop {
-        simulation.wake_up_in(Ticks(0), id.into(), world);
+        time.wake_up_in(Ticks(0), id.into(), world);
 
         GroceryShop {
             id,
@@ -168,10 +168,10 @@ impl EvaluationRequester for GroceryShop {
     }
 }
 
-use simulation::{Simulatable, SimulatableID, Sleeper, SleeperID, Instant, TICKS_PER_SIM_SECOND};
+use time::{Temporal, TemporalID, Sleeper, SleeperID, Instant, TICKS_PER_SIM_SECOND};
 const UPDATE_EVERY_N_SECS: u32 = 4;
 
-impl Simulatable for GroceryShop {
+impl Temporal for GroceryShop {
     fn tick(&mut self, _dt: f32, current_instant: Instant, world: &mut World) {
         if (current_instant.ticks() + self.id.as_raw().instance_id as usize)
             % (UPDATE_EVERY_N_SECS * TICKS_PER_SIM_SECOND) as usize
