@@ -1,5 +1,5 @@
 [package]
-name = "citybound_browser"
+name = "cb_browser_ui"
 version = "0.3.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 license = "AGPL-3.0"
@@ -15,8 +15,8 @@ serde_derive = "1.0"
 compact_macros = "0.1.0"
 kay = {version = "0.3.0", default-features = false, features = ["browser"]}
 
-[dependencies.citybound_common]
-path = "../game_common"
+[dependencies.cb_simulation]
+path = "../cb_simulation"
 default-features = false
 
 [build-dependencies]

@@ -164,6 +164,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "cb_simulation"
+version = "0.3.0"
+dependencies = [
+ "compact 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
+ "compact_macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "descartes 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kay 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kay_codegen 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "michelangelo 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ordered-float 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rand 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "roaring 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.70 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.70 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uuid 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -210,31 +230,11 @@ name = "citybound"
 version = "0.3.0"
 dependencies = [
  "backtrace 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "citybound_common 0.3.0",
+ "cb_simulation 0.3.0",
  "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "open 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rouille 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rust-embed-flag 3.0.1 (git+https://github.com/aeickhoff/rust-embed)",
-]
-
-[[package]]
-name = "citybound_common"
-version = "0.3.0"
-dependencies = [
- "compact 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
- "compact_macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "descartes 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
- "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "kay 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "kay_codegen 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "michelangelo 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "ordered-float 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "rand 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "roaring 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 1.0.70 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_derive 1.0.70 (registry+https://github.com/rust-lang/crates.io-index)",
- "uuid 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

@@ -18,14 +18,14 @@ matrix:
 before_cache:
   # Travis can't cache files that are not readable by "others"
   - chmod -R a+r target
-  - chmod -R a+r game_browser/target
+  - chmod -R a+r cb_browser_ui/target
   - chmod -R a+r $HOME/.rustup
   - chmod -R a+r $HOME/.cargo
 
 cache:
   directories:
     - target
-    - game_browser/target
+    - cb_browser_ui/target
     - $HOME/.rustup
     - $HOME/.cargo
 

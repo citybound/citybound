@@ -51,18 +51,10 @@ version = "1.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "chunky"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "simple_allocator_trait 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "citybound_browser"
+name = "cb_browser_ui"
 version = "0.3.0"
 dependencies = [
- "citybound_common 0.3.0",
+ "cb_simulation 0.3.0",
  "compact_macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay_codegen 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -72,7 +64,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "citybound_common"
+name = "cb_simulation"
 version = "0.3.0"
 dependencies = [
  "compact 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -89,6 +81,14 @@ dependencies = [
  "serde 1.0.71 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.71 (registry+https://github.com/rust-lang/crates.io-index)",
  "uuid 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "chunky"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "simple_allocator_trait 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

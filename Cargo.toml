@@ -6,15 +6,15 @@ license = "AGPL-3.0"
 
 [workspace]
 members = [
-    "./game_common"
+    "./cb_simulation"
 ]
 exclude = [
-    "./game_browser"
+    "./cb_browser_ui"
 ]
 
 [[bin]]
 name = "citybound"
-path = "./game_server/main.rs"
+path = "./cb_server/main.rs"
 
 [dependencies]
 rouille = "2.1.0"
@@ -23,8 +23,8 @@ open = "1.2.2"
 backtrace = "0.3"
 rust-embed-flag = {git = "https://github.com/aeickhoff/rust-embed"}
 
-[dependencies.citybound_common]
-path = "./game_common"
+[dependencies.cb_simulation]
+path = "./cb_simulation"
 
 [profile.dev]
 opt-level = 1

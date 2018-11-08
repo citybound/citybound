@@ -14,8 +14,8 @@ use kay::{ActorSystem, TypedID};
 #[macro_use]
 extern crate compact_macros;
 
-extern crate citybound_common;
-use citybound_common::*;
+extern crate cb_simulation;
+use cb_simulation::*;
 
 use std::panic;
 

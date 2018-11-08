@@ -11,7 +11,7 @@ install:
   - npm run ensure-tooling
 
 build_script:
-  - cd game_browser
+  - cd cb_browser_ui
   - npm install --no-save
   - cd ..
   - npm run build-browser

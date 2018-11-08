@@ -60,7 +60,7 @@ function ensureRustNightly(nightly) {
 !quiet && console.log("Checking rust nightly for simulation");
 ensureRustNightly(NIGHTLY_VERSION);
 
-process.chdir('./game_browser');
+process.chdir('./cb_browser_ui');
 
 !quiet && console.log("Checking rust nightly for browser");
 ensureRustNightly(NIGHTLY_VERSION_BROWSER);

@@ -1,5 +1,5 @@
 [package]
-name = "citybound_common"
+name = "cb_simulation"
 version = "0.3.0"
 authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
 license = "AGPL-3.0"

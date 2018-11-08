@@ -1,5 +1,5 @@
-extern crate citybound_common;
-use citybound_common::*;
+extern crate cb_simulation;
+use cb_simulation::*;
 
 #[macro_use]
 extern crate rust_embed_flag;

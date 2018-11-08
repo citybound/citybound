@@ -1,16 +1,16 @@
 {
     "scripts": {
-        "build-browser": "cd game_browser && npm install && npm run build",
-        "watch-browser": "cd game_browser && npm install && npm start",
+        "build-browser": "cd cb_browser_ui && npm install && npm run build",
+        "watch-browser": "cd cb_browser_ui && npm install && npm start",
         "build-server": "git describe > .version && npm run ensure-tooling -- -q && cargo build --release",
         "build-server-bundle": "git describe > .version && npm run ensure-tooling -- -q && cargo build --release --features embed_assets",
         "build": "echo 'BUILDING SERVER' && npm run build-server && echo 'BUILDING BROWSER UI' && npm run build-browser",
         "start": "npm run build-server && echo 'RUNNING' && target/release/citybound",
-        "lint-clippy-server": "echo 'CHECKING BEST PRACTISES (game_common)' && touch game_common/src/lib.rs && cargo clippy",
-        "lint-clippy-browser": "echo 'CHECKING BEST PRACTISES (game_browser) -- IGNORE js_export RELATED ERRORS' && touch game_browser/src/lib.rs && cd game_browser && (cargo clippy || true) && cd ..",
+        "lint-clippy-server": "echo 'CHECKING BEST PRACTISES (cb_simulation)' && touch cb_simulation/src/lib.rs && cargo clippy",
+        "lint-clippy-browser": "echo 'CHECKING BEST PRACTISES (cb_browser_ui) -- IGNORE js_export RELATED ERRORS' && touch cb_browser_ui/src/lib.rs && cd cb_browser_ui && (cargo clippy || true) && cd ..",
         "lint-clippy": "npm run lint-clippy-server && npm run lint-clippy-browser",
-        "lint": "npm run lint-clippy && echo 'CHECKING/FIXING FORMATTING' && cargo fmt -- ./game_common/src/lib.rs ./game_server/main.rs ./game_browser/src/lib.rs",
-        "lint-check": "npm run lint-clippy && echo 'CHECKING FORMATTING' && cargo fmt -- ./game_common/src/lib.rs ./game_server/main.rs ./game_browser/src/lib.rs  --check",
+        "lint": "npm run lint-clippy && echo 'CHECKING/FIXING FORMATTING' && cargo fmt -- ./cb_simulation/src/lib.rs ./game_server/main.rs ./cb_browser_ui/src/lib.rs",
+        "lint-check": "npm run lint-clippy && echo 'CHECKING FORMATTING' && cargo fmt -- ./cb_simulation/src/lib.rs ./game_server/main.rs ./cb_browser_ui/src/lib.rs  --check",
         "ensure-tooling": "node repo_scripts/tooling.js"
     }
 }

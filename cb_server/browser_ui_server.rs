@@ -2,7 +2,7 @@ extern crate rouille;
 use self::rouille::{Response, extension_to_mime};
 
 #[derive(RustEmbed)]
-#[folder = "game_browser/dist/"]
+#[folder = "cb_browser_ui/dist/"]
 struct Asset;
 
 pub fn start_browser_ui_server(version: &'static str, network_config: ::init::NetworkConfig) {
