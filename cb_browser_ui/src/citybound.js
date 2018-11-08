@@ -45,7 +45,7 @@ import Stage from './stage/Stage';
 import colors from './colors';
 window.update = update;
 
-require('../target/wasm32-unknown-unknown/release/citybound_browser').then(cbRustBrowser => {
+require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBrowser => {
     window.cbRustBrowser = cbRustBrowser;
 
     const settingSpecs = {
