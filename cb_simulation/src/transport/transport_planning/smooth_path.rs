@@ -53,7 +53,8 @@ impl PartialPath {
                     ..
                 } => curve_to_path(start, maybe_start_direction, end, maybe_end_direction),
                 &PartialPathSegment::Line { start, end, .. } => ArcLinePath::line(start, end),
-            }).fold(None, |maybe_path, maybe_part_path| {
+            })
+            .fold(None, |maybe_path, maybe_part_path| {
                 maybe_path.map_or(maybe_part_path.clone(), |path| {
                     maybe_part_path.and_then(|part_path| path.concat(&part_path).ok())
                 })
@@ -92,7 +93,8 @@ impl PartialPath {
                                 .take_while(|(_i, p)| {
                                     (*p - original_curve_start).dot(&start_direction_orth).abs()
                                         < MAX_DISTANCE_TO_LINE
-                                }).last()
+                                })
+                                .last()
                                 .map(|(last_on_line_idx, last_on_line_point)| {
                                     let line = LinesPart::Line {
                                         start: original_curve_start,
@@ -116,7 +118,8 @@ impl PartialPath {
                                     .take_while(|(_i, p)| {
                                         (original_curve_end - *p).dot(&end_direction_orth).abs()
                                             < MAX_DISTANCE_TO_LINE
-                                    }).last()
+                                    })
+                                    .last()
                                     .map(|(earliest_on_line_idx, earliest_on_line_point)| {
                                         let line = LinesPart::Line {
                                             start: *earliest_on_line_point,
@@ -260,7 +263,8 @@ impl PartialPath {
                         partial_paths
                     }
                     other => vec![other],
-                }).collect(),
+                })
+                .collect(),
         )
     }
 
@@ -361,7 +365,8 @@ impl PartialPath {
                             });
 
                     maybe_merged.ok_or((part_a, part_b))
-                }).collect(),
+                })
+                .collect(),
         )
     }
 

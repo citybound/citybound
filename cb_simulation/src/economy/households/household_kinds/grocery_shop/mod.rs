@@ -49,7 +49,8 @@ impl GroceryShop {
                         5,
                         false,
                     ),
-                ].into(),
+                ]
+                .into(),
             ),
         }
     }

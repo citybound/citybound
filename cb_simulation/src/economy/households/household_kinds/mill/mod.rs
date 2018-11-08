@@ -44,7 +44,8 @@ impl Mill {
                         3,
                         false,
                     ),
-                ].into(),
+                ]
+                .into(),
             ),
         }
     }

@@ -128,7 +128,8 @@ pub fn on_disconnect(lane: &mut Lane, disconnected_id: LaneLikeID) {
             } else {
                 Some((*destination, *route))
             }
-        }).collect();
+        })
+        .collect();
     lane.pathfinding.routes = new_routes;
     lane.pathfinding.routes_changed = true;
     lane.pathfinding.query_routes_next_tick = true;
@@ -223,13 +224,15 @@ impl Node for Lane {
                                         None
                                     }
                                 },
-                            ).chain(if self.connectivity.on_intersection {
+                            )
+                            .chain(if self.connectivity.on_intersection {
                                 None
                             } else {
                                 self.pathfinding
                                     .location
                                     .map(|destination| (destination, (self_cost, 0)))
-                            }).collect(),
+                            })
+                            .collect(),
                         self.id_as(),
                         world,
                     );
@@ -263,13 +266,15 @@ impl Node for Lane {
                     )| {
                         (destination, (distance + self_cost, distance_hops + 1))
                     },
-                ).chain(if self.connectivity.on_intersection {
+                )
+                .chain(if self.connectivity.on_intersection {
                     None
                 } else {
                     self.pathfinding
                         .location
                         .map(|destination| (destination, (self_cost, 0)))
-                }).collect(),
+                })
+                .collect(),
             self.id_as(),
             world,
         );
@@ -392,7 +397,8 @@ impl Node for Lane {
                             .map(|learned_from| learned_from == from)
                             .unwrap_or(false)
                     })
-            }).unwrap_or(true);
+            })
+            .unwrap_or(true);
         if join {
             let tell_to_forget_next_tick = self
                 .pathfinding
@@ -435,7 +441,8 @@ impl Node for Lane {
                 self.pathfinding
                     .routes
                     .get(destination.landmark_destination())
-            }).map(|routing_info| routing_info.distance);
+            })
+            .map(|routing_info| routing_info.distance);
         requester.on_distance(maybe_distance, world);
     }
 
@@ -553,7 +560,8 @@ impl Node for SwitchLane {
                                 LANE_CHANGE_COST_LEFT
                             };
                         (destination, (distance + change_cost, hops))
-                    }).collect(),
+                    })
+                    .collect(),
                 self.id_as(),
                 world,
             );

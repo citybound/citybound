@@ -7,13 +7,13 @@ git:
 
 matrix:
   include:
-    # Linux
     - os: linux
       dist: trusty
 
-    # OSX
     - os: osx
       osx_image: xcode9.4
+
+    - os: windows
 
 before_cache:
   # Travis can't cache files that are not readable by "others"
@@ -36,12 +36,9 @@ addons:
     paths:
     - $(ls *-linux.tar.gz | tr "\n" ":")
     - $(ls *-osx.zip | tr "\n" ":")
+    - $(ls *-windows-travis.exe | tr "\n" ":")
     target_paths:
     - /
-
-before_install:
-  # https://github.com/travis-ci/travis-ci/issues/8920#issuecomment-352767521
-  - python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"
 
 install:
   - curl https://sh.rustup.rs -sSf | sh -s -- -y
@@ -54,9 +51,6 @@ script:
   - cd target/release/
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mv citybound citybound-$(cat ../../.version) && tar -pczf citybound-$(cat ../../.version)-linux.tar.gz citybound-$(cat ../../.version) && mv citybound-$(cat ../../.version)-linux.tar.gz ../.. ; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mv citybound citybound-$(cat ../../.version).command && zip citybound-$(cat ../../.version)-osx.zip citybound-$(cat ../../.version).command  && mv citybound-$(cat ../../.version)-osx.zip ../.. ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then mv citybound.exe ../../citybound-$(cat ../../.version)-windows-travis.exe ; fi
   - cd ../..
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then npm run lint-check ; fi
-
-branches:
-  except:
-    - /design-doc.*/

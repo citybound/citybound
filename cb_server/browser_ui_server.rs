@@ -12,7 +12,8 @@ pub fn start_browser_ui_server(version: &'static str, network_config: ::init::Ne
 
             let template = ::std::str::from_utf8(
                 &Asset::get("index.html").expect("index.html should exist as asset"),
-            ).unwrap()
+            )
+            .unwrap()
             .to_owned();
 
             let rendered = template
@@ -20,10 +21,12 @@ pub fn start_browser_ui_server(version: &'static str, network_config: ::init::Ne
                 .replace(
                     "CB_BATCH_MESSAGE_BYTES",
                     &format!("{}", network_config.batch_msg_bytes),
-                ).replace(
+                )
+                .replace(
                     "CB_ACCEPTABLE_TURN_DISTANCE",
                     &format!("{}", network_config.ok_turn_dist),
-                ).replace(
+                )
+                .replace(
                     "CB_SKIP_TURNS_PER_TURN_AHEAD",
                     &format!("{}", network_config.skip_ratio),
                 );

@@ -49,7 +49,8 @@ impl VegetableFarm {
                         2,
                         false,
                     ),
-                ].into(),
+                ]
+                .into(),
             ),
         }
     }

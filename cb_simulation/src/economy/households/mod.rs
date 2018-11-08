@@ -163,7 +163,8 @@ pub trait Household:
                 } else {
                     None
                 }
-            }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
 
         for member_to_reset in members_to_reset {
             self.reset_member_task(member_to_reset, world);
@@ -215,7 +216,8 @@ pub trait Household:
                 .filter_map(|(idx, m)| match m.state {
                     TaskState::IdleAt(loc) => Some((idx, loc)),
                     _ => None,
-                }).collect::<Vec<_>>();
+                })
+                .collect::<Vec<_>>();
             let mut rng = seed((current_instant.ticks(), self.id()));
             let maybe_idle_idx_loc = rng.choose(&idle_members_idx_loc);
             if let Some(&(idle_member_idx, location)) = maybe_idle_idx_loc {
@@ -242,7 +244,8 @@ pub trait Household:
                 } else {
                     None
                 }
-            }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
         resource_graveness.sort_by_key(|&(_r, i)| OrderedFloat(i));
 
         resource_graveness.truncate(N_TOP_PROBLEMS);
@@ -341,7 +344,8 @@ pub trait Household:
                                         evaluated_deal.deal.main_given(),
                                         evaluated_deal.opening_hours.start.hours_minutes(),
                                         evaluated_deal.opening_hours.end.hours_minutes(),
-                                    ).as_str(),
+                                    )
+                                    .as_str(),
                                 );
                                 if evaluated_deal.opening_hours.contains(instant) {
                                     let new_deal_usefulness = Self::deal_usefulness(
@@ -357,7 +361,8 @@ pub trait Household:
                                             format!(
                                                 "Deal rejected, not more useful: {} vs {}\n",
                                                 new_deal_usefulness, entry.best_deal_usefulness
-                                            ).as_str(),
+                                            )
+                                            .as_str(),
                                         );
                                     }
                                 } else {
@@ -405,10 +410,12 @@ pub trait Household:
                         improvement_strength,
                         graveness,
                         evaluated.deal.delta.get(resource)
-                    ).as_str(),
+                    )
+                    .as_str(),
                 );
                 improvement_strength
-            }).sum();
+            })
+            .sum();
 
         resource_graveness_improvement / evaluated.deal.duration.as_seconds()
     }
@@ -561,7 +568,8 @@ pub trait Household:
                 } else {
                     None
                 }
-            }).next()
+            })
+            .next()
             .expect("Should have a matching task");
         {
             let id_as_household = self.id_as();
@@ -601,7 +609,8 @@ pub trait Household:
                         rough_source,
                         rough_destination,
                         fate
-                    ).as_str(),
+                    )
+                    .as_str(),
                 );
 
                 if let Some((_, offer)) =
@@ -664,7 +673,8 @@ pub trait Household:
                     "Task of member {} stopped (was in state {:?})\n",
                     member.as_idx(),
                     old_state,
-                ).as_str(),
+                )
+                .as_str(),
             );
 
             self.core_mut().member_tasks[member.as_idx()].state =
@@ -720,7 +730,8 @@ pub trait Household:
                     },
                     deal: offer.deal.clone(),
                     opening_hours: offer.opening_hours,
-                }].into(),
+                }]
+                .into(),
             };
             TripCostEstimatorID::spawn(
                 requester,

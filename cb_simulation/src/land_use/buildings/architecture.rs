@@ -116,10 +116,12 @@ pub fn build_building<R: Rng>(
                 building_position + length / 2.0 * building_orientation_orth,
                 building_position + length / 4.0 * building_orientation,
                 building_position - length / 2.0 * building_orientation_orth,
-            ].into_iter()
+            ]
+            .into_iter()
             .map(|v| Vertex {
                 position: [v.x, v.y, 3.0],
-            }).collect();
+            })
+            .collect();
 
             let indices = vec![0, 1, 2, 2, 3, 0];
 

@@ -31,7 +31,8 @@ impl Lot {
                     .path()
                     .segments()
                     .map(|segment| segment.midpoint())
-            }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
 
         self.all_road_connections()
             .into_iter()
@@ -60,7 +61,8 @@ impl Lot {
                 };
 
                 (point, direction, width, depth)
-            }).collect()
+            })
+            .collect()
     }
 
     pub fn split_for(
@@ -212,7 +214,8 @@ fn new_road_boundaries(old_road_bundaries: &[LinePath], new_boundary: &LinePath)
             }
 
             Some(LinePath::new(consecutive_points))
-        }).filter_map(|maybe_new_boundary| maybe_new_boundary)
+        })
+        .filter_map(|maybe_new_boundary| maybe_new_boundary)
         .collect()
 }
 

@@ -57,7 +57,8 @@ impl CowFarm {
                         2,
                         false,
                     ),
-                ].into(),
+                ]
+                .into(),
             ),
         }
     }

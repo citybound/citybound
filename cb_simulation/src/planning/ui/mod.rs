@@ -1,6 +1,7 @@
 use kay::World;
 use compact::CHashMap;
-use super::{PlanHistory, PlanHistoryUpdate, ProposalID, ProposalUpdate, PlanResultUpdate, ActionGroups};
+use super::{PlanHistory, PlanHistoryUpdate, ProposalID, ProposalUpdate,
+PlanResultUpdate, ActionGroups};
 
 pub trait PlanningUI {
     fn on_plans_update(

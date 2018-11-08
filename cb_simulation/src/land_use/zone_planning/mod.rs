@@ -85,7 +85,8 @@ impl Lot {
                     boundary.along(length / 2.0),
                     -boundary.direction_along(length / 2.0).orthogonal_right(),
                 )
-            }).collect()
+            })
+            .collect()
     }
 }
 
@@ -153,13 +154,15 @@ pub fn calculate_prototypes(
                     .view(
                         AreaFilter::Function(Box::new(move |labels| {
                             labels.contains(&ZoneEmbeddingLabel::Building(gesture_id, step_id))
-                        })).and(AreaFilter::Function(Box::new(|labels| {
+                        }))
+                        .and(AreaFilter::Function(Box::new(|labels| {
                             labels.iter().all(|label| match label {
                                 ZoneEmbeddingLabel::Paved(_) => false,
                                 _ => true,
                             })
                         }))),
-                    ).get_areas_with_pieces()?;
+                    )
+                    .get_areas_with_pieces()?;
 
                 let maybe_main_area_with_pieces = leftover_areas_with_pieces
                     .into_iter()
@@ -180,10 +183,12 @@ pub fn calculate_prototypes(
                             Some(piece_area_label.own_right_label)
                                 .into_iter()
                                 .chain(piece_area_label.right_labels)
-                        }).filter(|label| match label {
+                        })
+                        .filter(|label| match label {
                             ZoneEmbeddingLabel::Paved(_) => true,
                             _ => false,
-                        }).unique()
+                        })
+                        .unique()
                     {
                         influenced_id = influenced_id.add_influences(paved_id);
                     }
@@ -204,7 +209,8 @@ pub fn calculate_prototypes(
             } else {
                 Ok(None)
             }
-        }).collect::<Result<Vec<_>, _>>()?
+        })
+        .collect::<Result<Vec<_>, _>>()?
         .into_iter()
         .filter_map(|maybe_proto| maybe_proto)
         .collect::<Vec<_>>();
@@ -260,7 +266,8 @@ pub fn calculate_prototypes(
                         path.start() + 13.0 * direction_orth + 10.0 * direction,
                         path.start() + 13.0 * direction_orth,
                         path.start() + 3.0 * direction_orth,
-                    ].into();
+                    ]
+                    .into();
 
                     if let Some(road_boundary) = LinePath::new(vec![corners[0], corners[1]].into())
                     {
@@ -301,7 +308,8 @@ pub fn calculate_prototypes(
                     .chain(gesture.points.first())
                     .cloned()
                     .collect(),
-            ).and_then(|line_path| ClosedLinePath::new(line_path))
+            )
+            .and_then(|line_path| ClosedLinePath::new(line_path))
             .map(|closed_line_path| Area::new_simple(closed_line_path.to_clockwise()))
             {
                 zone_embedding.insert(
@@ -327,14 +335,16 @@ pub fn calculate_prototypes(
                         }
                         _ => false,
                     })
-                })).and(AreaFilter::Function(Box::new(|labels| {
+                }))
+                .and(AreaFilter::Function(Box::new(|labels| {
                     labels.iter().all(|label| match label {
                         ZoneEmbeddingLabel::Building(..) => false,
                         ZoneEmbeddingLabel::Paved(_) => false,
                         _ => true,
                     })
                 }))),
-            ).get_areas_with_pieces()?;
+            )
+            .get_areas_with_pieces()?;
         for (area, pieces) in areas_with_pieces {
             let influenced_id = PrototypeID::from_influences(
                 pieces
@@ -343,7 +353,8 @@ pub fn calculate_prototypes(
                         Some(&piece_area_label.own_right_label)
                             .into_iter()
                             .chain(piece_area_label.right_labels.iter())
-                    }).unique()
+                    })
+                    .unique()
                     .collect::<Vec<_>>(),
             );
 
@@ -384,5 +395,6 @@ pub fn calculate_prototypes(
             neighboring_town_distance_per_octant
                 .into_iter()
                 .filter_map(|pair| pair.1),
-        ).collect())
+        )
+        .collect())
 }

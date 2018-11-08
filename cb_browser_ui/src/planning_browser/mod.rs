@@ -314,7 +314,8 @@ impl FrameListener for BrowserPlanningUI {
         let maybe_current_proposal_id: Result<Serde<ProposalID>, _> = js! {
             return (window.cbReactApp.state.uiMode == "planning" &&
                 window.cbReactApp.state.planning.currentProposal);
-        }.try_into();
+        }
+        .try_into();
         if let Ok(Serde(current_proposal_id)) = maybe_current_proposal_id {
             if !self.awaiting_preview_update {
                 ::planning::PlanManagerID::global_first(world).get_proposal_preview_update(
@@ -590,7 +591,8 @@ SwitchLanePrototype, IntersectionPrototype};
                     .collect::<HashMap<_, _>>()
                     .into();
                 (land_use.to_string(), add_op)
-            }).collect::<HashMap<_, _>>()
+            })
+            .collect::<HashMap<_, _>>()
             .into();
 
         let updated_zones_all_outline_groups: ::stdweb::Object = self
@@ -609,7 +611,8 @@ SwitchLanePrototype, IntersectionPrototype};
                     .collect::<HashMap<_, _>>()
                     .into();
                 (land_use.to_string(), add_op)
-            }).collect::<HashMap<_, _>>()
+            })
+            .collect::<HashMap<_, _>>()
             .into();
 
         let updated_building_outlines_groups = self
@@ -640,14 +643,16 @@ SwitchLanePrototype, IntersectionPrototype};
                                 f32::from(road_intent.n_lanes_forward)
                                     * ::dimensions::LANE_DISTANCE
                                     + 0.4 * ::dimensions::LANE_DISTANCE,
-                            ).outline()
+                            )
+                            .outline()
                             .0,
                             center_line: path,
                             n_lanes_forward: road_intent.n_lanes_forward as usize,
                             n_lanes_backward: road_intent.n_lanes_backward as usize,
                         },
                     )
-                }).collect();
+                })
+                .collect();
 
         js! {
             window.cbReactApp.setState(oldState => update(oldState, {

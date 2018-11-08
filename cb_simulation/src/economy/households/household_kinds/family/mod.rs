@@ -44,7 +44,8 @@ impl Family {
                 Deal::new(Some((Wakefulness, 3.0)), Duration::from_hours(1)),
                 1,
                 true,
-            )].into(),
+            )]
+            .into(),
         );
 
         core.used_offers.insert(

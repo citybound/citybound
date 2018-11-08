@@ -47,7 +47,8 @@ impl Bakery {
                         3,
                         false,
                     ),
-                ].into(),
+                ]
+                .into(),
             ),
         }
     }

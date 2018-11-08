@@ -33,6 +33,7 @@ Citybound is a city building game with a focus on realism, collaborative plannin
 * Games
   * [SimCity Series](https://en.wikipedia.org/wiki/SimCity)
   * [SimAnt](https://en.wikipedia.org/wiki/SimAnt)
+  * [LEGO Loco](https://www.old-games.com/download/6261/lego-loco)
   * [A-Train (Take the A-Train III)](https://en.wikipedia.org/wiki/A-Train#A-Train_III)
   * [Rollercoaster Tycoon Series](https://en.wikipedia.org/wiki/RollerCoaster_Tycoon)
   * [Factorio](https://en.wikipedia.org/wiki/Factorio)

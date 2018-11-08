@@ -49,7 +49,8 @@ impl GrainFarm {
                         2,
                         false,
                     ),
-                ].into(),
+                ]
+                .into(),
             ),
         }
     }
