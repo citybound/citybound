@@ -1,6 +1,6 @@
 language: node_js
 node_js:
-  - "latest"
+  - "10"
 sudo: required
 git:
   depth: 9999999
