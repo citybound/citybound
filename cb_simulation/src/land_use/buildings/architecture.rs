@@ -4,14 +4,14 @@ use michelangelo::{Vertex, Mesh};
 
 use super::{Lot, BuildingStyle};
 
-pub fn ideal_lot_shape(building_style: BuildingStyle) -> (f32, f32) {
+pub fn ideal_lot_shape(building_style: BuildingStyle) -> (f32, f32, f32) {
     match building_style {
-        BuildingStyle::FamilyHouse => (20.0, 30.0),
-        BuildingStyle::GroceryShop => (15.0, 20.0),
-        BuildingStyle::Bakery => (20.0, 30.0),
-        BuildingStyle::Mill => (20.0, 30.0),
-        BuildingStyle::Field => (50.0, 100.0),
-        BuildingStyle::NeighboringTownConnection => (5.0, 5.0),
+        BuildingStyle::FamilyHouse => (20.0, 30.0, 0.5),
+        BuildingStyle::GroceryShop => (15.0, 20.0, 0.5),
+        BuildingStyle::Bakery => (20.0, 30.0, 0.5),
+        BuildingStyle::Mill => (20.0, 30.0, 0.5),
+        BuildingStyle::Field => (50.0, 100.0, 0.1),
+        BuildingStyle::NeighboringTownConnection => (5.0, 5.0, 0.1),
     }
 }
 
@@ -116,12 +116,10 @@ pub fn build_building<R: Rng>(
                 building_position + length / 2.0 * building_orientation_orth,
                 building_position + length / 4.0 * building_orientation,
                 building_position - length / 2.0 * building_orientation_orth,
-            ]
-            .into_iter()
+            ].into_iter()
             .map(|v| Vertex {
                 position: [v.x, v.y, 3.0],
-            })
-            .collect();
+            }).collect();
 
             let indices = vec![0, 1, 2, 2, 3, 0];
 

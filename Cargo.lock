@@ -169,7 +169,7 @@ version = "0.3.0"
 dependencies = [
  "compact 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "compact_macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "descartes 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "descartes 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -316,7 +316,7 @@ dependencies = [
 
 [[package]]
 name = "descartes"
-version = "0.1.14"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "compact 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -677,7 +677,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "compact 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "compact_macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "descartes 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "descartes 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "lyon_tessellation 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1598,7 +1598,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum core-foundation-sys 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "065a5d7ffdcbc8fa145d6f0746f3555025b9097a9e9cda59f7467abae670c78d"
 "checksum crc 1.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d663548de7f5cca343f1e0a48d14dcfb0e9eb4e079ec58883b7251539fa10aeb"
 "checksum deflate 0.7.18 (registry+https://github.com/rust-lang/crates.io-index)" = "32c8120d981901a9970a3a1c97cf8b630e0fa8c3ca31e75b6fd6fd5f9f427b31"
-"checksum descartes 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)" = "68766962e86e8bd70fef9b25376f08cc678e6b09ea0b8d467de3f3a899837d8f"
+"checksum descartes 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)" = "56259146568214398b57a8ec2fb60ff8e8be7fe89b4e16fe00b5bc2d2cb866da"
 "checksum discard 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "9a9117502da3c5657cb8e2ca7ffcf52d659f00c78c5127d1ebadc2ebe76465be"
 "checksum dtoa 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "6d301140eb411af13d3115f9a562c85cc6b541ade9dfa314132244aaee7489dd"
 "checksum either 1.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3be565ca5c557d7f59e7cfcf1844f9e3033650c929c6566f511e8005f205c1d0"

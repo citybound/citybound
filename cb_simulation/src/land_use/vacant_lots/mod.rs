@@ -1,6 +1,6 @@
 use kay::{World, Fate, ActorSystem};
 use compact::CVec;
-use descartes::{N, P2, V2, Area, WithUniqueOrthogonal, ClosedLinePath, LinePath, AreaError};
+use descartes::{N, P2, V2, Area, WithUniqueOrthogonal, ClosedLinePath, LinePath, AreaError, AreaEmbedding, AreaFilter};
 use ordered_float::OrderedFloat;
 
 use land_use::zone_planning::{Lot, BuildingIntent};
@@ -73,7 +73,8 @@ impl Lot {
         max_width_after_splitting: N,
         recursion_depth: usize,
     ) -> Result<Option<Lot>, AreaError> {
-        let needed_shape = ideal_lot_shape(building_style);
+        let (needed_width, needed_depth, needed_compactness) = ideal_lot_shape(building_style);
+
         let debug_padding: String = ::std::iter::repeat(" ").take(recursion_depth).collect();
         println!(
             "{}Trying to suggest lot for {:?}. Road Boundaries {:?}",
@@ -85,43 +86,60 @@ impl Lot {
                 .collect::<Vec<_>>(),
         );
 
+        // TODO: fix fucked up orientation of areas compared to descartes!!
+        let compactness = -self.area.primitives[0].area() * 4.0 * ::std::f32::consts::PI / self.area.primitives[0].boundary.path().length().powi(2);
+
         for (point, direction, width, depth) in self.width_depth_per_road_connection() {
             println!(
                 "{}Is: {:?} Needed: {:?}",
                 debug_padding,
-                (width, depth),
-                needed_shape
+                (width, depth, compactness),
+                (needed_width, needed_depth, needed_compactness)
             );
 
             // make sure that we're making progress after recursing
             if width < max_width_after_splitting {
-                let width_ratio = width / needed_shape.0;
-                let depth_ratio = depth / needed_shape.1;
+                let width_ratio = width / needed_width;
+                let depth_ratio = depth / needed_depth;
 
                 if width_ratio > 0.5 && width_ratio < 2.0 && depth_ratio > 0.5 && depth_ratio < 2.0
                 {
-                    return Ok(Some(self.clone()));
+                    if compactness >= needed_compactness {
+                        return Ok(Some(self.clone()));
+                    } else {
+                        return Ok(None);
+                    }
                 } else if width_ratio > 2.0 && depth_ratio > 0.5 {
                     let orthogonal = direction.orthogonal_right();
 
                     let corners = vec![
-                        point + needed_shape.1 * direction,
-                        point + needed_shape.1 * direction + 1_000.0 * orthogonal,
+                        point + needed_depth * direction,
+                        point + needed_depth * direction + 1_000.0 * orthogonal,
                         point - 500.0 * direction + 1_000.0 * orthogonal,
                         point - 500.0 * direction,
-                        point + needed_shape.1 * direction,
+                        point + needed_depth * direction,
                     ];
 
-                    let splitting_area = Area::new_simple(
+                    let splitter_area = Area::new_simple(
                         ClosedLinePath::new(LinePath::new(corners.into()).unwrap()).unwrap(),
                     );
 
                     println!("{}Attempting width split", debug_padding);
 
-                    let split = self.area.split(&splitting_area);
+                    #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+                    enum SplittingLabel{
+                        Lot,
+                        Splitter
+                    };
+
+                    let mut embedding = AreaEmbedding::new(width / 10.0);
+
+                    embedding.insert(self.area.clone(), SplittingLabel::Lot);
+                    embedding.insert(splitter_area, SplittingLabel::Splitter);
 
                     if allow_right_split {
-                        for right_split in split.intersection()?.disjoint() {
+                        if let Ok(right_splits) = embedding.view(AreaFilter::has(SplittingLabel::Lot).and(AreaFilter::has(SplittingLabel::Splitter))).get_areas_with_pieces() {
+                        for (right_split, _) in right_splits {
                             let road_boundaries = new_road_boundaries(
                                 &self.road_boundaries,
                                 right_split.primitives[0].boundary.path(),
@@ -150,9 +168,11 @@ impl Lot {
                                 }
                             }
                         }
+                        }
                     }
                     if allow_left_split {
-                        for left_split in split.a_minus_b()?.disjoint() {
+                        if let Ok(left_splits) = embedding.view(AreaFilter::has(SplittingLabel::Lot).and(AreaFilter::has(SplittingLabel::Splitter).not())).get_areas_with_pieces() {
+                        for (left_split, _) in left_splits {
                             let road_boundaries = new_road_boundaries(
                                 &self.road_boundaries,
                                 left_split.primitives[0].boundary.path(),
@@ -181,6 +201,7 @@ impl Lot {
                                 }
                             }
                         }
+                    }
                     }
                 }
             }
