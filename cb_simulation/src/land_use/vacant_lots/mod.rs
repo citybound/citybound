@@ -1,6 +1,7 @@
 use kay::{World, Fate, ActorSystem};
 use compact::CVec;
-use descartes::{N, P2, V2, Area, WithUniqueOrthogonal, ClosedLinePath, LinePath, AreaError, AreaEmbedding, AreaFilter};
+use descartes::{N, P2, V2, Area, WithUniqueOrthogonal, ClosedLinePath, LinePath,
+AreaError, AreaEmbedding, AreaFilter};
 use ordered_float::OrderedFloat;
 
 use land_use::zone_planning::{Lot, BuildingIntent};
@@ -87,7 +88,8 @@ impl Lot {
         );
 
         // TODO: fix fucked up orientation of areas compared to descartes!!
-        let compactness = -self.area.primitives[0].area() * 4.0 * ::std::f32::consts::PI / self.area.primitives[0].boundary.path().length().powi(2);
+        let compactness = -self.area.primitives[0].area() * 4.0 * ::std::f32::consts::PI
+            / self.area.primitives[0].boundary.path().length().powi(2);
 
         for (point, direction, width, depth) in self.width_depth_per_road_connection() {
             println!(
@@ -127,9 +129,9 @@ impl Lot {
                     println!("{}Attempting width split", debug_padding);
 
                     #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
-                    enum SplittingLabel{
+                    enum SplittingLabel {
                         Lot,
-                        Splitter
+                        Splitter,
                     };
 
                     let mut embedding = AreaEmbedding::new(width / 10.0);
@@ -138,70 +140,82 @@ impl Lot {
                     embedding.insert(splitter_area, SplittingLabel::Splitter);
 
                     if allow_right_split {
-                        if let Ok(right_splits) = embedding.view(AreaFilter::has(SplittingLabel::Lot).and(AreaFilter::has(SplittingLabel::Splitter))).get_areas_with_pieces() {
-                        for (right_split, _) in right_splits {
-                            let road_boundaries = new_road_boundaries(
-                                &self.road_boundaries,
-                                right_split.primitives[0].boundary.path(),
-                            );
-
-                            if !road_boundaries.is_empty() {
-                                let split_lot = Lot {
-                                    road_boundaries,
-                                    area: right_split,
-                                    ..self.clone()
-                                };
-
-                                // recurse!
-                                println!(
-                                    "{}Got right split lot, checking suitability",
-                                    debug_padding,
+                        if let Ok(right_splits) = embedding
+                            .view(
+                                AreaFilter::has(SplittingLabel::Lot)
+                                    .and(AreaFilter::has(SplittingLabel::Splitter)),
+                            )
+                            .get_areas_with_pieces()
+                        {
+                            for (right_split, _) in right_splits {
+                                let road_boundaries = new_road_boundaries(
+                                    &self.road_boundaries,
+                                    right_split.primitives[0].boundary.path(),
                                 );
-                                if let Some(ok_split_lot) = split_lot.split_for(
-                                    building_style,
-                                    true, //false,
-                                    true,
-                                    width * 0.66,
-                                    recursion_depth + 1,
-                                )? {
-                                    return Ok(Some(ok_split_lot));
+
+                                if !road_boundaries.is_empty() {
+                                    let split_lot = Lot {
+                                        road_boundaries,
+                                        area: right_split,
+                                        ..self.clone()
+                                    };
+
+                                    // recurse!
+                                    println!(
+                                        "{}Got right split lot, checking suitability",
+                                        debug_padding,
+                                    );
+                                    if let Some(ok_split_lot) = split_lot.split_for(
+                                        building_style,
+                                        true, //false,
+                                        true,
+                                        width * 0.66,
+                                        recursion_depth + 1,
+                                    )? {
+                                        return Ok(Some(ok_split_lot));
+                                    }
                                 }
                             }
-                        }
                         }
                     }
                     if allow_left_split {
-                        if let Ok(left_splits) = embedding.view(AreaFilter::has(SplittingLabel::Lot).and(AreaFilter::has(SplittingLabel::Splitter).not())).get_areas_with_pieces() {
-                        for (left_split, _) in left_splits {
-                            let road_boundaries = new_road_boundaries(
-                                &self.road_boundaries,
-                                left_split.primitives[0].boundary.path(),
-                            );
-
-                            if !road_boundaries.is_empty() {
-                                let split_lot = Lot {
-                                    road_boundaries,
-                                    area: left_split,
-                                    ..self.clone()
-                                };
-
-                                // recurse!
-                                println!(
-                                    "{}Got right split lot, checking suitability",
-                                    debug_padding,
+                        if let Ok(left_splits) = embedding
+                            .view(
+                                AreaFilter::has(SplittingLabel::Lot)
+                                    .and(AreaFilter::has(SplittingLabel::Splitter).not()),
+                            )
+                            .get_areas_with_pieces()
+                        {
+                            for (left_split, _) in left_splits {
+                                let road_boundaries = new_road_boundaries(
+                                    &self.road_boundaries,
+                                    left_split.primitives[0].boundary.path(),
                                 );
-                                if let Some(ok_split_lot) = split_lot.split_for(
-                                    building_style,
-                                    true,
-                                    true, //false,
-                                    width * 0.66,
-                                    recursion_depth + 1,
-                                )? {
-                                    return Ok(Some(ok_split_lot));
+
+                                if !road_boundaries.is_empty() {
+                                    let split_lot = Lot {
+                                        road_boundaries,
+                                        area: left_split,
+                                        ..self.clone()
+                                    };
+
+                                    // recurse!
+                                    println!(
+                                        "{}Got right split lot, checking suitability",
+                                        debug_padding,
+                                    );
+                                    if let Some(ok_split_lot) = split_lot.split_for(
+                                        building_style,
+                                        true,
+                                        true, //false,
+                                        width * 0.66,
+                                        recursion_depth + 1,
+                                    )? {
+                                        return Ok(Some(ok_split_lot));
+                                    }
                                 }
                             }
                         }
-                    }
                     }
                 }
             }

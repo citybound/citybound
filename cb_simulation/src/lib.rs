@@ -1,5 +1,6 @@
 #![feature(custom_derive)]
 #![recursion_limit = "128"]
+#![feature(tool_lints)]
 // Enable this for memory tracking with Instruments/MacOS
 // and for much better stacktraces for memory issues
 #![cfg_attr(feature = "server", feature(alloc_system))]

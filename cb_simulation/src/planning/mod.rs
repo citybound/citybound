@@ -1,5 +1,5 @@
-#![cfg_attr(feature = "cargo-clippy", allow(new_without_default_derive))]
-#![cfg_attr(feature = "cargo-clippy", allow(new_without_default))]
+#![allow(clippy::new_without_default_derive)]
+#![allow(clippy::new_without_default)]
 use kay::{World, MachineID, ActorSystem, TypedID};
 use compact::{CVec, COption, CHashMap};
 use descartes::{P2, AreaError};

@@ -175,7 +175,7 @@ pub fn gesture_intent_smooth_paths(
         .collect::<Vec<_>>()
 }
 
-#[cfg_attr(feature = "cargo-clippy", allow(cyclomatic_complexity))]
+#[allow(clippy::cyclomatic_complexity)]
 pub fn calculate_prototypes(
     history: &PlanHistory,
     _current_result: &PlanResult,

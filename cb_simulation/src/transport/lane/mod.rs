@@ -18,7 +18,6 @@ pub struct Lane {
 }
 
 impl Lane {
-    #[cfg_attr(feature = "cargo-clippy", allow(eq_op))]
     pub fn spawn(
         id: LaneID,
         path: &LinePath,
@@ -72,7 +71,7 @@ impl SwitchLane {
         None
     }
 
-    #[cfg_attr(feature = "cargo-clippy", allow(needless_range_loop))]
+    #[allow(clippy::needless_range_loop)]
     pub fn interaction_to_self_offset(
         &self,
         distance_on_interaction: N,
@@ -100,7 +99,7 @@ impl SwitchLane {
         map.last().unwrap().0 - map.last().unwrap().1
     }
 
-    #[cfg_attr(feature = "cargo-clippy", allow(needless_range_loop))]
+    #[allow(clippy::needless_range_loop)]
     pub fn self_to_interaction_offset(&self, distance_on_self: N, going_to_left: bool) -> N {
         let map = if going_to_left {
             &self.connectivity.left_distance_map
