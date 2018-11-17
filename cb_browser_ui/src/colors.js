@@ -32,10 +32,11 @@ export default {
     grass,
     asphalt: [0.7, 0.7, 0.7],
     roadMarker: [1.0, 1.0, 1.0],
-    wall: [0.95, 0.95, 0.95],
-    flatRoof: [0.5, 0.5, 0.5],
-    brickRoof: [0.8, 0.5, 0.2],
-    field: [0.7, 0.7, 0.2],
+
+    WhiteWall: [0.95, 0.95, 0.95],
+    FlatRoof: [0.5, 0.5, 0.5],
+    TiledRoof: [0.8, 0.5, 0.2],
+    Field: [0.7, 0.7, 0.2],
 
     plannedAsphalt: [1.0, 1.0, 1.0],
     plannedRoadMarker: [0.6, 0.6, 0.6],

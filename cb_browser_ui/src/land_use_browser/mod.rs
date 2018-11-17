@@ -5,6 +5,7 @@ use stdweb::serde::Serde;
 use stdweb::js_export;
 use browser_utils::to_js_mesh;
 use SYSTEM;
+use ::std::collections::HashMap;
 
 #[cfg_attr(
     all(target_arch = "wasm32", target_os = "unknown"),
@@ -50,17 +51,25 @@ impl LandUseUI for BrowserLandUseUI {
             &mut ::util::random::seed(id),
         );
 
+        let material_updates: ::stdweb::Object = meshes
+            .0
+            .into_iter()
+            .map(|(material, mesh)| {
+                let update_op: ::stdweb::Object = Some(("$set", to_js_mesh(&mesh)))
+                    .into_iter()
+                    .collect::<HashMap<_, _>>()
+                    .into();
+                let material_update: ::stdweb::Object = Some((id.as_raw_string(), update_op))
+                    .into_iter()
+                    .collect::<HashMap<_, _>>()
+                    .into();
+                (material.to_string(), material_update)
+            }).collect::<HashMap<_, _>>()
+            .into();
+
         js!{
             window.cbReactApp.setState(oldState => update(oldState, {
-                landUse: {rendering: {
-                    wall: {[@{Serde(id)}]: {"$set": @{to_js_mesh(&meshes.wall)}}},
-                    brickRoof: {
-                        [@{Serde(id)}]: {"$set": @{to_js_mesh(&meshes.brick_roof)}}},
-                    flatRoof: {
-                        [@{Serde(id)}]: {"$set": @{to_js_mesh(&meshes.flat_roof)}}},
-                    field: {
-                        [@{Serde(id)}]: {"$set": @{to_js_mesh(&meshes.field)}}},
-                }},
+                landUse: {rendering: @{material_updates}},
                 households: {
                     buildingPositions: {[@{Serde(id)}]: {
                         "$set": @{Serde(lot.center_point())}
@@ -78,14 +87,18 @@ impl LandUseUI for BrowserLandUseUI {
         id: ::land_use::buildings::BuildingID,
         _world: &mut World,
     ) {
+        let unset_op: ::stdweb::Object = Some(("$unset", vec![id.as_raw_string()]))
+            .into_iter()
+            .collect::<HashMap<_, _>>()
+            .into();
+        let unsets: ::stdweb::Object = ::land_use::buildings::architecture::ALL_MATERIALS
+            .iter()
+            .map(|material| (material.to_string(), unset_op.clone()))
+            .collect::<HashMap<_, _>>()
+            .into();
         js!{
             window.cbReactApp.setState(oldState => update(oldState, {
-                landUse: {rendering: {
-                    wall: {"$unset": [@{Serde(id)}]},
-                    brickRoof: {"$unset": [@{Serde(id)}]},
-                    flatRoof: {"$unset": [@{Serde(id)}]},
-                    field: {"$unset": [@{Serde(id)}]},
-                }},
+                landUse: {rendering: @{unsets}},
                 households: {buildingPositions: {"$unset": [@{Serde(id)}]}}
             }));
         }

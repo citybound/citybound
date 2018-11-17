@@ -15,13 +15,29 @@ pub fn ideal_lot_shape(building_style: BuildingStyle) -> (f32, f32, f32) {
     }
 }
 
-#[derive(Compact, Clone)]
-pub struct BuildingMesh {
-    pub wall: Mesh,
-    pub brick_roof: Mesh,
-    pub flat_roof: Mesh,
-    pub field: Mesh,
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+pub enum BuildingMaterial {
+    WhiteWall,
+    TiledRoof,
+    FlatRoof,
+    Field,
 }
+
+pub const ALL_MATERIALS: [BuildingMaterial; 4] = [
+    BuildingMaterial::WhiteWall,
+    BuildingMaterial::TiledRoof,
+    BuildingMaterial::FlatRoof,
+    BuildingMaterial::Field,
+];
+
+impl ::std::fmt::Display for BuildingMaterial {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        ::std::fmt::Debug::fmt(self, f)
+    }
+}
+
+#[derive(Clone)]
+pub struct BuildingMesh(pub ::std::collections::HashMap<BuildingMaterial, Mesh>);
 
 pub fn build_building<R: Rng>(
     lot: &Lot,
@@ -43,35 +59,48 @@ pub fn build_building<R: Rng>(
             let (entrance_roof_brick_mesh, entrance_roof_wall_mesh) =
                 entrance_footprint.open_gable_roof_mesh(entrance_height, 0.3);
 
-            BuildingMesh {
-                wall: main_footprint.wall_mesh(height)
-                    + entrance_footprint.wall_mesh(entrance_height)
-                    + roof_wall_mesh
-                    + entrance_roof_wall_mesh,
-                brick_roof: roof_brick_mesh + entrance_roof_brick_mesh,
-                flat_roof: Mesh::empty(),
-                field: Mesh::empty(),
-            }
+            BuildingMesh(
+                vec![
+                    (
+                        BuildingMaterial::WhiteWall,
+                        main_footprint.wall_mesh(height)
+                            + entrance_footprint.wall_mesh(entrance_height)
+                            + roof_wall_mesh
+                            + entrance_roof_wall_mesh,
+                    ),
+                    (
+                        BuildingMaterial::TiledRoof,
+                        roof_brick_mesh + entrance_roof_brick_mesh,
+                    ),
+                ].into_iter()
+                .collect(),
+            )
         }
         BuildingStyle::GroceryShop => {
             let height = 3.0 + rng.gen::<f32>();
             let entrance_height = height - 0.7;
 
-            BuildingMesh {
-                wall: main_footprint.wall_mesh(height)
-                    + entrance_footprint.wall_mesh(entrance_height),
-                brick_roof: Mesh::empty(),
-                flat_roof: main_footprint.flat_roof_mesh(height)
-                    + entrance_footprint.flat_roof_mesh(entrance_height),
-                field: Mesh::empty(),
-            }
+            BuildingMesh(
+                vec![
+                    (
+                        BuildingMaterial::WhiteWall,
+                        main_footprint.wall_mesh(height)
+                            + entrance_footprint.wall_mesh(entrance_height),
+                    ),
+                    (
+                        BuildingMaterial::FlatRoof,
+                        main_footprint.flat_roof_mesh(height)
+                            + entrance_footprint.flat_roof_mesh(entrance_height),
+                    ),
+                ].into_iter()
+                .collect(),
+            )
         }
-        BuildingStyle::Field => BuildingMesh {
-            wall: Mesh::empty(),
-            brick_roof: Mesh::empty(),
-            flat_roof: Mesh::empty(),
-            field: Mesh::from_area(&lot.area),
-        },
+        BuildingStyle::Field => BuildingMesh(
+            Some((BuildingMaterial::Field, Mesh::from_area(&lot.area)))
+                .into_iter()
+                .collect(),
+        ),
         BuildingStyle::Mill => {
             let height = 3.0 + rng.gen::<f32>();
             let tower_height = 5.0 + rng.gen::<f32>();
@@ -81,15 +110,22 @@ pub fn build_building<R: Rng>(
             let (tower_roof_brick_mesh, tower_roof_wall_mesh) =
                 entrance_footprint.open_gable_roof_mesh(tower_height, 0.3);
 
-            BuildingMesh {
-                wall: main_footprint.wall_mesh(height)
-                    + entrance_footprint.wall_mesh(tower_height)
-                    + roof_wall_mesh
-                    + tower_roof_wall_mesh,
-                brick_roof: Mesh::empty(),
-                flat_roof: roof_brick_mesh + tower_roof_brick_mesh,
-                field: Mesh::empty(),
-            }
+            BuildingMesh(
+                vec![
+                    (
+                        BuildingMaterial::WhiteWall,
+                        main_footprint.wall_mesh(height)
+                            + entrance_footprint.wall_mesh(tower_height)
+                            + roof_wall_mesh
+                            + tower_roof_wall_mesh,
+                    ),
+                    (
+                        BuildingMaterial::FlatRoof,
+                        roof_brick_mesh + tower_roof_brick_mesh,
+                    ),
+                ].into_iter()
+                .collect(),
+            )
         }
         BuildingStyle::Bakery => {
             let height = 3.0 + rng.gen::<f32>();
@@ -98,14 +134,22 @@ pub fn build_building<R: Rng>(
             let (entrance_roof_brick_mesh, entrance_roof_wall_mesh) =
                 entrance_footprint.open_gable_roof_mesh(entrance_height, 0.3);
 
-            BuildingMesh {
-                wall: main_footprint.wall_mesh(height)
-                    + entrance_footprint.wall_mesh(entrance_height)
-                    + entrance_roof_wall_mesh,
-                brick_roof: entrance_roof_brick_mesh,
-                flat_roof: main_footprint.flat_roof_mesh(height),
-                field: Mesh::empty(),
-            }
+            BuildingMesh(
+                vec![
+                    (
+                        BuildingMaterial::WhiteWall,
+                        main_footprint.wall_mesh(height)
+                            + entrance_footprint.wall_mesh(entrance_height)
+                            + entrance_roof_wall_mesh,
+                    ),
+                    (BuildingMaterial::TiledRoof, entrance_roof_brick_mesh),
+                    (
+                        BuildingMaterial::FlatRoof,
+                        main_footprint.flat_roof_mesh(height),
+                    ),
+                ].into_iter()
+                .collect(),
+            )
         }
         BuildingStyle::NeighboringTownConnection => {
             let length = 20.0;
@@ -116,21 +160,18 @@ pub fn build_building<R: Rng>(
                 building_position + length / 2.0 * building_orientation_orth,
                 building_position + length / 4.0 * building_orientation,
                 building_position - length / 2.0 * building_orientation_orth,
-            ]
-            .into_iter()
+            ].into_iter()
             .map(|v| Vertex {
                 position: [v.x, v.y, 3.0],
-            })
-            .collect();
+            }).collect();
 
             let indices = vec![0, 1, 2, 2, 3, 0];
 
-            BuildingMesh {
-                wall: Mesh::new(vertices, indices),
-                brick_roof: Mesh::empty(),
-                flat_roof: Mesh::empty(),
-                field: Mesh::empty(),
-            }
+            BuildingMesh(
+                Some((BuildingMaterial::WhiteWall, Mesh::new(vertices, indices)))
+                    .into_iter()
+                    .collect(),
+            )
         }
     }
 }
