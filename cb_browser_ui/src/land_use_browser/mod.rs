@@ -42,13 +42,16 @@ impl LandUseUI for BrowserLandUseUI {
         &mut self,
         id: ::land_use::buildings::BuildingID,
         lot: &::land_use::zone_planning::Lot,
+        households: &CVec<::economy::households::HouseholdID>,
         style: ::land_use::buildings::BuildingStyle,
-        _world: &mut World,
+        world: &mut World,
     ) {
         let meshes = ::land_use::buildings::architecture::build_building(
             lot,
             style,
+            households,
             &mut ::util::random::seed(id),
+            world,
         );
 
         let material_updates: ::stdweb::Object = meshes

@@ -31,8 +31,8 @@ impl TypedID for LandUseUIID {
 impl<A: Actor + LandUseUI> TraitIDFrom<A> for LandUseUIID {}
 
 impl LandUseUIID {
-    pub fn on_building_constructed(&self, id: BuildingID, lot: Lot, style: BuildingStyle, world: &mut World) {
-        world.send(self.as_raw(), MSG_LandUseUI_on_building_constructed(id, lot, style));
+    pub fn on_building_constructed(&self, id: BuildingID, lot: Lot, households: CVec < HouseholdID >, style: BuildingStyle, world: &mut World) {
+        world.send(self.as_raw(), MSG_LandUseUI_on_building_constructed(id, lot, households, style));
     }
     
     pub fn on_building_destructed(&self, id: BuildingID, world: &mut World) {
@@ -53,8 +53,8 @@ impl LandUseUIID {
     pub fn register_implementor<A: Actor + LandUseUI>(system: &mut ActorSystem) {
         system.register_implementor::<A, LandUseUIRepresentative>();
         system.add_handler::<A, _, _>(
-            |&MSG_LandUseUI_on_building_constructed(id, ref lot, style), instance, world| {
-                instance.on_building_constructed(id, lot, style, world); Fate::Live
+            |&MSG_LandUseUI_on_building_constructed(id, ref lot, ref households, style), instance, world| {
+                instance.on_building_constructed(id, lot, households, style, world); Fate::Live
             }, false
         );
         
@@ -73,7 +73,7 @@ impl LandUseUIID {
 }
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_LandUseUI_on_building_constructed(pub BuildingID, pub Lot, pub BuildingStyle);
+struct MSG_LandUseUI_on_building_constructed(pub BuildingID, pub Lot, pub CVec < HouseholdID >, pub BuildingStyle);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_LandUseUI_on_building_destructed(pub BuildingID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]

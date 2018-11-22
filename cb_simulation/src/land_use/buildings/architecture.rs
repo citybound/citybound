@@ -1,3 +1,4 @@
+use kay::{World, TypedID};
 use descartes::{N, P2, WithUniqueOrthogonal};
 use util::random::{Rng};
 use michelangelo::{Vertex, Mesh};
@@ -20,14 +21,20 @@ pub enum BuildingMaterial {
     WhiteWall,
     TiledRoof,
     FlatRoof,
-    Field,
+    FieldWheat,
+    FieldRows,
+    FieldPlant,
+    FieldMeadow,
 }
 
-pub const ALL_MATERIALS: [BuildingMaterial; 4] = [
+pub const ALL_MATERIALS: [BuildingMaterial; 7] = [
     BuildingMaterial::WhiteWall,
     BuildingMaterial::TiledRoof,
     BuildingMaterial::FlatRoof,
-    BuildingMaterial::Field,
+    BuildingMaterial::FieldWheat,
+    BuildingMaterial::FieldRows,
+    BuildingMaterial::FieldPlant,
+    BuildingMaterial::FieldMeadow,
 ];
 
 impl ::std::fmt::Display for BuildingMaterial {
@@ -42,7 +49,9 @@ pub struct BuildingMesh(pub ::std::collections::HashMap<BuildingMaterial, Mesh>)
 pub fn build_building<R: Rng>(
     lot: &Lot,
     building_type: BuildingStyle,
+    household_ids: &[::economy::households::HouseholdID],
     rng: &mut R,
+    world: &mut World,
 ) -> BuildingMesh {
     let building_position = lot.center_point();
     let building_orientation = lot.best_road_connection().1;
@@ -96,11 +105,30 @@ pub fn build_building<R: Rng>(
                 .collect(),
             )
         }
-        BuildingStyle::Field => BuildingMesh(
-            Some((BuildingMaterial::Field, Mesh::from_area(&lot.area)))
-                .into_iter()
-                .collect(),
-        ),
+        BuildingStyle::Field => {
+            use ::economy::households::household_kinds::*;
+
+            let material = if let Some(farm) = household_ids.get(0) {
+                let farm_type_id = farm.as_raw().type_id;
+                if farm_type_id == grain_farm::GrainFarmID::local_first(world).as_raw().type_id {
+                    BuildingMaterial::FieldWheat
+                } else if farm_type_id == vegetable_farm::VegetableFarmID::local_first(world)
+                    .as_raw()
+                    .type_id
+                {
+                    BuildingMaterial::FieldPlant
+                } else {
+                    BuildingMaterial::FieldMeadow
+                }
+            } else {
+                BuildingMaterial::FieldRows
+            };
+            BuildingMesh(
+                Some((material, Mesh::from_area(&lot.area)))
+                    .into_iter()
+                    .collect(),
+            )
+        }
         BuildingStyle::Mill => {
             let height = 3.0 + rng.gen::<f32>();
             let tower_height = 5.0 + rng.gen::<f32>();

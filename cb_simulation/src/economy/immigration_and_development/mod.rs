@@ -99,7 +99,7 @@ impl Sleeper for ImmigrationManager {
             ImmigrationManagerState::Idle => {
                 let family_share = 1.0;
                 let grocery_share = 0.2;
-                let cow_farm_share = 0.9;
+                let cow_farm_share = 0.3;
                 let veg_farm_share = 0.26;
                 let grain_farm_share = 0.2; //0.0016;
                 let mill_share = 0.2; //0.001;

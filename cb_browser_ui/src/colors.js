@@ -36,7 +36,10 @@ export default {
     WhiteWall: [0.95, 0.95, 0.95],
     FlatRoof: [0.5, 0.5, 0.5],
     TiledRoof: [0.8, 0.5, 0.2],
-    Field: [0.7, 0.7, 0.2],
+    FieldWheat: [0.7, 0.7, 0.2],
+    FieldMeadow: [0.49, 0.68, 0.37],
+    FieldRows: [0.62, 0.56, 0.5],
+    FieldPlant: [0.39, 0.58, 0.27],
 
     plannedAsphalt: [1.0, 1.0, 1.0],
     plannedRoadMarker: [0.6, 0.6, 0.6],

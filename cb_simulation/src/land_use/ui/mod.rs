@@ -9,6 +9,7 @@ pub trait LandUseUI {
         &mut self,
         id: BuildingID,
         lot: &Lot,
+        households: &CVec<HouseholdID>,
         style: BuildingStyle,
         _world: &mut World,
     );

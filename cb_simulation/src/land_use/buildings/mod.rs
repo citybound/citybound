@@ -72,7 +72,7 @@ impl Building {
     pub fn spawn(id: BuildingID, style: BuildingStyle, lot: &Lot, world: &mut World) -> Building {
         println!("Spawned building {:?}", style);
 
-        rendering::on_add(id, lot, style, world);
+        rendering::on_add(id, lot, vec![], style, world);
 
         TimeID::local_first(world).wake_up_in(
             Ticks::from(Duration::from_minutes(10)),
@@ -115,8 +115,11 @@ impl Building {
         }
     }
 
-    pub fn add_household(&mut self, household: HouseholdID, unit: UnitIdx, _: &mut World) {
+    pub fn add_household(&mut self, household: HouseholdID, unit: UnitIdx, world: &mut World) {
         self.units[unit.0].0 = Some(household);
+        // Refresh appearance
+        rendering::on_destroy(self.id, world);
+        rendering::on_add(self.id, &self.lot, self.all_households(), self.style, world);
     }
 
     pub fn remove_household(&mut self, household: HouseholdID, world: &mut World) {
@@ -129,6 +132,10 @@ impl Building {
 
         if self.being_destroyed_for.is_some() && self.all_households().is_empty() {
             self.id.finally_destroy(world);
+        } else {
+            // Refresh appearance
+            rendering::on_destroy(self.id, world);
+            rendering::on_add(self.id, &self.lot, self.all_households(), self.style, world);
         }
     }
 
@@ -160,7 +167,7 @@ impl Constructable for Building {
         if let PrototypeKind::Lot(ref lot_prototype) = new_prototype.kind {
             self.lot = lot_prototype.lot.clone();
             rendering::on_destroy(self.id, world);
-            rendering::on_add(self.id, &self.lot, self.style, world);
+            rendering::on_add(self.id, &self.lot, self.all_households(), self.style, world);
             report_to.action_done(self.id.into(), world);
         } else {
             unreachable!()
@@ -272,11 +279,9 @@ pub fn units_for_style(style: BuildingStyle) -> CVec<Unit> {
                 .chain(vec![
                     Unit(None, UnitType::Dwelling);
                     FAMILIES_PER_NEIGHBORING_TOWN
-                ])
-                .collect()
+                ]).collect()
         }
-    }
-    .into()
+    }.into()
 }
 
 #[derive(Compact, Clone, Default)]
