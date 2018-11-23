@@ -21,6 +21,10 @@
     transition: none;
 }
 
+summary:focus {
+    outline: none;
+}
+
 html, body, div, span, applet, object, iframe,
 h1, h2, h3, h4, h5, h6, p, blockquote, pre,
 a, abbr, acronym, address, big, cite, code,
@@ -433,10 +437,20 @@ button {
     }
 }
 
-.window.debug > div {
+.window.debug details > div {
     margin-bottom: 1em;
-    max-height: 10em;
+}
+
+.scrollableLog {
+    height: 19.5em;
+    max-width: 50em;
     overflow-y: auto;
+    overflow-x: auto;
+    background-color: #333;
+    color: #fff;
+    font-family: monospace;
+    font-size: 0.75em;
+    padding: 1em;
 }
 
 .sim-time {

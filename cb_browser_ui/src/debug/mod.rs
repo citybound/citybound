@@ -60,3 +60,53 @@ pub fn spawn_cars(tries_per_lane: usize) {
         ::transport::lane::LaneID::global_broadcast(world).manually_spawn_car_add_lane(world);
     }
 }
+
+use kay::{World, ActorSystem};
+use compact::CVec;
+use log::{LogID, LogRecipient, LogRecipientID, Entry};
+
+#[derive(Compact, Clone)]
+pub struct LogUI {
+    id: LogUIID,
+}
+
+impl LogUI {
+    pub fn spawn(id: LogUIID, world: &mut World) -> LogUI {
+        LogUI { id }
+    }
+}
+
+impl LogRecipient for LogUI {
+    fn receive_newest_logs(&mut self, entries: &CVec<Entry>, _: &mut World) {
+        js! {
+            window.cbReactApp.setState(oldState => update(oldState, {
+                debug: {
+                    log: {"$set": @{Serde(entries)}}
+                }
+            }));
+        };
+    }
+}
+
+#[cfg_attr(
+    all(target_arch = "wasm32", target_os = "unknown"),
+    js_export
+)]
+pub fn get_newest_log_messages() {
+    let system = unsafe { &mut *SYSTEM };
+    let world = &mut system.world();
+    // TODO: ugly
+    LogID::global_broadcast(world).get_newest_n(1000, LogUIID::local_first(world).into(), world);
+}
+
+mod kay_auto;
+pub use self::kay_auto::*;
+
+pub fn setup(system: &mut ActorSystem) {
+    system.register::<LogUI>();
+    auto_setup(system);
+}
+
+pub fn spawn(world: &mut World) {
+    LogUIID::spawn(world);
+}

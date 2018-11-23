@@ -33,15 +33,13 @@ pub fn start() {
 
     let server_host = js!{
         return window.location.hostname;
-    }
-    .into_string()
+    }.into_string()
     .unwrap();
 
     let mut network_settings = ::std::collections::HashMap::from(
         js!{
             return window.cbNetworkSettings;
-        }
-        .into_object()
+        }.into_object()
         .unwrap(),
     );
 
@@ -56,6 +54,7 @@ pub fn start() {
     ));
 
     setup_common(&mut system);
+    debug::setup(&mut system);
     browser_utils::auto_setup(&mut system);
     planning_browser::setup(&mut system);
     transport_browser::setup(&mut system);
@@ -65,6 +64,7 @@ pub fn start() {
 
     system.networking_connect();
 
+    debug::spawn(&mut system.world());
     planning_browser::spawn(&mut system.world());
     transport_browser::spawn(&mut system.world());
     time_browser::spawn(&mut system.world());
