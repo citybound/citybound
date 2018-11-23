@@ -25,6 +25,7 @@ pub extern crate descartes;
 extern crate serde_derive;
 
 pub mod util;
+pub mod log;
 pub mod time;
 pub mod transport;
 pub mod planning;
@@ -36,6 +37,7 @@ pub mod dimensions;
 pub fn setup_common(system: &mut kay::ActorSystem) {
     for setup_fn in &[
         time::setup,
+        log::setup,
         planning::setup,
         construction::setup,
         transport::setup,

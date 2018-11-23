@@ -14,6 +14,9 @@ use construction::{ConstructionID, Constructable, ConstructableID};
 use super::transport_planning::{RoadPrototype, LanePrototype, SwitchLanePrototype,
 IntersectionPrototype};
 
+use log::debug;
+const LOG_T: &str = "Transport Construction";
+
 use dimensions::{LANE_CONNECTION_TOLERANCE, MAX_SWITCHING_LANE_DISTANCE,
 MIN_SWITCHING_LANE_LENGTH};
 
@@ -23,8 +26,7 @@ impl RoadPrototype {
             RoadPrototype::Lane(LanePrototype(ref path, _)) => vec![
                 LaneID::spawn_and_connect(path.clone(), false, CVec::new(), report_to, world)
                     .into(),
-            ]
-            .into(),
+            ].into(),
             RoadPrototype::SwitchLane(SwitchLanePrototype(ref path)) => {
                 vec![SwitchLaneID::spawn_and_connect(path.clone(), report_to, world).into()].into()
             }
@@ -45,10 +47,8 @@ impl RoadPrototype {
                                     report_to,
                                     world,
                                 )
-                            })
-                            .collect::<Vec<_>>()
-                    })
-                    .collect::<Vec<_>>();
+                            }).collect::<Vec<_>>()
+                    }).collect::<Vec<_>>();
 
                 for id in &ids {
                     id.start_connecting_overlaps(
@@ -269,8 +269,7 @@ impl Lane {
                         intersection,
                         lane_band.outline_distance_to_path_distance(intersection.along_a),
                     )
-                })
-                .minmax_by_key(|&(_, distance)| OrderedFloat(distance))
+                }).minmax_by_key(|&(_, distance)| OrderedFloat(distance))
             {
                 let other_entry_distance =
                     other_band.outline_distance_to_path_distance(entry_intersection.along_b);
@@ -354,8 +353,7 @@ impl Unbuildable for Lane {
                 } else {
                     None
                 }
-            })
-            .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
 
         let self_as_rough_location = self.id_as();
         self.microtraffic.cars.retain(|car| {
@@ -469,16 +467,21 @@ impl Lane {
                 let path = &self.construction.path;
                 let distance = path.distance_to(lot_position);
 
-                println!(
-                    "Building {:?} lane {:?} distance: {}",
-                    building, self.id, distance
+                debug(
+                    LOG_T,
+                    format!(
+                        "Building {:?} lane {:?} distance: {}",
+                        building, self.id, distance
+                    ),
+                    self.id(),
+                    world,
                 );
 
                 if distance <= 3.0 * LANE_DISTANCE {
                     if let Some((offset, projected_point)) =
                         path.project_with_max_distance(lot_position, 0.5, 3.0 * LANE_DISTANCE)
                     {
-                        println!("Projected: {}", offset);
+                        debug(LOG_T, format!("Projected: {}", offset), self.id(), world);
                         building.reconnect(
                             PreciseLocation { location, offset },
                             projected_point,
@@ -567,8 +570,7 @@ impl SwitchLane {
                             distance_covered,
                             segment_end_on_other_distance - lane_start_on_other_distance,
                         )
-                    })
-                    .collect();
+                    }).collect();
 
                 let other_is_right = (lane_start_on_other - self.construction.path.start())
                     .dot(&self.construction.path.start_direction().orthogonal_right())

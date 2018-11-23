@@ -7,6 +7,8 @@ KnownHistoryState, KnownProposalState, ProposalUpdate,
 KnownPlanResultState,
 ActionGroups};
 use super::ui::PlanningUIID;
+use log::error;
+const LOG_T: &str = "Planning Interaction";
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ControlPointRef(pub GestureID, pub usize);
@@ -44,19 +46,16 @@ impl PlanManager {
                         .map(|known_state| {
                             unmatched_known_proposals.remove(proposal_id);
                             proposal.update_for(known_state)
-                        })
-                        .unwrap_or_else(|| ProposalUpdate::ChangedCompletely(proposal.clone())),
+                        }).unwrap_or_else(|| ProposalUpdate::ChangedCompletely(proposal.clone())),
                 )
-            })
-            .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
         let proposal_updates_with_removals = proposal_updates
             .into_iter()
             .chain(
                 unmatched_known_proposals
                     .into_iter()
                     .map(|unmatched_id| (unmatched_id, ProposalUpdate::Removed)),
-            )
-            .collect();
+            ).collect();
         ui.on_plans_update(master_update, proposal_updates_with_removals, world);
     }
 
@@ -79,7 +78,7 @@ impl PlanManager {
         }
 
         let (plan_history, maybe_result, maybe_actions) =
-            self.try_ensure_preview(world.local_machine_id(), proposal_id);
+            self.try_ensure_preview(world.local_machine_id(), proposal_id, world);
 
         if let (Some(result), Some(actions)) = (maybe_result, maybe_actions) {
             ui.on_proposal_preview_update(
@@ -124,6 +123,7 @@ impl PlanManager {
         &self,
         machine_id: MachineID,
         proposal_id: ProposalID,
+        log_in: &mut World,
     ) -> (&PlanHistory, Option<&PlanResult>, &Option<ActionGroups>) {
         let ui_state = self
             .ui_state
@@ -153,10 +153,20 @@ impl PlanManager {
                     }
                     Err(err) => match err {
                         AreaError::LeftOver(string) => {
-                            println!("Preview Plan Error: {}", string);
+                            error(
+                                LOG_T,
+                                format!("Preview Plan Error: {}", string),
+                                self.id,
+                                log_in,
+                            );
                         }
                         _ => {
-                            println!("Preview Plan Error: {:?}", err);
+                            error(
+                                LOG_T,
+                                format!("Preview Plan Error: {:?}", err),
+                                self.id,
+                                log_in,
+                            );
                         }
                     },
                 }
@@ -278,8 +288,7 @@ impl PlanManager {
                                 .iter()
                                 .position(|point_i_along| *point_i_along >= inserted_along)
                         })
-                })
-                .unwrap_or(current_gesture.points.len());
+                }).unwrap_or(current_gesture.points.len());
 
             let changed_gesture = Gesture {
                 points: current_gesture.points[..new_point_idx]

@@ -12,6 +12,8 @@ use itertools::{Itertools, MinMaxResult};
 
 use construction::{ConstructionID, Constructable, ConstructableID};
 use planning::{Prototype, PrototypeID};
+use log::{debug, error};
+const LOG_T: &str = "Vacant Lots";
 
 #[derive(Compact, Clone)]
 pub struct VacantLot {
@@ -32,8 +34,7 @@ impl Lot {
                     .path()
                     .segments()
                     .map(|segment| segment.midpoint())
-            })
-            .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
 
         self.all_road_connections()
             .into_iter()
@@ -62,8 +63,7 @@ impl Lot {
                 };
 
                 (point, direction, width, depth)
-            })
-            .collect()
+            }).collect()
     }
 
     pub fn split_for(
@@ -73,18 +73,25 @@ impl Lot {
         allow_right_split: bool,
         max_width_after_splitting: N,
         recursion_depth: usize,
+        log_as: VacantLotID,
+        log_in: &mut World,
     ) -> Result<Option<Lot>, AreaError> {
         let (needed_width, needed_depth, needed_compactness) = ideal_lot_shape(building_style);
 
         let debug_padding: String = ::std::iter::repeat(" ").take(recursion_depth).collect();
-        println!(
-            "{}Trying to suggest lot for {:?}. Road Boundaries {:?}",
-            debug_padding,
-            building_style,
-            self.road_boundaries
-                .iter()
-                .map(|path| path.length())
-                .collect::<Vec<_>>(),
+        debug(
+            LOG_T,
+            format!(
+                "{}Trying to suggest lot for {:?}. Road Boundaries {:?}",
+                debug_padding,
+                building_style,
+                self.road_boundaries
+                    .iter()
+                    .map(|path| path.length())
+                    .collect::<Vec<_>>(),
+            ),
+            log_as,
+            log_in,
         );
 
         // TODO: fix fucked up orientation of areas compared to descartes!!
@@ -92,11 +99,16 @@ impl Lot {
             / self.area.primitives[0].boundary.path().length().powi(2);
 
         for (point, direction, width, depth) in self.width_depth_per_road_connection() {
-            println!(
-                "{}Is: {:?} Needed: {:?}",
-                debug_padding,
-                (width, depth, compactness),
-                (needed_width, needed_depth, needed_compactness)
+            debug(
+                LOG_T,
+                format!(
+                    "{}Is: {:?} Needed: {:?}",
+                    debug_padding,
+                    (width, depth, compactness),
+                    (needed_width, needed_depth, needed_compactness)
+                ),
+                log_as,
+                log_in,
             );
 
             // make sure that we're making progress after recursing
@@ -126,7 +138,12 @@ impl Lot {
                         ClosedLinePath::new(LinePath::new(corners.into()).unwrap()).unwrap(),
                     );
 
-                    println!("{}Attempting width split", debug_padding);
+                    debug(
+                        LOG_T,
+                        format!("{}Attempting width split", debug_padding),
+                        log_as,
+                        log_in,
+                    );
 
                     #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
                     enum SplittingLabel {
@@ -144,8 +161,7 @@ impl Lot {
                             .view(
                                 AreaFilter::has(SplittingLabel::Lot)
                                     .and(AreaFilter::has(SplittingLabel::Splitter)),
-                            )
-                            .get_areas_with_pieces()
+                            ).get_areas_with_pieces()
                         {
                             for (right_split, _) in right_splits {
                                 let road_boundaries = new_road_boundaries(
@@ -161,9 +177,14 @@ impl Lot {
                                     };
 
                                     // recurse!
-                                    println!(
-                                        "{}Got right split lot, checking suitability",
-                                        debug_padding,
+                                    debug(
+                                        LOG_T,
+                                        format!(
+                                            "{}Got right split lot, checking suitability",
+                                            debug_padding,
+                                        ),
+                                        log_as,
+                                        log_in,
                                     );
                                     if let Some(ok_split_lot) = split_lot.split_for(
                                         building_style,
@@ -171,6 +192,8 @@ impl Lot {
                                         true,
                                         width * 0.66,
                                         recursion_depth + 1,
+                                        log_as,
+                                        log_in,
                                     )? {
                                         return Ok(Some(ok_split_lot));
                                     }
@@ -183,8 +206,7 @@ impl Lot {
                             .view(
                                 AreaFilter::has(SplittingLabel::Lot)
                                     .and(AreaFilter::has(SplittingLabel::Splitter).not()),
-                            )
-                            .get_areas_with_pieces()
+                            ).get_areas_with_pieces()
                         {
                             for (left_split, _) in left_splits {
                                 let road_boundaries = new_road_boundaries(
@@ -200,9 +222,14 @@ impl Lot {
                                     };
 
                                     // recurse!
-                                    println!(
-                                        "{}Got right split lot, checking suitability",
-                                        debug_padding,
+                                    debug(
+                                        LOG_T,
+                                        format!(
+                                            "{}Got right split lot, checking suitability",
+                                            debug_padding,
+                                        ),
+                                        log_as,
+                                        log_in,
                                     );
                                     if let Some(ok_split_lot) = split_lot.split_for(
                                         building_style,
@@ -210,6 +237,8 @@ impl Lot {
                                         true, //false,
                                         width * 0.66,
                                         recursion_depth + 1,
+                                        log_as,
+                                        log_in,
                                     )? {
                                         return Ok(Some(ok_split_lot));
                                     }
@@ -249,8 +278,7 @@ fn new_road_boundaries(old_road_bundaries: &[LinePath], new_boundary: &LinePath)
             }
 
             Some(LinePath::new(consecutive_points))
-        })
-        .filter_map(|maybe_new_boundary| maybe_new_boundary)
+        }).filter_map(|maybe_new_boundary| maybe_new_boundary)
         .collect()
 }
 
@@ -280,11 +308,16 @@ impl VacantLot {
             .iter()
             .any(|land_use| building_style.can_appear_in(land_use))
         {
-            println!("Trying suggest");
-            match self
-                .lot
-                .split_for(building_style, true, true, ::std::f32::INFINITY, 0)
-            {
+            debug(LOG_T, "Trying suggest", self.id, world);
+            match self.lot.split_for(
+                building_style,
+                true,
+                true,
+                ::std::f32::INFINITY,
+                0,
+                self.id,
+                world,
+            ) {
                 Ok(Some(suitable_lot)) => requester.on_suggested_lot(
                     BuildingIntent {
                         lot: suitable_lot,
@@ -294,7 +327,7 @@ impl VacantLot {
                     world,
                 ),
                 Ok(None) => {}
-                Err(_err) => println!("Geometry"),
+                Err(_err) => error(LOG_T, "Geometry", self.id, world),
             }
         }
     }

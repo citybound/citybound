@@ -16,6 +16,9 @@ use economy::immigration_and_development::ImmigrationManagerID;
 use land_use::zone_planning::{Lot, LandUse};
 use super::ui::{LandUseUIID};
 
+use log::debug;
+const LOG_T: &str = "Buildings";
+
 #[derive(Copy, Clone)]
 pub struct Unit(Option<HouseholdID>, UnitType);
 
@@ -70,7 +73,7 @@ pub struct Building {
 
 impl Building {
     pub fn spawn(id: BuildingID, style: BuildingStyle, lot: &Lot, world: &mut World) -> Building {
-        println!("Spawned building {:?}", style);
+        debug(LOG_T, format!("Spawned building {:?}", style), id, world);
 
         rendering::on_add(id, lot, vec![], style, world);
 
@@ -97,21 +100,26 @@ impl Building {
         requester: ImmigrationManagerID,
         world: &mut World,
     ) {
-        println!(
-            "{:?} got offer request for {:?}",
-            self.style, required_unit_type
+        debug(
+            LOG_T,
+            format!(
+                "{:?} got offer request for {:?}",
+                self.style, required_unit_type
+            ),
+            self.id(),
+            world,
         );
         if self.being_destroyed_for.is_none() {
             if let Some(idx) = self.units.iter().position(|&Unit(household, unit_type)| {
                 household.is_none() && unit_type == required_unit_type
             }) {
                 requester.on_unit_offer(self.id, UnitIdx(idx), world);
-                println!("...and responded positively!!!!");
+                debug(LOG_T, "...and responded positively!", self.id(), world);
             } else {
-                println!("...but doesn't have the unit type");
+                debug(LOG_T, "...but doesn't have the unit type", self.id(), world);
             }
         } else {
-            println!("...but is being destroyed");
+            debug(LOG_T, "...but is being destroyed", self.id(), world);
         }
     }
 
@@ -224,7 +232,12 @@ impl Sleeper for Building {
                 self.started_reconnect = false;
             }
         } else {
-            println!("Trying to connect building {:?}", self.id);
+            debug(
+                LOG_T,
+                format!("Trying to connect building {:?}", self.id),
+                self.id,
+                world,
+            );
             LaneID::global_broadcast(world).try_reconnect_building(
                 self.id,
                 self.lot.best_road_connection().0,
@@ -248,7 +261,12 @@ impl Building {
         world: &mut World,
     ) {
         if self.location.is_none() {
-            println!("{:?} reconnected to {:?}", self.id, new_location);
+            debug(
+                LOG_T,
+                format!("{:?} reconnected to {:?}", self.id, new_location),
+                self.id(),
+                world,
+            );
             self.location = Some(new_location);
             new_location.node.add_attachee(self.id_as(), world);
         }

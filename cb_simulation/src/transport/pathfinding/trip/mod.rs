@@ -9,6 +9,9 @@ use super::{PreciseLocation, RoughLocationID, LocationRequester, LocationRequest
 use itertools::Itertools;
 use super::super::lane::Lane;
 
+use log::{debug, warn};
+const LOG_T: &str = "Trips";
+
 #[derive(Compact, Clone)]
 pub struct Trip {
     id: TripID,
@@ -68,14 +71,19 @@ impl Trip {
         match result.fate {
             TripFate::Success(_) | TripFate::ForceStopped => {}
             reason => {
-                println!(
-                    "Trip {:?} failed! ({:?}) {:?} ({:?}) -> {:?} ({:?})",
-                    self.id,
-                    reason,
-                    self.rough_source,
-                    self.source,
-                    self.rough_destination,
-                    self.destination
+                warn(
+                    LOG_T,
+                    format!(
+                        "Trip {:?} failed! ({:?}) {:?} ({:?}) -> {:?} ({:?})",
+                        self.id,
+                        reason,
+                        self.rough_source,
+                        self.source,
+                        self.rough_destination,
+                        self.destination
+                    ),
+                    self.id(),
+                    world,
                 );
                 if DEBUG_FAILED_TRIPS_VISUALLY {
                     FailedTripDebuggerID::spawn(self.rough_source, self.rough_destination, world);
@@ -146,9 +154,14 @@ impl LocationRequester for Trip {
                 );
             }
         } else {
-            println!(
-                "{:?} is not a source/destination yet",
-                rough_location.as_raw()
+            debug(
+                LOG_T,
+                format!(
+                    "{:?} is not a source/destination yet",
+                    rough_location.as_raw()
+                ),
+                self.id(),
+                world,
             );
             self.id.finish(
                 TripResult {

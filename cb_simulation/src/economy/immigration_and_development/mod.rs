@@ -3,6 +3,8 @@ use compact::COption;
 use land_use::buildings::{UnitType, BuildingID, UnitIdx};
 use time::{Sleeper, SleeperID, Instant, TimeID, Duration};
 use util::random::{seed, Rng};
+use log::{debug};
+const LOG_T: &str = "Immigration/Development";
 
 use economy::households::household_kinds;
 use self::household_kinds::family::FamilyID;
@@ -144,7 +146,12 @@ impl Sleeper for ImmigrationManager {
                     HouseholdTypeToSpawn::Bakery
                 };
 
-                println!("Trying to spawn {:?}", household_type_to_spawn);
+                debug(
+                    LOG_T,
+                    format!("Trying to spawn {:?}", household_type_to_spawn),
+                    self.id,
+                    world,
+                );
 
                 let required_unit_type = unit_type_for(household_type_to_spawn);
 
@@ -172,10 +179,10 @@ impl Sleeper for ImmigrationManager {
 
 impl ImmigrationManager {
     pub fn on_unit_offer(&mut self, building_id: BuildingID, unit_idx: UnitIdx, world: &mut World) {
-        println!("Got offer");
+        debug(LOG_T, "Got offer", self.id, world);
         self.state = match self.state {
             ImmigrationManagerState::FindingBuilding(household_type_to_spawn) => {
-                println!("Moving in");
+                debug(LOG_T, "Moving in", self.id, world);
 
                 let household_id = match household_type_to_spawn {
                     HouseholdTypeToSpawn::Family => {
@@ -238,7 +245,12 @@ impl DevelopmentManager {
 
     pub fn try_develop(&mut self, building_style: BuildingStyle, world: &mut World) {
         if self.building_to_develop.is_none() {
-            println!("Trying to develop {:?}", building_style);
+            debug(
+                LOG_T,
+                format!("Trying to develop {:?}", building_style),
+                self.id,
+                world,
+            );
             self.building_to_develop = COption(Some(building_style));
             VacantLotID::global_broadcast(world).suggest_lot(building_style, self.id, world);
             self.time
@@ -254,7 +266,12 @@ impl DevelopmentManager {
     ) {
         if let Some(building_to_develop) = *self.building_to_develop {
             if building_to_develop == building_intent.building_style {
-                println!("Adding to plan {:?}", building_intent.building_style);
+                debug(
+                    LOG_T,
+                    format!("Adding to plan {:?}", building_intent.building_style),
+                    self.id,
+                    world,
+                );
                 self.plan_manager.implement_artificial_proposal(
                     Proposal::from_plan(Plan::from_gestures(Some((
                         GestureID::new(),

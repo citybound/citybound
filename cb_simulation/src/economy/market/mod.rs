@@ -4,6 +4,8 @@ use super::resources::{Inventory, Entry, Resource, ResourceAmount};
 use super::households::OfferID;
 use time::{TimeOfDayRange, Duration, Instant};
 use transport::pathfinding::{RoughLocationID, LocationRequesterID};
+use log::warn;
+const LOG_T: &str = "Market";
 
 #[derive(Compact, Clone, Serialize, Deserialize)]
 pub struct Deal {
@@ -166,10 +168,16 @@ impl LocationRequester for TripCostEstimator {
                 .node
                 .get_distance_to(destination.location, self.id_as(), world);
         } else if self.n_resolved == 2 {
-            println!(
-                "Either source or dest not resolvable for {}",
-                self.base_result.resource
+            warn(
+                LOG_T,
+                format!(
+                    "Either source or dest not resolvable for {}",
+                    self.base_result.resource
+                ),
+                self.id(),
+                world,
             );
+
             self.requester.on_result(
                 EvaluatedSearchResult {
                     resource: self.base_result.resource,
@@ -200,17 +208,19 @@ impl DistanceRequester for TripCostEstimator {
                             new_deal.opening_hours.earlier_by(estimated_travel_time);
                         // TODO: adjust resources to incorporate travel costs
                         new_deal
-                    })
-                    .collect(),
+                    }).collect(),
                 ..self.base_result
             }
         } else {
-            // println!(
-            //     "No distance for {}, from {:?} to {:?}",
-            //     r_info(self.base_result.resource).0,
-            //     self.source,
-            //     self.destination
-            // );
+            warn(
+                LOG_T,
+                format!(
+                    "No distance for {}, from {:?} to {:?}",
+                    self.base_result.resource, self.source, self.destination
+                ),
+                self.id(),
+                world,
+            );
             EvaluatedSearchResult {
                 resource: self.base_result.resource,
                 evaluated_deals: CVec::new(),

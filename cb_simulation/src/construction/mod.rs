@@ -2,6 +2,8 @@ use kay::{World, Fate, ActorSystem};
 use compact::{CVec, CHashMap};
 use planning::{PrototypeID, Prototype, PrototypeKind, Action, ActionGroups};
 use time::{Temporal, TemporalID, Instant};
+use log::debug;
+const LOG_T: &str = "Construction";
 
 pub trait Constructable {
     fn morph(&mut self, new_prototype: &Prototype, report_to: ConstructionID, world: &mut World);
@@ -59,7 +61,7 @@ impl Construction {
     fn start_action(&mut self, action: &Action, world: &mut World) {
         let new_pending_constructables = match *action {
             Action::Construct(prototype_id) => {
-                print!("C ");
+                debug(LOG_T, "C ", self.id, world);
                 let new_prototype = self
                     .new_prototypes
                     .remove(prototype_id)
@@ -69,7 +71,7 @@ impl Construction {
                 ids
             }
             Action::Morph(old_protoype_id, new_prototype_id) => {
-                print!("M ");
+                debug(LOG_T, "M ", self.id, world);
                 let ids = self
                     .constructed
                     .remove(old_protoype_id)
@@ -85,7 +87,7 @@ impl Construction {
                 ids
             }
             Action::Destruct(prototype_id) => {
-                print!("D ");
+                debug(LOG_T, "D ", self.id, world);
                 let ids = self
                     .constructed
                     .remove(prototype_id)
@@ -121,18 +123,23 @@ impl Temporal for Construction {
     fn tick(&mut self, _dt: f32, _current_instant: Instant, world: &mut World) {
         if self.pending_constructables.is_empty() {
             if !self.queued_action_groups.0.is_empty() {
-                println!("Starting construction group:");
+                debug(LOG_T, "Starting construction group:", self.id, world);
                 let next_action_group = self.queued_action_groups.0.remove(0);
                 for action in next_action_group.0 {
                     self.start_action(&action, world);
                 }
-                println!("\nFinished construction group:");
+                debug(LOG_T, "Finished construction group:", self.id, world);
             }
         } else {
-            println!(
-                "Construction pending: {} - queued groups: {}",
-                self.pending_constructables.len(),
-                self.queued_action_groups.0.len()
+            debug(
+                LOG_T,
+                format!(
+                    "Construction pending: {} - queued groups: {}",
+                    self.pending_constructables.len(),
+                    self.queued_action_groups.0.len()
+                ),
+                self.id,
+                world,
             );
         }
     }

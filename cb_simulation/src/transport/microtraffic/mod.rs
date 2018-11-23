@@ -11,6 +11,9 @@ use super::pathfinding;
 mod intelligent_acceleration;
 use self::intelligent_acceleration::intelligent_acceleration;
 
+use log::debug;
+const LOG_T: &str = "Microtraffic";
+
 // TODO: move all iteration, updates, etc into one huge retain loop (see identical TODO below)
 
 #[derive(Compact, Clone)]
@@ -184,8 +187,7 @@ impl LaneLike for Lane {
                         self.pathfinding
                             .routes
                             .get(car.destination.landmark_destination())
-                    })
-                    .map(|&RoutingInfo { outgoing_idx, .. }| outgoing_idx as usize);
+                    }).map(|&RoutingInfo { outgoing_idx, .. }| outgoing_idx as usize);
 
                 (maybe_hop, false)
             };
@@ -229,7 +231,7 @@ impl LaneLike for Lane {
 }
 
 impl Lane {
-    pub fn on_signal_changed(&mut self, from: LaneLikeID, green: bool, _: &mut World) {
+    pub fn on_signal_changed(&mut self, from: LaneLikeID, green: bool, world: &mut World) {
         if let Some(interaction) = self
             .connectivity
             .interactions
@@ -244,7 +246,12 @@ impl Lane {
             }) {
             interaction.kind = InteractionKind::Next { green }
         } else {
-            println!("Lane doesn't know about next lane yet");
+            debug(
+                LOG_T,
+                "Lane doesn't know about next lane yet",
+                self.id,
+                world,
+            );
         }
     }
 }
@@ -452,8 +459,7 @@ impl Temporal for Lane {
                         }
                         None => None,
                     }
-                })
-                .next();
+                }).next();
 
             if let Some((idx_to_remove, next_lane, start, partner_start)) = maybe_switch_car {
                 let car = self.microtraffic.cars.remove(idx_to_remove);
@@ -523,7 +529,7 @@ impl LaneLike for SwitchLane {
             .sort_by_key(|car| car.as_obstacle.position);
     }
 
-    fn add_obstacles(&mut self, obstacles: &CVec<Obstacle>, from: LaneLikeID, _: &mut World) {
+    fn add_obstacles(&mut self, obstacles: &CVec<Obstacle>, from: LaneLikeID, world: &mut World) {
         if let (Some((left_id, _)), Some(_)) = (self.connectivity.left, self.connectivity.right) {
             // TODO: ugly: untyped RawID shenanigans
             if left_id.as_raw() == from.as_raw() {
@@ -532,19 +538,22 @@ impl LaneLike for SwitchLane {
                     .map(|obstacle| {
                         obstacle
                             .offset_by(self.interaction_to_self_offset(*obstacle.position, true))
-                    })
-                    .collect();
+                    }).collect();
             } else {
                 self.microtraffic.right_obstacles = obstacles
                     .iter()
                     .map(|obstacle| {
                         obstacle
                             .offset_by(self.interaction_to_self_offset(*obstacle.position, false))
-                    })
-                    .collect();
+                    }).collect();
             };
         } else {
-            println!("switch lane not connected for obstacles yet");
+            debug(
+                LOG_T,
+                "switch lane not connected for obstacles yet",
+                self.id(),
+                world,
+            );
         }
     }
 }
@@ -610,8 +619,7 @@ impl Temporal for SwitchLane {
                             } else {
                                 Some(OrderedFloat(intelligent_acceleration(car, obstacle, 1.0)))
                             }
-                        })
-                        .min()
+                        }).min()
                         .unwrap();
 
                     let switch_before_end_velocity =
@@ -727,8 +735,7 @@ impl Temporal for SwitchLane {
                         } else {
                             None
                         }
-                    })
-                    .collect();
+                    }).collect();
                 let left_as_lane: LaneLikeID = left.into();
                 left_as_lane.add_obstacles(obstacles, self.id_as(), world);
             }
@@ -748,8 +755,7 @@ impl Temporal for SwitchLane {
                         } else {
                             None
                         }
-                    })
-                    .collect();
+                    }).collect();
                 let right_as_lane: LaneLikeID = right.into();
                 right_as_lane.add_obstacles(obstacles, self.id_as(), world);
             }
@@ -788,8 +794,7 @@ fn obstacles_for_interaction(
                     } else {
                         None
                     }
-                }))
-                .collect(),
+                })).collect(),
             OverlapKind::Conflicting => {
                 let in_overlap = |car: &LaneCar| {
                     *car.position + 2.0 * car.velocity > start && *car.position - 2.0 < end
@@ -799,8 +804,7 @@ fn obstacles_for_interaction(
                         position: OrderedFloat(partner_start),
                         velocity: 0.0,
                         max_velocity: 0.0,
-                    }]
-                    .into()
+                    }].into()
                 } else {
                     CVec::new()
                 }

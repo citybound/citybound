@@ -34,6 +34,7 @@ fn main() {
 
         let world = &mut system.world();
 
+        log::spawn(world);
         let time = time::spawn(world);
         let plan_manager = planning::spawn(world);
         construction::spawn(world);
