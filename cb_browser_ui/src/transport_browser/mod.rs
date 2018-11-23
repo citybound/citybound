@@ -27,6 +27,7 @@ impl ::std::ops::DerefMut for BrowserTransportUI {
 
 pub struct BrowserTransportUINonPersistedState {
     car_instance_buffers: HashMap<RawID, Vec<::michelangelo::Instance>>,
+    car_colors: Vec<[f32; 3]>,
 
     // transport geometry
     asphalt_grouper: MeshGrouper<RawID>,
@@ -46,6 +47,7 @@ impl BrowserTransportUI {
             id,
             state: External::new(BrowserTransportUINonPersistedState {
                 car_instance_buffers: HashMap::new(),
+                car_colors: vec![[0.0, 0.0, 0.0]],
                 asphalt_grouper: MeshGrouper::new(2000),
                 lane_marker_grouper: MeshGrouper::new(2000),
                 lane_marker_gaps_grouper: MeshGrouper::new(2000),
@@ -56,9 +58,8 @@ impl BrowserTransportUI {
 
 impl FrameListener for BrowserTransportUI {
     fn on_frame(&mut self, world: &mut World) {
-        ::transport::lane::LaneID::global_broadcast(world).get_car_instances(self.id_as(), world);
-        ::transport::lane::SwitchLaneID::global_broadcast(world)
-            .get_car_instances(self.id_as(), world);
+        ::transport::lane::LaneID::global_broadcast(world).get_car_info(self.id_as(), world);
+        ::transport::lane::SwitchLaneID::global_broadcast(world).get_car_info(self.id_as(), world);
 
         let mut car_instances = Vec::with_capacity(600_000);
 
@@ -76,10 +77,24 @@ impl FrameListener for BrowserTransportUI {
                 }}
             }))
         }
+
+        use ::stdweb::unstable::TryInto;
+
+        let car_color_vals: Vec<::stdweb::Value> = js! {
+            return require("../../../src/colors").default.carColors;
+        }.try_into()
+        .unwrap();
+
+        self.car_colors = car_color_vals
+            .into_iter()
+            .map(|color_val| {
+                let color: Vec<f64> = color_val.try_into().unwrap();
+                [color[0] as f32, color[1] as f32, color[2] as f32]
+            }).collect();
     }
 }
 
-use transport::ui::{TransportUI, TransportUIID};
+use transport::ui::{TransportUI, TransportUIID, CarRenderInfo};
 
 impl TransportUI for BrowserTransportUI {
     fn on_lane_constructed(
@@ -207,9 +222,16 @@ impl TransportUI for BrowserTransportUI {
         }
     }
 
-    fn on_car_instances(&mut self, from_lane: RawID, instances: &CVec<Instance>, _: &mut World) {
-        self.car_instance_buffers
-            .insert(from_lane, instances.to_vec());
+    fn on_car_info(&mut self, from_lane: RawID, infos: &CVec<CarRenderInfo>, _: &mut World) {
+        let colored = infos
+            .iter()
+            .map(|render_info| Instance {
+                instance_position: [render_info.position[0], render_info.position[1], 0.0],
+                instance_direction: render_info.direction.clone(),
+                instance_color: self.car_colors
+                    [render_info.trip.as_raw().instance_id as usize % self.car_colors.len()],
+            }).collect();
+        self.car_instance_buffers.insert(from_lane, colored);
     }
 }
 

@@ -1,13 +1,21 @@
 use descartes::{LinePath, Segment, WithUniqueOrthogonal};
 use compact::CVec;
 use kay::{ActorSystem, World, TypedID, RawID};
-use michelangelo::{Instance, Mesh};
+use michelangelo::Mesh;
 use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
+use transport::pathfinding::trip::TripID;
 
 use dimensions::{LANE_DISTANCE, LANE_WIDTH, LANE_MARKER_WIDTH, LANE_MARKER_DASH_GAP,
 LANE_MARKER_DASH_LENGTH};
 
 use itertools::Itertools;
+
+#[derive(Compact, Clone)]
+pub struct CarRenderInfo {
+    pub position: [f32; 2],
+    pub direction: [f32; 2],
+    pub trip: TripID,
+}
 
 pub trait TransportUI {
     fn on_lane_constructed(
@@ -26,32 +34,32 @@ pub trait TransportUI {
         on_intersection: bool,
         _world: &mut World,
     );
-    fn on_car_instances(&mut self, from_lane: RawID, instances: &CVec<Instance>, _: &mut World);
+    fn on_car_info(&mut self, from_lane: RawID, infos: &CVec<CarRenderInfo>, _: &mut World);
 }
 
 impl Lane {
-    fn car_instances(&self) -> CVec<Instance> {
+    fn car_info(&self) -> CVec<CarRenderInfo> {
         let mut cars_iter = self.microtraffic.cars.iter();
-        let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
+        let mut car_infos = CVec::with_capacity(self.microtraffic.cars.len());
         for (segment, distance_pair) in self.construction.path.segments_with_distances() {
             for car in
                 cars_iter.take_while_ref(|car| *car.position - distance_pair[0] < segment.length())
             {
                 let position2d = segment.along(*car.position - distance_pair[0]);
                 let direction = segment.direction();
-                car_instances.push(Instance {
-                    instance_position: [position2d.x, position2d.y, 0.0],
-                    instance_direction: [direction.x, direction.y],
-                    instance_color: [0.0, 0.0, 0.0],
+                car_infos.push(CarRenderInfo {
+                    position: [position2d.x, position2d.y],
+                    direction: [direction.x, direction.y],
+                    trip: car.trip,
                 })
             }
         }
 
-        car_instances
+        car_infos
     }
 
-    pub fn get_car_instances(&self, ui: TransportUIID, world: &mut World) {
-        ui.on_car_instances(self.id.as_raw(), self.car_instances(), world);
+    pub fn get_car_info(&self, ui: TransportUIID, world: &mut World) {
+        ui.on_car_info(self.id.as_raw(), self.car_info(), world);
     }
 }
 
@@ -82,8 +90,7 @@ pub fn switch_marker_gap_mesh(path: &LinePath) -> Mesh {
         .into_iter()
         .filter_map(|maybe_dash| {
             maybe_dash.map(|dash| Mesh::from_path_as_band(&dash, LANE_MARKER_WIDTH * 2.0, 0.0))
-        })
-        .sum()
+        }).sum()
 }
 
 impl Lane {
@@ -111,9 +118,9 @@ impl SwitchLane {
 }
 
 impl SwitchLane {
-    fn car_instances(&self) -> CVec<Instance> {
+    fn car_info(&self) -> CVec<CarRenderInfo> {
         let mut cars_iter = self.microtraffic.cars.iter();
-        let mut car_instances = CVec::with_capacity(self.microtraffic.cars.len());
+        let mut car_infos = CVec::with_capacity(self.microtraffic.cars.len());
         for (segment, distance_pair) in self.construction.path.segments_with_distances() {
             for car in
                 cars_iter.take_while_ref(|car| *car.position - distance_pair[0] < segment.length())
@@ -121,23 +128,22 @@ impl SwitchLane {
                 let position2d = segment.along(*car.position - distance_pair[0]);
                 let direction = segment.direction();
                 let rotated_direction = (direction
-                    + 0.3 * car.switch_velocity * direction.orthogonal_right())
-                .normalize();
+                    + 0.3 * car.switch_velocity * direction.orthogonal_right()).normalize();
                 let shifted_position2d =
                     position2d + 2.5 * direction.orthogonal_right() * car.switch_position;
-                car_instances.push(Instance {
-                    instance_position: [shifted_position2d.x, shifted_position2d.y, 0.0],
-                    instance_direction: [rotated_direction.x, rotated_direction.y],
-                    instance_color: [0.0, 0.0, 0.0],
+                car_infos.push(CarRenderInfo {
+                    position: [shifted_position2d.x, shifted_position2d.y],
+                    direction: [rotated_direction.x, rotated_direction.y],
+                    trip: car.trip,
                 })
             }
         }
 
-        car_instances
+        car_infos
     }
 
-    pub fn get_car_instances(&mut self, ui: TransportUIID, world: &mut World) {
-        ui.on_car_instances(self.id.as_raw(), self.car_instances(), world);
+    pub fn get_car_info(&mut self, ui: TransportUIID, world: &mut World) {
+        ui.on_car_info(self.id.as_raw(), self.car_info(), world);
     }
 }
 

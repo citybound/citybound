@@ -39,15 +39,15 @@ impl TransportUIID {
         world.send(self.as_raw(), MSG_TransportUI_on_lane_destructed(id, is_switch, on_intersection));
     }
     
-    pub fn on_car_instances(&self, from_lane: RawID, instances: CVec < Instance >, world: &mut World) {
-        world.send(self.as_raw(), MSG_TransportUI_on_car_instances(from_lane, instances));
+    pub fn on_car_info(&self, from_lane: RawID, infos: CVec < CarRenderInfo >, world: &mut World) {
+        world.send(self.as_raw(), MSG_TransportUI_on_car_info(from_lane, infos));
     }
 
     pub fn register_trait(system: &mut ActorSystem) {
         system.register_trait::<TransportUIRepresentative>();
         system.register_trait_message::<MSG_TransportUI_on_lane_constructed>();
         system.register_trait_message::<MSG_TransportUI_on_lane_destructed>();
-        system.register_trait_message::<MSG_TransportUI_on_car_instances>();
+        system.register_trait_message::<MSG_TransportUI_on_car_info>();
     }
 
     pub fn register_implementor<A: Actor + TransportUI>(system: &mut ActorSystem) {
@@ -65,8 +65,8 @@ impl TransportUIID {
         );
         
         system.add_handler::<A, _, _>(
-            |&MSG_TransportUI_on_car_instances(from_lane, ref instances), instance, world| {
-                instance.on_car_instances(from_lane, instances, world); Fate::Live
+            |&MSG_TransportUI_on_car_info(from_lane, ref infos), instance, world| {
+                instance.on_car_info(from_lane, infos, world); Fate::Live
             }, false
         );
     }
@@ -77,13 +77,13 @@ struct MSG_TransportUI_on_lane_constructed(pub RawID, pub LinePath, pub bool, pu
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_TransportUI_on_lane_destructed(pub RawID, pub bool, pub bool);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_TransportUI_on_car_instances(pub RawID, pub CVec < Instance >);
+struct MSG_TransportUI_on_car_info(pub RawID, pub CVec < CarRenderInfo >);
 
 
 
 impl LaneID {
-    pub fn get_car_instances(&self, ui: TransportUIID, world: &mut World) {
-        world.send(self.as_raw(), MSG_Lane_get_car_instances(ui));
+    pub fn get_car_info(&self, ui: TransportUIID, world: &mut World) {
+        world.send(self.as_raw(), MSG_Lane_get_car_info(ui));
     }
     
     pub fn get_render_info(&self, ui: TransportUIID, world: &mut World) {
@@ -92,7 +92,7 @@ impl LaneID {
 }
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Lane_get_car_instances(pub TransportUIID);
+struct MSG_Lane_get_car_info(pub TransportUIID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_Lane_get_render_info(pub TransportUIID);
 
@@ -104,15 +104,15 @@ impl SwitchLaneID {
         world.send(self.as_raw(), MSG_SwitchLane_get_render_info(ui));
     }
     
-    pub fn get_car_instances(&self, ui: TransportUIID, world: &mut World) {
-        world.send(self.as_raw(), MSG_SwitchLane_get_car_instances(ui));
+    pub fn get_car_info(&self, ui: TransportUIID, world: &mut World) {
+        world.send(self.as_raw(), MSG_SwitchLane_get_car_info(ui));
     }
 }
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_SwitchLane_get_render_info(pub TransportUIID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_SwitchLane_get_car_instances(pub TransportUIID);
+struct MSG_SwitchLane_get_car_info(pub TransportUIID);
 
 
 #[allow(unused_variables)]
@@ -121,8 +121,8 @@ pub fn auto_setup(system: &mut ActorSystem) {
     TransportUIID::register_trait(system);
     
     system.add_handler::<Lane, _, _>(
-        |&MSG_Lane_get_car_instances(ui), instance, world| {
-            instance.get_car_instances(ui, world); Fate::Live
+        |&MSG_Lane_get_car_info(ui), instance, world| {
+            instance.get_car_info(ui, world); Fate::Live
         }, false
     );
     
@@ -139,8 +139,8 @@ pub fn auto_setup(system: &mut ActorSystem) {
     );
     
     system.add_handler::<SwitchLane, _, _>(
-        |&MSG_SwitchLane_get_car_instances(ui), instance, world| {
-            instance.get_car_instances(ui, world); Fate::Live
+        |&MSG_SwitchLane_get_car_info(ui), instance, world| {
+            instance.get_car_info(ui, world); Fate::Live
         }, false
     );
 }

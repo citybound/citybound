@@ -71,7 +71,7 @@ pub struct LogUI {
 }
 
 impl LogUI {
-    pub fn spawn(id: LogUIID, world: &mut World) -> LogUI {
+    pub fn spawn(id: LogUIID, _: &mut World) -> LogUI {
         LogUI { id }
     }
 }
