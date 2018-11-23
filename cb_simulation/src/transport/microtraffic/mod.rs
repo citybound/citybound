@@ -187,7 +187,8 @@ impl LaneLike for Lane {
                         self.pathfinding
                             .routes
                             .get(car.destination.landmark_destination())
-                    }).map(|&RoutingInfo { outgoing_idx, .. }| outgoing_idx as usize);
+                    })
+                    .map(|&RoutingInfo { outgoing_idx, .. }| outgoing_idx as usize);
 
                 (maybe_hop, false)
             };
@@ -459,7 +460,8 @@ impl Temporal for Lane {
                         }
                         None => None,
                     }
-                }).next();
+                })
+                .next();
 
             if let Some((idx_to_remove, next_lane, start, partner_start)) = maybe_switch_car {
                 let car = self.microtraffic.cars.remove(idx_to_remove);
@@ -538,14 +540,16 @@ impl LaneLike for SwitchLane {
                     .map(|obstacle| {
                         obstacle
                             .offset_by(self.interaction_to_self_offset(*obstacle.position, true))
-                    }).collect();
+                    })
+                    .collect();
             } else {
                 self.microtraffic.right_obstacles = obstacles
                     .iter()
                     .map(|obstacle| {
                         obstacle
                             .offset_by(self.interaction_to_self_offset(*obstacle.position, false))
-                    }).collect();
+                    })
+                    .collect();
             };
         } else {
             debug(
@@ -619,7 +623,8 @@ impl Temporal for SwitchLane {
                             } else {
                                 Some(OrderedFloat(intelligent_acceleration(car, obstacle, 1.0)))
                             }
-                        }).min()
+                        })
+                        .min()
                         .unwrap();
 
                     let switch_before_end_velocity =
@@ -735,7 +740,8 @@ impl Temporal for SwitchLane {
                         } else {
                             None
                         }
-                    }).collect();
+                    })
+                    .collect();
                 let left_as_lane: LaneLikeID = left.into();
                 left_as_lane.add_obstacles(obstacles, self.id_as(), world);
             }
@@ -755,7 +761,8 @@ impl Temporal for SwitchLane {
                         } else {
                             None
                         }
-                    }).collect();
+                    })
+                    .collect();
                 let right_as_lane: LaneLikeID = right.into();
                 right_as_lane.add_obstacles(obstacles, self.id_as(), world);
             }
@@ -794,7 +801,8 @@ fn obstacles_for_interaction(
                     } else {
                         None
                     }
-                })).collect(),
+                }))
+                .collect(),
             OverlapKind::Conflicting => {
                 let in_overlap = |car: &LaneCar| {
                     *car.position + 2.0 * car.velocity > start && *car.position - 2.0 < end
@@ -804,7 +812,8 @@ fn obstacles_for_interaction(
                         position: OrderedFloat(partner_start),
                         velocity: 0.0,
                         max_velocity: 0.0,
-                    }].into()
+                    }]
+                    .into()
                 } else {
                     CVec::new()
                 }

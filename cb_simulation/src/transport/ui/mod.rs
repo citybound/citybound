@@ -90,7 +90,8 @@ pub fn switch_marker_gap_mesh(path: &LinePath) -> Mesh {
         .into_iter()
         .filter_map(|maybe_dash| {
             maybe_dash.map(|dash| Mesh::from_path_as_band(&dash, LANE_MARKER_WIDTH * 2.0, 0.0))
-        }).sum()
+        })
+        .sum()
 }
 
 impl Lane {
@@ -128,7 +129,8 @@ impl SwitchLane {
                 let position2d = segment.along(*car.position - distance_pair[0]);
                 let direction = segment.direction();
                 let rotated_direction = (direction
-                    + 0.3 * car.switch_velocity * direction.orthogonal_right()).normalize();
+                    + 0.3 * car.switch_velocity * direction.orthogonal_right())
+                .normalize();
                 let shifted_position2d =
                     position2d + 2.5 * direction.orthogonal_right() * car.switch_position;
                 car_infos.push(CarRenderInfo {

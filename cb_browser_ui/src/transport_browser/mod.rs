@@ -82,7 +82,8 @@ impl FrameListener for BrowserTransportUI {
 
         let car_color_vals: Vec<::stdweb::Value> = js! {
             return require("../../../src/colors").default.carColors;
-        }.try_into()
+        }
+        .try_into()
         .unwrap();
 
         self.car_colors = car_color_vals
@@ -90,7 +91,8 @@ impl FrameListener for BrowserTransportUI {
             .map(|color_val| {
                 let color: Vec<f64> = color_val.try_into().unwrap();
                 [color[0] as f32, color[1] as f32, color[2] as f32]
-            }).collect();
+            })
+            .collect();
     }
 }
 
@@ -230,7 +232,8 @@ impl TransportUI for BrowserTransportUI {
                 instance_direction: render_info.direction.clone(),
                 instance_color: self.car_colors
                     [render_info.trip.as_raw().instance_id as usize % self.car_colors.len()],
-            }).collect();
+            })
+            .collect();
         self.car_instance_buffers.insert(from_lane, colored);
     }
 }

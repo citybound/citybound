@@ -26,7 +26,8 @@ impl RoadPrototype {
             RoadPrototype::Lane(LanePrototype(ref path, _)) => vec![
                 LaneID::spawn_and_connect(path.clone(), false, CVec::new(), report_to, world)
                     .into(),
-            ].into(),
+            ]
+            .into(),
             RoadPrototype::SwitchLane(SwitchLanePrototype(ref path)) => {
                 vec![SwitchLaneID::spawn_and_connect(path.clone(), report_to, world).into()].into()
             }
@@ -47,8 +48,10 @@ impl RoadPrototype {
                                     report_to,
                                     world,
                                 )
-                            }).collect::<Vec<_>>()
-                    }).collect::<Vec<_>>();
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>();
 
                 for id in &ids {
                     id.start_connecting_overlaps(
@@ -269,7 +272,8 @@ impl Lane {
                         intersection,
                         lane_band.outline_distance_to_path_distance(intersection.along_a),
                     )
-                }).minmax_by_key(|&(_, distance)| OrderedFloat(distance))
+                })
+                .minmax_by_key(|&(_, distance)| OrderedFloat(distance))
             {
                 let other_entry_distance =
                     other_band.outline_distance_to_path_distance(entry_intersection.along_b);
@@ -353,7 +357,8 @@ impl Unbuildable for Lane {
                 } else {
                     None
                 }
-            }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
 
         let self_as_rough_location = self.id_as();
         self.microtraffic.cars.retain(|car| {
@@ -570,7 +575,8 @@ impl SwitchLane {
                             distance_covered,
                             segment_end_on_other_distance - lane_start_on_other_distance,
                         )
-                    }).collect();
+                    })
+                    .collect();
 
                 let other_is_right = (lane_start_on_other - self.construction.path.start())
                     .dot(&self.construction.path.start_direction().orthogonal_right())

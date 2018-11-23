@@ -67,7 +67,8 @@ impl LandUseUI for BrowserLandUseUI {
                     .collect::<HashMap<_, _>>()
                     .into();
                 (material.to_string(), material_update)
-            }).collect::<HashMap<_, _>>()
+            })
+            .collect::<HashMap<_, _>>()
             .into();
 
         js!{

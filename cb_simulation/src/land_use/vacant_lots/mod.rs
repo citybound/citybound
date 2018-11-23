@@ -34,7 +34,8 @@ impl Lot {
                     .path()
                     .segments()
                     .map(|segment| segment.midpoint())
-            }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
 
         self.all_road_connections()
             .into_iter()
@@ -63,7 +64,8 @@ impl Lot {
                 };
 
                 (point, direction, width, depth)
-            }).collect()
+            })
+            .collect()
     }
 
     pub fn split_for(
@@ -161,7 +163,8 @@ impl Lot {
                             .view(
                                 AreaFilter::has(SplittingLabel::Lot)
                                     .and(AreaFilter::has(SplittingLabel::Splitter)),
-                            ).get_areas_with_pieces()
+                            )
+                            .get_areas_with_pieces()
                         {
                             for (right_split, _) in right_splits {
                                 let road_boundaries = new_road_boundaries(
@@ -206,7 +209,8 @@ impl Lot {
                             .view(
                                 AreaFilter::has(SplittingLabel::Lot)
                                     .and(AreaFilter::has(SplittingLabel::Splitter).not()),
-                            ).get_areas_with_pieces()
+                            )
+                            .get_areas_with_pieces()
                         {
                             for (left_split, _) in left_splits {
                                 let road_boundaries = new_road_boundaries(
@@ -278,7 +282,8 @@ fn new_road_boundaries(old_road_bundaries: &[LinePath], new_boundary: &LinePath)
             }
 
             Some(LinePath::new(consecutive_points))
-        }).filter_map(|maybe_new_boundary| maybe_new_boundary)
+        })
+        .filter_map(|maybe_new_boundary| maybe_new_boundary)
         .collect()
 }
 

@@ -47,7 +47,8 @@ pub fn match_cmd_line_args(version: &str) -> NetworkConfig {
                 .possible_values(&["local", "lan", "internet"])
                 .default_value("local")
                 .help("Where to expose the simulation. Sets defaults other settings."),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("bind")
                 .long("bind")
                 .value_name("host:port")
@@ -55,8 +56,10 @@ pub fn match_cmd_line_args(version: &str) -> NetworkConfig {
                     ("mode", Some("local"), "localhost:1234"),
                     ("mode", Some("lan"), "0.0.0.0:1234"),
                     ("mode", Some("internet"), "0.0.0.0:1234"),
-                ]).help("Address and port to serve the browser UI from"),
-        ).arg(
+                ])
+                .help("Address and port to serve the browser UI from"),
+        )
+        .arg(
             Arg::with_name("bind-sim")
                 .long("bind-sim")
                 .value_name("host:port")
@@ -64,14 +67,17 @@ pub fn match_cmd_line_args(version: &str) -> NetworkConfig {
                     ("mode", Some("local"), "localhost:9999"),
                     ("mode", Some("lan"), "0.0.0.0:9999"),
                     ("mode", Some("internet"), "0.0.0.0:9999"),
-                ]).help("Address and port to accept connections to the simulation from"),
-        ).arg(
+                ])
+                .help("Address and port to accept connections to the simulation from"),
+        )
+        .arg(
             Arg::with_name("batch-msg-b")
                 .long("batch-msg-bytes")
                 .value_name("n-bytes")
                 .default_value("5000")
                 .help("How many bytes of simulation messages to batch"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("ok-turn-dist")
                 .long("ok-turn-dist")
                 .value_name("n-turns")
@@ -79,14 +85,17 @@ pub fn match_cmd_line_args(version: &str) -> NetworkConfig {
                     ("mode", Some("local"), "2"),
                     ("mode", Some("lan"), "10"),
                     ("mode", Some("internet"), "30"),
-                ]).help("How many network turns client/server can be behind before skipping"),
-        ).arg(
+                ])
+                .help("How many network turns client/server can be behind before skipping"),
+        )
+        .arg(
             Arg::with_name("skip-ratio")
                 .long("skip-ratio")
                 .value_name("n-turns")
                 .default_value("5")
                 .help("How many network turns to skip if server/client are ahead"),
-        ).get_matches();
+        )
+        .get_matches();
 
     NetworkConfig {
         serve_host_port: matches.value_of("bind").unwrap().to_owned(),

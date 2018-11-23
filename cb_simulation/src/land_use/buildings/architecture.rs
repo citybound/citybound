@@ -81,7 +81,8 @@ pub fn build_building<R: Rng>(
                         BuildingMaterial::TiledRoof,
                         roof_brick_mesh + entrance_roof_brick_mesh,
                     ),
-                ].into_iter()
+                ]
+                .into_iter()
                 .collect(),
             )
         }
@@ -101,7 +102,8 @@ pub fn build_building<R: Rng>(
                         main_footprint.flat_roof_mesh(height)
                             + entrance_footprint.flat_roof_mesh(entrance_height),
                     ),
-                ].into_iter()
+                ]
+                .into_iter()
                 .collect(),
             )
         }
@@ -151,7 +153,8 @@ pub fn build_building<R: Rng>(
                         BuildingMaterial::FlatRoof,
                         roof_brick_mesh + tower_roof_brick_mesh,
                     ),
-                ].into_iter()
+                ]
+                .into_iter()
                 .collect(),
             )
         }
@@ -175,7 +178,8 @@ pub fn build_building<R: Rng>(
                         BuildingMaterial::FlatRoof,
                         main_footprint.flat_roof_mesh(height),
                     ),
-                ].into_iter()
+                ]
+                .into_iter()
                 .collect(),
             )
         }
@@ -188,10 +192,12 @@ pub fn build_building<R: Rng>(
                 building_position + length / 2.0 * building_orientation_orth,
                 building_position + length / 4.0 * building_orientation,
                 building_position - length / 2.0 * building_orientation_orth,
-            ].into_iter()
+            ]
+            .into_iter()
             .map(|v| Vertex {
                 position: [v.x, v.y, 3.0],
-            }).collect();
+            })
+            .collect();
 
             let indices = vec![0, 1, 2, 2, 3, 0];
 
