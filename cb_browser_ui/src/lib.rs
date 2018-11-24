@@ -43,6 +43,7 @@ pub fn start() {
         .unwrap(),
     );
 
+    use stdweb::serde::Serde;
     use stdweb::unstable::TryFrom;
 
     let mut system = kay::ActorSystem::new(kay::Networking::new(
@@ -61,6 +62,10 @@ pub fn start() {
     time_browser::setup(&mut system);
     land_use_browser::setup(&mut system);
     households_browser::setup(&mut system);
+
+    js!{
+        window.cbTypeIdMapping = @{Serde(system.get_actor_type_id_to_name_mapping())}
+    }
 
     system.networking_connect();
 

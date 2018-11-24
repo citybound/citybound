@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button, InputNumber } from 'antd';
+import { fmtId } from '../browser_utils/Utils';
 
 export const initialState = {
     show: false,
@@ -115,7 +116,7 @@ export function render(state, setState) {
                     let ts = state.debug.logTextStart;
                     let topic = state.debug.logText.slice(entry.topic_start - ts, entry.message_start - ts);
                     let message = state.debug.logText.slice(entry.message_start - ts, entry.message_start + entry.message_len - ts);
-                    return <div key={i} className={entry.level}>{state.debug.logFirstEntry + i} [{topic}] {entry.from}: {message}</div>
+                    return <div key={i} className={entry.level}>{state.debug.logFirstEntry + i} [{topic}] {fmtId(entry.from)}: {message}</div>
                 }
                 )}</div>
             </details>
