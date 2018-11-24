@@ -7,19 +7,19 @@ import { Toolbar } from '../toolbar';
 
 // STATE MUTATING ACTIONS
 
-function switchToProposal(proposalId) {
-    console.log("switching to", proposalId);
+function switchToProject(projectId) {
+    console.log("switching to", projectId);
 
     return oldState => update(oldState, {
-        planning: { currentProposal: { $set: proposalId } }
+        planning: { currentProject: { $set: projectId } }
     })
 }
 
-function implementProposal(oldState) {
-    cbRustBrowser.implement_proposal(oldState.planning.currentProposal);
+function implementProject(oldState) {
+    cbRustBrowser.implement_project(oldState.planning.currentProject);
     return update(oldState, {
         planning: {
-            $unset: ['currentProposal'],
+            $unset: ['currentProject'],
         }
     });
 }
@@ -35,25 +35,25 @@ export function render(state, setState) {
                 <Select
                     style={{ width: 180 }}
                     showSearch={true}
-                    placeholder="Open a proposal"
+                    placeholder="Open a project"
                     optionFilterProp="children"
-                    onChange={(value) => setState(switchToProposal(value))}
-                    value={state.planning.currentProposal || undefined}
-                >{Object.keys(state.planning.proposals).map(proposalId =>
-                    <Option value={proposalId}>Proposal '{proposalId.split("-")[0]}'</Option>
+                    onChange={(value) => setState(switchToProject(value))}
+                    value={state.planning.currentProject || undefined}
+                >{Object.keys(state.planning.projects).map(projectId =>
+                    <Option value={projectId}>Project '{projectId.slice(0, 3).toUpperCase()}'</Option>
                 )}</Select>,
-                state.planning.currentProposal && [
+                state.planning.currentProject && [
                     <Button type="primary"
-                        onClick={() => setState(implementProposal)}
+                        onClick={() => setState(implementProject)}
                     >Implement</Button>,
                     <Toolbar id="planning-history-toolbar"
                         options={{
-                            undo: { description: "Undo", disabled: !state.planning.proposals[state.planning.currentProposal].undoable_history.length },
-                            redo: { description: "Redo", disabled: !state.planning.proposals[state.planning.currentProposal].redoable_history.length },
+                            undo: { description: "Undo", disabled: !state.planning.projects[state.planning.currentProject].undoable_history.length },
+                            redo: { description: "Redo", disabled: !state.planning.projects[state.planning.currentProject].redoable_history.length },
                         }}
-                        onChange={value => value == "undo" ? cbRustBrowser.undo(state.planning.currentProposal) : cbRustBrowser.redo(state.planning.currentProposal)}
+                        onChange={value => value == "undo" ? cbRustBrowser.undo(state.planning.currentProject) : cbRustBrowser.redo(state.planning.currentProject)}
                     />,
-                    state.planning.currentProposal &&
+                    state.planning.currentProject &&
                     <Toolbar id="planning-toolbar"
                         options={{ roads: { description: "Roads" }, zoning: { description: "Zoning" } }}
                         value={state.planning.planningMode}
@@ -63,7 +63,7 @@ export function render(state, setState) {
                                 canvasMode: { intent: { $set: value == "roads" ? { Road: { n_lanes_forward: 2, n_lanes_backward: 2 } } : null } }
                             }
                         }))} />,
-                    state.planning.currentProposal && state.planning.planningMode == "zoning" &&
+                    state.planning.currentProject && state.planning.planningMode == "zoning" &&
                     <Toolbar id="zoning-toolbar"
                         options={{
                             Residential: { description: "Residential", color: toCSS(fromLinFloat(colors["Residential"])) },
@@ -89,12 +89,12 @@ export function render(state, setState) {
 
 export function bindInputs(state, setState) {
     const inputActions = {
-        "implementProposal": () => setState(implementProposal),
-        "undo": () => setState(oldState => { cbRustBrowser.undo(oldState.planning.currentProposal); return oldState }),
-        "redo": () => setState(oldState => { cbRustBrowser.redo(oldState.planning.currentProposal); return oldState })
+        "implementProject": () => setState(implementProject),
+        "undo": () => setState(oldState => { cbRustBrowser.undo(oldState.planning.currentProject); return oldState }),
+        "redo": () => setState(oldState => { cbRustBrowser.redo(oldState.planning.currentProject); return oldState })
     }
 
-    Mousetrap.bind(state.settings.planning.implementProposalKey.key, inputActions["implementProposal"]);
+    Mousetrap.bind(state.settings.planning.implementProjectKey.key, inputActions["implementProject"]);
     Mousetrap.bind(state.settings.planning.undoKey.key, inputActions["undo"]);
     Mousetrap.bind(state.settings.planning.redoKey.key, inputActions["redo"]);
 }

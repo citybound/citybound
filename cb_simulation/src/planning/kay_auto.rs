@@ -36,28 +36,28 @@ impl TypedID for PlanManagerID {
 }
 
 impl PlanManagerID {
-    pub fn spawn(initial_proposal_id: ProposalID, world: &mut World) -> Self {
+    pub fn spawn(initial_project_id: ProjectID, world: &mut World) -> Self {
         let id = PlanManagerID::from_raw(world.allocate_instance_id::<PlanManager>());
         let swarm = world.local_broadcast::<PlanManager>();
-        world.send(swarm, MSG_PlanManager_spawn(id, initial_proposal_id));
+        world.send(swarm, MSG_PlanManager_spawn(id, initial_project_id));
         id
     }
     
-    pub fn implement(&self, proposal_id: ProposalID, world: &mut World) {
-        world.send(self.as_raw(), MSG_PlanManager_implement(proposal_id));
+    pub fn implement(&self, project_id: ProjectID, world: &mut World) {
+        world.send(self.as_raw(), MSG_PlanManager_implement(project_id));
     }
     
-    pub fn implement_artificial_proposal(&self, proposal: Proposal, based_on: CVec < PrototypeID >, world: &mut World) {
-        world.send(self.as_raw(), MSG_PlanManager_implement_artificial_proposal(proposal, based_on));
+    pub fn implement_artificial_project(&self, project: Project, based_on: CVec < PrototypeID >, world: &mut World) {
+        world.send(self.as_raw(), MSG_PlanManager_implement_artificial_project(project, based_on));
     }
 }
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanManager_spawn(pub PlanManagerID, pub ProposalID);
+struct MSG_PlanManager_spawn(pub PlanManagerID, pub ProjectID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanManager_implement(pub ProposalID);
+struct MSG_PlanManager_implement(pub ProjectID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanManager_implement_artificial_proposal(pub Proposal, pub CVec < PrototypeID >);
+struct MSG_PlanManager_implement_artificial_project(pub Project, pub CVec < PrototypeID >);
 
 
 #[allow(unused_variables)]
@@ -66,20 +66,20 @@ pub fn auto_setup(system: &mut ActorSystem) {
     
     
     system.add_spawner::<PlanManager, _, _>(
-        |&MSG_PlanManager_spawn(id, initial_proposal_id), world| {
-            PlanManager::spawn(id, initial_proposal_id, world)
+        |&MSG_PlanManager_spawn(id, initial_project_id), world| {
+            PlanManager::spawn(id, initial_project_id, world)
         }, false
     );
     
     system.add_handler::<PlanManager, _, _>(
-        |&MSG_PlanManager_implement(proposal_id), instance, world| {
-            instance.implement(proposal_id, world); Fate::Live
+        |&MSG_PlanManager_implement(project_id), instance, world| {
+            instance.implement(project_id, world); Fate::Live
         }, false
     );
     
     system.add_handler::<PlanManager, _, _>(
-        |&MSG_PlanManager_implement_artificial_proposal(ref proposal, ref based_on), instance, world| {
-            instance.implement_artificial_proposal(proposal, based_on, world); Fate::Live
+        |&MSG_PlanManager_implement_artificial_project(ref project, ref based_on), instance, world| {
+            instance.implement_artificial_project(project, based_on, world); Fate::Live
         }, false
     );
 }

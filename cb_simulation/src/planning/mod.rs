@@ -192,8 +192,7 @@ impl PlanHistory {
                     } else {
                         None
                     }
-                })
-                .collect(),
+                }).collect(),
         }
     }
 
@@ -207,8 +206,7 @@ impl PlanHistory {
                 } else {
                     None
                 }
-            })
-            .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
 
         for gesture_id in gestures_to_drop {
             self.gestures.remove(gesture_id);
@@ -245,23 +243,23 @@ impl PlanHistoryUpdate {
 }
 
 #[derive(Compact, Clone, Debug, Serialize, Deserialize)]
-pub struct Proposal {
+pub struct Project {
     undoable_history: CVec<Plan>,
     ongoing: Plan,
     redoable_history: CVec<Plan>,
 }
 
-impl Proposal {
-    pub fn new() -> Proposal {
-        Proposal {
+impl Project {
+    pub fn new() -> Project {
+        Project {
             undoable_history: CVec::new(),
             ongoing: Plan::new(),
             redoable_history: CVec::new(),
         }
     }
 
-    pub fn from_plan(plan: Plan) -> Proposal {
-        Proposal {
+    pub fn from_plan(plan: Plan) -> Project {
+        Project {
             undoable_history: vec![plan].into(),
             ongoing: Plan::new(),
             redoable_history: CVec::new(),
@@ -304,57 +302,57 @@ impl Proposal {
         base.and_then(self.undoable_history.iter().chain(Some(&self.ongoing)))
     }
 
-    pub fn as_known_state(&self) -> KnownProposalState {
-        KnownProposalState {
+    pub fn as_known_state(&self) -> KnownProjectState {
+        KnownProjectState {
             known_last_undoable: COption(self.undoable_history.last().map(|plan| plan.step_id)),
             known_ongoing: COption(Some(self.ongoing.step_id)),
             known_first_redoable: COption(self.redoable_history.first().map(|plan| plan.step_id)),
         }
     }
 
-    pub fn update_for(&self, known_state: &KnownProposalState) -> ProposalUpdate {
+    pub fn update_for(&self, known_state: &KnownProjectState) -> ProjectUpdate {
         if known_state.known_first_redoable.0.is_none()
             && known_state.known_ongoing.0.is_none()
             && known_state.known_first_redoable.0.is_none()
         {
-            ProposalUpdate::ChangedCompletely(self.clone())
+            ProjectUpdate::ChangedCompletely(self.clone())
         } else if self.undoable_history.last().map(|plan| plan.step_id)
             == known_state.known_last_undoable.0
             && self.redoable_history.first().map(|plan| plan.step_id)
                 == known_state.known_first_redoable.0
         {
             if known_state.known_ongoing.0 == Some(self.ongoing.step_id) {
-                ProposalUpdate::None
+                ProjectUpdate::None
             } else {
-                ProposalUpdate::ChangedOngoing(self.ongoing.clone())
+                ProjectUpdate::ChangedOngoing(self.ongoing.clone())
             }
         } else {
-            ProposalUpdate::ChangedCompletely(self.clone())
+            ProjectUpdate::ChangedCompletely(self.clone())
         }
     }
 
-    pub fn apply_update(&mut self, update: &ProposalUpdate) {
+    pub fn apply_update(&mut self, update: &ProjectUpdate) {
         match *update {
-            ProposalUpdate::ChangedOngoing(ref ongoing) => self.set_ongoing_step(ongoing.clone()),
-            ProposalUpdate::ChangedCompletely(ref new_proposal) => *self = new_proposal.clone(),
-            ProposalUpdate::None => {}
-            ProposalUpdate::Removed => {
-                panic!("Should handle proposal removal before applying it to a proposal")
+            ProjectUpdate::ChangedOngoing(ref ongoing) => self.set_ongoing_step(ongoing.clone()),
+            ProjectUpdate::ChangedCompletely(ref new_project) => *self = new_project.clone(),
+            ProjectUpdate::None => {}
+            ProjectUpdate::Removed => {
+                panic!("Should handle project removal before applying it to a project")
             }
         }
     }
 }
 
 #[derive(Compact, Clone)]
-pub struct KnownProposalState {
+pub struct KnownProjectState {
     known_last_undoable: COption<StepID>,
     known_ongoing: COption<StepID>,
     known_first_redoable: COption<StepID>,
 }
 
-impl Default for KnownProposalState {
-    fn default() -> KnownProposalState {
-        KnownProposalState {
+impl Default for KnownProjectState {
+    fn default() -> KnownProjectState {
+        KnownProjectState {
             known_last_undoable: COption(None),
             known_ongoing: COption(None),
             known_first_redoable: COption(None),
@@ -363,10 +361,10 @@ impl Default for KnownProposalState {
 }
 
 #[derive(Compact, Clone, Debug)]
-pub enum ProposalUpdate {
+pub enum ProjectUpdate {
     None,
     ChangedOngoing(Plan),
-    ChangedCompletely(Proposal),
+    ChangedCompletely(Project),
     Removed,
 }
 
@@ -418,8 +416,7 @@ impl PlanResult {
                     IndependentActions(to_be_destructed),
                     IndependentActions(to_be_morphed),
                     IndependentActions(to_be_constructed),
-                ]
-                .into(),
+                ].into(),
             ),
             new_prototypes,
         )
@@ -441,8 +438,7 @@ impl PlanResult {
                 } else {
                     Some(*known_prototype_id)
                 }
-            })
-            .collect();
+            }).collect();
 
         let new_prototypes = self
             .prototypes
@@ -453,8 +449,7 @@ impl PlanResult {
                 } else {
                     Some(prototype.clone())
                 }
-            })
-            .collect();
+            }).collect();
 
         PlanResultUpdate {
             prototypes_to_drop,
@@ -602,10 +597,8 @@ impl ActionGroups {
                                 None
                             }
                         }
-                    })
-                    .next()
-            })
-            .next()
+                    }).next()
+            }).next()
     }
 }
 
@@ -636,11 +629,11 @@ impl PlanHistory {
 use self::interaction::PlanManagerUIState;
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Debug)]
-pub struct ProposalID(pub Uuid);
+pub struct ProjectID(pub Uuid);
 
-impl ProposalID {
-    pub fn new() -> ProposalID {
-        ProposalID(uuid())
+impl ProjectID {
+    pub fn new() -> ProjectID {
+        ProjectID(uuid())
     }
 }
 
@@ -649,84 +642,78 @@ pub struct PlanManager {
     id: PlanManagerID,
     master_plan: PlanHistory,
     master_result: PlanResult,
-    proposals: CHashMap<ProposalID, Proposal>,
-    implemented_proposals: CHashMap<ProposalID, Proposal>,
+    projects: CHashMap<ProjectID, Project>,
+    implemented_projects: CHashMap<ProjectID, Project>,
     ui_state: CHashMap<MachineID, PlanManagerUIState>,
 }
 
 impl PlanManager {
-    pub fn spawn(id: PlanManagerID, initial_proposal_id: ProposalID, _: &mut World) -> PlanManager {
+    pub fn spawn(id: PlanManagerID, initial_project_id: ProjectID, _: &mut World) -> PlanManager {
         PlanManager {
             id,
             master_plan: PlanHistory::new(),
             master_result: PlanResult::new(),
-            proposals: Some((initial_proposal_id, Proposal::new()))
+            projects: Some((initial_project_id, Project::new()))
                 .into_iter()
                 .collect(),
-            implemented_proposals: CHashMap::new(),
+            implemented_projects: CHashMap::new(),
             ui_state: CHashMap::new(),
         }
     }
 
-    pub fn get_current_version_of(
-        &self,
-        gesture_id: GestureID,
-        proposal_id: ProposalID,
-    ) -> &Gesture {
-        self.proposals
-            .get(proposal_id)
-            .expect("Expected proposal to exist")
+    pub fn get_current_version_of(&self, gesture_id: GestureID, project_id: ProjectID) -> &Gesture {
+        self.projects
+            .get(project_id)
+            .expect("Expected project to exist")
             .current_history()
             .iter()
             .rfold(None, |found, step| {
                 found.or_else(|| step.gestures.get(gesture_id))
-            })
-            .into_iter()
+            }).into_iter()
             .chain(
                 self.master_plan
                     .gestures
                     .get(gesture_id)
                     .map(|VersionedGesture(ref g, _)| g),
-            )
-            .next()
+            ).next()
             .expect("Expected gesture (that point should be added to) to exist!")
     }
 
-    pub fn implement(&mut self, proposal_id: ProposalID, world: &mut World) {
-        let proposal = self
-            .proposals
-            .remove(proposal_id)
-            .expect("Proposal should exist");
+    pub fn implement(&mut self, project_id: ProjectID, world: &mut World) {
+        let project = self
+            .projects
+            .remove(project_id)
+            .expect("Project should exist");
 
-        self.master_plan = proposal.apply_to(&self.master_plan);
+        self.master_plan = project.apply_to(&self.master_plan);
 
         match self.master_plan.calculate_result() {
             Ok(result) => {
                 let (actions, new_prototypes) = self.master_result.actions_to(&result);
                 ConstructionID::global_first(world).implement(actions, new_prototypes, world);
-                self.implemented_proposals.insert(proposal_id, proposal);
+                self.implemented_projects.insert(project_id, project);
                 self.master_result = result;
 
                 let potentially_affected_ui_states = self
                     .ui_state
                     .pairs()
-                    .map(|(machine, state)| (*machine, state.current_proposal))
+                    .map(|(machine, state)| (*machine, state.current_project))
                     .collect::<Vec<_>>();
 
-                for (machine, current_proposal) in potentially_affected_ui_states {
-                    if current_proposal == proposal_id {
-                        let new_proposal_id = ProposalID::new();
+                for (machine, current_project) in potentially_affected_ui_states {
+                    if current_project == project_id {
+                        let new_project_id = ProjectID::new();
 
-                        self.proposals.insert(new_proposal_id, Proposal::new());
+                        self.projects.insert(new_project_id, Project::new());
 
-                        self.switch_to(machine, new_proposal_id, world);
+                        self.switch_to(machine, new_project_id, world);
                     }
                 }
 
-                let all_proposal_ids = self.proposals.keys().cloned().collect::<Vec<_>>();
-                for old_proposal_id in all_proposal_ids {
-                    if old_proposal_id != proposal_id {
-                        self.clear_previews(old_proposal_id);
+                let all_project_ids = self.projects.keys().cloned().collect::<Vec<_>>();
+                for old_project_id in all_project_ids {
+                    if old_project_id != project_id {
+                        self.clear_previews(old_project_id);
                     }
                 }
             }
@@ -751,9 +738,9 @@ impl PlanManager {
         }
     }
 
-    pub fn implement_artificial_proposal(
+    pub fn implement_artificial_project(
         &mut self,
-        proposal: &Proposal,
+        project: &Project,
         based_on: &CVec<PrototypeID>,
         world: &mut World,
     ) {
@@ -761,13 +748,13 @@ impl PlanManager {
             .iter()
             .all(|prototype_id| self.master_result.prototypes.contains_key(*prototype_id))
         {
-            let proposal_id = ProposalID::new();
-            self.proposals.insert(proposal_id, proposal.clone());
-            self.implement(proposal_id, world);
+            let project_id = ProjectID::new();
+            self.projects.insert(project_id, project.clone());
+            self.implement(project_id, world);
         } else {
             info(
                 LOG_T,
-                "Tried to implement artificial proposal based on outdated prototypes",
+                "Tried to implement artificial project based on outdated prototypes",
                 self.id,
                 world,
             );
@@ -783,9 +770,9 @@ pub fn setup(system: &mut ActorSystem) {
 }
 
 pub fn spawn(world: &mut World) -> PlanManagerID {
-    let initial_proposal_id = ProposalID::new();
-    let plan_manager = PlanManagerID::spawn(initial_proposal_id, world);
-    plan_manager.switch_to(MachineID(0), initial_proposal_id, world);
+    let initial_project_id = ProjectID::new();
+    let plan_manager = PlanManagerID::spawn(initial_project_id, world);
+    plan_manager.switch_to(MachineID(0), initial_project_id, world);
     plan_manager
 }
 

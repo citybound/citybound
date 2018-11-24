@@ -1,9 +1,9 @@
 use kay::{World, MachineID,   ActorSystem};
 use compact::{CHashMap, COption};
 use descartes::{P2, AreaError, LinePath};
-use super::{Plan, PlanHistory, PlanResult,  GestureID, ProposalID,
+use super::{Plan, PlanHistory, PlanResult,  GestureID, ProjectID,
 PlanManager, PlanManagerID, Gesture, GestureIntent,
-KnownHistoryState, KnownProposalState, ProposalUpdate,
+KnownHistoryState, KnownProjectState, ProjectUpdate,
 KnownPlanResultState,
 ActionGroups};
 use super::ui::PlanningUIID;
@@ -15,7 +15,7 @@ pub struct ControlPointRef(pub GestureID, pub usize);
 
 #[derive(Compact, Clone)]
 pub struct PlanManagerUIState {
-    pub current_proposal: ProposalID,
+    pub current_project: ProjectID,
     gesture_ongoing: bool,
     current_preview: COption<PlanHistory>,
     current_result_preview: COption<PlanResult>,
@@ -27,65 +27,62 @@ impl PlanManager {
         &mut self,
         ui: PlanningUIID,
         known_master: &KnownHistoryState,
-        known_proposals: &CHashMap<ProposalID, KnownProposalState>,
+        known_projects: &CHashMap<ProjectID, KnownProjectState>,
         world: &mut World,
     ) {
         let master_update = self.master_plan.update_for(known_master);
-        let mut unmatched_known_proposals = known_proposals
+        let mut unmatched_known_projects = known_projects
             .keys()
             .cloned()
             .collect::<::std::collections::HashSet<_>>();
-        let proposal_updates = self
-            .proposals
+        let project_updates = self
+            .projects
             .pairs()
-            .map(|(proposal_id, proposal)| {
+            .map(|(project_id, project)| {
                 (
-                    *proposal_id,
-                    known_proposals
-                        .get(*proposal_id)
+                    *project_id,
+                    known_projects
+                        .get(*project_id)
                         .map(|known_state| {
-                            unmatched_known_proposals.remove(proposal_id);
-                            proposal.update_for(known_state)
-                        })
-                        .unwrap_or_else(|| ProposalUpdate::ChangedCompletely(proposal.clone())),
+                            unmatched_known_projects.remove(project_id);
+                            project.update_for(known_state)
+                        }).unwrap_or_else(|| ProjectUpdate::ChangedCompletely(project.clone())),
                 )
-            })
-            .collect::<Vec<_>>();
-        let proposal_updates_with_removals = proposal_updates
+            }).collect::<Vec<_>>();
+        let project_updates_with_removals = project_updates
             .into_iter()
             .chain(
-                unmatched_known_proposals
+                unmatched_known_projects
                     .into_iter()
-                    .map(|unmatched_id| (unmatched_id, ProposalUpdate::Removed)),
-            )
-            .collect();
-        ui.on_plans_update(master_update, proposal_updates_with_removals, world);
+                    .map(|unmatched_id| (unmatched_id, ProjectUpdate::Removed)),
+            ).collect();
+        ui.on_plans_update(master_update, project_updates_with_removals, world);
     }
 
-    pub fn get_proposal_preview_update(
+    pub fn get_project_preview_update(
         &mut self,
         ui: PlanningUIID,
-        proposal_id: ProposalID,
+        project_id: ProjectID,
         known_result: &KnownPlanResultState,
         world: &mut World,
     ) {
         // TODO: this is a super ugly hack until we get rid of the native UI
         let needs_switch = if let Some(ui_state) = self.ui_state.get_mut(world.local_machine_id()) {
-            ui_state.current_proposal != proposal_id
+            ui_state.current_project != project_id
         } else {
             false
         };
 
         if needs_switch {
-            self.switch_to(MachineID(0), proposal_id, world);
+            self.switch_to(MachineID(0), project_id, world);
         }
 
         let (plan_history, maybe_result, maybe_actions) =
-            self.try_ensure_preview(world.local_machine_id(), proposal_id, world);
+            self.try_ensure_preview(world.local_machine_id(), project_id, world);
 
         if let (Some(result), Some(actions)) = (maybe_result, maybe_actions) {
-            ui.on_proposal_preview_update(
-                proposal_id,
+            ui.on_project_preview_update(
+                project_id,
                 plan_history.clone(),
                 result.update_for(known_result),
                 actions.clone(),
@@ -96,11 +93,11 @@ impl PlanManager {
 }
 
 impl PlanManager {
-    pub fn switch_to(&mut self, machine: MachineID, proposal_id: ProposalID, _: &mut World) {
+    pub fn switch_to(&mut self, machine: MachineID, project_id: ProjectID, _: &mut World) {
         self.ui_state.insert(
             machine,
             PlanManagerUIState {
-                current_proposal: proposal_id,
+                current_project: project_id,
                 gesture_ongoing: false,
                 current_preview: COption(None),
                 current_result_preview: COption(None),
@@ -109,11 +106,11 @@ impl PlanManager {
         );
     }
 
-    pub fn clear_previews(&mut self, proposal_id: ProposalID) {
+    pub fn clear_previews(&mut self, project_id: ProjectID) {
         for state in self
             .ui_state
             .values_mut()
-            .filter(|state| state.current_proposal == proposal_id)
+            .filter(|state| state.current_project == project_id)
         {
             state.current_preview = COption(None);
             state.current_result_preview = COption(None);
@@ -125,7 +122,7 @@ impl PlanManager {
     pub fn try_ensure_preview(
         &self,
         machine_id: MachineID,
-        proposal_id: ProposalID,
+        project_id: ProjectID,
         log_in: &mut World,
     ) -> (&PlanHistory, Option<&PlanResult>, &Option<ActionGroups>) {
         let ui_state = self
@@ -137,14 +134,14 @@ impl PlanManager {
         unsafe {
             let ui_state_mut: &mut PlanManagerUIState =
                 &mut *(ui_state as *const PlanManagerUIState as *mut PlanManagerUIState);
-            if ui_state.current_proposal != proposal_id {
+            if ui_state.current_project != project_id {
                 ui_state_mut.current_preview = COption(None);
             }
 
             if ui_state.current_preview.is_none() {
                 let preview_plan = self
-                    .proposals
-                    .get(proposal_id)
+                    .projects
+                    .get(project_id)
                     .unwrap()
                     .apply_to_with_ongoing(&self.master_plan);
 
@@ -187,7 +184,7 @@ impl PlanManager {
 
     pub fn start_new_gesture(
         &mut self,
-        proposal_id: ProposalID,
+        project_id: ProjectID,
         machine_id: MachineID,
         new_gesture_id: GestureID,
         intent: &GestureIntent,
@@ -198,21 +195,18 @@ impl PlanManager {
 
         let new_step = Plan::from_gestures(Some((new_gesture_id, new_gesture)));
 
-        self.proposals
-            .get_mut(proposal_id)
+        self.projects
+            .get_mut(project_id)
             .unwrap()
             .set_ongoing_step(new_step);
-        self.proposals
-            .get_mut(proposal_id)
-            .unwrap()
-            .start_new_step();
+        self.projects.get_mut(project_id).unwrap().start_new_step();
 
         self.ui_state
             .get_mut(machine_id)
             .expect("should already have ui state")
             .gesture_ongoing = true;
 
-        self.clear_previews(proposal_id);
+        self.clear_previews(project_id);
     }
 
     pub fn finish_gesture(&mut self, machine_id: MachineID, _: &mut World) {
@@ -224,7 +218,7 @@ impl PlanManager {
 
     pub fn add_control_point(
         &mut self,
-        proposal_id: ProposalID,
+        project_id: ProjectID,
         gesture_id: GestureID,
         new_point: P2,
         add_to_end: bool,
@@ -232,7 +226,7 @@ impl PlanManager {
         _: &mut World,
     ) {
         let new_step = {
-            let current_gesture = self.get_current_version_of(gesture_id, proposal_id);
+            let current_gesture = self.get_current_version_of(gesture_id, project_id);
 
             let changed_gesture = if add_to_end {
                 Gesture {
@@ -257,31 +251,28 @@ impl PlanManager {
             Plan::from_gestures(Some((gesture_id, changed_gesture)))
         };
 
-        self.proposals
-            .get_mut(proposal_id)
+        self.projects
+            .get_mut(project_id)
             .unwrap()
             .set_ongoing_step(new_step);
 
         if commit {
-            self.proposals
-                .get_mut(proposal_id)
-                .unwrap()
-                .start_new_step();
+            self.projects.get_mut(project_id).unwrap().start_new_step();
         }
 
-        self.clear_previews(proposal_id);
+        self.clear_previews(project_id);
     }
 
     pub fn insert_control_point(
         &mut self,
-        proposal_id: ProposalID,
+        project_id: ProjectID,
         gesture_id: GestureID,
         new_point: P2,
         commit: bool,
         _: &mut World,
     ) {
         let new_step = {
-            let current_gesture = self.get_current_version_of(gesture_id, proposal_id);
+            let current_gesture = self.get_current_version_of(gesture_id, project_id);
 
             let new_point_idx = LinePath::new(current_gesture.points.clone())
                 .and_then(|path| {
@@ -291,8 +282,7 @@ impl PlanManager {
                                 .iter()
                                 .position(|point_i_along| *point_i_along >= inserted_along)
                         })
-                })
-                .unwrap_or(current_gesture.points.len());
+                }).unwrap_or(current_gesture.points.len());
 
             let changed_gesture = Gesture {
                 points: current_gesture.points[..new_point_idx]
@@ -307,24 +297,21 @@ impl PlanManager {
             Plan::from_gestures(Some((gesture_id, changed_gesture)))
         };
 
-        self.proposals
-            .get_mut(proposal_id)
+        self.projects
+            .get_mut(project_id)
             .unwrap()
             .set_ongoing_step(new_step);
 
         if commit {
-            self.proposals
-                .get_mut(proposal_id)
-                .unwrap()
-                .start_new_step();
+            self.projects.get_mut(project_id).unwrap().start_new_step();
         }
 
-        self.clear_previews(proposal_id);
+        self.clear_previews(project_id);
     }
 
     pub fn move_control_point(
         &mut self,
-        proposal_id: ProposalID,
+        project_id: ProjectID,
         gesture_id: GestureID,
         point_index: u32,
         new_position: P2,
@@ -332,7 +319,7 @@ impl PlanManager {
         _: &mut World,
     ) {
         let current_change = {
-            let current_gesture = self.get_current_version_of(gesture_id, proposal_id);
+            let current_gesture = self.get_current_version_of(gesture_id, project_id);
 
             if point_index as usize >= current_gesture.points.len() {
                 return;
@@ -349,33 +336,30 @@ impl PlanManager {
             Plan::from_gestures(Some((gesture_id, new_gesture)))
         };
 
-        self.proposals
-            .get_mut(proposal_id)
+        self.projects
+            .get_mut(project_id)
             .unwrap()
             .set_ongoing_step(current_change);
 
         // TODO: can we update only part of the preview
         // for better rendering performance while dragging?
-        self.clear_previews(proposal_id);
+        self.clear_previews(project_id);
 
         if is_move_finished {
-            self.proposals
-                .get_mut(proposal_id)
-                .unwrap()
-                .start_new_step();
+            self.projects.get_mut(project_id).unwrap().start_new_step();
         }
     }
 
     pub fn split_gesture(
         &mut self,
-        proposal_id: ProposalID,
+        project_id: ProjectID,
         gesture_id: GestureID,
         split_at: P2,
         commit: bool,
         _: &mut World,
     ) {
         let maybe_new_step = {
-            let current_gesture = self.get_current_version_of(gesture_id, proposal_id);
+            let current_gesture = self.get_current_version_of(gesture_id, project_id);
 
             if let Some((split_at_idx, point_before, point_after)) =
                 LinePath::new(current_gesture.points.clone()).and_then(|path| {
@@ -418,32 +402,29 @@ impl PlanManager {
         };
 
         if let Some(new_step) = maybe_new_step {
-            self.proposals
-                .get_mut(proposal_id)
+            self.projects
+                .get_mut(project_id)
                 .unwrap()
                 .set_ongoing_step(new_step);
 
             if commit {
-                self.proposals
-                    .get_mut(proposal_id)
-                    .unwrap()
-                    .start_new_step();
+                self.projects.get_mut(project_id).unwrap().start_new_step();
             }
 
-            self.clear_previews(proposal_id);
+            self.clear_previews(project_id);
         }
     }
 
     pub fn set_intent(
         &mut self,
-        proposal_id: ProposalID,
+        project_id: ProjectID,
         gesture_id: GestureID,
         new_intent: &GestureIntent,
         is_move_finished: bool,
         _: &mut World,
     ) {
         let current_change = {
-            let current_gesture = self.get_current_version_of(gesture_id, proposal_id);
+            let current_gesture = self.get_current_version_of(gesture_id, project_id);
 
             let new_gesture = Gesture {
                 intent: new_intent.clone(),
@@ -453,31 +434,28 @@ impl PlanManager {
             Plan::from_gestures(Some((gesture_id, new_gesture)))
         };
 
-        self.proposals
-            .get_mut(proposal_id)
+        self.projects
+            .get_mut(project_id)
             .unwrap()
             .set_ongoing_step(current_change);
 
         // TODO: can we update only part of the preview
         // for better rendering performance while dragging?
-        self.clear_previews(proposal_id);
+        self.clear_previews(project_id);
 
         if is_move_finished {
-            self.proposals
-                .get_mut(proposal_id)
-                .unwrap()
-                .start_new_step();
+            self.projects.get_mut(project_id).unwrap().start_new_step();
         }
     }
 
-    pub fn undo(&mut self, proposal_id: ProposalID, _: &mut World) {
-        self.proposals.get_mut(proposal_id).unwrap().undo();
-        self.clear_previews(proposal_id);
+    pub fn undo(&mut self, project_id: ProjectID, _: &mut World) {
+        self.projects.get_mut(project_id).unwrap().undo();
+        self.clear_previews(project_id);
     }
 
-    pub fn redo(&mut self, proposal_id: ProposalID, _: &mut World) {
-        self.proposals.get_mut(proposal_id).unwrap().redo();
-        self.clear_previews(proposal_id);
+    pub fn redo(&mut self, project_id: ProjectID, _: &mut World) {
+        self.projects.get_mut(project_id).unwrap().redo();
+        self.clear_previews(project_id);
     }
 }
 

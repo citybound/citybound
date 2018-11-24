@@ -31,40 +31,40 @@ impl TypedID for PlanningUIID {
 impl<A: Actor + PlanningUI> TraitIDFrom<A> for PlanningUIID {}
 
 impl PlanningUIID {
-    pub fn on_plans_update(&self, master_update: PlanHistoryUpdate, proposal_updates: CHashMap < ProposalID , ProposalUpdate >, world: &mut World) {
-        world.send(self.as_raw(), MSG_PlanningUI_on_plans_update(master_update, proposal_updates));
+    pub fn on_plans_update(&self, master_update: PlanHistoryUpdate, project_updates: CHashMap < ProjectID , ProjectUpdate >, world: &mut World) {
+        world.send(self.as_raw(), MSG_PlanningUI_on_plans_update(master_update, project_updates));
     }
     
-    pub fn on_proposal_preview_update(&self, proposal_id: ProposalID, effective_history: PlanHistory, result_update: PlanResultUpdate, new_actions: ActionGroups, world: &mut World) {
-        world.send(self.as_raw(), MSG_PlanningUI_on_proposal_preview_update(proposal_id, effective_history, result_update, new_actions));
+    pub fn on_project_preview_update(&self, project_id: ProjectID, effective_history: PlanHistory, result_update: PlanResultUpdate, new_actions: ActionGroups, world: &mut World) {
+        world.send(self.as_raw(), MSG_PlanningUI_on_project_preview_update(project_id, effective_history, result_update, new_actions));
     }
 
     pub fn register_trait(system: &mut ActorSystem) {
         system.register_trait::<PlanningUIRepresentative>();
         system.register_trait_message::<MSG_PlanningUI_on_plans_update>();
-        system.register_trait_message::<MSG_PlanningUI_on_proposal_preview_update>();
+        system.register_trait_message::<MSG_PlanningUI_on_project_preview_update>();
     }
 
     pub fn register_implementor<A: Actor + PlanningUI>(system: &mut ActorSystem) {
         system.register_implementor::<A, PlanningUIRepresentative>();
         system.add_handler::<A, _, _>(
-            |&MSG_PlanningUI_on_plans_update(ref master_update, ref proposal_updates), instance, world| {
-                instance.on_plans_update(master_update, proposal_updates, world); Fate::Live
+            |&MSG_PlanningUI_on_plans_update(ref master_update, ref project_updates), instance, world| {
+                instance.on_plans_update(master_update, project_updates, world); Fate::Live
             }, false
         );
         
         system.add_handler::<A, _, _>(
-            |&MSG_PlanningUI_on_proposal_preview_update(proposal_id, ref effective_history, ref result_update, ref new_actions), instance, world| {
-                instance.on_proposal_preview_update(proposal_id, effective_history, result_update, new_actions, world); Fate::Live
+            |&MSG_PlanningUI_on_project_preview_update(project_id, ref effective_history, ref result_update, ref new_actions), instance, world| {
+                instance.on_project_preview_update(project_id, effective_history, result_update, new_actions, world); Fate::Live
             }, false
         );
     }
 }
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanningUI_on_plans_update(pub PlanHistoryUpdate, pub CHashMap < ProposalID , ProposalUpdate >);
+struct MSG_PlanningUI_on_plans_update(pub PlanHistoryUpdate, pub CHashMap < ProjectID , ProjectUpdate >);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanningUI_on_proposal_preview_update(pub ProposalID, pub PlanHistory, pub PlanResultUpdate, pub ActionGroups);
+struct MSG_PlanningUI_on_project_preview_update(pub ProjectID, pub PlanHistory, pub PlanResultUpdate, pub ActionGroups);
 
 
 

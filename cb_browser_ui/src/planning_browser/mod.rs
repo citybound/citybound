@@ -4,8 +4,8 @@ use compact::{CHashMap};
 use std::collections::HashMap;
 use descartes::LinePath;
 use michelangelo::{MeshGrouper};
-use planning::{ProposalID, Proposal, GestureID, PrototypeID, PlanHistory, PlanResult,
-PlanHistoryUpdate, ProposalUpdate, PlanResultUpdate, ActionGroups};
+use planning::{ProjectID, Project, GestureID, PrototypeID, PlanHistory, PlanResult,
+PlanHistoryUpdate, ProjectUpdate, PlanResultUpdate, ActionGroups};
 use ::land_use::zone_planning::{LandUse, LAND_USES};
 use planning::ui::{PlanningUI, PlanningUIID};
 use browser_utils::{updated_groups_to_js, to_js_mesh, FrameListener, FrameListenerID};
@@ -19,7 +19,7 @@ use SYSTEM;
     js_export
 )]
 pub fn move_gesture_point(
-    proposal_id: Serde<::planning::ProposalID>,
+    project_id: Serde<::planning::ProjectID>,
     gesture_id: Serde<::planning::GestureID>,
     point_idx: u32,
     new_position: Serde<::descartes::P2>,
@@ -28,7 +28,7 @@ pub fn move_gesture_point(
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
     ::planning::PlanManagerID::global_first(world).move_control_point(
-        proposal_id.0,
+        project_id.0,
         gesture_id.0,
         point_idx,
         new_position.0,
@@ -42,7 +42,7 @@ pub fn move_gesture_point(
     js_export
 )]
 pub fn start_new_gesture(
-    proposal_id: Serde<::planning::ProposalID>,
+    project_id: Serde<::planning::ProjectID>,
     gesture_id: Serde<::planning::GestureID>,
     intent: Serde<::planning::GestureIntent>,
     start: Serde<::descartes::P2>,
@@ -50,7 +50,7 @@ pub fn start_new_gesture(
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
     ::planning::PlanManagerID::global_first(world).start_new_gesture(
-        proposal_id.0,
+        project_id.0,
         ::kay::MachineID(0),
         gesture_id.0,
         intent.0,
@@ -64,7 +64,7 @@ pub fn start_new_gesture(
     js_export
 )]
 pub fn add_control_point(
-    proposal_id: Serde<::planning::ProposalID>,
+    project_id: Serde<::planning::ProjectID>,
     gesture_id: Serde<::planning::GestureID>,
     new_point: Serde<::descartes::P2>,
     add_to_end: bool,
@@ -73,7 +73,7 @@ pub fn add_control_point(
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
     ::planning::PlanManagerID::global_first(world).add_control_point(
-        proposal_id.0,
+        project_id.0,
         gesture_id.0,
         new_point.0,
         add_to_end,
@@ -87,7 +87,7 @@ pub fn add_control_point(
     js_export
 )]
 pub fn insert_control_point(
-    proposal_id: Serde<::planning::ProposalID>,
+    project_id: Serde<::planning::ProjectID>,
     gesture_id: Serde<::planning::GestureID>,
     new_point: Serde<::descartes::P2>,
     done_inserting: bool,
@@ -95,7 +95,7 @@ pub fn insert_control_point(
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
     ::planning::PlanManagerID::global_first(world).insert_control_point(
-        proposal_id.0,
+        project_id.0,
         gesture_id.0,
         new_point.0,
         done_inserting,
@@ -108,7 +108,7 @@ pub fn insert_control_point(
     js_export
 )]
 pub fn split_gesture(
-    proposal_id: Serde<::planning::ProposalID>,
+    project_id: Serde<::planning::ProjectID>,
     gesture_id: Serde<::planning::GestureID>,
     split_at: Serde<::descartes::P2>,
     done_inserting: bool,
@@ -116,7 +116,7 @@ pub fn split_gesture(
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
     ::planning::PlanManagerID::global_first(world).split_gesture(
-        proposal_id.0,
+        project_id.0,
         gesture_id.0,
         split_at.0,
         done_inserting,
@@ -129,7 +129,7 @@ pub fn split_gesture(
     js_export
 )]
 pub fn set_n_lanes(
-    proposal_id: Serde<::planning::ProposalID>,
+    project_id: Serde<::planning::ProjectID>,
     gesture_id: Serde<::planning::GestureID>,
     n_lanes_forward: usize,
     n_lanes_backward: usize,
@@ -138,7 +138,7 @@ pub fn set_n_lanes(
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
     ::planning::PlanManagerID::global_first(world).set_intent(
-        proposal_id.0,
+        project_id.0,
         gesture_id.0,
         ::planning::GestureIntent::Road(::transport::transport_planning::RoadIntent {
             n_lanes_forward: n_lanes_forward as u8,
@@ -163,30 +163,30 @@ pub fn finish_gesture() {
     all(target_arch = "wasm32", target_os = "unknown"),
     js_export
 )]
-pub fn undo(proposal_id: Serde<::planning::ProposalID>) {
+pub fn undo(project_id: Serde<::planning::ProjectID>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
-    ::planning::PlanManagerID::global_first(world).undo(proposal_id.0, world)
+    ::planning::PlanManagerID::global_first(world).undo(project_id.0, world)
 }
 
 #[cfg_attr(
     all(target_arch = "wasm32", target_os = "unknown"),
     js_export
 )]
-pub fn redo(proposal_id: Serde<::planning::ProposalID>) {
+pub fn redo(project_id: Serde<::planning::ProjectID>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
-    ::planning::PlanManagerID::global_first(world).redo(proposal_id.0, world)
+    ::planning::PlanManagerID::global_first(world).redo(project_id.0, world)
 }
 
 #[cfg_attr(
     all(target_arch = "wasm32", target_os = "unknown"),
     js_export
 )]
-pub fn implement_proposal(proposal_id: Serde<::planning::ProposalID>) {
+pub fn implement_project(project_id: Serde<::planning::ProjectID>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
-    ::planning::PlanManagerID::global_first(world).implement(proposal_id.0, world);
+    ::planning::PlanManagerID::global_first(world).implement(project_id.0, world);
 }
 
 #[derive(Compact, Clone)]
@@ -212,7 +212,7 @@ impl ::std::ops::DerefMut for BrowserPlanningUI {
 pub struct BrowserPlanningUINonPersistedState {
     // TODO: replace these with only known states and store them in JS only
     master_plan: PlanHistory,
-    proposals: HashMap<ProposalID, Proposal>,
+    projects: HashMap<ProjectID, Project>,
     result_preview: PlanResult,
     actions_preview: ActionGroups,
     awaiting_preview_update: bool,
@@ -276,7 +276,7 @@ impl BrowserPlanningUI {
             id,
             state: External::new(BrowserPlanningUINonPersistedState {
                 master_plan: ::planning::PlanHistory::new(),
-                proposals: HashMap::new(),
+                projects: HashMap::new(),
                 result_preview: ::planning::PlanResult::new(),
                 actions_preview: ::planning::ActionGroups::new(),
                 awaiting_preview_update: false,
@@ -304,23 +304,22 @@ impl FrameListener for BrowserPlanningUI {
         ::planning::PlanManagerID::global_first(world).get_all_plans(
             self.id_as(),
             self.master_plan.as_known_state(),
-            self.proposals
+            self.projects
                 .iter()
-                .map(|(proposal_id, proposal)| (*proposal_id, proposal.as_known_state()))
+                .map(|(project_id, project)| (*project_id, project.as_known_state()))
                 .collect(),
             world,
         );
 
-        let maybe_current_proposal_id: Result<Serde<ProposalID>, _> = js! {
+        let maybe_current_project_id: Result<Serde<ProjectID>, _> = js! {
             return (window.cbReactApp.state.uiMode == "planning" &&
-                window.cbReactApp.state.planning.currentProposal);
-        }
-        .try_into();
-        if let Ok(Serde(current_proposal_id)) = maybe_current_proposal_id {
+                window.cbReactApp.state.planning.currentProject);
+        }.try_into();
+        if let Ok(Serde(current_project_id)) = maybe_current_project_id {
             if !self.awaiting_preview_update {
-                ::planning::PlanManagerID::global_first(world).get_proposal_preview_update(
+                ::planning::PlanManagerID::global_first(world).get_project_preview_update(
                     self.id_as(),
-                    current_proposal_id,
+                    current_project_id,
                     self.result_preview.as_known_state(),
                     world,
                 );
@@ -334,7 +333,7 @@ impl PlanningUI for BrowserPlanningUI {
     fn on_plans_update(
         &mut self,
         master_update: &PlanHistoryUpdate,
-        proposal_updates: &CHashMap<ProposalID, ProposalUpdate>,
+        project_updates: &CHashMap<ProjectID, ProjectUpdate>,
         _world: &mut World,
     ) {
         if !master_update.is_empty() {
@@ -347,57 +346,57 @@ impl PlanningUI for BrowserPlanningUI {
                 }));
             }
         }
-        for (proposal_id, proposal_update) in proposal_updates.pairs() {
-            match proposal_update {
-                ProposalUpdate::None => {}
-                ProposalUpdate::ChangedOngoing(new_ongoing) => {
+        for (project_id, project_update) in project_updates.pairs() {
+            match project_update {
+                ProjectUpdate::None => {}
+                ProjectUpdate::ChangedOngoing(new_ongoing) => {
                     js! {
                         window.cbReactApp.setState(oldState => update(oldState, {
                             planning: {
-                                proposals: {
-                                    [@{Serde(*proposal_id)}]: {
+                                projects: {
+                                    [@{Serde(*project_id)}]: {
                                         ongoing: {"$set": @{Serde(new_ongoing)}}
                                     }
                                 }
                             }
                         }));
                     }
-                    self.proposals
-                        .get_mut(proposal_id)
-                        .expect("Should already have proposal")
+                    self.projects
+                        .get_mut(project_id)
+                        .expect("Should already have project")
                         .set_ongoing_step(new_ongoing.clone());
                 }
-                ProposalUpdate::ChangedCompletely(new_proposal) => {
+                ProjectUpdate::ChangedCompletely(new_project) => {
                     js! {
                         window.cbReactApp.setState(oldState => update(oldState, {
                             planning: {
-                                proposals: {
-                                    [@{Serde(*proposal_id)}]: {"$set": @{Serde(new_proposal)}}
+                                projects: {
+                                    [@{Serde(*project_id)}]: {"$set": @{Serde(new_project)}}
                                 }
                             }
                         }));
                     }
-                    self.proposals.insert(*proposal_id, new_proposal.clone());
+                    self.projects.insert(*project_id, new_project.clone());
                 }
-                ProposalUpdate::Removed => {
+                ProjectUpdate::Removed => {
                     js! {
                        window.cbReactApp.setState(oldState => update(oldState, {
                            planning: {
-                               proposals: {
-                                   "$unset": [@{Serde(*proposal_id)}]
+                               projects: {
+                                   "$unset": [@{Serde(*project_id)}]
                                }
                            }
                        }));
                     }
-                    self.proposals.remove(proposal_id);
+                    self.projects.remove(project_id);
                 }
             }
         }
     }
 
-    fn on_proposal_preview_update(
+    fn on_project_preview_update(
         &mut self,
-        _proposal_id: ProposalID,
+        _project_id: ProjectID,
         effective_history: &PlanHistory,
         result_update: &PlanResultUpdate,
         new_actions: &ActionGroups,
@@ -591,8 +590,7 @@ SwitchLanePrototype, IntersectionPrototype};
                     .collect::<HashMap<_, _>>()
                     .into();
                 (land_use.to_string(), add_op)
-            })
-            .collect::<HashMap<_, _>>()
+            }).collect::<HashMap<_, _>>()
             .into();
 
         let updated_zones_all_outline_groups: ::stdweb::Object = self
@@ -611,8 +609,7 @@ SwitchLanePrototype, IntersectionPrototype};
                     .collect::<HashMap<_, _>>()
                     .into();
                 (land_use.to_string(), add_op)
-            })
-            .collect::<HashMap<_, _>>()
+            }).collect::<HashMap<_, _>>()
             .into();
 
         let updated_building_outlines_groups = self
@@ -643,16 +640,14 @@ SwitchLanePrototype, IntersectionPrototype};
                                 f32::from(road_intent.n_lanes_forward)
                                     * ::dimensions::LANE_DISTANCE
                                     + 0.4 * ::dimensions::LANE_DISTANCE,
-                            )
-                            .outline()
+                            ).outline()
                             .0,
                             center_line: path,
                             n_lanes_forward: road_intent.n_lanes_forward as usize,
                             n_lanes_backward: road_intent.n_lanes_backward as usize,
                         },
                     )
-                })
-                .collect();
+                }).collect();
 
         js! {
             window.cbReactApp.setState(oldState => update(oldState, {

@@ -67,7 +67,7 @@ export default {
     buildingOutlines: [0.0, 0.0, 0.0],
 
     controlPointMaster: [0.3, 0.3, 1.0],
-    controlPointCurrentProposal: [0.0, 0.061, 1.0],//[0, 72, 255]
+    controlPointCurrentProject: [0.0, 0.061, 1.0],//[0, 72, 255]
     controlPointHover: [0.3, 0.361, 1.0],
 
     Residential: mix(toLinFloat([234, 203, 82]), grass, 0.9),

@@ -18,7 +18,7 @@ use self::household_kinds::neighboring_town_trade::NeighboringTownTradeID;
 use land_use::buildings::BuildingStyle;
 use land_use::vacant_lots::VacantLotID;
 use land_use::zone_planning::BuildingIntent;
-use planning::{PlanManagerID, Proposal, PrototypeID, Plan, GestureID, Gesture, GestureIntent};
+use planning::{PlanManagerID, Project, PrototypeID, Plan, GestureID, Gesture, GestureIntent};
 
 // TODO: somehow get rid of this horrible duplication by having something like
 // a pointer to an abstract Household trait...
@@ -272,8 +272,8 @@ impl DevelopmentManager {
                     self.id,
                     world,
                 );
-                self.plan_manager.implement_artificial_proposal(
-                    Proposal::from_plan(Plan::from_gestures(Some((
+                self.plan_manager.implement_artificial_project(
+                    Project::from_plan(Plan::from_gestures(Some((
                         GestureID::new(),
                         Gesture::new(
                             vec![building_intent.lot.center_point()].into(),

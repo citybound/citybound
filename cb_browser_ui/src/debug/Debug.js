@@ -51,7 +51,7 @@ export function render(state, setState) {
             <h1>Debugging</h1>
             <details>
                 <summary>Debug Actions</summary>
-                {state.planning.currentProposal
+                {state.planning.currentProject
                     ? <div key="gridPlanning">
                         Grid size
                     <InputNumber
@@ -71,13 +71,13 @@ export function render(state, setState) {
 
                         <Button
                             onClick={() => cbRustBrowser.plan_grid(
-                                state.planning.currentProposal,
+                                state.planning.currentProject,
                                 state.debug.planGridSettings.n,
                                 state.debug.planGridSettings.spacing
                             )
                             }>Plan grid</Button>
                     </div>
-                    : <div>(open a proposal to plan a grid)</div>
+                    : <div>(open a project to plan a grid)</div>
                 }
                 <div key="carSpawning">
                     Cars per lane (tries)

@@ -32,9 +32,9 @@ export const initialState = {
     master: {
         gestures: {}
     },
-    proposals: {
+    projects: {
     },
-    currentProposal: null,
+    currentProject: null,
     hoveredControlPoint: {},
     hoveredInsertPoint: null,
     hoveredSplitPoint: null,
@@ -48,7 +48,7 @@ export const initialState = {
 };
 
 export const settingsSpec = {
-    implementProposalKey: {
+    implementProjectKey: {
         default: {
             key: /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? 'command+enter' : 'ctrl+enter'
         }, description: "Implement Plan"
@@ -68,11 +68,11 @@ export const settingsSpec = {
 
 // STATE MUTATING ACTIONS
 
-function getGestureAsOf(state, proposalId, gestureId) {
-    if (proposalId && state.planning.proposals[proposalId]) {
-        let proposal = state.planning.proposals[proposalId];
-        for (let i = proposal.undoable_history.length - 1; i >= 0; i--) {
-            let gestureInStep = proposal.undoable_history[i].gestures[gestureId];
+function getGestureAsOf(state, projectId, gestureId) {
+    if (projectId && state.planning.projects[projectId]) {
+        let project = state.planning.projects[projectId];
+        for (let i = project.undoable_history.length - 1; i >= 0; i--) {
+            let gestureInStep = project.undoable_history[i].gestures[gestureId];
             if (gestureInStep) {
                 return gestureInStep;
             }
@@ -81,21 +81,21 @@ function getGestureAsOf(state, proposalId, gestureId) {
     return state.planning.master.gestures[gestureId][0];
 }
 
-function moveControlPoint(proposalId, gestureId, pointIdx, newPosition, doneMoving) {
-    cbRustBrowser.move_gesture_point(proposalId, gestureId, pointIdx, [newPosition[0], newPosition[1]], doneMoving);
+function moveControlPoint(projectId, gestureId, pointIdx, newPosition, doneMoving) {
+    cbRustBrowser.move_gesture_point(projectId, gestureId, pointIdx, [newPosition[0], newPosition[1]], doneMoving);
 
     if (!doneMoving) {
 
         return oldState => {
-            let currentGesture = getGestureAsOf(oldState, proposalId, gestureId);
+            let currentGesture = getGestureAsOf(oldState, projectId, gestureId);
             if (currentGesture) {
                 let newPoints = [...currentGesture.points];
                 newPoints[pointIdx] = newPosition;
 
                 return update(oldState, {
                     planning: {
-                        proposals: {
-                            [proposalId]: {
+                        projects: {
+                            [projectId]: {
                                 ongoing: {
                                     $set: { gestures: { [gestureId]: Object.assign(currentGesture, { points: newPoints }) } }
                                 }
@@ -112,10 +112,10 @@ function moveControlPoint(proposalId, gestureId, pointIdx, newPosition, doneMovi
     }
 }
 
-function startNewGesture(proposalId, intent, startPoint) {
+function startNewGesture(projectId, intent, startPoint) {
     let gestureId = uuid();
 
-    cbRustBrowser.start_new_gesture(proposalId, gestureId, intent, [startPoint[0], startPoint[1]]);
+    cbRustBrowser.start_new_gesture(projectId, gestureId, intent, [startPoint[0], startPoint[1]]);
 
     return oldState => update(oldState, {
         planning: {
@@ -130,8 +130,8 @@ function startNewGesture(proposalId, intent, startPoint) {
 
 
 
-function addControlPoint(proposalId, gestureId, point, addToEnd, doneAdding) {
-    cbRustBrowser.add_control_point(proposalId, gestureId, [point[0], point[1]], addToEnd, doneAdding);
+function addControlPoint(projectId, gestureId, point, addToEnd, doneAdding) {
+    cbRustBrowser.add_control_point(projectId, gestureId, [point[0], point[1]], addToEnd, doneAdding);
 
     if (doneAdding) {
         return oldState => update(oldState, {
@@ -146,8 +146,8 @@ function addControlPoint(proposalId, gestureId, point, addToEnd, doneAdding) {
     }
 }
 
-function insertControlPoint(proposalId, gestureId, point, doneInserting) {
-    cbRustBrowser.insert_control_point(proposalId, gestureId, [point[0], point[1]], doneInserting);
+function insertControlPoint(projectId, gestureId, point, doneInserting) {
+    cbRustBrowser.insert_control_point(projectId, gestureId, [point[0], point[1]], doneInserting);
 
     return oldState => update(oldState, {
         planning: {
@@ -156,8 +156,8 @@ function insertControlPoint(proposalId, gestureId, point, doneInserting) {
     });
 }
 
-function splitGesture(proposalId, gestureId, splitAt, doneSplitting) {
-    cbRustBrowser.split_gesture(proposalId, gestureId, [splitAt[0], splitAt[1]], doneSplitting);
+function splitGesture(projectId, gestureId, splitAt, doneSplitting) {
+    cbRustBrowser.split_gesture(projectId, gestureId, [splitAt[0], splitAt[1]], doneSplitting);
 
     return oldState => update(oldState, {
         planning: {
@@ -166,8 +166,8 @@ function splitGesture(proposalId, gestureId, splitAt, doneSplitting) {
     });
 }
 
-function setNLanes(proposalId, gestureId, nLanesForward, nLanesBackward, doneChanging) {
-    cbRustBrowser.set_n_lanes(proposalId, gestureId, nLanesForward, nLanesBackward, doneChanging);
+function setNLanes(projectId, gestureId, nLanesForward, nLanesBackward, doneChanging) {
+    cbRustBrowser.set_n_lanes(projectId, gestureId, nLanesForward, nLanesBackward, doneChanging);
 
     return oldState => update(oldState, {
         planning: {
@@ -176,7 +176,7 @@ function setNLanes(proposalId, gestureId, nLanesForward, nLanesBackward, doneCha
     });
 }
 
-function finishGesture(proposalId, gestureId) {
+function finishGesture(projectId, gestureId) {
     cbRustBrowser.finish_gesture();
 
     return oldState => update(oldState, {
@@ -233,9 +233,9 @@ export function render(state, setState) {
     if (state.planning) {
         let gestures = Object.keys(state.planning.master.gestures).map(gestureId =>
             ({ [gestureId]: Object.assign(state.planning.master.gestures[gestureId][0], { fromMaster: true }) })
-        ).concat(state.planning.currentProposal
-            ? state.planning.proposals[state.planning.currentProposal].undoable_history
-                .concat([state.planning.proposals[state.planning.currentProposal].ongoing || { gestures: [] }]).map(step => step.gestures)
+        ).concat(state.planning.currentProject
+            ? state.planning.projects[state.planning.currentProject].undoable_history
+                .concat([state.planning.projects[state.planning.currentProject].ongoing || { gestures: [] }]).map(step => step.gestures)
             : []
         ).reduce((coll, gestures) => Object.assign(coll, gestures), {});
 
@@ -260,7 +260,7 @@ export function render(state, setState) {
                         1.0, 0.0,
                         ...(isHovered
                             ? colors.controlPointHover
-                            : (gesture.fromMaster ? colors.controlPointMaster : colors.controlPointCurrentProposal))
+                            : (gesture.fromMaster ? colors.controlPointMaster : colors.controlPointCurrentProject))
                     ]);
 
                     controlPointsInteractables.push({
@@ -307,10 +307,10 @@ export function render(state, setState) {
                                             }
                                         }))
                                     } else {
-                                        setState(moveControlPoint(state.planning.currentProposal, gestureId, pointIdx, e.drag.end, true));
+                                        setState(moveControlPoint(state.planning.currentProject, gestureId, pointIdx, e.drag.end, true));
                                     }
                                 } else if (e.drag.now) {
-                                    setState(moveControlPoint(state.planning.currentProposal, gestureId, pointIdx, e.drag.now, false));
+                                    setState(moveControlPoint(state.planning.currentProject, gestureId, pointIdx, e.drag.now, false));
                                 }
                             }
                         }
@@ -340,9 +340,9 @@ export function render(state, setState) {
                 onEvent: e => {
                     if (e.drag) {
                         if (e.drag.end) {
-                            setState(insertControlPoint(state.planning.currentProposal, gestureId, e.drag.end, true));
+                            setState(insertControlPoint(state.planning.currentProject, gestureId, e.drag.end, true));
                         } else if (e.drag.now) {
-                            setState(insertControlPoint(state.planning.currentProposal, gestureId, e.drag.now, false));
+                            setState(insertControlPoint(state.planning.currentProject, gestureId, e.drag.now, false));
                         }
                     }
                     if (e.hover) {
@@ -379,9 +379,9 @@ export function render(state, setState) {
                 onEvent: e => {
                     if (e.drag) {
                         if (e.drag.end) {
-                            setState(splitGesture(state.planning.currentProposal, gestureId, e.drag.end, true));
+                            setState(splitGesture(state.planning.currentProject, gestureId, e.drag.end, true));
                         } else if (e.drag.now) {
-                            setState(splitGesture(state.planning.currentProposal, gestureId, e.drag.now, false));
+                            setState(splitGesture(state.planning.currentProject, gestureId, e.drag.now, false));
                         }
                     }
                     if (e.hover) {
@@ -434,7 +434,7 @@ export function render(state, setState) {
                                 newNLanesBackward = Math.max(0.0, Math.round(-orthogonalDistance / 3.0));
                             }
 
-                            setState(setNLanes(state.planning.currentProposal, gestureId, newNLanesForward, newNLanesBackward, e.drag.end ? true : false));
+                            setState(setNLanes(state.planning.currentProject, gestureId, newNLanesForward, newNLanesBackward, e.drag.end ? true : false));
                         }
                     }
                     if (e.hover) {
@@ -539,7 +539,7 @@ export function render(state, setState) {
                         0.0,
                         0.7, // scaled down
                         0.0,
-                        ...colors.controlPointCurrentProposal
+                        ...colors.controlPointCurrentProject
                     ])
                 }
             ] : [])]
@@ -557,7 +557,7 @@ export function render(state, setState) {
                             0.0,
                             state.planning.hoveredSplitPoint.direction[0],
                             state.planning.hoveredSplitPoint.direction[1],
-                            ...colors.controlPointCurrentProposal
+                            ...colors.controlPointCurrentProject
                         ])
                     }
                 ] : [])]
@@ -575,7 +575,7 @@ export function render(state, setState) {
                             0.0,
                             state.planning.hoveredChangeNLanesPoint.direction[0],
                             state.planning.hoveredChangeNLanesPoint.direction[1],
-                            ...colors.controlPointCurrentProposal
+                            ...colors.controlPointCurrentProject
                         ])
                     }
                 ] : [])]
@@ -600,7 +600,7 @@ export function render(state, setState) {
                 if (e.hover && e.hover.now) {
                     if (canvasMode.currentGesture) {
                         setState(addControlPoint(
-                            state.planning.currentProposal, canvasMode.currentGesture,
+                            state.planning.currentProject, canvasMode.currentGesture,
                             e.hover.now, canvasMode.addToEnd, false
                         ))
                     }
@@ -609,16 +609,16 @@ export function render(state, setState) {
                     if (canvasMode.currentGesture) {
                         if (canvasMode.previousClick
                             && vec3.dist(e.drag.end, canvasMode.previousClick) < state.settings.planning.finishGestureDistance) {
-                            setState(finishGesture(state.planning.currentProposal, canvasMode.currentGesture));
+                            setState(finishGesture(state.planning.currentProject, canvasMode.currentGesture));
                         } else {
                             setState(addControlPoint(
-                                state.planning.currentProposal, canvasMode.currentGesture,
+                                state.planning.currentProject, canvasMode.currentGesture,
                                 e.drag.end, canvasMode.addToEnd, true
                             ))
                         }
                     } else if (canvasMode.intent) {
                         setState(startNewGesture(
-                            state.planning.currentProposal, canvasMode.intent, e.drag.end
+                            state.planning.currentProject, canvasMode.intent, e.drag.end
                         ));
                     }
                 }
@@ -626,7 +626,7 @@ export function render(state, setState) {
         }
     ];
 
-    let rendered = state.uiMode == "planning" && state.planning.currentProposal
+    let rendered = state.uiMode == "planning" && state.planning.currentProject
         ? { layers, interactables }
         : {};
 

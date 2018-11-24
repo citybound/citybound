@@ -1,19 +1,19 @@
 use kay::World;
 use compact::CHashMap;
-use super::{PlanHistory, PlanHistoryUpdate, ProposalID, ProposalUpdate,
+use super::{PlanHistory, PlanHistoryUpdate, ProjectID, ProjectUpdate,
 PlanResultUpdate, ActionGroups};
 
 pub trait PlanningUI {
     fn on_plans_update(
         &mut self,
         master_update: &PlanHistoryUpdate,
-        proposal_updates: &CHashMap<ProposalID, ProposalUpdate>,
+        project_updates: &CHashMap<ProjectID, ProjectUpdate>,
         _world: &mut World,
     );
 
-    fn on_proposal_preview_update(
+    fn on_project_preview_update(
         &mut self,
-        _proposal_id: ProposalID,
+        _project_id: ProjectID,
         effective_history: &PlanHistory,
         result_update: &PlanResultUpdate,
         new_actions: &ActionGroups,
