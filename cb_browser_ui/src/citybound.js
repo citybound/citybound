@@ -76,6 +76,8 @@ require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBro
                 },
                 time: Time.initialState,
                 camera: Camera.initialState,
+                requestedProjections: {},
+                calculatedProjectsions: {},
 
                 menu: Menu.initalState,
                 settings: Settings.loadSettings(settingSpecs)
@@ -121,34 +123,37 @@ require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBro
             const verticalFov = this.state.settings.camera.verticalFov * Math.PI;
 
             return <div style={{ width: "100%", height: "100%" }}>
-                <ContainerDimensions style={{ width: "100%", height: "100%", position: "relative" }}>{({ width, height }) => {
-                    const { eye, target, viewMatrix, perspectiveMatrix } = Camera.getMatrices(this.state, width, height);
-
-                    return <div style={{ width, height }}>
-                        <div key="ui2dTools" className="ui2dTools">
-                            {tools}
-                        </div>
-                        <div key="ui2d" className="ui2d">
-                            {windows}
-                        </div>
-                        <Monet key="canvas" ref={this.renderer}
-                            retinaFactor={this.state.settings.rendering.retinaFactor}
-                            clearColor={[...colors.grass, 1.0]}
-                            {... { layers, width, height, viewMatrix, perspectiveMatrix }} />
-                        <Stage key="stage"
-                            style={{ width, height, position: "absolute", top: 0, left: 0 }}
-                            onWheel={e => {
-                                Camera.onWheel(e, this.state, this.boundSetState);
-                                e.preventDefault();
-                                return false;
-                            }}
-                            onMouseMove={e => {
-                                Camera.onMouseMove(e, this.state, this.boundSetState);
-                            }}
-                            {...{ interactables, width, height, eye, target, verticalFov }}
-                        />
-                    </div>
-                }}</ContainerDimensions>
+                <ContainerDimensions style={{ width: "100%", height: "100%", position: "relative" }}>{({ width, height }) =>
+                    <Camera.Camera state={this.state} {... { width, height }}>
+                        {({ project2dTo3d, project3dTo2d, view, perspective }) =>
+                            <div style={{ width, height }}>
+                                <div key="ui2dTools" className="ui2dTools">
+                                    {tools}
+                                </div>
+                                <div key="ui2d" className="ui2d">
+                                    {windows}
+                                    <Households.Windows state={this.state} setState={this.boundSetState} project3dTo2d={project3dTo2d} />
+                                </div>
+                                <Monet key="canvas" ref={this.renderer}
+                                    retinaFactor={this.state.settings.rendering.retinaFactor}
+                                    clearColor={[...colors.grass, 1.0]}
+                                    {... { layers, width, height, viewMatrix: view, perspectiveMatrix: perspective }} />
+                                <Stage key="stage"
+                                    requestedProjections={this.state.requestedProjections}
+                                    style={{ width, height, position: "absolute", top: 0, left: 0 }}
+                                    onWheel={e => {
+                                        Camera.onWheel(e, this.state, this.boundSetState);
+                                        e.preventDefault();
+                                        return false;
+                                    }}
+                                    onMouseMove={e => {
+                                        Camera.onMouseMove(e, this.state, this.boundSetState);
+                                    }}
+                                    {...{ interactables, width, height, project2dTo3d }}
+                                />
+                            </div>
+                        }</Camera.Camera>
+                }</ContainerDimensions>
             </div>;
         }
     }

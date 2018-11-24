@@ -6,7 +6,7 @@ export default class Stage extends React.Component {
         const onMouseDown = e => {
             const { eye, target, verticalFov, width, height } = this.props;
             const elementRect = e.target.getBoundingClientRect();
-            const cursorPosition3d = this.projectCursor(eye, target, verticalFov, width, height, e, elementRect);
+            const cursorPosition3d = this.projectCursor(e, elementRect);
 
             const maybeInteractableInfo = this.findInteractableBelow(cursorPosition3d);
             if (maybeInteractableInfo) {
@@ -19,9 +19,8 @@ export default class Stage extends React.Component {
             }
         };
         const onMouseMove = e => {
-            const { eye, target, verticalFov, width, height } = this.props;
             const elementRect = e.target.getBoundingClientRect();
-            const cursorPosition3d = this.projectCursor(eye, target, verticalFov, width, height, e, elementRect);
+            const cursorPosition3d = this.projectCursor(e, elementRect);
 
             this.props.cursorMoved && this.props.cursorMoved(cursorPosition3d);
 
@@ -70,9 +69,8 @@ export default class Stage extends React.Component {
             this.props.onMouseMove(e);
         };
         const onMouseUp = e => {
-            const { eye, target, verticalFov, width, height } = this.props;
             const elementRect = e.target.getBoundingClientRect();
-            const cursorPosition3d = this.projectCursor(eye, target, verticalFov, width, height, e, elementRect);
+            const cursorPosition3d = this.projectCursor(e, elementRect);
 
             if (this.activeInteractable) {
                 this.activeInteractable.onEvent({
@@ -131,29 +129,12 @@ export default class Stage extends React.Component {
         return null;
     }
 
-    projectCursor(eye, target, verticalFov, width, height, e, elementRect) {
-        const cursor2dX = e.clientX - elementRect.left;
-        const cursor2dY = e.clientY - elementRect.top;
-
-        const normalized2dPosition = [
-            ((cursor2dX / width) * 2.0) - 1.0,
-            ((-cursor2dY / height) * 2.0) + 1.0,
-            -1.0,
-            1.0
+    projectCursor(e, elementRect) {
+        const cursor2d = [
+            e.clientX - elementRect.left,
+            e.clientY - elementRect.top
         ];
 
-        const inverseView = mat4.lookAt(mat4.create(), eye, target, [0, 0, 1]);
-        mat4.invert(inverseView, inverseView);
-        const inversePerspectiveMatrix = mat4.perspective(mat4.create(), verticalFov, width / height, 50000, 0.1);
-        mat4.invert(inversePerspectiveMatrix, inversePerspectiveMatrix);
-
-        const positionFromCamera = vec4.transformMat4(vec4.create(), normalized2dPosition, inversePerspectiveMatrix);
-        positionFromCamera[3] = 0;
-
-        const directionIntoWorld = vec4.transformMat4(vec4.create(), positionFromCamera, inverseView);
-
-        const distance = -eye[2] / directionIntoWorld[2];
-        const cursorPosition3d = vec3.scaleAndAdd(vec3.create(), eye, directionIntoWorld, distance);
-        return cursorPosition3d;
+        return this.props.project2dTo3d(cursor2d);
     }
 }

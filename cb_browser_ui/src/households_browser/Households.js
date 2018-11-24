@@ -6,6 +6,7 @@ export const initialState = {
     buildingPositions: {},
     buildingShapes: {},
     inspectedBuilding: null,
+    inspectedBuildingPinned: false,
     inspectedBuildingState: null,
     householdInfo: {},
 };
@@ -14,17 +15,6 @@ export function render(state, setState) {
     if (state.uiMode != "inspection") {
         return {}
     }
-
-    const { inspectedBuilding, inspectedBuildingState, householdInfo } = state.households;
-
-    const closeWindow = () => setState(oldState => update(oldState, {
-        households: {
-            inspectedBuilding: { $set: null },
-            inspectedBuildingState: { $set: null },
-        }
-    }));
-
-    const windows = inspectedBuilding && <BuildingInfo {...{ inspectedBuilding, inspectedBuildingState, householdInfo, closeWindow }} />;
 
     const interactables = Object.keys(state.households.buildingShapes).map(buildingId => {
         const buildingShape = state.households.buildingShapes[buildingId];
@@ -39,16 +29,52 @@ export function render(state, setState) {
             cursorHover: "pointer",
             cursorActive: "pointer",
             onEvent: e => {
-                if (e.drag && e.drag.end) {
+                if (e.hover) {
+                    if (e.hover.now && !state.households.inspectedBuildingPinned) {
+                        setState(oldState => update(oldState, {
+                            households: { inspectedBuilding: { $set: buildingId } }
+                        }))
+                    } else if (e.hover.end && !state.households.inspectedBuildingPinned) {
+                        setState(oldState => update(oldState, {
+                            households: {
+                                inspectedBuilding: { $set: null },
+                                inspectedBuildingState: { $set: null },
+                            }
+                        }))
+                    }
+                } else if (e.drag && e.drag.end && !state.households.inspectedBuildingPinned) {
                     setState(oldState => update(oldState, {
-                        households: { inspectedBuilding: { $set: buildingId } }
+                        households: { inspectedBuildingPinned: { $set: true } }
                     }))
                 }
             }
         }
     })
 
-    return { windows, interactables };
+    return { interactables };
+}
+
+export function Windows(props) {
+    const { inspectedBuilding, inspectedBuildingState, inspectedBuildingPinned, householdInfo, buildingPositions } = props.state.households;
+    if (props.state.uiMode == "inspection" && inspectedBuilding && buildingPositions[inspectedBuilding]) {
+        const buildingPosition3d = [...buildingPositions[inspectedBuilding], 0.0];
+
+        const closeWindow = () => props.setState(oldState => update(oldState, {
+            households: {
+                inspectedBuilding: { $set: null },
+                inspectedBuildingState: { $set: null },
+                inspectedBuildingPinned: { $set: false },
+            }
+        }));
+
+        return <BuildingInfo
+            buildingPosition2d={props.project3dTo2d(buildingPosition3d)}
+            pinned={inspectedBuildingPinned}
+            {...{ inspectedBuilding, inspectedBuildingState, householdInfo, closeWindow }}
+        />
+    } else {
+        return null;
+    }
 }
 
 class BuildingInfo extends React.Component {
@@ -75,9 +101,15 @@ class BuildingInfo extends React.Component {
     }
 
     render() {
-        return <div className="window building">
+        return <div
+            className="window building"
+            style={{
+                pointerEvents: this.props.pinned ? "all" : "none",
+                transform: `translate(calc(${this.props.buildingPosition2d[0]}px - 50%), calc(${this.props.buildingPosition2d[1]}px - 100% - 30px))`,
+                maxHeight: `calc(${this.props.buildingPosition2d[1]}px - 30px)`
+            }}>
             <p>{fmtId(this.props.inspectedBuilding)}</p>
-            <a className="close-window" onClick={this.props.closeWindow}>×</a>
+            {this.props.pinned && <a className="close-window" onClick={this.props.closeWindow}>×</a>}
             {this.props.inspectedBuildingState && [
                 <h1>{this.props.inspectedBuildingState.style}</h1>,
                 this.props.inspectedBuildingState.households.map(id => [

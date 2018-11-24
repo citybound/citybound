@@ -1,4 +1,4 @@
-import { vec3, mat4, quat } from 'gl-matrix';
+import { vec2, vec3, mat4, vec4 } from 'gl-matrix';
 import Mousetrap from 'mousetrap';
 import update from 'immutability-helper';
 
@@ -219,20 +219,89 @@ export function onFrame(state, setState) {
         }));
     }
 
+    // const { eye, target, verticalFov, width, height } = this.props;
+
+    //     const view = mat4.lookAt(mat4.create(), eye, target, [0, 0, 1]);
+    //     const perspective = mat4.perspective(mat4.create(), verticalFov, width / height, 50000, 0.1);
+
+    //     for (let request of Object.keys(this.props.requestedProjections)) {
+    //         let { position3d, projectCallback } = this.props.requestedProjections[request];
+    //         let position4d = [...position3d, 1.0];
+
+    //         const positionCameraCoords = vec4.transformMat4(vec4.create(), position4d, view);
+    //         const positionScreenCoords = vec4.transformMat4(vec4.create(), positionCameraCoords, perspective);
+    //         const normalizedPositionScreenCoords = vec2.scale(vec2.create(), positionScreenCoords, 1 / positionScreenCoords[3]);
+
+    //         const project2d = [
+    //             width * (0.5 + normalizedPositionScreenCoords[0] * 0.5),
+    //             height * (0.5 - normalizedPositionScreenCoords[1] * 0.5)
+    //         ];
+
+    //         projectCallback(project2d);
+    //     }
+
 }
 
-export function getMatrices(state, width, height) {
-    const { target, heading, pitch, distance } = state.camera;
+// export function getMatrices(state, width, height) {
+//     const { target, heading, pitch, distance } = state.camera;
+
+//     const eye2DRelative = vec3.fromValues(-distance * Math.cos(heading), -distance * Math.sin(heading), 0.0);
+//     const eyeHeight = distance * Math.sin(pitch);
+//     const eye3DRelative = vec3.scaleAndAdd(vec3.create(), vec3.fromValues(0.0, 0.0, eyeHeight), eye2DRelative, Math.cos(pitch));
+//     const eye = vec3.add(vec3.create(), target, eye3DRelative);
+
+//     return {
+//         eye,
+//         target,
+//         viewMatrix: mat4.lookAt(mat4.create(), eye, target, [0, 0, 1]),
+//         perspectiveMatrix: mat4.perspective(mat4.create(), state.settings.camera.verticalFov * Math.PI, width / height, 0.1, 50000)
+//     };
+// }
+
+export function Camera(props) {
+    const { target, heading, pitch, distance } = props.state.camera;
+    const { width, height } = props;
 
     const eye2DRelative = vec3.fromValues(-distance * Math.cos(heading), -distance * Math.sin(heading), 0.0);
     const eyeHeight = distance * Math.sin(pitch);
     const eye3DRelative = vec3.scaleAndAdd(vec3.create(), vec3.fromValues(0.0, 0.0, eyeHeight), eye2DRelative, Math.cos(pitch));
     const eye = vec3.add(vec3.create(), target, eye3DRelative);
 
-    return {
-        eye,
-        target,
-        viewMatrix: mat4.lookAt(mat4.create(), eye, target, [0, 0, 1]),
-        perspectiveMatrix: mat4.perspective(mat4.create(), state.settings.camera.verticalFov * Math.PI, width / height, 0.1, 50000)
-    };
+    const view = mat4.lookAt(mat4.create(), eye, target, [0, 0, 1]);
+    const perspective = mat4.perspective(mat4.create(), props.state.settings.camera.verticalFov * Math.PI, width / height, 0.1, 50000);
+
+    const inverseView = mat4.invert(mat4.create(), view);
+    const inversePerspective = mat4.invert(mat4.create(), perspective);
+
+    function project2dTo3d(position2d) {
+        const normalized2dPosition = [
+            ((position2d[0] / width) * 2.0) - 1.0,
+            ((-position2d[1] / height) * 2.0) + 1.0,
+            -1.0,
+            1.0
+        ];
+
+        const positionFromCamera = vec4.transformMat4(vec4.create(), normalized2dPosition, inversePerspective);
+        positionFromCamera[3] = 0;
+
+        const directionIntoWorld = vec4.transformMat4(vec4.create(), positionFromCamera, inverseView);
+
+        const distance = -eye[2] / directionIntoWorld[2];
+        return vec3.scaleAndAdd(vec3.create(), eye, directionIntoWorld, distance);
+    }
+
+    function project3dTo2d(position3d) {
+        let position4d = [...position3d, 1.0];
+
+        const positionCameraCoords = vec4.transformMat4(vec4.create(), position4d, view);
+        const positionScreenCoords = vec4.transformMat4(vec4.create(), positionCameraCoords, perspective);
+        const normalizedPositionScreenCoords = vec2.scale(vec2.create(), positionScreenCoords, 1 / positionScreenCoords[3]);
+
+        return [
+            width * (0.5 + normalizedPositionScreenCoords[0] * 0.5),
+            height * (0.5 - normalizedPositionScreenCoords[1] * 0.5)
+        ];
+    }
+
+    return props.children({ project2dTo3d, project3dTo2d, view, perspective });
 }
