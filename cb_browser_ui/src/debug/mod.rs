@@ -62,7 +62,7 @@ pub fn spawn_cars(tries_per_lane: usize) {
 }
 
 use kay::{World, ActorSystem};
-use compact::CVec;
+use compact::{CVec, CString};
 use log::{LogID, LogRecipient, LogRecipientID, Entry};
 
 #[derive(Compact, Clone)]
@@ -77,13 +77,38 @@ impl LogUI {
 }
 
 impl LogRecipient for LogUI {
-    fn receive_newest_logs(&mut self, entries: &CVec<Entry>, _: &mut World) {
+    fn receive_newest_logs(
+        &mut self,
+        entries: &CVec<Entry>,
+        text: &CString,
+        effective_last: u32,
+        effective_text_start: u32,
+        _: &mut World,
+    ) {
         js! {
-            window.cbReactApp.setState(oldState => update(oldState, {
-                debug: {
-                    log: {"$set": @{Serde(entries)}}
-                }
-            }));
+            const entries = @{Serde(entries)};
+            const text = @{Serde(text)};
+            if (window.cbReactApp.state.debug.logLastEntry == @{effective_last as u32}) {
+                // append
+                window.cbReactApp.setState(oldState => update(oldState, {
+                    debug: {
+                        logLastEntry: {"$apply": n => n + @{entries.len() as u32}},
+                        logEntries: {"$push": entries},
+                        logText: {"$apply": t => t + text}
+                    }
+                }));
+            } else {
+                // replace, keep offset
+                window.cbReactApp.setState(oldState => update(oldState, {
+                    debug: {
+                        logLastEntry: {"$set": @{effective_last + entries.len() as u32}},
+                        logTextStart: {"$set": @{effective_text_start}},
+                        logFirstEntry: {"$set": @{effective_last}},
+                        logEntries: {"$set": entries},
+                        logText: {"$set": text}
+                    }
+                }));
+            }
         };
     }
 }
@@ -95,8 +120,21 @@ impl LogRecipient for LogUI {
 pub fn get_newest_log_messages() {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
+
+    use ::stdweb::unstable::TryInto;
+
+    let last_log_entry: u32 = js! {
+        return window.cbReactApp.state.debug.logLastEntry;
+    }.try_into()
+    .unwrap();
+
     // TODO: ugly
-    LogID::global_broadcast(world).get_newest_n(1000, LogUIID::local_first(world).into(), world);
+    LogID::global_broadcast(world).get_after(
+        last_log_entry,
+        500,
+        LogUIID::local_first(world).into(),
+        world,
+    );
 }
 
 mod kay_auto;

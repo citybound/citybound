@@ -31,8 +31,8 @@ impl TypedID for LogRecipientID {
 impl<A: Actor + LogRecipient> TraitIDFrom<A> for LogRecipientID {}
 
 impl LogRecipientID {
-    pub fn receive_newest_logs(&self, entries: CVec < Entry >, world: &mut World) {
-        world.send(self.as_raw(), MSG_LogRecipient_receive_newest_logs(entries));
+    pub fn receive_newest_logs(&self, entries: CVec < Entry >, text: CString, effective_last: u32, effective_text_start: u32, world: &mut World) {
+        world.send(self.as_raw(), MSG_LogRecipient_receive_newest_logs(entries, text, effective_last, effective_text_start));
     }
 
     pub fn register_trait(system: &mut ActorSystem) {
@@ -43,15 +43,15 @@ impl LogRecipientID {
     pub fn register_implementor<A: Actor + LogRecipient>(system: &mut ActorSystem) {
         system.register_implementor::<A, LogRecipientRepresentative>();
         system.add_handler::<A, _, _>(
-            |&MSG_LogRecipient_receive_newest_logs(ref entries), instance, world| {
-                instance.receive_newest_logs(entries, world); Fate::Live
+            |&MSG_LogRecipient_receive_newest_logs(ref entries, ref text, effective_last, effective_text_start), instance, world| {
+                instance.receive_newest_logs(entries, text, effective_last, effective_text_start, world); Fate::Live
             }, false
         );
     }
 }
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_LogRecipient_receive_newest_logs(pub CVec < Entry >);
+struct MSG_LogRecipient_receive_newest_logs(pub CVec < Entry >, pub CString, pub u32, pub u32);
 
 impl Actor for Log {
     type ID = LogID;
@@ -93,8 +93,8 @@ impl LogID {
         world.send(self.as_raw(), MSG_Log_log(topic, message, from, level));
     }
     
-    pub fn get_newest_n(&self, n: u32, recipient: LogRecipientID, world: &mut World) {
-        world.send(self.as_raw(), MSG_Log_get_newest_n(n, recipient));
+    pub fn get_after(&self, last_known: u32, max_diff: u32, recipient: LogRecipientID, world: &mut World) {
+        world.send(self.as_raw(), MSG_Log_get_after(last_known, max_diff, recipient));
     }
 }
 
@@ -103,7 +103,7 @@ struct MSG_Log_spawn(pub LogID, );
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_Log_log(pub CString, pub CString, pub Option < RawID >, pub LogLevel);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Log_get_newest_n(pub u32, pub LogRecipientID);
+struct MSG_Log_get_after(pub u32, pub u32, pub LogRecipientID);
 
 
 #[allow(unused_variables)]
@@ -124,8 +124,8 @@ pub fn auto_setup(system: &mut ActorSystem) {
     );
     
     system.add_handler::<Log, _, _>(
-        |&MSG_Log_get_newest_n(n, recipient), instance, world| {
-            instance.get_newest_n(n, recipient, world); Fate::Live
+        |&MSG_Log_get_after(last_known, max_diff, recipient), instance, world| {
+            instance.get_after(last_known, max_diff, recipient, world); Fate::Live
         }, false
     );
 }

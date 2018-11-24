@@ -10,7 +10,11 @@ export const initialState = {
     spawnCarsSettings: {
         triesPerLane: 50
     },
-    log: []
+    logLastEntry: 0,
+    logTextStart: 0,
+    logFirstEntry: 0,
+    logEntries: [],
+    logText: []
 }
 
 export const settingsSpec = {
@@ -107,8 +111,12 @@ export function render(state, setState) {
             </details>
             <details>
                 <summary>Simulation Log</summary>
-                <div className="scrollableLog">{state.debug.log.map((entry, i) =>
-                    <div key={i} className={entry.level}>[{entry.topic}] {entry.from}: {entry.message}</div>
+                <div className="scrollableLog">{state.debug.logEntries.map((entry, i) => {
+                    let ts = state.debug.logTextStart;
+                    let topic = state.debug.logText.slice(entry.topic_start - ts, entry.message_start - ts);
+                    let message = state.debug.logText.slice(entry.message_start - ts, entry.message_start + entry.message_len - ts);
+                    return <div key={i} className={entry.level}>{state.debug.logFirstEntry + i} [{topic}] {entry.from}: {message}</div>
+                }
                 )}</div>
             </details>
         </div>,

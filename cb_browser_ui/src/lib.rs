@@ -1,4 +1,4 @@
-#![recursion_limit = "128"]
+#![recursion_limit = "256"]
 
 #[macro_use]
 extern crate stdweb;
@@ -33,15 +33,13 @@ pub fn start() {
 
     let server_host = js!{
         return window.location.hostname;
-    }
-    .into_string()
+    }.into_string()
     .unwrap();
 
     let mut network_settings = ::std::collections::HashMap::from(
         js!{
             return window.cbNetworkSettings;
-        }
-        .into_object()
+        }.into_object()
         .unwrap(),
     );
 
