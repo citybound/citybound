@@ -8,7 +8,7 @@
     "antd": "^3.8.1",
     "gl-matrix": "^2.6.1",
     "immutability-helper": "^2.7.1",
-    "monet": "git+https://github.com/aeickhoff/monet.git",
+    "monet": "git+https://github.com/aeickhoff/monet.git#5b79f29034c239961f2c93310ddc78ed868865fe",
     "mousetrap": "^1.6.2",
     "msgpack-lite": "^0.1.26",
     "parcel-bundler": "^1.10.3",

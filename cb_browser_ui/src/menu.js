@@ -12,12 +12,18 @@ export const initalState = {
     tabKey: "about"
 }
 
-export function render(state, settingsSpecs, setState) {
-    let tools = <Toolbar id="menu-toolbar"
+export function Tools(props) {
+    const { state, setState } = props;
+
+    return <Toolbar id="menu-toolbar"
         options={{ menu: { description: "Menu" } }}
         value={state.menu.visible && "menu"}
         onChange={() => setState(oldState => update(oldState, { menu: { visible: { $apply: old => !old } } }))}
     />;
+}
+
+export function Windows(props) {
+    const { state, settingSpecs, setState } = props;
 
     let svg = <svg width="197px" height="57px" viewBox="0 0 197 57" version="1.1" xmlns="http://www.w3.org/2000/svg">
         <g id="Citybound" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
@@ -26,7 +32,7 @@ export function render(state, settingsSpecs, setState) {
         </g>
     </svg>;
 
-    let windows = state.menu.visible && <div key="debug" className="window menu">
+    return state.menu.visible && <div key="debug" className="window menu">
         <a className="close-window" onClick={() => setState(oldState => update(oldState, { menu: { visible: { $set: false } } }))}>×</a>
         <Tabs type="card" size="large" activeKey={state.menu.tabKey} onChange={newTabKey => setState(oldState => update(oldState, { menu: { tabKey: { $set: newTabKey } } }))}>
             <TabPane tab="About" key="about">
@@ -77,11 +83,10 @@ export function render(state, settingsSpecs, setState) {
                 <p>Roads that lead further away automatically get a neighboring town connection (white diamond). These move as you expand your town.</p>
             </TabPane>
             <TabPane tab="Settings &amp; Controls" key="settings">
-                <Settings currentSettings={state.settings} specs={settingsSpecs} {...{ setState }} />
+                <Settings currentSettings={state.settings} specs={settingSpecs} {...{ setState }} />
             </TabPane>
         </Tabs>
     </div>;
-    return { tools, windows };
 }
 
 class UpdateChecker extends React.Component {

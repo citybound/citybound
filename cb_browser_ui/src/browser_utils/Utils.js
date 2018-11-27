@@ -10,3 +10,29 @@ export function fmtId(id) {
 
     return shortType + " #" + instance;// + "v" + version + "@" + machine;
 }
+
+import React from 'react';
+
+// TODO: move this to Monet and Stage respectively
+
+export const RenderContext = React.createContext("render");
+
+export function RenderLayer(props) {
+    return <RenderContext.Consumer>
+        {renderLayers => {
+            renderLayers.push({ ...props });
+            return null;
+        }}
+    </RenderContext.Consumer>
+}
+
+export const Interactive3DContext = React.createContext("interactive3D");
+
+export function Interactive3DShape(props) {
+    return <Interactive3DContext.Consumer>
+        {interactiveShapes => {
+            interactiveShapes.push({ ...props });
+            return null;
+        }}
+    </Interactive3DContext.Consumer>
+}

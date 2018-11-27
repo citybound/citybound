@@ -8,8 +8,10 @@ export const initialState = {
     speed: 1
 }
 
-export function render(state, setState) {
-    const windows = <div className="sim-time">
+export function Windows(props) {
+    const { state, setState } = props;
+
+    return <div className="sim-time">
         {(state.time.time[0] + "").padStart(2, "0")}
         <span className="sim-time-colon">:</span>
         {(state.time.time[1] + "").padStart(2, "0")}
@@ -24,7 +26,5 @@ export function render(state, setState) {
             }}
             tipFormatter={speed => speed ? `Speed: ${Math.pow(2, speed - 1)}x` : "Pause"}
         />
-    </div>;
-
-    return { windows }
+    </div>
 }

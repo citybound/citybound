@@ -4,6 +4,9 @@ import { vec3, mat4 } from 'gl-matrix';
 import uuid from '../uuid';
 import { solidColorShader } from 'monet';
 import * as PlanningMenu from './PlanningMenu';
+export const Tools = PlanningMenu.Tools;
+import React from 'react'
+import { RenderLayer, Interactive3DShape } from '../browser_utils/Utils';
 import { vec2 } from 'gl-matrix';
 
 const LAND_USES = [
@@ -226,9 +229,14 @@ const shadersForLandUses = {
 // TODO: share constants with Rust somehow
 const LANE_DISTANCE = 0.8 * 3.9;
 
-export function render(state, setState) {
+export function ShapesAndLayers(props) {
+    const { state, setState } = props;
     const controlPointsInstances = [];
     const controlPointsInteractables = [];
+
+    if (state.uiMode != "planning" || !state.planning.currentProject) {
+        return null;
+    }
 
     if (state.planning) {
         let gestures = Object.keys(state.planning.master.gestures).map(gestureId =>
@@ -263,16 +271,16 @@ export function render(state, setState) {
                             : (gesture.fromMaster ? colors.controlPointMaster : colors.controlPointCurrentProject))
                     ]);
 
-                    controlPointsInteractables.push({
-                        shape: {
+                    controlPointsInteractables.push(<Interactive3DShape
+                        shape={{
                             type: "circle",
                             center: [point[0], point[1], 0],
                             radius: 3
-                        },
-                        zIndex: 5,
-                        cursorHover: "grab",
-                        cursorActive: "grabbing",
-                        onEvent: e => {
+                        }}
+                        zIndex={5}
+                        cursorHover="grab"
+                        cursorActive="grabbing"
+                        onEvent={e => {
                             if (e.hover) {
                                 if (e.hover.end) {
                                     setState(state => update(state, {
@@ -314,7 +322,7 @@ export function render(state, setState) {
                                 }
                             }
                         }
-                    })
+                        } />)
                 }
             }
         }
@@ -326,18 +334,18 @@ export function render(state, setState) {
         for (let gestureId of Object.keys(state.planning.rendering.roadInfos)) {
             let { centerLine, outline, nLanesForward, nLanesBackward } = state.planning.rendering.roadInfos[gestureId];
 
-            roadCenterInteractables.push({
-                id: gestureId + "insert",
-                shape: {
+            roadCenterInteractables.push(<Interactive3DShape
+                id={gestureId + "insert"}
+                shape={{
                     type: "path",
                     path: centerLine,
                     maxDistanceLeft: 2,
                     maxDistanceRight: 2,
-                },
-                zIndex: 4,
-                cursorHover: "pointer",
-                cursorActive: "grabbing",
-                onEvent: e => {
+                }}
+                zIndex={4}
+                cursorHover="pointer"
+                cursorActive="grabbing"
+                onEvent={e => {
                     if (e.drag) {
                         if (e.drag.end) {
                             setState(insertControlPoint(state.planning.currentProject, gestureId, e.drag.end, true));
@@ -362,21 +370,20 @@ export function render(state, setState) {
                             }))
                         }
                     }
-                }
-            });
+                }} />);
 
-            roadCenterInteractables.push({
-                id: gestureId + "split",
-                shape: {
+            roadCenterInteractables.push(<Interactive3DShape
+                id={gestureId + "split"}
+                shape={{
                     type: "path",
                     path: centerLine,
                     maxDistanceLeft: LANE_DISTANCE * nLanesBackward,
                     maxDistanceRight: LANE_DISTANCE * nLanesForward,
-                },
-                zIndex: 3,
-                cursorHover: "col-resize",
-                cursorActive: "col-resize",
-                onEvent: e => {
+                }}
+                zIndex={3}
+                cursorHover="col-resize"
+                cursorActive="col-resize"
+                onEvent={e => {
                     if (e.drag) {
                         if (e.drag.end) {
                             setState(splitGesture(state.planning.currentProject, gestureId, e.drag.end, true));
@@ -401,21 +408,20 @@ export function render(state, setState) {
                             }))
                         }
                     }
-                }
-            })
+                }} />)
 
-            roadCenterInteractables.push({
-                id: gestureId + "changeNLanes",
-                shape: {
+            roadCenterInteractables.push(<Interactive3DShape
+                id={gestureId + "changeNLanes"}
+                shape={{
                     type: "path",
                     path: centerLine,
                     maxDistanceLeft: LANE_DISTANCE * nLanesBackward + 2,
                     maxDistanceRight: LANE_DISTANCE * nLanesForward + 2,
-                },
-                zIndex: 2,
-                cursorHover: "ew-resize",
-                cursorActive: "ew-resize",
-                onEvent: e => {
+                }}
+                zIndex={2}
+                cursorHover="ew-resize"
+                cursorActive="ew-resize"
+                onEvent={e => {
                     if (e.drag) {
                         if (e.drag.end || e.drag.now) {
                             const position = e.drag.end || e.drag.now;
@@ -455,7 +461,7 @@ export function render(state, setState) {
                         }
                     }
                 }
-            })
+                } />)
         }
     }
 
@@ -466,67 +472,55 @@ export function render(state, setState) {
         buildingOutlinesGroup } = state.planning.rendering.currentPreview;
 
     const layers = [
-        {
-            renderOrder: renderOrder.addedGesturesAsphalt,
-            decal: true,
-            batches: [...lanesToConstructGroups.values()].map(groupMesh => ({
+        <RenderLayer renderOrder={renderOrder.addedGesturesAsphalt}
+            decal={true}
+            batches={[...lanesToConstructGroups.values()].map(groupMesh => ({
                 mesh: groupMesh,
                 instances: plannedAsphaltInstance
-            }))
-        },
-        {
-            renderOrder: renderOrder.addedGesturesMarker,
-            decal: true,
-            batches: [...lanesToConstructMarkerGroups.values()].map(groupMesh => ({
+            }))} />,
+        <RenderLayer renderOrder={renderOrder.addedGesturesMarker}
+            decal={true}
+            batches={[...lanesToConstructMarkerGroups.values()].map(groupMesh => ({
                 mesh: groupMesh,
                 instances: plannedRoadMarkerInstance
-            }))
-        },
-        {
-            renderOrder: renderOrder.addedGesturesMarkerGap,
-            decal: true,
-            batches: [...lanesToConstructMarkerGapsGroups.values()].map(groupMesh => ({
+            }))} />,
+        <RenderLayer renderOrder={renderOrder.addedGesturesMarkerGap}
+            decal={true}
+            batches={[...lanesToConstructMarkerGapsGroups.values()].map(groupMesh => ({
                 mesh: groupMesh,
                 instances: plannedAsphaltInstance
-            }))
-        },
-        ...[...zoneGroups.entries()].map(([landUse, groups]) => ({
-            renderOrder: renderOrder.addedGesturesZones,
-            decal: true,
-            batches: [...groups.values()].map(groupMesh => ({
+            }))} />,
+        [...zoneGroups.entries()].map(([landUse, groups]) => <RenderLayer renderOrder={renderOrder.addedGesturesZones}
+            decal={true}
+            batches={[...groups.values()].map(groupMesh => ({
                 mesh: groupMesh,
                 instances: landUseInstances.get(landUse)
-            }))
-        })),
-        ...[...zoneGroups.entries()].reverse().map(([landUse, groups]) => ({
-            renderOrder: renderOrder.addedGesturesZonesStipple,
-            decal: true,
-            shader: shadersForLandUses[landUse],
-            batches: [...groups.values()].map(groupMesh => ({
+            }))} />
+        ),
+        [...zoneGroups.entries()].reverse().map(([landUse, groups]) => <RenderLayer renderOrder={renderOrder.addedGesturesZonesStipple}
+            decal={true}
+            shader={shadersForLandUses[landUse]}
+            batches={[...groups.values()].map(groupMesh => ({
                 mesh: groupMesh,
                 instances: landUseInstances.get(landUse)
-            }))
-        })),
-        ...[...zoneOutlineGroups.entries()].map(([landUse, groups]) => ({
-            renderOrder: renderOrder.addedGesturesZonesOutlines,
-            decal: true,
-            batches: [...groups.values()].map(groupMesh => ({
+            }))} />
+        ),
+        [...zoneOutlineGroups.entries()].map(([landUse, groups]) => <RenderLayer renderOrder={renderOrder.addedGesturesZonesOutlines}
+            decal={true}
+            batches={[...groups.values()].map(groupMesh => ({
                 mesh: groupMesh,
                 instances: landUseInstances.get(landUse)
-            }))
-        })),
-        {
-            renderOrder: renderOrder.buildingOutlines,
-            decal: true,
-            batches: [...buildingOutlinesGroup.values()].map(groupMesh => ({
+            }))} />
+        ),
+        <RenderLayer renderOrder={renderOrder.buildingOutlines}
+            decal={true}
+            batches={[...buildingOutlinesGroup.values()].map(groupMesh => ({
                 mesh: groupMesh,
                 instances: buildingOutlinesInstance
-            }))
-        },
-        {
-            renderOrder: renderOrder.gestureInteractables,
-            decal: true,
-            batches: [{
+            }))} />,
+        <RenderLayer renderOrder={renderOrder.gestureInteractables}
+            decal={true}
+            batches={[{
                 mesh: state.planning.rendering.staticMeshes.GestureDot,
                 instances: new Float32Array(controlPointsInstances)
             },
@@ -542,12 +536,10 @@ export function render(state, setState) {
                         ...colors.controlPointCurrentProject
                     ])
                 }
-            ] : [])]
-        },
-        {
-            renderOrder: renderOrder.gestureInteractables,
-            decal: true,
-            batches: [
+            ] : [])]} />,
+        <RenderLayer renderOrder={renderOrder.gestureInteractables}
+            decal={true}
+            batches={[
                 ...(state.planning.hoveredSplitPoint ? [
                     {
                         mesh: state.planning.rendering.staticMeshes.GestureSplit,
@@ -560,12 +552,10 @@ export function render(state, setState) {
                             ...colors.controlPointCurrentProject
                         ])
                     }
-                ] : [])]
-        },
-        {
-            renderOrder: renderOrder.gestureInteractables,
-            decal: true,
-            batches: [
+                ] : [])]} />,
+        <RenderLayer renderOrder={renderOrder.gestureInteractables}
+            decal={true}
+            batches={[
                 ...(state.planning.hoveredChangeNLanesPoint ? [
                     {
                         mesh: state.planning.rendering.staticMeshes.GestureChangeNLanes,
@@ -578,24 +568,24 @@ export function render(state, setState) {
                             ...colors.controlPointCurrentProject
                         ])
                     }
-                ] : [])]
-        }
+                ] : [])]} />
     ];
 
     // TODO: invent a better way to preserve identity
 
     const interactables = [
-        ...(state.planning.canvasMode.currentGesture ? [] : controlPointsInteractables),
-        ...(state.planning.canvasMode.currentGesture ? [] : roadCenterInteractables),
-        {
-            id: "planningCanvas",
-            shape: {
+        state.planning.canvasMode.currentGesture ? null : controlPointsInteractables,
+        state.planning.canvasMode.currentGesture ? null : roadCenterInteractables,
+        <Interactive3DShape
+            id="planningCanvas"
+            key="planningCanvas"
+            shape={{
                 type: "everywhere",
-            },
-            zIndex: 1,
-            cursorHover: state.uiMode == "planning" ? "crosshair" : "normal",
-            cursorActive: "pointer",
-            onEvent: e => {
+            }}
+            zIndex={1}
+            cursorHover={state.uiMode == "planning" ? "crosshair" : "normal"}
+            cursorActive="pointer"
+            onEvent={e => {
                 const canvasMode = state.planning.canvasMode;
                 if (e.hover && e.hover.now) {
                     if (canvasMode.currentGesture) {
@@ -623,14 +613,13 @@ export function render(state, setState) {
                     }
                 }
             }
-        }
+            } />
     ];
 
-    let rendered = state.uiMode == "planning" && state.planning.currentProject
-        ? { layers, interactables }
-        : {};
-
-    return Object.assign(rendered, PlanningMenu.render(state, setState));
+    return [
+        interactables,
+        layers
+    ]
 }
 
 export function bindInputs(state, setState) {

@@ -1,7 +1,8 @@
 import colors from '../colors';
 import renderOrder from '../renderOrder';
-import update from 'immutability-helper';
 import carMesh from './carMesh';
+import { RenderLayer } from '../browser_utils/Utils';
+import React from 'react';
 
 export const initialState = {
     rendering: {
@@ -18,42 +19,37 @@ export const initialState = {
 const asphaltInstance = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.asphalt]);
 const roadMarkerInstance = new Float32Array([0.0, 0.0, 0.0, 1.0, 0.0, ...colors.roadMarker]);
 
-export function render(state, _setState) {
+export function Layers(props) {
+    const { state } = props
 
-    const layers = [
-        {
-            renderOrder: renderOrder.asphalt,
-            decal: true,
-            batches: [...state.transport.rendering.laneAsphaltGroups.values()].map(groupMesh => ({
+    return [
+        <RenderLayer
+            renderOrder={renderOrder.asphalt}
+            decal={true}
+            batches={[...state.transport.rendering.laneAsphaltGroups.values()].map(groupMesh => ({
                 mesh: groupMesh,
                 instances: asphaltInstance
-            }))
-        },
-        {
-            renderOrder: renderOrder.asphaltMarker,
-            decal: true,
-            batches: [...state.transport.rendering.laneMarkerGroups.values()].map(groupMesh => ({
+            }))} />,
+        <RenderLayer
+            renderOrder={renderOrder.asphaltMarker}
+            decal={true}
+            batches={[...state.transport.rendering.laneMarkerGroups.values()].map(groupMesh => ({
                 mesh: groupMesh,
                 instances: roadMarkerInstance
-            }))
-        },
-        {
-            renderOrder: renderOrder.asphaltMarkerGap,
-            decal: true,
-            batches: [...state.transport.rendering.laneMarkerGapGroups.values()].map(groupMesh => ({
+            }))} />,
+        <RenderLayer
+            renderOrder={renderOrder.asphaltMarkerGap}
+            decal={true}
+            batches={[...state.transport.rendering.laneMarkerGapGroups.values()].map(groupMesh => ({
                 mesh: groupMesh,
                 instances: asphaltInstance
-            }))
-        },
-        {
-            renderOrder: renderOrder.cars,
-            decal: false,
-            batches: [{
+            }))} />,
+        <RenderLayer
+            renderOrder={renderOrder.cars}
+            decal={false}
+            batches={[{
                 mesh: state.transport.rendering.staticMeshes.car,
                 instances: state.transport.rendering.carInstances
-            }]
-        }
+            }]} />
     ];
-
-    return { layers };
 }

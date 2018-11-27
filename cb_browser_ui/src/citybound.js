@@ -41,6 +41,7 @@ import * as Time from './time_browser/Time';
 import * as Debug from './debug/Debug';
 import * as Settings from './settings';
 import * as Menu from './menu';
+import * as Utils from './browser_utils/Utils';
 import Stage from './stage/Stage';
 import colors from './colors';
 window.update = update;
@@ -76,8 +77,6 @@ require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBro
                 },
                 time: Time.initialState,
                 camera: Camera.initialState,
-                requestedProjections: {},
-                calculatedProjectsions: {},
 
                 menu: Menu.initalState,
                 settings: Settings.loadSettings(settingSpecs)
@@ -101,26 +100,8 @@ require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBro
         }
 
         render() {
-            const uiAspects = [
-                Planning,
-                Transport,
-                LandUse,
-                Households,
-                Debug,
-                Time,
-            ];
-
-            const uiAspectsRendered = uiAspects.map(aspect => aspect.render(this.state, this.boundSetState));
-            const { tools: menuTools, windows: menuWindows } = Menu.render(this.state, settingSpecs, this.boundSetState);
-
-            const layers = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.layers || []), []);
-            const interactables = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.interactables || []), []);
-            const tools = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.tools || []), []).concat(menuTools);
-            const windows = uiAspectsRendered.reduce((acc, aspect) => acc.concat(aspect.windows || []), []).concat(menuWindows);
-
-            layers.sort((a, b) => a.renderOrder - b.renderOrder)
-
-            const verticalFov = this.state.settings.camera.verticalFov * Math.PI;
+            let layers = [];
+            let interactive3Dshapes = []
 
             return <div style={{ width: "100%", height: "100%" }}>
                 <ContainerDimensions style={{ width: "100%", height: "100%", position: "relative" }}>{({ width, height }) =>
@@ -128,16 +109,34 @@ require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBro
                         {({ project2dTo3d, project3dTo2d, view, perspective }) =>
                             <div style={{ width, height }}>
                                 <div key="ui2dTools" className="ui2dTools">
-                                    {tools}
+                                    <Planning.Tools state={this.state} setState={this.boundSetState} />
+                                    <Menu.Tools state={this.state} setState={this.boundSetState} />
                                 </div>
                                 <div key="ui2d" className="ui2d">
-                                    {windows}
+                                    <Time.Windows state={this.state} setState={this.boundSetState} />
+                                    <Debug.Windows state={this.state} setState={this.boundSetState} />
                                     <Households.Windows state={this.state} setState={this.boundSetState} project3dTo2d={project3dTo2d} />
+                                    <Menu.Windows state={this.state} setState={this.boundSetState} settingSpecs={settingSpecs} />
                                 </div>
+
+                                <Utils.Interactive3DContext.Provider value={interactive3Dshapes}>
+                                    <Utils.RenderContext.Provider value={layers}>
+
+                                        <Households.Shapes state={this.state} setState={this.boundSetState} />
+
+                                        <Planning.ShapesAndLayers state={this.state} setState={this.boundSetState} />
+
+                                        <LandUse.Layers state={this.state} />
+                                        <Transport.Layers state={this.state} />
+
+                                    </Utils.RenderContext.Provider>
+                                </Utils.Interactive3DContext.Provider>
+
                                 <Monet key="canvas" ref={this.renderer}
                                     retinaFactor={this.state.settings.rendering.retinaFactor}
                                     clearColor={[...colors.grass, 1.0]}
                                     {... { layers, width, height, viewMatrix: view, perspectiveMatrix: perspective }} />
+
                                 <Stage key="stage"
                                     requestedProjections={this.state.requestedProjections}
                                     style={{ width, height, position: "absolute", top: 0, left: 0 }}
@@ -149,7 +148,7 @@ require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBro
                                     onMouseMove={e => {
                                         Camera.onMouseMove(e, this.state, this.boundSetState);
                                     }}
-                                    {...{ interactables, width, height, project2dTo3d }}
+                                    {...{ interactables: interactive3Dshapes, width, height, project2dTo3d }}
                                 />
                             </div>
                         }</Camera.Camera>

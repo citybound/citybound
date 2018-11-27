@@ -24,7 +24,9 @@ export const settingsSpec = {
 
 let refreshInterval = null;
 
-export function render(state, setState) {
+export function Windows(props) {
+    const { state, setState } = props;
+
     if (state.debug.show) {
         if (!refreshInterval) {
             refreshInterval = setInterval(() => cbRustBrowser.get_newest_log_messages(), 300);
@@ -46,8 +48,8 @@ export function render(state, setState) {
                 ? "Waiting for server... " + (-turnDiff)
                 : ""));
 
-    const windows = [
-        state.debug.show && <div key="debug" className="window debug">
+    return state.debug.show && [
+        <div key="debug" className="window debug">
             <h1>Debugging</h1>
             <details>
                 <summary>Debug Actions</summary>
@@ -121,10 +123,7 @@ export function render(state, setState) {
                 )}</div>
             </details>
         </div>,
-        connectionIssue && <div className="window connection">{connectionIssue}</div>
-    ];
-
-    return { windows }
+        connectionIssue && <div className="window connection">{connectionIssue}</div>];
 }
 
 export function bindInputs(state, setState) {

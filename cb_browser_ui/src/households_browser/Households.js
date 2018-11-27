@@ -1,6 +1,7 @@
 import React from 'react';
 import update from 'immutability-helper';
 import { fmtId } from '../browser_utils/Utils';
+import { Interactive3DShape } from '../browser_utils/Utils';
 
 export const initialState = {
     buildingPositions: {},
@@ -12,46 +13,48 @@ export const initialState = {
 };
 
 export function render(state, setState) {
+    return {};
+}
+
+export function Shapes(props) {
+    const { state, setState } = props;
     if (state.uiMode != "inspection") {
-        return {}
-    }
+        return null;
+    } else {
+        return Object.keys(state.households.buildingShapes).map(buildingId => {
+            const buildingShape = state.households.buildingShapes[buildingId];
 
-    const interactables = Object.keys(state.households.buildingShapes).map(buildingId => {
-        const buildingShape = state.households.buildingShapes[buildingId];
-
-        return {
-            id: buildingId,
-            shape: {
-                type: "polygon",
-                area: buildingShape,
-            },
-            zIndex: 2,
-            cursorHover: "pointer",
-            cursorActive: "pointer",
-            onEvent: e => {
-                if (e.hover) {
-                    if (e.hover.now && !state.households.inspectedBuildingPinned) {
+            return <Interactive3DShape
+                id={buildingId}
+                shape={{
+                    type: "polygon",
+                    area: buildingShape,
+                }}
+                zIndex={2}
+                cursorHover="pointer"
+                cursorActive="pointer"
+                onEvent={e => {
+                    if (e.hover) {
+                        if (e.hover.now && !state.households.inspectedBuildingPinned) {
+                            setState(oldState => update(oldState, {
+                                households: { inspectedBuilding: { $set: buildingId } }
+                            }))
+                        } else if (e.hover.end && !state.households.inspectedBuildingPinned) {
+                            setState(oldState => update(oldState, {
+                                households: {
+                                    inspectedBuilding: { $set: null },
+                                    inspectedBuildingState: { $set: null },
+                                }
+                            }))
+                        }
+                    } else if (e.drag && e.drag.end && !state.households.inspectedBuildingPinned) {
                         setState(oldState => update(oldState, {
-                            households: { inspectedBuilding: { $set: buildingId } }
-                        }))
-                    } else if (e.hover.end && !state.households.inspectedBuildingPinned) {
-                        setState(oldState => update(oldState, {
-                            households: {
-                                inspectedBuilding: { $set: null },
-                                inspectedBuildingState: { $set: null },
-                            }
+                            households: { inspectedBuildingPinned: { $set: true } }
                         }))
                     }
-                } else if (e.drag && e.drag.end && !state.households.inspectedBuildingPinned) {
-                    setState(oldState => update(oldState, {
-                        households: { inspectedBuildingPinned: { $set: true } }
-                    }))
-                }
-            }
-        }
-    })
-
-    return { interactables };
+                }} />
+        });
+    }
 }
 
 export function Windows(props) {
