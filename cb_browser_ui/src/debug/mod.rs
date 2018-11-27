@@ -125,7 +125,8 @@ pub fn get_newest_log_messages() {
 
     let last_log_entry: u32 = js! {
         return window.cbReactApp.state.debug.logLastEntry;
-    }.try_into()
+    }
+    .try_into()
     .unwrap();
 
     // TODO: ugly
