@@ -144,11 +144,9 @@ pub fn simplify_road_path(points: CVec<P2>) -> CVec<P2> {
                 .flat_map(|segment| match segment {
                     ArcOrLineSegment::Line(line) => vec![line.start()],
                     ArcOrLineSegment::Arc(arc) => vec![arc.start(), arc.apex()],
-                })
-                .chain(points.last().cloned())
+                }).chain(points.last().cloned())
                 .collect()
-        })
-        .unwrap_or(points)
+        }).unwrap_or(points)
 }
 
 pub fn gesture_intent_smooth_paths(
@@ -171,8 +169,7 @@ pub fn gesture_intent_smooth_paths(
                 }
                 _ => None,
             },
-        )
-        .collect::<Vec<_>>()
+        ).collect::<Vec<_>>()
 }
 
 #[allow(clippy::cyclomatic_complexity)]
@@ -182,21 +179,32 @@ pub fn calculate_prototypes(
 ) -> Result<Vec<Prototype>, AreaError> {
     let gesture_intent_smooth_paths = gesture_intent_smooth_paths(history);
 
-    let gesture_areas_for_intersection = gesture_intent_smooth_paths
-        .iter()
-        .map(|&(gesture_id, step_id, road_intent, ref path)| {
-            (
-                Band::new_asymmetric(
-                    path.clone(),
-                    f32::from(road_intent.n_lanes_backward) * LANE_DISTANCE + 0.4 * LANE_DISTANCE,
-                    f32::from(road_intent.n_lanes_forward) * LANE_DISTANCE + 0.4 * LANE_DISTANCE,
+    let gesture_areas_for_intersection =
+        gesture_intent_smooth_paths
+            .iter()
+            .map(|&(gesture_id, step_id, road_intent, ref path)| {
+                (
+                    Band::new_asymmetric(
+                        path.clone(),
+                        f32::from(road_intent.n_lanes_backward) * LANE_DISTANCE
+                            + if road_intent.n_lanes_backward > 0 {
+                                1.2 * LANE_DISTANCE
+                            } else {
+                                0.4 * LANE_DISTANCE
+                            },
+                        f32::from(road_intent.n_lanes_forward) * LANE_DISTANCE + if road_intent
+                            .n_lanes_forward
+                            > 0
+                        {
+                            1.2 * LANE_DISTANCE
+                        } else {
+                            0.4 * LANE_DISTANCE
+                        },
+                    ).as_area(),
+                    gesture_id,
+                    step_id,
                 )
-                .as_area(),
-                gesture_id,
-                step_id,
-            )
-        })
-        .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
 
     let mut road_intersection_embedding = AreaEmbedding::new(15.0);
 
@@ -243,17 +251,13 @@ pub fn calculate_prototypes(
                                         point + half_depth + width_forward,
                                         point - half_depth + width_forward,
                                         point - half_depth - width_backward,
-                                    ]
-                                    .into(),
-                                )
-                                .expect("End intersection path should be valid"),
-                            )
-                            .expect("End intersection path should be closed"),
+                                    ].into(),
+                                ).expect("End intersection path should be valid"),
+                            ).expect("End intersection path should be closed"),
                         ),
                         (gesture_id, step_id, role),
                     )
-                })
-                .collect::<Vec<_>>()
+                }).collect::<Vec<_>>()
         },
     );
 
@@ -285,8 +289,7 @@ pub fn calculate_prototypes(
                 })),
                 id: influenced_id,
             }
-        })
-        .collect();
+        }).collect();
 
     let intersected_lane_paths = {
         let raw_lane_paths = gesture_intent_smooth_paths
@@ -301,14 +304,12 @@ pub fn calculate_prototypes(
                                 CENTER_LANE_DISTANCE / 2.0 + f32::from(lane_i) * LANE_DISTANCE,
                                 lane_i as i8 + 1,
                             )
-                        })
-                        .chain((0..road_intent.n_lanes_backward).into_iter().map(|lane_i| {
+                        }).chain((0..road_intent.n_lanes_backward).into_iter().map(|lane_i| {
                             (
                                 -(CENTER_LANE_DISTANCE / 2.0 + f32::from(lane_i) * LANE_DISTANCE),
                                 -(lane_i as i8) - 1,
                             )
-                        }))
-                        .filter_map(|(offset, offset_i)| {
+                        })).filter_map(|(offset, offset_i)| {
                             path.shift_orthogonally(offset).map(|path| {
                                 (
                                     if offset < 0.0 {
@@ -320,11 +321,9 @@ pub fn calculate_prototypes(
                                     if offset < 0.0 { path.reverse() } else { path },
                                 )
                             })
-                        })
-                        .collect::<Vec<_>>()
+                        }).collect::<Vec<_>>()
                 },
-            )
-            .collect::<Vec<_>>();
+            ).collect::<Vec<_>>();
 
         raw_lane_paths
             .into_iter()
@@ -425,10 +424,8 @@ pub fn calculate_prototypes(
                         raw_lane_path
                             .subsection(exit_distance, entry_distance)
                             .map(|subsection| (subsection, subsection_id))
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>()
+                    }).collect::<Vec<_>>()
+            }).collect::<Vec<_>>()
     };
 
     let switch_lane_paths = {
@@ -480,8 +477,7 @@ pub fn calculate_prototypes(
                         false
                     }
                 })
-            })))
-            .get_unique_pieces()
+            }))).get_unique_pieces()
             .into_iter()
             .filter_map(|(piece, piece_area_label)| {
                 if let SwitchLaneLabel::Right(own_id) = piece_area_label.own_right_label {
@@ -527,18 +523,15 @@ pub fn calculate_prototypes(
                     ))),
                     id,
                 }),
-        )
-        .chain(switch_lane_paths.into_iter().map(|(path, id)| Prototype {
+        ).chain(switch_lane_paths.into_iter().map(|(path, id)| Prototype {
             kind: PrototypeKind::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(path))),
             id,
-        }))
-        .chain(
+        })).chain(
             gesture_areas_for_intersection
                 .into_iter()
                 .map(|(shape, gesture_id, step_id)| Prototype {
                     kind: PrototypeKind::Road(RoadPrototype::PavedArea(shape)),
                     id: PrototypeID::from_influences((gesture_id, step_id)),
                 }),
-        )
-        .collect())
+        ).collect())
 }

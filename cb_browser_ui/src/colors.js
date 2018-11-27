@@ -50,7 +50,7 @@ const grass = [0.79, 0.88, 0.67];
 
 export default {
     grass,
-    asphalt: [0.7, 0.7, 0.7],
+    asphalt: [0.6, 0.6, 0.6],
     roadMarker: [1.0, 1.0, 1.0],
 
     WhiteWall: [0.95, 0.95, 0.95],
