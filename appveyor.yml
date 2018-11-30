@@ -25,6 +25,6 @@ deploy:
     secure: jg+s3osFzmQXcD8igyJe3uuCdDdECyeuhvG3XSaVEF0=
   secret_access_key:
     secure: w0s1TKSKrKsI24IImGeX2EMeLoLgEckwTB50oBRO2PeFU0nbJLCT8nS9c6SQGVw6
-  bucket: citybound.livebuilds
-  region: eu-west-1
+  bucket: citybound-livebuilds
+  region: us-east-1
   folder: /

@@ -32,7 +32,7 @@ cache:
 
 addons:
   artifacts:
-    s3_region: "eu-west-1"
+    s3_region: "us-east-1"
     debug: true
     paths:
     - $(ls *-linux.tar.gz | tr "\n" ":")
