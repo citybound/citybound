@@ -113,7 +113,7 @@ impl TransportUI for BrowserTransportUI {
                 .lane_marker_gaps_grouper
                 .update(None, Some((id, switch_marker_gap_mesh(lane_path))));
 
-            js!{
+            js! {
                 window.cbReactApp.boundSetState(oldState => update(oldState, {
                     transport: {rendering: {
                         laneMarkerGapGroups: {
@@ -129,7 +129,7 @@ impl TransportUI for BrowserTransportUI {
             let updated_asphalt_groups = self.asphalt_grouper.update(None, Some((id, mesh)));
 
             if on_intersection {
-                js!{
+                js! {
                     window.cbReactApp.boundSetState(oldState => update(oldState, {
                         transport: {rendering: {
                             laneAsphaltGroups: {
@@ -145,7 +145,7 @@ impl TransportUI for BrowserTransportUI {
                 let updated_lane_marker_groups = self
                     .lane_marker_grouper
                     .update(None, Some((id, marker_meshes.0 + marker_meshes.1)));
-                js!{
+                js! {
                     window.cbReactApp.boundSetState(oldState => update(oldState, {
                         transport: {rendering: {
                             laneAsphaltGroups: {
@@ -176,7 +176,7 @@ impl TransportUI for BrowserTransportUI {
             let updated_lane_marker_gaps_groups =
                 self.lane_marker_gaps_grouper.update(Some(id), None);
 
-            js!{
+            js! {
                 window.cbReactApp.boundSetState(oldState => update(oldState, {
                     transport: {rendering: {
                         laneMarkerGapGroups: {
@@ -191,7 +191,7 @@ impl TransportUI for BrowserTransportUI {
             let updated_asphalt_groups = self.asphalt_grouper.update(Some(id), None);
 
             if on_intersection {
-                js!{
+                js! {
                     window.cbReactApp.boundSetState(oldState => update(oldState, {
                         transport: {rendering: {
                             laneAsphaltGroups: {
@@ -204,7 +204,7 @@ impl TransportUI for BrowserTransportUI {
                 }
             } else {
                 let updated_lane_marker_groups = self.lane_marker_grouper.update(Some(id), None);
-                js!{
+                js! {
                     window.cbReactApp.boundSetState(oldState => update(oldState, {
                         transport: {rendering: {
                             laneAsphaltGroups: {

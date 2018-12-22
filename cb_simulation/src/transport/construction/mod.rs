@@ -23,11 +23,13 @@ MIN_SWITCHING_LANE_LENGTH};
 impl RoadPrototype {
     pub fn construct(&self, report_to: ConstructionID, world: &mut World) -> CVec<ConstructableID> {
         match *self {
-            RoadPrototype::Lane(LanePrototype(ref path, _)) => vec![
-                LaneID::spawn_and_connect(path.clone(), false, CVec::new(), report_to, world)
-                    .into(),
-            ]
-            .into(),
+            RoadPrototype::Lane(LanePrototype(ref path, _)) => {
+                vec![
+                    LaneID::spawn_and_connect(path.clone(), false, CVec::new(), report_to, world)
+                        .into(),
+                ]
+                .into()
+            }
             RoadPrototype::SwitchLane(SwitchLanePrototype(ref path)) => {
                 vec![SwitchLaneID::spawn_and_connect(path.clone(), report_to, world).into()].into()
             }

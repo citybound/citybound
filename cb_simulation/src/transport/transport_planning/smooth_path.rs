@@ -72,9 +72,7 @@ impl PartialPath {
                         end: original_curve_end,
                         maybe_end_direction,
                         ref targets,
-                    }
-                        if targets.len() >= 2 =>
-                    {
+                    } if targets.len() >= 2 => {
                         #[derive(Debug)]
                         enum LinesPart {
                             Line { start: P2, end: P2, points: Vec<P2> },
@@ -161,7 +159,8 @@ impl PartialPath {
                                                     })
                                             }
                                         },
-                                    ) {
+                                    )
+                                {
                                     middle_parts.push(LinesPart::Undetermined {
                                         points: latest_undetermined_points.clone(),
                                     });

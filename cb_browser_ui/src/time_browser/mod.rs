@@ -5,10 +5,7 @@ use stdweb::js_export;
 use SYSTEM;
 use browser_utils::{FrameListener, FrameListenerID};
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn set_sim_speed(new_speed: u16) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();

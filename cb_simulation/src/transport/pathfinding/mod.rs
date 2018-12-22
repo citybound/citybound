@@ -296,13 +296,16 @@ impl Node for Lane {
                 .position(|interaction| {
                     // TODO: ugly: untyped RawID shenanigans
                     interaction.partner_lane.as_raw() == from.as_raw()
-                }) {
+                })
+        {
             for (&destination, &(new_distance, new_distance_hops)) in new_routes.pairs() {
-                if destination.is_landmark() || new_distance_hops <= IDEAL_LANDMARK_RADIUS || self
-                    .pathfinding
-                    .location
-                    .map(|self_dest| self_dest.landmark == destination.landmark)
-                    .unwrap_or(false)
+                if destination.is_landmark()
+                    || new_distance_hops <= IDEAL_LANDMARK_RADIUS
+                    || self
+                        .pathfinding
+                        .location
+                        .map(|self_dest| self_dest.landmark == destination.landmark)
+                        .unwrap_or(false)
                 {
                     let insert = self
                         .pathfinding
@@ -404,11 +407,12 @@ impl Node for Lane {
                         hops_from_landmark < IDEAL_LANDMARK_RADIUS
                             && join_as.landmark.as_raw().instance_id < self.id.as_raw().instance_id
                     } else {
-                        hops_from_landmark < self.pathfinding.hops_from_landmark || self
-                            .pathfinding
-                            .learned_landmark_from
-                            .map(|learned_from| learned_from == from)
-                            .unwrap_or(false)
+                        hops_from_landmark < self.pathfinding.hops_from_landmark
+                            || self
+                                .pathfinding
+                                .learned_landmark_from
+                                .map(|learned_from| learned_from == from)
+                                .unwrap_or(false)
                     })
             })
             .unwrap_or(true);
@@ -564,14 +568,13 @@ impl Node for SwitchLane {
                     .pairs()
                     .map(|(&destination, &(distance, hops))| {
                         // TODO: ugly: untyped RawID shenanigans
-                        let change_cost =
-                            if from.as_raw()
-                                == self.connectivity.left.expect("should have left").0.as_raw()
-                            {
-                                LANE_CHANGE_COST_RIGHT
-                            } else {
-                                LANE_CHANGE_COST_LEFT
-                            };
+                        let change_cost = if from.as_raw()
+                            == self.connectivity.left.expect("should have left").0.as_raw()
+                        {
+                            LANE_CHANGE_COST_RIGHT
+                        } else {
+                            LANE_CHANGE_COST_LEFT
+                        };
                         (destination, (distance + change_cost, hops))
                     })
                     .collect(),

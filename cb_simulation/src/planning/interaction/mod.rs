@@ -378,7 +378,8 @@ impl PlanManager {
                                     (idx, point_before, point_after)
                                 })
                         })
-                }) {
+                })
+            {
                 let first_half = Gesture {
                     points: current_gesture.points[..split_at_idx]
                         .iter()

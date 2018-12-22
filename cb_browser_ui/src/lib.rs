@@ -31,23 +31,20 @@ pub mod browser_utils;
 // TODO: not thread safe for now
 static mut SYSTEM: *mut ActorSystem = 0 as *mut ActorSystem;
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn start() {
     panic::set_hook(Box::new(|info| console!(error, info.to_string())));
 
-    js!{ console.log("Before setup") }
+    js! { console.log("Before setup") }
 
-    let server_host = js!{
+    let server_host = js! {
         return window.location.hostname;
     }
     .into_string()
     .unwrap();
 
     let mut network_settings = ::std::collections::HashMap::from(
-        js!{
+        js! {
             return window.cbNetworkSettings;
         }
         .into_object()
@@ -75,7 +72,7 @@ pub fn start() {
     households_browser::setup(&mut system);
     vegetation_browser::setup(&mut system);
 
-    js!{
+    js! {
         window.cbTypeIdMapping = @{Serde(system.get_actor_type_id_to_name_mapping())}
     }
 
@@ -91,7 +88,7 @@ pub fn start() {
 
     system.process_all_messages();
 
-    js!{ console.log("After setup") }
+    js! { console.log("After setup") }
 
     let mut main_loop = MainLoop { skip_turns: 0 };
 
@@ -124,7 +121,7 @@ impl MainLoop {
 
         use ::stdweb::serde::Serde;
 
-        js!{
+        js! {
             window.cbReactApp.boundSetState(oldState => update(oldState, {
                 system: {
                     networkingTurns: {"$set": @{Serde(system.networking_debug_all_n_turns())}},
@@ -157,19 +154,13 @@ impl MainLoop {
 
 use stdweb::serde::Serde;
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn point_in_area(point: Serde<descartes::P2>, area: Serde<descartes::Area>) -> bool {
     use ::descartes::PointContainer;
     area.0.contains(point.0)
 }
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn point_close_to_path(
     point: Serde<descartes::P2>,
     path: Serde<descartes::LinePath>,

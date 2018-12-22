@@ -14,10 +14,7 @@ use browser_utils::{updated_groups_to_js, to_js_mesh, FrameListener, FrameListen
 use stdweb::js_export;
 use SYSTEM;
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn move_gesture_point(
     project_id: Serde<::planning::ProjectID>,
     gesture_id: Serde<::planning::GestureID>,
@@ -37,10 +34,7 @@ pub fn move_gesture_point(
     );
 }
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn start_new_gesture(
     project_id: Serde<::planning::ProjectID>,
     gesture_id: Serde<::planning::GestureID>,
@@ -59,10 +53,7 @@ pub fn start_new_gesture(
     )
 }
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn add_control_point(
     project_id: Serde<::planning::ProjectID>,
     gesture_id: Serde<::planning::GestureID>,
@@ -82,10 +73,7 @@ pub fn add_control_point(
     )
 }
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn insert_control_point(
     project_id: Serde<::planning::ProjectID>,
     gesture_id: Serde<::planning::GestureID>,
@@ -103,10 +91,7 @@ pub fn insert_control_point(
     )
 }
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn split_gesture(
     project_id: Serde<::planning::ProjectID>,
     gesture_id: Serde<::planning::GestureID>,
@@ -124,10 +109,7 @@ pub fn split_gesture(
     )
 }
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn set_n_lanes(
     project_id: Serde<::planning::ProjectID>,
     gesture_id: Serde<::planning::GestureID>,
@@ -149,40 +131,28 @@ pub fn set_n_lanes(
     )
 }
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn finish_gesture() {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
     ::planning::PlanManagerID::global_first(world).finish_gesture(::kay::MachineID(0), world)
 }
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn undo(project_id: Serde<::planning::ProjectID>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
     ::planning::PlanManagerID::global_first(world).undo(project_id.0, world)
 }
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn redo(project_id: Serde<::planning::ProjectID>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
     ::planning::PlanManagerID::global_first(world).redo(project_id.0, world)
 }
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn implement_project(project_id: Serde<::planning::ProjectID>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();

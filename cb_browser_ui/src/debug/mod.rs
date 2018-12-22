@@ -4,10 +4,7 @@ use stdweb::serde::Serde;
 use stdweb::js_export;
 use SYSTEM;
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn plan_grid(project_id: Serde<::planning::ProjectID>, n: usize, spacing: Serde<f32>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
@@ -49,10 +46,7 @@ pub fn plan_grid(project_id: Serde<::planning::ProjectID>, n: usize, spacing: Se
     }
 }
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn spawn_cars(tries_per_lane: usize) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
@@ -113,10 +107,7 @@ impl LogRecipient for LogUI {
     }
 }
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn get_newest_log_messages() {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();

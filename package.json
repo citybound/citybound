@@ -9,8 +9,10 @@
         "lint-clippy-server": "echo 'CHECKING BEST PRACTISES (cb_simulation)' && touch cb_simulation/src/lib.rs && cargo clippy",
         "lint-clippy-browser": "echo 'CHECKING BEST PRACTISES (cb_browser_ui) -- IGNORE js_export RELATED ERRORS' && touch cb_browser_ui/src/lib.rs && cd cb_browser_ui && (cargo clippy || true) && cd ..",
         "lint-clippy": "npm run lint-clippy-server && npm run lint-clippy-browser",
-        "lint": "npm run lint-clippy && echo 'CHECKING/FIXING FORMATTING' && cargo fmt -- ./cb_simulation/src/lib.rs ./cb_server/main.rs ./cb_browser_ui/src/lib.rs",
-        "lint-check": "npm run lint-clippy && echo 'CHECKING FORMATTING' && cargo fmt -- ./cb_simulation/src/lib.rs ./cb_server/main.rs ./cb_browser_ui/src/lib.rs  --check",
+        "lint-fmt": "echo 'CHECKING/FIXING FORMATTING' && cargo fmt -- ./cb_simulation/src/lib.rs ./cb_server/main.rs ./cb_browser_ui/src/lib.rs",
+        "lint-fmt-check": "echo 'CHECKING FORMATTING' && cargo fmt -- ./cb_simulation/src/lib.rs ./cb_server/main.rs ./cb_browser_ui/src/lib.rs  --check",
+        "lint": "npm run lint-clippy && npm run lint-fmt",
+        "lint-check": "npm run lint-clippy && npm run lint-fmt-check",
         "ensure-tooling": "node repo_scripts/tooling.js"
     }
 }

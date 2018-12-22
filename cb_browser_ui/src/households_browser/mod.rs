@@ -4,10 +4,7 @@ use stdweb::serde::Serde;
 use stdweb::js_export;
 use SYSTEM;
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn get_household_info(household_id: Serde<::economy::households::HouseholdID>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
@@ -36,7 +33,7 @@ impl HouseholdUI for BrowserHouseholdUI {
         core: &::economy::households::HouseholdCore,
         _world: &mut World,
     ) {
-        js!{
+        js! {
             window.cbReactApp.boundSetState(oldState => update(oldState, {
                 households: {
                     householdInfo: {

@@ -7,10 +7,7 @@ use browser_utils::to_js_mesh;
 use SYSTEM;
 use ::std::collections::HashMap;
 
-#[cfg_attr(
-    all(target_arch = "wasm32", target_os = "unknown"),
-    js_export
-)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn get_building_info(building_id: Serde<::land_use::buildings::BuildingID>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
@@ -46,12 +43,8 @@ impl LandUseUI for BrowserLandUseUI {
         style: ::land_use::buildings::BuildingStyle,
         world: &mut World,
     ) {
-        let meshes = ::land_use::buildings::architecture::build_building(
-            lot,
-            style,
-            households,
-            world,
-        );
+        let meshes =
+            ::land_use::buildings::architecture::build_building(lot, style, households, world);
 
         let material_updates: ::stdweb::Object = meshes
             .0
@@ -70,7 +63,7 @@ impl LandUseUI for BrowserLandUseUI {
             .collect::<HashMap<_, _>>()
             .into();
 
-        js!{
+        js! {
             window.cbReactApp.boundSetState(oldState => update(oldState, {
                 landUse: {rendering: @{material_updates}},
                 households: {
@@ -99,7 +92,7 @@ impl LandUseUI for BrowserLandUseUI {
             .map(|material| (material.to_string(), unset_op.clone()))
             .collect::<HashMap<_, _>>()
             .into();
-        js!{
+        js! {
             window.cbReactApp.boundSetState(oldState => update(oldState, {
                 landUse: {rendering: @{unsets}},
                 households: {buildingPositions: {"$unset": [@{Serde(id)}]}}
@@ -114,7 +107,7 @@ impl LandUseUI for BrowserLandUseUI {
         households: &CVec<::economy::households::HouseholdID>,
         _world: &mut World,
     ) {
-        js!{
+        js! {
             window.cbReactApp.boundSetState(oldState => update(oldState, {
                 households: {
                     inspectedBuildingState: {"$set": {

@@ -244,7 +244,8 @@ impl Lane {
                     ..
                 } => partner_lane == from,
                 _ => false,
-            }) {
+            })
+        {
             interaction.kind = InteractionKind::Next { green }
         } else {
             debug(
@@ -510,12 +511,13 @@ impl LaneLike for SwitchLane {
     ) {
         let from = maybe_from.expect("car has to come from somewhere on switch lane");
 
-        let from_left = from == self
-            .connectivity
-            .left
-            .expect("should have a left lane")
-            .0
-            .into();
+        let from_left = from
+            == self
+                .connectivity
+                .left
+                .expect("should have a left lane")
+                .0
+                .into();
         let side_multiplier = if from_left { -1.0 } else { 1.0 };
         let offset = self.interaction_to_self_offset(*car.position, from_left);
         self.microtraffic.cars.push(TransferringLaneCar {
