@@ -263,7 +263,7 @@ impl BrowserPlanningUI {
         {
             for (name, mesh) in static_meshes() {
                 js! {
-                    window.cbReactApp.setState(oldState => update(oldState, {
+                    window.cbReactApp.boundSetState(oldState => update(oldState, {
                         planning: {rendering: {staticMeshes: {
                             [@{name}]: {"$set": @{to_js_mesh(&mesh)}}
                         }}}
@@ -340,11 +340,12 @@ impl PlanningUI for BrowserPlanningUI {
         if !master_update.is_empty() {
             self.master_plan.apply_update(master_update);
             js! {
-                window.cbReactApp.setState(oldState => update(oldState, {
+                window.cbReactApp.boundSetState(oldState => update(oldState, {
                     planning: {
                         master: {"$set": @{Serde(&self.master_plan)}},
                     }
                 }));
+                console.log("Got master plan update");
             }
         }
         for (project_id, project_update) in project_updates.pairs() {
@@ -352,7 +353,7 @@ impl PlanningUI for BrowserPlanningUI {
                 ProjectUpdate::None => {}
                 ProjectUpdate::ChangedOngoing(new_ongoing) => {
                     js! {
-                        window.cbReactApp.setState(oldState => update(oldState, {
+                        window.cbReactApp.boundSetState(oldState => update(oldState, {
                             planning: {
                                 projects: {
                                     [@{Serde(*project_id)}]: {
@@ -361,6 +362,7 @@ impl PlanningUI for BrowserPlanningUI {
                                 }
                             }
                         }));
+                        console.log("Changed ongoing project");
                     }
                     self.projects
                         .get_mut(project_id)
@@ -369,25 +371,27 @@ impl PlanningUI for BrowserPlanningUI {
                 }
                 ProjectUpdate::ChangedCompletely(new_project) => {
                     js! {
-                        window.cbReactApp.setState(oldState => update(oldState, {
+                        window.cbReactApp.boundSetState(oldState => update(oldState, {
                             planning: {
                                 projects: {
                                     [@{Serde(*project_id)}]: {"$set": @{Serde(new_project)}}
                                 }
                             }
                         }));
+                        console.log("Replaced ongoing project");
                     }
                     self.projects.insert(*project_id, new_project.clone());
                 }
                 ProjectUpdate::Removed => {
                     js! {
-                       window.cbReactApp.setState(oldState => update(oldState, {
+                       window.cbReactApp.boundSetState(oldState => update(oldState, {
                            planning: {
                                projects: {
                                    "$unset": [@{Serde(*project_id)}]
                                }
                            }
                        }));
+                       console.log("Removed ongoing project");
                     }
                     self.projects.remove(project_id);
                 }
@@ -655,7 +659,7 @@ SwitchLanePrototype, IntersectionPrototype};
                 .collect();
 
         js! {
-            window.cbReactApp.setState(oldState => update(oldState, {
+            window.cbReactApp.boundSetState(oldState => update(oldState, {
                 planning: {rendering: {
                     currentPreview: {
                         lanesToConstructGroups: {

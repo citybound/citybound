@@ -1,15 +1,8 @@
-#![feature(custom_derive)]
 #![recursion_limit = "128"]
-#![feature(tool_lints)]
-// Enable this for memory tracking with Instruments/MacOS
-// and for much better stacktraces for memory issues
-#![cfg_attr(feature = "server", feature(alloc_system))]
-#[cfg(feature = "server")]
-extern crate alloc_system;
-
 extern crate ordered_float;
 extern crate itertools;
 extern crate rand;
+extern crate noise;
 extern crate fnv;
 extern crate roaring;
 extern crate uuid;
@@ -33,6 +26,7 @@ pub mod construction;
 pub mod economy;
 pub mod land_use;
 pub mod dimensions;
+pub mod environment;
 
 pub fn setup_common(system: &mut kay::ActorSystem) {
     for setup_fn in &[
@@ -43,6 +37,7 @@ pub fn setup_common(system: &mut kay::ActorSystem) {
         transport::setup,
         economy::setup,
         land_use::setup,
+        environment::setup,
     ] {
         setup_fn(system)
     }

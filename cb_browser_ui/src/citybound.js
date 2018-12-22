@@ -37,6 +37,7 @@ import * as Planning from './planning_browser/Planning';
 import * as Transport from './transport_browser/Transport';
 import * as LandUse from './land_use_browser/LandUse';
 import * as Households from './households_browser/Households';
+import * as Vegetation from './vegetation_browser/Vegetation';
 import * as Time from './time_browser/Time';
 import * as Debug from './debug/Debug';
 import * as Settings from './settings';
@@ -67,6 +68,7 @@ require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBro
                 transport: Transport.initialState,
                 landUse: LandUse.initialState,
                 households: Households.initialState,
+                vegetation: Vegetation.initialState,
                 debug: Debug.initialState,
                 uiMode: null,
                 system: {
@@ -84,6 +86,8 @@ require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBro
 
             this.renderer = React.createRef();
             this.boundSetState = this.setState.bind(this);
+            // this.pendingUpdaters = [];
+            // this.boundSetState = (updater) => this.pendingUpdaters.push(updater);
         }
 
         componentDidMount() {
@@ -93,6 +97,12 @@ require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBro
         }
 
         onFrame() {
+            // for (let pendingUpdater of this.pendingUpdaters) {
+            //     this.setState(pendingUpdater);
+            // }
+
+            // this.pendingUpdaters = [];
+
             if (this.state.rendering.enabled) {
                 Camera.onFrame(this.state, this.boundSetState);
                 this.renderer.current.renderFrame();
@@ -101,7 +111,7 @@ require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBro
 
         render() {
             let layers = [];
-            let interactive3Dshapes = []
+            let interactive3Dshapes = [];
 
             return <div style={{ width: "100%", height: "100%" }}>
                 <ContainerDimensions style={{ width: "100%", height: "100%", position: "relative" }}>{({ width, height }) =>
@@ -127,6 +137,7 @@ require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBro
                                         <Planning.ShapesAndLayers state={this.state} setState={this.boundSetState} />
 
                                         <LandUse.Layers state={this.state} />
+                                        <Vegetation.Layers state={this.state} />
                                         <Transport.Layers state={this.state} />
 
                                     </Utils.RenderContext.Provider>

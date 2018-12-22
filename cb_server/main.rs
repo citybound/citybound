@@ -40,6 +40,7 @@ fn main() {
         construction::spawn(world);
         transport::spawn(world, time);
         economy::spawn(world, time, plan_manager);
+        environment::vegetation::spawn(world, plan_manager);
         system.process_all_messages();
 
         let mut frame_counter = init::FrameCounter::new();

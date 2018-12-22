@@ -37,7 +37,7 @@ use time::ui::{TimeUI, TimeUIID};
 impl TimeUI for BrowserTimeUI {
     fn on_time_info(&mut self, current_instant: ::time::Instant, speed: u16, _world: &mut World) {
         js! {
-            window.cbReactApp.setState(oldState => update(oldState, {
+            window.cbReactApp.boundSetState(oldState => update(oldState, {
                 time: {
                     ticks: {"$set": @{current_instant.ticks() as u32}},
                     time: {"$set": @{

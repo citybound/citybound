@@ -8,6 +8,7 @@ use std::hash::Hash;
 
 use transport::transport_planning::{RoadIntent, RoadPrototype};
 use land_use::zone_planning::{ZoneIntent, BuildingIntent, LotPrototype};
+use environment::vegetation::{PlantIntent, PlantPrototype};
 use construction::ConstructionID;
 
 use log::{error, info};
@@ -52,6 +53,7 @@ pub enum GestureIntent {
     Road(RoadIntent),
     Zone(ZoneIntent),
     Building(BuildingIntent),
+    Plant(PlantIntent),
 }
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -192,8 +194,7 @@ impl PlanHistory {
                     } else {
                         None
                     }
-                })
-                .collect(),
+                }).collect(),
         }
     }
 
@@ -207,8 +208,7 @@ impl PlanHistory {
                 } else {
                     None
                 }
-            })
-            .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
 
         for gesture_id in gestures_to_drop {
             self.gestures.remove(gesture_id);
@@ -418,8 +418,7 @@ impl PlanResult {
                     IndependentActions(to_be_destructed),
                     IndependentActions(to_be_morphed),
                     IndependentActions(to_be_constructed),
-                ]
-                .into(),
+                ].into(),
             ),
             new_prototypes,
         )
@@ -441,8 +440,7 @@ impl PlanResult {
                 } else {
                     Some(*known_prototype_id)
                 }
-            })
-            .collect();
+            }).collect();
 
         let new_prototypes = self
             .prototypes
@@ -453,8 +451,7 @@ impl PlanResult {
                 } else {
                     Some(prototype.clone())
                 }
-            })
-            .collect();
+            }).collect();
 
         PlanResultUpdate {
             prototypes_to_drop,
@@ -493,6 +490,7 @@ impl Prototype {
 pub enum PrototypeKind {
     Road(RoadPrototype),
     Lot(LotPrototype),
+    Plant(PlantPrototype),
 }
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Debug)]
@@ -602,10 +600,8 @@ impl ActionGroups {
                                 None
                             }
                         }
-                    })
-                    .next()
-            })
-            .next()
+                    }).next()
+            }).next()
     }
 }
 
@@ -618,6 +614,7 @@ impl PlanHistory {
         for prototype_fn in &[
             ::transport::transport_planning::calculate_prototypes,
             ::land_use::zone_planning::calculate_prototypes,
+            ::environment::vegetation::calculate_prototypes,
         ] {
             let new_prototypes = prototype_fn(self, &result)?;
 
@@ -676,15 +673,13 @@ impl PlanManager {
             .iter()
             .rfold(None, |found, step| {
                 found.or_else(|| step.gestures.get(gesture_id))
-            })
-            .into_iter()
+            }).into_iter()
             .chain(
                 self.master_plan
                     .gestures
                     .get(gesture_id)
                     .map(|VersionedGesture(ref g, _)| g),
-            )
-            .next()
+            ).next()
             .expect("Expected gesture (that point should be added to) to exist!")
     }
 

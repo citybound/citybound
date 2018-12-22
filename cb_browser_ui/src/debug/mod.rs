@@ -90,7 +90,7 @@ impl LogRecipient for LogUI {
             const text = @{Serde(text)};
             if (window.cbReactApp.state.debug.logLastEntry == @{effective_last as u32}) {
                 // append
-                window.cbReactApp.setState(oldState => update(oldState, {
+                window.cbReactApp.boundSetState(oldState => update(oldState, {
                     debug: {
                         logLastEntry: {"$apply": n => n + @{entries.len() as u32}},
                         logEntries: {"$push": entries},
@@ -99,7 +99,7 @@ impl LogRecipient for LogUI {
                 }));
             } else {
                 // replace, keep offset
-                window.cbReactApp.setState(oldState => update(oldState, {
+                window.cbReactApp.boundSetState(oldState => update(oldState, {
                     debug: {
                         logLastEntry: {"$set": @{effective_last + entries.len() as u32}},
                         logTextStart: {"$set": @{effective_text_start}},

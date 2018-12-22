@@ -14,6 +14,7 @@ export default {
     addedGesturesMarkerGap: i++,
     buildingOutlines: i++,
     building3D: i++,
+    vegetation: i++,
     gestureInteractables: i++,
     cars: i++
 };

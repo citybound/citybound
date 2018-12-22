@@ -15,10 +15,6 @@ export const initialState = {
     rendering: initialRenderingState
 }
 
-export function render(state, _setState) {
-    return {}
-}
-
 import React from 'react';
 
 export function Layers(props) {

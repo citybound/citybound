@@ -17,6 +17,9 @@ impl Prototype {
             PrototypeKind::Lot(ref lot_prototype) => {
                 lot_prototype.construct(self.id, report_to, world)
             }
+            PrototypeKind::Plant(ref plant_prototype) => {
+                plant_prototype.construct(self.id, report_to, world)
+            }
         }
     }
 
@@ -27,6 +30,9 @@ impl Prototype {
             }
             (&PrototypeKind::Lot(ref self_lot), &PrototypeKind::Lot(ref other_lot)) => {
                 self_lot.morphable_from(other_lot)
+            }
+            (&PrototypeKind::Plant(ref self_plant), &PrototypeKind::Plant(ref other_plant)) => {
+                self_plant.morphable_from(other_plant)
             }
             _ => false,
         }

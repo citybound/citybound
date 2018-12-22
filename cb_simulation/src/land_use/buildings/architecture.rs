@@ -1,7 +1,7 @@
 use kay::{World, TypedID};
-use descartes::{N, P2, WithUniqueOrthogonal};
-use util::random::{Rng};
-use michelangelo::{Vertex, Mesh};
+use descartes::{N, P2, WithUniqueOrthogonal, LinePath, ClosedLinePath, PrimitiveArea, Area};
+use util::random::{Rng, seed};
+use michelangelo::{Vertex, Mesh, FlatSurface, Sculpture};
 
 use super::{Lot, BuildingStyle};
 
@@ -46,17 +46,33 @@ impl ::std::fmt::Display for BuildingMaterial {
 #[derive(Clone)]
 pub struct BuildingMesh(pub ::std::collections::HashMap<BuildingMaterial, Mesh>);
 
-pub fn build_building<R: Rng>(
+pub fn footprint_area(lot: &Lot, building_type: BuildingStyle, extra_padding: N) -> Area {
+    if let BuildingStyle::Field = building_type {
+        lot.area.clone()
+    } else {
+        let building_position = lot.center_point();
+        // TODO keep original building if lot changes
+        let mut rng = seed((building_position.x.to_bits(), building_position.y.to_bits()));
+
+        let (main_footprint, _entrance_footprint) =
+            generate_house_footprint(lot, extra_padding, &mut rng);
+
+        Area::new(vec![main_footprint.as_primitive_area()].into())
+    }
+}
+
+pub fn build_building(
     lot: &Lot,
     building_type: BuildingStyle,
     household_ids: &[::economy::households::HouseholdID],
-    rng: &mut R,
     world: &mut World,
 ) -> BuildingMesh {
     let building_position = lot.center_point();
+    // TODO keep original building if lot changes
+    let mut rng = seed((building_position.x.to_bits(), building_position.y.to_bits()));
     let building_orientation = lot.best_road_connection().1;
 
-    let (main_footprint, entrance_footprint) = generate_house_footprint(lot, rng);
+    let (main_footprint, entrance_footprint) = generate_house_footprint(lot, 0.0, &mut rng);
 
     match building_type {
         BuildingStyle::FamilyHouse => {
@@ -114,9 +130,10 @@ pub fn build_building<R: Rng>(
                 let farm_type_id = farm.as_raw().type_id;
                 if farm_type_id == grain_farm::GrainFarmID::local_first(world).as_raw().type_id {
                     BuildingMaterial::FieldWheat
-                } else if farm_type_id == vegetable_farm::VegetableFarmID::local_first(world)
-                    .as_raw()
-                    .type_id
+                } else if farm_type_id
+                    == vegetable_farm::VegetableFarmID::local_first(world)
+                        .as_raw()
+                        .type_id
                 {
                     BuildingMaterial::FieldPlant
                 } else {
@@ -218,39 +235,31 @@ pub struct Footprint {
 }
 
 impl Footprint {
+    fn as_primitive_area(&self) -> PrimitiveArea {
+        PrimitiveArea::new(
+            ClosedLinePath::new(
+                LinePath::new(
+                    vec![
+                        self.back_right,
+                        self.back_left,
+                        self.front_left,
+                        self.front_right,
+                        self.back_right,
+                    ]
+                    .into(),
+                )
+                .unwrap(),
+            )
+            .unwrap(),
+        )
+    }
+
     fn wall_mesh(&self, wall_height: N) -> Mesh {
-        let vertices = vec![
-            Vertex {
-                position: [self.back_right.x, self.back_right.y, 0.0],
-            },
-            Vertex {
-                position: [self.back_left.x, self.back_left.y, 0.0],
-            },
-            Vertex {
-                position: [self.front_left.x, self.front_left.y, 0.0],
-            },
-            Vertex {
-                position: [self.front_right.x, self.front_right.y, 0.0],
-            },
-            Vertex {
-                position: [self.back_right.x, self.back_right.y, wall_height],
-            },
-            Vertex {
-                position: [self.back_left.x, self.back_left.y, wall_height],
-            },
-            Vertex {
-                position: [self.front_left.x, self.front_left.y, wall_height],
-            },
-            Vertex {
-                position: [self.front_right.x, self.front_right.y, wall_height],
-            },
-        ];
+        let footprint_surface = FlatSurface::from_primitive_area(self.as_primitive_area(), 0.0);
 
-        let indices = vec![
-            0, 1, 4, 1, 5, 4, 1, 2, 5, 2, 6, 5, 2, 3, 6, 3, 7, 6, 3, 0, 7, 0, 4, 7,
-        ];
+        let wall_surface = footprint_surface.extrude(wall_height, 0.0).0;
 
-        Mesh::new(vertices, indices)
+        Sculpture::new(vec![wall_surface.into()]).to_mesh()
     }
 
     fn flat_roof_mesh(&self, base_height: N) -> Mesh {
@@ -311,13 +320,17 @@ impl Footprint {
     }
 }
 
-pub fn generate_house_footprint<R: Rng>(lot: &Lot, rng: &mut R) -> (Footprint, Footprint) {
+pub fn generate_house_footprint<R: Rng>(
+    lot: &Lot,
+    extra_padding: N,
+    rng: &mut R,
+) -> (Footprint, Footprint) {
     let building_position = lot.center_point();
     let building_orientation = lot.best_road_connection().1;
     let building_orientation_orth = building_orientation.orthogonal_right();
 
-    let footprint_width = 10.0 + rng.gen::<f32>() * 7.0;
-    let footprint_depth = 7.0 + rng.gen::<f32>() * 5.0;
+    let footprint_width = 10.0 + rng.gen::<f32>() * 7.0 + 2.0 * extra_padding;
+    let footprint_depth = 7.0 + rng.gen::<f32>() * 5.0 + 2.0 * extra_padding;
 
     let entrance_position = building_position
         + building_orientation_orth * (0.5 - 1.0 * rng.gen::<f32>()) * footprint_width

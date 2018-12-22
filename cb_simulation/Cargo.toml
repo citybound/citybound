@@ -9,6 +9,7 @@ build = "./build.rs"
 ordered-float = "1.0.1"
 itertools = "0.7.8"
 rand = { version = "0.5", features = ["stdweb"] }
+noise = { version = "0.5.1", default-features = false }
 fnv = "1.0.6"
 roaring = "0.5.2"
 serde = "1.0"
@@ -18,10 +19,10 @@ compact = { version = "0.2.13", features = ["serde-serialization"] }
 compact_macros = "0.1.0"
 kay = {version = "0.3.0", default-features = false, features = ["serde-serialization"] }
 descartes = {version = "0.1.16", features = ["compact_containers", "serde-serialization"]}
-michelangelo = {version = "0.1.4"}
+michelangelo = {path = "../../rust-libs/michelangelo"}
 
 [build-dependencies]
-kay_codegen = {version = "0.3.0", features = ["serde-serialization"]}
+kay_codegen = {version = "0.3.1", features = ["serde-serialization"]}
 
 [features]
 default = ["server"]

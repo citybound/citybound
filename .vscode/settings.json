@@ -1,6 +1,7 @@
 // Place your settings in this file to overwrite default and user settings.
 {
     "editor.formatOnSave": true,
-    "rust-client.channel": "nightly-2018-08-06",
+    "rust-client.channel": "nightly-2018-12-14",
+    "rust.cfg_test": false,
     "debug.allowBreakpointsEverywhere": true
 }

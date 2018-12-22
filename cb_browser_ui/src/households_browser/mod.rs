@@ -37,7 +37,7 @@ impl HouseholdUI for BrowserHouseholdUI {
         _world: &mut World,
     ) {
         js!{
-            window.cbReactApp.setState(oldState => update(oldState, {
+            window.cbReactApp.boundSetState(oldState => update(oldState, {
                 households: {
                     householdInfo: {
                         [@{Serde(id)}]: {"$set": {

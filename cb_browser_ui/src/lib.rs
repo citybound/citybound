@@ -19,6 +19,15 @@ use cb_simulation::*;
 
 use std::panic;
 
+pub mod planning_browser;
+pub mod debug;
+pub mod time_browser;
+pub mod households_browser;
+pub mod transport_browser;
+pub mod land_use_browser;
+pub mod vegetation_browser;
+pub mod browser_utils;
+
 // TODO: not thread safe for now
 static mut SYSTEM: *mut ActorSystem = 0 as *mut ActorSystem;
 
@@ -64,6 +73,7 @@ pub fn start() {
     time_browser::setup(&mut system);
     land_use_browser::setup(&mut system);
     households_browser::setup(&mut system);
+    vegetation_browser::setup(&mut system);
 
     js!{
         window.cbTypeIdMapping = @{Serde(system.get_actor_type_id_to_name_mapping())}
@@ -77,6 +87,7 @@ pub fn start() {
     time_browser::spawn(&mut system.world());
     land_use_browser::spawn(&mut system.world());
     households_browser::spawn(&mut system.world());
+    vegetation_browser::spawn(&mut system.world());
 
     system.process_all_messages();
 
@@ -114,7 +125,7 @@ impl MainLoop {
         use ::stdweb::serde::Serde;
 
         js!{
-            window.cbReactApp.setState(oldState => update(oldState, {
+            window.cbReactApp.boundSetState(oldState => update(oldState, {
                 system: {
                     networkingTurns: {"$set": @{Serde(system.networking_debug_all_n_turns())}},
                     queueLengths: {"$set": @{Serde(system.get_queue_lengths())}},
@@ -143,14 +154,6 @@ impl MainLoop {
         ::stdweb::web::window().request_animation_frame(move |_| next.frame());
     }
 }
-
-pub mod planning_browser;
-pub mod debug;
-pub mod time_browser;
-pub mod households_browser;
-pub mod transport_browser;
-pub mod land_use_browser;
-pub mod browser_utils;
 
 use stdweb::serde::Serde;
 

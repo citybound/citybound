@@ -28,11 +28,12 @@ path = "./cb_simulation"
 
 [profile.dev]
 opt-level = 1
-codegen-units = 4
+codegen-units = 8
 
 [profile.release]
 debug = true
-codegen-units = 4
+codegen-units = 8
+lto = false
 
 [features]
 embed_assets = ["rust-embed-flag/embed_assets"]

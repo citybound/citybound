@@ -11,14 +11,14 @@
     "monet": "git+https://github.com/aeickhoff/monet.git#5b79f29034c239961f2c93310ddc78ed868865fe",
     "mousetrap": "^1.6.2",
     "msgpack-lite": "^0.1.26",
-    "parcel-bundler": "^1.10.3",
     "react": "^16.4.1",
     "react-addons-update": "^15.6.2",
     "react-container-dimensions": "^1.3.4",
-    "react-dom": "^16.4.1",
+    "react-dom": "^16.7.0",
     "stacktrace-js": "^2.0.0"
   },
   "devDependencies": {
+    "parcel-bundler": "^1.10.3",
     "less": "^3.8.1"
   },
   "less": {

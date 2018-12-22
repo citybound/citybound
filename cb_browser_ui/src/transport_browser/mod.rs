@@ -71,7 +71,7 @@ impl FrameListener for BrowserTransportUI {
             flatten_instances(&car_instances).into();
 
         js! {
-            window.cbReactApp.setState(oldState => update(oldState, {
+            window.cbReactApp.boundSetState(oldState => update(oldState, {
                 transport: {rendering: {
                     carInstances: {"$set": @{car_instances_js}}
                 }}
@@ -114,7 +114,7 @@ impl TransportUI for BrowserTransportUI {
                 .update(None, Some((id, switch_marker_gap_mesh(lane_path))));
 
             js!{
-                window.cbReactApp.setState(oldState => update(oldState, {
+                window.cbReactApp.boundSetState(oldState => update(oldState, {
                     transport: {rendering: {
                         laneMarkerGapGroups: {
                             "$add": @{updated_groups_to_js(
@@ -130,7 +130,7 @@ impl TransportUI for BrowserTransportUI {
 
             if on_intersection {
                 js!{
-                    window.cbReactApp.setState(oldState => update(oldState, {
+                    window.cbReactApp.boundSetState(oldState => update(oldState, {
                         transport: {rendering: {
                             laneAsphaltGroups: {
                                 "$add": @{updated_groups_to_js(
@@ -146,7 +146,7 @@ impl TransportUI for BrowserTransportUI {
                     .lane_marker_grouper
                     .update(None, Some((id, marker_meshes.0 + marker_meshes.1)));
                 js!{
-                    window.cbReactApp.setState(oldState => update(oldState, {
+                    window.cbReactApp.boundSetState(oldState => update(oldState, {
                         transport: {rendering: {
                             laneAsphaltGroups: {
                                 "$add": @{updated_groups_to_js(
@@ -177,7 +177,7 @@ impl TransportUI for BrowserTransportUI {
                 self.lane_marker_gaps_grouper.update(Some(id), None);
 
             js!{
-                window.cbReactApp.setState(oldState => update(oldState, {
+                window.cbReactApp.boundSetState(oldState => update(oldState, {
                     transport: {rendering: {
                         laneMarkerGapGroups: {
                             "$add": @{updated_groups_to_js(
@@ -192,7 +192,7 @@ impl TransportUI for BrowserTransportUI {
 
             if on_intersection {
                 js!{
-                    window.cbReactApp.setState(oldState => update(oldState, {
+                    window.cbReactApp.boundSetState(oldState => update(oldState, {
                         transport: {rendering: {
                             laneAsphaltGroups: {
                                 "$add": @{updated_groups_to_js(
@@ -205,7 +205,7 @@ impl TransportUI for BrowserTransportUI {
             } else {
                 let updated_lane_marker_groups = self.lane_marker_grouper.update(Some(id), None);
                 js!{
-                    window.cbReactApp.setState(oldState => update(oldState, {
+                    window.cbReactApp.boundSetState(oldState => update(oldState, {
                         transport: {rendering: {
                             laneAsphaltGroups: {
                                 "$add": @{updated_groups_to_js(

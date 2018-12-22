@@ -50,7 +50,6 @@ impl LandUseUI for BrowserLandUseUI {
             lot,
             style,
             households,
-            &mut ::util::random::seed(id),
             world,
         );
 
@@ -72,7 +71,7 @@ impl LandUseUI for BrowserLandUseUI {
             .into();
 
         js!{
-            window.cbReactApp.setState(oldState => update(oldState, {
+            window.cbReactApp.boundSetState(oldState => update(oldState, {
                 landUse: {rendering: @{material_updates}},
                 households: {
                     buildingPositions: {[@{Serde(id)}]: {
@@ -101,7 +100,7 @@ impl LandUseUI for BrowserLandUseUI {
             .collect::<HashMap<_, _>>()
             .into();
         js!{
-            window.cbReactApp.setState(oldState => update(oldState, {
+            window.cbReactApp.boundSetState(oldState => update(oldState, {
                 landUse: {rendering: @{unsets}},
                 households: {buildingPositions: {"$unset": [@{Serde(id)}]}}
             }));
@@ -116,7 +115,7 @@ impl LandUseUI for BrowserLandUseUI {
         _world: &mut World,
     ) {
         js!{
-            window.cbReactApp.setState(oldState => update(oldState, {
+            window.cbReactApp.boundSetState(oldState => update(oldState, {
                 households: {
                     inspectedBuildingState: {"$set": {
                         households: @{Serde(households)},
