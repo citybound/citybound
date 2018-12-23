@@ -1,5 +1,5 @@
 use kay::{World, ActorSystem, TypedID, RawID, External};
-use environment::vegetation::{PlantID, PlantPrototype};
+use environment::vegetation::{PlantID, PlantPrototype, VegetationType};
 use environment::vegetation::ui::{VegetationUI, VegetationUIID};
 use browser_utils::to_js_mesh;
 use stdweb::serde::Serde;
@@ -29,7 +29,7 @@ impl ::std::ops::DerefMut for BrowserVegetationUI {
 }
 
 pub struct BrowserVegetationUINonPersistedState {
-    tree_positions: HashMap<RawID, P2>,
+    tree_protos: HashMap<RawID, PlantPrototype>,
     instances_current: bool,
     trunk_color: [f32; 3],
     canopy_color: [f32; 3],
@@ -41,10 +41,12 @@ impl BrowserVegetationUI {
             PrimitiveArea::new(
                 LinePath::new(
                     vec![
-                        P2::new(0.0, 0.0),
-                        P2::new(1.0, 0.0),
-                        P2::new(1.0, 1.0),
-                        P2::new(0.0, 0.0),
+                        P2::new(0.0, -0.40),
+                        P2::new(0.38, -0.12),
+                        P2::new(0.24, 0.32),
+                        P2::new(-0.24, 0.32),
+                        P2::new(-0.38, -0.12),
+                        P2::new(0.0, -0.40),
                     ]
                     .into(),
                 )
@@ -54,20 +56,47 @@ impl BrowserVegetationUI {
             0.0,
         );
         let (_, trunk_roots_surface) = trunk_base.extrude(0.0, 1.0);
-        let (side_surface, top_surface) = trunk_base.extrude(2.0, -0.3);
+        let (side_surface, top_surface) = trunk_base.extrude(2.0, -0.1);
         let trunk_mesh =
             Sculpture::new(vec![trunk_roots_surface.into(), side_surface.into()]).to_mesh();
 
-        let canopy_base = top_surface;
-        let (canopy_wall_1, canopy_middle_1) = canopy_base.extrude(1.0, 4.0);
-        let (canopy_wall_2, canopy_middle_2) = canopy_middle_1.extrude(3.0, 0.0);
-        let (canopy_wall_3, canopy_top) = canopy_middle_2.extrude(3.0, -2.0);
+        let medium_canopy_base = top_surface;
+        let (medium_canopy_wall_1, medium_canopy_middle_1) = medium_canopy_base.extrude(1.0, 4.0);
+        let (medium_canopy_wall_2, medium_canopy_middle_2) =
+            medium_canopy_middle_1.extrude(3.0, 0.0);
+        let (medium_canopy_wall_3, medium_canopy_top) = medium_canopy_middle_2.extrude(3.0, -2.0);
 
-        let canopy_mesh = Sculpture::new(vec![
-            canopy_wall_1.into(),
-            canopy_wall_2.into(),
-            canopy_wall_3.into(),
-            canopy_top.into(),
+        let medium_canopy_mesh = Sculpture::new(vec![
+            medium_canopy_wall_1.into(),
+            medium_canopy_wall_2.into(),
+            medium_canopy_wall_3.into(),
+            medium_canopy_top.into(),
+        ])
+        .to_mesh();
+
+        let (_, small_canopy_base) = medium_canopy_base.extrude(-1.0, 0.0);
+        let (small_canopy_wall_1, small_canopy_middle_1) = small_canopy_base.extrude(1.0, 3.0);
+        let (small_canopy_wall_2, small_canopy_middle_2) = small_canopy_middle_1.extrude(2.0, 0.0);
+        let (small_canopy_wall_3, small_canopy_top) = small_canopy_middle_2.extrude(2.0, -2.0);
+
+        let small_canopy_mesh = Sculpture::new(vec![
+            small_canopy_wall_1.into(),
+            small_canopy_wall_2.into(),
+            small_canopy_wall_3.into(),
+            small_canopy_top.into(),
+        ])
+        .to_mesh();
+
+        let large_canopy_base = medium_canopy_base;
+        let (large_canopy_wall_1, large_canopy_middle_1) = large_canopy_base.extrude(2.0, 5.0);
+        let (large_canopy_wall_2, large_canopy_middle_2) = large_canopy_middle_1.extrude(4.0, 0.0);
+        let (large_canopy_wall_3, large_canopy_top) = large_canopy_middle_2.extrude(4.0, -4.0);
+
+        let large_canopy_mesh = Sculpture::new(vec![
+            large_canopy_wall_1.into(),
+            large_canopy_wall_2.into(),
+            large_canopy_wall_3.into(),
+            large_canopy_top.into(),
         ])
         .to_mesh();
 
@@ -75,7 +104,9 @@ impl BrowserVegetationUI {
             window.cbReactApp.boundSetState(oldState => update(oldState, {
                 vegetation: {
                     trunkMesh: {"$set": @{to_js_mesh(&trunk_mesh)}},
-                    canopyMesh: {"$set": @{to_js_mesh(&canopy_mesh)}}
+                    mediumCanopyMesh: {"$set": @{to_js_mesh(&medium_canopy_mesh)}},
+                    smallCanopyMesh:  {"$set": @{to_js_mesh(&small_canopy_mesh)}},
+                    largeCanopyMesh:  {"$set": @{to_js_mesh(&large_canopy_mesh)}},
                 },
             }));
         }
@@ -87,7 +118,7 @@ impl BrowserVegetationUI {
         BrowserVegetationUI {
             id,
             state: External::new(BrowserVegetationUINonPersistedState {
-                tree_positions: HashMap::new(),
+                tree_protos: HashMap::new(),
                 instances_current: true,
                 trunk_color: [0.0, 0.0, 0.0],
                 canopy_color: [0.0, 0.0, 0.0],
@@ -136,42 +167,117 @@ impl FrameListener for BrowserVegetationUI {
 
         if !self.instances_current {
             let trunk_instances = self
-                .tree_positions
+                .tree_protos
                 .iter()
-                .map(|(raw_id, pos)| Instance {
-                    instance_position: [pos.x, pos.y, 0.0],
-                    instance_direction: [
-                        0.5 + 0.5 * (((raw_id.instance_id as usize % 10) as f32) / 10.0),
-                        0.0,
-                    ],
-                    instance_color: self.state.trunk_color,
+                .filter_map(|(raw_id, proto)| match proto.vegetation_type {
+                    VegetationType::SmallTree
+                    | VegetationType::MediumTree
+                    | VegetationType::LargeTree => Some(Instance {
+                        instance_position: [proto.position.x, proto.position.y, 0.0],
+                        instance_direction: [
+                            0.5 + 0.5 * (((raw_id.instance_id as usize % 10) as f32) / 10.0),
+                            0.0,
+                        ],
+                        instance_color: self.state.trunk_color,
+                    }),
+                    _ => None,
                 })
                 .collect::<Vec<_>>();
 
-            let canopy_instances = self
-                .tree_positions
+            let small_canopy_instances = self
+                .tree_protos
                 .iter()
-                .map(|(raw_id, pos)| Instance {
-                    instance_position: [pos.x, pos.y, 0.0],
-                    instance_direction: [
-                        0.5 + 0.5 * ((raw_id.instance_id as usize % 10) / 10) as f32,
-                        0.0,
-                    ],
-                    instance_color: self.state.canopy_color,
+                .filter_map(|(raw_id, proto)| {
+                    if proto.vegetation_type == VegetationType::SmallTree {
+                        Some(Instance {
+                            instance_position: [proto.position.x, proto.position.y, 0.0],
+                            instance_direction: [
+                                0.5 + 0.5 * ((raw_id.instance_id as usize % 10) / 10) as f32,
+                                0.0,
+                            ],
+                            instance_color: self.state.canopy_color,
+                        })
+                    } else if proto.vegetation_type == VegetationType::Shrub {
+                        Some(Instance {
+                            instance_position: [proto.position.x, proto.position.y, -1.0],
+                            instance_direction: [
+                                0.5 + 0.5 * ((raw_id.instance_id as usize % 10) / 10) as f32,
+                                0.0,
+                            ],
+                            instance_color: self.state.canopy_color,
+                        })
+                    } else {
+                        None
+                    }
                 })
-                .collect::<Vec<_>>();;
+                .collect::<Vec<_>>();
+
+            let medium_canopy_instances = self
+                .tree_protos
+                .iter()
+                .filter_map(|(raw_id, proto)| {
+                    if proto.vegetation_type == VegetationType::MediumTree {
+                        Some(Instance {
+                            instance_position: [proto.position.x, proto.position.y, 0.0],
+                            instance_direction: [
+                                0.5 + 0.5 * ((raw_id.instance_id as usize % 10) / 10) as f32,
+                                0.0,
+                            ],
+                            instance_color: self.state.canopy_color,
+                        })
+                    } else if proto.vegetation_type == VegetationType::Bush {
+                        Some(Instance {
+                            instance_position: [proto.position.x, proto.position.y, -2.0],
+                            instance_direction: [
+                                0.5 + 0.5 * ((raw_id.instance_id as usize % 10) / 10) as f32,
+                                0.0,
+                            ],
+                            instance_color: self.state.canopy_color,
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            let large_canopy_instances = self
+                .tree_protos
+                .iter()
+                .filter_map(|(raw_id, proto)| {
+                    if proto.vegetation_type == VegetationType::LargeTree {
+                        Some(Instance {
+                            instance_position: [proto.position.x, proto.position.y, 0.0],
+                            instance_direction: [
+                                0.5 + 0.5 * ((raw_id.instance_id as usize % 10) / 10) as f32,
+                                0.0,
+                            ],
+                            instance_color: self.state.canopy_color,
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
 
             let trunk_instances_js: ::stdweb::web::TypedArray<f32> =
                 flatten_instances(&trunk_instances).into();
 
-            let canopy_instances_js: ::stdweb::web::TypedArray<f32> =
-                flatten_instances(&canopy_instances).into();
+            let small_canopy_instances_js: ::stdweb::web::TypedArray<f32> =
+                flatten_instances(&small_canopy_instances).into();
+
+            let medium_canopy_instances_js: ::stdweb::web::TypedArray<f32> =
+                flatten_instances(&medium_canopy_instances).into();
+
+            let large_canopy_instances_js: ::stdweb::web::TypedArray<f32> =
+                flatten_instances(&large_canopy_instances).into();
 
             js! {
                 window.cbReactApp.boundSetState(oldState => update(oldState, {
                     vegetation: {
                         trunkInstances: {"$set": @{trunk_instances_js}},
-                        canopyInstances: {"$set": @{canopy_instances_js}}
+                        smallCanopyInstances: {"$set": @{small_canopy_instances_js}},
+                        mediumCanopyInstances: {"$set": @{medium_canopy_instances_js}},
+                        largeCanopyInstances: {"$set": @{large_canopy_instances_js}}
                     }
                 }));
 
@@ -185,14 +291,12 @@ impl FrameListener for BrowserVegetationUI {
 
 impl VegetationUI for BrowserVegetationUI {
     fn on_plant_spawned(&mut self, id: PlantID, proto: &PlantPrototype, _: &mut World) {
-        self.state
-            .tree_positions
-            .insert(id.as_raw(), proto.position);
+        self.state.tree_protos.insert(id.as_raw(), proto.clone());
         self.instances_current = false;
     }
 
     fn on_plant_destroyed(&mut self, id: PlantID, _: &mut World) {
-        self.state.tree_positions.remove(&id.as_raw());
+        self.state.tree_protos.remove(&id.as_raw());
         self.instances_current = false;
     }
 }

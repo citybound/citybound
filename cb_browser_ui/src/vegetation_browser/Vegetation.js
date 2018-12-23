@@ -4,7 +4,9 @@ import renderOrder from '../renderOrder';
 
 export const initialState = {
     trunkInstances: [],
-    canopyInstances: []
+    smallCanopyInstances: [],
+    mediumCanopyInstances: [],
+    largeCanopyInstances: []
 }
 
 import React from 'react';
@@ -20,7 +22,13 @@ export function Layers(props) {
             mesh: state.vegetation.trunkMesh,
             instances: state.vegetation.trunkInstances
         }, {
-            mesh: state.vegetation.canopyMesh,
-            instances: state.vegetation.canopyInstances
+            mesh: state.vegetation.smallCanopyMesh,
+            instances: state.vegetation.smallCanopyInstances
+        },{
+            mesh: state.vegetation.mediumCanopyMesh,
+            instances: state.vegetation.mediumCanopyInstances
+        },{
+            mesh: state.vegetation.largeCanopyMesh,
+            instances: state.vegetation.largeCanopyInstances
         }]} />;
 }

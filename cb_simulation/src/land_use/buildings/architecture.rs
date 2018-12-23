@@ -142,10 +142,17 @@ pub fn build_building(
             } else {
                 BuildingMaterial::FieldRows
             };
+
+            let lot_surface = FlatSurface::from_primitive_area(lot.area.primitives[0].clone(), 0.0);
+            let (_, shrunk_lot_surface) = lot_surface.extrude(0.0, 2.0);
+
             BuildingMesh(
-                Some((material, Mesh::from_area(&lot.area)))
-                    .into_iter()
-                    .collect(),
+                Some((
+                    material,
+                    Sculpture::new(vec![shrunk_lot_surface.into()]).to_mesh(),
+                ))
+                .into_iter()
+                .collect(),
             )
         }
         BuildingStyle::Mill => {

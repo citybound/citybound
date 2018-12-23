@@ -1,11 +1,12 @@
 use kay::{World, Fate, ActorSystem, TypedID};
 use compact::CVec;
-use descartes::{P2, RoughEq, AreaError, AreaEmbedding, AreaFilter, PointContainer};
+use descartes::{P2, RoughEq, AreaError, PointContainer};
 use construction::{Constructable, ConstructableID, ConstructionID};
 use planning::{Prototype, PrototypeID, PrototypeKind, PlanHistory, PlanResult, PlanManagerID,
-Project, Plan, Gesture, GestureID, GestureIntent, VersionedGesture};
+Project, Plan, Gesture, GestureID, GestureIntent};
 use transport::transport_planning::RoadPrototype;
 use land_use::zone_planning::{LotPrototype, LotOccupancy};
+use land_use::buildings::BuildingStyle;
 use land_use::buildings::architecture::footprint_area;
 use util::random::{seed, Rng};
 use noise::{NoiseFn, BasicMulti, Seedable, MultiFractal};
@@ -101,13 +102,8 @@ pub fn calculate_prototypes(
     history: &PlanHistory,
     current_result: &PlanResult,
 ) -> Result<Vec<Prototype>, AreaError> {
-    #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
-    enum ConstructedLabel {
-        Paved,
-        Building,
-    }
-
     let mut constructed_areas = Vec::new();
+    let mut prototypes = Vec::with_capacity(100000);
 
     for prototype in current_result.prototypes.values() {
         match *prototype {
@@ -121,13 +117,32 @@ pub fn calculate_prototypes(
                         ref lot,
                         occupancy: LotOccupancy::Occupied(style),
                     }),
-                ..
-            } => constructed_areas.push(footprint_area(lot, style, 5.0)),
+                id,
+            } => {
+                constructed_areas.push(footprint_area(lot, style, 5.0));
+                if style == BuildingStyle::Field {
+                    let boundary = lot.area.primitives[0].boundary.path();
+                    let mut pos_along = 0.0;
+                    let mut i = 0;
+                    let mut rand = seed(id);
+
+                    while pos_along < boundary.length() {
+                        i += 1;
+                        pos_along += rand.gen_range(5.0, 60.0);
+                        let vegetation_type = rand.choose(&VEGETATION_TYPES).unwrap().clone();
+                        prototypes.push(Prototype::new_with_influences(
+                            (id, i),
+                            PrototypeKind::Plant(PlantPrototype {
+                                vegetation_type,
+                                position: boundary.along(pos_along),
+                            }),
+                        ))
+                    }
+                }
+            }
             _ => {}
         }
     }
-
-    let mut prototypes = Vec::with_capacity(100000);
 
     for (gesture_id, versioned_gesture) in history.gestures.pairs() {
         if let GestureIntent::Plant(ref plant_intent) = versioned_gesture.0.intent {
@@ -148,18 +163,18 @@ pub fn calculate_prototypes(
                             let mut rand = seed((x_cell, y_cell));
                             position[0] += rand.gen_range(-10.0, 10.0);
                             position[1] += rand.gen_range(-10.0, 10.0);
-                            let vegetation_type = VegetationType::LargeTree;
                             if multi_noise.get([position[0] / 500.0, position[1] / 500.0]) > 0.13 {
                                 let position_p2 = P2::new(position[0] as f32, position[1] as f32);
                                 if !constructed_areas
                                     .iter()
                                     .any(|area| area.contains(position_p2))
                                 {
+                                    let vegetation_type = rand.choose(&VEGETATION_TYPES).unwrap();
                                     prototypes.push(Prototype::new_with_influences(
                                         (gesture_id, x_cell, y_cell),
                                         PrototypeKind::Plant(PlantPrototype {
                                             position: position_p2,
-                                            vegetation_type,
+                                            vegetation_type: *vegetation_type,
                                         }),
                                     ));
                                 }

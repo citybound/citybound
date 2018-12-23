@@ -50,8 +50,8 @@ const grass = [0.79, 0.88, 0.67];
 
 export default {
     grass,
-    trunks: [0.3, 0.2, 0.1],
-    canopies: [0.2, 0.4, 0.1],
+    trunks: [0.4, 0.3, 0.2],
+    canopies: [0.3, 0.5, 0.2],
     asphalt: [0.6, 0.6, 0.6],
     roadMarker: [1.0, 1.0, 1.0],
 
