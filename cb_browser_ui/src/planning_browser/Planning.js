@@ -364,7 +364,7 @@ export function ShapesAndLayers(props) {
                             setState(state => update(state, {
                                 planning: {
                                     hoveredInsertPoint: {
-                                        $set: e.hover.now
+                                        $set: e.hover.projectedPosition
                                     }
                                 }
                             }))
@@ -402,7 +402,7 @@ export function ShapesAndLayers(props) {
                             setState(state => update(state, {
                                 planning: {
                                     hoveredSplitPoint: {
-                                        $set: { point: e.hover.now, direction: e.hover.direction }
+                                        $set: { point: e.hover.projectedPosition, direction: e.hover.direction }
                                     }
                                 }
                             }))
@@ -451,10 +451,24 @@ export function ShapesAndLayers(props) {
                                 }
                             }))
                         } else if (e.hover.now) {
+                            const position = e.hover.now;
+                            const { projectedPosition, direction } = e.hover;
+                            const orthogonalRightDirection = [direction[1], -direction[0]];
+
+                            const vector = vec2.sub(vec2.create(), position, projectedPosition);
+                            const orthogonalDistance = vec2.dot(vector, orthogonalRightDirection);
+
+                            let shiftedPoint;
+                            if (orthogonalDistance > 0.0) {
+                                shiftedPoint = vec2.scaleAndAdd(vec2.create(), e.hover.projectedPosition, orthogonalRightDirection, LANE_DISTANCE * nLanesForward);
+                            } else {
+                                shiftedPoint = vec2.scaleAndAdd(vec2.create(), e.hover.projectedPosition, orthogonalRightDirection, - LANE_DISTANCE * nLanesBackward);
+                            }
+
                             setState(state => update(state, {
                                 planning: {
                                     hoveredChangeNLanesPoint: {
-                                        $set: { point: e.hover.now, direction: e.hover.direction }
+                                        $set: { point: shiftedPoint, direction: direction }
                                     }
                                 }
                             }))

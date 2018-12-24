@@ -2,7 +2,7 @@
 #![allow(clippy::new_without_default)]
 use kay::{World, MachineID, ActorSystem, TypedID};
 use compact::{CVec, COption, CHashMap};
-use descartes::{P2, AreaError};
+use descartes::{N, P2, AreaError};
 use util::random::{seed, RngCore, Uuid, uuid};
 use std::hash::Hash;
 
@@ -373,46 +373,251 @@ pub enum ProjectUpdate {
 }
 
 #[derive(Compact, Clone, Serialize, Deserialize, Debug)]
+pub struct PrototypesSpatialCell {
+    content_hash: PrototypeID,
+    members: CVec<PrototypeID>,
+}
+
+const PROTO_SPATIAL_GRID_CELL_SIZE: N = 100.0;
+
+#[derive(Compact, Clone, Serialize, Deserialize, Debug)]
+pub struct PrototypesSpatialGrid {
+    cells: CHashMap<(i32, i32), PrototypesSpatialCell>,
+}
+
+impl PrototypesSpatialGrid {
+    pub fn new() -> Self {
+        PrototypesSpatialGrid {
+            cells: CHashMap::new(),
+        }
+    }
+
+    pub fn add_protoype(&mut self, proto: &Prototype) {
+        let pos = proto.representative_position;
+        let grid_coords = (
+            (pos.x / PROTO_SPATIAL_GRID_CELL_SIZE) as i32,
+            (pos.y / PROTO_SPATIAL_GRID_CELL_SIZE) as i32,
+        );
+        let found_cell = if let Some(grid_cell) = self.cells.get_mut(grid_coords) {
+            match grid_cell.members.binary_search(&proto.id) {
+                Err(empty_pos) => grid_cell.members.insert(empty_pos, proto.id),
+                Ok(_existing_pos) => println!("Member {:?} already exists in grid!", proto.id),
+            }
+            grid_cell.content_hash = PrototypeID::from_influences(&grid_cell.members);
+            true
+        } else {
+            false
+        };
+        if !found_cell {
+            self.cells.insert(
+                grid_coords,
+                PrototypesSpatialCell {
+                    content_hash: PrototypeID::from_influences(proto.id),
+                    members: Some(proto.id).into_iter().collect(),
+                },
+            );
+        }
+    }
+
+    pub fn remove_prototype(&mut self, proto: &Prototype) {
+        let pos = proto.representative_position;
+        let grid_coords = (
+            (pos.x / PROTO_SPATIAL_GRID_CELL_SIZE) as i32,
+            (pos.y / PROTO_SPATIAL_GRID_CELL_SIZE) as i32,
+        );
+        let grid_cell = self
+            .cells
+            .get_mut(grid_coords)
+            .expect("Should have cell for existing proto");
+        let idx = grid_cell
+            .members
+            .binary_search(&proto.id)
+            .expect("Should be in cell");
+        grid_cell.members.remove(idx);
+        grid_cell.members.sort();
+        grid_cell.content_hash = PrototypeID::from_influences(&grid_cell.members);
+    }
+
+    pub fn difference(&self, other: &Self) -> (Vec<PrototypeID>, Vec<PrototypeID>) {
+        let mut only_in_self = Vec::new();
+        let mut only_in_other = Vec::new();
+
+        let mut visited_coords = ::std::collections::HashSet::new();
+
+        for (grid_coord, self_cell) in self.cells.pairs() {
+            if let Some(other_cell) = other.cells.get(*grid_coord) {
+                if self_cell.content_hash != other_cell.content_hash {
+                    let mut i = 0;
+                    let mut j = 0;
+
+                    let only_in_self_idx_before = only_in_self.len();
+                    let only_in_other_idx_before = only_in_other.len();
+
+                    while i < self_cell.members.len() && j < other_cell.members.len() {
+                        use std::cmp::Ordering;
+                        let self_member = self_cell.members[i];
+                        let other_member = other_cell.members[j];
+                        match self_member.cmp(&other_member) {
+                            Ordering::Less => {
+                                i += 1;
+                                only_in_self.push(self_member);
+                            }
+                            Ordering::Greater => {
+                                j += 1;
+                                only_in_other.push(other_member);
+                            }
+                            Ordering::Equal => {
+                                i += 1;
+                                j += 1;
+                            }
+                        }
+                    }
+
+                    only_in_self.extend(self_cell.members[i..].iter().cloned());
+                    only_in_other.extend(other_cell.members[j..].iter().cloned());
+
+                    // println!(
+                    //     "added only in self {:?}",
+                    //     &only_in_self[only_in_self_idx_before..]
+                    // );
+                    // println!(
+                    //     "added only in other {:?}",
+                    //     &only_in_other[only_in_other_idx_before..]
+                    // );
+                }
+            } else {
+                only_in_self.extend(self_cell.members.clone())
+            }
+            visited_coords.insert(grid_coord);
+        }
+
+        for (other_coord, other_cell) in other.cells.pairs() {
+            if !visited_coords.contains(&other_coord) {
+                only_in_other.extend(other_cell.members.clone())
+            }
+        }
+
+        return (only_in_self, only_in_other);
+    }
+}
+
+#[derive(Compact, Clone, Serialize, Deserialize, Debug)]
 pub struct PlanResult {
     pub prototypes: CHashMap<PrototypeID, Prototype>,
+    pub grid: PrototypesSpatialGrid,
 }
 
 impl PlanResult {
     pub fn new() -> PlanResult {
         PlanResult {
             prototypes: CHashMap::new(),
+            grid: PrototypesSpatialGrid::new(),
         }
     }
 
     pub fn actions_to(&self, other: &PlanResult) -> (ActionGroups, CVec<Prototype>) {
-        let mut unmatched_existing = self.prototypes.clone();
+        // let mut unmatched_existing_ids: CHashMap<_, ()> =
+        //     self.prototypes.keys().map(|key| (*key, ())).collect();
+        // let mut to_be_morphed = CVec::new();
+        // let mut to_be_constructed = CVec::new();
+        // let mut new_prototypes = CVec::new();
+
+        // for (new_prototype_id, new_prototype) in other.prototypes.pairs() {
+        //     if unmatched_existing_ids.contains_key(*new_prototype_id) {
+        //         // identical prototype, does not need to change at all
+        //         unmatched_existing_ids.remove(*new_prototype_id);
+        //     } else {
+        //         let maybe_morphable_id = unmatched_existing_ids
+        //             .keys()
+        //             .find(|&other_prototype_id| {
+        //                 new_prototype.morphable_from(
+        //                     self.prototypes
+        //                         .get(*other_prototype_id)
+        //                         .expect("should exist since unmatched ids are created from
+        // this"),                 )
+        //             })
+        //             .cloned();
+        //         if let Some(morphable_id) = maybe_morphable_id {
+        //             unmatched_existing_ids.remove(morphable_id);
+        //             to_be_morphed.push(Action::Morph(morphable_id, *new_prototype_id));
+        //         } else {
+        //             to_be_constructed.push(Action::Construct(*new_prototype_id))
+        //         }
+        //         new_prototypes.push(new_prototype.clone());
+        //     }
+        // }
+
+        // let to_be_destructed: CVec<_> = unmatched_existing_ids
+        //     .keys()
+        //     .map(|unmatched_id| Action::Destruct(*unmatched_id))
+        //     .collect();
+
         let mut to_be_morphed = CVec::new();
-        let mut to_be_constructed = CVec::new();
         let mut new_prototypes = CVec::new();
 
-        for (new_prototype_id, new_prototype) in other.prototypes.pairs() {
-            if unmatched_existing.contains_key(*new_prototype_id) {
-                // identical prototype, does not need to change at all
-                unmatched_existing.remove(*new_prototype_id);
-            } else {
-                let maybe_morphable_id = unmatched_existing
-                    .pairs()
-                    .find(|&(_, other_prototype)| new_prototype.morphable_from(other_prototype))
-                    .map(|(id, _)| *id);
-                if let Some(morphable_id) = maybe_morphable_id {
-                    unmatched_existing.remove(morphable_id);
-                    to_be_morphed.push(Action::Morph(morphable_id, *new_prototype_id));
-                } else {
-                    to_be_constructed.push(Action::Construct(*new_prototype_id))
-                }
-                new_prototypes.push(new_prototype.clone());
-            }
-        }
+        let (mut unmatched_existing_ids, mut unmatched_new_ids) = self.grid.difference(&other.grid);
 
-        let to_be_destructed = unmatched_existing
-            .keys()
-            .map(|unmatched_id| Action::Destruct(*unmatched_id))
+        unmatched_existing_ids.retain(|unmatched_existing_id| {
+            let maybe_morphable_into_id_idx =
+                unmatched_new_ids.iter().position(|unmatched_new_id| {
+                    other
+                        .prototypes
+                        .get(*unmatched_new_id)
+                        .expect("should have it (new)")
+                        .morphable_from(
+                            self.prototypes
+                                .get(*unmatched_existing_id)
+                                .expect("should have it (existing)"),
+                        )
+                });
+
+            let (remove_both, remove_new_idx) =
+                if let Some(morphable_into_id_idx) = maybe_morphable_into_id_idx {
+                    let morphable_into = unmatched_new_ids[morphable_into_id_idx];
+                    to_be_morphed.push(Action::Morph(*unmatched_existing_id, morphable_into));
+                    new_prototypes.push(
+                        other
+                            .prototypes
+                            .get(morphable_into)
+                            .expect("should have it (morphable)")
+                            .clone(),
+                    );
+                    (true, morphable_into_id_idx)
+                } else {
+                    (false, 0)
+                };
+            if remove_both {
+                unmatched_new_ids.remove(remove_new_idx);
+                false
+            } else {
+                true
+            }
+        });
+
+        let to_be_constructed: CVec<_> = unmatched_new_ids
+            .into_iter()
+            .map(|id| {
+                new_prototypes.push(
+                    other
+                        .prototypes
+                        .get(id)
+                        .expect("should have it (constructable)")
+                        .clone(),
+                );
+                Action::Construct(id)
+            })
             .collect();
+        let to_be_destructed: CVec<_> = unmatched_existing_ids
+            .into_iter()
+            .map(|id| Action::Destruct(id))
+            .collect();
+
+        // println!(
+        //     "Actions to: C {}, M {}, D {}",
+        //     to_be_constructed.len(),
+        //     to_be_morphed.len(),
+        //     to_be_destructed.len()
+        // );
 
         (
             ActionGroups(
@@ -429,47 +634,63 @@ impl PlanResult {
 
     pub fn as_known_state(&self) -> KnownPlanResultState {
         KnownPlanResultState {
-            known_prototype_ids: self.prototypes.keys().cloned().collect(),
+            known_prototype_ids: self.grid.clone(),
         }
     }
 
     pub fn update_for(&self, known_state: &KnownPlanResultState) -> PlanResultUpdate {
-        let prototypes_to_drop = known_state
-            .known_prototype_ids
-            .iter()
-            .filter_map(|known_prototype_id| {
-                if self.prototypes.contains_key(*known_prototype_id) {
-                    None
-                } else {
-                    Some(*known_prototype_id)
-                }
-            })
-            .collect();
+        // let prototypes_to_drop = known_state
+        //     .known_prototype_ids
+        //     .keys()
+        //     .filter_map(|known_prototype_id| {
+        //         if self.prototypes.contains_key(*known_prototype_id) {
+        //             None
+        //         } else {
+        //             Some(*known_prototype_id)
+        //         }
+        //     })
+        //     .collect();
 
-        let new_prototypes = self
-            .prototypes
-            .values()
-            .filter_map(|prototype| {
-                if known_state.known_prototype_ids.contains(&prototype.id) {
-                    None
-                } else {
-                    Some(prototype.clone())
-                }
-            })
-            .collect();
+        // let new_prototypes = self
+        //     .prototypes
+        //     .values()
+        //     .filter_map(|prototype| {
+        //         if known_state.known_prototype_ids.contains_key(prototype.id) {
+        //             None
+        //         } else {
+        //             Some(prototype.clone())
+        //         }
+        //     })
+        //     .collect();
+
+        let (only_in_self, only_in_other) = self.grid.difference(&known_state.known_prototype_ids);
+
+        // println!(
+        //     "Update to: Dr {}, N {}",
+        //     only_in_other.len(),
+        //     only_in_self.len(),
+        // );
 
         PlanResultUpdate {
-            prototypes_to_drop,
-            new_prototypes,
+            prototypes_to_drop: only_in_other.into(),
+            new_prototypes: only_in_self
+                .into_iter()
+                .map(|id| self.prototypes.get(id).expect("Should have it").clone())
+                .collect(),
         }
     }
 
     pub fn apply_update(&mut self, update: &PlanResultUpdate) {
-        for prototype_to_drop in &update.prototypes_to_drop {
-            self.prototypes.remove(*prototype_to_drop);
+        for prototype_to_drop_id in &update.prototypes_to_drop {
+            let proto = self
+                .prototypes
+                .remove(*prototype_to_drop_id)
+                .expect("Should have had proto to remove");
+            self.grid.remove_prototype(&proto);
         }
 
         for new_prototype in &update.new_prototypes {
+            self.grid.add_protoype(new_prototype);
             self.prototypes
                 .insert(new_prototype.id, new_prototype.clone());
         }
@@ -480,13 +701,19 @@ impl PlanResult {
 pub struct Prototype {
     pub id: PrototypeID,
     pub kind: PrototypeKind,
+    pub representative_position: P2,
 }
 
 impl Prototype {
-    pub fn new_with_influences<H: Hash>(influences: H, kind: PrototypeKind) -> Prototype {
+    pub fn new_with_influences<H: Hash>(
+        influences: H,
+        kind: PrototypeKind,
+        representative_position: P2,
+    ) -> Prototype {
         Prototype {
             id: PrototypeID::from_influences(influences),
             kind,
+            representative_position,
         }
     }
 }
@@ -498,7 +725,7 @@ pub enum PrototypeKind {
     Plant(PlantPrototype),
 }
 
-#[derive(Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Debug)]
+#[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Debug)]
 pub struct PrototypeID(u64);
 
 impl PrototypeID {
@@ -513,7 +740,7 @@ impl PrototypeID {
 
 #[derive(Compact, Clone, Debug)]
 pub struct KnownPlanResultState {
-    known_prototype_ids: CVec<PrototypeID>,
+    known_prototype_ids: PrototypesSpatialGrid,
 }
 
 #[derive(Compact, Clone, Debug)]
@@ -614,9 +841,7 @@ impl ActionGroups {
 
 impl PlanHistory {
     pub fn calculate_result(&self) -> Result<PlanResult, AreaError> {
-        let mut result = PlanResult {
-            prototypes: CHashMap::new(),
-        };
+        let mut result = PlanResult::new();
 
         for prototype_fn in &[
             ::transport::transport_planning::calculate_prototypes,
@@ -629,6 +854,7 @@ impl PlanHistory {
                 .into_iter()
                 .map(|prototype| (prototype.id, prototype))
             {
+                result.grid.add_protoype(&prototype);
                 result.prototypes.insert(id, prototype);
             }
         }
@@ -648,7 +874,8 @@ impl ProjectID {
     }
 }
 
-#[derive(Compact, Clone)]
+// #[derive(Compact, Clone)]
+#[derive(Clone)]
 pub struct PlanManager {
     id: PlanManagerID,
     master_plan: PlanHistory,
@@ -657,6 +884,8 @@ pub struct PlanManager {
     implemented_projects: CHashMap<ProjectID, Project>,
     ui_state: CHashMap<MachineID, PlanManagerUIState>,
 }
+
+mod compact_workaround;
 
 impl PlanManager {
     pub fn spawn(id: PlanManagerID, initial_project_id: ProjectID, _: &mut World) -> PlanManager {

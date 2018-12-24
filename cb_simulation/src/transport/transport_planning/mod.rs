@@ -287,6 +287,7 @@ pub fn calculate_prototypes(
                 pieces[0].0.start().y.to_bits(),
             ]);
             Prototype {
+                representative_position: area.primitives[0].boundary.path().points[0],
                 kind: PrototypeKind::Road(RoadPrototype::Intersection(IntersectionPrototype {
                     area,
                     incoming: CHashMap::new(),
@@ -351,6 +352,7 @@ pub fn calculate_prototypes(
                     if let Prototype {
                         id: intersection_id,
                         kind: Road(RoadPrototype::Intersection(ref mut intersection)),
+                        ..
                     } = prototype
                     {
                         let points = (
@@ -531,6 +533,7 @@ pub fn calculate_prototypes(
             intersected_lane_paths
                 .into_iter()
                 .map(|(path, id)| Prototype {
+                    representative_position: path.points[0],
                     kind: PrototypeKind::Road(RoadPrototype::Lane(LanePrototype(
                         path,
                         CVec::new(),
@@ -539,14 +542,16 @@ pub fn calculate_prototypes(
                 }),
         )
         .chain(switch_lane_paths.into_iter().map(|(path, id)| Prototype {
+            representative_position: path.points[0],
             kind: PrototypeKind::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(path))),
             id,
         }))
         .chain(
             gesture_areas_for_intersection
                 .into_iter()
-                .map(|(shape, gesture_id, step_id)| Prototype {
-                    kind: PrototypeKind::Road(RoadPrototype::PavedArea(shape)),
+                .map(|(area, gesture_id, step_id)| Prototype {
+                    representative_position: area.primitives[0].boundary.path().points[0],
+                    kind: PrototypeKind::Road(RoadPrototype::PavedArea(area)),
                     id: PrototypeID::from_influences((gesture_id, step_id)),
                 }),
         )

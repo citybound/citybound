@@ -175,7 +175,8 @@ impl Lot {
                                 if !road_boundaries.is_empty() {
                                     let split_lot = Lot {
                                         road_boundaries,
-                                        area: right_split,
+                                        area: right_split.clone(),
+                                        original_area: right_split,
                                         ..self.clone()
                                     };
 
@@ -221,6 +222,7 @@ impl Lot {
                                 if !road_boundaries.is_empty() {
                                     let split_lot = Lot {
                                         road_boundaries,
+                                        original_area: left_split.clone(),
                                         area: left_split,
                                         ..self.clone()
                                     };

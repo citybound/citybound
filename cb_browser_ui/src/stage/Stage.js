@@ -39,21 +39,23 @@ export default class Stage extends React.Component {
                 let stopOldHover = false;
 
                 if (maybeInteractableInfo) {
-                    const [newHoveredInteractable, hoveredPosition, hoveredDirection] = maybeInteractableInfo;
+                    const [newHoveredInteractable, projectedPosition, hoveredDirection] = maybeInteractableInfo;
                     this.hoveredInteractable = newHoveredInteractable;
                     if (!oldHoveredInteractable || oldHoveredInteractable.id !== this.hoveredInteractable.id) {
                         this.hoveredInteractable.onEvent({
                             hover: {
-                                start: hoveredPosition,
-                                direction: hoveredDirection
+                                start: cursorPosition3d,
+                                direction: hoveredDirection,
+                                projectedPosition
                             }
                         });
                         stopOldHover = true;
                     } else {
                         this.hoveredInteractable.onEvent({
                             hover: {
-                                now: hoveredPosition,
-                                direction: hoveredDirection
+                                now: cursorPosition3d,
+                                direction: hoveredDirection,
+                                projectedPosition
                             }
                         });
                     }

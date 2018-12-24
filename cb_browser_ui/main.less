@@ -460,7 +460,7 @@ button {
     z-index: 1000;
     font-size: 1.1em;
     color: #000;
-    opacity: 0.4;
+    opacity: 0.7;
     width: 9em;
 
     &:hover {
@@ -498,8 +498,59 @@ button {
     position: absolute;
     top: 0;
     left: 0;
-    overflow-y: auto;
-    width: auto;
-    height: auto;
+    width: 15em;
+    height: 18em;
     transition: width 0.3s, height 0.3s;
+    opacity: 0.8;
+    display: flex;
+    flex-direction: column;
+
+    &.pinned {
+        opacity: 1.0;
+    }
+
+    .household-list {
+        flex: 1 1 0;
+        overflow-y: auto;
+    }
+
+    &:after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        right: calc(50% - 8px);
+        width: 0;
+        height: 0;
+        border: 8px solid transparent;
+        border-top-color: #ffffff;
+        border-bottom: 0;
+        margin-left: -8px;
+        margin-bottom: -8px;
+    }
+
+    h1, h2, h3, h4 {
+        margin-top: 0.5em;
+        margin-bottom: 0.3em;
+    }
+
+    h1 {
+        font-size: 1.3em;
+    }
+
+    h2 {
+        font-size: 1.2em;
+    }
+
+    h3 {
+        font-size: 1em;
+    }
+
+    h4 {
+        font-size: 0.9em;
+    }
+
+    p {
+        font-size: 0.8em;
+        margin-bottom: 0;
+    }
 }

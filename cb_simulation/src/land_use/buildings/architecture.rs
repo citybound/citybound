@@ -50,9 +50,8 @@ pub fn footprint_area(lot: &Lot, building_type: BuildingStyle, extra_padding: N)
     if let BuildingStyle::Field = building_type {
         lot.area.clone()
     } else {
-        let building_position = lot.center_point();
         // TODO keep original building if lot changes
-        let mut rng = seed((building_position.x.to_bits(), building_position.y.to_bits()));
+        let mut rng = seed(lot.original_lot_id);
 
         let (main_footprint, _entrance_footprint) =
             generate_house_footprint(lot, extra_padding, &mut rng);
@@ -69,7 +68,7 @@ pub fn build_building(
 ) -> BuildingMesh {
     let building_position = lot.center_point();
     // TODO keep original building if lot changes
-    let mut rng = seed((building_position.x.to_bits(), building_position.y.to_bits()));
+    let mut rng = seed(lot.original_lot_id);
     let building_orientation = lot.best_road_connection().1;
 
     let (main_footprint, entrance_footprint) = generate_house_footprint(lot, 0.0, &mut rng);
@@ -207,30 +206,14 @@ pub fn build_building(
                 .collect(),
             )
         }
-        BuildingStyle::NeighboringTownConnection => {
-            let length = 20.0;
-            let building_orientation_orth = building_orientation.orthogonal_right();
-
-            let vertices = vec![
-                building_position - length / 4.0 * building_orientation,
-                building_position + length / 2.0 * building_orientation_orth,
-                building_position + length / 4.0 * building_orientation,
-                building_position - length / 2.0 * building_orientation_orth,
-            ]
+        BuildingStyle::NeighboringTownConnection => BuildingMesh(
+            Some((
+                BuildingMaterial::WhiteWall,
+                Mesh::from_area(&lot.original_area),
+            ))
             .into_iter()
-            .map(|v| Vertex {
-                position: [v.x, v.y, 3.0],
-            })
-            .collect();
-
-            let indices = vec![0, 1, 2, 2, 3, 0];
-
-            BuildingMesh(
-                Some((BuildingMaterial::WhiteWall, Mesh::new(vertices, indices)))
-                    .into_iter()
-                    .collect(),
-            )
-        }
+            .collect(),
+        ),
     }
 }
 

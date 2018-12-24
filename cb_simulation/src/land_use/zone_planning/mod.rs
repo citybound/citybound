@@ -4,6 +4,7 @@ AreaError, WithUniqueOrthogonal, AreaEmbedding, AreaFilter};
 use land_use::buildings::BuildingStyle;
 use ordered_float::OrderedFloat;
 use itertools::Itertools;
+use util::random::{seed, RngCore};
 
 use transport::transport_planning::{RoadPrototype, LanePrototype};
 
@@ -45,6 +46,8 @@ pub const LAND_USES: [LandUse; 6] = [
 #[derive(Compact, Clone, Serialize, Deserialize, Debug)]
 pub struct Lot {
     pub area: Area,
+    pub original_area: Area,
+    pub original_lot_id: u32,
     pub land_uses: CVec<LandUse>,
     pub max_height: u8,
     pub set_back: u8,
@@ -53,7 +56,7 @@ pub struct Lot {
 
 impl Lot {
     pub fn center_point(&self) -> P2 {
-        let outline = &self.area.primitives[0].boundary.path();
+        let outline = &self.original_area.primitives[0].boundary.path();
         P2::from_coordinates(
             (0..10).into_iter().fold(V2::new(0.0, 0.0), |sum_point, i| {
                 sum_point + outline.along(i as f32 * (outline.length() / 10.0)).coords
@@ -135,6 +138,7 @@ pub fn calculate_prototypes(
         if let Prototype {
             kind: PrototypeKind::Road(RoadPrototype::PavedArea(ref area)),
             id,
+            ..
         } = *prototype
         {
             zone_embedding.insert(area.clone(), ZoneEmbeddingLabel::Paved(id))
@@ -204,6 +208,7 @@ pub fn calculate_prototypes(
                     }
 
                     Ok(Some(Prototype {
+                        representative_position: lot.center_point(),
                         kind: PrototypeKind::Lot(LotPrototype {
                             lot: Lot {
                                 area: main_area,
@@ -267,17 +272,33 @@ pub fn calculate_prototypes(
                 };
 
                 if distance > neighboring_town_distance_per_octant[octant].0 {
-                    let direction = path.start_direction();
-                    let direction_orth = path.start_direction().orthogonal_right();
+                    let dx = path.start_direction();
+                    let dy = path.start_direction().orthogonal_right();
+
+                    // <svg width="32px" height="20px" viewBox="0 0 32 20" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+                    //     <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                    //         <g id="Group" transform="translate(1.000000, 0.000000)" stroke="#979797">
+                    //             <polygon id="Path" points="0 10 10 0 10 5 20 5 20 0 30 10 20 20 20 15 10 15 10 20"></polygon>
+                    //         </g>
+                    //     </g>
+                    // </svg>
 
                     let corners: CVec<P2> = vec![
-                        path.start() + 3.0 * direction_orth,
-                        path.start() + 3.0 * direction_orth + 10.0 * direction,
-                        path.start() + 13.0 * direction_orth + 10.0 * direction,
-                        path.start() + 13.0 * direction_orth,
-                        path.start() + 3.0 * direction_orth,
+                        path.start() + 0.0 * dx +  10.0 * dy - 15.0 * dx - 10.0 * dy,
+                        path.start() + 10.0 * dx + 0.0 * dy - 15.0 * dx - 10.0 * dy,
+                        path.start() + 10.0 * dx + 5.0 * dy - 15.0 * dx - 10.0 * dy,
+                        path.start() + 20.0 * dx + 5.0 * dy - 15.0 * dx - 10.0 * dy,
+                        path.start() + 20.0 * dx + 0.0 * dy - 15.0 * dx - 10.0 * dy,
+                        path.start() + 30.0 * dx + 10.0 * dy - 15.0 * dx - 10.0 * dy,
+                        path.start() + 20.0 * dx + 20.0 * dy - 15.0 * dx - 10.0 * dy,
+                        path.start() + 20.0 * dx + 15.0 * dy - 15.0 * dx - 10.0 * dy,
+                        path.start() + 10.0 * dx + 15.0 * dy - 15.0 * dx - 10.0 * dy,
+                        path.start() + 10.0 * dx + 20.0 * dy - 15.0 * dx - 10.0 * dy,
+                        path.start() + 0.0 * dx +  10.0 * dy - 15.0 * dx - 10.0 * dy,
                     ]
                     .into();
+
+                    let repr_pos = corners[0];
 
                     if let Some(road_boundary) = LinePath::new(vec![corners[0], corners[1]].into())
                     {
@@ -286,14 +307,17 @@ pub fn calculate_prototypes(
                                 neighboring_town_distance_per_octant[octant] = (
                                     distance,
                                     Some(Prototype {
+                                        representative_position: repr_pos,
                                         kind: PrototypeKind::Lot(LotPrototype {
                                             occupancy: LotOccupancy::Occupied(
                                                 BuildingStyle::NeighboringTownConnection,
                                             ),
                                             lot: Lot {
                                                 road_boundaries: vec![road_boundary].into(),
-                                                area: Area::new_simple(area_boundary),
                                                 land_uses: CVec::new(),
+                                                area: Area::new_simple(area_boundary.clone()),
+                                                original_area: Area::new_simple(area_boundary),
+                                                original_lot_id: seed(prototype.id).next_u32(),
                                                 max_height: 0,
                                                 set_back: 0,
                                             },
@@ -394,12 +418,15 @@ pub fn calculate_prototypes(
             });
 
             vacant_lot_prototypes.push(Prototype {
+                representative_position: area.primitives[0].boundary.path().points[0],
                 kind: PrototypeKind::Lot(LotPrototype {
                     lot: Lot {
                         land_uses: vec![land_use].into(),
                         max_height: 0,
                         set_back: 0,
                         road_boundaries: road_boundaries.collect(),
+                        original_area: area.clone(),
+                        original_lot_id: seed(influenced_id).next_u32(),
                         area,
                     },
                     occupancy: LotOccupancy::Vacant,

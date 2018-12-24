@@ -96,7 +96,7 @@ class BuildingInfo extends React.Component {
 
     componentWillMount() {
         this.refresh();
-        this.refreshInterval = setInterval(this.refresh, 1000);
+        this.refreshInterval = setInterval(this.refresh, 30);
     }
 
     componentWillUnmount() {
@@ -105,20 +105,22 @@ class BuildingInfo extends React.Component {
 
     render() {
         return <div
-            className="window building"
+            className={"window building " + (this.props.pinned ? "pinned" : "")}
             style={{
                 pointerEvents: this.props.pinned ? "all" : "none",
-                transform: `translate(calc(${this.props.buildingPosition2d[0]}px - 50%), calc(${this.props.buildingPosition2d[1]}px - 100% - 30px))`,
+                transform: `translate(calc(${this.props.buildingPosition2d[0]}px - 50% - 0.5em), calc(${this.props.buildingPosition2d[1]}px - 100% - 30px))`,
                 maxHeight: `calc(${this.props.buildingPosition2d[1]}px - 30px)`
             }}>
             <p>{fmtId(this.props.inspectedBuilding)}</p>
             {this.props.pinned && <a className="close-window" onClick={this.props.closeWindow}>×</a>}
             {this.props.inspectedBuildingState && [
                 <h1>{this.props.inspectedBuildingState.style}</h1>,
-                this.props.inspectedBuildingState.households.map(id => [
-                    <h3>{fmtId(id)}</h3>,
-                    this.props.householdInfo[id] && <HouseholdInfo core={this.props.householdInfo[id].core} id={id} here={this.props.inspectedBuilding} />
-                ])
+                <div className="household-list">
+                    {this.props.inspectedBuildingState.households.map(id => <div className="household">{[
+                        <h3>{fmtId(id)}</h3>,
+                        this.props.householdInfo[id] && <HouseholdInfo core={this.props.householdInfo[id].core} id={id} here={this.props.inspectedBuilding} />
+                    ]}</div>)}
+                </div>
             ]}
         </div>;
     }

@@ -1,6 +1,6 @@
 use kay::{World, Fate, ActorSystem, TypedID};
 use compact::CVec;
-use descartes::{P2, RoughEq, AreaError, PointContainer};
+use descartes::{P2, RoughEq, AreaError};
 use construction::{Constructable, ConstructableID, ConstructionID};
 use planning::{Prototype, PrototypeID, PrototypeKind, PlanHistory, PlanResult, PlanManagerID,
 Project, Plan, Gesture, GestureID, GestureIntent};
@@ -98,6 +98,8 @@ impl Constructable for Plant {
     }
 }
 
+static mut OCC_VEG_CELLS: *mut Vec<(i32, i32)> = 0 as *mut Vec<(i32, i32)>;
+
 pub fn calculate_prototypes(
     history: &PlanHistory,
     current_result: &PlanResult,
@@ -118,25 +120,32 @@ pub fn calculate_prototypes(
                         occupancy: LotOccupancy::Occupied(style),
                     }),
                 id,
+                ..
             } => {
                 constructed_areas.push(footprint_area(lot, style, 5.0));
                 if style == BuildingStyle::Field {
-                    let boundary = lot.area.primitives[0].boundary.path();
+                    let boundary = lot.original_area.primitives[0].boundary.path();
                     let mut pos_along = 0.0;
                     let mut i = 0;
-                    let mut rand = seed(id);
+                    let mut rand = seed(lot.original_lot_id);
 
                     while pos_along < boundary.length() {
                         i += 1;
                         pos_along += rand.gen_range(5.0, 60.0);
                         let vegetation_type = rand.choose(&VEGETATION_TYPES).unwrap().clone();
-                        prototypes.push(Prototype::new_with_influences(
-                            (id, i),
-                            PrototypeKind::Plant(PlantPrototype {
-                                vegetation_type,
-                                position: boundary.along(pos_along),
-                            }),
-                        ))
+                        let pos = boundary.along(pos_along);
+                        if let Some((_, projected_pos)) =
+                            lot.area.primitives[0].boundary.path().project(pos)
+                        {
+                            prototypes.push(Prototype::new_with_influences(
+                                (id, i),
+                                PrototypeKind::Plant(PlantPrototype {
+                                    vegetation_type,
+                                    position: projected_pos,
+                                }),
+                                projected_pos,
+                            ))
+                        }
                     }
                 }
             }
@@ -150,37 +159,84 @@ pub fn calculate_prototypes(
                 PlantIntent::Individual(proto) => prototypes.push(Prototype::new_with_influences(
                     gesture_id,
                     PrototypeKind::Plant(proto.clone()),
+                    proto.position,
                 )),
                 PlantIntent::NaturalGrowth => {
-                    let mut multi_noise = BasicMulti::new()
-                        .set_seed(gesture_id.0.as_fields().0)
-                        .set_octaves(9)
-                        .set_persistence(0.98);
+                    let mut positions = Vec::new();
+                    let mut prototypes_before_difference = Vec::new();
 
-                    for x_cell in -200..200 {
-                        for y_cell in -200..200 {
-                            let mut position = [x_cell as f64 * 10.0, y_cell as f64 * 10.0];
-                            let mut rand = seed((x_cell, y_cell));
-                            position[0] += rand.gen_range(-10.0, 10.0);
-                            position[1] += rand.gen_range(-10.0, 10.0);
-                            if multi_noise.get([position[0] / 500.0, position[1] / 500.0]) > 0.13 {
-                                let position_p2 = P2::new(position[0] as f32, position[1] as f32);
-                                if !constructed_areas
-                                    .iter()
-                                    .any(|area| area.contains(position_p2))
-                                {
-                                    let vegetation_type = rand.choose(&VEGETATION_TYPES).unwrap();
-                                    prototypes.push(Prototype::new_with_influences(
-                                        (gesture_id, x_cell, y_cell),
-                                        PrototypeKind::Plant(PlantPrototype {
-                                            position: position_p2,
-                                            vegetation_type: *vegetation_type,
-                                        }),
-                                    ));
-                                }
-                            }
-                        }
+                    if unsafe { OCC_VEG_CELLS == 0 as *mut Vec<(i32, i32)> } {
+                        let mut multi_noise = BasicMulti::new()
+                            .set_seed(gesture_id.0.as_fields().0)
+                            .set_octaves(9)
+                            .set_persistence(0.98);
+
+                        let cells = (-50..50)
+                            .into_iter()
+                            .flat_map(|x_cell| {
+                                (-50..50)
+                                    .into_iter()
+                                    .filter_map(|y_cell| {
+                                        if multi_noise
+                                            .get([x_cell as f64 / 50.0, y_cell as f64 / 50.0])
+                                            > 0.12
+                                        {
+                                            Some((x_cell, y_cell))
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .collect::<Vec<_>>()
+                            })
+                            .collect::<Vec<_>>();
+
+                        unsafe { OCC_VEG_CELLS = Box::into_raw(Box::new(cells)) }
                     }
+
+                    let occ_vec_cells = unsafe { &(*OCC_VEG_CELLS) };
+
+                    for (x_cell, y_cell) in occ_vec_cells {
+                        let mut position = [*x_cell as f32 * 10.0, *y_cell as f32 * 10.0];
+                        let mut rand = seed((x_cell, y_cell));
+                        position[0] += rand.gen_range(-10.0, 10.0);
+                        position[1] += rand.gen_range(-10.0, 10.0);
+
+                        let position_p2 = P2::new(position[0], position[1]);
+                        let vegetation_type = rand.choose(&VEGETATION_TYPES).unwrap();
+
+                        positions.push(position_p2);
+                        prototypes_before_difference.push(Prototype::new_with_influences(
+                            (gesture_id, x_cell, y_cell),
+                            PrototypeKind::Plant(PlantPrototype {
+                                position: position_p2,
+                                vegetation_type: *vegetation_type,
+                            }),
+                            position_p2,
+                        ));
+                    }
+
+                    let mut winding_numbers = vec![0.0; positions.len()];
+
+                    for area in &constructed_areas {
+                        area.add_winding_numbers_batching(
+                            &positions,
+                            winding_numbers.as_mut_slice(),
+                        );
+                    }
+
+                    prototypes.extend(
+                        prototypes_before_difference
+                            .into_iter()
+                            .zip(winding_numbers)
+                            .filter_map(|(proto, winding_number)| {
+                                if winding_number.abs() < 0.01 {
+                                    // Outside
+                                    Some(proto)
+                                } else {
+                                    None
+                                }
+                            }),
+                    )
                 }
             }
         }

@@ -8,7 +8,7 @@ const Panel = Collapse.Panel;
 const TabPane = Tabs.TabPane;
 
 export const initalState = {
-    visible: true,
+    visible: !localStorage["cb-hide-menu"],
     tabKey: "about"
 }
 

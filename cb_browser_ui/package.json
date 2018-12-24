@@ -1,8 +1,10 @@
 {
   "scripts": {
+    "build-js": "parcel build index.html --no-minify --log-level 3",
+    "watch-js": "parcel watch index.html --no-hmr --log-level 3",
     "build-rust": "cargo-web build && node copyWasm.js",
-    "build": "npm run build-rust && parcel build index.html --no-minify --log-level 3",
-    "start": "npm run build-rust && parcel watch index.html --no-hmr --log-level 3"
+    "build": "npm run build-rust && npm run build-js",
+    "start": "npm run build-rust && npm run watch-js"
   },
   "dependencies": {
     "antd": "^3.8.1",

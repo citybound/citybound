@@ -60,7 +60,7 @@ export function Tools(props) {
                     onChange={(value) => setState(oldState => update(oldState, {
                         planning: {
                             planningMode: { $set: value },
-                            canvasMode: { intent: { $set: value == "roads" ? { Road: { n_lanes_forward: 2, n_lanes_backward: 2 } } : null } }
+                            canvasMode: { intent: { $set: value == "roads" ? { Road: { n_lanes_forward: 1, n_lanes_backward: 1 } } : null } }
                         }
                     }))} />,
                 state.planning.currentProject && state.planning.planningMode == "zoning" &&
