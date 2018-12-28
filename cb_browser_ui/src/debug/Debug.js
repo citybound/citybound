@@ -66,7 +66,7 @@ export function Windows(props) {
                     <InputNumber
                             value={state.debug.planGridSettings.spacing}
                             onChange={(spacing) => setState(oldState => update(oldState, {
-                                debug: { planGridSettings: { spacing: { $set: n } } }
+                                debug: { planGridSettings: { spacing: { $set: spacing } } }
                             }))}
                             step={10.0}
                             min={0} />

@@ -5,7 +5,7 @@ use stdweb::js_export;
 use SYSTEM;
 
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
-pub fn plan_grid(project_id: Serde<::planning::ProjectID>, n: usize, spacing: Serde<f32>) {
+pub fn plan_grid(project_id: Serde<::planning::ProjectID>, n: Serde<isize>, spacing: Serde<f32>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
 
@@ -15,10 +15,10 @@ pub fn plan_grid(project_id: Serde<::planning::ProjectID>, n: usize, spacing: Se
     use ::planning::{GestureID, GestureIntent};
     use ::descartes::P2;
 
-    for x in 0..n {
+    for x in -n.0/2..n.0/2 {
         let id = GestureID::new();
-        let p1 = P2::new(x as f32 * spacing.0, 0.0);
-        let p2 = P2::new(x as f32 * spacing.0, n as f32 * spacing.0);
+        let p1 = P2::new(x as f32 * spacing.0, (-n.0/2) as f32 * spacing.0);
+        let p2 = P2::new(x as f32 * spacing.0, (n.0/2) as f32 * spacing.0);
         plan_manager.start_new_gesture(
             project_id.0,
             ::kay::MachineID(0),
@@ -30,10 +30,10 @@ pub fn plan_grid(project_id: Serde<::planning::ProjectID>, n: usize, spacing: Se
         plan_manager.add_control_point(project_id.0, id, p2, true, true, world);
     }
 
-    for y in 0..n {
+    for y in -n.0/2..n.0/2 {
         let id = GestureID::new();
-        let p1 = P2::new(0.0, y as f32 * spacing.0);
-        let p2 = P2::new(n as f32 * spacing.0, y as f32 * spacing.0);
+        let p1 = P2::new((-n.0/2) as f32 * spacing.0, y as f32 * spacing.0);
+        let p2 = P2::new((n.0/2) as f32 * spacing.0, y as f32 * spacing.0);
         plan_manager.start_new_gesture(
             project_id.0,
             ::kay::MachineID(0),
