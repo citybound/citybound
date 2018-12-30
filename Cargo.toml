@@ -17,7 +17,7 @@ name = "citybound"
 path = "./cb_server/main.rs"
 
 [dependencies]
-rouille = "2.1.0"
+rouille = {version = "2.1.0", default-features = false}
 clap = "2.32.0"
 open = "1.2.2"
 backtrace = "0.3"
@@ -28,12 +28,11 @@ path = "./cb_simulation"
 
 [profile.dev]
 opt-level = 1
-codegen-units = 8
+codegen-units = 4
 
 [profile.release]
 debug = true
-codegen-units = 8
-lto = true
+codegen-units = 4
 
 [features]
 embed_assets = ["rust-embed-flag/embed_assets"]
