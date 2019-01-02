@@ -9,7 +9,7 @@ Citybound is a city building game with a focus on realism, collaborative plannin
 
 # Citybound
 
-**This is a living and open document, find out [how to contribute your suggestions](../CONTRIBUTING.md).**
+**This is a living and open document, find out [how to contribute your suggestions](CONTRIBUTING.md).**
 
 Citybound is a city building game with a focus on realism, collaborative planning and simulation of microscopic details.
 
