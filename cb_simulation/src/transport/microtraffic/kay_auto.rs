@@ -69,13 +69,13 @@ struct MSG_LaneLike_add_obstacles(pub CVec < Obstacle >, pub LaneLikeID);
 
 
 impl LaneID {
-    pub fn on_signal_changed(&self, from: LaneLikeID, green: bool, world: &mut World) {
-        world.send(self.as_raw(), MSG_Lane_on_signal_changed(from, green));
+    pub fn on_signal_changed(&self, from: LaneID, new_green: bool, world: &mut World) {
+        world.send(self.as_raw(), MSG_Lane_on_signal_changed(from, new_green));
     }
 }
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Lane_on_signal_changed(pub LaneLikeID, pub bool);
+struct MSG_Lane_on_signal_changed(pub LaneID, pub bool);
 
 impl Into<LaneLikeID> for LaneID {
     fn into(self) -> LaneLikeID {
@@ -115,8 +115,8 @@ pub fn auto_setup(system: &mut ActorSystem) {
     LaneLikeID::register_implementor::<Lane>(system);
     TemporalID::register_implementor::<Lane>(system);
     system.add_handler::<Lane, _, _>(
-        |&MSG_Lane_on_signal_changed(from, green), instance, world| {
-            instance.on_signal_changed(from, green, world); Fate::Live
+        |&MSG_Lane_on_signal_changed(from, new_green), instance, world| {
+            instance.on_signal_changed(from, new_green, world); Fate::Live
         }, false
     );
     LaneLikeID::register_implementor::<SwitchLane>(system);

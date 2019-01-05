@@ -4,9 +4,9 @@ use descartes::{N, LinePath};
 
 use super::construction::ConstructionInfo;
 pub mod connectivity;
-use self::connectivity::{ConnectivityInfo, TransferConnectivityInfo};
+use self::connectivity::{ConnectivityInfo, SwitchConnectivityInfo};
 use super::microtraffic::{Microtraffic, TransferringMicrotraffic};
-use super::pathfinding::PathfindingInfo;
+use super::pathfinding::PathfindingCore;
 
 #[derive(Compact, Clone)]
 pub struct Lane {
@@ -14,7 +14,7 @@ pub struct Lane {
     pub construction: ConstructionInfo,
     pub connectivity: ConnectivityInfo,
     pub microtraffic: Microtraffic,
-    pub pathfinding: PathfindingInfo,
+    pub pathfinding: PathfindingCore,
 }
 
 impl Lane {
@@ -30,7 +30,7 @@ impl Lane {
             construction: ConstructionInfo::from_path(path.clone()),
             connectivity: ConnectivityInfo::new(on_intersection),
             microtraffic: Microtraffic::new(timings.clone()),
-            pathfinding: PathfindingInfo::default(),
+            pathfinding: PathfindingCore::default(),
         };
 
         super::ui::on_build(&lane, world);
@@ -43,7 +43,7 @@ impl Lane {
 pub struct SwitchLane {
     pub id: SwitchLaneID,
     pub construction: ConstructionInfo,
-    pub connectivity: TransferConnectivityInfo,
+    pub connectivity: SwitchConnectivityInfo,
     pub microtraffic: TransferringMicrotraffic,
 }
 
@@ -52,20 +52,20 @@ impl SwitchLane {
         SwitchLane {
             id,
             construction: ConstructionInfo::from_path(path.clone()),
-            connectivity: TransferConnectivityInfo::default(),
+            connectivity: SwitchConnectivityInfo::default(),
             microtraffic: TransferringMicrotraffic::default(),
         }
     }
 
     pub fn other_side(&self, side: LaneID) -> Option<LaneID> {
-        if let Some((left, _)) = self.connectivity.left {
+        if let Some((left, ..)) = self.connectivity.left {
             if side == left {
-                return self.connectivity.right.map(|(right, _)| right);
+                return self.connectivity.right.map(|(right, ..)| right);
             }
         };
-        if let Some((right, _)) = self.connectivity.right {
+        if let Some((right, ..)) = self.connectivity.right {
             if side == right {
-                return self.connectivity.left.map(|(left, _)| left);
+                return self.connectivity.left.map(|(left, ..)| left);
             }
         };
         None

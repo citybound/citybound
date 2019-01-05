@@ -2,7 +2,7 @@ import colors from '../colors';
 import renderOrder from '../renderOrder';
 import { RenderLayer } from "../browser_utils/Utils";
 
-const MATERIALS = ["WhiteWall", "TiledRoof", "FlatRoof", "FieldWheat", "FieldRows", "FieldPlant", "FieldMeadow"];
+const MATERIALS = ["WhiteWall", "TiledRoof", "FlatRoof", "FieldWheat", "FieldRows", "FieldPlant", "FieldMeadow", "WoodenFence", "MetalFence", "LotAsphalt"];
 const initialRenderingState = {};
 const materialInstances = {};
 

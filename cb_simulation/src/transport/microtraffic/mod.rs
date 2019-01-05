@@ -5,7 +5,7 @@ use std::f32::INFINITY;
 use std::ops::{Deref, DerefMut};
 
 use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
-use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
+use super::lane::connectivity::{Interaction};
 use super::pathfinding;
 
 mod intelligent_acceleration;
@@ -41,7 +41,7 @@ impl Microtraffic {
 
 // makes "time pass slower" for traffic, so we can still use realistic
 // unit values while traffic happening at a slower pace to be visible
-const MICROTRAFFIC_UNREALISTIC_SLOWDOWN: f32 = 1.0;
+const MICROTRAFFIC_UNREALISTIC_SLOWDOWN: f32 = 6.0;
 
 #[derive(Compact, Clone, Default)]
 pub struct TransferringMicrotraffic {
@@ -232,28 +232,15 @@ impl LaneLike for Lane {
 }
 
 impl Lane {
-    pub fn on_signal_changed(&mut self, from: LaneLikeID, green: bool, world: &mut World) {
-        if let Some(interaction) = self
-            .connectivity
-            .interactions
-            .iter_mut()
-            .find(|interaction| match **interaction {
-                Interaction {
-                    partner_lane,
-                    kind: InteractionKind::Next { .. },
-                    ..
-                } => partner_lane == from,
-                _ => false,
-            })
-        {
-            interaction.kind = InteractionKind::Next { green }
-        } else {
-            debug(
-                LOG_T,
-                "Lane doesn't know about next lane yet",
-                self.id,
-                world,
-            );
+    pub fn on_signal_changed(&mut self, from: LaneID, new_green: bool, _: &mut World) {
+        for interaction in self.connectivity.interactions.iter_mut() {
+            match *interaction {
+                Interaction::Next {
+                    next,
+                    ref mut green,
+                } if next == from => *green = new_green,
+                _ => {}
+            }
         }
     }
 }
@@ -290,17 +277,8 @@ impl Temporal for Lane {
         // TODO: this is just a hacky way to update new lanes about existing lane's green
         if old_green != self.microtraffic.green || do_traffic {
             for interaction in &self.connectivity.interactions {
-                if let Interaction {
-                    kind: InteractionKind::Previous { .. },
-                    partner_lane,
-                    ..
-                } = *interaction
-                {
-                    LaneID::from_raw(partner_lane.as_raw()).on_signal_changed(
-                        self.id_as(),
-                        self.microtraffic.green,
-                        world,
-                    );
+                if let Interaction::Previous { previous, .. } = *interaction {
+                    previous.on_signal_changed(self.id, self.microtraffic.green, world);
                 }
             }
         }
@@ -352,17 +330,14 @@ impl Temporal for Lane {
                 car.acceleration = next_car_acceleration.min(next_obstacle_acceleration);
 
                 if let Some(next_hop_interaction) = car.next_hop_interaction {
-                    if let Interaction {
-                        start,
-                        kind: InteractionKind::Next { green },
-                        ..
-                    } = self.connectivity.interactions[next_hop_interaction as usize]
+                    if let Interaction::Next { green, .. } =
+                        self.connectivity.interactions[next_hop_interaction as usize]
                     {
                         if !green {
                             car.acceleration = car.acceleration.min(intelligent_acceleration(
                                 car,
                                 &Obstacle {
-                                    position: OrderedFloat(start + 2.0),
+                                    position: OrderedFloat(self.construction.length + 2.0),
                                     velocity: 0.0,
                                     max_velocity: 0.0,
                                 },
@@ -417,7 +392,7 @@ impl Temporal for Lane {
         }
 
         loop {
-            let maybe_switch_car = self
+            let maybe_switch_car: Option<(usize, LaneLikeID, f32)> = self
                 .microtraffic
                 .cars
                 .iter()
@@ -429,46 +404,34 @@ impl Temporal for Lane {
                     });
 
                     match interaction {
-                        Some(Interaction {
-                            start,
-                            partner_lane,
-                            partner_start,
-                            kind:
-                                InteractionKind::Overlap {
-                                    end,
-                                    kind: OverlapKind::Transfer,
-                                    ..
-                                },
-                            ..
+                        Some(Interaction::Switch {
+                            start, end, via, ..
                         }) => {
                             if *car.position > start && *car.position > end - 300.0 {
-                                Some((i, partner_lane, start, partner_start))
+                                Some((i, via.into(), start))
                             } else {
                                 None
                             }
                         }
-                        Some(Interaction {
-                            start,
-                            partner_lane,
-                            partner_start,
-                            ..
-                        }) => {
-                            if *car.position > start {
-                                Some((i, partner_lane, start, partner_start))
+                        Some(Interaction::Next { next, .. }) => {
+                            if *car.position > self.construction.length {
+                                Some((i, next.into(), self.construction.length))
                             } else {
                                 None
                             }
+                        }
+                        Some(_) => {
+                            unreachable!("Car has a next hop that is neither Next nor Switch")
                         }
                         None => None,
                     }
                 })
                 .next();
 
-            if let Some((idx_to_remove, next_lane, start, partner_start)) = maybe_switch_car {
+            if let Some((idx_to_remove, next_lane, start)) = maybe_switch_car {
                 let car = self.microtraffic.cars.remove(idx_to_remove);
-                // TODO: ugly: untyped RawID shenanigans
                 next_lane.add_car(
-                    car.offset_by(partner_start - start),
+                    car.offset_by(-start),
                     Some(self.id_as()),
                     current_instant,
                     world,
@@ -483,7 +446,8 @@ impl Temporal for Lane {
             let cars = self.microtraffic.cars.iter();
 
             if (current_instant.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING
-                == interaction.partner_lane.as_raw().instance_id as usize % TRAFFIC_LOGIC_THROTTLING
+                == interaction.direct_partner().as_raw().instance_id as usize
+                    % TRAFFIC_LOGIC_THROTTLING
             {
                 let maybe_obstacles = obstacles_for_interaction(
                     interaction,
@@ -493,7 +457,7 @@ impl Temporal for Lane {
 
                 if let Some(obstacles) = maybe_obstacles {
                     interaction
-                        .partner_lane
+                        .direct_partner()
                         .add_obstacles(obstacles, self.id_as(), world);
                 }
             }
@@ -534,7 +498,7 @@ impl LaneLike for SwitchLane {
     }
 
     fn add_obstacles(&mut self, obstacles: &CVec<Obstacle>, from: LaneLikeID, world: &mut World) {
-        if let (Some((left_id, _)), Some(_)) = (self.connectivity.left, self.connectivity.right) {
+        if let (Some((left_id, ..)), Some(_)) = (self.connectivity.left, self.connectivity.right) {
             // TODO: ugly: untyped RawID shenanigans
             if left_id.as_raw() == from.as_raw() {
                 self.microtraffic.left_obstacles = obstacles
@@ -678,7 +642,7 @@ impl Temporal for SwitchLane {
             }
         }
 
-        if let (Some((left, left_start)), Some((right, right_start))) =
+        if let (Some((left, left_start, _)), Some((right, right_start, _))) =
             (self.connectivity.left, self.connectivity.right)
         {
             let mut i = 0;
@@ -782,65 +746,55 @@ fn obstacles_for_interaction(
     self_obstacles_iter: ::std::slice::Iter<(Obstacle, LaneLikeID)>,
 ) -> Option<CVec<Obstacle>> {
     match *interaction {
-        Interaction {
-            partner_lane,
+        Interaction::Conflicting {
             start,
-            partner_start,
-            kind: InteractionKind::Overlap { end, kind, .. },
+            conflicting_start,
+            end,
+            can_weave,
             ..
-        } => Some(match kind {
-            OverlapKind::Parallel => cars
-                .skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
-                .take_while(|car: &&LaneCar| *car.position < end)
-                .map(|car| car.as_obstacle.offset_by(-start + partner_start))
-                .collect(),
-            OverlapKind::Transfer => cars
-                .skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
-                .map(|car| car.as_obstacle.offset_by(-start + partner_start))
-                .chain(self_obstacles_iter.filter_map(|&(obstacle, id)| {
-                    if id != partner_lane && *obstacle.position + 2.0 * obstacle.velocity > start {
-                        Some(obstacle.offset_by(-start + partner_start))
-                    } else {
-                        None
-                    }
-                }))
-                .collect(),
-            OverlapKind::Conflicting => {
+        } => {
+            if can_weave {
+                Some(
+                    cars.skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
+                        .take_while(|car: &&LaneCar| *car.position < end)
+                        .map(|car| car.as_obstacle.offset_by(-start + conflicting_start))
+                        .collect(),
+                )
+            } else {
                 let in_overlap = |car: &LaneCar| {
                     *car.position + 2.0 * car.velocity > start && *car.position - 2.0 < end
                 };
                 if cars.any(in_overlap) {
-                    vec![Obstacle {
-                        position: OrderedFloat(partner_start),
-                        velocity: 0.0,
-                        max_velocity: 0.0,
-                    }]
-                    .into()
+                    Some(
+                        vec![Obstacle {
+                            position: OrderedFloat(conflicting_start),
+                            velocity: 0.0,
+                            max_velocity: 0.0,
+                        }]
+                        .into(),
+                    )
                 } else {
-                    CVec::new()
+                    Some(CVec::new())
                 }
             }
-        }),
-        Interaction {
-            start,
-            partner_start,
-            kind: InteractionKind::Previous,
-            ..
+        }
+        Interaction::Switch { start, end, .. } => Some(
+            cars.skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
+                .take_while(|car: &&LaneCar| *car.position < end)
+                .map(|car| car.as_obstacle)
+                .collect(),
+        ),
+        Interaction::Previous {
+            previous_length, ..
         } => Some(
             cars.map(|car| &car.as_obstacle)
                 .chain(self_obstacles_iter.map(|&(ref obstacle, _id)| obstacle))
-                .find(|car| *car.position >= start - 2.0)
-                .map(|first_car| first_car.offset_by(-start + partner_start))
+                .find(|car| *car.position >= -2.0)
+                .map(|first_car| first_car.offset_by(previous_length))
                 .into_iter()
                 .collect(),
         ),
-        Interaction {
-            kind: InteractionKind::Next { .. },
-            ..
-        } => {
-            None
-            // TODO: for looking backwards for merging lanes?
-        }
+        _ => None,
     }
 }
 

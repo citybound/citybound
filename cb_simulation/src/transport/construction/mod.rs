@@ -6,7 +6,7 @@ use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
 use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
-use super::lane::connectivity::{Interaction, InteractionKind, OverlapKind};
+use super::lane::connectivity::Interaction;
 use super::microtraffic::LaneLikeID;
 
 use planning::Prototype;
@@ -110,12 +110,6 @@ impl ConstructionInfo {
     }
 }
 
-pub trait Unbuildable {
-    fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World);
-    fn unbuild(&mut self, report_to: ConstructionID, world: &mut World) -> Fate;
-    fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate;
-}
-
 use fnv::FnvHashMap;
 
 // TODO: not thread safe for now
@@ -174,23 +168,17 @@ impl Lane {
                     .interactions
                     .iter()
                     .any(|interaction| match *interaction {
-                        Interaction {
-                            partner_lane,
-                            kind: InteractionKind::Next { .. },
-                            ..
-                        } => partner_lane == other_id.into(),
+                        Interaction::Next { next, .. } => next == other_id,
                         _ => false,
                     });
             if !already_a_partner {
-                self.connectivity.interactions.push(Interaction {
-                    partner_lane: other_id.into(),
-                    start: self.construction.length,
-                    partner_start: 0.0,
-                    kind: InteractionKind::Next { green: false },
+                self.connectivity.interactions.push(Interaction::Next {
+                    next: other_id,
+                    green: false,
                 });
             }
 
-            super::pathfinding::on_connect(self);
+            ::transport::pathfinding::road_pathfinding::on_connect(self);
         }
 
         if other_end.rough_eq_by(self.construction.path.start(), LANE_CONNECTION_TOLERANCE) {
@@ -201,23 +189,17 @@ impl Lane {
                     .interactions
                     .iter()
                     .any(|interaction| match *interaction {
-                        Interaction {
-                            partner_lane,
-                            kind: InteractionKind::Previous { .. },
-                            ..
-                        } => partner_lane == other_id.into(),
+                        Interaction::Previous { previous, .. } => previous == other_id,
                         _ => false,
                     });
             if !already_a_partner {
-                self.connectivity.interactions.push(Interaction {
-                    partner_lane: other_id.into(),
-                    start: 0.0,
-                    partner_start: other_length,
-                    kind: InteractionKind::Previous,
+                self.connectivity.interactions.push(Interaction::Previous {
+                    previous: other_id,
+                    previous_length: other_length,
                 });
             }
 
-            super::pathfinding::on_connect(self);
+            ::transport::pathfinding::road_pathfinding::on_connect(self);
         }
 
         if reply_needed && connected {
@@ -282,40 +264,28 @@ impl Lane {
                 let other_exit_distance =
                     other_band.outline_distance_to_path_distance(exit_intersection.along_b);
 
-                let overlap_kind = if other_path
+                let can_weave = if other_path
                     .direction_along(other_entry_distance)
                     .rough_eq_by(self.construction.path.direction_along(entry_distance), 0.1)
                     || other_path
                         .direction_along(other_exit_distance)
                         .rough_eq_by(self.construction.path.direction_along(exit_distance), 0.1)
                 {
-                    // ::stagemaster::geometry::CPath::add_debug_path(
-                    //     self.construction.path
-                    //         .subsection(entry_distance, exit_distance).unwrap(),
-                    //     [1.0, 0.5, 0.0],
-                    //     0.3
-                    // );
-                    OverlapKind::Parallel
+                    true
                 } else {
-                    // ::stagemaster::geometry::CPath::add_debug_path(
-                    //     self.construction.path
-                    //         .subsection(entry_distance, exit_distance).unwrap(),
-                    //     [1.0, 0.0, 0.0],
-                    //     0.3
-                    // );
-                    OverlapKind::Conflicting
+                    false
                 };
 
-                self.connectivity.interactions.push(Interaction {
-                    partner_lane: other_id.into(),
-                    start: entry_distance,
-                    partner_start: other_entry_distance.min(other_exit_distance),
-                    kind: InteractionKind::Overlap {
+                self.connectivity
+                    .interactions
+                    .push(Interaction::Conflicting {
+                        conflicting: other_id,
+                        start: entry_distance,
+                        conflicting_start: other_entry_distance.min(other_exit_distance),
                         end: exit_distance,
-                        partner_end: other_exit_distance.max(other_entry_distance),
-                        kind: overlap_kind,
-                    },
-                });
+                        conflicting_end: other_exit_distance.max(other_entry_distance),
+                        can_weave,
+                    });
             } else {
                 panic!("both entry and exit should exist")
             }
@@ -335,85 +305,95 @@ impl Lane {
             .connectivity
             .interactions
             .iter()
-            .any(|existing| existing.partner_lane == interaction.partner_lane);
+            .any(|existing| existing.direct_partner() == interaction.direct_partner());
         if !already_a_partner {
             self.connectivity.interactions.push(interaction);
-            super::pathfinding::on_connect(self);
+            ::transport::pathfinding::road_pathfinding::on_connect(self);
         }
     }
 }
 
 use transport::pathfinding::trip::{TripResult, TripFate};
 
-impl Unbuildable for Lane {
-    fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World) {
-        // TODO: ugly: untyped RawID shenanigans
-        let interaction_indices_to_remove = self
-            .connectivity
+impl Lane {
+    pub fn disconnect(&mut self, other_id: LaneID, world: &mut World) {
+        self.connectivity
             .interactions
-            .iter()
-            .enumerate()
-            .filter_map(|(i, inter)| {
-                if inter.partner_lane.as_raw() == other_id.as_raw() {
-                    Some(i)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
+            .retain(|interaction| interaction.direct_lane_partner() != Some(other_id));
+
+        self.microtraffic.obstacles.drain();
 
         let self_as_rough_location = self.id_as();
-        self.microtraffic.cars.retain(|car| {
-            if let Some(hop_interaction) = car.next_hop_interaction {
-                if interaction_indices_to_remove.contains(&(hop_interaction as usize)) {
-                    car.trip.finish(
-                        TripResult {
-                            location_now: Some(self_as_rough_location),
-                            fate: TripFate::HopDisconnected,
-                        },
-                        world,
-                    );
-                    false
-                } else {
-                    true
-                }
-            } else {
-                true
-            }
-        });
-        self.microtraffic.obstacles.retain(|&(_obstacle, from_id)| {
-            // TODO: ugly: untyped RawID shenanigans
-            from_id.as_raw() != other_id.as_raw()
-        });
-        for idx in interaction_indices_to_remove.into_iter().rev() {
-            self.connectivity.interactions.remove(idx);
+
+        for car in self.microtraffic.cars.drain() {
+            car.trip.finish(
+                TripResult {
+                    location_now: Some(self_as_rough_location),
+                    fate: TripFate::HopDisconnected,
+                },
+                world,
+            );
         }
-        // TODO: untyped RawID shenanigans
-        let other_as_lanelike = LaneLikeID::from_raw(other_id.as_raw());
-        super::pathfinding::on_disconnect(self, other_as_lanelike);
+
+        ::transport::pathfinding::road_pathfinding::on_disconnect(self);
         other_id.on_confirm_disconnect(world);
     }
 
-    fn unbuild(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
+    pub fn disconnect_switch(&mut self, other_id: SwitchLaneID, world: &mut World) {
+        self.connectivity
+            .interactions
+            .retain(|interaction| interaction.direct_switch_partner() != Some(other_id));
+
+        self.microtraffic.obstacles.drain();
+
+        let self_as_rough_location = self.id_as();
+
+        for car in self.microtraffic.cars.drain() {
+            car.trip.finish(
+                TripResult {
+                    location_now: Some(self_as_rough_location),
+                    fate: TripFate::HopDisconnected,
+                },
+                world,
+            );
+        }
+
+        ::transport::pathfinding::road_pathfinding::on_disconnect(self);
+        other_id.on_confirm_disconnect(world);
+    }
+
+    pub fn unbuild(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
         let mut disconnects_remaining = 0;
-        for id in self
+
+        for lane in self
             .connectivity
             .interactions
             .iter()
-            .map(|interaction| interaction.partner_lane)
+            .filter_map(|interaction| interaction.direct_lane_partner())
             .unique()
         {
-            // TODO: untyped RawID shenanigans
-            let id_as_unbuildable = UnbuildableID::from_raw(id.as_raw());
-            id_as_unbuildable.disconnect(self.id_as(), world);
+            lane.disconnect(self.id, world);
             disconnects_remaining += 1;
         }
+
+        for switch_lane in self
+            .connectivity
+            .interactions
+            .iter()
+            .filter_map(|interaction| interaction.direct_switch_partner())
+            .unique()
+        {
+            switch_lane.disconnect(self.id, world);
+            disconnects_remaining += 1;
+        }
+
         super::ui::on_unbuild(self, world);
         unsafe {
             MEMOIZED_BANDS_OUTLINES
                 .get_or_insert_with(FnvHashMap::default)
                 .remove(&self.id_as());
         }
+
         if disconnects_remaining == 0 {
             self.finalize(report_to, world);
             Fate::Die
@@ -424,7 +404,7 @@ impl Unbuildable for Lane {
         }
     }
 
-    fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate {
+    pub fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate {
         self.construction.disconnects_remaining -= 1;
         if self.construction.disconnects_remaining == 0 {
             self.finalize(
@@ -454,7 +434,7 @@ impl Lane {
             );
         }
 
-        super::pathfinding::on_unbuild(self, world);
+        ::transport::pathfinding::road_pathfinding::on_unbuild(self, world);
     }
 }
 
@@ -537,31 +517,16 @@ impl SwitchLane {
             ),
         );
         if let (
-            Some((lane_start_on_other_distance, lane_start_on_other)),
-            Some((lane_end_on_other_distance, lane_end_on_other)),
+            Some((start_on_other_distance, start_on_other)),
+            Some((end_on_other_distance, end_on_other)),
         ) = projections
         {
-            if lane_start_on_other_distance < lane_end_on_other_distance
-                && lane_end_on_other_distance - lane_start_on_other_distance
-                    > MIN_SWITCHING_LANE_LENGTH
-                && lane_start_on_other
+            if start_on_other_distance < end_on_other_distance
+                && end_on_other_distance - start_on_other_distance > MIN_SWITCHING_LANE_LENGTH
+                && start_on_other
                     .rough_eq_by(self.construction.path.start(), MAX_SWITCHING_LANE_DISTANCE)
-                && lane_end_on_other.rough_eq_by(self.construction.path.end(), 3.0)
+                && end_on_other.rough_eq_by(self.construction.path.end(), 3.0)
             {
-                other_id.add_switch_lane_interaction(
-                    Interaction {
-                        partner_lane: self.id_as(),
-                        start: lane_start_on_other_distance,
-                        partner_start: 0.0,
-                        kind: InteractionKind::Overlap {
-                            end: lane_start_on_other_distance + self.construction.length,
-                            partner_end: self.construction.length,
-                            kind: OverlapKind::Transfer,
-                        },
-                    },
-                    world,
-                );
-
                 let mut distance_covered = 0.0;
                 let distance_map = self
                     .construction
@@ -575,76 +540,92 @@ impl SwitchLane {
                             .0;
                         (
                             distance_covered,
-                            segment_end_on_other_distance - lane_start_on_other_distance,
+                            segment_end_on_other_distance - start_on_other_distance,
                         )
                     })
                     .collect();
 
-                let other_is_right = (lane_start_on_other - self.construction.path.start())
+                let other_is_right = (start_on_other - self.construction.path.start())
                     .dot(&self.construction.path.start_direction().orthogonal_right())
                     > 0.0;
 
                 if other_is_right {
-                    self.connectivity.right = Some((other_id, lane_start_on_other_distance));
+                    self.connectivity.right =
+                        Some((other_id, start_on_other_distance, end_on_other_distance));
                     self.connectivity.right_distance_map = distance_map;
                 } else {
-                    self.connectivity.left = Some((other_id, lane_start_on_other_distance));
+                    self.connectivity.left =
+                        Some((other_id, start_on_other_distance, end_on_other_distance));
                     self.connectivity.left_distance_map = distance_map;
+                }
+
+                if let (
+                    Some((left, left_start_on_other_distance, left_end_on_other_distance)),
+                    Some((right, right_start_on_other_distance, right_end_on_other_distance)),
+                ) = (self.connectivity.left, self.connectivity.right)
+                {
+                    left.add_switch_lane_interaction(
+                        Interaction::Switch {
+                            via: self.id,
+                            to: right,
+                            start: left_start_on_other_distance,
+                            end: left_end_on_other_distance,
+                            is_left: false,
+                        },
+                        world,
+                    );
+
+                    right.add_switch_lane_interaction(
+                        Interaction::Switch {
+                            via: self.id,
+                            to: left,
+                            start: right_start_on_other_distance,
+                            end: right_end_on_other_distance,
+                            is_left: true,
+                        },
+                        world,
+                    );
                 }
             }
         }
     }
 }
 
-impl Unbuildable for SwitchLane {
-    fn disconnect(&mut self, other_id: UnbuildableID, world: &mut World) {
-        self.connectivity.left = self.connectivity.left.and_then(
-            // TODO: ugly: untyped RawID shenanigans
-            |(left_id, left_start)| {
-                if left_id.as_raw() == other_id.as_raw() {
-                    None
-                } else {
-                    Some((left_id, left_start))
-                }
-            },
-        );
-        self.connectivity.right = self.connectivity.right.and_then(
-            // TODO: ugly: untyped RawID shenanigans
-            |(right_id, right_start)| {
-                if right_id.as_raw() == other_id.as_raw() {
-                    None
-                } else {
-                    Some((right_id, right_start))
-                }
-            },
-        );
-        other_id.on_confirm_disconnect(world);
+impl SwitchLane {
+    pub fn disconnect(&mut self, other: LaneID, world: &mut World) {
+        self.connectivity.left = self
+            .connectivity
+            .left
+            .filter(|(left_id, ..)| *left_id != other);
+        self.connectivity.right = self
+            .connectivity
+            .right
+            .filter(|(right_id, ..)| *right_id != other);
+        other.on_confirm_disconnect(world);
     }
 
-    fn unbuild(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
-        if let Some((left_id, _)) = self.connectivity.left {
-            Into::<UnbuildableID>::into(left_id).disconnect(self.id_as(), world);
+    pub fn unbuild(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
+        self.construction.disconnects_remaining = 0;
+
+        if let (Some((left_id, ..)), Some((right_id, ..))) =
+            (self.connectivity.left, self.connectivity.right)
+        {
+            left_id.disconnect_switch(self.id, world);
+            right_id.disconnect_switch(self.id, world);
+            self.construction.disconnects_remaining = 2;
         }
-        if let Some((right_id, _)) = self.connectivity.right {
-            Into::<UnbuildableID>::into(right_id).disconnect(self.id_as(), world);
-        }
+
         super::ui::on_unbuild_switch(self, world);
-        if self.connectivity.left.is_none() && self.connectivity.right.is_none() {
+        if self.construction.disconnects_remaining == 0 {
             self.finalize(report_to, world);
             Fate::Die
         } else {
-            self.construction.disconnects_remaining = self
-                .connectivity
-                .left
-                .into_iter()
-                .chain(self.connectivity.right)
-                .count() as u8;
             self.construction.unbuilding_for = Some(report_to);
             Fate::Live
         }
     }
 
-    fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate {
+    pub fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate {
         self.construction.disconnects_remaining -= 1;
         if self.construction.disconnects_remaining == 0 {
             self.finalize(

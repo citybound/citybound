@@ -35,8 +35,8 @@ impl NodeID {
         world.send(self.as_raw(), MSG_Node_update_routes());
     }
     
-    pub fn query_routes(&self, requester: NodeID, is_switch: bool, world: &mut World) {
-        world.send(self.as_raw(), MSG_Node_query_routes(requester, is_switch));
+    pub fn query_routes(&self, requester: NodeID, custom_connection_cost: Option < f32 >, world: &mut World) {
+        world.send(self.as_raw(), MSG_Node_query_routes(requester, custom_connection_cost));
     }
     
     pub fn on_routes(&self, new_routes: CDict < Location , ( f32 , u8 ) >, from: NodeID, world: &mut World) {
@@ -84,8 +84,8 @@ impl NodeID {
         );
         
         system.add_handler::<A, _, _>(
-            |&MSG_Node_query_routes(requester, is_switch), instance, world| {
-                instance.query_routes(requester, is_switch, world); Fate::Live
+            |&MSG_Node_query_routes(requester, custom_connection_cost), instance, world| {
+                instance.query_routes(requester, custom_connection_cost, world); Fate::Live
             }, false
         );
         
@@ -130,7 +130,7 @@ impl NodeID {
 #[derive(Copy, Clone)] #[allow(non_camel_case_types)]
 struct MSG_Node_update_routes();
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Node_query_routes(pub NodeID, pub bool);
+struct MSG_Node_query_routes(pub NodeID, pub Option < f32 >);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_Node_on_routes(pub CDict < Location , ( f32 , u8 ) >, pub NodeID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
@@ -394,58 +394,6 @@ struct MSG_DistanceRequester_on_distance(pub Option < f32 >);
 
 
 
-impl LaneID {
-    pub fn start_debug_connectivity(&self, world: &mut World) {
-        world.send(self.as_raw(), MSG_Lane_start_debug_connectivity());
-    }
-    
-    pub fn stop_debug_connectivity(&self, world: &mut World) {
-        world.send(self.as_raw(), MSG_Lane_stop_debug_connectivity());
-    }
-    
-    pub fn highlight_as_connected(&self, for_lane: LaneID, world: &mut World) {
-        world.send(self.as_raw(), MSG_Lane_highlight_as_connected(for_lane));
-    }
-    
-    pub fn stop_highlight_as_connected(&self, for_lane: LaneID, world: &mut World) {
-        world.send(self.as_raw(), MSG_Lane_stop_highlight_as_connected(for_lane));
-    }
-}
-
-#[derive(Copy, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Lane_start_debug_connectivity();
-#[derive(Copy, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Lane_stop_debug_connectivity();
-#[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Lane_highlight_as_connected(pub LaneID);
-#[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Lane_stop_highlight_as_connected(pub LaneID);
-
-impl Into<NodeID> for LaneID {
-    fn into(self) -> NodeID {
-        NodeID::from_raw(self.as_raw())
-    }
-}
-
-impl Into<RoughLocationID> for LaneID {
-    fn into(self) -> RoughLocationID {
-        RoughLocationID::from_raw(self.as_raw())
-    }
-}
-
-
-impl SwitchLaneID {
-    
-}
-
-
-
-impl Into<NodeID> for SwitchLaneID {
-    fn into(self) -> NodeID {
-        NodeID::from_raw(self.as_raw())
-    }
-}
-
 #[allow(unused_variables)]
 #[allow(unused_mut)]
 pub fn auto_setup(system: &mut ActorSystem) {
@@ -455,30 +403,5 @@ pub fn auto_setup(system: &mut ActorSystem) {
     LocationRequesterID::register_trait(system);
     PositionRequesterID::register_trait(system);
     DistanceRequesterID::register_trait(system);
-    NodeID::register_implementor::<Lane>(system);
-    RoughLocationID::register_implementor::<Lane>(system);
-    system.add_handler::<Lane, _, _>(
-        |&MSG_Lane_start_debug_connectivity(), instance, world| {
-            instance.start_debug_connectivity(world); Fate::Live
-        }, false
-    );
     
-    system.add_handler::<Lane, _, _>(
-        |&MSG_Lane_stop_debug_connectivity(), instance, world| {
-            instance.stop_debug_connectivity(world); Fate::Live
-        }, false
-    );
-    
-    system.add_handler::<Lane, _, _>(
-        |&MSG_Lane_highlight_as_connected(for_lane), instance, world| {
-            instance.highlight_as_connected(for_lane, world); Fate::Live
-        }, false
-    );
-    
-    system.add_handler::<Lane, _, _>(
-        |&MSG_Lane_stop_highlight_as_connected(for_lane), instance, world| {
-            instance.stop_highlight_as_connected(for_lane, world); Fate::Live
-        }, false
-    );
-    NodeID::register_implementor::<SwitchLane>(system);
 }

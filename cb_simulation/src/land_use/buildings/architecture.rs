@@ -25,9 +25,12 @@ pub enum BuildingMaterial {
     FieldRows,
     FieldPlant,
     FieldMeadow,
+    WoodenFence,
+    MetalFence,
+    LotAsphalt,
 }
 
-pub const ALL_MATERIALS: [BuildingMaterial; 7] = [
+pub const ALL_MATERIALS: [BuildingMaterial; 10] = [
     BuildingMaterial::WhiteWall,
     BuildingMaterial::TiledRoof,
     BuildingMaterial::FlatRoof,
@@ -35,6 +38,9 @@ pub const ALL_MATERIALS: [BuildingMaterial; 7] = [
     BuildingMaterial::FieldRows,
     BuildingMaterial::FieldPlant,
     BuildingMaterial::FieldMeadow,
+    BuildingMaterial::WoodenFence,
+    BuildingMaterial::MetalFence,
+    BuildingMaterial::LotAsphalt,
 ];
 
 impl ::std::fmt::Display for BuildingMaterial {
@@ -83,6 +89,16 @@ pub fn build_building(
             let (entrance_roof_brick_mesh, entrance_roof_wall_mesh) =
                 entrance_footprint.open_gable_roof_mesh(entrance_height, 0.3);
 
+            let (fence_surface, _) = FlatSurface::from_band(
+                lot.area.primitives[0].boundary.path().clone(),
+                0.1,
+                0.1,
+                0.0,
+            )
+            .extrude(1.0, 0.0);
+
+            let fence_mesh = Sculpture::new(vec![fence_surface.into()]).to_mesh();
+
             BuildingMesh(
                 vec![
                     (
@@ -96,6 +112,7 @@ pub fn build_building(
                         BuildingMaterial::TiledRoof,
                         roof_brick_mesh + entrance_roof_brick_mesh,
                     ),
+                    (BuildingMaterial::WoodenFence, fence_mesh),
                 ]
                 .into_iter()
                 .collect(),
