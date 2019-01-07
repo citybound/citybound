@@ -14,14 +14,13 @@ pub trait Link: Actor {
     fn core(&self) -> &PathfindingCore;
     fn core_mut(&mut self) -> &mut PathfindingCore;
 
-    fn self_cost(&self) -> f32;
     fn self_as_route(&self) -> Option<(Location, CommunicatedRoutingEntry)>;
     fn can_be_landmark(&self) -> bool;
 
     fn map_connected_link_to_idx(&self, link: LinkID) -> Option<usize>;
     // TODO: would be nice to return impl Iterator here, but not supported yet in Traits
-    fn successors(&self) -> Vec<(LinkID, Option<f32>)>;
-    fn predecessors(&self) -> Vec<(LinkID, Option<f32>)>;
+    fn successors(&self) -> Vec<LinkConnection>;
+    fn predecessors(&self) -> Vec<LinkConnection>;
 
     fn after_route_forgotten(&mut self, forgotten_route: Location, world: &mut World);
 
@@ -37,7 +36,10 @@ pub trait Link: Actor {
 
     fn pathfinding_tick(&mut self, world: &mut World) {
         if let Some(location) = self.core().location {
-            for (successor, _) in self.successors() {
+            for LinkConnection {
+                link: successor, ..
+            } in self.successors()
+            {
                 successor.join_landmark(
                     self.id_as(),
                     Location {
@@ -66,15 +68,17 @@ pub trait Link: Actor {
             self.core_mut().routing_timeout -= 1;
         } else {
             if self.core().query_routes_next_tick {
-                for (successor, custom_connection_cost) in self.successors() {
-                    successor.query_routes(self.id_as(), custom_connection_cost, world);
+                for successor in self.successors() {
+                    successor
+                        .link
+                        .query_routes(self.id_as(), successor.connection_cost, world);
                 }
                 self.core_mut().query_routes_next_tick = false;
             }
 
             if !self.core().tell_to_forget_next_tick.is_empty() {
-                for (predecessor, _) in self.predecessors() {
-                    predecessor.forget_routes(
+                for predecessor in self.predecessors() {
+                    predecessor.link.forget_routes(
                         self.core().tell_to_forget_next_tick.clone(),
                         self.id_as(),
                         world,
@@ -84,22 +88,15 @@ pub trait Link: Actor {
             }
 
             if self.core().routes_changed {
-                for (predecessor, custom_connection_cost) in self.predecessors() {
-                    self.query_routes(predecessor, custom_connection_cost, world);
+                for predecessor in self.predecessors() {
+                    self.query_routes(predecessor.link, predecessor.connection_cost, world);
                 }
                 self.core_mut().routes_changed = false;
             }
         }
     }
 
-    fn query_routes(
-        &mut self,
-        requester: LinkID,
-        custom_connection_cost: Option<f32>,
-        world: &mut World,
-    ) {
-        let connection_cost = custom_connection_cost.unwrap_or(self.self_cost());
-
+    fn query_routes(&mut self, requester: LinkID, connection_cost: f32, world: &mut World) {
         requester.on_routes(
             self.core()
                 .routes
@@ -265,6 +262,12 @@ pub trait Link: Actor {
     fn remove_attachee(&mut self, attachee: AttacheeID, _: &mut World) {
         self.core_mut().attachees.retain(|a| *a != attachee);
     }
+}
+
+#[derive(Copy, Clone)]
+pub struct LinkConnection {
+    link: LinkID,
+    connection_cost: f32,
 }
 
 #[derive(Compact, Clone, Default)]

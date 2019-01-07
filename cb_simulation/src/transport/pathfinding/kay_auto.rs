@@ -39,8 +39,8 @@ impl LinkID {
         world.send(self.as_raw(), MSG_Link_pathfinding_tick());
     }
     
-    pub fn query_routes(&self, requester: LinkID, custom_connection_cost: Option < f32 >, world: &mut World) {
-        world.send(self.as_raw(), MSG_Link_query_routes(requester, custom_connection_cost));
+    pub fn query_routes(&self, requester: LinkID, connection_cost: f32, world: &mut World) {
+        world.send(self.as_raw(), MSG_Link_query_routes(requester, connection_cost));
     }
     
     pub fn on_routes(&self, new_routes: CDict < Location , CommunicatedRoutingEntry >, from: LinkID, world: &mut World) {
@@ -95,8 +95,8 @@ impl LinkID {
         );
         
         system.add_handler::<A, _, _>(
-            |&MSG_Link_query_routes(requester, custom_connection_cost), instance, world| {
-                instance.query_routes(requester, custom_connection_cost, world); Fate::Live
+            |&MSG_Link_query_routes(requester, connection_cost), instance, world| {
+                instance.query_routes(requester, connection_cost, world); Fate::Live
             }, false
         );
         
@@ -143,7 +143,7 @@ struct MSG_Link_after_route_forgotten(pub Location);
 #[derive(Copy, Clone)] #[allow(non_camel_case_types)]
 struct MSG_Link_pathfinding_tick();
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Link_query_routes(pub LinkID, pub Option < f32 >);
+struct MSG_Link_query_routes(pub LinkID, pub f32);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_Link_on_routes(pub CDict < Location , CommunicatedRoutingEntry >, pub LinkID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]

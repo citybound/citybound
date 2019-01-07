@@ -2,7 +2,7 @@ use kay::{World, Actor};
 use transport::lane::{Lane, LaneID};
 use transport::lane::connectivity::Interaction;
 
-use super::{PathfindingCore, Link, LinkID, Location,
+use super::{PathfindingCore, Link, LinkID, Location, LinkConnection,
 CommunicatedRoutingEntry, RoughLocation, RoughLocationResolve, PreciseLocation, RoughLocationID};
 use super::trip::{TripResult, TripFate};
 
@@ -15,10 +15,6 @@ impl Link for Lane {
         &mut self.pathfinding
     }
 
-    fn self_cost(&self) -> f32 {
-        self.construction.length
-    }
-
     fn self_as_route(&self) -> Option<(Location, CommunicatedRoutingEntry)> {
         if self.connectivity.on_intersection {
             None
@@ -27,7 +23,7 @@ impl Link for Lane {
                 (
                     destination,
                     CommunicatedRoutingEntry {
-                        distance: self.self_cost(),
+                        distance: self.construction.length,
                         distance_hops: 0,
                     },
                 )
@@ -49,39 +45,45 @@ impl Link for Lane {
             })
     }
 
-    fn successors(&self) -> Vec<(LinkID, Option<f32>)> {
+    fn successors(&self) -> Vec<LinkConnection> {
         self.connectivity
             .interactions
             .iter()
             .filter_map(|interaction| match *interaction {
-                Interaction::Switch { to, is_left, .. } => Some((
-                    to.into(),
-                    Some(if is_left {
+                Interaction::Switch { to, is_left, .. } => Some(LinkConnection {
+                    link: to.into(),
+                    connection_cost: if is_left {
                         LANE_CHANGE_COST_LEFT
                     } else {
                         LANE_CHANGE_COST_RIGHT
-                    }),
-                )),
-                Interaction::Next { next, .. } => Some((next.into(), None)),
+                    },
+                }),
+                Interaction::Next { next, .. } => Some(LinkConnection {
+                    link: next.into(),
+                    connection_cost: self.construction.length,
+                }),
                 _ => None,
             })
             .collect()
     }
 
-    fn predecessors(&self) -> Vec<(LinkID, Option<f32>)> {
+    fn predecessors(&self) -> Vec<LinkConnection> {
         self.connectivity
             .interactions
             .iter()
             .filter_map(|interaction| match *interaction {
-                Interaction::Switch { to, is_left, .. } => Some((
-                    to.into(),
-                    Some(if is_left {
+                Interaction::Switch { to, is_left, .. } => Some(LinkConnection {
+                    link: to.into(),
+                    connection_cost: if is_left {
                         LANE_CHANGE_COST_RIGHT
                     } else {
                         LANE_CHANGE_COST_LEFT
-                    }),
-                )),
-                Interaction::Previous { previous, .. } => Some((previous.into(), None)),
+                    },
+                }),
+                Interaction::Previous { previous, .. } => Some(LinkConnection {
+                    link: previous.into(),
+                    connection_cost: self.construction.length,
+                }),
                 _ => None,
             })
             .collect()
