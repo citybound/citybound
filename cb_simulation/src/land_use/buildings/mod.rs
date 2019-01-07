@@ -157,7 +157,7 @@ impl Building {
     pub fn finally_destroy(&mut self, world: &mut World) -> Fate {
         rendering::on_destroy(self.id, world);
         if let Some(location) = self.location {
-            location.node.remove_attachee(self.id_as(), world);
+            location.link.remove_attachee(self.id_as(), world);
         }
         self.being_destroyed_for
             .unwrap()
@@ -268,7 +268,7 @@ impl Building {
                 world,
             );
             self.location = Some(new_location);
-            new_location.node.add_attachee(self.id_as(), world);
+            new_location.link.add_attachee(self.id_as(), world);
         }
     }
 }

@@ -135,7 +135,7 @@ impl LocationRequester for Trip {
 
             if let (Some(source), Some(destination)) = (self.source, self.destination) {
                 // TODO: ugly: untyped RawID shenanigans
-                let source_as_lane: LaneLikeID = LaneLikeID::from_raw(source.node.as_raw());
+                let source_as_lane: LaneLikeID = LaneLikeID::from_raw(source.link.as_raw());
                 source_as_lane.add_car(
                     LaneCar {
                         trip: self.id,

@@ -178,7 +178,7 @@ impl Lane {
                 });
             }
 
-            ::transport::pathfinding::road_pathfinding::on_connect(self);
+            ::transport::pathfinding::Link::on_connect(self);
         }
 
         if other_end.rough_eq_by(self.construction.path.start(), LANE_CONNECTION_TOLERANCE) {
@@ -199,7 +199,7 @@ impl Lane {
                 });
             }
 
-            ::transport::pathfinding::road_pathfinding::on_connect(self);
+            ::transport::pathfinding::Link::on_connect(self);
         }
 
         if reply_needed && connected {
@@ -308,7 +308,7 @@ impl Lane {
             .any(|existing| existing.direct_partner() == interaction.direct_partner());
         if !already_a_partner {
             self.connectivity.interactions.push(interaction);
-            ::transport::pathfinding::road_pathfinding::on_connect(self);
+            ::transport::pathfinding::Link::on_connect(self);
         }
     }
 }
@@ -335,7 +335,7 @@ impl Lane {
             );
         }
 
-        ::transport::pathfinding::road_pathfinding::on_disconnect(self);
+        ::transport::pathfinding::Link::on_disconnect(self);
         other_id.on_confirm_disconnect(world);
     }
 
@@ -358,7 +358,7 @@ impl Lane {
             );
         }
 
-        ::transport::pathfinding::road_pathfinding::on_disconnect(self);
+        ::transport::pathfinding::Link::on_disconnect(self);
         other_id.on_confirm_disconnect(world);
     }
 

@@ -165,7 +165,7 @@ impl LocationRequester for TripCostEstimator {
 
         if let (Some(source), Some(destination)) = (self.source, self.destination) {
             source
-                .node
+                .link
                 .get_distance_to(destination.location, self.id_as(), world);
         } else if self.n_resolved == 2 {
             warn(

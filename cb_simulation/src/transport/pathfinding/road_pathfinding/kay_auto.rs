@@ -15,9 +15,9 @@ impl LaneID {
 
 
 
-impl Into<NodeID> for LaneID {
-    fn into(self) -> NodeID {
-        NodeID::from_raw(self.as_raw())
+impl Into<LinkID> for LaneID {
+    fn into(self) -> LinkID {
+        LinkID::from_raw(self.as_raw())
     }
 }
 
@@ -31,6 +31,6 @@ impl Into<RoughLocationID> for LaneID {
 #[allow(unused_mut)]
 pub fn auto_setup(system: &mut ActorSystem) {
     
-    NodeID::register_implementor::<Lane>(system);
+    LinkID::register_implementor::<Lane>(system);
     RoughLocationID::register_implementor::<Lane>(system);
 }

@@ -6,21 +6,21 @@ use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTra
 use super::*;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
-pub struct NodeID {
+pub struct LinkID {
     _raw_id: RawID
 }
 
-pub struct NodeRepresentative;
+pub struct LinkRepresentative;
 
-impl ActorOrActorTrait for NodeRepresentative {
-    type ID = NodeID;
+impl ActorOrActorTrait for LinkRepresentative {
+    type ID = LinkID;
 }
 
-impl TypedID for NodeID {
-    type Target = NodeRepresentative;
+impl TypedID for LinkID {
+    type Target = LinkRepresentative;
 
     fn from_raw(id: RawID) -> Self {
-        NodeID { _raw_id: id }
+        LinkID { _raw_id: id }
     }
 
     fn as_raw(&self) -> RawID {
@@ -28,121 +28,134 @@ impl TypedID for NodeID {
     }
 }
 
-impl<A: Actor + Node> TraitIDFrom<A> for NodeID {}
+impl<A: Actor + Link> TraitIDFrom<A> for LinkID {}
 
-impl NodeID {
-    pub fn update_routes(&self, world: &mut World) {
-        world.send(self.as_raw(), MSG_Node_update_routes());
+impl LinkID {
+    pub fn after_route_forgotten(&self, forgotten_route: Location, world: &mut World) {
+        world.send(self.as_raw(), MSG_Link_after_route_forgotten(forgotten_route));
     }
     
-    pub fn query_routes(&self, requester: NodeID, custom_connection_cost: Option < f32 >, world: &mut World) {
-        world.send(self.as_raw(), MSG_Node_query_routes(requester, custom_connection_cost));
+    pub fn pathfinding_tick(&self, world: &mut World) {
+        world.send(self.as_raw(), MSG_Link_pathfinding_tick());
     }
     
-    pub fn on_routes(&self, new_routes: CDict < Location , ( f32 , u8 ) >, from: NodeID, world: &mut World) {
-        world.send(self.as_raw(), MSG_Node_on_routes(new_routes, from));
+    pub fn query_routes(&self, requester: LinkID, custom_connection_cost: Option < f32 >, world: &mut World) {
+        world.send(self.as_raw(), MSG_Link_query_routes(requester, custom_connection_cost));
     }
     
-    pub fn forget_routes(&self, forget: CVec < Location >, from: NodeID, world: &mut World) {
-        world.send(self.as_raw(), MSG_Node_forget_routes(forget, from));
+    pub fn on_routes(&self, new_routes: CDict < Location , CommunicatedRoutingEntry >, from: LinkID, world: &mut World) {
+        world.send(self.as_raw(), MSG_Link_on_routes(new_routes, from));
     }
     
-    pub fn join_landmark(&self, from: NodeID, join_as: Location, hops_from_landmark: u8, world: &mut World) {
-        world.send(self.as_raw(), MSG_Node_join_landmark(from, join_as, hops_from_landmark));
+    pub fn forget_routes(&self, forget: CVec < Location >, from: LinkID, world: &mut World) {
+        world.send(self.as_raw(), MSG_Link_forget_routes(forget, from));
     }
     
-    pub fn get_distance_to(&self, location: Location, requester: DistanceRequesterID, world: &mut World) {
-        world.send(self.as_raw(), MSG_Node_get_distance_to(location, requester));
+    pub fn join_landmark(&self, from: LinkID, join_as: Location, hops_from_landmark: u8, world: &mut World) {
+        world.send(self.as_raw(), MSG_Link_join_landmark(from, join_as, hops_from_landmark));
+    }
+    
+    pub fn get_distance_to(&self, destination: Location, requester: DistanceRequesterID, world: &mut World) {
+        world.send(self.as_raw(), MSG_Link_get_distance_to(destination, requester));
     }
     
     pub fn add_attachee(&self, attachee: AttacheeID, world: &mut World) {
-        world.send(self.as_raw(), MSG_Node_add_attachee(attachee));
+        world.send(self.as_raw(), MSG_Link_add_attachee(attachee));
     }
     
     pub fn remove_attachee(&self, attachee: AttacheeID, world: &mut World) {
-        world.send(self.as_raw(), MSG_Node_remove_attachee(attachee));
+        world.send(self.as_raw(), MSG_Link_remove_attachee(attachee));
     }
 
     pub fn register_trait(system: &mut ActorSystem) {
-        system.register_trait::<NodeRepresentative>();
-        system.register_trait_message::<MSG_Node_update_routes>();
-        system.register_trait_message::<MSG_Node_query_routes>();
-        system.register_trait_message::<MSG_Node_on_routes>();
-        system.register_trait_message::<MSG_Node_forget_routes>();
-        system.register_trait_message::<MSG_Node_join_landmark>();
-        system.register_trait_message::<MSG_Node_get_distance_to>();
-        system.register_trait_message::<MSG_Node_add_attachee>();
-        system.register_trait_message::<MSG_Node_remove_attachee>();
+        system.register_trait::<LinkRepresentative>();
+        system.register_trait_message::<MSG_Link_after_route_forgotten>();
+        system.register_trait_message::<MSG_Link_pathfinding_tick>();
+        system.register_trait_message::<MSG_Link_query_routes>();
+        system.register_trait_message::<MSG_Link_on_routes>();
+        system.register_trait_message::<MSG_Link_forget_routes>();
+        system.register_trait_message::<MSG_Link_join_landmark>();
+        system.register_trait_message::<MSG_Link_get_distance_to>();
+        system.register_trait_message::<MSG_Link_add_attachee>();
+        system.register_trait_message::<MSG_Link_remove_attachee>();
     }
 
-    pub fn register_implementor<A: Actor + Node>(system: &mut ActorSystem) {
-        system.register_implementor::<A, NodeRepresentative>();
+    pub fn register_implementor<A: Actor + Link>(system: &mut ActorSystem) {
+        system.register_implementor::<A, LinkRepresentative>();
         system.add_handler::<A, _, _>(
-            |&MSG_Node_update_routes(), instance, world| {
-                instance.update_routes(world); Fate::Live
+            |&MSG_Link_after_route_forgotten(forgotten_route), instance, world| {
+                instance.after_route_forgotten(forgotten_route, world); Fate::Live
             }, false
         );
         
         system.add_handler::<A, _, _>(
-            |&MSG_Node_query_routes(requester, custom_connection_cost), instance, world| {
+            |&MSG_Link_pathfinding_tick(), instance, world| {
+                instance.pathfinding_tick(world); Fate::Live
+            }, false
+        );
+        
+        system.add_handler::<A, _, _>(
+            |&MSG_Link_query_routes(requester, custom_connection_cost), instance, world| {
                 instance.query_routes(requester, custom_connection_cost, world); Fate::Live
             }, false
         );
         
         system.add_handler::<A, _, _>(
-            |&MSG_Node_on_routes(ref new_routes, from), instance, world| {
+            |&MSG_Link_on_routes(ref new_routes, from), instance, world| {
                 instance.on_routes(new_routes, from, world); Fate::Live
             }, false
         );
         
         system.add_handler::<A, _, _>(
-            |&MSG_Node_forget_routes(ref forget, from), instance, world| {
+            |&MSG_Link_forget_routes(ref forget, from), instance, world| {
                 instance.forget_routes(forget, from, world); Fate::Live
             }, false
         );
         
         system.add_handler::<A, _, _>(
-            |&MSG_Node_join_landmark(from, join_as, hops_from_landmark), instance, world| {
+            |&MSG_Link_join_landmark(from, join_as, hops_from_landmark), instance, world| {
                 instance.join_landmark(from, join_as, hops_from_landmark, world); Fate::Live
             }, false
         );
         
         system.add_handler::<A, _, _>(
-            |&MSG_Node_get_distance_to(location, requester), instance, world| {
-                instance.get_distance_to(location, requester, world); Fate::Live
+            |&MSG_Link_get_distance_to(destination, requester), instance, world| {
+                instance.get_distance_to(destination, requester, world); Fate::Live
             }, false
         );
         
         system.add_handler::<A, _, _>(
-            |&MSG_Node_add_attachee(attachee), instance, world| {
+            |&MSG_Link_add_attachee(attachee), instance, world| {
                 instance.add_attachee(attachee, world); Fate::Live
             }, false
         );
         
         system.add_handler::<A, _, _>(
-            |&MSG_Node_remove_attachee(attachee), instance, world| {
+            |&MSG_Link_remove_attachee(attachee), instance, world| {
                 instance.remove_attachee(attachee, world); Fate::Live
             }, false
         );
     }
 }
 
+#[derive(Compact, Clone)] #[allow(non_camel_case_types)]
+struct MSG_Link_after_route_forgotten(pub Location);
 #[derive(Copy, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Node_update_routes();
+struct MSG_Link_pathfinding_tick();
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Node_query_routes(pub NodeID, pub Option < f32 >);
+struct MSG_Link_query_routes(pub LinkID, pub Option < f32 >);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Node_on_routes(pub CDict < Location , ( f32 , u8 ) >, pub NodeID);
+struct MSG_Link_on_routes(pub CDict < Location , CommunicatedRoutingEntry >, pub LinkID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Node_forget_routes(pub CVec < Location >, pub NodeID);
+struct MSG_Link_forget_routes(pub CVec < Location >, pub LinkID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Node_join_landmark(pub NodeID, pub Location, pub u8);
+struct MSG_Link_join_landmark(pub LinkID, pub Location, pub u8);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Node_get_distance_to(pub Location, pub DistanceRequesterID);
+struct MSG_Link_get_distance_to(pub Location, pub DistanceRequesterID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Node_add_attachee(pub AttacheeID);
+struct MSG_Link_add_attachee(pub AttacheeID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Node_remove_attachee(pub AttacheeID);
+struct MSG_Link_remove_attachee(pub AttacheeID);
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
 pub struct AttacheeID {
     _raw_id: RawID
@@ -397,7 +410,7 @@ struct MSG_DistanceRequester_on_distance(pub Option < f32 >);
 #[allow(unused_variables)]
 #[allow(unused_mut)]
 pub fn auto_setup(system: &mut ActorSystem) {
-    NodeID::register_trait(system);
+    LinkID::register_trait(system);
     AttacheeID::register_trait(system);
     RoughLocationID::register_trait(system);
     LocationRequesterID::register_trait(system);

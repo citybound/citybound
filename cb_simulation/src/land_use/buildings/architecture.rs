@@ -72,10 +72,8 @@ pub fn build_building(
     household_ids: &[::economy::households::HouseholdID],
     world: &mut World,
 ) -> BuildingMesh {
-    let building_position = lot.center_point();
     // TODO keep original building if lot changes
     let mut rng = seed(lot.original_lot_id);
-    let building_orientation = lot.best_road_connection().1;
 
     let (main_footprint, entrance_footprint) = generate_house_footprint(lot, 0.0, &mut rng);
 

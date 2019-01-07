@@ -10,7 +10,7 @@ impl Compact for PlanManager {
         0
     }
 
-    unsafe fn compact(source: *mut Self, dest: *mut Self, new_dynamic_part: *mut u8) {
+    unsafe fn compact(source: *mut Self, dest: *mut Self, _new_dynamic_part: *mut u8) {
         ::std::ptr::copy(source, dest, 1);
     }
 

@@ -74,7 +74,7 @@ impl Obstacle {
 }
 
 use super::pathfinding::trip::{TripID, TripResult, TripFate};
-use super::pathfinding::Node;
+use super::pathfinding::Link;
 
 #[derive(Copy, Clone)]
 pub struct LaneCar {
@@ -144,7 +144,7 @@ pub trait LaneLike {
     fn add_obstacles(&mut self, obstacles: &CVec<Obstacle>, from: LaneLikeID, world: &mut World);
 }
 
-use self::pathfinding::RoutingInfo;
+use self::pathfinding::StoredRoutingEntry;
 
 use time::{Temporal, TemporalID};
 
@@ -188,7 +188,7 @@ impl LaneLike for Lane {
                             .routes
                             .get(car.destination.landmark_destination())
                     })
-                    .map(|&RoutingInfo { outgoing_idx, .. }| outgoing_idx as usize);
+                    .map(|&StoredRoutingEntry { outgoing_idx, .. }| outgoing_idx as usize);
 
                 (maybe_hop, false)
             };
@@ -286,7 +286,7 @@ impl Temporal for Lane {
         if current_instant.ticks() % PATHFINDING_THROTTLING
             == self.id.as_raw().instance_id as usize % PATHFINDING_THROTTLING
         {
-            self.update_routes(world);
+            self.pathfinding_tick(world);
         }
 
         if do_traffic {

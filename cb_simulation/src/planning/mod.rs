@@ -450,9 +450,6 @@ impl PrototypesSpatialGrid {
                     let mut i = 0;
                     let mut j = 0;
 
-                    let only_in_self_idx_before = only_in_self.len();
-                    let only_in_other_idx_before = only_in_other.len();
-
                     while i < self_cell.members.len() && j < other_cell.members.len() {
                         use std::cmp::Ordering;
                         let self_member = self_cell.members[i];
@@ -475,15 +472,6 @@ impl PrototypesSpatialGrid {
 
                     only_in_self.extend(self_cell.members[i..].iter().cloned());
                     only_in_other.extend(other_cell.members[j..].iter().cloned());
-
-                    // println!(
-                    //     "added only in self {:?}",
-                    //     &only_in_self[only_in_self_idx_before..]
-                    // );
-                    // println!(
-                    //     "added only in other {:?}",
-                    //     &only_in_other[only_in_other_idx_before..]
-                    // );
                 }
             } else {
                 only_in_self.extend(self_cell.members.clone())
