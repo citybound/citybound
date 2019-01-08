@@ -22,9 +22,9 @@ build_script:
 deploy:
   provider: S3
   access_key_id:
-    secure: jg+s3osFzmQXcD8igyJe3uuCdDdECyeuhvG3XSaVEF0=
+    secure: $(ARTIFACTS_KEY)
   secret_access_key:
-    secure: w0s1TKSKrKsI24IImGeX2EMeLoLgEckwTB50oBRO2PeFU0nbJLCT8nS9c6SQGVw6
+    secure: $(ARTIFACTS_SECRET)
   bucket: citybound-livebuilds
   region: us-east-1
   folder: /
