@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -31,11 +31,11 @@ impl TypedID for PlanningUIID {
 impl<A: Actor + PlanningUI> TraitIDFrom<A> for PlanningUIID {}
 
 impl PlanningUIID {
-    pub fn on_plans_update(&self, master_update: PlanHistoryUpdate, project_updates: CHashMap < ProjectID , ProjectUpdate >, world: &mut World) {
+    pub fn on_plans_update(self, master_update: PlanHistoryUpdate, project_updates: CHashMap < ProjectID , ProjectUpdate >, world: &mut World) {
         world.send(self.as_raw(), MSG_PlanningUI_on_plans_update(master_update, project_updates));
     }
     
-    pub fn on_project_preview_update(&self, project_id: ProjectID, effective_history: PlanHistory, result_update: PlanResultUpdate, new_actions: ActionGroups, world: &mut World) {
+    pub fn on_project_preview_update(self, project_id: ProjectID, effective_history: PlanHistory, result_update: PlanResultUpdate, new_actions: ActionGroups, world: &mut World) {
         world.send(self.as_raw(), MSG_PlanningUI_on_project_preview_update(project_id, effective_history, result_update, new_actions));
     }
 

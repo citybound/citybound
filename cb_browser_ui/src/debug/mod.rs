@@ -15,10 +15,10 @@ pub fn plan_grid(project_id: Serde<::planning::ProjectID>, n: Serde<isize>, spac
     use ::planning::{GestureID, GestureIntent};
     use ::descartes::P2;
 
-    for x in -n.0/2..n.0/2 {
+    for x in -n.0 / 2..n.0 / 2 {
         let id = GestureID::new();
-        let p1 = P2::new(x as f32 * spacing.0, (-n.0/2) as f32 * spacing.0);
-        let p2 = P2::new(x as f32 * spacing.0, (n.0/2) as f32 * spacing.0);
+        let p1 = P2::new(x as f32 * spacing.0, (-n.0 / 2) as f32 * spacing.0);
+        let p2 = P2::new(x as f32 * spacing.0, (n.0 / 2) as f32 * spacing.0);
         plan_manager.start_new_gesture(
             project_id.0,
             ::kay::MachineID(0),
@@ -30,10 +30,10 @@ pub fn plan_grid(project_id: Serde<::planning::ProjectID>, n: Serde<isize>, spac
         plan_manager.add_control_point(project_id.0, id, p2, true, true, world);
     }
 
-    for y in -n.0/2..n.0/2 {
+    for y in -n.0 / 2..n.0 / 2 {
         let id = GestureID::new();
-        let p1 = P2::new((-n.0/2) as f32 * spacing.0, y as f32 * spacing.0);
-        let p2 = P2::new((n.0/2) as f32 * spacing.0, y as f32 * spacing.0);
+        let p1 = P2::new((-n.0 / 2) as f32 * spacing.0, y as f32 * spacing.0);
+        let p2 = P2::new((n.0 / 2) as f32 * spacing.0, y as f32 * spacing.0);
         plan_manager.start_new_gesture(
             project_id.0,
             ::kay::MachineID(0),

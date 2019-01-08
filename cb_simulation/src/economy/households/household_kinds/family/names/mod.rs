@@ -6,7 +6,7 @@ use util::random::{seed, Rng};
 
 const FIRST_NAMES: [&str; 3007] = include!("first_names.txt");
 
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 const LAST_NAMES: [&str; 474] = include!("last_names.txt");
 
 const PATREON_NAMES: [(&str, &str); 37] = include!("patron_names.txt");

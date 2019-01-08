@@ -286,7 +286,7 @@ impl PlanManager {
                                 .position(|point_i_along| *point_i_along >= inserted_along)
                         })
                 })
-                .unwrap_or(current_gesture.points.len());
+                .unwrap_or_else(|| current_gesture.points.len());
 
             let changed_gesture = Gesture {
                 points: current_gesture.points[..new_point_idx]

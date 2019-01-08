@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -31,11 +31,11 @@ impl TypedID for LaneLikeID {
 impl<A: Actor + LaneLike> TraitIDFrom<A> for LaneLikeID {}
 
 impl LaneLikeID {
-    pub fn add_car(&self, car: LaneCar, from: Option < LaneLikeID >, instant: Instant, world: &mut World) {
+    pub fn add_car(self, car: LaneCar, from: Option < LaneLikeID >, instant: Instant, world: &mut World) {
         world.send(self.as_raw(), MSG_LaneLike_add_car(car, from, instant));
     }
     
-    pub fn add_obstacles(&self, obstacles: CVec < Obstacle >, from: LaneLikeID, world: &mut World) {
+    pub fn add_obstacles(self, obstacles: CVec < Obstacle >, from: LaneLikeID, world: &mut World) {
         world.send(self.as_raw(), MSG_LaneLike_add_obstacles(obstacles, from));
     }
 
@@ -69,7 +69,7 @@ struct MSG_LaneLike_add_obstacles(pub CVec < Obstacle >, pub LaneLikeID);
 
 
 impl LaneID {
-    pub fn on_signal_changed(&self, from: LaneID, new_green: bool, world: &mut World) {
+    pub fn on_signal_changed(self, from: LaneID, new_green: bool, world: &mut World) {
         world.send(self.as_raw(), MSG_Lane_on_signal_changed(from, new_green));
     }
 }

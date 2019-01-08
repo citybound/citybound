@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -31,15 +31,15 @@ impl TypedID for LandUseUIID {
 impl<A: Actor + LandUseUI> TraitIDFrom<A> for LandUseUIID {}
 
 impl LandUseUIID {
-    pub fn on_building_constructed(&self, id: BuildingID, lot: Lot, households: CVec < HouseholdID >, style: BuildingStyle, world: &mut World) {
+    pub fn on_building_constructed(self, id: BuildingID, lot: Lot, households: CVec < HouseholdID >, style: BuildingStyle, world: &mut World) {
         world.send(self.as_raw(), MSG_LandUseUI_on_building_constructed(id, lot, households, style));
     }
     
-    pub fn on_building_destructed(&self, id: BuildingID, world: &mut World) {
+    pub fn on_building_destructed(self, id: BuildingID, world: &mut World) {
         world.send(self.as_raw(), MSG_LandUseUI_on_building_destructed(id));
     }
     
-    pub fn on_building_ui_info(&self, id: BuildingID, style: BuildingStyle, households: CVec < HouseholdID >, world: &mut World) {
+    pub fn on_building_ui_info(self, id: BuildingID, style: BuildingStyle, households: CVec < HouseholdID >, world: &mut World) {
         world.send(self.as_raw(), MSG_LandUseUI_on_building_ui_info(id, style, households));
     }
 

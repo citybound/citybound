@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -17,43 +17,43 @@ impl LaneID {
         id
     }
     
-    pub fn start_connecting_overlaps(&self, lanes: CVec < LaneID >, world: &mut World) {
+    pub fn start_connecting_overlaps(self, lanes: CVec < LaneID >, world: &mut World) {
         world.send(self.as_raw(), MSG_Lane_start_connecting_overlaps(lanes));
     }
     
-    pub fn connect(&self, other_id: LaneID, other_start: P2, other_end: P2, other_length: N, reply_needed: bool, world: &mut World) {
+    pub fn connect(self, other_id: LaneID, other_start: P2, other_end: P2, other_length: N, reply_needed: bool, world: &mut World) {
         world.send(self.as_raw(), MSG_Lane_connect(other_id, other_start, other_end, other_length, reply_needed));
     }
     
-    pub fn connect_overlaps(&self, other_id: LaneID, other_path: LinePath, reply_needed: bool, world: &mut World) {
+    pub fn connect_overlaps(self, other_id: LaneID, other_path: LinePath, reply_needed: bool, world: &mut World) {
         world.send(self.as_raw(), MSG_Lane_connect_overlaps(other_id, other_path, reply_needed));
     }
     
-    pub fn connect_to_switch(&self, other_id: SwitchLaneID, world: &mut World) {
+    pub fn connect_to_switch(self, other_id: SwitchLaneID, world: &mut World) {
         world.send(self.as_raw(), MSG_Lane_connect_to_switch(other_id));
     }
     
-    pub fn add_switch_lane_interaction(&self, interaction: Interaction, world: &mut World) {
+    pub fn add_switch_lane_interaction(self, interaction: Interaction, world: &mut World) {
         world.send(self.as_raw(), MSG_Lane_add_switch_lane_interaction(interaction));
     }
     
-    pub fn disconnect(&self, other_id: LaneID, world: &mut World) {
+    pub fn disconnect(self, other_id: LaneID, world: &mut World) {
         world.send(self.as_raw(), MSG_Lane_disconnect(other_id));
     }
     
-    pub fn disconnect_switch(&self, other_id: SwitchLaneID, world: &mut World) {
+    pub fn disconnect_switch(self, other_id: SwitchLaneID, world: &mut World) {
         world.send(self.as_raw(), MSG_Lane_disconnect_switch(other_id));
     }
     
-    pub fn unbuild(&self, report_to: ConstructionID, world: &mut World) {
+    pub fn unbuild(self, report_to: ConstructionID, world: &mut World) {
         world.send(self.as_raw(), MSG_Lane_unbuild(report_to));
     }
     
-    pub fn on_confirm_disconnect(&self, world: &mut World) {
+    pub fn on_confirm_disconnect(self, world: &mut World) {
         world.send(self.as_raw(), MSG_Lane_on_confirm_disconnect());
     }
     
-    pub fn try_reconnect_building(&self, building: BuildingID, lot_position: P2, world: &mut World) {
+    pub fn try_reconnect_building(self, building: BuildingID, lot_position: P2, world: &mut World) {
         world.send(self.as_raw(), MSG_Lane_try_reconnect_building(building, lot_position));
     }
 }
@@ -96,19 +96,19 @@ impl SwitchLaneID {
         id
     }
     
-    pub fn connect_switch_to_normal(&self, other_id: LaneID, other_path: LinePath, world: &mut World) {
+    pub fn connect_switch_to_normal(self, other_id: LaneID, other_path: LinePath, world: &mut World) {
         world.send(self.as_raw(), MSG_SwitchLane_connect_switch_to_normal(other_id, other_path));
     }
     
-    pub fn disconnect(&self, other: LaneID, world: &mut World) {
+    pub fn disconnect(self, other: LaneID, world: &mut World) {
         world.send(self.as_raw(), MSG_SwitchLane_disconnect(other));
     }
     
-    pub fn unbuild(&self, report_to: ConstructionID, world: &mut World) {
+    pub fn unbuild(self, report_to: ConstructionID, world: &mut World) {
         world.send(self.as_raw(), MSG_SwitchLane_unbuild(report_to));
     }
     
-    pub fn on_confirm_disconnect(&self, world: &mut World) {
+    pub fn on_confirm_disconnect(self, world: &mut World) {
         world.send(self.as_raw(), MSG_SwitchLane_on_confirm_disconnect());
     }
 }

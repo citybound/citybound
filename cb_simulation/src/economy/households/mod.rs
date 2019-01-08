@@ -23,7 +23,7 @@ impl MemberIdx {
         MemberIdx(idx as u32)
     }
 
-    pub fn as_idx(&self) -> usize {
+    pub fn as_idx(self) -> usize {
         self.0 as usize
     }
 }

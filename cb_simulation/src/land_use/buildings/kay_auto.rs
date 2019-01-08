@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -43,27 +43,27 @@ impl BuildingID {
         id
     }
     
-    pub fn try_offer_unit(&self, required_unit_type: UnitType, requester: ImmigrationManagerID, world: &mut World) {
+    pub fn try_offer_unit(self, required_unit_type: UnitType, requester: ImmigrationManagerID, world: &mut World) {
         world.send(self.as_raw(), MSG_Building_try_offer_unit(required_unit_type, requester));
     }
     
-    pub fn add_household(&self, household: HouseholdID, unit: UnitIdx, world: &mut World) {
+    pub fn add_household(self, household: HouseholdID, unit: UnitIdx, world: &mut World) {
         world.send(self.as_raw(), MSG_Building_add_household(household, unit));
     }
     
-    pub fn remove_household(&self, household: HouseholdID, world: &mut World) {
+    pub fn remove_household(self, household: HouseholdID, world: &mut World) {
         world.send(self.as_raw(), MSG_Building_remove_household(household));
     }
     
-    pub fn finally_destroy(&self, world: &mut World) {
+    pub fn finally_destroy(self, world: &mut World) {
         world.send(self.as_raw(), MSG_Building_finally_destroy());
     }
     
-    pub fn get_ui_info(&self, requester: LandUseUIID, world: &mut World) {
+    pub fn get_ui_info(self, requester: LandUseUIID, world: &mut World) {
         world.send(self.as_raw(), MSG_Building_get_ui_info(requester));
     }
     
-    pub fn reconnect(&self, new_location: PreciseLocation, new_connection_point: P2, world: &mut World) {
+    pub fn reconnect(self, new_location: PreciseLocation, new_connection_point: P2, world: &mut World) {
         world.send(self.as_raw(), MSG_Building_reconnect(new_location, new_connection_point));
     }
 }

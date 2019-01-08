@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -31,7 +31,7 @@ impl TypedID for TemporalID {
 impl<A: Actor + Temporal> TraitIDFrom<A> for TemporalID {}
 
 impl TemporalID {
-    pub fn tick(&self, dt: f32, current_instant: Instant, world: &mut World) {
+    pub fn tick(self, dt: f32, current_instant: Instant, world: &mut World) {
         world.send(self.as_raw(), MSG_Temporal_tick(dt, current_instant));
     }
 
@@ -78,7 +78,7 @@ impl TypedID for SleeperID {
 impl<A: Actor + Sleeper> TraitIDFrom<A> for SleeperID {}
 
 impl SleeperID {
-    pub fn wake(&self, current_instant: Instant, world: &mut World) {
+    pub fn wake(self, current_instant: Instant, world: &mut World) {
         world.send(self.as_raw(), MSG_Sleeper_wake(current_instant));
     }
 
@@ -136,11 +136,11 @@ impl TimeID {
         id
     }
     
-    pub fn progress(&self, world: &mut World) {
+    pub fn progress(self, world: &mut World) {
         world.send(self.as_raw(), MSG_Time_progress());
     }
     
-    pub fn wake_up_in(&self, remaining_ticks: Ticks, sleeper_id: SleeperID, world: &mut World) {
+    pub fn wake_up_in(self, remaining_ticks: Ticks, sleeper_id: SleeperID, world: &mut World) {
         world.send(self.as_raw(), MSG_Time_wake_up_in(remaining_ticks, sleeper_id));
     }
 }

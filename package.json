@@ -1,5 +1,6 @@
 {
     "scripts": {
+        "ensure-tooling": "node repo_scripts/tooling.js",
         "build-browser": "cd cb_browser_ui && npm install && npm run build",
         "watch-browser": "cd cb_browser_ui && npm install && npm start",
         "build-server": "git describe > .version && npm run ensure-tooling -- -q && cargo build --release",
@@ -13,6 +14,6 @@
         "lint-fmt-check": "echo 'CHECKING FORMATTING' && cargo fmt -- ./cb_simulation/src/lib.rs ./cb_server/main.rs ./cb_browser_ui/src/lib.rs  --check",
         "lint": "npm run lint-clippy && npm run lint-fmt",
         "lint-check": "npm run lint-clippy && npm run lint-fmt-check",
-        "ensure-tooling": "node repo_scripts/tooling.js"
+        "clean-codegen": "find . -name 'kay_auto.rs' -delete"
     }
 }

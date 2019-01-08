@@ -264,17 +264,12 @@ impl Lane {
                 let other_exit_distance =
                     other_band.outline_distance_to_path_distance(exit_intersection.along_b);
 
-                let can_weave = if other_path
+                let can_weave = other_path
                     .direction_along(other_entry_distance)
                     .rough_eq_by(self.construction.path.direction_along(entry_distance), 0.1)
                     || other_path
                         .direction_along(other_exit_distance)
-                        .rough_eq_by(self.construction.path.direction_along(exit_distance), 0.1)
-                {
-                    true
-                } else {
-                    false
-                };
+                        .rough_eq_by(self.construction.path.direction_along(exit_distance), 0.1);
 
                 self.connectivity
                     .interactions

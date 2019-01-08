@@ -46,7 +46,7 @@ pub enum BuildingStyle {
 }
 
 impl BuildingStyle {
-    pub fn can_appear_in(&self, land_use: &LandUse) -> bool {
+    pub fn can_appear_in(self, land_use: LandUse) -> bool {
         match (self, land_use) {
             (BuildingStyle::FamilyHouse, LandUse::Residential) => true,
             (BuildingStyle::GroceryShop, LandUse::Commercial) => true,

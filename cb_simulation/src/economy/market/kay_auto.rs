@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -31,11 +31,11 @@ impl TypedID for EvaluationRequesterID {
 impl<A: Actor + EvaluationRequester> TraitIDFrom<A> for EvaluationRequesterID {}
 
 impl EvaluationRequesterID {
-    pub fn expect_n_results(&self, resource: Resource, n: u32, world: &mut World) {
+    pub fn expect_n_results(self, resource: Resource, n: u32, world: &mut World) {
         world.send(self.as_raw(), MSG_EvaluationRequester_expect_n_results(resource, n));
     }
     
-    pub fn on_result(&self, result: EvaluatedSearchResult, world: &mut World) {
+    pub fn on_result(self, result: EvaluatedSearchResult, world: &mut World) {
         world.send(self.as_raw(), MSG_EvaluationRequester_on_result(result));
     }
 
@@ -102,15 +102,15 @@ impl MarketID {
         id
     }
     
-    pub fn search(&self, instant: Instant, location: RoughLocationID, resource: Resource, requester: EvaluationRequesterID, world: &mut World) {
+    pub fn search(self, instant: Instant, location: RoughLocationID, resource: Resource, requester: EvaluationRequesterID, world: &mut World) {
         world.send(self.as_raw(), MSG_Market_search(instant, location, resource, requester));
     }
     
-    pub fn register(&self, resource: Resource, offer: OfferID, world: &mut World) {
+    pub fn register(self, resource: Resource, offer: OfferID, world: &mut World) {
         world.send(self.as_raw(), MSG_Market_register(resource, offer));
     }
     
-    pub fn withdraw(&self, resource: Resource, offer: OfferID, world: &mut World) {
+    pub fn withdraw(self, resource: Resource, offer: OfferID, world: &mut World) {
         world.send(self.as_raw(), MSG_Market_withdraw(resource, offer));
     }
 }
@@ -161,7 +161,7 @@ impl TripCostEstimatorID {
         id
     }
     
-    pub fn done(&self, world: &mut World) {
+    pub fn done(self, world: &mut World) {
         world.send(self.as_raw(), MSG_TripCostEstimator_done());
     }
 }

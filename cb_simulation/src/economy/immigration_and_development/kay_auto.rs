@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -43,7 +43,7 @@ impl ImmigrationManagerID {
         id
     }
     
-    pub fn on_unit_offer(&self, building_id: BuildingID, unit_idx: UnitIdx, world: &mut World) {
+    pub fn on_unit_offer(self, building_id: BuildingID, unit_idx: UnitIdx, world: &mut World) {
         world.send(self.as_raw(), MSG_ImmigrationManager_on_unit_offer(building_id, unit_idx));
     }
 }
@@ -94,11 +94,11 @@ impl DevelopmentManagerID {
         id
     }
     
-    pub fn try_develop(&self, building_style: BuildingStyle, world: &mut World) {
+    pub fn try_develop(self, building_style: BuildingStyle, world: &mut World) {
         world.send(self.as_raw(), MSG_DevelopmentManager_try_develop(building_style));
     }
     
-    pub fn on_suggested_lot(&self, building_intent: BuildingIntent, based_on: PrototypeID, world: &mut World) {
+    pub fn on_suggested_lot(self, building_intent: BuildingIntent, based_on: PrototypeID, world: &mut World) {
         world.send(self.as_raw(), MSG_DevelopmentManager_on_suggested_lot(building_intent, based_on));
     }
 }

@@ -233,7 +233,7 @@ pub fn calculate_prototypes(
                 (path.start(), path.start_direction(), RoadPart::StartCap),
                 (path.end(), path.end_direction(), RoadPart::EndCap),
             ]
-            .into_iter()
+            .iter()
             .map(|&(point, direction, role)| {
                 let orthogonal = direction.orthogonal_right();
                 let half_depth = direction * ROAD_CAP_DEPTH / 2.0;
@@ -306,14 +306,13 @@ pub fn calculate_prototypes(
             .flat_map(
                 |(gesture_i, &(gesture_id, step_id, road_intent, ref path))| {
                     (0..road_intent.n_lanes_forward)
-                        .into_iter()
                         .map(|lane_i| {
                             (
                                 CENTER_LANE_DISTANCE / 2.0 + f32::from(lane_i) * LANE_DISTANCE,
                                 lane_i as i8 + 1,
                             )
                         })
-                        .chain((0..road_intent.n_lanes_backward).into_iter().map(|lane_i| {
+                        .chain((0..road_intent.n_lanes_backward).map(|lane_i| {
                             (
                                 -(CENTER_LANE_DISTANCE / 2.0 + f32::from(lane_i) * LANE_DISTANCE),
                                 -(lane_i as i8) - 1,
@@ -541,7 +540,7 @@ pub fn calculate_prototypes(
                     id,
                 }),
         )
-        .chain(switch_lane_paths.into_iter().map(|(path, id)| Prototype {
+        .chain(switch_lane_paths.map(|(path, id)| Prototype {
             representative_position: path.points[0],
             kind: PrototypeKind::Road(RoadPrototype::SwitchLane(SwitchLanePrototype(path))),
             id,

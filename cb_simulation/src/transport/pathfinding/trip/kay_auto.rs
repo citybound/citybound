@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -31,11 +31,11 @@ impl TypedID for TripListenerID {
 impl<A: Actor + TripListener> TraitIDFrom<A> for TripListenerID {}
 
 impl TripListenerID {
-    pub fn trip_created(&self, trip: TripID, world: &mut World) {
+    pub fn trip_created(self, trip: TripID, world: &mut World) {
         world.send(self.as_raw(), MSG_TripListener_trip_created(trip));
     }
     
-    pub fn trip_result(&self, trip: TripID, result: TripResult, rough_source: RoughLocationID, rough_destination: RoughLocationID, world: &mut World) {
+    pub fn trip_result(self, trip: TripID, result: TripResult, rough_source: RoughLocationID, rough_destination: RoughLocationID, world: &mut World) {
         world.send(self.as_raw(), MSG_TripListener_trip_result(trip, result, rough_source, rough_destination));
     }
 
@@ -102,7 +102,7 @@ impl TripID {
         id
     }
     
-    pub fn finish(&self, result: TripResult, world: &mut World) {
+    pub fn finish(self, result: TripResult, world: &mut World) {
         world.send(self.as_raw(), MSG_Trip_finish(result));
     }
 }
@@ -153,7 +153,7 @@ impl TripCreatorID {
         id
     }
     
-    pub fn add_lane_for_trip(&self, lane_id: LaneID, world: &mut World) {
+    pub fn add_lane_for_trip(self, lane_id: LaneID, world: &mut World) {
         world.send(self.as_raw(), MSG_TripCreator_add_lane_for_trip(lane_id));
     }
 }
@@ -171,7 +171,7 @@ impl Into<SleeperID> for TripCreatorID {
 
 
 impl LaneID {
-    pub fn manually_spawn_car_add_lane(&self, world: &mut World) {
+    pub fn manually_spawn_car_add_lane(self, world: &mut World) {
         world.send(self.as_raw(), MSG_Lane_manually_spawn_car_add_lane());
     }
 }
@@ -216,7 +216,7 @@ impl FailedTripDebuggerID {
         id
     }
     
-    pub fn done(&self, world: &mut World) {
+    pub fn done(self, world: &mut World) {
         world.send(self.as_raw(), MSG_FailedTripDebugger_done());
     }
 }

@@ -313,7 +313,7 @@ impl VacantLot {
             .lot
             .land_uses
             .iter()
-            .any(|land_use| building_style.can_appear_in(land_use))
+            .any(|land_use| building_style.can_appear_in(*land_use))
         {
             debug(LOG_T, "Trying suggest", self.id, world);
             match self.lot.split_for(

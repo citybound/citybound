@@ -3,7 +3,7 @@ use super::{Plant, PlantID, PlantPrototype};
 
 impl Plant {
     pub fn get_render_info(&mut self, requester: VegetationUIID, world: &mut World) {
-        requester.on_plant_spawned(self.id, self.proto.clone(), world);
+        requester.on_plant_spawned(self.id, self.proto, world);
     }
 }
 

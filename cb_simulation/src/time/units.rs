@@ -26,19 +26,19 @@ impl Duration {
         Self::from_minutes(60 * hours)
     }
 
-    pub fn as_seconds(&self) -> f32 {
+    pub fn as_seconds(self) -> f32 {
         self.0 as f32
     }
 
-    pub fn as_minutes(&self) -> f32 {
+    pub fn as_minutes(self) -> f32 {
         self.0 as f32 / 60.0
     }
 
-    pub fn as_hours(&self) -> f32 {
+    pub fn as_hours(self) -> f32 {
         self.as_minutes() / 60.0
     }
 
-    pub fn as_days(&self) -> f32 {
+    pub fn as_days(self) -> f32 {
         self.as_hours() / 24.0
     }
 }
@@ -65,11 +65,11 @@ impl Instant {
         Instant(ticks as u32)
     }
 
-    pub fn ticks(&self) -> usize {
+    pub fn ticks(self) -> usize {
         self.0 as usize
     }
 
-    pub fn iticks(&self) -> isize {
+    pub fn iticks(self) -> isize {
         self.0 as isize
     }
 }
@@ -117,14 +117,14 @@ impl TimeOfDay {
         }
     }
 
-    pub fn hours_minutes(&self) -> (usize, usize) {
+    pub fn hours_minutes(self) -> (usize, usize) {
         (
             (self.minutes_of_day / 60) as usize,
             (self.minutes_of_day % 60) as usize,
         )
     }
 
-    pub fn earlier_by(&self, delta: Duration) -> Self {
+    pub fn earlier_by(self, delta: Duration) -> Self {
         TimeOfDay {
             minutes_of_day: ((((self.minutes_of_day as isize - delta.as_minutes() as isize)
                 % MINUTES_PER_DAY as isize)
@@ -133,7 +133,7 @@ impl TimeOfDay {
         }
     }
 
-    pub fn later_by(&self, delta: Duration) -> Self {
+    pub fn later_by(self, delta: Duration) -> Self {
         TimeOfDay {
             minutes_of_day: ((self.minutes_of_day as usize + delta.as_minutes() as usize)
                 % MINUTES_PER_DAY) as u16,
@@ -199,7 +199,7 @@ impl TimeOfDayRange {
         }
     }
 
-    pub fn contains<T: Into<TimeOfDay>>(&self, time: T) -> bool {
+    pub fn contains<T: Into<TimeOfDay>>(self, time: T) -> bool {
         let time = time.into();
         if self.start <= self.end {
             self.start <= time && time <= self.end
@@ -208,21 +208,21 @@ impl TimeOfDayRange {
         }
     }
 
-    pub fn earlier_by(&self, delta: Duration) -> Self {
+    pub fn earlier_by(self, delta: Duration) -> Self {
         TimeOfDayRange {
             start: self.start.earlier_by(delta),
             end: self.end.earlier_by(delta),
         }
     }
 
-    pub fn later_by(&self, delta: Duration) -> Self {
+    pub fn later_by(self, delta: Duration) -> Self {
         TimeOfDayRange {
             start: self.start.later_by(delta),
             end: self.end.later_by(delta),
         }
     }
 
-    pub fn end_after_on_same_day(&self, time: TimeOfDay) -> bool {
+    pub fn end_after_on_same_day(self, time: TimeOfDay) -> bool {
         if self.end > self.start {
             time < self.end
         } else {

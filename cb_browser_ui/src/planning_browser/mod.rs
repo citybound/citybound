@@ -254,11 +254,11 @@ impl BrowserPlanningUI {
                 lanes_to_construct_marker_grouper: MeshGrouper::new(2000),
                 lanes_to_construct_marker_gaps_grouper: MeshGrouper::new(2000),
                 zone_groupers: LAND_USES
-                    .into_iter()
+                    .iter()
                     .map(|land_use| (*land_use, MeshGrouper::new(2000)))
                     .collect(),
                 zone_outline_groupers: LAND_USES
-                    .into_iter()
+                    .iter()
                     .map(|land_use| (*land_use, MeshGrouper::new(2000)))
                     .collect(),
                 building_outlines_grouper: MeshGrouper::new(2000),
@@ -394,20 +394,20 @@ SwitchLanePrototype, IntersectionPrototype};
         let mut lanes_to_construct_marker_gaps_rem = Vec::new();
 
         let mut zones_add: HashMap<LandUse, _> = LAND_USES
-            .into_iter()
+            .iter()
             .map(|land_use| (*land_use, Vec::new()))
             .collect();
         let mut zones_rem: HashMap<LandUse, _> = LAND_USES
-            .into_iter()
+            .iter()
             .map(|land_use| (*land_use, Vec::new()))
             .collect();
 
         let mut zone_outlines_add: HashMap<LandUse, _> = LAND_USES
-            .into_iter()
+            .iter()
             .map(|land_use| (*land_use, Vec::new()))
             .collect();
         let mut zone_outlines_rem: HashMap<LandUse, _> = LAND_USES
-            .into_iter()
+            .iter()
             .map(|land_use| (*land_use, Vec::new()))
             .collect();
 

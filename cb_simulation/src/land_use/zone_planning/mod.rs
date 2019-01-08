@@ -58,7 +58,7 @@ impl Lot {
     pub fn center_point(&self) -> P2 {
         let outline = &self.original_area.primitives[0].boundary.path();
         P2::from_coordinates(
-            (0..10).into_iter().fold(V2::new(0.0, 0.0), |sum_point, i| {
+            (0..10).fold(V2::new(0.0, 0.0), |sum_point, i| {
                 sum_point + outline.along(i as f32 * (outline.length() / 10.0)).coords
             }) / 10.0,
         )
@@ -275,16 +275,20 @@ pub fn calculate_prototypes(
                     let dx = path.start_direction();
                     let dy = path.start_direction().orthogonal_right();
 
-                    // <svg width="32px" height="20px" viewBox="0 0 32 20" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-                    //     <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-                    //         <g id="Group" transform="translate(1.000000, 0.000000)" stroke="#979797">
-                    //             <polygon id="Path" points="0 10 10 0 10 5 20 5 20 0 30 10 20 20 20 15 10 15 10 20"></polygon>
-                    //         </g>
+                    // Arrow shape used
+                    // <svg width="32px" height="20px" viewBox="0 0 32 20"
+                    // version="1.1" xmlns="http://www.w3.org/2000/svg"
+                    // xmlns:xlink="http://www.w3.org/1999/xlink">
+                    //     <g id="Page-1" stroke="none" stroke-width="1" fill="none"
+                    // fill-rule="evenodd">         <g id="Group"
+                    // transform="translate(1.000000, 0.000000)" stroke="#979797">
+                    //             <polygon id="Path" points="0 10 10 0 10 5 20 5 20 0 30 10 20 20
+                    // 20 15 10 15 10 20"></polygon>         </g>
                     //     </g>
                     // </svg>
 
                     let corners: CVec<P2> = vec![
-                        path.start() + 0.0 * dx +  10.0 * dy - 15.0 * dx - 10.0 * dy,
+                        path.start() + 0.0 * dx + 10.0 * dy - 15.0 * dx - 10.0 * dy,
                         path.start() + 10.0 * dx + 0.0 * dy - 15.0 * dx - 10.0 * dy,
                         path.start() + 10.0 * dx + 5.0 * dy - 15.0 * dx - 10.0 * dy,
                         path.start() + 20.0 * dx + 5.0 * dy - 15.0 * dx - 10.0 * dy,
@@ -294,7 +298,7 @@ pub fn calculate_prototypes(
                         path.start() + 20.0 * dx + 15.0 * dy - 15.0 * dx - 10.0 * dy,
                         path.start() + 10.0 * dx + 15.0 * dy - 15.0 * dx - 10.0 * dy,
                         path.start() + 10.0 * dx + 20.0 * dy - 15.0 * dx - 10.0 * dy,
-                        path.start() + 0.0 * dx +  10.0 * dy - 15.0 * dx - 10.0 * dy,
+                        path.start() + 0.0 * dx + 10.0 * dy - 15.0 * dx - 10.0 * dy,
                     ]
                     .into();
 
@@ -343,7 +347,7 @@ pub fn calculate_prototypes(
                     .cloned()
                     .collect(),
             )
-            .and_then(|line_path| ClosedLinePath::new(line_path))
+            .and_then(ClosedLinePath::new)
             .map(|closed_line_path| Area::new_simple(closed_line_path.to_clockwise()))
             {
                 zone_embedding.insert(

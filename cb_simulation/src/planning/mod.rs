@@ -485,7 +485,7 @@ impl PrototypesSpatialGrid {
             }
         }
 
-        return (only_in_self, only_in_other);
+        (only_in_self, only_in_other)
     }
 }
 
@@ -597,7 +597,7 @@ impl PlanResult {
             .collect();
         let to_be_destructed: CVec<_> = unmatched_existing_ids
             .into_iter()
-            .map(|id| Action::Destruct(id))
+            .map(Action::Destruct)
             .collect();
 
         // println!(
@@ -721,7 +721,7 @@ impl PrototypeID {
         PrototypeID(seed(influences).next_u64())
     }
 
-    pub fn add_influences<H: Hash>(&self, influences: H) -> PrototypeID {
+    pub fn add_influences<H: Hash>(self, influences: H) -> PrototypeID {
         PrototypeID(seed((self.0, influences)).next_u64())
     }
 }

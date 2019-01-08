@@ -63,8 +63,11 @@ impl LandUseUI for BrowserLandUseUI {
             .collect::<HashMap<_, _>>()
             .into();
 
-        let prop_updates: ::stdweb::Object = building_mesh.props.into_iter().map(|(prop_type, instances)| {
-            let update_op: ::stdweb::Object = Some(("$set", flatten_instances(&instances)))
+        let prop_updates: ::stdweb::Object = building_mesh
+            .props
+            .into_iter()
+            .map(|(prop_type, instances)| {
+                let update_op: ::stdweb::Object = Some(("$set", flatten_instances(&instances)))
                     .into_iter()
                     .collect::<HashMap<_, _>>()
                     .into();

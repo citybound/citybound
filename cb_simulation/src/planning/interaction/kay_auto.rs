@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -10,51 +10,51 @@ use super::*;
 
 
 impl PlanManagerID {
-    pub fn get_all_plans(&self, ui: PlanningUIID, known_master: KnownHistoryState, known_projects: CHashMap < ProjectID , KnownProjectState >, world: &mut World) {
+    pub fn get_all_plans(self, ui: PlanningUIID, known_master: KnownHistoryState, known_projects: CHashMap < ProjectID , KnownProjectState >, world: &mut World) {
         world.send(self.as_raw(), MSG_PlanManager_get_all_plans(ui, known_master, known_projects));
     }
     
-    pub fn get_project_preview_update(&self, ui: PlanningUIID, project_id: ProjectID, known_result: KnownPlanResultState, world: &mut World) {
+    pub fn get_project_preview_update(self, ui: PlanningUIID, project_id: ProjectID, known_result: KnownPlanResultState, world: &mut World) {
         world.send(self.as_raw(), MSG_PlanManager_get_project_preview_update(ui, project_id, known_result));
     }
     
-    pub fn switch_to(&self, machine: MachineID, project_id: ProjectID, world: &mut World) {
+    pub fn switch_to(self, machine: MachineID, project_id: ProjectID, world: &mut World) {
         world.send(self.as_raw(), MSG_PlanManager_switch_to(machine, project_id));
     }
     
-    pub fn start_new_gesture(&self, project_id: ProjectID, machine_id: MachineID, new_gesture_id: GestureID, intent: GestureIntent, start: P2, world: &mut World) {
+    pub fn start_new_gesture(self, project_id: ProjectID, machine_id: MachineID, new_gesture_id: GestureID, intent: GestureIntent, start: P2, world: &mut World) {
         world.send(self.as_raw(), MSG_PlanManager_start_new_gesture(project_id, machine_id, new_gesture_id, intent, start));
     }
     
-    pub fn finish_gesture(&self, machine_id: MachineID, world: &mut World) {
+    pub fn finish_gesture(self, machine_id: MachineID, world: &mut World) {
         world.send(self.as_raw(), MSG_PlanManager_finish_gesture(machine_id));
     }
     
-    pub fn add_control_point(&self, project_id: ProjectID, gesture_id: GestureID, new_point: P2, add_to_end: bool, commit: bool, world: &mut World) {
+    pub fn add_control_point(self, project_id: ProjectID, gesture_id: GestureID, new_point: P2, add_to_end: bool, commit: bool, world: &mut World) {
         world.send(self.as_raw(), MSG_PlanManager_add_control_point(project_id, gesture_id, new_point, add_to_end, commit));
     }
     
-    pub fn insert_control_point(&self, project_id: ProjectID, gesture_id: GestureID, new_point: P2, commit: bool, world: &mut World) {
+    pub fn insert_control_point(self, project_id: ProjectID, gesture_id: GestureID, new_point: P2, commit: bool, world: &mut World) {
         world.send(self.as_raw(), MSG_PlanManager_insert_control_point(project_id, gesture_id, new_point, commit));
     }
     
-    pub fn move_control_point(&self, project_id: ProjectID, gesture_id: GestureID, point_index: u32, new_position: P2, is_move_finished: bool, world: &mut World) {
+    pub fn move_control_point(self, project_id: ProjectID, gesture_id: GestureID, point_index: u32, new_position: P2, is_move_finished: bool, world: &mut World) {
         world.send(self.as_raw(), MSG_PlanManager_move_control_point(project_id, gesture_id, point_index, new_position, is_move_finished));
     }
     
-    pub fn split_gesture(&self, project_id: ProjectID, gesture_id: GestureID, split_at: P2, commit: bool, world: &mut World) {
+    pub fn split_gesture(self, project_id: ProjectID, gesture_id: GestureID, split_at: P2, commit: bool, world: &mut World) {
         world.send(self.as_raw(), MSG_PlanManager_split_gesture(project_id, gesture_id, split_at, commit));
     }
     
-    pub fn set_intent(&self, project_id: ProjectID, gesture_id: GestureID, new_intent: GestureIntent, is_move_finished: bool, world: &mut World) {
+    pub fn set_intent(self, project_id: ProjectID, gesture_id: GestureID, new_intent: GestureIntent, is_move_finished: bool, world: &mut World) {
         world.send(self.as_raw(), MSG_PlanManager_set_intent(project_id, gesture_id, new_intent, is_move_finished));
     }
     
-    pub fn undo(&self, project_id: ProjectID, world: &mut World) {
+    pub fn undo(self, project_id: ProjectID, world: &mut World) {
         world.send(self.as_raw(), MSG_PlanManager_undo(project_id));
     }
     
-    pub fn redo(&self, project_id: ProjectID, world: &mut World) {
+    pub fn redo(self, project_id: ProjectID, world: &mut World) {
         world.send(self.as_raw(), MSG_PlanManager_redo(project_id));
     }
 }

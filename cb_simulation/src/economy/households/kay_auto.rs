@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -31,115 +31,115 @@ impl TypedID for HouseholdID {
 impl<A: Actor + Household> TraitIDFrom<A> for HouseholdID {}
 
 impl HouseholdID {
-    pub fn decay(&self, dt: Duration, world: &mut World) {
+    pub fn decay(self, dt: Duration, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_decay(dt));
     }
     
-    pub fn receive_deal(&self, deal: Deal, member: MemberIdx, world: &mut World) {
+    pub fn receive_deal(self, deal: Deal, member: MemberIdx, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_receive_deal(deal, member));
     }
     
-    pub fn provide_deal(&self, deal: Deal, member: MemberIdx, world: &mut World) {
+    pub fn provide_deal(self, deal: Deal, member: MemberIdx, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_provide_deal(deal, member));
     }
     
-    pub fn task_succeeded(&self, member: MemberIdx, world: &mut World) {
+    pub fn task_succeeded(self, member: MemberIdx, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_task_succeeded(member));
     }
     
-    pub fn task_failed(&self, member: MemberIdx, location: RoughLocationID, world: &mut World) {
+    pub fn task_failed(self, member: MemberIdx, location: RoughLocationID, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_task_failed(member, location));
     }
     
-    pub fn reset_member_task(&self, member: MemberIdx, world: &mut World) {
+    pub fn reset_member_task(self, member: MemberIdx, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_reset_member_task(member));
     }
     
-    pub fn stop_using(&self, offer: OfferID, world: &mut World) {
+    pub fn stop_using(self, offer: OfferID, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_stop_using(offer));
     }
     
-    pub fn destroy(&self, world: &mut World) {
+    pub fn destroy(self, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_destroy());
     }
     
-    pub fn on_destroy(&self, world: &mut World) {
+    pub fn on_destroy(self, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_on_destroy());
     }
     
-    pub fn update_core(&self, current_instant: Instant, world: &mut World) {
+    pub fn update_core(self, current_instant: Instant, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_update_core(current_instant));
     }
     
-    pub fn find_new_task_for(&self, member: MemberIdx, instant: Instant, location: RoughLocationID, world: &mut World) {
+    pub fn find_new_task_for(self, member: MemberIdx, instant: Instant, location: RoughLocationID, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_find_new_task_for(member, instant, location));
     }
     
-    pub fn update_results(&self, resource: Resource, update: ResultAspect, world: &mut World) {
+    pub fn update_results(self, resource: Resource, update: ResultAspect, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_update_results(resource, update));
     }
     
-    pub fn choose_deal(&self, world: &mut World) {
+    pub fn choose_deal(self, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_choose_deal());
     }
     
-    pub fn start_trip(&self, member: MemberIdx, instant: Instant, world: &mut World) {
+    pub fn start_trip(self, member: MemberIdx, instant: Instant, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_start_trip(member, instant));
     }
     
-    pub fn on_trip_created(&self, trip: TripID, world: &mut World) {
+    pub fn on_trip_created(self, trip: TripID, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_on_trip_created(trip));
     }
     
-    pub fn on_trip_result(&self, trip: TripID, result: TripResult, rough_source: RoughLocationID, rough_destination: RoughLocationID, world: &mut World) {
+    pub fn on_trip_result(self, trip: TripID, result: TripResult, rough_source: RoughLocationID, rough_destination: RoughLocationID, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_on_trip_result(trip, result, rough_source, rough_destination));
     }
     
-    pub fn start_task(&self, member: MemberIdx, start: Instant, location: RoughLocationID, world: &mut World) {
+    pub fn start_task(self, member: MemberIdx, start: Instant, location: RoughLocationID, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_start_task(member, start, location));
     }
     
-    pub fn stop_task(&self, member: MemberIdx, location: Option < RoughLocationID >, world: &mut World) {
+    pub fn stop_task(self, member: MemberIdx, location: Option < RoughLocationID >, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_stop_task(member, location));
     }
     
-    pub fn on_tick(&self, current_instant: Instant, world: &mut World) {
+    pub fn on_tick(self, current_instant: Instant, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_on_tick(current_instant));
     }
     
-    pub fn evaluate(&self, offer_idx: OfferIdx, instant: Instant, location: RoughLocationID, requester: EvaluationRequesterID, world: &mut World) {
+    pub fn evaluate(self, offer_idx: OfferIdx, instant: Instant, location: RoughLocationID, requester: EvaluationRequesterID, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_evaluate(offer_idx, instant, location, requester));
     }
     
-    pub fn request_receive_deal(&self, offer_idx: OfferIdx, requester: HouseholdID, requester_member: MemberIdx, world: &mut World) {
+    pub fn request_receive_deal(self, offer_idx: OfferIdx, requester: HouseholdID, requester_member: MemberIdx, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_request_receive_deal(offer_idx, requester, requester_member));
     }
     
-    pub fn request_receive_undo_deal(&self, offer_idx: OfferIdx, requester: HouseholdID, requester_member: MemberIdx, world: &mut World) {
+    pub fn request_receive_undo_deal(self, offer_idx: OfferIdx, requester: HouseholdID, requester_member: MemberIdx, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_request_receive_undo_deal(offer_idx, requester, requester_member));
     }
     
-    pub fn started_using(&self, offer_idx: OfferIdx, user: HouseholdID, using_member: Option < MemberIdx >, world: &mut World) {
+    pub fn started_using(self, offer_idx: OfferIdx, user: HouseholdID, using_member: Option < MemberIdx >, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_started_using(offer_idx, user, using_member));
     }
     
-    pub fn stopped_using(&self, offer_idx: OfferIdx, user: HouseholdID, using_member: Option < MemberIdx >, world: &mut World) {
+    pub fn stopped_using(self, offer_idx: OfferIdx, user: HouseholdID, using_member: Option < MemberIdx >, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_stopped_using(offer_idx, user, using_member));
     }
     
-    pub fn started_actively_using(&self, offer_idx: OfferIdx, user: HouseholdID, using_member: MemberIdx, world: &mut World) {
+    pub fn started_actively_using(self, offer_idx: OfferIdx, user: HouseholdID, using_member: MemberIdx, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_started_actively_using(offer_idx, user, using_member));
     }
     
-    pub fn stopped_actively_using(&self, offer_idx: OfferIdx, user: HouseholdID, using_member: MemberIdx, world: &mut World) {
+    pub fn stopped_actively_using(self, offer_idx: OfferIdx, user: HouseholdID, using_member: MemberIdx, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_stopped_actively_using(offer_idx, user, using_member));
     }
     
-    pub fn withdrawal_confirmed(&self, offer_idx: OfferIdx, world: &mut World) {
+    pub fn withdrawal_confirmed(self, offer_idx: OfferIdx, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_withdrawal_confirmed(offer_idx));
     }
     
-    pub fn get_ui_info(&self, requester: ui :: HouseholdUIID, world: &mut World) {
+    pub fn get_ui_info(self, requester: ui :: HouseholdUIID, world: &mut World) {
         world.send(self.as_raw(), MSG_Household_get_ui_info(requester));
     }
 

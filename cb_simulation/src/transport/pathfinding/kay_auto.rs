@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -31,39 +31,39 @@ impl TypedID for LinkID {
 impl<A: Actor + Link> TraitIDFrom<A> for LinkID {}
 
 impl LinkID {
-    pub fn after_route_forgotten(&self, forgotten_route: Location, world: &mut World) {
+    pub fn after_route_forgotten(self, forgotten_route: Location, world: &mut World) {
         world.send(self.as_raw(), MSG_Link_after_route_forgotten(forgotten_route));
     }
     
-    pub fn pathfinding_tick(&self, world: &mut World) {
+    pub fn pathfinding_tick(self, world: &mut World) {
         world.send(self.as_raw(), MSG_Link_pathfinding_tick());
     }
     
-    pub fn query_routes(&self, requester: LinkID, connection_cost: f32, world: &mut World) {
+    pub fn query_routes(self, requester: LinkID, connection_cost: f32, world: &mut World) {
         world.send(self.as_raw(), MSG_Link_query_routes(requester, connection_cost));
     }
     
-    pub fn on_routes(&self, new_routes: CDict < Location , CommunicatedRoutingEntry >, from: LinkID, world: &mut World) {
+    pub fn on_routes(self, new_routes: CDict < Location , CommunicatedRoutingEntry >, from: LinkID, world: &mut World) {
         world.send(self.as_raw(), MSG_Link_on_routes(new_routes, from));
     }
     
-    pub fn forget_routes(&self, forget: CVec < Location >, from: LinkID, world: &mut World) {
+    pub fn forget_routes(self, forget: CVec < Location >, from: LinkID, world: &mut World) {
         world.send(self.as_raw(), MSG_Link_forget_routes(forget, from));
     }
     
-    pub fn join_landmark(&self, from: LinkID, join_as: Location, hops_from_landmark: u8, world: &mut World) {
+    pub fn join_landmark(self, from: LinkID, join_as: Location, hops_from_landmark: u8, world: &mut World) {
         world.send(self.as_raw(), MSG_Link_join_landmark(from, join_as, hops_from_landmark));
     }
     
-    pub fn get_distance_to(&self, destination: Location, requester: DistanceRequesterID, world: &mut World) {
+    pub fn get_distance_to(self, destination: Location, requester: DistanceRequesterID, world: &mut World) {
         world.send(self.as_raw(), MSG_Link_get_distance_to(destination, requester));
     }
     
-    pub fn add_attachee(&self, attachee: AttacheeID, world: &mut World) {
+    pub fn add_attachee(self, attachee: AttacheeID, world: &mut World) {
         world.send(self.as_raw(), MSG_Link_add_attachee(attachee));
     }
     
-    pub fn remove_attachee(&self, attachee: AttacheeID, world: &mut World) {
+    pub fn remove_attachee(self, attachee: AttacheeID, world: &mut World) {
         world.send(self.as_raw(), MSG_Link_remove_attachee(attachee));
     }
 
@@ -182,7 +182,7 @@ impl TypedID for AttacheeID {
 impl<A: Actor + Attachee> TraitIDFrom<A> for AttacheeID {}
 
 impl AttacheeID {
-    pub fn location_changed(&self, old: Option < Location >, new: Option < Location >, world: &mut World) {
+    pub fn location_changed(self, old: Option < Location >, new: Option < Location >, world: &mut World) {
         world.send(self.as_raw(), MSG_Attachee_location_changed(old, new));
     }
 
@@ -229,11 +229,11 @@ impl TypedID for RoughLocationID {
 impl<A: Actor + RoughLocation> TraitIDFrom<A> for RoughLocationID {}
 
 impl RoughLocationID {
-    pub fn resolve_as_location(&self, requester: LocationRequesterID, rough_location: RoughLocationID, instant: Instant, world: &mut World) {
+    pub fn resolve_as_location(self, requester: LocationRequesterID, rough_location: RoughLocationID, instant: Instant, world: &mut World) {
         world.send(self.as_raw(), MSG_RoughLocation_resolve_as_location(requester, rough_location, instant));
     }
     
-    pub fn resolve_as_position(&self, requester: PositionRequesterID, rough_location: RoughLocationID, world: &mut World) {
+    pub fn resolve_as_position(self, requester: PositionRequesterID, rough_location: RoughLocationID, world: &mut World) {
         world.send(self.as_raw(), MSG_RoughLocation_resolve_as_position(requester, rough_location));
     }
 
@@ -289,7 +289,7 @@ impl TypedID for LocationRequesterID {
 impl<A: Actor + LocationRequester> TraitIDFrom<A> for LocationRequesterID {}
 
 impl LocationRequesterID {
-    pub fn location_resolved(&self, rough_location: RoughLocationID, location: Option < PreciseLocation >, instant: Instant, world: &mut World) {
+    pub fn location_resolved(self, rough_location: RoughLocationID, location: Option < PreciseLocation >, instant: Instant, world: &mut World) {
         world.send(self.as_raw(), MSG_LocationRequester_location_resolved(rough_location, location, instant));
     }
 
@@ -336,7 +336,7 @@ impl TypedID for PositionRequesterID {
 impl<A: Actor + PositionRequester> TraitIDFrom<A> for PositionRequesterID {}
 
 impl PositionRequesterID {
-    pub fn position_resolved(&self, rough_location: RoughLocationID, position: P2, world: &mut World) {
+    pub fn position_resolved(self, rough_location: RoughLocationID, position: P2, world: &mut World) {
         world.send(self.as_raw(), MSG_PositionRequester_position_resolved(rough_location, position));
     }
 
@@ -383,7 +383,7 @@ impl TypedID for DistanceRequesterID {
 impl<A: Actor + DistanceRequester> TraitIDFrom<A> for DistanceRequesterID {}
 
 impl DistanceRequesterID {
-    pub fn on_distance(&self, maybe_distance: Option < f32 >, world: &mut World) {
+    pub fn on_distance(self, maybe_distance: Option < f32 >, world: &mut World) {
         world.send(self.as_raw(), MSG_DistanceRequester_on_distance(maybe_distance));
     }
 

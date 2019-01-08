@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -31,15 +31,15 @@ impl TypedID for TransportUIID {
 impl<A: Actor + TransportUI> TraitIDFrom<A> for TransportUIID {}
 
 impl TransportUIID {
-    pub fn on_lane_constructed(&self, id: RawID, lane_path: LinePath, is_switch: bool, on_intersection: bool, world: &mut World) {
+    pub fn on_lane_constructed(self, id: RawID, lane_path: LinePath, is_switch: bool, on_intersection: bool, world: &mut World) {
         world.send(self.as_raw(), MSG_TransportUI_on_lane_constructed(id, lane_path, is_switch, on_intersection));
     }
     
-    pub fn on_lane_destructed(&self, id: RawID, is_switch: bool, on_intersection: bool, world: &mut World) {
+    pub fn on_lane_destructed(self, id: RawID, is_switch: bool, on_intersection: bool, world: &mut World) {
         world.send(self.as_raw(), MSG_TransportUI_on_lane_destructed(id, is_switch, on_intersection));
     }
     
-    pub fn on_car_info(&self, from_lane: RawID, infos: CVec < CarRenderInfo >, world: &mut World) {
+    pub fn on_car_info(self, from_lane: RawID, infos: CVec < CarRenderInfo >, world: &mut World) {
         world.send(self.as_raw(), MSG_TransportUI_on_car_info(from_lane, infos));
     }
 
@@ -82,11 +82,11 @@ struct MSG_TransportUI_on_car_info(pub RawID, pub CVec < CarRenderInfo >);
 
 
 impl LaneID {
-    pub fn get_car_info(&self, ui: TransportUIID, world: &mut World) {
+    pub fn get_car_info(self, ui: TransportUIID, world: &mut World) {
         world.send(self.as_raw(), MSG_Lane_get_car_info(ui));
     }
     
-    pub fn get_render_info(&self, ui: TransportUIID, world: &mut World) {
+    pub fn get_render_info(self, ui: TransportUIID, world: &mut World) {
         world.send(self.as_raw(), MSG_Lane_get_render_info(ui));
     }
 }
@@ -100,11 +100,11 @@ struct MSG_Lane_get_render_info(pub TransportUIID);
 
 
 impl SwitchLaneID {
-    pub fn get_render_info(&self, ui: TransportUIID, world: &mut World) {
+    pub fn get_render_info(self, ui: TransportUIID, world: &mut World) {
         world.send(self.as_raw(), MSG_SwitchLane_get_render_info(ui));
     }
     
-    pub fn get_car_info(&self, ui: TransportUIID, world: &mut World) {
+    pub fn get_car_info(self, ui: TransportUIID, world: &mut World) {
         world.send(self.as_raw(), MSG_SwitchLane_get_car_info(ui));
     }
 }

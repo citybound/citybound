@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -31,11 +31,11 @@ impl TypedID for ConstructableID {
 impl<A: Actor + Constructable> TraitIDFrom<A> for ConstructableID {}
 
 impl ConstructableID {
-    pub fn morph(&self, new_prototype: Prototype, report_to: ConstructionID, world: &mut World) {
+    pub fn morph(self, new_prototype: Prototype, report_to: ConstructionID, world: &mut World) {
         world.send(self.as_raw(), MSG_Constructable_morph(new_prototype, report_to));
     }
     
-    pub fn destruct(&self, report_to: ConstructionID, world: &mut World) {
+    pub fn destruct(self, report_to: ConstructionID, world: &mut World) {
         world.send(self.as_raw(), MSG_Constructable_destruct(report_to));
     }
 
@@ -102,11 +102,11 @@ impl ConstructionID {
         id
     }
     
-    pub fn action_done(&self, id: ConstructableID, world: &mut World) {
+    pub fn action_done(self, id: ConstructableID, world: &mut World) {
         world.send(self.as_raw(), MSG_Construction_action_done(id));
     }
     
-    pub fn implement(&self, actions_to_implement: ActionGroups, new_prototypes: CVec < Prototype >, world: &mut World) {
+    pub fn implement(self, actions_to_implement: ActionGroups, new_prototypes: CVec < Prototype >, world: &mut World) {
         world.send(self.as_raw(), MSG_Construction_implement(actions_to_implement, new_prototypes));
     }
 }

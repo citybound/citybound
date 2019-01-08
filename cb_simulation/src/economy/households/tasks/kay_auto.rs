@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -43,11 +43,11 @@ impl TaskEndSchedulerID {
         id
     }
     
-    pub fn schedule(&self, end: Instant, household: HouseholdID, member: MemberIdx, world: &mut World) {
+    pub fn schedule(self, end: Instant, household: HouseholdID, member: MemberIdx, world: &mut World) {
         world.send(self.as_raw(), MSG_TaskEndScheduler_schedule(end, household, member));
     }
     
-    pub fn deschedule(&self, household: HouseholdID, member: MemberIdx, world: &mut World) {
+    pub fn deschedule(self, household: HouseholdID, member: MemberIdx, world: &mut World) {
         world.send(self.as_raw(), MSG_TaskEndScheduler_deschedule(household, member));
     }
 }

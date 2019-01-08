@@ -28,8 +28,8 @@ impl ::std::fmt::Display for Resource {
 }
 
 impl Resource {
-    pub fn description(&self) -> &'static str {
-        match *self {
+    pub fn description(self) -> &'static str {
+        match self {
             Wakefulness => "How much energy a person has.",
             Satiety => "How little hungry a person is.",
             // Entertainment => "How entertained a person is.",

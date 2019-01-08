@@ -539,7 +539,6 @@ impl Footprint {
                 let actual_spacing = available_wall_length / n_subdivisions;
                 let wall_path = LinePath::new(vec![corner_pair[0], corner_pair[1]].into()).unwrap();
                 (0..(n_subdivisions as usize))
-                    .into_iter()
                     .map(|i| {
                         let distance_along = spacing + i as f32 * actual_spacing;
                         (

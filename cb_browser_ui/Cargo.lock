@@ -57,7 +57,7 @@ dependencies = [
  "cb_simulation 0.3.0",
  "compact_macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "kay_codegen 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kay_codegen 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.71 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.71 (registry+https://github.com/rust-lang/crates.io-index)",
  "stdweb 0.4.9 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -73,8 +73,8 @@ dependencies = [
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.7.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "kay 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "kay_codegen 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "michelangelo 0.2.0",
+ "kay_codegen 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "michelangelo 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "noise 0.5.1 (git+https://github.com/Razaekel/noise-rs?rev=4606a00)",
  "ordered-float 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -237,7 +237,7 @@ dependencies = [
 
 [[package]]
 name = "kay_codegen"
-version = "0.3.1"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -304,7 +304,8 @@ dependencies = [
 
 [[package]]
 name = "michelangelo"
-version = "0.2.0"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "compact 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "compact_macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -750,7 +751,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum itertools 0.7.11 (registry+https://github.com/rust-lang/crates.io-index)" = "0d47946d458e94a1b7bcabbf6521ea7c037062c81f534615abcad76e84d4970d"
 "checksum itoa 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "5adb58558dcd1d786b5f0bd15f3226ee23486e24b7b58304b60f64dc68e62606"
 "checksum kay 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "fc59d2ef7984258330a852d305a45cee625e6132ed9b0ea344c2f78eb62330a4"
-"checksum kay_codegen 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a6967983404ae4ff5f8c3009fc4b64033636551055e9be5fba4ebcfb33a35445"
+"checksum kay_codegen 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "714c10fc73b672c82433afdac4c7b298b0c004e247853349ffc1376932c23bbd"
 "checksum lazy_static 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)" = "76f033c7ad61445c5b347c7382dd1237847eb1bce590fe50365dcb33d546be73"
 "checksum libc 0.2.43 (registry+https://github.com/rust-lang/crates.io-index)" = "76e3a3ef172f1a0b9a9ff0dd1491ae5e6c948b94479a3021819ba7d860c8645d"
 "checksum libm 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "03c0bb6d5ce1b5cc6fd0578ec1cbc18c9d88b5b591a5c7c1d6c6175e266a0819"
@@ -759,6 +760,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum lyon_tessellation 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b8449ff06a89995f90e4b6b36f97ef05ae2abcb8227beae9398f542e5a78e1f4"
 "checksum matches 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "835511bab37c34c47da5cb44844bea2cfde0236db0b506f90ea4224482c9774a"
 "checksum matrixmultiply 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)" = "cac1a66eab356036af85ea093101a14223dc6e3f4c02a59b7d572e5b93270bf7"
+"checksum michelangelo 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a1e285c9233ba47a64a951afc4e378121ca2cf0c3eb7b393be06c7c7e93ded99"
 "checksum nalgebra 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)" = "4534bc88a178e411e634e1e44e7f2ad6e9bf062ea539f40e579bd49ef2fad056"
 "checksum nodrop 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)" = "9a2228dca57108069a5262f2ed8bd2e82496d2e074a06d1ccc7ce1687b6ae0a2"
 "checksum noise 0.5.1 (git+https://github.com/Razaekel/noise-rs?rev=4606a00)" = "<none>"

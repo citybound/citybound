@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -31,7 +31,7 @@ impl TypedID for LogRecipientID {
 impl<A: Actor + LogRecipient> TraitIDFrom<A> for LogRecipientID {}
 
 impl LogRecipientID {
-    pub fn receive_newest_logs(&self, entries: CVec < Entry >, text: CString, effective_last: u32, effective_text_start: u32, world: &mut World) {
+    pub fn receive_newest_logs(self, entries: CVec < Entry >, text: CString, effective_last: u32, effective_text_start: u32, world: &mut World) {
         world.send(self.as_raw(), MSG_LogRecipient_receive_newest_logs(entries, text, effective_last, effective_text_start));
     }
 
@@ -89,11 +89,11 @@ impl LogID {
         id
     }
     
-    pub fn log(&self, topic: CString, message: CString, from: Option < RawID >, level: LogLevel, world: &mut World) {
+    pub fn log(self, topic: CString, message: CString, from: Option < RawID >, level: LogLevel, world: &mut World) {
         world.send(self.as_raw(), MSG_Log_log(topic, message, from, level));
     }
     
-    pub fn get_after(&self, last_known: u32, max_diff: u32, recipient: LogRecipientID, world: &mut World) {
+    pub fn get_after(self, last_known: u32, max_diff: u32, recipient: LogRecipientID, world: &mut World) {
         world.send(self.as_raw(), MSG_Log_get_after(last_known, max_diff, recipient));
     }
 }

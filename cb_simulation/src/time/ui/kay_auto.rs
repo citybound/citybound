@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -31,7 +31,7 @@ impl TypedID for TimeUIID {
 impl<A: Actor + TimeUI> TraitIDFrom<A> for TimeUIID {}
 
 impl TimeUIID {
-    pub fn on_time_info(&self, current_instant: :: time :: Instant, speed: u16, world: &mut World) {
+    pub fn on_time_info(self, current_instant: :: time :: Instant, speed: u16, world: &mut World) {
         world.send(self.as_raw(), MSG_TimeUI_on_time_info(current_instant, speed));
     }
 
@@ -56,11 +56,11 @@ struct MSG_TimeUI_on_time_info(pub :: time :: Instant, pub u16);
 
 
 impl TimeID {
-    pub fn get_info(&self, requester: TimeUIID, world: &mut World) {
+    pub fn get_info(self, requester: TimeUIID, world: &mut World) {
         world.send(self.as_raw(), MSG_Time_get_info(requester));
     }
     
-    pub fn set_speed(&self, speed: u16, world: &mut World) {
+    pub fn set_speed(self, speed: u16, world: &mut World) {
         world.send(self.as_raw(), MSG_Time_set_speed(speed));
     }
 }

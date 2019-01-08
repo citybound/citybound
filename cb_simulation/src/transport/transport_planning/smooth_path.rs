@@ -44,15 +44,15 @@ impl PartialPath {
     fn to_arc_line_path(&self) -> Option<ArcLinePath> {
         self.0
             .iter()
-            .map(|part| match part {
-                &PartialPathSegment::Curve {
+            .map(|part| match *part {
+                PartialPathSegment::Curve {
                     start,
                     maybe_start_direction,
                     end,
                     maybe_end_direction,
                     ..
                 } => curve_to_path(start, maybe_start_direction, end, maybe_end_direction),
-                &PartialPathSegment::Line { start, end, .. } => ArcLinePath::line(start, end),
+                PartialPathSegment::Line { start, end, .. } => ArcLinePath::line(start, end),
             })
             .fold(None, |maybe_path, maybe_part_path| {
                 maybe_path.map_or(maybe_part_path.clone(), |path| {
@@ -97,7 +97,7 @@ impl PartialPath {
                                     let line = LinesPart::Line {
                                         start: original_curve_start,
                                         end: *last_on_line_point,
-                                        points: remaining_points[..last_on_line_idx + 1].to_vec(),
+                                        points: remaining_points[..=last_on_line_idx].to_vec(),
                                     };
                                     remaining_points = &remaining_points[last_on_line_idx + 1..];
                                     line
@@ -168,7 +168,7 @@ impl PartialPath {
                                     middle_parts.push(LinesPart::Line {
                                         start,
                                         end: *end,
-                                        points: remaining_points[start_idx..end_idx + 1].to_vec(),
+                                        points: remaining_points[start_idx..=end_idx].to_vec(),
                                     });
                                     start_idx = end_idx + 1
                                 } else {
@@ -204,8 +204,8 @@ impl PartialPath {
                         let mut partial_paths = Vec::new();
 
                         for i in 0..parts.len() {
-                            partial_paths.push(match &parts[i] {
-                                &LinesPart::Line {
+                            partial_paths.push(match parts[i] {
+                                LinesPart::Line {
                                     start,
                                     end,
                                     ref points,
@@ -214,7 +214,7 @@ impl PartialPath {
                                     end,
                                     targets: points.clone(),
                                 },
-                                &LinesPart::Undetermined { ref points } => {
+                                LinesPart::Undetermined { ref points } => {
                                     let (start, maybe_start_direction) =
                                         if let Some(LinesPart::Line {
                                             start: previous_start,
@@ -347,10 +347,12 @@ impl PartialPath {
                             .and_then(|combined_curve_path| {
                                 let combined_curve_path_linearized =
                                     combined_curve_path.to_line_path_with_max_angle(0.06);
-                                if combined_targets.iter().all(|target| {
-                                    combined_curve_path_linearized.distance_to(*target)
-                                        < MAX_DISTANCE_TO_CURVE
-                                }) {
+                                let combined_targets_within_curve =
+                                    combined_targets.iter().all(|target| {
+                                        combined_curve_path_linearized.distance_to(*target)
+                                            < MAX_DISTANCE_TO_CURVE
+                                    });
+                                if combined_targets_within_curve {
                                     Some(PartialPathSegment::Curve {
                                         start,
                                         maybe_start_direction,
@@ -416,10 +418,11 @@ impl PartialPath {
                             ) {
                                 let new_curve_linearized =
                                     new_curve.to_line_path_with_max_angle(0.06);
-                                if targets.iter().all(|target| {
+                                let targets_within_curve = targets.iter().all(|target| {
                                     new_curve_linearized.distance_to(*target)
                                         < MAX_DISTANCE_TO_CURVE
-                                }) {
+                                });
+                                if targets_within_curve {
                                     *prev_end = new_prev_end;
                                     *start = new_prev_end;
                                     *end = new_next_start;

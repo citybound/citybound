@@ -1,4 +1,6 @@
 #![recursion_limit = "256"]
+// TODO: remove once https://github.com/rust-lang/rust/issues/54726 is resolved
+#![feature(custom_inner_attributes)]
 
 #[macro_use]
 extern crate stdweb;
@@ -137,7 +139,7 @@ impl MainLoop {
             system.reset_message_statistics();
         }
 
-        let mut next = self.clone();
+        let mut next = *self;
 
         if self.skip_turns > 0 {
             next.skip_turns -= 1;

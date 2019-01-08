@@ -229,7 +229,7 @@ impl TransportUI for BrowserTransportUI {
             .iter()
             .map(|render_info| Instance {
                 instance_position: [render_info.position[0], render_info.position[1], 0.0],
-                instance_direction: render_info.direction.clone(),
+                instance_direction: render_info.direction,
                 instance_color: self.car_colors
                     [render_info.trip.as_raw().instance_id as usize % self.car_colors.len()],
             })

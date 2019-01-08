@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -43,11 +43,11 @@ impl PlanManagerID {
         id
     }
     
-    pub fn implement(&self, project_id: ProjectID, world: &mut World) {
+    pub fn implement(self, project_id: ProjectID, world: &mut World) {
         world.send(self.as_raw(), MSG_PlanManager_implement(project_id));
     }
     
-    pub fn implement_artificial_project(&self, project: Project, based_on: CVec < PrototypeID >, world: &mut World) {
+    pub fn implement_artificial_project(self, project: Project, based_on: CVec < PrototypeID >, world: &mut World) {
         world.send(self.as_raw(), MSG_PlanManager_implement_artificial_project(project, based_on));
     }
 }

@@ -1,4 +1,6 @@
 #![recursion_limit = "128"]
+// TODO: remove once https://github.com/rust-lang/rust/issues/54726 is resolved
+#![feature(custom_inner_attributes)]
 extern crate ordered_float;
 extern crate itertools;
 extern crate rand;

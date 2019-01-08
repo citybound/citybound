@@ -1,5 +1,5 @@
 //! This is all auto-generated. Do not touch.
-#![cfg_attr(rustfmt, rustfmt_skip)]
+#![rustfmt::skip]
 #[allow(unused_imports)]
 use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTrait};
 #[allow(unused_imports)]
@@ -31,11 +31,11 @@ impl TypedID for VegetationUIID {
 impl<A: Actor + VegetationUI> TraitIDFrom<A> for VegetationUIID {}
 
 impl VegetationUIID {
-    pub fn on_plant_spawned(&self, id: PlantID, proto: PlantPrototype, world: &mut World) {
+    pub fn on_plant_spawned(self, id: PlantID, proto: PlantPrototype, world: &mut World) {
         world.send(self.as_raw(), MSG_VegetationUI_on_plant_spawned(id, proto));
     }
     
-    pub fn on_plant_destroyed(&self, id: PlantID, world: &mut World) {
+    pub fn on_plant_destroyed(self, id: PlantID, world: &mut World) {
         world.send(self.as_raw(), MSG_VegetationUI_on_plant_destroyed(id));
     }
 
@@ -69,7 +69,7 @@ struct MSG_VegetationUI_on_plant_destroyed(pub PlantID);
 
 
 impl PlantID {
-    pub fn get_render_info(&self, requester: VegetationUIID, world: &mut World) {
+    pub fn get_render_info(self, requester: VegetationUIID, world: &mut World) {
         world.send(self.as_raw(), MSG_Plant_get_render_info(requester));
     }
 }

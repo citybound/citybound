@@ -45,7 +45,7 @@ impl PlantPrototype {
         report_to: ConstructionID,
         world: &mut World,
     ) -> CVec<ConstructableID> {
-        let id = PlantID::spawn(self.clone(), world).into();
+        let id = PlantID::spawn(*self, world).into();
         report_to.action_done(id, world);
         vec![id].into()
     }
@@ -70,7 +70,7 @@ pub struct Plant {
 
 impl Plant {
     pub fn spawn(id: PlantID, proto: PlantPrototype, world: &mut World) -> Plant {
-        VegetationUIID::global_broadcast(world).on_plant_spawned(id, proto.clone(), world);
+        VegetationUIID::global_broadcast(world).on_plant_spawned(id, proto, world);
         Plant { id, proto }
     }
 }
@@ -81,11 +81,7 @@ impl Constructable for Plant {
             self.proto = proto;
             report_to.action_done(self.id.into(), world);
             VegetationUIID::global_broadcast(world).on_plant_destroyed(self.id, world);
-            VegetationUIID::global_broadcast(world).on_plant_spawned(
-                self.id,
-                self.proto.clone(),
-                world,
-            );
+            VegetationUIID::global_broadcast(world).on_plant_spawned(self.id, self.proto, world);
         } else {
             unreachable!();
         }
@@ -105,7 +101,7 @@ pub fn calculate_prototypes(
     current_result: &PlanResult,
 ) -> Result<Vec<Prototype>, AreaError> {
     let mut constructed_areas = Vec::new();
-    let mut prototypes = Vec::with_capacity(100000);
+    let mut prototypes = Vec::with_capacity(100_000);
 
     for prototype in current_result.prototypes.values() {
         match *prototype {
@@ -132,7 +128,7 @@ pub fn calculate_prototypes(
                     while pos_along < boundary.length() {
                         i += 1;
                         pos_along += rand.gen_range(5.0, 60.0);
-                        let vegetation_type = rand.choose(&VEGETATION_TYPES).unwrap().clone();
+                        let vegetation_type = *rand.choose(&VEGETATION_TYPES).unwrap();
                         let pos = boundary.along(pos_along);
                         if let Some((_, projected_pos)) =
                             lot.area.primitives[0].boundary.path().project(pos)
@@ -158,28 +154,27 @@ pub fn calculate_prototypes(
             match plant_intent {
                 PlantIntent::Individual(proto) => prototypes.push(Prototype::new_with_influences(
                     gesture_id,
-                    PrototypeKind::Plant(proto.clone()),
+                    PrototypeKind::Plant(*proto),
                     proto.position,
                 )),
                 PlantIntent::NaturalGrowth => {
                     let mut positions = Vec::new();
                     let mut prototypes_before_difference = Vec::new();
 
-                    if unsafe { OCC_VEG_CELLS == 0 as *mut Vec<(i32, i32)> } {
+                    if unsafe { OCC_VEG_CELLS.is_null() } {
                         let mut multi_noise = BasicMulti::new()
                             .set_seed(gesture_id.0.as_fields().0)
                             .set_octaves(9)
                             .set_persistence(0.98);
 
                         let cells = (-50..50)
-                            .into_iter()
                             .flat_map(|x_cell| {
                                 (-50..50)
-                                    .into_iter()
                                     .filter_map(|y_cell| {
-                                        if multi_noise
-                                            .get([x_cell as f64 / 50.0, y_cell as f64 / 50.0])
-                                            > 0.12
+                                        if multi_noise.get([
+                                            f64::from(x_cell) / 50.0,
+                                            f64::from(y_cell) / 50.0,
+                                        ]) > 0.12
                                         {
                                             Some((x_cell, y_cell))
                                         } else {

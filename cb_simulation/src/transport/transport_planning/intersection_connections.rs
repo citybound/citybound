@@ -198,7 +198,6 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
 
                         let lanes = if relevant_incoming_len > 0 && relevant_outgoing_len > 0 {
                             (0..relevant_incoming_len.max(relevant_outgoing_len))
-                                .into_iter()
                                 .filter_map(|l| {
                                     let start = relevant_incoming_connectors
                                         [l.min(relevant_incoming_len - 1)];
