@@ -2,9 +2,8 @@ use kay::{World, ActorSystem, TypedID, RawID, External};
 use environment::vegetation::{PlantID, PlantPrototype, VegetationType};
 use environment::vegetation::ui::{VegetationUI, VegetationUIID};
 use browser_utils::to_js_mesh;
-use stdweb::serde::Serde;
 use descartes::{P2, LinePath, ClosedLinePath, PrimitiveArea};
-use michelangelo::{SculptLine, Sculpture, FlatSurface, Instance};
+use michelangelo::{Sculpture, FlatSurface, Instance};
 use std::collections::HashMap;
 use browser_utils::{FrameListener, FrameListenerID, flatten_instances};
 
@@ -55,16 +54,16 @@ impl BrowserVegetationUI {
             ),
             0.0,
         );
-        let (_, trunk_roots_surface) = trunk_base.extrude(0.0, 1.0);
+        let (_, trunk_roots_surface) = trunk_base.extrude(0.0, 0.8);
         let (side_surface, top_surface) = trunk_base.extrude(2.0, -0.1);
         let trunk_mesh =
             Sculpture::new(vec![trunk_roots_surface.into(), side_surface.into()]).to_mesh();
 
         let medium_canopy_base = top_surface;
-        let (medium_canopy_wall_1, medium_canopy_middle_1) = medium_canopy_base.extrude(1.0, 4.0);
+        let (medium_canopy_wall_1, medium_canopy_middle_1) = medium_canopy_base.extrude(0.8, 3.2);
         let (medium_canopy_wall_2, medium_canopy_middle_2) =
-            medium_canopy_middle_1.extrude(3.0, 0.0);
-        let (medium_canopy_wall_3, medium_canopy_top) = medium_canopy_middle_2.extrude(3.0, -2.0);
+            medium_canopy_middle_1.extrude(2.4, 0.0);
+        let (medium_canopy_wall_3, medium_canopy_top) = medium_canopy_middle_2.extrude(2.4, -1.6);
 
         let medium_canopy_mesh = Sculpture::new(vec![
             medium_canopy_wall_1.into(),
@@ -75,9 +74,9 @@ impl BrowserVegetationUI {
         .to_mesh();
 
         let (_, small_canopy_base) = medium_canopy_base.extrude(-1.0, 0.0);
-        let (small_canopy_wall_1, small_canopy_middle_1) = small_canopy_base.extrude(1.0, 3.0);
-        let (small_canopy_wall_2, small_canopy_middle_2) = small_canopy_middle_1.extrude(2.0, 0.0);
-        let (small_canopy_wall_3, small_canopy_top) = small_canopy_middle_2.extrude(2.0, -2.0);
+        let (small_canopy_wall_1, small_canopy_middle_1) = small_canopy_base.extrude(0.8, 2.4);
+        let (small_canopy_wall_2, small_canopy_middle_2) = small_canopy_middle_1.extrude(1.6, 0.0);
+        let (small_canopy_wall_3, small_canopy_top) = small_canopy_middle_2.extrude(1.6, -1.6);
 
         let small_canopy_mesh = Sculpture::new(vec![
             small_canopy_wall_1.into(),

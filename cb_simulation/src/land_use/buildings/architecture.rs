@@ -1,11 +1,12 @@
 use kay::{World, TypedID};
-use descartes::{N, P2, WithUniqueOrthogonal, LinePath, ClosedLinePath, PrimitiveArea, Area};
+use descartes::{N, P2, V2, WithUniqueOrthogonal, LinePath, ClosedLinePath, PrimitiveArea, Area};
 use util::random::{Rng, seed};
-use michelangelo::{Vertex, Mesh, FlatSurface, Sculpture};
+use michelangelo::{Vertex, Mesh, Instance, FlatSurface, Sculpture};
+use std::collections::HashMap;
 
 use super::{Lot, BuildingStyle};
 
-pub fn ideal_lot_shape(building_style: BuildingStyle) -> (f32, f32, f32) {
+pub fn ideal_lot_shape(building_style: BuildingStyle) -> (N, N, N) {
     match building_style {
         BuildingStyle::FamilyHouse => (20.0, 30.0, 0.5),
         BuildingStyle::GroceryShop => (15.0, 20.0, 0.5),
@@ -13,6 +14,13 @@ pub fn ideal_lot_shape(building_style: BuildingStyle) -> (f32, f32, f32) {
         BuildingStyle::Mill => (20.0, 30.0, 0.5),
         BuildingStyle::Field => (50.0, 100.0, 0.1),
         BuildingStyle::NeighboringTownConnection => (5.0, 5.0, 0.1),
+    }
+}
+
+fn footprint_dimensions(building_style: BuildingStyle) -> (N, N) {
+    match building_style {
+        BuildingStyle::FamilyHouse => (12.0, 8.0),
+        _ => (15.0, 10.0),
     }
 }
 
@@ -30,6 +38,21 @@ pub enum BuildingMaterial {
     LotAsphalt,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+pub enum BuildingProp {
+    SmallWindow,
+    ShopWindowGlass,
+    ShopWindowBanner,
+    NarrowDoor,
+    WideDoor,
+}
+
+impl ::std::fmt::Display for BuildingProp {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        ::std::fmt::Debug::fmt(self, f)
+    }
+}
+
 pub const ALL_MATERIALS: [BuildingMaterial; 10] = [
     BuildingMaterial::WhiteWall,
     BuildingMaterial::TiledRoof,
@@ -43,6 +66,14 @@ pub const ALL_MATERIALS: [BuildingMaterial; 10] = [
     BuildingMaterial::LotAsphalt,
 ];
 
+pub const ALL_PROP_TYPES: [BuildingProp; 5] = [
+    BuildingProp::SmallWindow,
+    BuildingProp::ShopWindowGlass,
+    BuildingProp::ShopWindowBanner,
+    BuildingProp::NarrowDoor,
+    BuildingProp::WideDoor,
+];
+
 impl ::std::fmt::Display for BuildingMaterial {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         ::std::fmt::Debug::fmt(self, f)
@@ -50,17 +81,22 @@ impl ::std::fmt::Display for BuildingMaterial {
 }
 
 #[derive(Clone)]
-pub struct BuildingMesh(pub ::std::collections::HashMap<BuildingMaterial, Mesh>);
+pub struct BuildingMesh {
+    pub meshes: HashMap<BuildingMaterial, Mesh>,
+    pub props: HashMap<BuildingProp, Vec<Instance>>,
+}
 
-pub fn footprint_area(lot: &Lot, building_type: BuildingStyle, extra_padding: N) -> Area {
-    if let BuildingStyle::Field = building_type {
+pub fn footprint_area(lot: &Lot, building_style: BuildingStyle, extra_padding: N) -> Area {
+    if let BuildingStyle::Field = building_style {
         lot.area.clone()
     } else {
         // TODO keep original building if lot changes
         let mut rng = seed(lot.original_lot_id);
 
+        let (base_width, base_depth) = footprint_dimensions(building_style);
+
         let (main_footprint, _entrance_footprint) =
-            generate_house_footprint(lot, extra_padding, &mut rng);
+            generate_house_footprint(lot, base_width, base_depth, extra_padding, &mut rng);
 
         Area::new(vec![main_footprint.as_primitive_area()].into())
     }
@@ -68,18 +104,21 @@ pub fn footprint_area(lot: &Lot, building_type: BuildingStyle, extra_padding: N)
 
 pub fn build_building(
     lot: &Lot,
-    building_type: BuildingStyle,
+    building_style: BuildingStyle,
     household_ids: &[::economy::households::HouseholdID],
     world: &mut World,
 ) -> BuildingMesh {
     // TODO keep original building if lot changes
     let mut rng = seed(lot.original_lot_id);
 
-    let (main_footprint, entrance_footprint) = generate_house_footprint(lot, 0.0, &mut rng);
+    let (base_width, base_depth) = footprint_dimensions(building_style);
 
-    match building_type {
+    let (main_footprint, entrance_footprint) =
+        generate_house_footprint(lot, base_width, base_depth, 0.0, &mut rng);
+
+    match building_style {
         BuildingStyle::FamilyHouse => {
-            let height = 3.0 + 3.0 * rng.gen::<f32>();
+            let height = 2.6 + 2.0 * rng.gen::<f32>();
             let entrance_height = 2.0 + rng.gen::<f32>();
 
             let (roof_brick_mesh, roof_wall_mesh) =
@@ -97,8 +136,8 @@ pub fn build_building(
 
             let fence_mesh = Sculpture::new(vec![fence_surface.into()]).to_mesh();
 
-            BuildingMesh(
-                vec![
+            BuildingMesh {
+                meshes: vec![
                     (
                         BuildingMaterial::WhiteWall,
                         main_footprint.wall_mesh(height)
@@ -114,14 +153,53 @@ pub fn build_building(
                 ]
                 .into_iter()
                 .collect(),
-            )
+                props: vec![
+                    (
+                        BuildingProp::SmallWindow,
+                        main_footprint
+                            .distribute_along_walls(3.0)
+                            .into_iter()
+                            .map(|(position, direction)| Instance {
+                                instance_position: [position.x, position.y, 0.0],
+                                instance_direction: [direction.x, direction.y],
+                                instance_color: [0.7, 0.6, 0.6],
+                            })
+                            .collect(),
+                    ),
+                    (
+                        BuildingProp::NarrowDoor,
+                        vec![{
+                            let position = P2::from_coordinates(
+                                (entrance_footprint.front_right.coords
+                                    + entrance_footprint.back_right.coords)
+                                    / 2.0,
+                            );
+                            let direction = (entrance_footprint.back_right
+                                - entrance_footprint.front_right)
+                                .normalize();
+                            Instance {
+                                instance_position: [position.x, position.y, 0.0],
+                                instance_direction: [direction.x, direction.y],
+                                instance_color: [0.6, 0.5, 0.5],
+                            }
+                        }],
+                    ),
+                ]
+                .into_iter()
+                .collect(),
+            }
         }
         BuildingStyle::GroceryShop => {
             let height = 3.0 + rng.gen::<f32>();
             let entrance_height = height - 0.7;
+            let business_color = [
+                rng.gen_range(0.3, 0.6),
+                rng.gen_range(0.3, 0.6),
+                rng.gen_range(0.3, 0.6),
+            ];
 
-            BuildingMesh(
-                vec![
+            BuildingMesh {
+                meshes: vec![
                     (
                         BuildingMaterial::WhiteWall,
                         main_footprint.wall_mesh(height)
@@ -135,7 +213,53 @@ pub fn build_building(
                 ]
                 .into_iter()
                 .collect(),
-            )
+                props: vec![
+                    (
+                        BuildingProp::ShopWindowGlass,
+                        main_footprint
+                            .distribute_along_walls(3.0)
+                            .into_iter()
+                            .map(|(position, direction)| Instance {
+                                instance_position: [position.x, position.y, 0.0],
+                                instance_direction: [direction.x, direction.y],
+                                instance_color: [0.7, 0.6, 0.6],
+                            })
+                            .collect(),
+                    ),
+                    (
+                        BuildingProp::ShopWindowBanner,
+                        main_footprint
+                            .distribute_along_walls(3.0)
+                            .into_iter()
+                            .map(|(position, direction)| Instance {
+                                instance_position: [position.x, position.y, 0.0],
+                                instance_direction: [direction.x, direction.y],
+                                instance_color: business_color,
+                            })
+                            .collect(),
+                    ),
+                    (
+                        BuildingProp::WideDoor,
+                        vec![{
+                            let position = P2::from_coordinates(
+                                (entrance_footprint.front_right.coords
+                                    + entrance_footprint.back_right.coords)
+                                    / 2.0,
+                            );
+                            let direction = (entrance_footprint.back_right
+                                - entrance_footprint.front_right)
+                                .normalize();
+                            Instance {
+                                instance_position: [position.x, position.y, 0.0],
+                                instance_direction: [direction.x, direction.y],
+                                instance_color: [0.6, 0.5, 0.5],
+                            }
+                        }],
+                    ),
+                ]
+                .into_iter()
+                .collect(),
+            }
         }
         BuildingStyle::Field => {
             use ::economy::households::household_kinds::*;
@@ -160,14 +284,15 @@ pub fn build_building(
             let lot_surface = FlatSurface::from_primitive_area(lot.area.primitives[0].clone(), 0.0);
             let (_, shrunk_lot_surface) = lot_surface.extrude(0.0, 2.0);
 
-            BuildingMesh(
-                Some((
+            BuildingMesh {
+                meshes: Some((
                     material,
                     Sculpture::new(vec![shrunk_lot_surface.into()]).to_mesh(),
                 ))
                 .into_iter()
                 .collect(),
-            )
+                props: HashMap::new(),
+            }
         }
         BuildingStyle::Mill => {
             let height = 3.0 + rng.gen::<f32>();
@@ -178,8 +303,8 @@ pub fn build_building(
             let (tower_roof_brick_mesh, tower_roof_wall_mesh) =
                 entrance_footprint.open_gable_roof_mesh(tower_height, 0.3);
 
-            BuildingMesh(
-                vec![
+            BuildingMesh {
+                meshes: vec![
                     (
                         BuildingMaterial::WhiteWall,
                         main_footprint.wall_mesh(height)
@@ -194,17 +319,42 @@ pub fn build_building(
                 ]
                 .into_iter()
                 .collect(),
-            )
+                props: vec![(
+                    BuildingProp::WideDoor,
+                    vec![{
+                        let position = P2::from_coordinates(
+                            (entrance_footprint.front_right.coords
+                                + entrance_footprint.back_right.coords)
+                                / 2.0,
+                        );
+                        let direction = (entrance_footprint.back_right
+                            - entrance_footprint.front_right)
+                            .normalize();
+                        Instance {
+                            instance_position: [position.x, position.y, 0.0],
+                            instance_direction: [direction.x, direction.y],
+                            instance_color: [0.6, 0.5, 0.5],
+                        }
+                    }],
+                )]
+                .into_iter()
+                .collect(),
+            }
         }
         BuildingStyle::Bakery => {
             let height = 3.0 + rng.gen::<f32>();
             let entrance_height = height;
+            let business_color = [
+                rng.gen_range(0.3, 0.6),
+                rng.gen_range(0.3, 0.6),
+                rng.gen_range(0.3, 0.6),
+            ];
 
             let (entrance_roof_brick_mesh, entrance_roof_wall_mesh) =
                 entrance_footprint.open_gable_roof_mesh(entrance_height, 0.3);
 
-            BuildingMesh(
-                vec![
+            BuildingMesh {
+                meshes: vec![
                     (
                         BuildingMaterial::WhiteWall,
                         main_footprint.wall_mesh(height)
@@ -219,16 +369,63 @@ pub fn build_building(
                 ]
                 .into_iter()
                 .collect(),
-            )
+                props: vec![
+                    (
+                        BuildingProp::ShopWindowGlass,
+                        main_footprint
+                            .distribute_along_walls(3.0)
+                            .into_iter()
+                            .map(|(position, direction)| Instance {
+                                instance_position: [position.x, position.y, 0.0],
+                                instance_direction: [direction.x, direction.y],
+                                instance_color: [0.7, 0.6, 0.6],
+                            })
+                            .collect(),
+                    ),
+                    (
+                        BuildingProp::ShopWindowBanner,
+                        main_footprint
+                            .distribute_along_walls(3.0)
+                            .into_iter()
+                            .map(|(position, direction)| Instance {
+                                instance_position: [position.x, position.y, 0.0],
+                                instance_direction: [direction.x, direction.y],
+                                instance_color: business_color,
+                            })
+                            .collect(),
+                    ),
+                    (
+                        BuildingProp::WideDoor,
+                        vec![{
+                            let position = P2::from_coordinates(
+                                (entrance_footprint.front_right.coords
+                                    + entrance_footprint.back_right.coords)
+                                    / 2.0,
+                            );
+                            let direction = (entrance_footprint.back_right
+                                - entrance_footprint.front_right)
+                                .normalize();
+                            Instance {
+                                instance_position: [position.x, position.y, 0.0],
+                                instance_direction: [direction.x, direction.y],
+                                instance_color: [0.6, 0.5, 0.5],
+                            }
+                        }],
+                    ),
+                ]
+                .into_iter()
+                .collect(),
+            }
         }
-        BuildingStyle::NeighboringTownConnection => BuildingMesh(
-            Some((
+        BuildingStyle::NeighboringTownConnection => BuildingMesh {
+            meshes: Some((
                 BuildingMaterial::WhiteWall,
                 Mesh::from_area(&lot.original_area),
             ))
             .into_iter()
             .collect(),
-        ),
+            props: HashMap::new(),
+        },
     }
 }
 
@@ -323,10 +520,46 @@ impl Footprint {
             Mesh::new(vertices, wall_indices),
         )
     }
+
+    fn distribute_along_walls(&self, spacing: N) -> Vec<(P2, V2)> {
+        [
+            self.back_right,
+            self.back_left,
+            self.front_left,
+            self.front_right,
+            self.back_right,
+        ]
+        .windows(2)
+        .flat_map(|corner_pair| {
+            let wall_length = (corner_pair[1] - corner_pair[0]).norm();
+            let available_wall_length = wall_length - spacing;
+
+            if available_wall_length > 0.0 {
+                let n_subdivisions = (available_wall_length / spacing).floor();
+                let actual_spacing = available_wall_length / n_subdivisions;
+                let wall_path = LinePath::new(vec![corner_pair[0], corner_pair[1]].into()).unwrap();
+                (0..(n_subdivisions as usize))
+                    .into_iter()
+                    .map(|i| {
+                        let distance_along = spacing + i as f32 * actual_spacing;
+                        (
+                            wall_path.along(distance_along),
+                            wall_path.direction_along(distance_along),
+                        )
+                    })
+                    .collect()
+            } else {
+                vec![]
+            }
+        })
+        .collect()
+    }
 }
 
 pub fn generate_house_footprint<R: Rng>(
     lot: &Lot,
+    base_width: N,
+    base_depth: N,
     extra_padding: N,
     rng: &mut R,
 ) -> (Footprint, Footprint) {
@@ -334,14 +567,14 @@ pub fn generate_house_footprint<R: Rng>(
     let building_orientation = lot.best_road_connection().1;
     let building_orientation_orth = building_orientation.orthogonal_right();
 
-    let footprint_width = 10.0 + rng.gen::<f32>() * 7.0 + 2.0 * extra_padding;
-    let footprint_depth = 7.0 + rng.gen::<f32>() * 5.0 + 2.0 * extra_padding;
+    let footprint_width = base_width * rng.gen_range(0.7, 1.3) + 2.0 * extra_padding;
+    let footprint_depth = base_depth * rng.gen_range(0.7, 1.3) + 2.0 * extra_padding;
 
     let entrance_position = building_position
-        + building_orientation_orth * (0.5 - 1.0 * rng.gen::<f32>()) * footprint_width
-        + building_orientation * (rng.gen::<f32>() * 0.3 + 0.1) * footprint_depth;
-    let entrance_width = 5.0 + rng.gen::<f32>() * 4.0;
-    let entrance_depth = 3.0 + rng.gen::<f32>() * 3.0;
+        + building_orientation_orth * rng.gen_range(-0.5, 0.5) * footprint_width
+        + building_orientation * rng.gen_range(0.1, 0.4) * footprint_depth;
+    let entrance_width = footprint_width * rng.gen_range(0.5, 0.7);
+    let entrance_depth = footprint_depth * rng.gen_range(0.3, 0.7);
 
     (
         Footprint {

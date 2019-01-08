@@ -3,7 +3,7 @@ use compact::CVec;
 use stdweb::serde::Serde;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use stdweb::js_export;
-use browser_utils::to_js_mesh;
+use browser_utils::{to_js_mesh, flatten_instances};
 use SYSTEM;
 use ::std::collections::HashMap;
 
@@ -43,11 +43,11 @@ impl LandUseUI for BrowserLandUseUI {
         style: ::land_use::buildings::BuildingStyle,
         world: &mut World,
     ) {
-        let meshes =
+        let building_mesh =
             ::land_use::buildings::architecture::build_building(lot, style, households, world);
 
-        let material_updates: ::stdweb::Object = meshes
-            .0
+        let material_updates: ::stdweb::Object = building_mesh
+            .meshes
             .into_iter()
             .map(|(material, mesh)| {
                 let update_op: ::stdweb::Object = Some(("$set", to_js_mesh(&mesh)))
@@ -63,9 +63,26 @@ impl LandUseUI for BrowserLandUseUI {
             .collect::<HashMap<_, _>>()
             .into();
 
+        let prop_updates: ::stdweb::Object = building_mesh.props.into_iter().map(|(prop_type, instances)| {
+            let update_op: ::stdweb::Object = Some(("$set", flatten_instances(&instances)))
+                    .into_iter()
+                    .collect::<HashMap<_, _>>()
+                    .into();
+                let material_update: ::stdweb::Object = Some((id.as_raw_string(), update_op))
+                    .into_iter()
+                    .collect::<HashMap<_, _>>()
+                    .into();
+                (prop_type.to_string(), material_update)
+            })
+            .collect::<HashMap<_, _>>()
+            .into();;
+
         js! {
             window.cbReactApp.boundSetState(oldState => update(oldState, {
-                landUse: {rendering: @{material_updates}},
+                landUse: {rendering: {
+                    buildingMeshes: @{material_updates},
+                    buildingProps: @{prop_updates}
+                }},
                 households: {
                     buildingPositions: {[@{Serde(id)}]: {
                         "$set": @{Serde(lot.center_point())}
@@ -87,14 +104,22 @@ impl LandUseUI for BrowserLandUseUI {
             .into_iter()
             .collect::<HashMap<_, _>>()
             .into();
-        let unsets: ::stdweb::Object = ::land_use::buildings::architecture::ALL_MATERIALS
+        let material_unsets: ::stdweb::Object = ::land_use::buildings::architecture::ALL_MATERIALS
             .iter()
             .map(|material| (material.to_string(), unset_op.clone()))
             .collect::<HashMap<_, _>>()
             .into();
+        let prop_unsets: ::stdweb::Object = ::land_use::buildings::architecture::ALL_PROP_TYPES
+            .iter()
+            .map(|prop_type| (prop_type.to_string(), unset_op.clone()))
+            .collect::<HashMap<_, _>>()
+            .into();
         js! {
             window.cbReactApp.boundSetState(oldState => update(oldState, {
-                landUse: {rendering: @{unsets}},
+                landUse: {rendering: {
+                    buildingMeshes: @{material_unsets},
+                    buildingProps: @{prop_unsets}
+                }},
                 households: {buildingPositions: {"$unset": [@{Serde(id)}]}}
             }));
         }
