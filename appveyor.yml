@@ -2,6 +2,10 @@ os: Visual Studio 2015
 
 environment:
   nodejs_version: "10"
+  ARTIFACTS_KEY:
+    secure: mL0OPBsnoPN2itWv55Uvm6nGA1uQHC5K2TwLK4YUO6U=
+  ARTIFACTS_SECRET:
+    secure: T0ZM2/QozQ/Vp68aO+kJljg01S+tvoih6MjQMv7U0Mrl2uDdt5oKsMh2FsruJ8Fx
 
 install:
   - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
