@@ -2,10 +2,6 @@ os: Visual Studio 2015
 
 environment:
   nodejs_version: "10"
-  ARTIFACTS_KEY:
-    secure: mL0OPBsnoPN2itWv55Uvm6nGA1uQHC5K2TwLK4YUO6U=
-  ARTIFACTS_SECRET:
-    secure: T0ZM2/QozQ/Vp68aO+kJljg01S+tvoih6MjQMv7U0Mrl2uDdt5oKsMh2FsruJ8Fx
 
 install:
   - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
@@ -25,8 +21,10 @@ build_script:
 
 deploy:
   provider: S3
-  access_key_id: $(ARTIFACTS_KEY)
-  secret_access_key: $(ARTIFACTS_SECRET)
+  access_key_id:
+    secure: mL0OPBsnoPN2itWv55Uvm6nGA1uQHC5K2TwLK4YUO6U=
+  secret_access_key:
+    secure: T0ZM2/QozQ/Vp68aO+kJljg01S+tvoih6MjQMv7U0Mrl2uDdt5oKsMh2FsruJ8Fx
   bucket: citybound-livebuilds
   region: us-east-1
   folder: /
