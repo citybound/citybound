@@ -17,7 +17,10 @@ pub fn print_start_message(version: &str, network_config: &NetworkConfig) {
     );
 
     println!("  {: ^41}  ", format!("Citybound {}", version.trim()));
-    println!("  {: ^41}  ", "please connect with your browser");
+    println!("");
+    println!("  {: ^41}  ", "This is the simulation server.");
+    println!("  {: ^41}  ", "To connect and start playing, please open");
+    println!("  {: ^41}  ", "this address in Chrome/Firefox/Safari:");
     println!("╭───────────────────────────────────────────╮");
     println!("│ {: ^41} │", format!("http://{}", my_host));
     println!("╰───────────────────────────────────────────╯");
