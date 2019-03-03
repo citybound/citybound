@@ -17,12 +17,15 @@ function switchToProject(projectId) {
 }
 
 function implementProject(oldState) {
-    cbRustBrowser.implement_project(oldState.planning.currentProject);
-    return update(oldState, {
-        planning: {
-            $unset: ['currentProject'],
-        }
-    });
+    if (oldState.planning.currentProject) {
+        cbRustBrowser.implement_project(oldState.planning.currentProject);
+        return update(oldState, {
+            planning: {
+                $unset: ['currentProject'],
+            }
+        });
+    }
+    return oldState;
 }
 
 function startNewProject(oldState) {
