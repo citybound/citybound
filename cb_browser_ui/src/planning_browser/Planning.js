@@ -180,8 +180,6 @@ function setNLanes(projectId, gestureId, nLanesForward, nLanesBackward, doneChan
 }
 
 function finishGesture(projectId, gestureId) {
-    cbRustBrowser.finish_gesture();
-
     return oldState => update(oldState, {
         planning: {
             canvasMode: {
@@ -241,7 +239,7 @@ export function ShapesAndLayers(props) {
     if (state.planning) {
         let gestures = Object.keys(state.planning.master.gestures).map(gestureId =>
             ({ [gestureId]: Object.assign(state.planning.master.gestures[gestureId][0], { fromMaster: true }) })
-        ).concat(state.planning.currentProject
+        ).concat((state.planning.currentProject && state.planning.projects[state.planning.currentProject])
             ? state.planning.projects[state.planning.currentProject].undoable_history
                 .concat([state.planning.projects[state.planning.currentProject].ongoing || { gestures: [] }]).map(step => step.gestures)
             : []

@@ -36,11 +36,15 @@ impl TypedID for PlanManagerID {
 }
 
 impl PlanManagerID {
-    pub fn spawn(initial_project_id: ProjectID, world: &mut World) -> Self {
+    pub fn spawn(world: &mut World) -> Self {
         let id = PlanManagerID::from_raw(world.allocate_instance_id::<PlanManager>());
         let swarm = world.local_broadcast::<PlanManager>();
-        world.send(swarm, MSG_PlanManager_spawn(id, initial_project_id));
+        world.send(swarm, MSG_PlanManager_spawn(id, ));
         id
+    }
+    
+    pub fn start_new_project(self, project_id: ProjectID, world: &mut World) {
+        world.send(self.as_raw(), MSG_PlanManager_start_new_project(project_id));
     }
     
     pub fn implement(self, project_id: ProjectID, world: &mut World) {
@@ -52,8 +56,10 @@ impl PlanManagerID {
     }
 }
 
+#[derive(Copy, Clone)] #[allow(non_camel_case_types)]
+struct MSG_PlanManager_spawn(pub PlanManagerID, );
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanManager_spawn(pub PlanManagerID, pub ProjectID);
+struct MSG_PlanManager_start_new_project(pub ProjectID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_PlanManager_implement(pub ProjectID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
@@ -66,8 +72,14 @@ pub fn auto_setup(system: &mut ActorSystem) {
     
     
     system.add_spawner::<PlanManager, _, _>(
-        |&MSG_PlanManager_spawn(id, initial_project_id), world| {
-            PlanManager::spawn(id, initial_project_id, world)
+        |&MSG_PlanManager_spawn(id, ), world| {
+            PlanManager::spawn(id, world)
+        }, false
+    );
+    
+    system.add_handler::<PlanManager, _, _>(
+        |&MSG_PlanManager_start_new_project(project_id), instance, world| {
+            instance.start_new_project(project_id, world); Fate::Live
         }, false
     );
     

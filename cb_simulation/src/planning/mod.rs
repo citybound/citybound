@@ -1,6 +1,6 @@
 #![allow(clippy::new_without_default_derive)]
 #![allow(clippy::new_without_default)]
-use kay::{World, MachineID, ActorSystem, TypedID};
+use kay::{World, ActorSystem, TypedID};
 use compact::{CVec, COption, CHashMap};
 use descartes::{N, P2, AreaError};
 use util::random::{seed, RngCore, Uuid, uuid};
@@ -504,42 +504,6 @@ impl PlanResult {
     }
 
     pub fn actions_to(&self, other: &PlanResult) -> (ActionGroups, CVec<Prototype>) {
-        // let mut unmatched_existing_ids: CHashMap<_, ()> =
-        //     self.prototypes.keys().map(|key| (*key, ())).collect();
-        // let mut to_be_morphed = CVec::new();
-        // let mut to_be_constructed = CVec::new();
-        // let mut new_prototypes = CVec::new();
-
-        // for (new_prototype_id, new_prototype) in other.prototypes.pairs() {
-        //     if unmatched_existing_ids.contains_key(*new_prototype_id) {
-        //         // identical prototype, does not need to change at all
-        //         unmatched_existing_ids.remove(*new_prototype_id);
-        //     } else {
-        //         let maybe_morphable_id = unmatched_existing_ids
-        //             .keys()
-        //             .find(|&other_prototype_id| {
-        //                 new_prototype.morphable_from(
-        //                     self.prototypes
-        //                         .get(*other_prototype_id)
-        //                         .expect("should exist since unmatched ids are created from
-        // this"),                 )
-        //             })
-        //             .cloned();
-        //         if let Some(morphable_id) = maybe_morphable_id {
-        //             unmatched_existing_ids.remove(morphable_id);
-        //             to_be_morphed.push(Action::Morph(morphable_id, *new_prototype_id));
-        //         } else {
-        //             to_be_constructed.push(Action::Construct(*new_prototype_id))
-        //         }
-        //         new_prototypes.push(new_prototype.clone());
-        //     }
-        // }
-
-        // let to_be_destructed: CVec<_> = unmatched_existing_ids
-        //     .keys()
-        //     .map(|unmatched_id| Action::Destruct(*unmatched_id))
-        //     .collect();
-
         let mut to_be_morphed = CVec::new();
         let mut new_prototypes = CVec::new();
 
@@ -627,30 +591,6 @@ impl PlanResult {
     }
 
     pub fn update_for(&self, known_state: &KnownPlanResultState) -> PlanResultUpdate {
-        // let prototypes_to_drop = known_state
-        //     .known_prototype_ids
-        //     .keys()
-        //     .filter_map(|known_prototype_id| {
-        //         if self.prototypes.contains_key(*known_prototype_id) {
-        //             None
-        //         } else {
-        //             Some(*known_prototype_id)
-        //         }
-        //     })
-        //     .collect();
-
-        // let new_prototypes = self
-        //     .prototypes
-        //     .values()
-        //     .filter_map(|prototype| {
-        //         if known_state.known_prototype_ids.contains_key(prototype.id) {
-        //             None
-        //         } else {
-        //             Some(prototype.clone())
-        //         }
-        //     })
-        //     .collect();
-
         let (only_in_self, only_in_other) = self.grid.difference(&known_state.known_prototype_ids);
 
         // println!(
@@ -870,22 +810,20 @@ pub struct PlanManager {
     master_result: PlanResult,
     projects: CHashMap<ProjectID, Project>,
     implemented_projects: CHashMap<ProjectID, Project>,
-    ui_state: CHashMap<MachineID, PlanManagerUIState>,
+    ui_state: PlanManagerUIState,
 }
 
 mod compact_workaround;
 
 impl PlanManager {
-    pub fn spawn(id: PlanManagerID, initial_project_id: ProjectID, _: &mut World) -> PlanManager {
+    pub fn spawn(id: PlanManagerID, _: &mut World) -> PlanManager {
         PlanManager {
             id,
             master_plan: PlanHistory::new(),
             master_result: PlanResult::new(),
-            projects: Some((initial_project_id, Project::new()))
-                .into_iter()
-                .collect(),
+            projects: CHashMap::new(),
             implemented_projects: CHashMap::new(),
-            ui_state: CHashMap::new(),
+            ui_state: PlanManagerUIState::new(),
         }
     }
 
@@ -909,6 +847,10 @@ impl PlanManager {
             .expect("Expected gesture (that point should be added to) to exist!")
     }
 
+    pub fn start_new_project(&mut self, project_id: ProjectID, _: &mut World) {
+        self.projects.insert(project_id, Project::new());
+    }
+
     pub fn implement(&mut self, project_id: ProjectID, world: &mut World) {
         let project = self
             .projects
@@ -924,47 +866,17 @@ impl PlanManager {
                 self.implemented_projects.insert(project_id, project);
                 self.master_result = result;
 
-                let potentially_affected_ui_states = self
-                    .ui_state
-                    .pairs()
-                    .map(|(machine, state)| (*machine, state.current_project))
-                    .collect::<Vec<_>>();
-
-                for (machine, current_project) in potentially_affected_ui_states {
-                    if current_project == project_id {
-                        let new_project_id = ProjectID::new();
-
-                        self.projects.insert(new_project_id, Project::new());
-
-                        self.switch_to(machine, new_project_id, world);
-                    }
-                }
-
-                let all_project_ids = self.projects.keys().cloned().collect::<Vec<_>>();
-                for old_project_id in all_project_ids {
-                    if old_project_id != project_id {
-                        self.clear_previews(old_project_id);
-                    }
-                }
+                self.ui_state.invalidate_all();
             }
-            Err(err) => match err {
-                ::descartes::AreaError::LeftOver(string) => {
-                    error(
-                        LOG_T,
-                        format!("Implement Plan Error: {}", string),
-                        self.id,
-                        world,
-                    );
-                }
-                _ => {
-                    error(
-                        LOG_T,
-                        format!("Implement Plan Error: {:?}", err),
-                        self.id,
-                        world,
-                    );
-                }
-            },
+            Err(err) => {
+                let err_str = match err {
+                    ::descartes::AreaError::LeftOver(string) => {
+                        format!("Implement Plan Error: {}", string)
+                    }
+                    _ => format!("Implement Plan Error: {:?}", err),
+                };
+                error(LOG_T, err_str, self.id, world);
+            }
         }
     }
 
@@ -995,15 +907,12 @@ impl PlanManager {
 pub fn setup(system: &mut ActorSystem) {
     system.register::<PlanManager>();
     auto_setup(system);
-    interaction::setup(system);
+    interaction::auto_setup(system);
     ui::auto_setup(system);
 }
 
 pub fn spawn(world: &mut World) -> PlanManagerID {
-    let initial_project_id = ProjectID::new();
-    let plan_manager = PlanManagerID::spawn(initial_project_id, world);
-    plan_manager.switch_to(MachineID(0), initial_project_id, world);
-    plan_manager
+    PlanManagerID::spawn(world)
 }
 
 pub mod kay_auto;

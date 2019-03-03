@@ -1,7 +1,8 @@
 import colors, { toCSS, fromLinFloat } from '../colors';
 import React from 'react';
-import { Button, Select } from 'antd';
+import { Button, Select, Divider, Icon } from 'antd';
 const Option = Select.Option;
+import uuid from '../uuid';
 
 import { Toolbar } from '../toolbar';
 
@@ -24,6 +25,41 @@ function implementProject(oldState) {
     });
 }
 
+function startNewProject(oldState) {
+    const projectId = uuid();
+    cbRustBrowser.start_new_project(projectId);
+    return update(oldState, {
+        planning: {
+            currentProject: { $set: projectId },
+        }
+    });
+}
+
+function undo(oldState) {
+    if (oldState.planning.currentProject) {
+        cbRustBrowser.undo(oldState.planning.currentProject);
+        if (oldState.planning.canvasMode.currentGesture) {
+            const project = oldState.planning.projects[oldState.planning.currentProject];
+            const lastHistoryStep = project && project.undoable_history[project.undoable_history.length - 2];
+            if (!lastHistoryStep || !lastHistoryStep.gestures[oldState.planning.canvasMode.currentGesture]) {
+                return update(oldState, {
+                    planning: {
+                        canvasMode: {
+                            $unset: ['currentGesture', 'previousClick']
+                        }
+                    }
+                });
+            }
+        }
+    }
+    return oldState;
+}
+
+function redo(oldState) {
+    if (oldState.planning.currentProject) cbRustBrowser.redo(oldState.planning.currentProject);
+    return oldState
+}
+
 export function Tools(props) {
     const { state, setState } = props;
     return [
@@ -32,26 +68,38 @@ export function Tools(props) {
             value={state.uiMode}
             onChange={newMode => setState({ uiMode: newMode })} />,
         state.uiMode == 'planning' && [
-            <Select
-                style={{ width: 180 }}
-                showSearch={true}
-                placeholder="Open a project"
-                optionFilterProp="children"
-                onChange={(value) => setState(switchToProject(value))}
-                value={state.planning.currentProject || undefined}
-            >{Object.keys(state.planning.projects).map(projectId =>
-                <Option value={projectId}>Project '{projectId.slice(0, 3).toUpperCase()}'</Option>
-            )}</Select>,
+            (state.planning.currentProject || Object.keys(state.planning.projects).length > 0)
+                ? <Select
+                    style={{ width: 180 }}
+                    showSearch={true}
+                    placeholder="Open a project"
+                    optionFilterProp="children"
+                    notFoundContent="No ongoing projects"
+                    onChange={(value) => setState(switchToProject(value))}
+                    value={state.planning.projects[state.planning.currentProject] ? state.planning.currentProject : (state.planning.currentProject ? "Opening..." : undefined)}
+                    dropdownRender={menu => (
+                        <div>
+                            <div style={{ padding: '8px', cursor: 'pointer' }} onClick={() => setState(startNewProject)}>
+                                <Icon type="plus" /> Start another project
+                            </div>
+                            <Divider style={{ margin: '4px 0' }} />
+                            {menu}
+                        </div>
+                    )}
+                >{Object.keys(state.planning.projects).map(projectId =>
+                    <Option value={projectId}>Project '{projectId.slice(0, 3).toUpperCase()}'</Option>
+                )}</Select>
+                : <Button type="primary" onClick={() => setState(startNewProject)}>Start new project</Button>,
             state.planning.currentProject && [
                 <Button type="primary"
                     onClick={() => setState(implementProject)}
                 >Implement</Button>,
                 <Toolbar id="planning-history-toolbar"
                     options={{
-                        undo: { description: "Undo", disabled: !state.planning.projects[state.planning.currentProject].undoable_history.length },
-                        redo: { description: "Redo", disabled: !state.planning.projects[state.planning.currentProject].redoable_history.length },
+                        undo: { description: "Undo", disabled: !state.planning.projects[state.planning.currentProject] || !state.planning.projects[state.planning.currentProject].undoable_history.length },
+                        redo: { description: "Redo", disabled: !state.planning.projects[state.planning.currentProject] || !state.planning.projects[state.planning.currentProject].redoable_history.length },
                     }}
-                    onChange={value => value == "undo" ? cbRustBrowser.undo(state.planning.currentProject) : cbRustBrowser.redo(state.planning.currentProject)}
+                    onChange={value => value == "undo" ? setState(undo) : setState(redo)}
                 />,
                 state.planning.currentProject &&
                 <Toolbar id="planning-toolbar"
@@ -89,8 +137,8 @@ export function Tools(props) {
 export function bindInputs(state, setState) {
     const inputActions = {
         "implementProject": () => setState(implementProject),
-        "undo": () => setState(oldState => { cbRustBrowser.undo(oldState.planning.currentProject); return oldState }),
-        "redo": () => setState(oldState => { cbRustBrowser.redo(oldState.planning.currentProject); return oldState })
+        "undo": () => setState(undo),
+        "redo": () => setState(redo)
     }
 
     Mousetrap.bind(state.settings.planning.implementProjectKey.key, inputActions["implementProject"]);

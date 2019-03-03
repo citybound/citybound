@@ -1,25 +1,37 @@
-use kay::{World, MachineID,   ActorSystem};
+use kay::{World};
 use compact::{CHashMap, COption};
 use descartes::{P2, AreaError, LinePath};
-use super::{Plan, PlanHistory, PlanResult,  GestureID, ProjectID,
-PlanManager, PlanManagerID, Gesture, GestureIntent,
-KnownHistoryState, KnownProjectState, ProjectUpdate,
-KnownPlanResultState,
-ActionGroups};
-use super::ui::PlanningUIID;
+use planning::{ProjectID, PlanHistory, PlanResult, ActionGroups, PlanManager, PlanManagerID, KnownHistoryState, KnownProjectState, ProjectUpdate, GestureID, GestureIntent, Gesture, Plan, KnownPlanResultState};
+use planning::ui::PlanningUIID;
 use log::error;
 const LOG_T: &str = "Planning Interaction";
 
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct ControlPointRef(pub GestureID, pub usize);
+#[derive(Compact, Clone)]
+pub struct PreviewSet {
+    history: PlanHistory,
+    result: COption<PlanResult>,
+    actions: COption<ActionGroups>,
+}
 
 #[derive(Compact, Clone)]
 pub struct PlanManagerUIState {
-    pub current_project: ProjectID,
-    gesture_ongoing: bool,
-    current_preview: COption<PlanHistory>,
-    current_result_preview: COption<PlanResult>,
-    current_action_preview: COption<ActionGroups>,
+    previews: CHashMap<ProjectID, PreviewSet>,
+}
+
+impl PlanManagerUIState {
+    pub fn new() -> Self {
+        PlanManagerUIState {
+            previews: CHashMap::new(),
+        }
+    }
+
+    pub fn invalidate(&mut self, project_id: ProjectID) {
+        self.previews.remove(project_id);
+    }
+
+    pub fn invalidate_all(&mut self) {
+        self.previews = CHashMap::new();
+    }
 }
 
 impl PlanManager {
@@ -69,19 +81,8 @@ impl PlanManager {
         known_result: &KnownPlanResultState,
         world: &mut World,
     ) {
-        // TODO: this is a super ugly hack until we get rid of the native UI
-        let needs_switch = if let Some(ui_state) = self.ui_state.get_mut(world.local_machine_id()) {
-            ui_state.current_project != project_id
-        } else {
-            false
-        };
-
-        if needs_switch {
-            self.switch_to(MachineID(0), project_id, world);
-        }
-
         let (plan_history, maybe_result, maybe_actions) =
-            self.try_ensure_preview(world.local_machine_id(), project_id, world);
+            self.try_ensure_preview(project_id, world);
 
         if let (Some(result), Some(actions)) = (maybe_result, maybe_actions) {
             ui.on_project_preview_update(
@@ -93,102 +94,50 @@ impl PlanManager {
             );
         }
     }
-}
 
-impl PlanManager {
-    pub fn switch_to(&mut self, machine: MachineID, project_id: ProjectID, _: &mut World) {
-        self.ui_state.insert(
-            machine,
-            PlanManagerUIState {
-                current_project: project_id,
-                gesture_ongoing: false,
-                current_preview: COption(None),
-                current_result_preview: COption(None),
-                current_action_preview: COption(None),
-            },
-        );
-    }
-
-    pub fn clear_previews(&mut self, project_id: ProjectID) {
-        for state in self
-            .ui_state
-            .values_mut()
-            .filter(|state| state.current_project == project_id)
-        {
-            state.current_preview = COption(None);
-            state.current_result_preview = COption(None);
-            state.current_action_preview = COption(None);
-        }
-    }
-
-    #[allow(mutable_transmutes)]
-    pub fn try_ensure_preview(
-        &self,
-        machine_id: MachineID,
-        project_id: ProjectID,
-        log_in: &mut World,
-    ) -> (&PlanHistory, Option<&PlanResult>, &Option<ActionGroups>) {
-        let ui_state = self
-            .ui_state
-            .get(machine_id)
-            .expect("Should already have a ui state for this machine");
-
-        // super ugly of course, maybe we can use a cell or similar in the future
-        unsafe {
-            let ui_state_mut: &mut PlanManagerUIState =
-                &mut *(ui_state as *const PlanManagerUIState as *mut PlanManagerUIState);
-            if ui_state.current_project != project_id {
-                ui_state_mut.current_preview = COption(None);
-            }
-
-            if ui_state.current_preview.is_none() {
-                let preview_plan = self
+    fn try_ensure_preview(&mut self, project_id: ProjectID, log_in: &mut World) -> (&PlanHistory, Option<&PlanResult>, Option<&ActionGroups>) {
+        if !self.ui_state.previews.contains_key(project_id) {
+            let preview_history = self
                     .projects
                     .get(project_id)
                     .unwrap()
                     .apply_to_with_ongoing(&self.master_plan);
 
-                match preview_plan.calculate_result() {
-                    Ok(preview_plan_result) => {
-                        let (actions, _) = self.master_result.actions_to(&preview_plan_result);
-                        ui_state_mut.current_result_preview = COption(Some(preview_plan_result));
-                        ui_state_mut.current_action_preview = COption(Some(actions));
-                    }
-                    Err(err) => match err {
-                        AreaError::LeftOver(string) => {
-                            error(
-                                LOG_T,
-                                format!("Preview Plan Error: {}", string),
-                                self.id,
-                                log_in,
-                            );
-                        }
-                        _ => {
-                            error(
-                                LOG_T,
-                                format!("Preview Plan Error: {:?}", err),
-                                self.id,
-                                log_in,
-                            );
-                        }
-                    },
-                }
+            let maybe_preview_result = match preview_history.calculate_result() {
+                Ok(preview_plan_result) => Some(preview_plan_result),
+                Err(err) => {
+                    let err_str = match err {
+                        AreaError::LeftOver(string) => format!("Preview Plan Error: {}", string),
+                        _ => format!("Preview Plan Error: {:?}", err)
+                    };
+                    error(LOG_T, err_str, self.id, log_in);
+                    None
+                },
+            };
 
-                ui_state_mut.current_preview = COption(Some(preview_plan));
-            }
+            let maybe_preview_actions = maybe_preview_result.as_ref().map(|preview_plan_result|
+                self.master_result.actions_to(preview_plan_result).0
+            );
+
+            self.ui_state.previews.insert(project_id, PreviewSet {
+                history: preview_history,
+                result: COption(maybe_preview_result),
+                actions: COption(maybe_preview_actions)
+            });
         }
 
+        let preview_set = self.ui_state.previews.get(project_id).expect("Should have previews by now.");
+
         (
-            ui_state.current_preview.as_ref().unwrap(),
-            ui_state.current_result_preview.as_ref(),
-            &*ui_state.current_action_preview,
+            &preview_set.history,
+            preview_set.result.as_ref(),
+            preview_set.actions.as_ref(),
         )
     }
 
     pub fn start_new_gesture(
         &mut self,
         project_id: ProjectID,
-        machine_id: MachineID,
         new_gesture_id: GestureID,
         intent: &GestureIntent,
         start: P2,
@@ -204,19 +153,7 @@ impl PlanManager {
             .set_ongoing_step(new_step);
         self.projects.get_mut(project_id).unwrap().start_new_step();
 
-        self.ui_state
-            .get_mut(machine_id)
-            .expect("should already have ui state")
-            .gesture_ongoing = true;
-
-        self.clear_previews(project_id);
-    }
-
-    pub fn finish_gesture(&mut self, machine_id: MachineID, _: &mut World) {
-        self.ui_state
-            .get_mut(machine_id)
-            .expect("should already have ui state")
-            .gesture_ongoing = false;
+        self.ui_state.invalidate(project_id);
     }
 
     pub fn add_control_point(
@@ -263,7 +200,7 @@ impl PlanManager {
             self.projects.get_mut(project_id).unwrap().start_new_step();
         }
 
-        self.clear_previews(project_id);
+        self.ui_state.invalidate(project_id);
     }
 
     pub fn insert_control_point(
@@ -310,7 +247,7 @@ impl PlanManager {
             self.projects.get_mut(project_id).unwrap().start_new_step();
         }
 
-        self.clear_previews(project_id);
+        self.ui_state.invalidate(project_id);
     }
 
     pub fn move_control_point(
@@ -347,7 +284,7 @@ impl PlanManager {
 
         // TODO: can we update only part of the preview
         // for better rendering performance while dragging?
-        self.clear_previews(project_id);
+        self.ui_state.invalidate(project_id);
 
         if is_move_finished {
             self.projects.get_mut(project_id).unwrap().start_new_step();
@@ -416,7 +353,7 @@ impl PlanManager {
                 self.projects.get_mut(project_id).unwrap().start_new_step();
             }
 
-            self.clear_previews(project_id);
+            self.ui_state.invalidate(project_id);
         }
     }
 
@@ -446,7 +383,7 @@ impl PlanManager {
 
         // TODO: can we update only part of the preview
         // for better rendering performance while dragging?
-        self.clear_previews(project_id);
+        self.ui_state.invalidate(project_id);
 
         if is_move_finished {
             self.projects.get_mut(project_id).unwrap().start_new_step();
@@ -455,17 +392,13 @@ impl PlanManager {
 
     pub fn undo(&mut self, project_id: ProjectID, _: &mut World) {
         self.projects.get_mut(project_id).unwrap().undo();
-        self.clear_previews(project_id);
+        self.ui_state.invalidate(project_id);
     }
 
     pub fn redo(&mut self, project_id: ProjectID, _: &mut World) {
         self.projects.get_mut(project_id).unwrap().redo();
-        self.clear_previews(project_id);
+        self.ui_state.invalidate(project_id);
     }
-}
-
-pub fn setup(system: &mut ActorSystem) {
-    auto_setup(system);
 }
 
 pub mod kay_auto;

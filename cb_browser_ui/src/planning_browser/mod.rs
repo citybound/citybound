@@ -45,7 +45,6 @@ pub fn start_new_gesture(
     let world = &mut system.world();
     ::planning::PlanManagerID::global_first(world).start_new_gesture(
         project_id.0,
-        ::kay::MachineID(0),
         gesture_id.0,
         intent.0,
         start.0,
@@ -132,13 +131,6 @@ pub fn set_n_lanes(
 }
 
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
-pub fn finish_gesture() {
-    let system = unsafe { &mut *SYSTEM };
-    let world = &mut system.world();
-    ::planning::PlanManagerID::global_first(world).finish_gesture(::kay::MachineID(0), world)
-}
-
-#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn undo(project_id: Serde<::planning::ProjectID>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
@@ -157,6 +149,13 @@ pub fn implement_project(project_id: Serde<::planning::ProjectID>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
     ::planning::PlanManagerID::global_first(world).implement(project_id.0, world);
+}
+
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
+pub fn start_new_project(project_id: Serde<::planning::ProjectID>) {
+    let system = unsafe { &mut *SYSTEM };
+    let world = &mut system.world();
+    ::planning::PlanManagerID::global_first(world).start_new_project(project_id.0, world);
 }
 
 #[derive(Compact, Clone)]

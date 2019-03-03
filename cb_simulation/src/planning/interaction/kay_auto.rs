@@ -18,16 +18,8 @@ impl PlanManagerID {
         world.send(self.as_raw(), MSG_PlanManager_get_project_preview_update(ui, project_id, known_result));
     }
     
-    pub fn switch_to(self, machine: MachineID, project_id: ProjectID, world: &mut World) {
-        world.send(self.as_raw(), MSG_PlanManager_switch_to(machine, project_id));
-    }
-    
-    pub fn start_new_gesture(self, project_id: ProjectID, machine_id: MachineID, new_gesture_id: GestureID, intent: GestureIntent, start: P2, world: &mut World) {
-        world.send(self.as_raw(), MSG_PlanManager_start_new_gesture(project_id, machine_id, new_gesture_id, intent, start));
-    }
-    
-    pub fn finish_gesture(self, machine_id: MachineID, world: &mut World) {
-        world.send(self.as_raw(), MSG_PlanManager_finish_gesture(machine_id));
+    pub fn start_new_gesture(self, project_id: ProjectID, new_gesture_id: GestureID, intent: GestureIntent, start: P2, world: &mut World) {
+        world.send(self.as_raw(), MSG_PlanManager_start_new_gesture(project_id, new_gesture_id, intent, start));
     }
     
     pub fn add_control_point(self, project_id: ProjectID, gesture_id: GestureID, new_point: P2, add_to_end: bool, commit: bool, world: &mut World) {
@@ -64,11 +56,7 @@ struct MSG_PlanManager_get_all_plans(pub PlanningUIID, pub KnownHistoryState, pu
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_PlanManager_get_project_preview_update(pub PlanningUIID, pub ProjectID, pub KnownPlanResultState);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanManager_switch_to(pub MachineID, pub ProjectID);
-#[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanManager_start_new_gesture(pub ProjectID, pub MachineID, pub GestureID, pub GestureIntent, pub P2);
-#[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanManager_finish_gesture(pub MachineID);
+struct MSG_PlanManager_start_new_gesture(pub ProjectID, pub GestureID, pub GestureIntent, pub P2);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_PlanManager_add_control_point(pub ProjectID, pub GestureID, pub P2, pub bool, pub bool);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
@@ -103,20 +91,8 @@ pub fn auto_setup(system: &mut ActorSystem) {
     );
     
     system.add_handler::<PlanManager, _, _>(
-        |&MSG_PlanManager_switch_to(machine, project_id), instance, world| {
-            instance.switch_to(machine, project_id, world); Fate::Live
-        }, false
-    );
-    
-    system.add_handler::<PlanManager, _, _>(
-        |&MSG_PlanManager_start_new_gesture(project_id, machine_id, new_gesture_id, ref intent, start), instance, world| {
-            instance.start_new_gesture(project_id, machine_id, new_gesture_id, intent, start, world); Fate::Live
-        }, false
-    );
-    
-    system.add_handler::<PlanManager, _, _>(
-        |&MSG_PlanManager_finish_gesture(machine_id), instance, world| {
-            instance.finish_gesture(machine_id, world); Fate::Live
+        |&MSG_PlanManager_start_new_gesture(project_id, new_gesture_id, ref intent, start), instance, world| {
+            instance.start_new_gesture(project_id, new_gesture_id, intent, start, world); Fate::Live
         }, false
     );
     

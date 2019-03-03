@@ -62,25 +62,30 @@ export function Windows(props) {
                     <li>Singapore</li>
                     <li>Denpasar</li>
                     <li>Kuala Lumpur</li>
+                    <li>Boston</li>
                 </ul>
             </TabPane>
             <TabPane tab="Tutorial" key="tutorial">
                 <p>Please note that this tutorial is super bare-bones, but it should get you going.</p>
                 <p>(You can open and close this whole window while following the tutorial by clicking the menu icon)</p>
-                <h3>"Click the pencil icon to go into planning mode.</h3>
-                <p>Click the empty dropdown and choose the only existing project.</p>
+                <p><em>1) Click the pencil icon to go into planning mode.</em></p>
+                <p><em>2) Click the "Start a new project" button.</em></p>
                 <h2>Planning Roads</h2>
-                <p>Go to road planning mode by clicking the road icon.</p>
-                <p>Start a new road by clicking on the map and continuing to click to add road nodes. To finish a road, doubleclick when placing the last node. You can move control points of existing points around, but nothing more yet (delete, extend road yet).</p>
+                <p><em>1) Go to road planning mode by clicking the road icon.</em></p>
+                <p><em>2) Start a new road by clicking on the map</em> and continue to click to add road nodes.</p>
+                <p><em>3) To finish a road, double-click when placing the last node.</em></p>
+                <p>You can move control points of existing points around, but nothing more yet (delete, extend road yet).</p>
+                <p>Roads that lead further away automatically get a neighboring town connection (double arrow). These move as you expand your town.</p>
                 <h2>Planning Zones</h2>
-                <p>Go to zone planning mode by clicking the zone icon next to the road icon. Draw zone shapes by selecting a zone type, then clicking on the map to define its corners. Double clicking finishes a shape. (A zone has to touch a road to become useable)</p>
+                <p><em>1) Go to zone planning mode by clicking the zone icon</em> next to the road icon.</p>
+                <p><em>2) Draw zone shapes by selecting a zone type, then clicking on the map</em> to define its corners.</p>
+                <p><em>3) Double clicking finishes a shape.</em> (A zone has to touch a road to become useable)</p>
                 <p>Changes to zones need to be implemented to become effective.</p>
                 <h2>Implementing Projects</h2>
-                <p>Press implement to implement your project plan.</p>
+                <p>Press the "Implement" button to implement your project plan.</p>
                 <h2>Further Steps</h2>
-                <p>Speed up time using the slider next to the clock in the top left corner and see what happens.</p>
-                <p>You can also start a new project by choosing the only existing project in the dropdown again.</p>
-                <p>Roads that lead further away automatically get a neighboring town connection (white diamond). These move as you expand your town.</p>
+                <p><em>Speed up time using the slider next to the clock in the top left corner</em> and see what happens.</p>
+                <p><em>Click on the eye icon and hover/click on buildings to inspect them</em></p>
             </TabPane>
             <TabPane tab="Settings &amp; Controls" key="settings">
                 <Settings currentSettings={state.settings} specs={settingSpecs} {...{ setState }} />

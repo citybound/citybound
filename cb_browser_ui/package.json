@@ -7,7 +7,7 @@
     "start": "npm run build-rust && npm run watch-js"
   },
   "dependencies": {
-    "antd": "^3.8.1",
+    "antd": "^3.13.6",
     "gl-matrix": "^2.6.1",
     "immutability-helper": "^2.7.1",
     "monet": "git+https://github.com/aeickhoff/monet.git#5b79f29034c239961f2c93310ddc78ed868865fe",

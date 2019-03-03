@@ -21,7 +21,6 @@ pub fn plan_grid(project_id: Serde<::planning::ProjectID>, n: Serde<isize>, spac
         let p2 = P2::new(x as f32 * spacing.0, (n.0 / 2) as f32 * spacing.0);
         plan_manager.start_new_gesture(
             project_id.0,
-            ::kay::MachineID(0),
             id,
             GestureIntent::Road(RoadIntent::new(3, 3)),
             p1,
@@ -36,7 +35,6 @@ pub fn plan_grid(project_id: Serde<::planning::ProjectID>, n: Serde<isize>, spac
         let p2 = P2::new((n.0 / 2) as f32 * spacing.0, y as f32 * spacing.0);
         plan_manager.start_new_gesture(
             project_id.0,
-            ::kay::MachineID(0),
             id,
             GestureIntent::Road(RoadIntent::new(3, 3)),
             p1,
