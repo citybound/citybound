@@ -81,7 +81,7 @@ export default {
     Industrial: mix(toLinFloat([119, 66, 95]), grass, 0.9),
     Agricultural: mix(toLinFloat([136, 136, 108]), grass, 0.9),
     Recreational: mix(toLinFloat([124, 192, 124]), grass, 0.9),
-    Official: mix(toLinFloat([39, 150, 221]), grass, 0.9),
+    Administrative: mix(toLinFloat([39, 150, 221]), grass, 0.9),
 
     carColors: shuffle([
         [30.0, 45.0, 45.0],    // black

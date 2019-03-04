@@ -15,7 +15,7 @@ const LAND_USES = [
     "Industrial",
     "Agricultural",
     "Recreational",
-    "Official",
+    "Administrative",
 ];
 
 export const initialState = {
@@ -221,7 +221,7 @@ const shadersForLandUses = {
     Industrial: stripedShaders[2],
     Agricultural: stripedShaders[1],
     Recreational: stripedShaders[2],
-    Official: stripedShaders[2]
+    Administrative: stripedShaders[2]
 };
 
 // TODO: share constants with Rust somehow

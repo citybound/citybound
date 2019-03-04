@@ -25,7 +25,7 @@ pub enum LandUse {
     Industrial,
     Agricultural,
     Recreational,
-    Official,
+    Administrative,
 }
 
 impl ::std::fmt::Display for LandUse {
@@ -40,7 +40,7 @@ pub const LAND_USES: [LandUse; 6] = [
     LandUse::Industrial,
     LandUse::Agricultural,
     LandUse::Recreational,
-    LandUse::Official,
+    LandUse::Administrative,
 ];
 
 #[derive(Compact, Clone, Serialize, Deserialize, Debug)]

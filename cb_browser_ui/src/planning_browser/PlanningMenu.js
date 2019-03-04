@@ -122,7 +122,7 @@ export function Tools(props) {
                         Industrial: { description: "Industrial", color: toCSS(fromLinFloat(colors["Industrial"])) },
                         Agricultural: { description: "Agricultural", color: toCSS(fromLinFloat(colors["Agricultural"])) },
                         Recreational: { description: "Recreational", color: toCSS(fromLinFloat(colors["Recreational"])) },
-                        Official: { description: "Official", color: toCSS(fromLinFloat(colors["Official"])) }
+                        Administrative: { description: "Administrative", color: toCSS(fromLinFloat(colors["Administrative"])) }
                     }}
                     value={state.planning.canvasMode.intent && state.planning.canvasMode.intent.Zone && state.planning.canvasMode.intent.Zone.LandUse}
                     onChange={newLandUse => setState(oldState => update(oldState, {
