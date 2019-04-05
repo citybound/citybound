@@ -1,6 +1,6 @@
 use super::Obstacle;
 
-pub const COMFORTABLE_BREAKING_DECELERATION: f32 = 0.4;
+pub const COMFORTABLE_BRAKING_DECELERATION: f32 = 0.4;
 
 pub fn intelligent_acceleration(
     car: &Obstacle,
@@ -23,7 +23,7 @@ pub fn intelligent_acceleration(
         + 0.0f32.max(
             car.velocity * safe_time_headway
                 + (car.velocity * velocity_difference
-                    / (2.0 * (acceleration * COMFORTABLE_BREAKING_DECELERATION).sqrt())),
+                    / (2.0 * (acceleration * COMFORTABLE_BRAKING_DECELERATION).sqrt())),
         );
 
     (-max_deceleration).max(
