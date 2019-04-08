@@ -185,7 +185,7 @@ The simulation core takes care of the progression and scales of in-game time by 
 
 ## Philosophy & Decisions
 
-* See [Transport](../README.md)
+* See [Transport](#transport)
 
 ## Implementation Philosophy
 
