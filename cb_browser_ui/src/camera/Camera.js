@@ -86,7 +86,7 @@ export function bindInputs(state, setState) {
         }));
 
         e.preventDefault();
-    })
+    }, { passive: false })
 
     document.addEventListener("gesturechange", e => {
         setState(oldState => {
@@ -112,7 +112,7 @@ export function bindInputs(state, setState) {
         });
 
         e.preventDefault();
-    })
+    }, { passive: false })
 
     document.addEventListener("gestureend", e => {
         console.log("end")
@@ -123,7 +123,10 @@ export function bindInputs(state, setState) {
         }));
 
         e.preventDefault();
-    })
+    }, { passive: false })
+
+    // prevent normal scrolling/navigaiton behaviour
+    document.addEventListener("wheel", e => e.preventDefault(), { passive: false });
 }
 
 export function onWheel(e, state, setState) {

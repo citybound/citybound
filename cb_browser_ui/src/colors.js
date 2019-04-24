@@ -64,7 +64,7 @@ export default {
     FieldPlant: [0.39, 0.58, 0.27],
     WoodenFence: [0.9, 0.8, 0.7],
     MetalFence: [0.8, 0.8, 0.8],
-    LotAsphalt: [0.7, 0.7, 0.7],
+    LotAsphalt: [0.65, 0.65, 0.65],
 
     plannedAsphalt: [1.0, 1.0, 1.0],
     plannedRoadMarker: [0.6, 0.6, 0.6],

@@ -64,12 +64,15 @@ impl Lot {
         )
     }
 
-    pub fn best_road_connection(&self) -> (P2, V2) {
-        let longest_boundary = self
-            .road_boundaries
+    pub fn longest_road_boundary(&self) -> &LinePath {
+        self.road_boundaries
             .iter()
             .max_by_key(|path| OrderedFloat(path.length()))
-            .expect("Should always have a boundary");
+            .expect("Should always have a boundary")
+    }
+
+    pub fn best_road_connection(&self) -> (P2, V2) {
+        let longest_boundary = self.longest_road_boundary();
         let length = longest_boundary.length();
         (
             longest_boundary.along(length / 2.0),

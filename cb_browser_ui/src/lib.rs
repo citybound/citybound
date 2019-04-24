@@ -35,7 +35,11 @@ static mut SYSTEM: *mut ActorSystem = 0 as *mut ActorSystem;
 
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn start() {
-    panic::set_hook(Box::new(|info| console!(error, info.to_string())));
+    panic::set_hook(Box::new(|info| {
+        js! {
+            throw new Error("Rust WASM error: " + @{info.to_string()});
+        }
+    }));
 
     js! { console.log("Before setup") }
 

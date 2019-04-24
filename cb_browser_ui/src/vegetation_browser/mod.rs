@@ -54,16 +54,16 @@ impl BrowserVegetationUI {
             ),
             0.0,
         );
-        let (_, trunk_roots_surface) = trunk_base.extrude(0.0, 0.8);
-        let (side_surface, top_surface) = trunk_base.extrude(2.0, -0.1);
+        let (_, trunk_roots_surface) = trunk_base.extrude(0.0, 0.8).expect("Expect tree extrude to work");
+        let (side_surface, top_surface) = trunk_base.extrude(2.0, -0.1).expect("Expect tree extrude to work");
         let trunk_mesh =
             Sculpture::new(vec![trunk_roots_surface.into(), side_surface.into()]).to_mesh();
 
         let medium_canopy_base = top_surface;
-        let (medium_canopy_wall_1, medium_canopy_middle_1) = medium_canopy_base.extrude(0.8, 3.2);
+        let (medium_canopy_wall_1, medium_canopy_middle_1) = medium_canopy_base.extrude(0.8, 3.2).expect("Expect tree extrude to work");
         let (medium_canopy_wall_2, medium_canopy_middle_2) =
-            medium_canopy_middle_1.extrude(2.4, 0.0);
-        let (medium_canopy_wall_3, medium_canopy_top) = medium_canopy_middle_2.extrude(2.4, -1.6);
+            medium_canopy_middle_1.extrude(2.4, 0.0).expect("Expect tree extrude to work");
+        let (medium_canopy_wall_3, medium_canopy_top) = medium_canopy_middle_2.extrude(2.4, -1.6).expect("Expect tree extrude to work");
 
         let medium_canopy_mesh = Sculpture::new(vec![
             medium_canopy_wall_1.into(),
@@ -73,10 +73,10 @@ impl BrowserVegetationUI {
         ])
         .to_mesh();
 
-        let (_, small_canopy_base) = medium_canopy_base.extrude(-1.0, 0.0);
-        let (small_canopy_wall_1, small_canopy_middle_1) = small_canopy_base.extrude(0.8, 2.4);
-        let (small_canopy_wall_2, small_canopy_middle_2) = small_canopy_middle_1.extrude(1.6, 0.0);
-        let (small_canopy_wall_3, small_canopy_top) = small_canopy_middle_2.extrude(1.6, -1.6);
+        let (_, small_canopy_base) = medium_canopy_base.extrude(-1.0, 0.0).expect("Expect tree extrude to work");
+        let (small_canopy_wall_1, small_canopy_middle_1) = small_canopy_base.extrude(0.8, 2.4).expect("Expect tree extrude to work");
+        let (small_canopy_wall_2, small_canopy_middle_2) = small_canopy_middle_1.extrude(1.6, 0.0).expect("Expect tree extrude to work");
+        let (small_canopy_wall_3, small_canopy_top) = small_canopy_middle_2.extrude(1.6, -1.6).expect("Expect tree extrude to work");
 
         let small_canopy_mesh = Sculpture::new(vec![
             small_canopy_wall_1.into(),
@@ -87,9 +87,9 @@ impl BrowserVegetationUI {
         .to_mesh();
 
         let large_canopy_base = medium_canopy_base;
-        let (large_canopy_wall_1, large_canopy_middle_1) = large_canopy_base.extrude(2.0, 5.0);
-        let (large_canopy_wall_2, large_canopy_middle_2) = large_canopy_middle_1.extrude(4.0, 0.0);
-        let (large_canopy_wall_3, large_canopy_top) = large_canopy_middle_2.extrude(4.0, -4.0);
+        let (large_canopy_wall_1, large_canopy_middle_1) = large_canopy_base.extrude(2.0, 5.0).expect("Expect tree extrude to work");
+        let (large_canopy_wall_2, large_canopy_middle_2) = large_canopy_middle_1.extrude(4.0, 0.0).expect("Expect tree extrude to work");
+        let (large_canopy_wall_3, large_canopy_top) = large_canopy_middle_2.extrude(4.0, -4.0).expect("Expect tree extrude to work");
 
         let large_canopy_mesh = Sculpture::new(vec![
             large_canopy_wall_1.into(),

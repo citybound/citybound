@@ -20,7 +20,7 @@ function displayError(prefix, error) {
 }
 
 window.onerror = function (msg, file, line, col, error) {
-    displayError("Error", error);
+    displayError("Error", error || { message: msg });
 };
 
 window.addEventListener('unhandledrejection', function (e) {
