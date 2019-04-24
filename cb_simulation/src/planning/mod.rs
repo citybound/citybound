@@ -1,4 +1,3 @@
-#![allow(clippy::new_without_default_derive)]
 #![allow(clippy::new_without_default)]
 use kay::{World, ActorSystem, TypedID};
 use compact::{CVec, COption, CHashMap};
