@@ -3,13 +3,13 @@
 Citybound is a city building game with a focus on realism, collaborative planning and simulation of microscopic details. It is independently developed, open source and funded through Patreon.
 
 * [Homepage](http://cityboundsim.com)
-* [Latest live builds](http://aeplay.co/citybound-livebuilds)
+* [Latest live builds](http://aeplay.org/citybound-livebuilds)
 * [LICENSE](LICENSE.txt) (AGPL)
 * [Contributing & Development](CONTRIBUTING.md)
 
 # Citybound
 
-**This is a living and open document, find out [how to contribute your suggestions](../CONTRIBUTING.md).**
+**This is a living and open document, find out [how to contribute your suggestions](CONTRIBUTING.md).**
 
 Citybound is a city building game with a focus on realism, collaborative planning and simulation of microscopic details.
 
@@ -18,7 +18,7 @@ Citybound is a city building game with a focus on realism, collaborative plannin
 * Simulated World
   * [Simulation Core](#simulation-core)
   * [Transport](#transport)
-  * [Economy & Household Behaviour](#economy-&-household-behaviour)
+  * [Economy & Household Behaviour](#economy--household-behaviour)
   * ~~[Construction](construction/README.md)~~
   * [Environment](#environment)
 * Player Interaction
