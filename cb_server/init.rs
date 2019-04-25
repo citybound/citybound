@@ -13,7 +13,7 @@ pub fn print_start_message(version: &str, network_config: &NetworkConfig) {
             "internet" => "<your public IP>",
             _ => unreachable!(),
         },
-        network_config.serve_host_port.split(':').nth(1).unwrap(),
+        network_config.serve_host_port.split(':').last().unwrap(),
     );
 
     println!("  {: ^41}  ", format!("Citybound {}", version.trim()));
