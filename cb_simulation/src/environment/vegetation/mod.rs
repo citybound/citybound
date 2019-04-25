@@ -162,7 +162,7 @@ pub fn calculate_prototypes(
                     let mut prototypes_before_difference = Vec::new();
 
                     if unsafe { OCC_VEG_CELLS.is_null() } {
-                        let mut multi_noise = BasicMulti::new()
+                        let multi_noise = BasicMulti::new()
                             .set_seed(gesture_id.0.as_fields().0)
                             .set_octaves(9)
                             .set_persistence(0.98);

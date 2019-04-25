@@ -3,7 +3,7 @@
         "ensure-tooling": "node repo_scripts/tooling.js",
         "build-browser": "cd cb_browser_ui && npm install && npm run build",
         "watch-browser": "cd cb_browser_ui && npm install && npm start",
-        "build-server": "git describe > .version && npm run ensure-tooling -- -q && cargo build --release",
+        "build-server": "git describe > .version && npm run ensure-tooling -- -q && RUSTC_WRAPPER=sccache cargo build --release",
         "build-server-bundle": "git describe > .version && npm run ensure-tooling -- -q && cargo build --release --features embed_assets",
         "build": "echo 'BUILDING SERVER' && npm run build-server && echo 'BUILDING BROWSER UI' && npm run build-browser",
         "start": "npm run build-server && echo 'RUNNING' && target/release/citybound",

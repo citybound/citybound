@@ -8,6 +8,7 @@ extern crate noise;
 extern crate fnv;
 extern crate roaring;
 extern crate uuid;
+extern crate arrayvec;
 
 pub extern crate compact;
 #[macro_use]
