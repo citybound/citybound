@@ -1,0 +1,14 @@
+[package]
+name = "cb_util"
+version = "0.3.0"
+authors = ["Anselm Eickhoff <anselm.eickhoff@gmail.com>"]
+license = "AGPL-3.0"
+
+[dependencies]
+rand = { version = "0.5", features = ["stdweb"] }
+fnv = "1.0.6"
+serde = "1.0"
+serde_derive = "1.0"
+uuid = { version = "0.7.1", features = ["v4", "serde"] }
+compact = { version = "0.2.13", features = ["serde-serialization"] }
+compact_macros = "0.1.0"

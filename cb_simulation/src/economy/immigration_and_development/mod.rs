@@ -2,7 +2,7 @@ use kay::{World, ActorSystem, TypedID};
 use compact::COption;
 use land_use::buildings::{UnitType, BuildingID, UnitIdx};
 use time::{Sleeper, SleeperID, Instant, TimeID, Duration};
-use util::random::{seed, Rng};
+use cb_util::random::{seed, Rng};
 use log::{debug};
 const LOG_T: &str = "Immigration/Development";
 

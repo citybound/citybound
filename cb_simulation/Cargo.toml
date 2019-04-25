@@ -22,6 +22,7 @@ kay = {version = "0.4.1", default-features = false, features = ["serde-serializa
 descartes = {version = "0.1.19", features = ["compact_containers", "serde-serialization"]}
 michelangelo = {version = "0.2.5"}
 arrayvec = {version = "0.4.10", features = ["serde-1"]}
+cb_util = {path = "../cb_util"}
 
 [build-dependencies]
 kay_codegen = {version = "0.3.3", features = ["serde-serialization"]}

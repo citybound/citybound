@@ -1,5 +1,5 @@
 use kay::{ActorSystem, World, Actor};
-use util::random::{seed, Rng};
+use cb_util::random::{seed, Rng};
 
 use time::{TimeOfDay, TimeOfDayRange, Instant, Duration, Ticks, TimeID, Temporal,
 TemporalID};

@@ -1,6 +1,6 @@
 use super::FamilyID;
 use economy::households::MemberIdx;
-use util::random::{seed, Rng};
+use cb_util::random::{seed, Rng};
 
 // names taken from https://github.com/icebob/fakerator
 

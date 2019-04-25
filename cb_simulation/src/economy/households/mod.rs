@@ -2,8 +2,8 @@ use kay::{ActorSystem, World, Actor, TypedID, Fate};
 use compact::{CVec, CDict, COption};
 use time::{Duration, TimeOfDay, Instant, Ticks, TimeID, TICKS_PER_SIM_SECOND, Sleeper,
 Temporal};
-use util::async_counter::AsyncCounter;
-use util::random::{seed, Rng};
+use cb_util::async_counter::AsyncCounter;
+use cb_util::random::{seed, Rng};
 use ordered_float::OrderedFloat;
 use log::{debug, info, warn};
 const LOG_T: &str = "Households";

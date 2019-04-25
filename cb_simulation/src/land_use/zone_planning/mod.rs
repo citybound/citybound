@@ -4,7 +4,7 @@ AreaError, WithUniqueOrthogonal, AreaEmbedding, AreaFilter};
 use land_use::buildings::BuildingStyle;
 use ordered_float::OrderedFloat;
 use itertools::Itertools;
-use util::random::{seed, RngCore};
+use cb_util::random::{seed, RngCore};
 
 use transport::transport_planning::{RoadPrototype, LanePrototype};
 

@@ -6,7 +6,8 @@ license = "AGPL-3.0"
 
 [workspace]
 members = [
-    "./cb_simulation"
+    "./cb_simulation",
+    "./cb_util"
 ]
 exclude = [
     "./cb_browser_ui"

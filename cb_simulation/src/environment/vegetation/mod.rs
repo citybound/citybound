@@ -8,7 +8,7 @@ use transport::transport_planning::RoadPrototype;
 use land_use::zone_planning::{LotPrototype, LotOccupancy};
 use land_use::buildings::BuildingStyle;
 use land_use::buildings::architecture::footprint_area;
-use util::random::{seed, Rng};
+use cb_util::random::{seed, Rng};
 use noise::{NoiseFn, BasicMulti, Seedable, MultiFractal};
 
 pub mod ui;

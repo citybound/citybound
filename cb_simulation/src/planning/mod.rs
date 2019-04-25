@@ -2,7 +2,7 @@
 use kay::{World, ActorSystem, TypedID};
 use compact::{CVec, COption, CHashMap};
 use descartes::{N, P2, AreaError};
-use util::random::{seed, RngCore, Uuid, uuid};
+use cb_util::random::{seed, RngCore, Uuid, uuid};
 use std::hash::Hash;
 
 use transport::transport_planning::{RoadIntent, RoadPrototype};

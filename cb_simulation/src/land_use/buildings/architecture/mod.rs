@@ -2,7 +2,7 @@ use kay::{World, TypedID};
 use compact::{CHashMap, COption};
 use arrayvec::ArrayString;
 use descartes::{N, P2, V2, WithUniqueOrthogonal, LinePath, ClosedLinePath, PrimitiveArea, Area};
-use util::random::{Rng, seed};
+use cb_util::random::{Rng, seed};
 use michelangelo::{Vertex, Mesh, Instance, Surface, FlatSurface, Sculpture};
 use std::collections::HashMap;
 

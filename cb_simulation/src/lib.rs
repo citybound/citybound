@@ -9,6 +9,7 @@ extern crate fnv;
 extern crate roaring;
 extern crate uuid;
 extern crate arrayvec;
+extern crate cb_util;
 
 pub extern crate compact;
 #[macro_use]
@@ -20,7 +21,6 @@ pub extern crate descartes;
 #[macro_use]
 extern crate serde_derive;
 
-pub mod util;
 pub mod log;
 pub mod time;
 pub mod transport;

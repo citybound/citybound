@@ -2,7 +2,7 @@ use compact::{CVec, COption, Compact};
 use arrayvec::ArrayString;
 use rand::distributions::uniform::SampleUniform;
 use land_use::zone_planning::Lot;
-use util::random::{Rng, seed};
+use cb_util::random::{Rng, seed};
 use michelangelo::{Instance, FlatSurface, SculptLine, SpannedSurface, SkeletonSpine};
 use descartes::{N, Intersect, WithUniqueOrthogonal, LinePath, ArcLinePath};
 use super::materials_and_props::{BuildingMaterial, BuildingProp};
