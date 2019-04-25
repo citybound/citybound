@@ -1,7 +1,10 @@
 use kay::{World};
 use compact::{CHashMap, COption};
 use descartes::{P2, AreaError, LinePath};
-use planning::{ProjectID, PlanHistory, PlanResult, ActionGroups, PlanManager, PlanManagerID, KnownHistoryState, KnownProjectState, ProjectUpdate, GestureID, GestureIntent, Gesture, Plan, KnownPlanResultState};
+use planning::{ProjectID, PlanHistory, PlanResult, ActionGroups,
+    PlanManager, PlanManagerID, KnownHistoryState, KnownProjectState,
+    ProjectUpdate, GestureID, GestureIntent, Gesture, Plan,
+KnownPlanResultState};
 use planning::ui::PlanningUIID;
 use log::error;
 const LOG_T: &str = "Planning Interaction";
@@ -95,38 +98,49 @@ impl PlanManager {
         }
     }
 
-    fn try_ensure_preview(&mut self, project_id: ProjectID, log_in: &mut World) -> (&PlanHistory, Option<&PlanResult>, Option<&ActionGroups>) {
+    fn try_ensure_preview(
+        &mut self,
+        project_id: ProjectID,
+        log_in: &mut World,
+    ) -> (&PlanHistory, Option<&PlanResult>, Option<&ActionGroups>) {
         if !self.ui_state.previews.contains_key(project_id) {
             let preview_history = self
-                    .projects
-                    .get(project_id)
-                    .unwrap()
-                    .apply_to_with_ongoing(&self.master_plan);
+                .projects
+                .get(project_id)
+                .unwrap()
+                .apply_to_with_ongoing(&self.master_plan);
 
             let maybe_preview_result = match preview_history.calculate_result() {
                 Ok(preview_plan_result) => Some(preview_plan_result),
                 Err(err) => {
                     let err_str = match err {
                         AreaError::LeftOver(string) => format!("Preview Plan Error: {}", string),
-                        _ => format!("Preview Plan Error: {:?}", err)
+                        _ => format!("Preview Plan Error: {:?}", err),
                     };
                     error(LOG_T, err_str, self.id, log_in);
                     None
-                },
+                }
             };
 
-            let maybe_preview_actions = maybe_preview_result.as_ref().map(|preview_plan_result|
-                self.master_result.actions_to(preview_plan_result).0
-            );
+            let maybe_preview_actions = maybe_preview_result
+                .as_ref()
+                .map(|preview_plan_result| self.master_result.actions_to(preview_plan_result).0);
 
-            self.ui_state.previews.insert(project_id, PreviewSet {
-                history: preview_history,
-                result: COption(maybe_preview_result),
-                actions: COption(maybe_preview_actions)
-            });
+            self.ui_state.previews.insert(
+                project_id,
+                PreviewSet {
+                    history: preview_history,
+                    result: COption(maybe_preview_result),
+                    actions: COption(maybe_preview_actions),
+                },
+            );
         }
 
-        let preview_set = self.ui_state.previews.get(project_id).expect("Should have previews by now.");
+        let preview_set = self
+            .ui_state
+            .previews
+            .get(project_id)
+            .expect("Should have previews by now.");
 
         (
             &preview_set.history,

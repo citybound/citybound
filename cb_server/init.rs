@@ -21,9 +21,13 @@ pub fn print_start_message(version: &str, network_config: &NetworkConfig) {
     println!("  {: ^41}  ", "This is the simulation server.");
     println!("  {: ^41}  ", "To connect and start playing, please open");
     println!("  {: ^41}  ", "this address in Chrome/Firefox/Safari:");
-    println!("╭───────────────────────────────────────────╮");
+    println!(
+        "╭───────────────────────────────────────────╮"
+    );
     println!("│ {: ^41} │", format!("http://{}", my_host));
-    println!("╰───────────────────────────────────────────╯");
+    println!(
+        "╰───────────────────────────────────────────╯"
+    );
 }
 
 #[derive(Clone)]
@@ -156,8 +160,8 @@ pub fn set_error_hook() {
         );
 
         let report_guide = "HOW TO REPORT \
-                            BUGS:\nhttps://github.\
-                            com/citybound/citybound/blob/master/CONTRIBUTING.md#reporting-bugs";
+                            BUGS:\nhttps://github.com/citybound/citybound/blob/master/\
+                            CONTRIBUTING.md#reporting-bugs";
 
         let mut error_file_path = ::std::env::temp_dir();
         error_file_path.push("cb_last_error.txt");

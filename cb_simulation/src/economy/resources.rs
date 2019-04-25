@@ -12,8 +12,8 @@ pub enum Resource {
     BakedGoods,
     Meat,
     DairyGoods,
-    /* Wood, */
-    /*Furniture,
+    /* Wood,
+     *Furniture,
      *TextileGoods,
      *Clothes,
      *Devices, */
