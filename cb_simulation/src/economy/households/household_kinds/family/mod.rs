@@ -159,8 +159,8 @@ impl Household for Family {
             Satiety, //Entertainment,
             Money,
             Groceries,
-            /* Furniture, */
-            /*Clothes,
+            /* Furniture,
+             *Clothes,
              *Devices,
              *Services, */
         ]
