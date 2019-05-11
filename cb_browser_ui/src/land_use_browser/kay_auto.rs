@@ -18,10 +18,29 @@ impl Actor for BrowserLandUseUI {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct BrowserLandUseUIID {
     _raw_id: RawID
 }
+
+impl Copy for BrowserLandUseUIID {}
+impl Clone for BrowserLandUseUIID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for BrowserLandUseUIID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "BrowserLandUseUIID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for BrowserLandUseUIID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for BrowserLandUseUIID {
+    fn eq(&self, other: &BrowserLandUseUIID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for BrowserLandUseUIID {}
 
 impl TypedID for BrowserLandUseUIID {
     type Target = BrowserLandUseUI;

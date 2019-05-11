@@ -77,10 +77,29 @@ impl Actor for Market {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct MarketID {
     _raw_id: RawID
 }
+
+impl Copy for MarketID {}
+impl Clone for MarketID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for MarketID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "MarketID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for MarketID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for MarketID {
+    fn eq(&self, other: &MarketID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for MarketID {}
 
 impl TypedID for MarketID {
     type Target = Market;
@@ -136,10 +155,29 @@ impl Actor for TripCostEstimator {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct TripCostEstimatorID {
     _raw_id: RawID
 }
+
+impl Copy for TripCostEstimatorID {}
+impl Clone for TripCostEstimatorID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for TripCostEstimatorID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "TripCostEstimatorID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for TripCostEstimatorID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for TripCostEstimatorID {
+    fn eq(&self, other: &TripCostEstimatorID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for TripCostEstimatorID {}
 
 impl TypedID for TripCostEstimatorID {
     type Target = TripCostEstimator;

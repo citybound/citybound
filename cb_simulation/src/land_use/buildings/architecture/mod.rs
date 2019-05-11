@@ -1,5 +1,5 @@
 use kay::{World, TypedID};
-use compact::{CHashMap, COption};
+use compact::{CHashMap, COption, Compact};
 use arrayvec::ArrayString;
 use descartes::{N, P2, V2, WithUniqueOrthogonal, LinePath, ClosedLinePath, PrimitiveArea, Area};
 use cb_util::random::{Rng, seed};
@@ -29,6 +29,21 @@ fn footprint_dimensions(building_style: BuildingStyle) -> (N, N) {
     match building_style {
         BuildingStyle::FamilyHouse => (12.0, 8.0),
         _ => (15.0, 10.0),
+    }
+}
+
+#[derive(Compact, Clone)]
+pub struct ConfigManager<Config: Compact + 'static> {
+    id: ConfigManagerID<Config>,
+    entries: CHashMap<ArrayString<[u8; 16]>, Config>
+}
+
+impl<Config: Compact + 'static> ConfigManager<Config> {
+    pub fn init(id: ConfigManagerID<Config>, _: &mut World) -> ConfigManager<Config> {
+        ConfigManager {
+            id,
+            entries: CHashMap::new()
+        }
     }
 }
 

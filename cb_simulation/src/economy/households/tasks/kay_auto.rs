@@ -18,10 +18,29 @@ impl Actor for TaskEndScheduler {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct TaskEndSchedulerID {
     _raw_id: RawID
 }
+
+impl Copy for TaskEndSchedulerID {}
+impl Clone for TaskEndSchedulerID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for TaskEndSchedulerID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "TaskEndSchedulerID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for TaskEndSchedulerID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for TaskEndSchedulerID {
+    fn eq(&self, other: &TaskEndSchedulerID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for TaskEndSchedulerID {}
 
 impl TypedID for TaskEndSchedulerID {
     type Target = TaskEndScheduler;

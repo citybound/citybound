@@ -77,10 +77,29 @@ impl Actor for Construction {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct ConstructionID {
     _raw_id: RawID
 }
+
+impl Copy for ConstructionID {}
+impl Clone for ConstructionID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for ConstructionID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "ConstructionID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for ConstructionID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for ConstructionID {
+    fn eq(&self, other: &ConstructionID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for ConstructionID {}
 
 impl TypedID for ConstructionID {
     type Target = Construction;

@@ -18,10 +18,29 @@ impl Actor for BrowserTimeUI {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct BrowserTimeUIID {
     _raw_id: RawID
 }
+
+impl Copy for BrowserTimeUIID {}
+impl Clone for BrowserTimeUIID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for BrowserTimeUIID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "BrowserTimeUIID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for BrowserTimeUIID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for BrowserTimeUIID {
+    fn eq(&self, other: &BrowserTimeUIID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for BrowserTimeUIID {}
 
 impl TypedID for BrowserTimeUIID {
     type Target = BrowserTimeUI;

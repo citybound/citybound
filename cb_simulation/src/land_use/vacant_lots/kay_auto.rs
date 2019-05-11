@@ -18,10 +18,29 @@ impl Actor for VacantLot {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct VacantLotID {
     _raw_id: RawID
 }
+
+impl Copy for VacantLotID {}
+impl Clone for VacantLotID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for VacantLotID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "VacantLotID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for VacantLotID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for VacantLotID {
+    fn eq(&self, other: &VacantLotID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for VacantLotID {}
 
 impl TypedID for VacantLotID {
     type Target = VacantLot;

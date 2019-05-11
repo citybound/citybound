@@ -18,10 +18,29 @@ impl Actor for BrowserVegetationUI {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct BrowserVegetationUIID {
     _raw_id: RawID
 }
+
+impl Copy for BrowserVegetationUIID {}
+impl Clone for BrowserVegetationUIID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for BrowserVegetationUIID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "BrowserVegetationUIID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for BrowserVegetationUIID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for BrowserVegetationUIID {
+    fn eq(&self, other: &BrowserVegetationUIID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for BrowserVegetationUIID {}
 
 impl TypedID for BrowserVegetationUIID {
     type Target = BrowserVegetationUI;

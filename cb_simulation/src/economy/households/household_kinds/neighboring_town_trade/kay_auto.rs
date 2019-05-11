@@ -18,10 +18,29 @@ impl Actor for NeighboringTownTrade {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct NeighboringTownTradeID {
     _raw_id: RawID
 }
+
+impl Copy for NeighboringTownTradeID {}
+impl Clone for NeighboringTownTradeID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for NeighboringTownTradeID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "NeighboringTownTradeID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for NeighboringTownTradeID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for NeighboringTownTradeID {
+    fn eq(&self, other: &NeighboringTownTradeID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for NeighboringTownTradeID {}
 
 impl TypedID for NeighboringTownTradeID {
     type Target = NeighboringTownTrade;

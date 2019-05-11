@@ -18,10 +18,29 @@ impl Actor for LogUI {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct LogUIID {
     _raw_id: RawID
 }
+
+impl Copy for LogUIID {}
+impl Clone for LogUIID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for LogUIID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "LogUIID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for LogUIID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for LogUIID {
+    fn eq(&self, other: &LogUIID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for LogUIID {}
 
 impl TypedID for LogUIID {
     type Target = LogUI;

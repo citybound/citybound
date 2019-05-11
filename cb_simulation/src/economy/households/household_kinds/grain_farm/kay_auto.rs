@@ -18,10 +18,29 @@ impl Actor for GrainFarm {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct GrainFarmID {
     _raw_id: RawID
 }
+
+impl Copy for GrainFarmID {}
+impl Clone for GrainFarmID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for GrainFarmID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "GrainFarmID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for GrainFarmID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for GrainFarmID {
+    fn eq(&self, other: &GrainFarmID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for GrainFarmID {}
 
 impl TypedID for GrainFarmID {
     type Target = GrainFarm;

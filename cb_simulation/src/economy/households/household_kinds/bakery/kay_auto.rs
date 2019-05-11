@@ -18,10 +18,29 @@ impl Actor for Bakery {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct BakeryID {
     _raw_id: RawID
 }
+
+impl Copy for BakeryID {}
+impl Clone for BakeryID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for BakeryID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "BakeryID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for BakeryID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for BakeryID {
+    fn eq(&self, other: &BakeryID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for BakeryID {}
 
 impl TypedID for BakeryID {
     type Target = Bakery;

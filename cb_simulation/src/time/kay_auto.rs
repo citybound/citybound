@@ -111,10 +111,29 @@ impl Actor for Time {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct TimeID {
     _raw_id: RawID
 }
+
+impl Copy for TimeID {}
+impl Clone for TimeID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for TimeID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "TimeID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for TimeID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for TimeID {
+    fn eq(&self, other: &TimeID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for TimeID {}
 
 impl TypedID for TimeID {
     type Target = Time;

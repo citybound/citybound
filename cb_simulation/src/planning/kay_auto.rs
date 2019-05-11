@@ -18,10 +18,29 @@ impl Actor for PlanManager {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct PlanManagerID {
     _raw_id: RawID
 }
+
+impl Copy for PlanManagerID {}
+impl Clone for PlanManagerID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for PlanManagerID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "PlanManagerID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for PlanManagerID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for PlanManagerID {
+    fn eq(&self, other: &PlanManagerID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for PlanManagerID {}
 
 impl TypedID for PlanManagerID {
     type Target = PlanManager;

@@ -18,10 +18,29 @@ impl Actor for GroceryShop {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct GroceryShopID {
     _raw_id: RawID
 }
+
+impl Copy for GroceryShopID {}
+impl Clone for GroceryShopID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for GroceryShopID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "GroceryShopID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for GroceryShopID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for GroceryShopID {
+    fn eq(&self, other: &GroceryShopID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for GroceryShopID {}
 
 impl TypedID for GroceryShopID {
     type Target = GroceryShop;

@@ -35,16 +35,6 @@ impl Gesture {
             deleted: false,
         }
     }
-
-    pub fn simplify(self) -> Gesture {
-        match self.intent {
-            GestureIntent::Road(_) => Gesture {
-                points: ::transport::transport_planning::simplify_road_path(self.points.clone()),
-                ..self
-            },
-            _ => self,
-        }
-    }
 }
 
 #[derive(Compact, Clone, Debug, Serialize, Deserialize)]

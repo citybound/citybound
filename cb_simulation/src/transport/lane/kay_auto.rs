@@ -18,10 +18,29 @@ impl Actor for Lane {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct LaneID {
     _raw_id: RawID
 }
+
+impl Copy for LaneID {}
+impl Clone for LaneID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for LaneID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "LaneID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for LaneID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for LaneID {
+    fn eq(&self, other: &LaneID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for LaneID {}
 
 impl TypedID for LaneID {
     type Target = Lane;
@@ -59,10 +78,29 @@ impl Actor for SwitchLane {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct SwitchLaneID {
     _raw_id: RawID
 }
+
+impl Copy for SwitchLaneID {}
+impl Clone for SwitchLaneID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for SwitchLaneID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "SwitchLaneID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for SwitchLaneID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for SwitchLaneID {
+    fn eq(&self, other: &SwitchLaneID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for SwitchLaneID {}
 
 impl TypedID for SwitchLaneID {
     type Target = SwitchLane;

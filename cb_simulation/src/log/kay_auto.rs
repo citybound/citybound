@@ -64,10 +64,29 @@ impl Actor for Log {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct LogID {
     _raw_id: RawID
 }
+
+impl Copy for LogID {}
+impl Clone for LogID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for LogID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "LogID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for LogID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for LogID {
+    fn eq(&self, other: &LogID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for LogID {}
 
 impl TypedID for LogID {
     type Target = Log;

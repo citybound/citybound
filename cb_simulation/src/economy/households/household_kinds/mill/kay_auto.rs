@@ -18,10 +18,29 @@ impl Actor for Mill {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct MillID {
     _raw_id: RawID
 }
+
+impl Copy for MillID {}
+impl Clone for MillID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for MillID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "MillID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for MillID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for MillID {
+    fn eq(&self, other: &MillID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for MillID {}
 
 impl TypedID for MillID {
     type Target = Mill;
