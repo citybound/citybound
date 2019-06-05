@@ -5,10 +5,29 @@ use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTra
 #[allow(unused_imports)]
 use super::*;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct EvaluationRequesterID {
     _raw_id: RawID
 }
+
+impl Copy for EvaluationRequesterID {}
+impl Clone for EvaluationRequesterID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for EvaluationRequesterID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "EvaluationRequesterID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for EvaluationRequesterID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for EvaluationRequesterID {
+    fn eq(&self, other: &EvaluationRequesterID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for EvaluationRequesterID {}
 
 pub struct EvaluationRequesterRepresentative;
 
@@ -28,7 +47,7 @@ impl TypedID for EvaluationRequesterID {
     }
 }
 
-impl<A: Actor + EvaluationRequester> TraitIDFrom<A> for EvaluationRequesterID {}
+impl<Act: Actor + EvaluationRequester> TraitIDFrom<Act> for EvaluationRequesterID {}
 
 impl EvaluationRequesterID {
     pub fn expect_n_results(self, resource: Resource, n: u32, world: &mut World) {
@@ -45,15 +64,15 @@ impl EvaluationRequesterID {
         system.register_trait_message::<MSG_EvaluationRequester_on_result>();
     }
 
-    pub fn register_implementor<A: Actor + EvaluationRequester>(system: &mut ActorSystem) {
-        system.register_implementor::<A, EvaluationRequesterRepresentative>();
-        system.add_handler::<A, _, _>(
+    pub fn register_implementor<Act: Actor + EvaluationRequester>(system: &mut ActorSystem) {
+        system.register_implementor::<Act, EvaluationRequesterRepresentative>();
+        system.add_handler::<Act, _, _>(
             |&MSG_EvaluationRequester_expect_n_results(resource, n), instance, world| {
                 instance.expect_n_results(resource, n, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_EvaluationRequester_on_result(ref result), instance, world| {
                 instance.on_result(result, world); Fate::Live
             }, false

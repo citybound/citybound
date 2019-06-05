@@ -5,10 +5,29 @@ use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTra
 #[allow(unused_imports)]
 use super::*;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct LaneLikeID {
     _raw_id: RawID
 }
+
+impl Copy for LaneLikeID {}
+impl Clone for LaneLikeID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for LaneLikeID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "LaneLikeID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for LaneLikeID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for LaneLikeID {
+    fn eq(&self, other: &LaneLikeID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for LaneLikeID {}
 
 pub struct LaneLikeRepresentative;
 
@@ -28,7 +47,7 @@ impl TypedID for LaneLikeID {
     }
 }
 
-impl<A: Actor + LaneLike> TraitIDFrom<A> for LaneLikeID {}
+impl<Act: Actor + LaneLike> TraitIDFrom<Act> for LaneLikeID {}
 
 impl LaneLikeID {
     pub fn add_car(self, car: LaneCar, from: Option < LaneLikeID >, instant: Instant, world: &mut World) {
@@ -45,15 +64,15 @@ impl LaneLikeID {
         system.register_trait_message::<MSG_LaneLike_add_obstacles>();
     }
 
-    pub fn register_implementor<A: Actor + LaneLike>(system: &mut ActorSystem) {
-        system.register_implementor::<A, LaneLikeRepresentative>();
-        system.add_handler::<A, _, _>(
+    pub fn register_implementor<Act: Actor + LaneLike>(system: &mut ActorSystem) {
+        system.register_implementor::<Act, LaneLikeRepresentative>();
+        system.add_handler::<Act, _, _>(
             |&MSG_LaneLike_add_car(car, from, instant), instance, world| {
                 instance.add_car(car, from, instant, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_LaneLike_add_obstacles(ref obstacles, from), instance, world| {
                 instance.add_obstacles(obstacles, from, world); Fate::Live
             }, false

@@ -7,110 +7,23 @@ use super::*;
 
 
 
-impl Actor for PlanManager {
-    type ID = PlanManagerID;
 
-    fn id(&self) -> Self::ID {
-        self.id
-    }
-    unsafe fn set_id(&mut self, id: RawID) {
-        self.id = Self::ID::from_raw(id);
-    }
-}
 
-#[derive(Serialize, Deserialize)] #[serde(transparent)]
-pub struct PlanManagerID {
-    _raw_id: RawID
-}
-
-impl Copy for PlanManagerID {}
-impl Clone for PlanManagerID { fn clone(&self) -> Self { *self } }
-impl ::std::fmt::Debug for PlanManagerID {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "PlanManagerID({:?})", self._raw_id)
-    }
-}
-impl ::std::hash::Hash for PlanManagerID {
-    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
-        self._raw_id.hash(state);
-    }
-}
-impl PartialEq for PlanManagerID {
-    fn eq(&self, other: &PlanManagerID) -> bool {
-        self._raw_id == other._raw_id
-    }
-}
-impl Eq for PlanManagerID {}
-
-impl TypedID for PlanManagerID {
-    type Target = PlanManager;
-
-    fn from_raw(id: RawID) -> Self {
-        PlanManagerID { _raw_id: id }
-    }
-
-    fn as_raw(&self) -> RawID {
-        self._raw_id
-    }
-}
-
-impl PlanManagerID {
-    pub fn spawn(world: &mut World) -> Self {
-        let id = PlanManagerID::from_raw(world.allocate_instance_id::<PlanManager>());
-        let swarm = world.local_broadcast::<PlanManager>();
-        world.send(swarm, MSG_PlanManager_spawn(id, ));
-        id
-    }
+impl CBPrototypeKindID {
     
-    pub fn start_new_project(self, project_id: ProjectID, world: &mut World) {
-        world.send(self.as_raw(), MSG_PlanManager_start_new_project(project_id));
-    }
-    
-    pub fn implement(self, project_id: ProjectID, world: &mut World) {
-        world.send(self.as_raw(), MSG_PlanManager_implement(project_id));
-    }
-    
-    pub fn implement_artificial_project(self, project: Project, based_on: CVec < PrototypeID >, world: &mut World) {
-        world.send(self.as_raw(), MSG_PlanManager_implement_artificial_project(project, based_on));
-    }
 }
 
-#[derive(Copy, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanManager_spawn(pub PlanManagerID, );
-#[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanManager_start_new_project(pub ProjectID);
-#[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanManager_implement(pub ProjectID);
-#[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanManager_implement_artificial_project(pub Project, pub CVec < PrototypeID >);
 
+
+impl Into<PrototypeKindID> for CBPrototypeKindID {
+    fn into(self) -> PrototypeKindID {
+        PrototypeKindID::from_raw(self.as_raw())
+    }
+}
 
 #[allow(unused_variables)]
 #[allow(unused_mut)]
 pub fn auto_setup(system: &mut ActorSystem) {
     
-    
-    system.add_spawner::<PlanManager, _, _>(
-        |&MSG_PlanManager_spawn(id, ), world| {
-            PlanManager::spawn(id, world)
-        }, false
-    );
-    
-    system.add_handler::<PlanManager, _, _>(
-        |&MSG_PlanManager_start_new_project(project_id), instance, world| {
-            instance.start_new_project(project_id, world); Fate::Live
-        }, false
-    );
-    
-    system.add_handler::<PlanManager, _, _>(
-        |&MSG_PlanManager_implement(project_id), instance, world| {
-            instance.implement(project_id, world); Fate::Live
-        }, false
-    );
-    
-    system.add_handler::<PlanManager, _, _>(
-        |&MSG_PlanManager_implement_artificial_project(ref project, ref based_on), instance, world| {
-            instance.implement_artificial_project(project, based_on, world); Fate::Live
-        }, false
-    );
+    PrototypeKindID::register_implementor::<CBPrototypeKind>(system);
 }

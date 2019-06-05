@@ -5,10 +5,29 @@ use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTra
 #[allow(unused_imports)]
 use super::*;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct VegetationUIID {
     _raw_id: RawID
 }
+
+impl Copy for VegetationUIID {}
+impl Clone for VegetationUIID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for VegetationUIID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "VegetationUIID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for VegetationUIID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for VegetationUIID {
+    fn eq(&self, other: &VegetationUIID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for VegetationUIID {}
 
 pub struct VegetationUIRepresentative;
 
@@ -28,7 +47,7 @@ impl TypedID for VegetationUIID {
     }
 }
 
-impl<A: Actor + VegetationUI> TraitIDFrom<A> for VegetationUIID {}
+impl<Act: Actor + VegetationUI> TraitIDFrom<Act> for VegetationUIID {}
 
 impl VegetationUIID {
     pub fn on_plant_spawned(self, id: PlantID, proto: PlantPrototype, world: &mut World) {
@@ -45,15 +64,15 @@ impl VegetationUIID {
         system.register_trait_message::<MSG_VegetationUI_on_plant_destroyed>();
     }
 
-    pub fn register_implementor<A: Actor + VegetationUI>(system: &mut ActorSystem) {
-        system.register_implementor::<A, VegetationUIRepresentative>();
-        system.add_handler::<A, _, _>(
+    pub fn register_implementor<Act: Actor + VegetationUI>(system: &mut ActorSystem) {
+        system.register_implementor::<Act, VegetationUIRepresentative>();
+        system.add_handler::<Act, _, _>(
             |&MSG_VegetationUI_on_plant_spawned(id, ref proto), instance, world| {
                 instance.on_plant_spawned(id, proto, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_VegetationUI_on_plant_destroyed(id), instance, world| {
                 instance.on_plant_destroyed(id, world); Fate::Live
             }, false

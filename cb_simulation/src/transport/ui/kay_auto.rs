@@ -5,10 +5,29 @@ use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTra
 #[allow(unused_imports)]
 use super::*;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct TransportUIID {
     _raw_id: RawID
 }
+
+impl Copy for TransportUIID {}
+impl Clone for TransportUIID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for TransportUIID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "TransportUIID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for TransportUIID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for TransportUIID {
+    fn eq(&self, other: &TransportUIID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for TransportUIID {}
 
 pub struct TransportUIRepresentative;
 
@@ -28,7 +47,7 @@ impl TypedID for TransportUIID {
     }
 }
 
-impl<A: Actor + TransportUI> TraitIDFrom<A> for TransportUIID {}
+impl<Act: Actor + TransportUI> TraitIDFrom<Act> for TransportUIID {}
 
 impl TransportUIID {
     pub fn on_lane_constructed(self, id: RawID, lane_path: LinePath, is_switch: bool, on_intersection: bool, world: &mut World) {
@@ -50,21 +69,21 @@ impl TransportUIID {
         system.register_trait_message::<MSG_TransportUI_on_car_info>();
     }
 
-    pub fn register_implementor<A: Actor + TransportUI>(system: &mut ActorSystem) {
-        system.register_implementor::<A, TransportUIRepresentative>();
-        system.add_handler::<A, _, _>(
+    pub fn register_implementor<Act: Actor + TransportUI>(system: &mut ActorSystem) {
+        system.register_implementor::<Act, TransportUIRepresentative>();
+        system.add_handler::<Act, _, _>(
             |&MSG_TransportUI_on_lane_constructed(id, ref lane_path, is_switch, on_intersection), instance, world| {
                 instance.on_lane_constructed(id, lane_path, is_switch, on_intersection, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_TransportUI_on_lane_destructed(id, is_switch, on_intersection), instance, world| {
                 instance.on_lane_destructed(id, is_switch, on_intersection, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_TransportUI_on_car_info(from_lane, ref infos), instance, world| {
                 instance.on_car_info(from_lane, infos, world); Fate::Live
             }, false

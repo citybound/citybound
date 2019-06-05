@@ -5,10 +5,29 @@ use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTra
 #[allow(unused_imports)]
 use super::*;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct HouseholdUIID {
     _raw_id: RawID
 }
+
+impl Copy for HouseholdUIID {}
+impl Clone for HouseholdUIID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for HouseholdUIID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "HouseholdUIID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for HouseholdUIID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for HouseholdUIID {
+    fn eq(&self, other: &HouseholdUIID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for HouseholdUIID {}
 
 pub struct HouseholdUIRepresentative;
 
@@ -28,7 +47,7 @@ impl TypedID for HouseholdUIID {
     }
 }
 
-impl<A: Actor + HouseholdUI> TraitIDFrom<A> for HouseholdUIID {}
+impl<Act: Actor + HouseholdUI> TraitIDFrom<Act> for HouseholdUIID {}
 
 impl HouseholdUIID {
     pub fn on_household_ui_info(self, id: HouseholdID, core: HouseholdCore, world: &mut World) {
@@ -40,9 +59,9 @@ impl HouseholdUIID {
         system.register_trait_message::<MSG_HouseholdUI_on_household_ui_info>();
     }
 
-    pub fn register_implementor<A: Actor + HouseholdUI>(system: &mut ActorSystem) {
-        system.register_implementor::<A, HouseholdUIRepresentative>();
-        system.add_handler::<A, _, _>(
+    pub fn register_implementor<Act: Actor + HouseholdUI>(system: &mut ActorSystem) {
+        system.register_implementor::<Act, HouseholdUIRepresentative>();
+        system.add_handler::<Act, _, _>(
             |&MSG_HouseholdUI_on_household_ui_info(id, ref core), instance, world| {
                 instance.on_household_ui_info(id, core, world); Fate::Live
             }, false

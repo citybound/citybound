@@ -5,10 +5,29 @@ use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTra
 #[allow(unused_imports)]
 use super::*;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct LinkID {
     _raw_id: RawID
 }
+
+impl Copy for LinkID {}
+impl Clone for LinkID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for LinkID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "LinkID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for LinkID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for LinkID {
+    fn eq(&self, other: &LinkID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for LinkID {}
 
 pub struct LinkRepresentative;
 
@@ -28,7 +47,7 @@ impl TypedID for LinkID {
     }
 }
 
-impl<A: Actor + Link> TraitIDFrom<A> for LinkID {}
+impl<Act: Actor + Link> TraitIDFrom<Act> for LinkID {}
 
 impl LinkID {
     pub fn after_route_forgotten(self, forgotten_route: Location, world: &mut World) {
@@ -80,57 +99,57 @@ impl LinkID {
         system.register_trait_message::<MSG_Link_remove_attachee>();
     }
 
-    pub fn register_implementor<A: Actor + Link>(system: &mut ActorSystem) {
-        system.register_implementor::<A, LinkRepresentative>();
-        system.add_handler::<A, _, _>(
+    pub fn register_implementor<Act: Actor + Link>(system: &mut ActorSystem) {
+        system.register_implementor::<Act, LinkRepresentative>();
+        system.add_handler::<Act, _, _>(
             |&MSG_Link_after_route_forgotten(forgotten_route), instance, world| {
                 instance.after_route_forgotten(forgotten_route, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Link_pathfinding_tick(), instance, world| {
                 instance.pathfinding_tick(world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Link_query_routes(requester, connection_cost), instance, world| {
                 instance.query_routes(requester, connection_cost, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Link_on_routes(ref new_routes, from), instance, world| {
                 instance.on_routes(new_routes, from, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Link_forget_routes(ref forget, from), instance, world| {
                 instance.forget_routes(forget, from, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Link_join_landmark(from, join_as, hops_from_landmark), instance, world| {
                 instance.join_landmark(from, join_as, hops_from_landmark, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Link_get_distance_to(destination, requester), instance, world| {
                 instance.get_distance_to(destination, requester, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Link_add_attachee(attachee), instance, world| {
                 instance.add_attachee(attachee, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Link_remove_attachee(attachee), instance, world| {
                 instance.remove_attachee(attachee, world); Fate::Live
             }, false
@@ -156,10 +175,29 @@ struct MSG_Link_get_distance_to(pub Location, pub DistanceRequesterID);
 struct MSG_Link_add_attachee(pub AttacheeID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_Link_remove_attachee(pub AttacheeID);
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct AttacheeID {
     _raw_id: RawID
 }
+
+impl Copy for AttacheeID {}
+impl Clone for AttacheeID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for AttacheeID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "AttacheeID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for AttacheeID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for AttacheeID {
+    fn eq(&self, other: &AttacheeID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for AttacheeID {}
 
 pub struct AttacheeRepresentative;
 
@@ -179,7 +217,7 @@ impl TypedID for AttacheeID {
     }
 }
 
-impl<A: Actor + Attachee> TraitIDFrom<A> for AttacheeID {}
+impl<Act: Actor + Attachee> TraitIDFrom<Act> for AttacheeID {}
 
 impl AttacheeID {
     pub fn location_changed(self, old: Option < Location >, new: Option < Location >, world: &mut World) {
@@ -191,9 +229,9 @@ impl AttacheeID {
         system.register_trait_message::<MSG_Attachee_location_changed>();
     }
 
-    pub fn register_implementor<A: Actor + Attachee>(system: &mut ActorSystem) {
-        system.register_implementor::<A, AttacheeRepresentative>();
-        system.add_handler::<A, _, _>(
+    pub fn register_implementor<Act: Actor + Attachee>(system: &mut ActorSystem) {
+        system.register_implementor::<Act, AttacheeRepresentative>();
+        system.add_handler::<Act, _, _>(
             |&MSG_Attachee_location_changed(old, new), instance, world| {
                 instance.location_changed(old, new, world); Fate::Live
             }, false
@@ -203,10 +241,29 @@ impl AttacheeID {
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_Attachee_location_changed(pub Option < Location >, pub Option < Location >);
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct RoughLocationID {
     _raw_id: RawID
 }
+
+impl Copy for RoughLocationID {}
+impl Clone for RoughLocationID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for RoughLocationID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "RoughLocationID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for RoughLocationID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for RoughLocationID {
+    fn eq(&self, other: &RoughLocationID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for RoughLocationID {}
 
 pub struct RoughLocationRepresentative;
 
@@ -226,7 +283,7 @@ impl TypedID for RoughLocationID {
     }
 }
 
-impl<A: Actor + RoughLocation> TraitIDFrom<A> for RoughLocationID {}
+impl<Act: Actor + RoughLocation> TraitIDFrom<Act> for RoughLocationID {}
 
 impl RoughLocationID {
     pub fn resolve_as_location(self, requester: LocationRequesterID, rough_location: RoughLocationID, instant: Instant, world: &mut World) {
@@ -243,15 +300,15 @@ impl RoughLocationID {
         system.register_trait_message::<MSG_RoughLocation_resolve_as_position>();
     }
 
-    pub fn register_implementor<A: Actor + RoughLocation>(system: &mut ActorSystem) {
-        system.register_implementor::<A, RoughLocationRepresentative>();
-        system.add_handler::<A, _, _>(
+    pub fn register_implementor<Act: Actor + RoughLocation>(system: &mut ActorSystem) {
+        system.register_implementor::<Act, RoughLocationRepresentative>();
+        system.add_handler::<Act, _, _>(
             |&MSG_RoughLocation_resolve_as_location(requester, rough_location, instant), instance, world| {
                 instance.resolve_as_location(requester, rough_location, instant, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_RoughLocation_resolve_as_position(requester, rough_location), instance, world| {
                 instance.resolve_as_position(requester, rough_location, world); Fate::Live
             }, false
@@ -263,10 +320,29 @@ impl RoughLocationID {
 struct MSG_RoughLocation_resolve_as_location(pub LocationRequesterID, pub RoughLocationID, pub Instant);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_RoughLocation_resolve_as_position(pub PositionRequesterID, pub RoughLocationID);
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct LocationRequesterID {
     _raw_id: RawID
 }
+
+impl Copy for LocationRequesterID {}
+impl Clone for LocationRequesterID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for LocationRequesterID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "LocationRequesterID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for LocationRequesterID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for LocationRequesterID {
+    fn eq(&self, other: &LocationRequesterID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for LocationRequesterID {}
 
 pub struct LocationRequesterRepresentative;
 
@@ -286,7 +362,7 @@ impl TypedID for LocationRequesterID {
     }
 }
 
-impl<A: Actor + LocationRequester> TraitIDFrom<A> for LocationRequesterID {}
+impl<Act: Actor + LocationRequester> TraitIDFrom<Act> for LocationRequesterID {}
 
 impl LocationRequesterID {
     pub fn location_resolved(self, rough_location: RoughLocationID, location: Option < PreciseLocation >, instant: Instant, world: &mut World) {
@@ -298,9 +374,9 @@ impl LocationRequesterID {
         system.register_trait_message::<MSG_LocationRequester_location_resolved>();
     }
 
-    pub fn register_implementor<A: Actor + LocationRequester>(system: &mut ActorSystem) {
-        system.register_implementor::<A, LocationRequesterRepresentative>();
-        system.add_handler::<A, _, _>(
+    pub fn register_implementor<Act: Actor + LocationRequester>(system: &mut ActorSystem) {
+        system.register_implementor::<Act, LocationRequesterRepresentative>();
+        system.add_handler::<Act, _, _>(
             |&MSG_LocationRequester_location_resolved(rough_location, location, instant), instance, world| {
                 instance.location_resolved(rough_location, location, instant, world); Fate::Live
             }, false
@@ -310,10 +386,29 @@ impl LocationRequesterID {
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_LocationRequester_location_resolved(pub RoughLocationID, pub Option < PreciseLocation >, pub Instant);
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct PositionRequesterID {
     _raw_id: RawID
 }
+
+impl Copy for PositionRequesterID {}
+impl Clone for PositionRequesterID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for PositionRequesterID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "PositionRequesterID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for PositionRequesterID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for PositionRequesterID {
+    fn eq(&self, other: &PositionRequesterID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for PositionRequesterID {}
 
 pub struct PositionRequesterRepresentative;
 
@@ -333,7 +428,7 @@ impl TypedID for PositionRequesterID {
     }
 }
 
-impl<A: Actor + PositionRequester> TraitIDFrom<A> for PositionRequesterID {}
+impl<Act: Actor + PositionRequester> TraitIDFrom<Act> for PositionRequesterID {}
 
 impl PositionRequesterID {
     pub fn position_resolved(self, rough_location: RoughLocationID, position: P2, world: &mut World) {
@@ -345,9 +440,9 @@ impl PositionRequesterID {
         system.register_trait_message::<MSG_PositionRequester_position_resolved>();
     }
 
-    pub fn register_implementor<A: Actor + PositionRequester>(system: &mut ActorSystem) {
-        system.register_implementor::<A, PositionRequesterRepresentative>();
-        system.add_handler::<A, _, _>(
+    pub fn register_implementor<Act: Actor + PositionRequester>(system: &mut ActorSystem) {
+        system.register_implementor::<Act, PositionRequesterRepresentative>();
+        system.add_handler::<Act, _, _>(
             |&MSG_PositionRequester_position_resolved(rough_location, position), instance, world| {
                 instance.position_resolved(rough_location, position, world); Fate::Live
             }, false
@@ -357,10 +452,29 @@ impl PositionRequesterID {
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_PositionRequester_position_resolved(pub RoughLocationID, pub P2);
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct DistanceRequesterID {
     _raw_id: RawID
 }
+
+impl Copy for DistanceRequesterID {}
+impl Clone for DistanceRequesterID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for DistanceRequesterID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "DistanceRequesterID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for DistanceRequesterID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for DistanceRequesterID {
+    fn eq(&self, other: &DistanceRequesterID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for DistanceRequesterID {}
 
 pub struct DistanceRequesterRepresentative;
 
@@ -380,7 +494,7 @@ impl TypedID for DistanceRequesterID {
     }
 }
 
-impl<A: Actor + DistanceRequester> TraitIDFrom<A> for DistanceRequesterID {}
+impl<Act: Actor + DistanceRequester> TraitIDFrom<Act> for DistanceRequesterID {}
 
 impl DistanceRequesterID {
     pub fn on_distance(self, maybe_distance: Option < f32 >, world: &mut World) {
@@ -392,9 +506,9 @@ impl DistanceRequesterID {
         system.register_trait_message::<MSG_DistanceRequester_on_distance>();
     }
 
-    pub fn register_implementor<A: Actor + DistanceRequester>(system: &mut ActorSystem) {
-        system.register_implementor::<A, DistanceRequesterRepresentative>();
-        system.add_handler::<A, _, _>(
+    pub fn register_implementor<Act: Actor + DistanceRequester>(system: &mut ActorSystem) {
+        system.register_implementor::<Act, DistanceRequesterRepresentative>();
+        system.add_handler::<Act, _, _>(
             |&MSG_DistanceRequester_on_distance(maybe_distance), instance, world| {
                 instance.on_distance(maybe_distance, world); Fate::Live
             }, false

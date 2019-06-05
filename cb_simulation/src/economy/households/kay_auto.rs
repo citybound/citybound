@@ -5,10 +5,29 @@ use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTra
 #[allow(unused_imports)]
 use super::*;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct HouseholdID {
     _raw_id: RawID
 }
+
+impl Copy for HouseholdID {}
+impl Clone for HouseholdID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for HouseholdID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "HouseholdID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for HouseholdID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for HouseholdID {
+    fn eq(&self, other: &HouseholdID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for HouseholdID {}
 
 pub struct HouseholdRepresentative;
 
@@ -28,7 +47,7 @@ impl TypedID for HouseholdID {
     }
 }
 
-impl<A: Actor + Household> TraitIDFrom<A> for HouseholdID {}
+impl<Act: Actor + Household> TraitIDFrom<Act> for HouseholdID {}
 
 impl HouseholdID {
     pub fn decay(self, dt: Duration, world: &mut World) {
@@ -175,171 +194,171 @@ impl HouseholdID {
         system.register_trait_message::<MSG_Household_get_ui_info>();
     }
 
-    pub fn register_implementor<A: Actor + Household>(system: &mut ActorSystem) {
-        system.register_implementor::<A, HouseholdRepresentative>();
-        system.add_handler::<A, _, _>(
+    pub fn register_implementor<Act: Actor + Household>(system: &mut ActorSystem) {
+        system.register_implementor::<Act, HouseholdRepresentative>();
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_decay(dt), instance, world| {
                 instance.decay(dt, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_receive_deal(ref deal, member), instance, world| {
                 instance.receive_deal(deal, member, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_provide_deal(ref deal, member), instance, world| {
                 instance.provide_deal(deal, member, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_task_succeeded(member), instance, world| {
                 instance.task_succeeded(member, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_task_failed(member, location), instance, world| {
                 instance.task_failed(member, location, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_reset_member_task(member), instance, world| {
                 instance.reset_member_task(member, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_stop_using(offer), instance, world| {
                 instance.stop_using(offer, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_destroy(), instance, world| {
                 instance.destroy(world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_on_destroy(), instance, world| {
                 instance.on_destroy(world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_update_core(current_instant), instance, world| {
                 instance.update_core(current_instant, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_find_new_task_for(member, instant, location), instance, world| {
                 instance.find_new_task_for(member, instant, location, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_update_results(resource, ref update), instance, world| {
                 instance.update_results(resource, update, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_choose_deal(), instance, world| {
                 instance.choose_deal(world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_start_trip(member, instant), instance, world| {
                 instance.start_trip(member, instant, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_on_trip_created(trip), instance, world| {
                 instance.on_trip_created(trip, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_on_trip_result(trip, result, rough_source, rough_destination), instance, world| {
                 instance.on_trip_result(trip, result, rough_source, rough_destination, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_start_task(member, start, location), instance, world| {
                 instance.start_task(member, start, location, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_stop_task(member, location), instance, world| {
                 instance.stop_task(member, location, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_on_tick(current_instant), instance, world| {
                 instance.on_tick(current_instant, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_evaluate(offer_idx, instant, location, requester), instance, world| {
                 instance.evaluate(offer_idx, instant, location, requester, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_request_receive_deal(offer_idx, requester, requester_member), instance, world| {
                 instance.request_receive_deal(offer_idx, requester, requester_member, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_request_receive_undo_deal(offer_idx, requester, requester_member), instance, world| {
                 instance.request_receive_undo_deal(offer_idx, requester, requester_member, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_started_using(offer_idx, user, using_member), instance, world| {
                 instance.started_using(offer_idx, user, using_member, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_stopped_using(offer_idx, user, using_member), instance, world| {
                 instance.stopped_using(offer_idx, user, using_member, world)
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_started_actively_using(offer_idx, user, using_member), instance, world| {
                 instance.started_actively_using(offer_idx, user, using_member, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_stopped_actively_using(offer_idx, user, using_member), instance, world| {
                 instance.stopped_actively_using(offer_idx, user, using_member, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_withdrawal_confirmed(offer_idx), instance, world| {
                 instance.withdrawal_confirmed(offer_idx, world)
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_Household_get_ui_info(requester), instance, world| {
                 instance.get_ui_info(requester, world); Fate::Live
             }, false

@@ -1,18 +1,12 @@
 // TODO: remove once https://github.com/rust-lang/rust/issues/54726 is resolved
 #![feature(custom_inner_attributes)]
-extern crate rand;
-extern crate fnv;
-extern crate uuid;
-extern crate arrayvec;
+#![allow(clippy::new_without_default)]
 extern crate kay;
-
-pub extern crate compact;
+extern crate compact;
 #[macro_use]
 extern crate compact_macros;
 #[macro_use]
 extern crate serde_derive;
 
-pub mod async_counter;
-pub mod random;
-pub mod config_manager;
-pub mod log;
+pub mod units;
+pub mod actors;

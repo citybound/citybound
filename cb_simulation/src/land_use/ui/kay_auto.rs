@@ -5,10 +5,29 @@ use kay::{ActorSystem, TypedID, RawID, Fate, Actor, TraitIDFrom, ActorOrActorTra
 #[allow(unused_imports)]
 use super::*;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)] #[serde(transparent)]
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct LandUseUIID {
     _raw_id: RawID
 }
+
+impl Copy for LandUseUIID {}
+impl Clone for LandUseUIID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for LandUseUIID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "LandUseUIID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for LandUseUIID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for LandUseUIID {
+    fn eq(&self, other: &LandUseUIID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for LandUseUIID {}
 
 pub struct LandUseUIRepresentative;
 
@@ -28,7 +47,7 @@ impl TypedID for LandUseUIID {
     }
 }
 
-impl<A: Actor + LandUseUI> TraitIDFrom<A> for LandUseUIID {}
+impl<Act: Actor + LandUseUI> TraitIDFrom<Act> for LandUseUIID {}
 
 impl LandUseUIID {
     pub fn on_building_constructed(self, id: BuildingID, lot: Lot, households: CVec < HouseholdID >, style: BuildingStyle, world: &mut World) {
@@ -50,21 +69,21 @@ impl LandUseUIID {
         system.register_trait_message::<MSG_LandUseUI_on_building_ui_info>();
     }
 
-    pub fn register_implementor<A: Actor + LandUseUI>(system: &mut ActorSystem) {
-        system.register_implementor::<A, LandUseUIRepresentative>();
-        system.add_handler::<A, _, _>(
+    pub fn register_implementor<Act: Actor + LandUseUI>(system: &mut ActorSystem) {
+        system.register_implementor::<Act, LandUseUIRepresentative>();
+        system.add_handler::<Act, _, _>(
             |&MSG_LandUseUI_on_building_constructed(id, ref lot, ref households, style), instance, world| {
                 instance.on_building_constructed(id, lot, households, style, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_LandUseUI_on_building_destructed(id), instance, world| {
                 instance.on_building_destructed(id, world); Fate::Live
             }, false
         );
         
-        system.add_handler::<A, _, _>(
+        system.add_handler::<Act, _, _>(
             |&MSG_LandUseUI_on_building_ui_info(id, style, ref households), instance, world| {
                 instance.on_building_ui_info(id, style, households, world); Fate::Live
             }, false
