@@ -107,16 +107,18 @@ impl LandUseUI for BrowserLandUseUI {
             .into_iter()
             .collect::<HashMap<_, _>>()
             .into();
-        let material_unsets: ::stdweb::Object = ::land_use::buildings::architecture::materials_and_props::ALL_MATERIALS
-            .iter()
-            .map(|material| (material.to_string(), unset_op.clone()))
-            .collect::<HashMap<_, _>>()
-            .into();
-        let prop_unsets: ::stdweb::Object = ::land_use::buildings::architecture::materials_and_props::ALL_PROP_TYPES
-            .iter()
-            .map(|prop_type| (prop_type.to_string(), unset_op.clone()))
-            .collect::<HashMap<_, _>>()
-            .into();
+        let material_unsets: ::stdweb::Object =
+            ::land_use::buildings::architecture::materials_and_props::ALL_MATERIALS
+                .iter()
+                .map(|material| (material.to_string(), unset_op.clone()))
+                .collect::<HashMap<_, _>>()
+                .into();
+        let prop_unsets: ::stdweb::Object =
+            ::land_use::buildings::architecture::materials_and_props::ALL_PROP_TYPES
+                .iter()
+                .map(|prop_type| (prop_type.to_string(), unset_op.clone()))
+                .collect::<HashMap<_, _>>()
+                .into();
         js! {
             window.cbReactApp.boundSetState(oldState => update(oldState, {
                 landUse: {rendering: {

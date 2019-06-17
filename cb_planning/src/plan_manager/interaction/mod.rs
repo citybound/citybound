@@ -1,7 +1,8 @@
 use kay::{World};
 use compact::{CHashMap, COption};
 use descartes::{P2, AreaError, LinePath};
-use ::{PlanHistory, PlanResult, ActionGroups, KnownHistoryState, KnownProjectState, ProjectUpdate, PlanningLogic, GestureID, Gesture, Plan, KnownPlanResultState};
+use ::{PlanHistory, PlanResult, ActionGroups, KnownHistoryState, KnownProjectState, ProjectUpdate,
+PlanningLogic, GestureID, Gesture, Plan, KnownPlanResultState};
 use super::{PlanManager, PlanManagerID, ProjectID};
 use super::ui::PlanningUIID;
 use cb_util::log::error;
@@ -96,7 +97,16 @@ impl<Logic: PlanningLogic> PlanManager<Logic> {
         }
     }
 
-    fn try_ensure_preview(&mut self, project_id: ProjectID, log_in: &mut World) -> (&PlanHistory<Logic::GestureIntent>, Option<&PlanResult<Logic::PrototypeKind>>, Option<&ActionGroups>) {
+    #[allow(clippy::type_complexity)]
+    fn try_ensure_preview(
+        &mut self,
+        project_id: ProjectID,
+        log_in: &mut World,
+    ) -> (
+        &PlanHistory<Logic::GestureIntent>,
+        Option<&PlanResult<Logic::PrototypeKind>>,
+        Option<&ActionGroups>,
+    ) {
         if !self.ui_state.previews.contains_key(project_id) {
             let preview_history = self
                 .projects

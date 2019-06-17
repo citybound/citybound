@@ -69,6 +69,7 @@ impl Lot {
             .collect()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn split_for(
         &self,
         building_style: BuildingStyle,
@@ -90,7 +91,7 @@ impl Lot {
                 building_style,
                 self.road_boundaries
                     .iter()
-                    .map(|path| path.length())
+                    .map(LinePath::length)
                     .collect::<Vec<_>>(),
             ),
             log_as,
@@ -342,7 +343,12 @@ impl VacantLot {
 }
 
 impl Constructable<CBPrototypeKind> for VacantLot {
-    fn morph(&mut self, _: &Prototype<CBPrototypeKind>, _report_to: CBConstructionID, _world: &mut World) {
+    fn morph(
+        &mut self,
+        _: &Prototype<CBPrototypeKind>,
+        _report_to: CBConstructionID,
+        _world: &mut World,
+    ) {
         unreachable!()
     }
 

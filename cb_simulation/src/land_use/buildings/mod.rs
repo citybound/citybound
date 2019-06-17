@@ -173,7 +173,12 @@ impl Building {
 }
 
 impl Constructable<CBPrototypeKind> for Building {
-    fn morph(&mut self, new_prototype: &Prototype<CBPrototypeKind>, report_to: CBConstructionID, world: &mut World) {
+    fn morph(
+        &mut self,
+        new_prototype: &Prototype<CBPrototypeKind>,
+        report_to: CBConstructionID,
+        world: &mut World,
+    ) {
         if let CBPrototypeKind::Lot(ref lot_prototype) = new_prototype.kind {
             self.lot = lot_prototype.lot.clone();
             rendering::on_destroy(self.id, world);

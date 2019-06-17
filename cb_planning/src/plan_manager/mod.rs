@@ -1,6 +1,7 @@
 use kay::{World, ActorSystem, TypedID};
 use ::construction::ConstructionID;
-use ::{PlanHistory, PlanResult, Gesture, Project, GestureID, PrototypeID, VersionedGesture, PlanningLogic};
+use ::{PlanHistory, PlanResult, Gesture, Project, GestureID, PrototypeID, VersionedGesture,
+PlanningLogic};
 use compact::{CVec, CHashMap};
 use cb_util::random::{Uuid, uuid};
 use cb_util::log::{error, info};
@@ -44,7 +45,11 @@ impl<Logic: PlanningLogic + 'static> PlanManager<Logic> {
         }
     }
 
-    pub fn get_current_version_of(&self, gesture_id: GestureID, project_id: ProjectID) -> &Gesture<Logic::GestureIntent> {
+    pub fn get_current_version_of(
+        &self,
+        gesture_id: GestureID,
+        project_id: ProjectID,
+    ) -> &Gesture<Logic::GestureIntent> {
         self.projects
             .get(project_id)
             .expect("Expected project to exist")
@@ -79,7 +84,11 @@ impl<Logic: PlanningLogic + 'static> PlanManager<Logic> {
         match Logic::calculate_result(&self.master_plan) {
             Ok(result) => {
                 let (actions, new_prototypes) = self.master_result.actions_to(&result);
-                ConstructionID::<Logic::PrototypeKind>::global_first(world).implement(actions, new_prototypes, world);
+                ConstructionID::<Logic::PrototypeKind>::global_first(world).implement(
+                    actions,
+                    new_prototypes,
+                    world,
+                );
                 self.implemented_projects.insert(project_id, project);
                 self.master_result = result;
 

@@ -5,7 +5,8 @@ use land_use::zone_planning::{ZoneIntent, BuildingIntent, LotPrototype};
 use environment::vegetation::{PlantIntent, PlantPrototype};
 use cb_planning::{PlanningLogic, PrototypeID, PlanningStepFn};
 use cb_planning::plan_manager::{PlanManager, PlanManagerID};
-use cb_planning::construction::{Construction, ConstructionID, PrototypeKind, GestureIntent, ConstructableID};
+use cb_planning::construction::{Construction, ConstructionID, PrototypeKind, GestureIntent,
+ConstructableID};
 
 #[derive(Copy, Clone)]
 pub struct CBPlanningLogic {}
@@ -46,7 +47,12 @@ pub enum CBPrototypeKind {
 }
 
 impl PrototypeKind for CBPrototypeKind {
-    fn construct(&self, prototype_id: PrototypeID, report_to: CBConstructionID, world: &mut World) -> CVec<ConstructableID<CBPrototypeKind>> {
+    fn construct(
+        &self,
+        prototype_id: PrototypeID,
+        report_to: CBConstructionID,
+        world: &mut World,
+    ) -> CVec<ConstructableID<CBPrototypeKind>> {
         match self {
             CBPrototypeKind::Road(ref road_prototype) => road_prototype.construct(report_to, world),
             CBPrototypeKind::Lot(ref lot_prototype) => {

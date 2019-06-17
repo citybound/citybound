@@ -1,6 +1,7 @@
 use kay::World;
 use compact::CHashMap;
-use ::{PlanHistory, PlanHistoryUpdate, ProjectUpdate, PlanResultUpdate, ActionGroups, PlanningLogic};
+use ::{PlanHistory, PlanHistoryUpdate, ProjectUpdate, PlanResultUpdate, ActionGroups,
+PlanningLogic};
 use super::ProjectID;
 
 pub trait PlanningUI<Logic: PlanningLogic> {

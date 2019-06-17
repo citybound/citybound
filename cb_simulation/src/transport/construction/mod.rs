@@ -22,7 +22,11 @@ use dimensions::{LANE_CONNECTION_TOLERANCE, MAX_SWITCHING_LANE_DISTANCE,
 MIN_SWITCHING_LANE_LENGTH};
 
 impl RoadPrototype {
-    pub fn construct(&self, report_to: CBConstructionID, world: &mut World) -> CVec<ConstructableID<CBPrototypeKind>> {
+    pub fn construct(
+        &self,
+        report_to: CBConstructionID,
+        world: &mut World,
+    ) -> CVec<ConstructableID<CBPrototypeKind>> {
         match *self {
             RoadPrototype::Lane(LanePrototype(ref path, _)) => {
                 vec![
@@ -63,7 +67,7 @@ impl RoadPrototype {
                     )
                 }
 
-                ids.into_iter().map(|lane_id| lane_id.into()).collect()
+                ids.into_iter().map(std::convert::Into::into).collect()
             }
             RoadPrototype::PavedArea(_) => CVec::new(),
         }
@@ -71,7 +75,12 @@ impl RoadPrototype {
 }
 
 impl Constructable<CBPrototypeKind> for Lane {
-    fn morph(&mut self, _new_prototype: &Prototype<CBPrototypeKind>, report_to: CBConstructionID, world: &mut World) {
+    fn morph(
+        &mut self,
+        _new_prototype: &Prototype<CBPrototypeKind>,
+        report_to: CBConstructionID,
+        world: &mut World,
+    ) {
         report_to.action_done(self.id_as(), world);
     }
     fn destruct(&mut self, report_to: CBConstructionID, world: &mut World) -> Fate {
@@ -81,7 +90,12 @@ impl Constructable<CBPrototypeKind> for Lane {
 }
 
 impl Constructable<CBPrototypeKind> for SwitchLane {
-    fn morph(&mut self, _new_prototype: &Prototype<CBPrototypeKind>, report_to: CBConstructionID, world: &mut World) {
+    fn morph(
+        &mut self,
+        _new_prototype: &Prototype<CBPrototypeKind>,
+        report_to: CBConstructionID,
+        world: &mut World,
+    ) {
         report_to.action_done(self.id_as(), world);
     }
     fn destruct(&mut self, report_to: CBConstructionID, world: &mut World) -> Fate {
@@ -365,7 +379,7 @@ impl Lane {
             .connectivity
             .interactions
             .iter()
-            .filter_map(|interaction| interaction.direct_lane_partner())
+            .filter_map(Interaction::direct_lane_partner)
             .unique()
         {
             lane.disconnect(self.id, world);
@@ -376,7 +390,7 @@ impl Lane {
             .connectivity
             .interactions
             .iter()
-            .filter_map(|interaction| interaction.direct_switch_partner())
+            .filter_map(Interaction::direct_switch_partner)
             .unique()
         {
             switch_lane.disconnect(self.id, world);

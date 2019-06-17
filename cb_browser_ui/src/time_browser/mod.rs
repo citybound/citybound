@@ -33,7 +33,6 @@ impl FrameListener for BrowserTimeUI {
     }
 }
 
-
 impl TimeUI for BrowserTimeUI {
     fn on_time_info(&mut self, current_instant: Instant, speed: u16, _world: &mut World) {
         js! {

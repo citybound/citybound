@@ -77,7 +77,12 @@ impl Plant {
 }
 
 impl Constructable<CBPrototypeKind> for Plant {
-    fn morph(&mut self, new_prototype: &Prototype<CBPrototypeKind>, report_to: CBConstructionID, world: &mut World) {
+    fn morph(
+        &mut self,
+        new_prototype: &Prototype<CBPrototypeKind>,
+        report_to: CBConstructionID,
+        world: &mut World,
+    ) {
         if let CBPrototypeKind::Plant(proto) = new_prototype.kind {
             self.proto = proto;
             report_to.action_done(self.id.into(), world);

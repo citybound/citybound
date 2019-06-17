@@ -435,7 +435,8 @@ SwitchLanePrototype, IntersectionPrototype};
                     }
                     _ => {}
                 },
-                CBPrototypeKind::Road(RoadPrototype::Intersection(_)) => match corresponding_action {
+                CBPrototypeKind::Road(RoadPrototype::Intersection(_)) => match corresponding_action
+                {
                     Some(ref action) if action.is_construct() => {
                         lanes_to_construct_rem.push(*prototype_id);
                     }

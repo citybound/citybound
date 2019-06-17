@@ -31,7 +31,7 @@ pub const ALL_MATERIALS: [BuildingMaterial; 10] = [
     BuildingMaterial::LotAsphalt,
 ];
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash,  Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash, Serialize, Deserialize)]
 pub enum BuildingProp {
     SmallWindow,
     ShopWindowGlass,

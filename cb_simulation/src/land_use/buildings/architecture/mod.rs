@@ -9,7 +9,8 @@ pub mod materials_and_props;
 use self::materials_and_props::{BuildingMaterial, BuildingProp};
 
 pub mod language;
-use self::language::{Choice, Variable, ArchitectureRule, FacadeRule, FacadeDecorationRule, CorpusRule, FundamentRule, FloorRule, RoofRule, PavingRule, LotRule, LotBoundaryRule, CorpusSide};
+use self::language::{Choice, Variable, ArchitectureRule, FacadeRule, FacadeDecorationRule,
+CorpusRule, FundamentRule, FloorRule, RoofRule, PavingRule, LotRule, LotBoundaryRule, CorpusSide};
 
 use super::{Lot, BuildingStyle};
 
@@ -64,7 +65,7 @@ impl BuildingGeometryCollector {
             .extend(instances);
     }
 
-    fn to_geometry(self) -> BuildingGeometry {
+    fn into_geometry(self) -> BuildingGeometry {
         BuildingGeometry {
             meshes: self
                 .sculptures
@@ -79,63 +80,65 @@ impl BuildingGeometryCollector {
 fn family_house() -> ArchitectureRule {
     let windowed_facade_rule = FacadeRule::Face(
         Choice::Specific(BuildingMaterial::WhiteWall),
-        vec![
-            Choice::Specific(FacadeDecorationRule {
-                prop: BuildingProp::SmallWindow,
-                color: [Variable::Constant(0.7), Variable::Constant(0.6), Variable::Constant(0.6)],
-                spacing: Variable::new_random(3.0, 5.0, "window-spacing")
-            })
-        ].into()
+        vec![Choice::Specific(FacadeDecorationRule {
+            prop: BuildingProp::SmallWindow,
+            color: [
+                Variable::Constant(0.7),
+                Variable::Constant(0.6),
+                Variable::Constant(0.6),
+            ],
+            spacing: Variable::new_random(3.0, 5.0, "window-spacing"),
+        })]
+        .into(),
     );
 
     ArchitectureRule {
-        corpi: vec![
-            CorpusRule {
-                fundament: FundamentRule {
-                    major_axis_angle_rel_to_road: Variable::Constant(0.0),
-                    offset_on_minor_axis: Variable::Constant(0.0),
-                    width: Variable::new_random(5.0, 12.0, "fundWidth"),
-                    max_length: Variable::new_random(10.0, 18.0, "fundMaxLength"),
-                    padding: Variable::Constant(5.0),
-                },
-                n_floors: Variable::new_random(1, 2, "nFloors"),
-                floor_rules: vec![Choice::Specific(FloorRule {
-                    height: Variable::new_random(2.1, 3.0, "floorHeight"),
-                    widen_by_next: Variable::Constant(0.0),
-                    extend_by_next: Variable::Constant(0.0),
-                    front: windowed_facade_rule.clone(),
-                    back: windowed_facade_rule.clone(),
-                    left: windowed_facade_rule.clone(),
-                    right: windowed_facade_rule
-                })].into(),
-                roof: RoofRule {
-                    height: Variable::new_random(2.0, 5.0, "roofHeight"),
-                    gable_depth_front: Variable::new_random(0.0, 3.0, "gableDepth"),
-                    gable_depth_back: Variable::new_random(0.0, 3.0, "gableDepth"),
-                    roof_material: Choice::Specific(BuildingMaterial::TiledRoof),
-                    gable_material: Choice::Specific(BuildingMaterial::TiledRoof)
-                }
-            }
-        ].into(),
+        corpi: vec![CorpusRule {
+            fundament: FundamentRule {
+                major_axis_angle_rel_to_road: Variable::Constant(0.0),
+                offset_on_minor_axis: Variable::Constant(0.0),
+                width: Variable::new_random(5.0, 12.0, "fundWidth"),
+                max_length: Variable::new_random(10.0, 18.0, "fundMaxLength"),
+                padding: Variable::Constant(5.0),
+            },
+            n_floors: Variable::new_random(1, 2, "nFloors"),
+            floor_rules: vec![Choice::Specific(FloorRule {
+                height: Variable::new_random(2.1, 3.0, "floorHeight"),
+                widen_by_next: Variable::Constant(0.0),
+                extend_by_next: Variable::Constant(0.0),
+                front: windowed_facade_rule.clone(),
+                back: windowed_facade_rule.clone(),
+                left: windowed_facade_rule.clone(),
+                right: windowed_facade_rule,
+            })]
+            .into(),
+            roof: RoofRule {
+                height: Variable::new_random(2.0, 5.0, "roofHeight"),
+                gable_depth_front: Variable::new_random(0.0, 3.0, "gableDepth"),
+                gable_depth_back: Variable::new_random(0.0, 3.0, "gableDepth"),
+                roof_material: Choice::Specific(BuildingMaterial::TiledRoof),
+                gable_material: Choice::Specific(BuildingMaterial::TiledRoof),
+            },
+        }]
+        .into(),
         lot: LotRule {
             boundary_rule: COption(Some(LotBoundaryRule {
                 fence_height: Variable::new_random(0.5, 1.5, "fenceHeight"),
                 fence_material: Choice::Specific(BuildingMaterial::WoodenFence),
                 fence_gap_offset_ratio: Variable::new_random(0.1, 0.9, "fenceGapPoint"),
-                fence_gap_width_ratio: Variable::Constant(0.2)
+                fence_gap_width_ratio: Variable::Constant(0.2),
             })),
             ground_rule: COption(None),
-            paving_rules: vec![
-                PavingRule {
-                    start_point_offset_ratio: Variable::new_random(0.1, 0.9, "fenceGapPoint"),
-                    end_point_corpus: Variable::Constant(0),
-                    end_point_corpus_side: Choice::Specific(CorpusSide::Left),
-                    end_point_offset_ratio: Variable::Constant(0.5),
-                    width: Variable::new_random(1.0, 3.0, "pavementWidth"),
-                    paving_material: Choice::Specific(BuildingMaterial::LotAsphalt)
-                }
-            ].into()
-        }
+            paving_rules: vec![PavingRule {
+                start_point_offset_ratio: Variable::new_random(0.1, 0.9, "fenceGapPoint"),
+                end_point_corpus: Variable::Constant(0),
+                end_point_corpus_side: Choice::Specific(CorpusSide::Left),
+                end_point_offset_ratio: Variable::Constant(0.5),
+                width: Variable::new_random(1.0, 3.0, "pavementWidth"),
+                paving_material: Choice::Specific(BuildingMaterial::LotAsphalt),
+            }]
+            .into(),
+        },
     }
 }
 
@@ -175,7 +178,7 @@ pub fn build_building(
             family_house()
                 .collect_geometry(&mut collector, lot)
                 .expect("Expecting things to work in general");
-            collector.to_geometry()
+            collector.into_geometry()
 
             // let height = 2.6 + 2.0 * rng.gen::<f32>();
             // let entrance_height = 2.0 + rng.gen::<f32>();

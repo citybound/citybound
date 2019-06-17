@@ -8,7 +8,8 @@ use cb_util::random::{seed, RngCore};
 
 use transport::transport_planning::{RoadPrototype, LanePrototype};
 
-use cb_planning::{PlanHistory, VersionedGesture, PlanResult, Prototype, PrototypeID, GestureID, StepID};
+use cb_planning::{PlanHistory, VersionedGesture, PlanResult, Prototype, PrototypeID, GestureID,
+StepID};
 use planning::{CBPrototypeKind, CBGestureIntent};
 
 #[derive(Compact, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
@@ -245,7 +246,8 @@ pub fn calculate_prototypes(
     ];
 
     for prototype in current_result.prototypes.values() {
-        if let CBPrototypeKind::Road(RoadPrototype::Lane(LanePrototype(ref path, _))) = prototype.kind
+        if let CBPrototypeKind::Road(RoadPrototype::Lane(LanePrototype(ref path, _))) =
+            prototype.kind
         {
             let distance = (path.start() - P2::new(0.0, 0.0)).norm();
             if distance > 300.0 {

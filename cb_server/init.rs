@@ -17,7 +17,7 @@ pub fn print_start_message(version: &str, network_config: &NetworkConfig) {
     );
 
     println!("  {: ^41}  ", format!("Citybound {}", version.trim()));
-    println!("");
+    println!();
     println!("  {: ^41}  ", "This is the simulation server.");
     println!("  {: ^41}  ", "To connect and start playing, please open");
     println!("  {: ^41}  ", "this address in Chrome/Firefox/Safari:");
@@ -130,7 +130,7 @@ pub fn ensure_crossplatform_proper_thread<F: Fn() -> () + Send + 'static>(callba
     }
 }
 
-use std::panic::{set_hook, PanicInfo};
+use std::panic::{set_hook, PanicInfo, Location};
 use self::backtrace::Backtrace;
 use std::fs::File;
 use std::io::Write;
@@ -150,8 +150,11 @@ pub fn set_error_hook() {
         let backtrace = Backtrace::new();
         let location = format!(
             "at {}, line {}",
-            panic_info.location().map(|l| l.file()).unwrap_or("unknown"),
-            panic_info.location().map(|l| l.line()).unwrap_or(0)
+            panic_info
+                .location()
+                .map(Location::file)
+                .unwrap_or("unknown"),
+            panic_info.location().map(Location::line).unwrap_or(0)
         );
 
         let body = format!(
