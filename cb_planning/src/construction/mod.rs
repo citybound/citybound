@@ -9,6 +9,7 @@ const LOG_T: &str = "Construction";
 pub trait PrototypeKind: Compact + 'static {
     fn construct(
         &self,
+        prototype_id: PrototypeID,
         report_to: ConstructionID<Self>,
         world: &mut World,
     ) -> CVec<ConstructableID<Self>>;
@@ -35,7 +36,7 @@ impl<PK: PrototypeKind> Prototype<PK> {
         report_to: ConstructionID<PK>,
         world: &mut World,
     ) -> CVec<ConstructableID<PK>> {
-        self.kind.construct(report_to, world)
+        self.kind.construct(self.id, report_to, world)
     }
 
     pub fn morphable_from(&self, other: &Self) -> bool {
@@ -56,10 +57,7 @@ pub struct Construction<PK: PrototypeKind> {
 mod compact_workaround;
 
 impl<PK: PrototypeKind> Construction<PK> {
-    pub fn spawn(
-        id: ConstructionID<PK>,
-        _world: &mut World,
-    ) -> Construction<PK> {
+    pub fn spawn(id: ConstructionID<PK>, _world: &mut World) -> Construction<PK> {
         Construction {
             id,
             constructed: CHashMap::new(),

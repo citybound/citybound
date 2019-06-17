@@ -19,6 +19,10 @@ extern crate compact_macros;
 extern crate cb_simulation;
 use cb_simulation::*;
 
+extern crate cb_util;
+extern crate cb_time;
+extern crate cb_planning;
+
 use std::panic;
 
 pub mod planning_browser;
@@ -57,7 +61,6 @@ pub fn start() {
         .unwrap(),
     );
 
-    use stdweb::serde::Serde;
     use stdweb::unstable::TryFrom;
 
     let mut system = kay::ActorSystem::new(kay::Networking::new(
@@ -124,8 +127,6 @@ impl MainLoop {
             system.networking_send_and_receive();
             system.process_all_messages();
         }
-
-        use ::stdweb::serde::Serde;
 
         js! {
             window.cbReactApp.boundSetState(oldState => update(oldState, {

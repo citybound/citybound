@@ -1,7 +1,7 @@
 use compact::CVec;
 use economy::market::Deal;
 use super::{HouseholdID, MemberIdx};
-use time::TimeOfDayRange;
+use cb_time::units::TimeOfDayRange;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct OfferIdx(pub u16);

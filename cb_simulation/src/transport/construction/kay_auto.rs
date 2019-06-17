@@ -10,7 +10,7 @@ use super::*;
 
 
 impl LaneID {
-    pub fn spawn_and_connect(path: LinePath, on_intersection: bool, timings: CVec < bool >, report_to: ConstructionID, world: &mut World) -> Self {
+    pub fn spawn_and_connect(path: LinePath, on_intersection: bool, timings: CVec < bool >, report_to: CBConstructionID, world: &mut World) -> Self {
         let id = LaneID::from_raw(world.allocate_instance_id::<Lane>());
         let swarm = world.local_broadcast::<Lane>();
         world.send(swarm, MSG_Lane_spawn_and_connect(id, path, on_intersection, timings, report_to));
@@ -45,7 +45,7 @@ impl LaneID {
         world.send(self.as_raw(), MSG_Lane_disconnect_switch(other_id));
     }
     
-    pub fn unbuild(self, report_to: ConstructionID, world: &mut World) {
+    pub fn unbuild(self, report_to: CBConstructionID, world: &mut World) {
         world.send(self.as_raw(), MSG_Lane_unbuild(report_to));
     }
     
@@ -59,7 +59,7 @@ impl LaneID {
 }
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Lane_spawn_and_connect(pub LaneID, pub LinePath, pub bool, pub CVec < bool >, pub ConstructionID);
+struct MSG_Lane_spawn_and_connect(pub LaneID, pub LinePath, pub bool, pub CVec < bool >, pub CBConstructionID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_Lane_start_connecting_overlaps(pub CVec < LaneID >);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
@@ -75,21 +75,21 @@ struct MSG_Lane_disconnect(pub LaneID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_Lane_disconnect_switch(pub SwitchLaneID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Lane_unbuild(pub ConstructionID);
+struct MSG_Lane_unbuild(pub CBConstructionID);
 #[derive(Copy, Clone)] #[allow(non_camel_case_types)]
 struct MSG_Lane_on_confirm_disconnect();
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_Lane_try_reconnect_building(pub BuildingID, pub P2);
 
-impl Into<ConstructableID> for LaneID {
-    fn into(self) -> ConstructableID {
+impl Into<ConstructableID<CBPrototypeKind>> for LaneID {
+    fn into(self) -> ConstructableID<CBPrototypeKind> {
         ConstructableID::from_raw(self.as_raw())
     }
 }
 
 
 impl SwitchLaneID {
-    pub fn spawn_and_connect(path: LinePath, report_to: ConstructionID, world: &mut World) -> Self {
+    pub fn spawn_and_connect(path: LinePath, report_to: CBConstructionID, world: &mut World) -> Self {
         let id = SwitchLaneID::from_raw(world.allocate_instance_id::<SwitchLane>());
         let swarm = world.local_broadcast::<SwitchLane>();
         world.send(swarm, MSG_SwitchLane_spawn_and_connect(id, path, report_to));
@@ -104,7 +104,7 @@ impl SwitchLaneID {
         world.send(self.as_raw(), MSG_SwitchLane_disconnect(other));
     }
     
-    pub fn unbuild(self, report_to: ConstructionID, world: &mut World) {
+    pub fn unbuild(self, report_to: CBConstructionID, world: &mut World) {
         world.send(self.as_raw(), MSG_SwitchLane_unbuild(report_to));
     }
     
@@ -114,18 +114,18 @@ impl SwitchLaneID {
 }
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_SwitchLane_spawn_and_connect(pub SwitchLaneID, pub LinePath, pub ConstructionID);
+struct MSG_SwitchLane_spawn_and_connect(pub SwitchLaneID, pub LinePath, pub CBConstructionID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_SwitchLane_connect_switch_to_normal(pub LaneID, pub LinePath);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_SwitchLane_disconnect(pub LaneID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_SwitchLane_unbuild(pub ConstructionID);
+struct MSG_SwitchLane_unbuild(pub CBConstructionID);
 #[derive(Copy, Clone)] #[allow(non_camel_case_types)]
 struct MSG_SwitchLane_on_confirm_disconnect();
 
-impl Into<ConstructableID> for SwitchLaneID {
-    fn into(self) -> ConstructableID {
+impl Into<ConstructableID<CBPrototypeKind>> for SwitchLaneID {
+    fn into(self) -> ConstructableID<CBPrototypeKind> {
         ConstructableID::from_raw(self.as_raw())
     }
 }
@@ -134,7 +134,7 @@ impl Into<ConstructableID> for SwitchLaneID {
 #[allow(unused_mut)]
 pub fn auto_setup(system: &mut ActorSystem) {
     
-    ConstructableID::register_implementor::<Lane>(system);
+    ConstructableID::<CBPrototypeKind>::register_implementor::<Lane>(system);
     system.add_spawner::<Lane, _, _>(
         |&MSG_Lane_spawn_and_connect(id, ref path, on_intersection, ref timings, report_to), world| {
             Lane::spawn_and_connect(id, path, on_intersection, timings, report_to, world)
@@ -200,7 +200,7 @@ pub fn auto_setup(system: &mut ActorSystem) {
             instance.try_reconnect_building(building, lot_position, world); Fate::Live
         }, false
     );
-    ConstructableID::register_implementor::<SwitchLane>(system);
+    ConstructableID::<CBPrototypeKind>::register_implementor::<SwitchLane>(system);
     system.add_spawner::<SwitchLane, _, _>(
         |&MSG_SwitchLane_spawn_and_connect(id, ref path, report_to), world| {
             SwitchLane::spawn_and_connect(id, path, report_to, world)

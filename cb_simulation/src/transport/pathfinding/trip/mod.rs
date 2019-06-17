@@ -1,7 +1,7 @@
 use kay::{World, ActorSystem, Fate, TypedID, Actor};
 use compact::CVec;
 use ordered_float::OrderedFloat;
-use time::Instant;
+use cb_time::units::Instant;
 
 use transport::lane::LaneID;
 use super::{PreciseLocation, RoughLocationID, LocationRequester, LocationRequesterID};
@@ -9,7 +9,7 @@ use super::{PreciseLocation, RoughLocationID, LocationRequester, LocationRequest
 use itertools::Itertools;
 use super::super::lane::Lane;
 
-use log::{debug, warn};
+use cb_util::log::{debug, warn};
 const LOG_T: &str = "Trips";
 
 #[derive(Compact, Clone)]
@@ -174,8 +174,8 @@ impl LocationRequester for Trip {
     }
 }
 
-use time::{TimeID, Sleeper, SleeperID};
-use time::Ticks;
+use cb_time::actors::{TimeID, Sleeper, SleeperID};
+use cb_time::units::Ticks;
 use super::super::microtraffic::{LaneLikeID, LaneCar, Obstacle};
 
 pub trait TripListener {

@@ -102,8 +102,8 @@ struct MSG_Building_get_ui_info(pub LandUseUIID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_Building_reconnect(pub PreciseLocation, pub P2);
 
-impl Into<ConstructableID> for BuildingID {
-    fn into(self) -> ConstructableID {
+impl Into<ConstructableID<CBPrototypeKind>> for BuildingID {
+    fn into(self) -> ConstructableID<CBPrototypeKind> {
         ConstructableID::from_raw(self.as_raw())
     }
 }
@@ -130,7 +130,7 @@ impl Into<RoughLocationID> for BuildingID {
 #[allow(unused_mut)]
 pub fn auto_setup(system: &mut ActorSystem) {
     
-    ConstructableID::register_implementor::<Building>(system);
+    ConstructableID::<CBPrototypeKind>::register_implementor::<Building>(system);
     AttacheeID::register_implementor::<Building>(system);
     SleeperID::register_implementor::<Building>(system);
     RoughLocationID::register_implementor::<Building>(system);

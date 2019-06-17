@@ -34,13 +34,8 @@ fn main() {
 
         let world = &mut system.world();
 
-        log::spawn(world);
-        let time = time::spawn(world);
-        let plan_manager = planning::spawn(world);
-        construction::spawn(world);
-        transport::spawn(world, time);
-        economy::spawn(world, time, plan_manager);
-        environment::vegetation::spawn(world, plan_manager);
+        let time = cb_simulation::spawn_for_server(world);
+
         system.process_all_messages();
 
         let mut frame_counter = init::FrameCounter::new();

@@ -66,8 +66,8 @@ impl PlantID {
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_Plant_spawn(pub PlantID, pub PlantPrototype);
 
-impl Into<ConstructableID> for PlantID {
-    fn into(self) -> ConstructableID {
+impl Into<ConstructableID<CBPrototypeKind>> for PlantID {
+    fn into(self) -> ConstructableID<CBPrototypeKind> {
         ConstructableID::from_raw(self.as_raw())
     }
 }
@@ -76,7 +76,7 @@ impl Into<ConstructableID> for PlantID {
 #[allow(unused_mut)]
 pub fn auto_setup(system: &mut ActorSystem) {
     
-    ConstructableID::register_implementor::<Plant>(system);
+    ConstructableID::<CBPrototypeKind>::register_implementor::<Plant>(system);
     system.add_spawner::<Plant, _, _>(
         |&MSG_Plant_spawn(id, proto), world| {
             Plant::spawn(id, proto, world)

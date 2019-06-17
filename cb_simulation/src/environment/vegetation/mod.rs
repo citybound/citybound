@@ -1,9 +1,10 @@
 use kay::{World, Fate, ActorSystem, TypedID};
 use compact::CVec;
 use descartes::{P2, RoughEq, AreaError};
-use construction::{Constructable, ConstructableID, ConstructionID};
-use planning::{Prototype, PrototypeID, PrototypeKind, PlanHistory, PlanResult, PlanManagerID,
-Project, Plan, Gesture, GestureID, GestureIntent};
+use planning::{CBPlanManagerID, CBConstructionID, CBPrototypeKind, CBGestureIntent};
+use cb_planning::{Prototype, PrototypeID, PlanHistory, PlanResult,
+Project, Plan, Gesture, GestureID};
+use cb_planning::construction::{Constructable, ConstructableID};
 use transport::transport_planning::RoadPrototype;
 use land_use::zone_planning::{LotPrototype, LotOccupancy};
 use land_use::buildings::BuildingStyle;
@@ -42,9 +43,9 @@ impl PlantPrototype {
     pub fn construct(
         &self,
         _self_id: PrototypeID,
-        report_to: ConstructionID,
+        report_to: CBConstructionID,
         world: &mut World,
-    ) -> CVec<ConstructableID> {
+    ) -> CVec<ConstructableID<CBPrototypeKind>> {
         let id = PlantID::spawn(*self, world).into();
         report_to.action_done(id, world);
         vec![id].into()
@@ -75,9 +76,9 @@ impl Plant {
     }
 }
 
-impl Constructable for Plant {
-    fn morph(&mut self, new_prototype: &Prototype, report_to: ConstructionID, world: &mut World) {
-        if let PrototypeKind::Plant(proto) = new_prototype.kind {
+impl Constructable<CBPrototypeKind> for Plant {
+    fn morph(&mut self, new_prototype: &Prototype<CBPrototypeKind>, report_to: CBConstructionID, world: &mut World) {
+        if let CBPrototypeKind::Plant(proto) = new_prototype.kind {
             self.proto = proto;
             report_to.action_done(self.id.into(), world);
             VegetationUIID::global_broadcast(world).on_plant_destroyed(self.id, world);
@@ -87,7 +88,7 @@ impl Constructable for Plant {
         }
     }
 
-    fn destruct(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
+    fn destruct(&mut self, report_to: CBConstructionID, world: &mut World) -> Fate {
         report_to.action_done(self.id.into(), world);
         VegetationUIID::global_broadcast(world).on_plant_destroyed(self.id, world);
         Fate::Die
@@ -97,21 +98,21 @@ impl Constructable for Plant {
 static mut OCC_VEG_CELLS: *mut Vec<(i32, i32)> = 0 as *mut Vec<(i32, i32)>;
 
 pub fn calculate_prototypes(
-    history: &PlanHistory,
-    current_result: &PlanResult,
-) -> Result<Vec<Prototype>, AreaError> {
+    history: &PlanHistory<CBGestureIntent>,
+    current_result: &PlanResult<CBPrototypeKind>,
+) -> Result<Vec<Prototype<CBPrototypeKind>>, AreaError> {
     let mut constructed_areas = Vec::new();
     let mut prototypes = Vec::with_capacity(100_000);
 
     for prototype in current_result.prototypes.values() {
         match *prototype {
             Prototype {
-                kind: PrototypeKind::Road(RoadPrototype::PavedArea(ref area)),
+                kind: CBPrototypeKind::Road(RoadPrototype::PavedArea(ref area)),
                 ..
             } => constructed_areas.push(area.clone()),
             Prototype {
                 kind:
-                    PrototypeKind::Lot(LotPrototype {
+                    CBPrototypeKind::Lot(LotPrototype {
                         ref lot,
                         occupancy: LotOccupancy::Occupied(style),
                     }),
@@ -135,7 +136,7 @@ pub fn calculate_prototypes(
                         {
                             prototypes.push(Prototype::new_with_influences(
                                 (id, i),
-                                PrototypeKind::Plant(PlantPrototype {
+                                CBPrototypeKind::Plant(PlantPrototype {
                                     vegetation_type,
                                     position: projected_pos,
                                 }),
@@ -150,11 +151,11 @@ pub fn calculate_prototypes(
     }
 
     for (gesture_id, versioned_gesture) in history.gestures.pairs() {
-        if let GestureIntent::Plant(ref plant_intent) = versioned_gesture.0.intent {
+        if let CBGestureIntent::Plant(ref plant_intent) = versioned_gesture.0.intent {
             match plant_intent {
                 PlantIntent::Individual(proto) => prototypes.push(Prototype::new_with_influences(
                     gesture_id,
-                    PrototypeKind::Plant(*proto),
+                    CBPrototypeKind::Plant(*proto),
                     proto.position,
                 )),
                 PlantIntent::NaturalGrowth => {
@@ -202,7 +203,7 @@ pub fn calculate_prototypes(
                         positions.push(position_p2);
                         prototypes_before_difference.push(Prototype::new_with_influences(
                             (gesture_id, x_cell, y_cell),
-                            PrototypeKind::Plant(PlantPrototype {
+                            CBPrototypeKind::Plant(PlantPrototype {
                                 position: position_p2,
                                 vegetation_type: *vegetation_type,
                             }),
@@ -246,12 +247,12 @@ pub fn setup(system: &mut ActorSystem) {
     self::ui::auto_setup(system);
 }
 
-pub fn spawn(world: &mut World, plan_manager: PlanManagerID) {
+pub fn spawn(world: &mut World, plan_manager: CBPlanManagerID) {
     let gestures = Some((
         GestureID::new(),
         Gesture::new(
             CVec::new(),
-            GestureIntent::Plant(PlantIntent::NaturalGrowth),
+            CBGestureIntent::Plant(PlantIntent::NaturalGrowth),
         ),
     ));
     let project = Project::from_plan(Plan::from_gestures(gestures));

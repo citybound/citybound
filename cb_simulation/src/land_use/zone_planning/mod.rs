@@ -8,8 +8,8 @@ use cb_util::random::{seed, RngCore};
 
 use transport::transport_planning::{RoadPrototype, LanePrototype};
 
-use planning::{PlanHistory, VersionedGesture, PlanResult, Prototype, PrototypeID,
-PrototypeKind, GestureIntent, GestureID, StepID};
+use cb_planning::{PlanHistory, VersionedGesture, PlanResult, Prototype, PrototypeID, GestureID, StepID};
+use planning::{CBPrototypeKind, CBGestureIntent};
 
 #[derive(Compact, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ZoneIntent {
@@ -125,9 +125,9 @@ pub enum LotOccupancy {
 }
 
 pub fn calculate_prototypes(
-    history: &PlanHistory,
-    current_result: &PlanResult,
-) -> Result<Vec<Prototype>, AreaError> {
+    history: &PlanHistory<CBGestureIntent>,
+    current_result: &PlanResult<CBPrototypeKind>,
+) -> Result<Vec<Prototype<CBPrototypeKind>>, AreaError> {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     enum ZoneEmbeddingLabel {
         Paved(PrototypeID),
@@ -139,7 +139,7 @@ pub fn calculate_prototypes(
 
     for prototype in current_result.prototypes.values() {
         if let Prototype {
-            kind: PrototypeKind::Road(RoadPrototype::PavedArea(ref area)),
+            kind: CBPrototypeKind::Road(RoadPrototype::PavedArea(ref area)),
             id,
             ..
         } = *prototype
@@ -149,7 +149,7 @@ pub fn calculate_prototypes(
     }
 
     for (gesture_id, VersionedGesture(gesture, step_id)) in history.gestures.pairs() {
-        if let GestureIntent::Building(BuildingIntent { ref lot, .. }) = gesture.intent {
+        if let CBGestureIntent::Building(BuildingIntent { ref lot, .. }) = gesture.intent {
             zone_embedding.insert(
                 lot.area.clone(),
                 ZoneEmbeddingLabel::Building(*gesture_id, *step_id),
@@ -162,7 +162,7 @@ pub fn calculate_prototypes(
         .gestures
         .pairs()
         .map(|(&gesture_id, &VersionedGesture(ref gesture, step_id))| {
-            if let GestureIntent::Building(BuildingIntent {
+            if let CBGestureIntent::Building(BuildingIntent {
                 ref lot,
                 building_style,
             }) = gesture.intent
@@ -212,7 +212,7 @@ pub fn calculate_prototypes(
 
                     Ok(Some(Prototype {
                         representative_position: lot.center_point(),
-                        kind: PrototypeKind::Lot(LotPrototype {
+                        kind: CBPrototypeKind::Lot(LotPrototype {
                             lot: Lot {
                                 area: main_area,
                                 ..lot.clone()
@@ -245,7 +245,7 @@ pub fn calculate_prototypes(
     ];
 
     for prototype in current_result.prototypes.values() {
-        if let PrototypeKind::Road(RoadPrototype::Lane(LanePrototype(ref path, _))) = prototype.kind
+        if let CBPrototypeKind::Road(RoadPrototype::Lane(LanePrototype(ref path, _))) = prototype.kind
         {
             let distance = (path.start() - P2::new(0.0, 0.0)).norm();
             if distance > 300.0 {
@@ -315,7 +315,7 @@ pub fn calculate_prototypes(
                                     distance,
                                     Some(Prototype {
                                         representative_position: repr_pos,
-                                        kind: PrototypeKind::Lot(LotPrototype {
+                                        kind: CBPrototypeKind::Lot(LotPrototype {
                                             occupancy: LotOccupancy::Occupied(
                                                 BuildingStyle::NeighboringTownConnection,
                                             ),
@@ -341,7 +341,7 @@ pub fn calculate_prototypes(
     }
 
     for (gesture_id, VersionedGesture(gesture, step_id)) in history.gestures.pairs() {
-        if let GestureIntent::Zone(ref zone_intent) = gesture.intent {
+        if let CBGestureIntent::Zone(ref zone_intent) = gesture.intent {
             if let Some(area) = LinePath::new(
                 gesture
                     .points
@@ -426,7 +426,7 @@ pub fn calculate_prototypes(
 
             vacant_lot_prototypes.push(Prototype {
                 representative_position: area.primitives[0].boundary.path().points[0],
-                kind: PrototypeKind::Lot(LotPrototype {
+                kind: CBPrototypeKind::Lot(LotPrototype {
                     lot: Lot {
                         land_uses: vec![land_use].into(),
                         max_height: 0,

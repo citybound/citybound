@@ -72,8 +72,8 @@ struct MSG_VacantLot_spawn(pub VacantLotID, pub Lot, pub PrototypeID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_VacantLot_suggest_lot(pub BuildingStyle, pub DevelopmentManagerID);
 
-impl Into<ConstructableID> for VacantLotID {
-    fn into(self) -> ConstructableID {
+impl Into<ConstructableID<CBPrototypeKind>> for VacantLotID {
+    fn into(self) -> ConstructableID<CBPrototypeKind> {
         ConstructableID::from_raw(self.as_raw())
     }
 }
@@ -82,7 +82,7 @@ impl Into<ConstructableID> for VacantLotID {
 #[allow(unused_mut)]
 pub fn auto_setup(system: &mut ActorSystem) {
     
-    ConstructableID::register_implementor::<VacantLot>(system);
+    ConstructableID::<CBPrototypeKind>::register_implementor::<VacantLot>(system);
     system.add_spawner::<VacantLot, _, _>(
         |&MSG_VacantLot_spawn(id, ref lot, based_on), world| {
             VacantLot::spawn(id, lot, based_on, world)

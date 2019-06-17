@@ -11,7 +11,7 @@ use super::pathfinding;
 mod intelligent_acceleration;
 use self::intelligent_acceleration::intelligent_acceleration;
 
-use log::debug;
+use cb_util::log::debug;
 const LOG_T: &str = "Microtraffic";
 
 // TODO: move all iteration, updates, etc into one huge retain loop (see identical TODO below)
@@ -131,7 +131,7 @@ impl DerefMut for TransferringLaneCar {
     }
 }
 
-use time::Instant;
+use cb_time::units::Instant;
 
 pub trait LaneLike {
     fn add_car(
@@ -146,7 +146,7 @@ pub trait LaneLike {
 
 use self::pathfinding::StoredRoutingEntry;
 
-use time::{Temporal, TemporalID};
+use cb_time::actors::{Temporal, TemporalID};
 
 const TRAFFIC_LOGIC_THROTTLING: usize = 10;
 const PATHFINDING_THROTTLING: usize = 10;

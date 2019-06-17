@@ -9,19 +9,20 @@ use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
 use super::lane::connectivity::Interaction;
 use super::microtraffic::LaneLikeID;
 
-use planning::Prototype;
-use construction::{ConstructionID, Constructable, ConstructableID};
+use cb_planning::Prototype;
+use cb_planning::construction::{Constructable, ConstructableID};
+use planning::{CBConstructionID, CBPrototypeKind};
 use super::transport_planning::{RoadPrototype, LanePrototype, SwitchLanePrototype,
 IntersectionPrototype};
 
-use log::debug;
+use cb_util::log::debug;
 const LOG_T: &str = "Transport Construction";
 
 use dimensions::{LANE_CONNECTION_TOLERANCE, MAX_SWITCHING_LANE_DISTANCE,
 MIN_SWITCHING_LANE_LENGTH};
 
 impl RoadPrototype {
-    pub fn construct(&self, report_to: ConstructionID, world: &mut World) -> CVec<ConstructableID> {
+    pub fn construct(&self, report_to: CBConstructionID, world: &mut World) -> CVec<ConstructableID<CBPrototypeKind>> {
         match *self {
             RoadPrototype::Lane(LanePrototype(ref path, _)) => {
                 vec![
@@ -69,21 +70,21 @@ impl RoadPrototype {
     }
 }
 
-impl Constructable for Lane {
-    fn morph(&mut self, _new_prototype: &Prototype, report_to: ConstructionID, world: &mut World) {
+impl Constructable<CBPrototypeKind> for Lane {
+    fn morph(&mut self, _new_prototype: &Prototype<CBPrototypeKind>, report_to: CBConstructionID, world: &mut World) {
         report_to.action_done(self.id_as(), world);
     }
-    fn destruct(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
+    fn destruct(&mut self, report_to: CBConstructionID, world: &mut World) -> Fate {
         self.unbuild(report_to, world);
         Fate::Live
     }
 }
 
-impl Constructable for SwitchLane {
-    fn morph(&mut self, _new_prototype: &Prototype, report_to: ConstructionID, world: &mut World) {
+impl Constructable<CBPrototypeKind> for SwitchLane {
+    fn morph(&mut self, _new_prototype: &Prototype<CBPrototypeKind>, report_to: CBConstructionID, world: &mut World) {
         report_to.action_done(self.id_as(), world);
     }
-    fn destruct(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
+    fn destruct(&mut self, report_to: CBConstructionID, world: &mut World) -> Fate {
         self.unbuild(report_to, world);
         Fate::Live
     }
@@ -94,7 +95,7 @@ pub struct ConstructionInfo {
     pub length: f32,
     pub path: LinePath,
     pub progress: f32,
-    unbuilding_for: Option<ConstructionID>,
+    unbuilding_for: Option<CBConstructionID>,
     disconnects_remaining: u8,
 }
 
@@ -121,7 +122,7 @@ impl Lane {
         path: &LinePath,
         on_intersection: bool,
         timings: &CVec<bool>,
-        report_to: ConstructionID,
+        report_to: CBConstructionID,
         world: &mut World,
     ) -> Lane {
         LaneID::global_broadcast(world).connect(
@@ -357,7 +358,7 @@ impl Lane {
         other_id.on_confirm_disconnect(world);
     }
 
-    pub fn unbuild(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
+    pub fn unbuild(&mut self, report_to: CBConstructionID, world: &mut World) -> Fate {
         let mut disconnects_remaining = 0;
 
         for lane in self
@@ -416,7 +417,7 @@ impl Lane {
 }
 
 impl Lane {
-    fn finalize(&self, report_to: ConstructionID, world: &mut World) {
+    fn finalize(&self, report_to: CBConstructionID, world: &mut World) {
         report_to.action_done(self.id_as(), world);
 
         for car in &self.microtraffic.cars {
@@ -480,7 +481,7 @@ impl SwitchLane {
     pub fn spawn_and_connect(
         id: SwitchLaneID,
         path: &LinePath,
-        report_to: ConstructionID,
+        report_to: CBConstructionID,
         world: &mut World,
     ) -> SwitchLane {
         LaneID::global_broadcast(world).connect_to_switch(id, world);
@@ -599,7 +600,7 @@ impl SwitchLane {
         other.on_confirm_disconnect(world);
     }
 
-    pub fn unbuild(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
+    pub fn unbuild(&mut self, report_to: CBConstructionID, world: &mut World) -> Fate {
         self.construction.disconnects_remaining = 0;
 
         if let (Some((left_id, ..)), Some((right_id, ..))) =
@@ -637,7 +638,7 @@ impl SwitchLane {
 }
 
 impl SwitchLane {
-    fn finalize(&self, report_to: ConstructionID, world: &mut World) {
+    fn finalize(&self, report_to: CBConstructionID, world: &mut World) {
         report_to.action_done(self.id_as(), world);
 
         for car in &self.microtraffic.cars {

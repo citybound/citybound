@@ -7,7 +7,7 @@ pub mod transport_planning;
 pub mod pathfinding;
 
 use kay::{ActorSystem, World};
-use time::TimeID;
+use cb_time::actors::TimeID;
 
 pub fn setup(system: &mut ActorSystem) {
     self::lane::setup(system);

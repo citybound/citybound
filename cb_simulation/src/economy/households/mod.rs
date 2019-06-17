@@ -1,11 +1,11 @@
 use kay::{ActorSystem, World, Actor, TypedID, Fate};
 use compact::{CVec, CDict, COption};
-use time::{Duration, TimeOfDay, Instant, Ticks, TimeID, TICKS_PER_SIM_SECOND, Sleeper,
-Temporal};
+use cb_time::actors::{TimeID, Sleeper, Temporal};
+use cb_time::units::{Duration, TimeOfDay, Instant, Ticks, TICKS_PER_SIM_SECOND};
 use cb_util::async_counter::AsyncCounter;
 use cb_util::random::{seed, Rng};
 use ordered_float::OrderedFloat;
-use log::{debug, info, warn};
+use cb_util::log::{debug, info, warn};
 const LOG_T: &str = "Households";
 
 pub mod tasks;

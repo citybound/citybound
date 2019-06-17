@@ -1,9 +1,10 @@
 use kay::{World, ActorSystem, TypedID};
 use compact::COption;
 use land_use::buildings::{UnitType, BuildingID, UnitIdx};
-use time::{Sleeper, SleeperID, Instant, TimeID, Duration};
+use cb_time::actors::{Sleeper, SleeperID, TimeID};
+use cb_time::units::{Instant, Duration};
 use cb_util::random::{seed, Rng};
-use log::{debug};
+use cb_util::log::{debug};
 const LOG_T: &str = "Immigration/Development";
 
 use economy::households::household_kinds;
@@ -18,7 +19,8 @@ use self::household_kinds::neighboring_town_trade::NeighboringTownTradeID;
 use land_use::buildings::BuildingStyle;
 use land_use::vacant_lots::VacantLotID;
 use land_use::zone_planning::BuildingIntent;
-use planning::{PlanManagerID, Project, PrototypeID, Plan, GestureID, Gesture, GestureIntent};
+use cb_planning::{Project, PrototypeID, Plan, GestureID, Gesture};
+use planning::{CBPlanManagerID, CBGestureIntent};
 
 // TODO: somehow get rid of this horrible duplication by having something like
 // a pointer to an abstract Household trait...
@@ -224,7 +226,7 @@ impl ImmigrationManager {
 pub struct DevelopmentManager {
     id: DevelopmentManagerID,
     time: TimeID,
-    plan_manager: PlanManagerID,
+    plan_manager: CBPlanManagerID,
     building_to_develop: COption<BuildingStyle>,
 }
 
@@ -232,7 +234,7 @@ impl DevelopmentManager {
     pub fn spawn(
         id: DevelopmentManagerID,
         time: TimeID,
-        plan_manager: PlanManagerID,
+        plan_manager: CBPlanManagerID,
         _world: &mut World,
     ) -> DevelopmentManager {
         DevelopmentManager {
@@ -277,7 +279,7 @@ impl DevelopmentManager {
                         GestureID::new(),
                         Gesture::new(
                             vec![building_intent.lot.center_point()].into(),
-                            GestureIntent::Building(building_intent.clone()),
+                            CBGestureIntent::Building(building_intent.clone()),
                         ),
                     )))),
                     vec![based_on].into(),
@@ -301,7 +303,7 @@ pub fn setup(system: &mut ActorSystem) {
     auto_setup(system);
 }
 
-pub fn spawn(world: &mut World, time: TimeID, plan_manager: PlanManagerID) {
+pub fn spawn(world: &mut World, time: TimeID, plan_manager: CBPlanManagerID) {
     let development_manager = DevelopmentManagerID::spawn(time, plan_manager, world);
     ImmigrationManagerID::spawn(time, development_manager, world);
 }

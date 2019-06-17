@@ -1,6 +1,6 @@
 use kay::{ActorSystem, World, Actor};
-use time::{TimeOfDay, TimeOfDayRange, Duration, Instant, Temporal, TemporalID,
-TimeID, Ticks};
+use cb_time::actors::{Temporal, TemporalID, TimeID};
+use cb_time::units::{TimeOfDay, TimeOfDayRange, Duration, Instant, Ticks};
 use economy::resources::Resource;
 use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
@@ -244,7 +244,7 @@ impl Household for NeighboringTownTrade {
     }
 }
 
-use time::{Sleeper, SleeperID};
+use cb_time::actors::{Sleeper, SleeperID};
 
 impl Sleeper for NeighboringTownTrade {
     fn wake(&mut self, current_instant: Instant, world: &mut World) {

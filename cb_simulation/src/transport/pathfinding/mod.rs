@@ -1,14 +1,14 @@
 use compact::{CDict, CVec, CHashMap};
 use kay::{ActorSystem, Actor, World, TypedID};
 use descartes::{P2};
-use time::Instant;
+use cb_time::units::Instant;
 
 pub mod trip;
 pub mod road_pathfinding;
 
 const LOG_T: &str = "Pathfinding";
 
-use log::{debug};
+use cb_util::log::{debug};
 
 pub trait Link: Actor {
     fn core(&self) -> &PathfindingCore;
@@ -416,7 +416,7 @@ pub trait DistanceRequester {
     fn on_distance(&mut self, maybe_distance: Option<f32>, world: &mut World);
 }
 
-use time::TimeID;
+use cb_time::actors::TimeID;
 
 pub fn setup(system: &mut ActorSystem) {
     trip::setup(system);

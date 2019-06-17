@@ -3,9 +3,11 @@ use compact::{CVec, COption};
 use descartes::P2;
 
 use transport::lane::LaneID;
-use time::{Ticks, TimeID};
-use construction::{ConstructionID, Constructable, ConstructableID};
-use planning::{Prototype, PrototypeKind};
+use cb_time::actors::TimeID;
+use cb_time::units::Ticks;
+use cb_planning::Prototype;
+use cb_planning::construction::{Constructable, ConstructableID};
+use planning::{CBConstructionID, CBPrototypeKind};
 
 pub mod rendering;
 pub mod architecture;
@@ -16,7 +18,7 @@ use economy::immigration_and_development::ImmigrationManagerID;
 use land_use::zone_planning::{Lot, LandUse};
 use super::ui::{LandUseUIID};
 
-use log::debug;
+use cb_util::log::debug;
 const LOG_T: &str = "Buildings";
 
 #[derive(Copy, Clone)]
@@ -65,7 +67,7 @@ pub struct Building {
     lot: Lot,
     pub location: Option<PreciseLocation>,
     style: BuildingStyle,
-    being_destroyed_for: COption<ConstructionID>,
+    being_destroyed_for: COption<CBConstructionID>,
     started_reconnect: bool,
 }
 
@@ -170,9 +172,9 @@ impl Building {
     }
 }
 
-impl Constructable for Building {
-    fn morph(&mut self, new_prototype: &Prototype, report_to: ConstructionID, world: &mut World) {
-        if let PrototypeKind::Lot(ref lot_prototype) = new_prototype.kind {
+impl Constructable<CBPrototypeKind> for Building {
+    fn morph(&mut self, new_prototype: &Prototype<CBPrototypeKind>, report_to: CBConstructionID, world: &mut World) {
+        if let CBPrototypeKind::Lot(ref lot_prototype) = new_prototype.kind {
             self.lot = lot_prototype.lot.clone();
             rendering::on_destroy(self.id, world);
             rendering::on_add(self.id, &self.lot, self.all_households(), self.style, world);
@@ -182,7 +184,7 @@ impl Constructable for Building {
         }
     }
 
-    fn destruct(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
+    fn destruct(&mut self, report_to: CBConstructionID, world: &mut World) -> Fate {
         self.being_destroyed_for = COption(Some(report_to));
 
         if self.all_households().is_empty() {
@@ -198,7 +200,8 @@ impl Constructable for Building {
 }
 
 use transport::pathfinding::{Location, Attachee, AttacheeID};
-use time::{Sleeper, SleeperID, Duration};
+use cb_time::actors::{Sleeper, SleeperID};
+use cb_time::units::Duration;
 
 impl Attachee for Building {
     fn location_changed(
@@ -274,7 +277,7 @@ impl Building {
 }
 
 use transport::pathfinding::{RoughLocation, RoughLocationID, RoughLocationResolve};
-use time::Instant;
+use cb_time::units::Instant;
 
 impl RoughLocation for Building {
     fn resolve(&self) -> RoughLocationResolve {

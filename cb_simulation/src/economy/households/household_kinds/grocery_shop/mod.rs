@@ -1,5 +1,6 @@
 use kay::{ActorSystem, World, TypedID, Actor};
-use time::{TimeOfDay, TimeOfDayRange, Duration, TimeID, Ticks};
+use cb_time::units::{TimeOfDay, TimeOfDayRange, Duration, Ticks};
+use cb_time::actors::TimeID;
 use economy::resources::Resource;
 use economy::resources::Resource::*;
 use economy::market::{Deal, EvaluationRequester, EvaluationRequesterID, EvaluatedSearchResult};
@@ -169,7 +170,8 @@ impl EvaluationRequester for GroceryShop {
     }
 }
 
-use time::{Temporal, TemporalID, Sleeper, SleeperID, Instant, TICKS_PER_SIM_SECOND};
+use cb_time::units::{Instant, TICKS_PER_SIM_SECOND};
+use cb_time::actors::{Temporal, TemporalID, Sleeper, SleeperID};
 const UPDATE_EVERY_N_SECS: u32 = 4;
 
 impl Temporal for GroceryShop {

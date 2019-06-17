@@ -1,6 +1,7 @@
 use kay::{ActorSystem, World};
 use compact::CVec;
-use time::{Instant, Duration, Temporal, TemporalID};
+use cb_time::actors::{Temporal, TemporalID};
+use cb_time::units::{Instant, Duration};
 use transport::pathfinding::RoughLocationID;
 use transport::pathfinding::trip::TripID;
 use super::super::resources::Resource;

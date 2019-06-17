@@ -125,7 +125,7 @@ impl TypedID for DevelopmentManagerID {
 }
 
 impl DevelopmentManagerID {
-    pub fn spawn(time: TimeID, plan_manager: PlanManagerID, world: &mut World) -> Self {
+    pub fn spawn(time: TimeID, plan_manager: CBPlanManagerID, world: &mut World) -> Self {
         let id = DevelopmentManagerID::from_raw(world.allocate_instance_id::<DevelopmentManager>());
         let swarm = world.local_broadcast::<DevelopmentManager>();
         world.send(swarm, MSG_DevelopmentManager_spawn(id, time, plan_manager));
@@ -142,7 +142,7 @@ impl DevelopmentManagerID {
 }
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_DevelopmentManager_spawn(pub DevelopmentManagerID, pub TimeID, pub PlanManagerID);
+struct MSG_DevelopmentManager_spawn(pub DevelopmentManagerID, pub TimeID, pub CBPlanManagerID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_DevelopmentManager_try_develop(pub BuildingStyle);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]

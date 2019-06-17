@@ -4,15 +4,18 @@ use stdweb::serde::Serde;
 use stdweb::js_export;
 use SYSTEM;
 
+use cb_planning::GestureID;
+use cb_planning::plan_manager::ProjectID;
+use planning::{CBPlanManagerID, CBGestureIntent};
+
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
-pub fn plan_grid(project_id: Serde<::planning::ProjectID>, n: Serde<isize>, spacing: Serde<f32>) {
+pub fn plan_grid(project_id: Serde<ProjectID>, n: Serde<isize>, spacing: Serde<f32>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
 
-    let plan_manager = ::planning::PlanManagerID::global_first(world);
+    let plan_manager = CBPlanManagerID::global_first(world);
 
     use ::transport::transport_planning::RoadIntent;
-    use ::planning::{GestureID, GestureIntent};
     use ::descartes::P2;
 
     for x in -n.0 / 2..n.0 / 2 {
@@ -22,7 +25,7 @@ pub fn plan_grid(project_id: Serde<::planning::ProjectID>, n: Serde<isize>, spac
         plan_manager.start_new_gesture(
             project_id.0,
             id,
-            GestureIntent::Road(RoadIntent::new(3, 3)),
+            CBGestureIntent::Road(RoadIntent::new(3, 3)),
             p1,
             world,
         );
@@ -36,7 +39,7 @@ pub fn plan_grid(project_id: Serde<::planning::ProjectID>, n: Serde<isize>, spac
         plan_manager.start_new_gesture(
             project_id.0,
             id,
-            GestureIntent::Road(RoadIntent::new(3, 3)),
+            CBGestureIntent::Road(RoadIntent::new(3, 3)),
             p1,
             world,
         );
@@ -55,7 +58,7 @@ pub fn spawn_cars(tries_per_lane: usize) {
 
 use kay::{World, ActorSystem};
 use compact::{CVec, CString};
-use log::{LogID, LogRecipient, LogRecipientID, Entry};
+use cb_util::log::{LogID, LogRecipient, LogRecipientID, Entry};
 
 #[derive(Compact, Clone)]
 pub struct LogUI {

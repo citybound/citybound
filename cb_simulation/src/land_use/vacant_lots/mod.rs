@@ -10,9 +10,10 @@ use land_use::buildings::architecture::ideal_lot_shape;
 use economy::immigration_and_development::DevelopmentManagerID;
 use itertools::{Itertools, MinMaxResult};
 
-use construction::{ConstructionID, Constructable, ConstructableID};
-use planning::{Prototype, PrototypeID};
-use log::{debug, error};
+use cb_planning::construction::{Constructable, ConstructableID};
+use cb_planning::{Prototype, PrototypeID};
+use planning::{CBConstructionID, CBPrototypeKind};
+use cb_util::log::{debug, error};
 const LOG_T: &str = "Vacant Lots";
 
 #[derive(Compact, Clone)]
@@ -340,12 +341,12 @@ impl VacantLot {
     }
 }
 
-impl Constructable for VacantLot {
-    fn morph(&mut self, _: &Prototype, _report_to: ConstructionID, _world: &mut World) {
+impl Constructable<CBPrototypeKind> for VacantLot {
+    fn morph(&mut self, _: &Prototype<CBPrototypeKind>, _report_to: CBConstructionID, _world: &mut World) {
         unreachable!()
     }
 
-    fn destruct(&mut self, report_to: ConstructionID, world: &mut World) -> Fate {
+    fn destruct(&mut self, report_to: CBConstructionID, world: &mut World) -> Fate {
         report_to.action_done(self.id.into(), world);
         Fate::Die
     }

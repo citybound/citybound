@@ -749,15 +749,18 @@ impl ActionGroups {
     }
 }
 
+#[allow(type_alias_bounds)]
+pub type PlanningStepFn<PL: PlanningLogic> =
+    fn(
+        &PlanHistory<PL::GestureIntent>,
+        &PlanResult<PL::PrototypeKind>,
+    ) -> Result<Vec<Prototype<PL::PrototypeKind>>, AreaError>;
+
 pub trait PlanningLogic: Compact + 'static {
     type GestureIntent: GestureIntent;
     type PrototypeKind: PrototypeKind;
-    type PlanningStepFn: Fn(
-        &PlanHistory<Self::GestureIntent>,
-        &PlanResult<Self::PrototypeKind>,
-    ) -> Result<Vec<Prototype<Self::PrototypeKind>>, AreaError>;
 
-    fn planning_step_functions() -> &'static [Self::PlanningStepFn];
+    fn planning_step_functions() -> &'static [PlanningStepFn<Self>];
     fn calculate_result(
         history: &PlanHistory<Self::GestureIntent>,
     ) -> Result<PlanResult<Self::PrototypeKind>, AreaError> {
