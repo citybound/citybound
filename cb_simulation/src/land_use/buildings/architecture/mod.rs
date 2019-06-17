@@ -46,7 +46,7 @@ impl BuildingGeometryCollector {
     fn new() -> Self {
         BuildingGeometryCollector {
             sculptures: HashMap::new(),
-            props: HashMap::new()
+            props: HashMap::new(),
         }
     }
 
@@ -66,8 +66,12 @@ impl BuildingGeometryCollector {
 
     fn to_geometry(self) -> BuildingGeometry {
         BuildingGeometry {
-            meshes: self.sculptures.into_iter().map(|(material, sculpture)| (material, sculpture.to_mesh())).collect(),
-            props: self.props
+            meshes: self
+                .sculptures
+                .into_iter()
+                .map(|(material, sculpture)| (material, sculpture.to_mesh()))
+                .collect(),
+            props: self.props,
         }
     }
 }
@@ -168,7 +172,9 @@ pub fn build_building(
     match building_style {
         BuildingStyle::FamilyHouse => {
             let mut collector = BuildingGeometryCollector::new();
-            family_house().collect_geometry(&mut collector, lot).expect("Expecting things to work in general");
+            family_house()
+                .collect_geometry(&mut collector, lot)
+                .expect("Expecting things to work in general");
             collector.to_geometry()
 
             // let height = 2.6 + 2.0 * rng.gen::<f32>();
