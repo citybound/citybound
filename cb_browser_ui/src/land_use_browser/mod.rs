@@ -1,14 +1,21 @@
 use kay::{World, ActorSystem, TypedID};
-use compact::CVec;
+use compact::{CVec, CHashMap};
 use stdweb::serde::Serde;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use stdweb::js_export;
 use browser_utils::{to_js_mesh, flatten_instances};
 use SYSTEM;
+use cb_util::config_manager::{Name, ConfigUser, ConfigUserID};
 use ::std::collections::HashMap;
+use ::land_use::buildings::{BuildingID, BuildingStyle};
+use ::land_use::buildings::architecture::{build_building};
+use ::land_use::buildings::architecture::language::ArchitectureRule;
+use ::land_use::buildings::architecture::materials_and_props::{ALL_MATERIALS, ALL_PROP_TYPES};
+use ::land_use::zone_planning::Lot;
+use ::economy::households::HouseholdID;
 
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
-pub fn get_building_info(building_id: Serde<::land_use::buildings::BuildingID>) {
+pub fn get_building_info(building_id: Serde<BuildingID>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
     building_id
@@ -19,16 +26,25 @@ pub fn get_building_info(building_id: Serde<::land_use::buildings::BuildingID>) 
 #[derive(Compact, Clone)]
 pub struct BrowserLandUseUI {
     id: BrowserLandUseUIID,
+    architecture_rules: CHashMap<Name, ArchitectureRule>
 }
 
 impl BrowserLandUseUI {
     pub fn spawn(id: BrowserLandUseUIID, world: &mut World) -> BrowserLandUseUI {
         {
-            ::land_use::buildings::BuildingID::global_broadcast(world)
+            BuildingID::global_broadcast(world)
                 .get_render_info(id.into(), world);
         }
 
-        BrowserLandUseUI { id }
+        let ui = BrowserLandUseUI { id, architecture_rules: CHashMap::new() };
+        ui.get_initial_config(world);
+        ui
+    }
+}
+
+impl ConfigUser<ArchitectureRule> for BrowserLandUseUI {
+    fn local_cache(&mut self) -> &mut CHashMap<Name, ArchitectureRule> {
+        &mut self.architecture_rules
     }
 }
 
@@ -37,14 +53,13 @@ use land_use::ui::{LandUseUI, LandUseUIID};
 impl LandUseUI for BrowserLandUseUI {
     fn on_building_constructed(
         &mut self,
-        id: ::land_use::buildings::BuildingID,
-        lot: &::land_use::zone_planning::Lot,
-        households: &CVec<::economy::households::HouseholdID>,
-        style: ::land_use::buildings::BuildingStyle,
+        id: BuildingID,
+        lot: &Lot,
+        households: &CVec<HouseholdID>,
+        style: BuildingStyle,
         world: &mut World,
     ) {
-        let building_mesh =
-            ::land_use::buildings::architecture::build_building(lot, style, households, world);
+        let building_mesh = build_building(lot, style, &self.architecture_rules, households, world);
 
         let material_updates: ::stdweb::Object = building_mesh
             .meshes
@@ -100,7 +115,7 @@ impl LandUseUI for BrowserLandUseUI {
 
     fn on_building_destructed(
         &mut self,
-        id: ::land_use::buildings::BuildingID,
+        id: BuildingID,
         _world: &mut World,
     ) {
         let unset_op: ::stdweb::Object = Some(("$unset", vec![id.as_raw_string()]))
@@ -108,13 +123,13 @@ impl LandUseUI for BrowserLandUseUI {
             .collect::<HashMap<_, _>>()
             .into();
         let material_unsets: ::stdweb::Object =
-            ::land_use::buildings::architecture::materials_and_props::ALL_MATERIALS
+            ALL_MATERIALS
                 .iter()
                 .map(|material| (material.to_string(), unset_op.clone()))
                 .collect::<HashMap<_, _>>()
                 .into();
         let prop_unsets: ::stdweb::Object =
-            ::land_use::buildings::architecture::materials_and_props::ALL_PROP_TYPES
+            ALL_PROP_TYPES
                 .iter()
                 .map(|prop_type| (prop_type.to_string(), unset_op.clone()))
                 .collect::<HashMap<_, _>>()
@@ -132,9 +147,9 @@ impl LandUseUI for BrowserLandUseUI {
 
     fn on_building_ui_info(
         &mut self,
-        _id: ::land_use::buildings::BuildingID,
-        style: ::land_use::buildings::BuildingStyle,
-        households: &CVec<::economy::households::HouseholdID>,
+        _id: BuildingID,
+        style: BuildingStyle,
+        households: &CVec<HouseholdID>,
         _world: &mut World,
     ) {
         js! {

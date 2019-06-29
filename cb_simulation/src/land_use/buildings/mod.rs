@@ -321,6 +321,11 @@ pub fn setup(system: &mut ActorSystem) {
     system.register::<Building>();
     kay_auto::auto_setup(system);
     rendering::auto_setup(system);
+    architecture::setup(system);
+}
+
+pub fn spawn(world: &mut World) {
+    architecture::spawn(world);
 }
 
 mod kay_auto;

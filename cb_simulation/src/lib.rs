@@ -50,6 +50,7 @@ pub fn spawn_for_server(world: &mut kay::World) -> cb_time::actors::TimeID {
     let time = cb_time::actors::spawn(world);
     let plan_manager = cb_planning::plan_manager::spawn::<planning::CBPlanningLogic>(world);
     cb_planning::construction::spawn::<planning::CBPrototypeKind>(world);
+    land_use::spawn(world);
     transport::spawn(world, time);
     economy::spawn(world, time, plan_manager);
     environment::vegetation::spawn(world, plan_manager);

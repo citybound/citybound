@@ -1,4 +1,5 @@
 use compact::{CVec, COption, Compact};
+use cb_util::config_manager::Config;
 use arrayvec::ArrayString;
 use rand::distributions::uniform::SampleUniform;
 use land_use::zone_planning::Lot;
@@ -64,6 +65,8 @@ pub struct ArchitectureRule {
     pub corpi: CVec<CorpusRule>,
     pub lot: LotRule,
 }
+
+impl Config for ArchitectureRule {}
 
 impl ArchitectureRule {
     pub fn collect_geometry(

@@ -66,6 +66,12 @@ impl BrowserLandUseUIID {
 #[derive(Copy, Clone)] #[allow(non_camel_case_types)]
 struct MSG_BrowserLandUseUI_spawn(pub BrowserLandUseUIID, );
 
+impl Into<ConfigUserID<ArchitectureRule>> for BrowserLandUseUIID {
+    fn into(self) -> ConfigUserID<ArchitectureRule> {
+        ConfigUserID::from_raw(self.as_raw())
+    }
+}
+
 impl Into<LandUseUIID> for BrowserLandUseUIID {
     fn into(self) -> LandUseUIID {
         LandUseUIID::from_raw(self.as_raw())
@@ -76,6 +82,7 @@ impl Into<LandUseUIID> for BrowserLandUseUIID {
 #[allow(unused_mut)]
 pub fn auto_setup(system: &mut ActorSystem) {
     
+    ConfigUserID::<ArchitectureRule>::register_implementor::<BrowserLandUseUI>(system);
     LandUseUIID::register_implementor::<BrowserLandUseUI>(system);
     system.add_spawner::<BrowserLandUseUI, _, _>(
         |&MSG_BrowserLandUseUI_spawn(id, ), world| {
