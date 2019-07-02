@@ -8,7 +8,7 @@ use land_use::zone_planning::{Lot, BuildingIntent};
 use land_use::buildings::BuildingStyle;
 use land_use::buildings::architecture::ideal_lot_shape;
 use economy::immigration_and_development::DevelopmentManagerID;
-use itertools::{Itertools, MinMaxResult};
+use itertools::Itertools;
 
 use cb_planning::construction::{Constructable, ConstructableID};
 use cb_planning::{Prototype, PrototypeID};
@@ -44,25 +44,19 @@ impl Lot {
                 let depth_direction = direction;
                 let width_direction = depth_direction.orthogonal_right();
 
-                let depth = if let MinMaxResult::MinMax(front, back) = midpoints
+                let depth = midpoints
                     .iter()
                     .map(|midpoint| OrderedFloat((*midpoint - point).dot(&depth_direction)))
                     .minmax()
-                {
-                    *back - *front
-                } else {
-                    0.0
-                };
+                    .into_option()
+	                .map_or(0.0, |(front, back)| *back - *front);
 
-                let width = if let MinMaxResult::MinMax(left, right) = midpoints
+                let width = midpoints
                     .iter()
                     .map(|midpoint| OrderedFloat((*midpoint - point).dot(&width_direction)))
                     .minmax()
-                {
-                    *right - *left
-                } else {
-                    0.0
-                };
+                    .into_option()
+                    .map_or(0.0, |(left, right)| *right - *left);
 
                 (point, direction, width, depth)
             })
