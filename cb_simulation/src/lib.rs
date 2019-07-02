@@ -10,7 +10,7 @@ extern crate roaring;
 extern crate uuid;
 extern crate arrayvec;
 extern crate cb_util;
-extern crate cb_time;
+pub extern crate cb_time;
 extern crate cb_planning;
 
 pub extern crate compact;

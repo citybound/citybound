@@ -20,8 +20,8 @@ impl ProjectID {
     }
 }
 
-// #[derive(Compact, Clone)]
-#[derive(Clone)]
+#[derive(Compact, Clone)]
+//#[derive(Clone)]
 pub struct PlanManager<Logic: PlanningLogic + 'static> {
     id: PlanManagerID<Logic>,
     master_plan: PlanHistory<Logic::GestureIntent>,
@@ -31,7 +31,7 @@ pub struct PlanManager<Logic: PlanningLogic + 'static> {
     ui_state: PlanManagerUIState<Logic>,
 }
 
-mod compact_workaround;
+//mod compact_workaround;
 
 impl<Logic: PlanningLogic + 'static> PlanManager<Logic> {
     pub fn spawn(id: PlanManagerID<Logic>, _: &mut World) -> PlanManager<Logic> {

@@ -44,8 +44,8 @@ impl<PK: PrototypeKind> Prototype<PK> {
     }
 }
 
-// #[derive(Compact, Clone)]
-#[derive(Clone)]
+#[derive(Compact, Clone)]
+//#[derive(Clone)]
 pub struct Construction<PK: PrototypeKind> {
     id: ConstructionID<PK>,
     constructed: CHashMap<PrototypeID, CVec<ConstructableID<PK>>>,
@@ -54,7 +54,7 @@ pub struct Construction<PK: PrototypeKind> {
     new_prototypes: CHashMap<PrototypeID, Prototype<PK>>,
 }
 
-mod compact_workaround;
+//mod compact_workaround;
 
 impl<PK: PrototypeKind> Construction<PK> {
     pub fn spawn(id: ConstructionID<PK>, _world: &mut World) -> Construction<PK> {

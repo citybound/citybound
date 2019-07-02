@@ -50,6 +50,10 @@ impl<C: Config> TypedID for ConfigUserID<C> {
 impl<C: Config, Act: Actor + ConfigUser<C>> TraitIDFrom<Act> for ConfigUserID<C> {}
 
 impl<C: Config> ConfigUserID<C> {
+    pub fn apply_config_change(self, name: Name, maybe_value: COption < C >, world: &mut World) {
+        world.send(self.as_raw(), MSG_ConfigUser_apply_config_change::<C>(name, maybe_value));
+    }
+    
     pub fn on_config_change(self, name: Name, maybe_value: COption < C >, world: &mut World) {
         world.send(self.as_raw(), MSG_ConfigUser_on_config_change::<C>(name, maybe_value));
     }
@@ -60,12 +64,19 @@ impl<C: Config> ConfigUserID<C> {
 
     pub fn register_trait(system: &mut ActorSystem) {
         system.register_trait::<ConfigUserRepresentative<C>>();
+        system.register_trait_message::<MSG_ConfigUser_apply_config_change<C>>();
         system.register_trait_message::<MSG_ConfigUser_on_config_change<C>>();
         system.register_trait_message::<MSG_ConfigUser_get_initial_config>();
     }
 
     pub fn register_implementor<Act: Actor + ConfigUser<C>>(system: &mut ActorSystem) {
         system.register_implementor::<Act, ConfigUserRepresentative<C>>();
+        system.add_handler::<Act, _, _>(
+            |&MSG_ConfigUser_apply_config_change::<C>(name, ref maybe_value), instance, world| {
+                instance.apply_config_change(name, maybe_value, world); Fate::Live
+            }, false
+        );
+        
         system.add_handler::<Act, _, _>(
             |&MSG_ConfigUser_on_config_change::<C>(name, ref maybe_value), instance, world| {
                 instance.on_config_change(name, maybe_value, world); Fate::Live
@@ -80,6 +91,8 @@ impl<C: Config> ConfigUserID<C> {
     }
 }
 
+#[derive(Compact, Clone)] #[allow(non_camel_case_types)]
+struct MSG_ConfigUser_apply_config_change<C: Config>(pub Name, pub COption < C >);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_ConfigUser_on_config_change<C: Config>(pub Name, pub COption < C >);
 #[derive(Copy, Clone)] #[allow(non_camel_case_types)]

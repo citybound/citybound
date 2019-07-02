@@ -1,4 +1,3 @@
-extern crate open;
 extern crate backtrace;
 extern crate clap;
 
@@ -40,12 +39,18 @@ pub struct NetworkConfig {
     pub skip_ratio: usize,
 }
 
-pub fn match_cmd_line_args(version: &str) -> NetworkConfig {
+pub fn match_cmd_line_args(version: &str) -> (NetworkConfig, String) {
     use self::clap::{Arg, App};
     let matches = App::new("citybound")
         .version(version.trim())
         .author("ae play (Anselm Eickhoff)")
         .about("The city is us.")
+        .arg(
+            Arg::with_name("CITY_FOLDER")
+                .help("Sets the folder containing the city savegame")
+                .default_value("./city")
+                .index(1),
+        )
         .arg(
             Arg::with_name("mode")
                 .long("mode")
@@ -104,14 +109,17 @@ pub fn match_cmd_line_args(version: &str) -> NetworkConfig {
         )
         .get_matches();
 
-    NetworkConfig {
-        serve_host_port: matches.value_of("bind").unwrap().to_owned(),
-        bind_sim: matches.value_of("bind-sim").unwrap().to_owned(),
-        mode: matches.value_of("mode").unwrap().to_owned(),
-        batch_msg_bytes: matches.value_of("batch-msg-b").unwrap().parse().unwrap(),
-        ok_turn_dist: matches.value_of("ok-turn-dist").unwrap().parse().unwrap(),
-        skip_ratio: matches.value_of("skip-ratio").unwrap().parse().unwrap(),
-    }
+    (
+        NetworkConfig {
+            serve_host_port: matches.value_of("bind").unwrap().to_owned(),
+            bind_sim: matches.value_of("bind-sim").unwrap().to_owned(),
+            mode: matches.value_of("mode").unwrap().to_owned(),
+            batch_msg_bytes: matches.value_of("batch-msg-b").unwrap().parse().unwrap(),
+            ok_turn_dist: matches.value_of("ok-turn-dist").unwrap().parse().unwrap(),
+            skip_ratio: matches.value_of("skip-ratio").unwrap().parse().unwrap(),
+        },
+        matches.value_of("CITY_FOLDER").unwrap().to_owned(),
+    )
 }
 
 pub fn ensure_crossplatform_proper_thread<F: Fn() -> () + Send + 'static>(callback: F) {
@@ -170,7 +178,7 @@ pub fn set_error_hook() {
         error_file_path.push("cb_last_error.txt");
 
         println!(
-            "{}\n\n{}\n\nALSO SEE {:?} (AUTO-OPENED)",
+            "{}\n\n{}\n\nERROR ALSO SAVED AT {:?}\nYOUR SAVEGAME IS MOST LIKELY CORRUPTED :(",
             title, body, error_file_path
         );
 
@@ -183,8 +191,6 @@ pub fn set_error_hook() {
                     .expect("Error writing error file, lol");
             };
         }
-
-        open::that(error_file_path).expect("Couldn't open error file");
     });
 
     set_hook(unsafe { ::std::mem::transmute(callback) });

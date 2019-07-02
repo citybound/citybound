@@ -46,12 +46,15 @@ impl<C: Config> ConfigManager<C> {
 
 pub trait ConfigUser<C: Config>: Actor {
     fn local_cache(&mut self) -> &mut CHashMap<Name, C>;
-    fn on_config_change(&mut self, name: Name, maybe_value: &COption<C>, _: &mut World) {
+    fn apply_config_change(&mut self, name: Name, maybe_value: &COption<C>, _: &mut World) {
         if let COption(Some(ref value)) = *maybe_value {
             self.local_cache().insert(name, value.clone());
         } else {
             self.local_cache().remove(name);
         }
+    }
+    fn on_config_change(&mut self, name: Name, maybe_value: &COption<C>, world: &mut World) {
+        self.apply_config_change(name, maybe_value, world);
     }
     fn get_initial_config(&self, world: &mut World) {
         ConfigManagerID::<C>::global_first(world).request_current(self.id_as(), world);

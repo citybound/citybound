@@ -169,7 +169,7 @@ pub fn build_building(
     architecture_rules: &CHashMap<Name, ArchitectureRule>,
     household_ids: &[::economy::households::HouseholdID],
     world: &mut World,
-) -> BuildingGeometry {
+) -> Result<BuildingGeometry, String> {
     // TODO keep original building if lot changes
     let mut rng = seed(lot.original_lot_id);
 
@@ -178,14 +178,13 @@ pub fn build_building(
     let (main_footprint, entrance_footprint) =
         generate_house_footprint(lot, base_width, base_depth, 0.0, &mut rng);
 
-    match building_style {
+    Ok(match building_style {
         BuildingStyle::FamilyHouse => {
             let mut collector = BuildingGeometryCollector::new();
             architecture_rules
                 .get(Name::from("family_house").unwrap())
-                .expect("Expected family_house rule to exist")
-                .collect_geometry(&mut collector, lot)
-                .expect("Expecting things to work in general");
+                .ok_or("Expected family_house rule to exist")?
+                .collect_geometry(&mut collector, lot)?;
             collector.into_geometry()
         }
         BuildingStyle::GroceryShop => {
@@ -425,7 +424,7 @@ pub fn build_building(
             .collect(),
             props: HashMap::new(),
         },
-    }
+    })
 }
 
 pub struct Footprint {

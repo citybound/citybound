@@ -11,7 +11,7 @@ serde_derive = "1.0"
 uuid = { version = "0.7.1", features = ["v4", "serde"] }
 compact = { version = "0.2.13", features = ["serde-serialization"] }
 compact_macros = "0.1.0"
-kay = {version = "0.4.1", default-features = false, features = ["serde-serialization"] }
+kay = {version = "0.4.9", default-features = false, features = ["serde-serialization"] }
 
 [build-dependencies]
 kay_codegen = {version = "0.3.10", features = ["serde-serialization"]}
