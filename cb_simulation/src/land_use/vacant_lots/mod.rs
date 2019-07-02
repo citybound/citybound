@@ -49,7 +49,7 @@ impl Lot {
                     .map(|midpoint| OrderedFloat((*midpoint - point).dot(&depth_direction)))
                     .minmax()
                     .into_option()
-	                .map_or(0.0, |(front, back)| *back - *front);
+                    .map_or(0.0, |(front, back)| *back - *front);
 
                 let width = midpoints
                     .iter()
