@@ -178,7 +178,7 @@ pub fn set_error_hook() {
         error_file_path.push("cb_last_error.txt");
 
         println!(
-            "{}\n\n{}\n\nERROR ALSO SAVED AT {:?}\nYOUR SAVEGAME IS MOST LIKELY CORRUPTED :(",
+            "{}\n\n{}\n\nERROR ALSO SAVED AT {:?}\nTHIS CRASH PROBABLY CORRUPTED YOUR SAVEGAME :(",
             title, body, error_file_path
         );
 

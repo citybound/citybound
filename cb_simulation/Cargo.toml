@@ -18,7 +18,7 @@ serde_derive = "1.0"
 uuid = { version = "0.7.1", features = ["v4", "serde"] }
 compact = { version = "0.2.13", features = ["serde-serialization"] }
 compact_macros = "0.1.0"
-kay = {version = "0.4.9", default-features = false, features = ["serde-serialization"] }
+kay = {version = "0.4.10", default-features = false, features = ["serde-serialization"] }
 descartes = {version = "0.1.19", features = ["compact_containers", "serde-serialization"]}
 michelangelo = {version = "0.2.5"}
 arrayvec = {version = "0.4.10", features = ["serde-1"]}
