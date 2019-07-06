@@ -126,7 +126,11 @@ export function bindInputs(state, setState) {
     }, { passive: false })
 
     // prevent normal scrolling/navigaiton behaviour
-    document.addEventListener("wheel", e => e.preventDefault(), { passive: false });
+    document.addEventListener("wheel", e => {
+        if (e.target === document) {
+            e.preventDefault()
+        }
+    }, { passive: false });
 }
 
 export function onWheel(e, state, setState) {

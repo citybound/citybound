@@ -2,6 +2,19 @@ import React from 'react';
 import { vec3, vec4, mat4 } from 'gl-matrix';
 
 export default class Stage extends React.Component {
+    constructor(props) {
+        super(props);
+        this.divRef = React.createRef();
+    }
+
+    componentDidMount() {
+        this.divRef.current.addEventListener("wheel", this.props.onWheel, { passive: false });
+    }
+
+    componentWillUnmount() {
+        this.divRef.current.removeEventListener("wheel", this.props.onWheel, { passive: false });
+    }
+
     render() {
         const onMouseDown = e => {
             const { eye, target, verticalFov, width, height } = this.props;
@@ -96,7 +109,7 @@ export default class Stage extends React.Component {
                     ? (this.activeInteractable.cursorActive || "pointer")
                     : (this.hoveredInteractable ? (this.hoveredInteractable.cursorHover || "pointer") : "default")
             }),
-            onWheel: this.props.onWheel,
+            ref: this.divRef,
             onMouseMove,
             onMouseDown,
             onMouseUp,
