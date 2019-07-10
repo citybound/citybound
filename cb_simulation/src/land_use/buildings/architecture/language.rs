@@ -1,5 +1,5 @@
-use compact::{CVec, COption, Compact};
-use cb_util::config_manager::Config;
+use compact::{CVec, COption, Compact, CHashMap};
+use cb_util::config_manager::{Config, Name};
 use arrayvec::ArrayString;
 use rand::distributions::uniform::SampleUniform;
 use land_use::zone_planning::Lot;
@@ -60,25 +60,213 @@ impl<T: Clone + Compact> Choice<T> {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Compact)]
-pub struct ArchitectureRule {
-    pub corpi: CVec<CorpusRule>,
-    pub lot: LotRule,
+#[derive(Compact, Clone)]
+pub enum ArchitectureRule {
+    Building(BuildingRule),
+    Corpus(CorpusRule),
+    Lot(LotRule),
+    Fundament(FundamentRule),
+    Floor(FloorRule),
+    Facade(FacadeRule),
+    FacadeDecoration(FacadeDecorationRule),
+    Roof(RoofRule),
+    Paving(PavingRule),
+    LotBoundary(LotBoundaryRule),
+    LotGround(LotGroundRule),
 }
 
 impl Config for ArchitectureRule {}
 
-impl ArchitectureRule {
+#[derive(Serialize, Deserialize)]
+pub struct RuleRef<V> {
+    rule: Name,
+    _marker: ::std::marker::PhantomData<V>,
+}
+
+impl<V> Copy for RuleRef<V> {}
+
+impl<V> Clone for RuleRef<V> {
+    fn clone(&self) -> RuleRef<V> {
+        *self
+    }
+}
+
+impl<V> RuleRef<V> {
+    pub fn of(name: &str) -> RuleRef<V> {
+        RuleRef {
+            rule: Name::from(name).unwrap(),
+            _marker: ::std::marker::PhantomData,
+        }
+    }
+}
+
+impl RuleRef<BuildingRule> {
+    pub fn resolve<'a>(
+        &self,
+        all_rules: &'a CHashMap<Name, ArchitectureRule>,
+    ) -> Result<&'a BuildingRule, String> {
+        if let Some(ArchitectureRule::Building(ref r)) = all_rules.get(self.rule) {
+            Ok(r)
+        } else {
+            Err(format!("Couldn't find BuildingRule {}", self.rule))
+        }
+    }
+}
+
+impl RuleRef<CorpusRule> {
+    pub fn resolve<'a>(
+        &self,
+        all_rules: &'a CHashMap<Name, ArchitectureRule>,
+    ) -> Result<&'a CorpusRule, String> {
+        if let Some(ArchitectureRule::Corpus(ref r)) = all_rules.get(self.rule) {
+            Ok(r)
+        } else {
+            Err(format!("Couldn't find CorpusRule {}", self.rule))
+        }
+    }
+}
+
+impl RuleRef<LotRule> {
+    pub fn resolve<'a>(
+        &self,
+        all_rules: &'a CHashMap<Name, ArchitectureRule>,
+    ) -> Result<&'a LotRule, String> {
+        if let Some(ArchitectureRule::Lot(ref r)) = all_rules.get(self.rule) {
+            Ok(r)
+        } else {
+            Err(format!("Couldn't find LotRule {}", self.rule))
+        }
+    }
+}
+
+impl RuleRef<FundamentRule> {
+    pub fn resolve<'a>(
+        &self,
+        all_rules: &'a CHashMap<Name, ArchitectureRule>,
+    ) -> Result<&'a FundamentRule, String> {
+        if let Some(ArchitectureRule::Fundament(ref r)) = all_rules.get(self.rule) {
+            Ok(r)
+        } else {
+            Err(format!("Couldn't find FundamentRule {}", self.rule))
+        }
+    }
+}
+
+impl RuleRef<FloorRule> {
+    pub fn resolve<'a>(
+        &self,
+        all_rules: &'a CHashMap<Name, ArchitectureRule>,
+    ) -> Result<&'a FloorRule, String> {
+        if let Some(ArchitectureRule::Floor(ref r)) = all_rules.get(self.rule) {
+            Ok(r)
+        } else {
+            Err(format!("Couldn't find FloorRule {}", self.rule))
+        }
+    }
+}
+
+impl RuleRef<FacadeRule> {
+    pub fn resolve<'a>(
+        &self,
+        all_rules: &'a CHashMap<Name, ArchitectureRule>,
+    ) -> Result<&'a FacadeRule, String> {
+        if let Some(ArchitectureRule::Facade(ref r)) = all_rules.get(self.rule) {
+            Ok(r)
+        } else {
+            Err(format!("Couldn't find FacadeRule {}", self.rule))
+        }
+    }
+}
+
+impl RuleRef<FacadeDecorationRule> {
+    pub fn resolve<'a>(
+        &self,
+        all_rules: &'a CHashMap<Name, ArchitectureRule>,
+    ) -> Result<&'a FacadeDecorationRule, String> {
+        if let Some(ArchitectureRule::FacadeDecoration(ref r)) = all_rules.get(self.rule) {
+            Ok(r)
+        } else {
+            Err(format!("Couldn't find FacadeDecorationRule {}", self.rule))
+        }
+    }
+}
+
+impl RuleRef<RoofRule> {
+    pub fn resolve<'a>(
+        &self,
+        all_rules: &'a CHashMap<Name, ArchitectureRule>,
+    ) -> Result<&'a RoofRule, String> {
+        if let Some(ArchitectureRule::Roof(ref r)) = all_rules.get(self.rule) {
+            Ok(r)
+        } else {
+            Err(format!("Couldn't find RoofRule {}", self.rule))
+        }
+    }
+}
+
+impl RuleRef<PavingRule> {
+    pub fn resolve<'a>(
+        &self,
+        all_rules: &'a CHashMap<Name, ArchitectureRule>,
+    ) -> Result<&'a PavingRule, String> {
+        if let Some(ArchitectureRule::Paving(ref r)) = all_rules.get(self.rule) {
+            Ok(r)
+        } else {
+            Err(format!("Couldn't find PavingRule {}", self.rule))
+        }
+    }
+}
+
+impl RuleRef<LotBoundaryRule> {
+    pub fn resolve<'a>(
+        &self,
+        all_rules: &'a CHashMap<Name, ArchitectureRule>,
+    ) -> Result<&'a LotBoundaryRule, String> {
+        if let Some(ArchitectureRule::LotBoundary(ref r)) = all_rules.get(self.rule) {
+            Ok(r)
+        } else {
+            Err(format!("Couldn't find LotBoundaryRule {}", self.rule))
+        }
+    }
+}
+
+impl RuleRef<LotGroundRule> {
+    pub fn resolve<'a>(
+        &self,
+        all_rules: &'a CHashMap<Name, ArchitectureRule>,
+    ) -> Result<&'a LotGroundRule, String> {
+        if let Some(ArchitectureRule::LotGround(ref r)) = all_rules.get(self.rule) {
+            Ok(r)
+        } else {
+            Err(format!("Couldn't find LotGroundRule {}", self.rule))
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Compact)]
+pub struct BuildingRule {
+    pub corpi: CVec<RuleRef<CorpusRule>>,
+    pub lot: RuleRef<LotRule>,
+}
+
+impl BuildingRule {
     pub fn collect_geometry(
         &self,
         collector: &mut BuildingGeometryCollector,
         lot: &Lot,
+        all_rules: &CHashMap<Name, ArchitectureRule>,
     ) -> Result<(), String> {
         let mut corpus_spines = Vec::new();
         for corpus in &self.corpi {
-            corpus_spines.push(corpus.collect_geometry(collector, lot)?)
+            corpus_spines.push(
+                corpus
+                    .resolve(all_rules)?
+                    .collect_geometry(collector, lot, all_rules)?,
+            )
         }
-        self.lot.collect_geometry(&corpus_spines, collector, lot)?;
+        self.lot
+            .resolve(all_rules)?
+            .collect_geometry(&corpus_spines, collector, lot, all_rules)?;
         Ok(())
     }
 }
@@ -93,10 +281,10 @@ pub enum CorpusSide {
 
 #[derive(Clone, Serialize, Deserialize, Compact)]
 pub struct CorpusRule {
-    pub fundament: FundamentRule,
+    pub fundament: RuleRef<FundamentRule>,
     pub n_floors: Variable<u8>,
-    pub floor_rules: CVec<Choice<FloorRule>>,
-    pub roof: RoofRule,
+    pub floor_rules: CVec<Choice<RuleRef<FloorRule>>>,
+    pub roof: RuleRef<RoofRule>,
 }
 
 impl CorpusRule {
@@ -104,13 +292,14 @@ impl CorpusRule {
         &self,
         collector: &mut BuildingGeometryCollector,
         lot: &Lot,
+        all_rules: &CHashMap<Name, ArchitectureRule>,
     ) -> Result<SkeletonSpine, String> {
-        let fundament_spine = self.fundament.evaluate(lot)?;
+        let fundament_spine = self.fundament.resolve(all_rules)?.evaluate(lot)?;
         let n_floors = self.n_floors.evaluate(lot);
         let mut current_spine = fundament_spine.clone();
 
         for f in 0..(n_floors as usize) {
-            let rule_to_use = if f == 0 {
+            let rule_choice_to_use = if f == 0 {
                 &self.floor_rules[0]
             } else if f == self.floor_rules.len() - 1 {
                 &self.floor_rules[self.floor_rules.len() - 1]
@@ -122,13 +311,15 @@ impl CorpusRule {
                 &self.floor_rules[idx]
             };
 
-            current_spine =
-                rule_to_use
-                    .evaluate(lot)
-                    .collect_geometry(current_spine, collector, lot)?;
+            current_spine = rule_choice_to_use
+                .evaluate(lot)
+                .resolve(all_rules)?
+                .collect_geometry(current_spine, collector, lot, all_rules)?;
         }
 
-        self.roof.collect_geometry(current_spine, collector, lot);
+        self.roof
+            .resolve(all_rules)?
+            .collect_geometry(current_spine, collector, lot);
 
         Ok(fundament_spine)
     }
@@ -136,9 +327,9 @@ impl CorpusRule {
 
 #[derive(Clone, Serialize, Deserialize, Compact)]
 pub struct LotRule {
-    pub boundary_rule: COption<LotBoundaryRule>,
-    pub ground_rule: COption<LotGroundRule>,
-    pub paving_rules: CVec<PavingRule>,
+    pub boundary_rule: COption<RuleRef<LotBoundaryRule>>,
+    pub ground_rule: COption<RuleRef<LotGroundRule>>,
+    pub paving_rules: CVec<RuleRef<PavingRule>>,
 }
 
 impl LotRule {
@@ -147,15 +338,22 @@ impl LotRule {
         corpus_spines: &[SkeletonSpine],
         collector: &mut BuildingGeometryCollector,
         lot: &Lot,
+        all_rules: &CHashMap<Name, ArchitectureRule>,
     ) -> Result<(), String> {
         if let COption(Some(ref boundary_rule)) = self.boundary_rule {
-            boundary_rule.collect_geometry(collector, lot)?;
+            boundary_rule
+                .resolve(all_rules)?
+                .collect_geometry(collector, lot)?;
         }
         if let COption(Some(ref ground_rule)) = self.ground_rule {
-            ground_rule.collect_geometry(collector, lot)?;
+            ground_rule
+                .resolve(all_rules)?
+                .collect_geometry(collector, lot)?;
         }
         for paving_rule in &self.paving_rules {
-            paving_rule.collect_geometry(corpus_spines, collector, lot)?;
+            paving_rule
+                .resolve(all_rules)?
+                .collect_geometry(corpus_spines, collector, lot)?;
         }
         Ok(())
     }
@@ -346,31 +544,52 @@ pub struct FloorRule {
     pub height: Variable<N>,
     pub widen_by_next: Variable<N>,
     pub extend_by_next: Variable<N>,
-    pub front: FacadeRule,
-    pub back: FacadeRule,
-    pub left: FacadeRule,
-    pub right: FacadeRule,
+    pub front: RuleRef<FacadeRule>,
+    pub back: RuleRef<FacadeRule>,
+    pub left: RuleRef<FacadeRule>,
+    pub right: RuleRef<FacadeRule>,
 }
 
 impl FloorRule {
     fn collect_geometry(
-        self,
+        &self,
         base_spine: SkeletonSpine,
         collector: &mut BuildingGeometryCollector,
         lot: &Lot,
+        all_rules: &CHashMap<Name, ArchitectureRule>,
     ) -> Result<SkeletonSpine, String> {
         let (_, upper_spine) = base_spine
             .extrude(self.height.evaluate(lot), 0.0, 0.0)
             .ok_or("Couldn't extrude floor upward.")?;
 
-        self.front
-            .collect_geometry(base_spine.front, upper_spine.front.clone(), collector, lot)?;
-        self.back
-            .collect_geometry(base_spine.back, upper_spine.back.clone(), collector, lot)?;
-        self.left
-            .collect_geometry(base_spine.left, upper_spine.left.clone(), collector, lot)?;
-        self.right
-            .collect_geometry(base_spine.right, upper_spine.right.clone(), collector, lot)?;
+        self.front.resolve(all_rules)?.collect_geometry(
+            base_spine.front,
+            upper_spine.front.clone(),
+            collector,
+            lot,
+            all_rules,
+        )?;
+        self.back.resolve(all_rules)?.collect_geometry(
+            base_spine.back,
+            upper_spine.back.clone(),
+            collector,
+            lot,
+            all_rules,
+        )?;
+        self.left.resolve(all_rules)?.collect_geometry(
+            base_spine.left,
+            upper_spine.left.clone(),
+            collector,
+            lot,
+            all_rules,
+        )?;
+        self.right.resolve(all_rules)?.collect_geometry(
+            base_spine.right,
+            upper_spine.right.clone(),
+            collector,
+            lot,
+            all_rules,
+        )?;
 
         let (_, next_spine) = upper_spine
             .extrude(
@@ -385,13 +604,16 @@ impl FloorRule {
 
 #[derive(Clone, Serialize, Deserialize, Compact)]
 pub struct WeightedRule {
-    rule: FacadeRule,
+    rule: RuleRef<FacadeRule>,
     weight: Variable<N>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Compact)]
 pub enum FacadeRule {
-    Face(Choice<BuildingMaterial>, CVec<Choice<FacadeDecorationRule>>),
+    Face(
+        Choice<BuildingMaterial>,
+        CVec<Choice<RuleRef<FacadeDecorationRule>>>,
+    ),
     Subdivision(CVec<WeightedRule>),
 }
 
@@ -402,6 +624,7 @@ impl FacadeRule {
         upper_line: Rc<SculptLine>,
         collector: &mut BuildingGeometryCollector,
         lot: &Lot,
+        all_rules: &CHashMap<Name, ArchitectureRule>,
     ) -> Result<(), String> {
         match *self {
             FacadeRule::Face(ref wall_material, ref decorations) => {
@@ -410,11 +633,10 @@ impl FacadeRule {
                     SpannedSurface::new(base_line.clone(), upper_line),
                 );
                 for decoration_choice in decorations {
-                    decoration_choice.evaluate(lot).collect_geometry(
-                        base_line.clone(),
-                        collector,
-                        lot,
-                    )?;
+                    decoration_choice
+                        .evaluate(lot)
+                        .resolve(all_rules)?
+                        .collect_geometry(base_line.clone(), collector, lot)?;
                 }
                 Ok(())
             }
@@ -430,11 +652,12 @@ impl FacadeRule {
                     .zip(subdivided_upper_lines.iter())
                     .zip(rules_with_weights)
                 {
-                    rule.collect_geometry(
+                    rule.resolve(all_rules)?.collect_geometry(
                         line_seg.clone(),
                         upper_line_seg.clone(),
                         collector,
                         lot,
+                        all_rules,
                     )?;
                 }
                 Ok(())
