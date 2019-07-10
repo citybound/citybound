@@ -33,12 +33,46 @@ impl HouseholdUI for BrowserHouseholdUI {
         core: &::economy::households::HouseholdCore,
         _world: &mut World,
     ) {
+        // js! {
+        //     window.cbReactApp.boundSetState(oldState => update(oldState, {
+        //         households: {
+        //             householdInfo: {
+        //                 [@{Serde(id)}]: {"$set": {
+        //                     core: @{Serde(core)}
+        //                 }}
+        //             }
+        //         }
+        //     }));
+        // }
+
+        // TODO: horrible workaround for Compact mis-serialising the best_offer COption (probably
+        // because it's inside a CDict)
+        let decision_state_workaround = match core.decision_state {
+            ::economy::households::DecisionState::Choosing(m, i, ref rsrc, _) => {
+                ::economy::households::DecisionState::Choosing(
+                    m,
+                    i,
+                    rsrc.clone(),
+                    ::compact::CDict::new(),
+                )
+            }
+            ref other => other.clone(),
+        };
+
         js! {
             window.cbReactApp.boundSetState(oldState => update(oldState, {
                 households: {
                     householdInfo: {
                         [@{Serde(id)}]: {"$set": {
-                            core: @{Serde(core)}
+                            core: {
+                                resources: @{Serde(&core.resources)},
+                                member_resources: @{Serde(&core.member_resources)},
+                                member_tasks: @{Serde(&core.member_tasks)},
+                                decision_state: @{Serde(decision_state_workaround)},
+                                used_offers: @{Serde(&core.used_offers)},
+                                member_used_offers: @{Serde(&core.member_used_offers)},
+                                provided_offers: @{Serde(&core.provided_offers)},
+                            }
                         }}
                     }
                 }

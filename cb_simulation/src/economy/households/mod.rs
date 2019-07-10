@@ -985,14 +985,14 @@ pub enum ResultAspect {
     SetTarget(u32),
 }
 
-#[derive(Compact, Clone, Serialize)]
+#[derive(Compact, Clone, Debug, Serialize)]
 pub struct DecisionResourceEntry {
     results_counter: AsyncCounter,
     best_deal: COption<EvaluatedDeal>,
     best_deal_usefulness: f32,
 }
 
-#[derive(Compact, Clone, Serialize)]
+#[derive(Compact, Clone, Debug, Serialize)]
 pub enum DecisionState {
     None,
     Choosing(
@@ -1004,7 +1004,7 @@ pub enum DecisionState {
     WaitingForTrip(MemberIdx),
 }
 
-#[derive(Compact, Clone, Serialize)]
+#[derive(Compact, Clone, Debug, Serialize)]
 pub struct HouseholdCore {
     pub resources: Inventory,
     pub member_resources: CVec<Inventory>,

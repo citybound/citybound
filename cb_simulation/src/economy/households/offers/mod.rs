@@ -12,7 +12,7 @@ pub struct OfferID {
     pub idx: OfferIdx,
 }
 
-#[derive(Compact, Clone, Serialize)]
+#[derive(Compact, Clone, Debug, Serialize)]
 pub struct Offer {
     pub offering_member: MemberIdx,
     pub opening_hours: TimeOfDayRange,

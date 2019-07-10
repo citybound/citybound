@@ -1,4 +1,4 @@
-#[derive(Compact, Clone, Default, Serialize, Deserialize)]
+#[derive(Compact, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct AsyncCounter {
     pub count: usize,
     pub target: Option<usize>,

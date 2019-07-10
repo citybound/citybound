@@ -7,7 +7,7 @@ use transport::pathfinding::{RoughLocationID, LocationRequesterID};
 use cb_util::log::warn;
 const LOG_T: &str = "Market";
 
-#[derive(Compact, Clone, Serialize, Deserialize)]
+#[derive(Compact, Clone, Debug, Serialize, Deserialize)]
 pub struct Deal {
     pub duration: Duration,
     pub delta: Inventory,
@@ -87,7 +87,7 @@ impl Market {
     }
 }
 
-#[derive(Compact, Clone, Serialize, Deserialize)]
+#[derive(Compact, Clone, Debug, Serialize, Deserialize)]
 pub struct EvaluatedDeal {
     pub offer: OfferID,
     pub deal: Deal,

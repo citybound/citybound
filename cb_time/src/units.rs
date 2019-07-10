@@ -10,7 +10,7 @@ impl From<Duration> for Ticks {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
 pub struct Duration(pub u32);
 
 impl Duration {
@@ -141,6 +141,19 @@ impl TimeOfDay {
     }
 }
 
+impl ::std::fmt::Debug for TimeOfDay {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        ::std::fmt::Display::fmt(self, f)
+    }
+}
+
+impl ::std::fmt::Display for TimeOfDay {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        let (h, m) = self.hours_minutes();
+        write!(f, "{} : {}", h, m)
+    }
+}
+
 impl From<Instant> for TimeOfDay {
     fn from(instant: Instant) -> TimeOfDay {
         TimeOfDay {
@@ -185,7 +198,7 @@ impl<D: Into<Duration>> ::std::ops::SubAssign<D> for TimeOfDay {
     }
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct TimeOfDayRange {
     pub start: TimeOfDay,
     pub end: TimeOfDay,

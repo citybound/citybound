@@ -17,7 +17,7 @@ pub enum TaskState {
     IdleAt(RoughLocationID),
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct Task {
     pub goal: Option<(Resource, OfferID)>,
     pub duration: Duration,
