@@ -69,7 +69,7 @@ pub fn start() {
         u32::try_from(network_settings.remove("batchMessageBytes").unwrap()).unwrap() as usize,
         u32::try_from(network_settings.remove("acceptableTurnDistance").unwrap()).unwrap() as usize,
         u32::try_from(network_settings.remove("skipTurnsPerTurnAhead").unwrap()).unwrap() as usize,
-    ));
+    ), kay::Tuning::default());
 
     setup_common(&mut system);
     debug::setup(&mut system);

@@ -249,7 +249,7 @@ impl Temporal for Lane {
     fn tick(&mut self, dt: f32, current_instant: Instant, world: &mut World) {
         let dt = dt / MICROTRAFFIC_UNREALISTIC_SLOWDOWN;
 
-        self.construction.progress += dt * 400.0;
+        // self.construction.progress += dt * 400.0;
 
         let do_traffic = current_instant.ticks() % TRAFFIC_LOGIC_THROTTLING
             == self.id.as_raw().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
@@ -532,7 +532,7 @@ impl Temporal for SwitchLane {
     fn tick(&mut self, dt: f32, current_instant: Instant, world: &mut World) {
         let dt = dt / MICROTRAFFIC_UNREALISTIC_SLOWDOWN;
 
-        self.construction.progress += dt * 400.0;
+        // self.construction.progress += dt * 400.0;
 
         let do_traffic = current_instant.ticks() % TRAFFIC_LOGIC_THROTTLING
             == self.id.as_raw().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;

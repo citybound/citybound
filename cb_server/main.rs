@@ -57,6 +57,7 @@ fn main() {
                 network_config.skip_ratio,
             ),
             &city_folder,
+            cb_simulation::kay::Tuning::default()
         ));
         init::set_error_hook();
 

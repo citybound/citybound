@@ -6,6 +6,7 @@ export const initialState = {
     show: false,
     planGridSettings: {
         n: 10,
+        nLanes: 2,
         spacing: 200
     },
     spawnCarsSettings: {
@@ -62,6 +63,13 @@ export function Windows(props) {
                                 debug: { planGridSettings: { n: { $set: n } } }
                             }))}
                             min={0} />
+                        Lanes per side
+                    <InputNumber
+                            value={state.debug.planGridSettings.nLanes}
+                            onChange={(n) => setState(oldState => update(oldState, {
+                                debug: { planGridSettings: { nLanes: { $set: n } } }
+                            }))}
+                            min={0} />
                         Spacing
                     <InputNumber
                             value={state.debug.planGridSettings.spacing}
@@ -75,6 +83,7 @@ export function Windows(props) {
                             onClick={() => cbRustBrowser.plan_grid(
                                 state.planning.currentProject,
                                 state.debug.planGridSettings.n,
+                                state.debug.planGridSettings.nLanes,
                                 state.debug.planGridSettings.spacing
                             )
                             }>Plan grid</Button>

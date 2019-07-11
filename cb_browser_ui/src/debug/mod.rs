@@ -9,7 +9,7 @@ use cb_planning::plan_manager::ProjectID;
 use planning::{CBPlanManagerID, CBGestureIntent};
 
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
-pub fn plan_grid(project_id: Serde<ProjectID>, n: Serde<isize>, spacing: Serde<f32>) {
+pub fn plan_grid(project_id: Serde<ProjectID>, n: Serde<isize>, n_lanes: Serde<u8>, spacing: Serde<f32>) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
 
@@ -25,7 +25,7 @@ pub fn plan_grid(project_id: Serde<ProjectID>, n: Serde<isize>, spacing: Serde<f
         plan_manager.start_new_gesture(
             project_id.0,
             id,
-            CBGestureIntent::Road(RoadIntent::new(3, 3)),
+            CBGestureIntent::Road(RoadIntent::new(n_lanes.0, n_lanes.0)),
             p1,
             world,
         );
@@ -39,7 +39,7 @@ pub fn plan_grid(project_id: Serde<ProjectID>, n: Serde<isize>, spacing: Serde<f
         plan_manager.start_new_gesture(
             project_id.0,
             id,
-            CBGestureIntent::Road(RoadIntent::new(3, 3)),
+            CBGestureIntent::Road(RoadIntent::new(n_lanes.0, n_lanes.0)),
             p1,
             world,
         );
