@@ -1,4 +1,4 @@
-name: Rust
+name: Build Citybound
 
 on:
   push:
@@ -15,6 +15,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+    - name: Install Rustup
+      run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+      if: contains(matrix.os, 'macOS')
     - name: Ensure tooling installed
       run: npm run ensure-tooling
     - name: Build browser client
