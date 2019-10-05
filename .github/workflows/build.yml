@@ -18,6 +18,9 @@ jobs:
     - name: Install Rustup
       run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none
       if: contains(matrix.os, 'macOS')
+    - name: Add Rustup to PATH
+      run: source $HOME/.cargo/env
+      if: contains(matrix.os, 'macOS')
     - name: Ensure tooling installed
       run: npm run ensure-tooling
     - name: Build browser client
