@@ -1,0 +1,23 @@
+name: Rust
+
+on:
+  push:
+    branches: 
+      - master
+
+jobs:
+  build:
+    name: Build release for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Ensure tooling installed
+      run: npm run ensure-tooling
+    - name: Build browser client
+      run: npm run build-browser
+    - name: Build server and create bundle
+      run: npm run build-server-bundle
