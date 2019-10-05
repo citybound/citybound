@@ -18,7 +18,8 @@ jobs:
     - name: Install Rustup
       run: |
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none
-        source $HOME/.cargo/env
+        echo "export PATH=~/.cargo/bin:$PATH" >> ~/.bashrc
+        source ~/.bashrc
         rustup --version
       if: contains(matrix.os, 'macOS')
     - name: Ensure tooling installed
