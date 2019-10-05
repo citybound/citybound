@@ -19,6 +19,7 @@ jobs:
       run: |
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none
         echo "export PATH=$PATH:$HOME/.cargo/bin" >> ~/.bashrc
+        cat ~/.bashrc
         source ~/.bashrc
         rustup --version
       if: contains(matrix.os, 'macOS')
