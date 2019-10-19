@@ -118,7 +118,8 @@ export default class Stage extends React.Component {
             onPointerUp: onMouseUp,
             onTouchStart: e => onMouseDown(e.changedTouches[0]),
             onTouchMove: e => onMouseMove(e.changedTouches[0]),
-            onTouchEnd: e => onMouseUp(e.changedTouches[0])
+            onTouchEnd: e => onMouseUp(e.changedTouches[0]),
+            onContextMenu: e => { e.preventDefault(); return false }
         });
     }
 
