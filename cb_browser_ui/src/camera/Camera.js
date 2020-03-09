@@ -56,8 +56,11 @@ export function bindInputs(state, setState) {
 
     Mousetrap.bind(state.settings.camera.rotateKey.key, inputActions["startRotateCamera"], 'keydown');
     Mousetrap.bind(state.settings.camera.rotateKey.key, inputActions["stopRotateCamera"], 'keyup');
+    window.addEventListener("blur", inputActions["stopRotateCamera"]);
+    
     Mousetrap.bind(state.settings.camera.mousePanKey.key, inputActions["startPanCamera"], 'keydown');
     Mousetrap.bind(state.settings.camera.mousePanKey.key, inputActions["stopPanCamera"], 'keyup');
+    window.addEventListener("blur", inputActions["stopPanCamera"]);
 
     Mousetrap.bind(state.settings.camera.keyboardPanKeyForward.key, inputActions["keyboardPanCamera"]({ y: { $set: 1 } }), 'keydown');
     Mousetrap.bind(state.settings.camera.keyboardPanKeyForward.key, inputActions["keyboardPanCamera"]({ y: { $set: 0 } }), 'keyup');
@@ -70,6 +73,8 @@ export function bindInputs(state, setState) {
 
     Mousetrap.bind(state.settings.camera.keyboardPanKeyLeft.key, inputActions["keyboardPanCamera"]({ x: { $set: -1 } }), 'keydown');
     Mousetrap.bind(state.settings.camera.keyboardPanKeyLeft.key, inputActions["keyboardPanCamera"]({ x: { $set: 0 } }), 'keyup');
+
+    window.addEventListener("blur", inputActions["keyboardPanCamera"]({ x: { $set: 0 }, y: { $set: 0 } }));
 
     document.addEventListener("gesturestart", e => {
         console.log("start")
