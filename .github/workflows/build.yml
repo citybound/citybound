@@ -15,12 +15,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
-    - name: Install Rustup
-      run: |
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none
-        echo 'export PATH=$HOME/.cargo/bin:$PATH' >> ~/.bashrc
-        tail -n 1 ~/.bashrc
-      if: contains(matrix.os, 'macOS')
     - name: Ensure tooling installed
       run: npm run ensure-tooling
     - name: Build browser client
