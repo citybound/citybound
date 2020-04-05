@@ -20,13 +20,9 @@ pub fn print_start_message(version: &str, network_config: &NetworkConfig) {
     println!("  {: ^41}  ", "This is the simulation server.");
     println!("  {: ^41}  ", "To connect and start playing, please open");
     println!("  {: ^41}  ", "this address in Chrome/Firefox/Safari:");
-    println!(
-        "╭───────────────────────────────────────────╮"
-    );
+    println!("╭───────────────────────────────────────────╮");
     println!("│ {: ^41} │", format!("http://{}", my_host));
-    println!(
-        "╰───────────────────────────────────────────╯"
-    );
+    println!("╰───────────────────────────────────────────╯");
 }
 
 #[derive(Clone)]
@@ -86,7 +82,7 @@ pub fn match_cmd_line_args(version: &str) -> (NetworkConfig, String) {
             Arg::with_name("batch-msg-b")
                 .long("batch-msg-bytes")
                 .value_name("n-bytes")
-                .default_value("5000")
+                .default_value("500000")
                 .help("How many bytes of simulation messages to batch"),
         )
         .arg(
@@ -144,7 +140,7 @@ use std::fs::File;
 use std::io::Write;
 
 pub fn set_error_hook() {
-    let callback: Box<FnMut(&PanicInfo)> = Box::new(move |panic_info| {
+    let callback: Box<dyn FnMut(&PanicInfo)> = Box::new(move |panic_info| {
         let title = "SIMULATION BROKE :(";
 
         let message = match panic_info.payload().downcast_ref::<String>() {

@@ -5,8 +5,9 @@ use land_use::zone_planning::{ZoneIntent, BuildingIntent, LotPrototype};
 use environment::vegetation::{PlantIntent, PlantPrototype};
 use cb_planning::{PlanningLogic, PrototypeID, PlanningStepFn};
 use cb_planning::plan_manager::{PlanManager, PlanManagerID};
-use cb_planning::construction::{Construction, ConstructionID, PrototypeKind, GestureIntent,
-ConstructableID};
+use cb_planning::construction::{
+    Construction, ConstructionID, PrototypeKind, GestureIntent, ConstructableID,
+};
 
 #[derive(Copy, Clone)]
 pub struct CBPlanningLogic {}

@@ -1,7 +1,9 @@
 use kay::{World, Fate, ActorSystem};
 use compact::CVec;
-use descartes::{N, P2, V2, Area, WithUniqueOrthogonal, ClosedLinePath, LinePath,
-AreaError, AreaEmbedding, AreaFilter};
+use descartes::{
+    N, P2, V2, Area, WithUniqueOrthogonal, ClosedLinePath, LinePath, AreaError, AreaEmbedding,
+    AreaFilter,
+};
 use ordered_float::OrderedFloat;
 
 use land_use::zone_planning::{Lot, BuildingIntent};
@@ -307,9 +309,9 @@ impl VacantLot {
     ) {
         if self
             .lot
-            .land_uses
+            .zone_configs
             .iter()
-            .any(|land_use| building_style.can_appear_in(*land_use))
+            .any(|intent| building_style.can_appear_in(intent.land_use))
         {
             debug(LOG_T, "Trying suggest", self.id, world);
             match self.lot.split_for(

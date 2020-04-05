@@ -11,7 +11,7 @@ serde_derive = "1.0"
 uuid = { version = "0.7.1", features = ["v4", "serde"] }
 compact = { version = "0.2.13", features = ["serde-serialization"] }
 compact_macros = "0.1.0"
-kay = {version = "0.5.0", default-features = false, features = ["serde-serialization"] }
+kay = {version = "0.5.0", path="../../rust-libs/kay", default-features = false, features = ["serde-serialization"] }
 descartes = {version = "0.1.19", features = ["compact_containers", "serde-serialization"]}
 cb_util = {path = "../cb_util"}
 cb_time = {path = "../cb_time"}

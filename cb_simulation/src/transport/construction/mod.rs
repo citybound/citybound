@@ -1,7 +1,8 @@
 use compact::CVec;
 use kay::{ActorSystem, World, Fate, Actor, TypedID};
-use descartes::{N, P2, Band, LinePath, ClosedLinePath, Segment,
-RoughEq, Intersect, WithUniqueOrthogonal};
+use descartes::{
+    N, P2, Band, LinePath, ClosedLinePath, Segment, RoughEq, Intersect, WithUniqueOrthogonal,
+};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
@@ -12,14 +13,14 @@ use super::microtraffic::LaneLikeID;
 use cb_planning::Prototype;
 use cb_planning::construction::{Constructable, ConstructableID};
 use planning::{CBConstructionID, CBPrototypeKind};
-use super::transport_planning::{RoadPrototype, LanePrototype, SwitchLanePrototype,
-IntersectionPrototype};
+use super::transport_planning::{
+    RoadPrototype, LanePrototype, SwitchLanePrototype, IntersectionPrototype,
+};
 
 use cb_util::log::debug;
 const LOG_T: &str = "Transport Construction";
 
-use dimensions::{LANE_CONNECTION_TOLERANCE, MAX_SWITCHING_LANE_DISTANCE,
-MIN_SWITCHING_LANE_LENGTH};
+use dimensions::{LANE_CONNECTION_TOLERANCE, MAX_SWITCHING_LANE_DISTANCE, MIN_SWITCHING_LANE_LENGTH};
 
 impl RoadPrototype {
     pub fn construct(
@@ -237,27 +238,41 @@ impl Lane {
         reply_needed: bool,
         world: &mut World,
     ) {
-        let &(ref lane_band, ref lane_outline) = unsafe {
-            MEMOIZED_BANDS_OUTLINES
-                .get_or_insert_with(FnvHashMap::default)
-                .entry(self.id_as())
-                .or_insert_with(|| {
-                    let band = Band::new(self.construction.path.clone(), 4.5);
-                    let outline = band.outline();
-                    (band, outline)
-                }) as &(Band, ClosedLinePath)
+        let &(ref lane_band, ref lane_outline) = {
+            let band = Band::new(self.construction.path.clone(), 4.5);
+            let outline = band.outline();
+            &(band, outline)
         };
 
-        let &(ref other_band, ref other_outline) = unsafe {
-            MEMOIZED_BANDS_OUTLINES
-                .get_or_insert_with(FnvHashMap::default)
-                .entry(other_id.into())
-                .or_insert_with(|| {
-                    let band = Band::new(other_path.clone(), 4.5);
-                    let outline = band.outline();
-                    (band, outline)
-                }) as &(Band, ClosedLinePath)
+        let &(ref other_band, ref other_outline) = {
+            let band = Band::new(other_path.clone(), 4.5);
+            let outline = band.outline();
+            &(band, outline)
         };
+
+        // TODO: memoize bands as externals in lane itself
+
+        // let &(ref lane_band, ref lane_outline) = unsafe {
+        //     MEMOIZED_BANDS_OUTLINES
+        //         .get_or_insert_with(FnvHashMap::default)
+        //         .entry(self.id_as())
+        //         .or_insert_with(|| {
+        //             let band = Band::new(self.construction.path.clone(), 4.5);
+        //             let outline = band.outline();
+        //             (band, outline)
+        //         }) as &(Band, ClosedLinePath)
+        // };
+
+        // let &(ref other_band, ref other_outline) = unsafe {
+        //     MEMOIZED_BANDS_OUTLINES
+        //         .get_or_insert_with(FnvHashMap::default)
+        //         .entry(other_id.into())
+        //         .or_insert_with(|| {
+        //             let band = Band::new(other_path.clone(), 4.5);
+        //             let outline = band.outline();
+        //             (band, outline)
+        //         }) as &(Band, ClosedLinePath)
+        // };
 
         let intersections = (lane_outline, other_outline).intersect();
         if intersections.len() >= 2 {

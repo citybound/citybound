@@ -111,7 +111,7 @@ export function Tools(props) {
                     onChange={(value) => setState(oldState => update(oldState, {
                         planning: {
                             planningMode: { $set: value },
-                            canvasMode: { intent: { $set: value == "roads" ? { Road: { n_lanes_forward: 1, n_lanes_backward: 1 } } : null } }
+                            canvasMode: { intent: { $set: value == "roads" ? { Road: cbRustBrowser.new_road_intent(1, 1) } : null } }
                         }
                     }))} />,
                 state.planning.currentProject && state.planning.planningMode == "zoning" &&

@@ -1,29 +1,38 @@
 use compact::{CHashMap, CVec};
-use descartes::{N, P2, V2, Band, LinePath, ClosedLinePath, Area, Intersect, WithUniqueOrthogonal,
-RoughEq, PointContainer, AreaError, ArcOrLineSegment, Segment, AreaEmbedding, AreaFilter};
+use descartes::{
+    N, P2, V2, EditArcLinePath, Band, LinePath, ClosedLinePath, Area, Intersect,
+    WithUniqueOrthogonal, RoughEq, PointContainer, AreaError, ArcOrLineSegment, Segment,
+    AreaEmbedding, AreaFilter, ResolutionStrategy, Closedness, VecLike, Corner
+};
 use ordered_float::OrderedFloat;
 
-use cb_planning::{VersionedGesture, StepID, PrototypeID, PlanHistory, PlanResult,
-Prototype, GestureID};
+use cb_planning::{
+    VersionedGesture, StepID, PrototypeID, PlanHistory, PlanResult, Prototype, GestureID,
+};
 use planning::{CBPrototypeKind, CBGestureIntent};
 
 mod intersection_connections;
 pub mod smooth_path;
-use dimensions::{LANE_DISTANCE, CENTER_LANE_DISTANCE, MIN_SWITCHING_LANE_LENGTH,
-SWITCHING_LANE_OVERLAP_TOLERANCE};
+use dimensions::{
+    LANE_DISTANCE, CENTER_LANE_DISTANCE, MIN_SWITCHING_LANE_LENGTH,
+    SWITCHING_LANE_OVERLAP_TOLERANCE,
+};
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
-pub struct RoadIntent {
+pub struct RoadLaneConfig {
     pub n_lanes_forward: u8,
     pub n_lanes_backward: u8,
 }
 
+#[derive(Compact, Clone, Debug, Serialize, Deserialize)]
+pub struct RoadIntent {
+    pub path: EditArcLinePath,
+    pub lane_config: RoadLaneConfig,
+}
+
 impl RoadIntent {
-    pub fn new(n_lanes_forward: u8, n_lanes_backward: u8) -> Self {
-        RoadIntent {
-            n_lanes_forward,
-            n_lanes_backward,
-        }
+    pub fn new<V: Into<VecLike<Corner>>>(corners: V, lane_config: RoadLaneConfig) -> Self {
+        RoadIntent { path: EditArcLinePath::new(corners, ResolutionStrategy::AssumeSmooth, Closedness::NeverClosed), lane_config }
     }
 }
 
@@ -154,19 +163,19 @@ pub fn simplify_road_path(points: CVec<P2>) -> CVec<P2> {
 
 pub fn gesture_intent_smooth_paths(
     history: &PlanHistory<CBGestureIntent>,
-) -> Vec<(GestureID, StepID, RoadIntent, LinePath)> {
+) -> Vec<(GestureID, StepID, RoadLaneConfig, LinePath)> {
     history
         .gestures
         .pairs()
         .filter_map(
             |(gesture_id, VersionedGesture(gesture, step_id))| match gesture.intent {
-                CBGestureIntent::Road(ref road_intent) if gesture.points.len() >= 2 => {
-                    smooth_path::smooth_path_from(&gesture.points).map(|path| {
+                CBGestureIntent::Road(ref road_intent) => {
+                    road_intent.path.resolve().0.map(|arc_line_path| {
                         (
                             *gesture_id,
                             *step_id,
-                            *road_intent,
-                            path.to_line_path_with_max_angle(0.12),
+                            road_intent.lane_config,
+                            arc_line_path.to_line_path_with_max_angle(0.12),
                         )
                     })
                 }
@@ -346,7 +355,7 @@ pub fn calculate_prototypes(
                 let mut end_influence = lane_influence_id;
                 let mut cuts = Vec::new();
 
-                use ::planning::CBPrototypeKind::Road;
+                use planning::CBPrototypeKind::Road;
 
                 for prototype in &mut intersection_prototypes {
                     if let Prototype {

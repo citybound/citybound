@@ -20,8 +20,8 @@
     "stacktrace-js": "^2.0.0"
   },
   "devDependencies": {
-    "less": "^3.8.1",
-    "parcel-bundler": "^1.12.3"
+    "parcel-bundler": "^1.12.4",
+    "less": "^3.8.1"
   },
   "less": {
     "javascriptEnabled": true

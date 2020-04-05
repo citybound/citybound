@@ -7,6 +7,8 @@ use SYSTEM;
 use cb_planning::GestureID;
 use cb_planning::plan_manager::ProjectID;
 use planning::{CBPlanManagerID, CBGestureIntent};
+use transport::transport_planning::RoadLaneConfig;
+use descartes::{Corner};
 
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
 pub fn plan_grid(project_id: Serde<ProjectID>, n: Serde<isize>, n_lanes: Serde<u8>, spacing: Serde<f32>) {
@@ -22,28 +24,38 @@ pub fn plan_grid(project_id: Serde<ProjectID>, n: Serde<isize>, n_lanes: Serde<u
         let id = GestureID::new();
         let p1 = P2::new(x as f32 * spacing.0, (-n.0 / 2) as f32 * spacing.0);
         let p2 = P2::new(x as f32 * spacing.0, (n.0 / 2) as f32 * spacing.0);
+        let d = (p2 - p1).normalize();
         plan_manager.start_new_gesture(
             project_id.0,
             id,
-            CBGestureIntent::Road(RoadIntent::new(n_lanes.0, n_lanes.0)),
-            p1,
+            CBGestureIntent::Road(RoadIntent::new(
+                vec![Corner::new(p1, Some(d), Some(d)), Corner::new(p2, Some(d), Some(d))],
+                RoadLaneConfig {
+                    n_lanes_forward: n_lanes.0,
+                    n_lanes_backward: n_lanes.0
+                }
+            )),
             world,
         );
-        plan_manager.add_control_point(project_id.0, id, p2, true, true, world);
     }
 
     for y in -n.0 / 2..n.0 / 2 {
         let id = GestureID::new();
         let p1 = P2::new((-n.0 / 2) as f32 * spacing.0, y as f32 * spacing.0);
         let p2 = P2::new((n.0 / 2) as f32 * spacing.0, y as f32 * spacing.0);
+        let d = (p2 - p1).normalize();
         plan_manager.start_new_gesture(
             project_id.0,
             id,
-            CBGestureIntent::Road(RoadIntent::new(n_lanes.0, n_lanes.0)),
-            p1,
+            CBGestureIntent::Road(RoadIntent::new(
+                vec![Corner::new(p1, Some(d), Some(d)), Corner::new(p2, Some(d), Some(d))],
+                RoadLaneConfig {
+                    n_lanes_forward: n_lanes.0,
+                    n_lanes_backward: n_lanes.0
+                }
+            )),
             world,
         );
-        plan_manager.add_control_point(project_id.0, id, p2, true, true, world);
     }
 }
 

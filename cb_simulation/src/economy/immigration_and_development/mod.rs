@@ -278,7 +278,6 @@ impl DevelopmentManager {
                     Project::from_plan(Plan::from_gestures(Some((
                         GestureID::new(),
                         Gesture::new(
-                            vec![building_intent.lot.center_point()].into(),
                             CBGestureIntent::Building(building_intent.clone()),
                         ),
                     )))),

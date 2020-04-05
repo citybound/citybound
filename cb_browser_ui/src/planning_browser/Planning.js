@@ -8,6 +8,8 @@ export const Tools = PlanningMenu.Tools;
 import React from 'react'
 import { RenderLayer, Interactive3DShape } from '../browser_utils/Utils';
 import { vec2 } from 'gl-matrix';
+import ControlPointInteractable from './ControlPointInteractable';
+import GestureCanvas from './GestureCanvas';
 
 const LAND_USES = [
     "Residential",
@@ -81,7 +83,7 @@ function getGestureAsOf(state, projectId, gestureId) {
             }
         }
     }
-    return state.planning.master.gestures[gestureId][0];
+    return state.planning.master.gestures[gestureId]?.[0];
 }
 
 function moveControlPoint(projectId, gestureId, pointIdx, newPosition, doneMoving) {
@@ -118,7 +120,7 @@ function moveControlPoint(projectId, gestureId, pointIdx, newPosition, doneMovin
 function startNewGesture(projectId, intent, startPoint) {
     let gestureId = uuid();
 
-    cbRustBrowser.start_new_gesture(projectId, gestureId, intent, [startPoint[0], startPoint[1]]);
+    cbRustBrowser.start_new_gesture(projectId, gestureId, cbRustBrowser.with_control_point_added(intent, [startPoint[0], startPoint[1]], true));
 
     return oldState => update(oldState, {
         planning: {
@@ -134,18 +136,26 @@ function startNewGesture(projectId, intent, startPoint) {
 
 
 function addControlPoint(projectId, gestureId, point, addToEnd, doneAdding) {
-    cbRustBrowser.add_control_point(projectId, gestureId, [point[0], point[1]], addToEnd, doneAdding);
+    return oldState => {
+        const currentIntent = getGestureAsOf(oldState, projectId, gestureId)?.intent;
+        if (currentIntent) {
+            cbRustBrowser.set_intent(projectId, gestureId, cbRustBrowser.with_control_point_added(currentIntent, [point[0], point[1]], addToEnd), doneAdding);
+        } else {
+            console.error("Couldn't get existing gesture state for gesture:" + gestureId);
+        }
 
-    if (doneAdding) {
-        return oldState => update(oldState, {
-            planning: {
-                canvasMode: {
-                    previousClick: { $set: point }
+        if (doneAdding) {
+            return update(oldState, {
+                planning: {
+                    canvasMode: {
+                        previousClick: { $set: point }
+                    }
                 }
-            }
-        });
-    } else {
-        return s => s
+            });
+        } else {
+            return oldState;
+        }
+
     }
 }
 
@@ -249,8 +259,10 @@ export function ShapesAndLayers(props) {
 
         for (let gestureId of Object.keys(gestures)) {
             const gesture = gestures[gestureId];
+            const path = gesture.intent.Road ? gesture.intent.Road.path : (gesture.intent.Zone ? gesture.intent.Zone.boundary : null);
+            if (!path) continue;
 
-            for (let [pointIdx, point] of gesture.points.entries()) {
+            for (let [pointIdx, corner] of path.corners.entries()) {
 
                 let isRelevant = (gesture.intent.Road && state.planning.planningMode === "roads")
                     || (gesture.intent.Zone && state.planning.planningMode === "zoning");
@@ -259,68 +271,57 @@ export function ShapesAndLayers(props) {
                     let isHovered = gestureId == hoveredGestureId && pointIdx == hoveredPointIdx;
 
                     let isFirst = pointIdx == 0;
-                    let isLast = pointIdx == gesture.points.length - 1;
+                    let isLast = pointIdx == path.corners.length - 1;
 
                     controlPointsInstances.push.apply(controlPointsInstances, [
-                        point[0], point[1], 0,
+                        corner.position[0], corner.position[1], 0,
                         1.0, 0.0,
                         ...(isHovered
                             ? colors.controlPointHover
                             : (gesture.fromMaster ? colors.controlPointMaster : colors.controlPointCurrentProject))
                     ]);
 
-                    controlPointsInteractables.push(<Interactive3DShape
-                        shape={{
-                            type: "circle",
-                            center: [point[0], point[1], 0],
-                            radius: 3
-                        }}
-                        zIndex={5}
-                        cursorHover="grab"
-                        cursorActive="grabbing"
-                        onEvent={e => {
-                            if (e.hover) {
-                                if (e.hover.end) {
-                                    setState(state => update(state, {
-                                        planning: {
-                                            hoveredControlPoint: {
-                                                $set: {}
-                                            }
-                                        }
-                                    }))
-                                } else if (e.hover.start) {
-                                    setState(state => update(state, {
-                                        planning: {
-                                            hoveredControlPoint: {
-                                                $set: { gestureId, pointIdx }
-                                            },
-                                            $unset: ["hoveredInsertPoint"]
-                                        }
-                                    }))
-                                }
-                            }
+                    controlPointsInteractables.push(<ControlPointInteractable
+                        point={corner.position}
+                        isFirst={isFirst}
+                        isLast={isLast}
+                        gestureActive={!!state.planning.canvasMode.currentGesture}
 
-                            if (e.drag) {
-                                if (e.drag.end) {
-                                    if ((isFirst || isLast) && vec3.dist(e.drag.end, e.drag.start) < state.settings.planning.finishGestureDistance) {
-                                        setState(oldState => update(oldState, {
-                                            planning: {
-                                                canvasMode: {
-                                                    currentGesture: { $set: gestureId },
-                                                    addToEnd: { $set: isLast },
-                                                    previousClick: { $set: e.drag.start }
-                                                }
-                                            }
-                                        }))
-                                    } else {
-                                        setState(moveControlPoint(state.planning.currentProject, gestureId, pointIdx, e.drag.end, true));
-                                    }
-                                } else if (e.drag.now) {
-                                    setState(moveControlPoint(state.planning.currentProject, gestureId, pointIdx, e.drag.now, false));
+                        onHover={() => setState(state => update(state, {
+                            planning: {
+                                hoveredControlPoint: {
+                                    $set: { gestureId, pointIdx }
+                                },
+                                $unset: ["hoveredInsertPoint"]
+                            }
+                        }))}
+
+                        onHoverEnd={() => setState(state => update(state, {
+                            planning: {
+                                hoveredControlPoint: {
+                                    $set: {}
                                 }
                             }
-                        }
-                        } />)
+                        }))}
+
+                        onControlPointMoved={(position, done) => {
+                            setState(moveControlPoint(state.planning.currentProject, gestureId, pointIdx, position, done));
+                        }}
+
+                        finishDistance={state.settings.planning.finishGestureDistance}
+
+                        onEndClicked={(endClicked) => {
+                            setState(oldState => update(oldState, {
+                                planning: {
+                                    canvasMode: {
+                                        currentGesture: { $set: gestureId },
+                                        addToEnd: { $set: endClicked },
+                                        previousClick: { $set: e.drag.start }
+                                    }
+                                }
+                            }))
+                        }}
+                    />)
                 }
             }
         }
@@ -588,44 +589,24 @@ export function ShapesAndLayers(props) {
     const interactables = [
         state.planning.canvasMode.currentGesture ? null : controlPointsInteractables,
         state.planning.canvasMode.currentGesture ? null : roadCenterInteractables,
-        <Interactive3DShape
-            id="planningCanvas"
-            key="planningCanvas"
-            shape={{
-                type: "everywhere",
+        <GestureCanvas
+            gestureActive={!!state.planning.canvasMode.currentGesture}
+            intentActive={!!state.planning.canvasMode.intent}
+            onStartGesture={startPosition => setState(startNewGesture(
+                state.planning.currentProject, state.planning.canvasMode.intent, startPosition
+            ))}
+            previousClick={state.planning.previousClick}
+            onAddPoint={(position, done) => {
+                setState(addControlPoint(
+                    state.planning.currentProject, state.planning.canvasMode.currentGesture,
+                    position, state.planning.canvasMode.addToEnd, done
+                ))
             }}
-            zIndex={1}
-            cursorHover={state.uiMode == "planning" ? "crosshair" : "normal"}
-            cursorActive="pointer"
-            onEvent={e => {
-                const canvasMode = state.planning.canvasMode;
-                if (e.hover && e.hover.now) {
-                    if (canvasMode.currentGesture) {
-                        setState(addControlPoint(
-                            state.planning.currentProject, canvasMode.currentGesture,
-                            e.hover.now, canvasMode.addToEnd, false
-                        ))
-                    }
-                }
-                if (e.drag && e.drag.end) {
-                    if (canvasMode.currentGesture) {
-                        if (canvasMode.previousClick
-                            && vec3.dist(e.drag.end, canvasMode.previousClick) < state.settings.planning.finishGestureDistance) {
-                            setState(finishGesture(state.planning.currentProject, canvasMode.currentGesture));
-                        } else {
-                            setState(addControlPoint(
-                                state.planning.currentProject, canvasMode.currentGesture,
-                                e.drag.end, canvasMode.addToEnd, true
-                            ))
-                        }
-                    } else if (canvasMode.intent) {
-                        setState(startNewGesture(
-                            state.planning.currentProject, canvasMode.intent, e.drag.end
-                        ));
-                    }
-                }
-            }
-            } />
+            onFinishGesture={() => {
+                setState(finishGesture(state.planning.currentProject, state.planning.canvasMode.currentGesture));
+            }}
+            finishDistance={state.planning.canvasMode.finishDistance}
+        />
     ];
 
     return [

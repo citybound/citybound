@@ -5,6 +5,18 @@
             "type": "lldb",
             "request": "launch",
             "program": "target/release/citybound",
+            "sourceLanguages": [
+                "rust"
+            ]
+        },
+        {
+            "name": "Debug",
+            "type": "lldb",
+            "request": "launch",
+            "program": "target/debug/citybound",
+            "sourceLanguages": [
+                "rust"
+            ]
         }
     ]
 }

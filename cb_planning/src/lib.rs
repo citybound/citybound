@@ -26,18 +26,12 @@ pub mod plan_manager;
 
 #[derive(Compact, Clone, Debug, Serialize, Deserialize)]
 pub struct Gesture<GI: GestureIntent> {
-    pub points: CVec<P2>,
     pub intent: GI,
-    deleted: bool,
 }
 
 impl<GI: GestureIntent> Gesture<GI> {
-    pub fn new(points: CVec<P2>, intent: GI) -> Self {
-        Gesture {
-            points,
-            intent,
-            deleted: false,
-        }
+    pub fn new(intent: GI) -> Self {
+        Gesture { intent }
     }
 }
 

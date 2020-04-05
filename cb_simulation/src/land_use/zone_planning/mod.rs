@@ -1,6 +1,8 @@
 use compact::CVec;
-use descartes::{P2, V2, Area, ClosedLinePath, LinePath, PointContainer,
-AreaError, WithUniqueOrthogonal, AreaEmbedding, AreaFilter};
+use descartes::{
+    P2, V2, EditArcLinePath, Area, ClosedLinePath, LinePath, PointContainer, AreaError,
+    WithUniqueOrthogonal, AreaEmbedding, AreaFilter,
+};
 use land_use::buildings::BuildingStyle;
 use ordered_float::OrderedFloat;
 use itertools::Itertools;
@@ -8,15 +10,22 @@ use cb_util::random::{seed, RngCore};
 
 use transport::transport_planning::{RoadPrototype, LanePrototype};
 
-use cb_planning::{PlanHistory, VersionedGesture, PlanResult, Prototype, PrototypeID, GestureID,
-StepID};
+use cb_planning::{
+    PlanHistory, VersionedGesture, PlanResult, Prototype, PrototypeID, GestureID, StepID,
+};
 use planning::{CBPrototypeKind, CBGestureIntent};
 
-#[derive(Compact, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub enum ZoneIntent {
-    LandUse(LandUse),
-    MaxHeight(u8),
-    SetBack(u8),
+#[derive(Compact, Clone, Debug, Serialize, Deserialize)]
+pub struct ZoneIntent {
+    pub boundary: EditArcLinePath,
+    pub config: ZoneConfig,
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ZoneConfig {
+    pub land_use: LandUse,
+    pub max_height: Option<u8>,
+    pub set_back: Option<u8>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
@@ -49,9 +58,7 @@ pub struct Lot {
     pub area: Area,
     pub original_area: Area,
     pub original_lot_id: u32,
-    pub land_uses: CVec<LandUse>,
-    pub max_height: u8,
-    pub set_back: u8,
+    pub zone_configs: CVec<ZoneConfig>,
     pub road_boundaries: CVec<LinePath>,
 }
 
@@ -133,7 +140,7 @@ pub fn calculate_prototypes(
     enum ZoneEmbeddingLabel {
         Paved(PrototypeID),
         Building(GestureID, StepID),
-        Zone(ZoneIntent, GestureID, StepID),
+        Zone(ZoneConfig, GestureID, StepID),
     };
 
     let mut zone_embedding = AreaEmbedding::new(30.0);
@@ -323,12 +330,10 @@ pub fn calculate_prototypes(
                                             ),
                                             lot: Lot {
                                                 road_boundaries: vec![road_boundary].into(),
-                                                land_uses: CVec::new(),
                                                 area: Area::new_simple(area_boundary.clone()),
                                                 original_area: Area::new_simple(area_boundary),
                                                 original_lot_id: seed(prototype.id).next_u32(),
-                                                max_height: 0,
-                                                set_back: 0,
+                                                zone_configs: CVec::new(),
                                             },
                                         }),
                                         id: PrototypeID::from_influences(prototype.id),
@@ -344,20 +349,17 @@ pub fn calculate_prototypes(
 
     for (gesture_id, VersionedGesture(gesture, step_id)) in history.gestures.pairs() {
         if let CBGestureIntent::Zone(ref zone_intent) = gesture.intent {
-            if let Some(area) = LinePath::new(
-                gesture
-                    .points
-                    .iter()
-                    .chain(gesture.points.first())
-                    .cloned()
-                    .collect(),
-            )
-            .and_then(ClosedLinePath::new)
-            .map(|closed_line_path| Area::new_simple(closed_line_path.to_clockwise()))
+            if let Some(area) = zone_intent
+                .boundary
+                .resolve()
+                .0
+                .map(|arc_line_path| arc_line_path.to_line_path_with_max_angle(0.12))
+                .and_then(ClosedLinePath::new)
+                .map(|closed_line_path| Area::new_simple(closed_line_path.to_clockwise()))
             {
                 zone_embedding.insert(
                     area,
-                    ZoneEmbeddingLabel::Zone(zone_intent.clone(), *gesture_id, *step_id),
+                    ZoneEmbeddingLabel::Zone(zone_intent.config, *gesture_id, *step_id),
                 );
             }
         }
@@ -371,8 +373,8 @@ pub fn calculate_prototypes(
             .view(
                 AreaFilter::Function(Box::new(move |labels| {
                     labels.iter().any(|label| match label {
-                        ZoneEmbeddingLabel::Zone(ZoneIntent::LandUse(label_land_use), ..)
-                            if *label_land_use == land_use =>
+                        ZoneEmbeddingLabel::Zone(label_zone_intent, ..)
+                            if label_zone_intent.land_use == land_use =>
                         {
                             true
                         }
@@ -430,9 +432,12 @@ pub fn calculate_prototypes(
                 representative_position: area.primitives[0].boundary.path().points[0],
                 kind: CBPrototypeKind::Lot(LotPrototype {
                     lot: Lot {
-                        land_uses: vec![land_use].into(),
-                        max_height: 0,
-                        set_back: 0,
+                        zone_configs: vec![ZoneConfig {
+                            land_use,
+                            max_height: None,
+                            set_back: None,
+                        }]
+                        .into(),
                         road_boundaries: road_boundaries.collect(),
                         original_area: area.clone(),
                         original_lot_id: seed(influenced_id).next_u32(),

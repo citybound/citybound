@@ -1,6 +1,6 @@
 use kay::{World};
 use compact::{CHashMap, COption};
-use descartes::{P2, AreaError, LinePath};
+use descartes::AreaError;
 use ::{PlanHistory, PlanResult, ActionGroups, KnownHistoryState, KnownProjectState, ProjectUpdate,
 PlanningLogic, GestureID, Gesture, Plan, KnownPlanResultState};
 use super::{PlanManager, PlanManagerID, ProjectID};
@@ -158,10 +158,9 @@ impl<Logic: PlanningLogic> PlanManager<Logic> {
         project_id: ProjectID,
         new_gesture_id: GestureID,
         intent: &Logic::GestureIntent,
-        start: P2,
         _: &mut World,
     ) {
-        let new_gesture = Gesture::new(vec![start].into(), intent.clone());
+        let new_gesture = Gesture::new(intent.clone());
 
         let new_step = Plan::from_gestures(Some((new_gesture_id, new_gesture)));
 
@@ -172,207 +171,6 @@ impl<Logic: PlanningLogic> PlanManager<Logic> {
         self.projects.get_mut(project_id).unwrap().start_new_step();
 
         self.ui_state.invalidate(project_id);
-    }
-
-    pub fn add_control_point(
-        &mut self,
-        project_id: ProjectID,
-        gesture_id: GestureID,
-        new_point: P2,
-        add_to_end: bool,
-        commit: bool,
-        _: &mut World,
-    ) {
-        let new_step = {
-            let current_gesture = self.get_current_version_of(gesture_id, project_id);
-
-            let changed_gesture = if add_to_end {
-                Gesture {
-                    points: current_gesture
-                        .points
-                        .iter()
-                        .cloned()
-                        .chain(Some(new_point))
-                        .collect(),
-                    ..current_gesture.clone()
-                } //.simplify()
-            } else {
-                Gesture {
-                    points: Some(new_point)
-                        .into_iter()
-                        .chain(current_gesture.points.iter().cloned())
-                        .collect(),
-                    ..current_gesture.clone()
-                } //.simplify()
-            };
-
-            Plan::from_gestures(Some((gesture_id, changed_gesture)))
-        };
-
-        self.projects
-            .get_mut(project_id)
-            .unwrap()
-            .set_ongoing_step(new_step);
-
-        if commit {
-            self.projects.get_mut(project_id).unwrap().start_new_step();
-        }
-
-        self.ui_state.invalidate(project_id);
-    }
-
-    pub fn insert_control_point(
-        &mut self,
-        project_id: ProjectID,
-        gesture_id: GestureID,
-        new_point: P2,
-        commit: bool,
-        _: &mut World,
-    ) {
-        let new_step = {
-            let current_gesture = self.get_current_version_of(gesture_id, project_id);
-
-            let new_point_idx = LinePath::new(current_gesture.points.clone())
-                .and_then(|path| {
-                    path.project(new_point)
-                        .and_then(|(inserted_along, _projected)| {
-                            path.distances
-                                .iter()
-                                .position(|point_i_along| *point_i_along >= inserted_along)
-                        })
-                })
-                .unwrap_or_else(|| current_gesture.points.len());
-
-            let changed_gesture = Gesture {
-                points: current_gesture.points[..new_point_idx]
-                    .iter()
-                    .cloned()
-                    .chain(Some(new_point))
-                    .chain(current_gesture.points[new_point_idx..].iter().cloned())
-                    .collect(),
-                ..current_gesture.clone()
-            }; //.simplify()
-
-            Plan::from_gestures(Some((gesture_id, changed_gesture)))
-        };
-
-        self.projects
-            .get_mut(project_id)
-            .unwrap()
-            .set_ongoing_step(new_step);
-
-        if commit {
-            self.projects.get_mut(project_id).unwrap().start_new_step();
-        }
-
-        self.ui_state.invalidate(project_id);
-    }
-
-    pub fn move_control_point(
-        &mut self,
-        project_id: ProjectID,
-        gesture_id: GestureID,
-        point_index: u32,
-        new_position: P2,
-        is_move_finished: bool,
-        _: &mut World,
-    ) {
-        let current_change = {
-            let current_gesture = self.get_current_version_of(gesture_id, project_id);
-
-            if point_index as usize >= current_gesture.points.len() {
-                return;
-            }
-
-            let mut new_gesture_points = current_gesture.points.clone();
-            new_gesture_points[point_index as usize] = new_position;
-
-            let new_gesture = Gesture {
-                points: new_gesture_points,
-                ..current_gesture.clone()
-            };
-
-            Plan::from_gestures(Some((gesture_id, new_gesture)))
-        };
-
-        self.projects
-            .get_mut(project_id)
-            .unwrap()
-            .set_ongoing_step(current_change);
-
-        // TODO: can we update only part of the preview
-        // for better rendering performance while dragging?
-        self.ui_state.invalidate(project_id);
-
-        if is_move_finished {
-            self.projects.get_mut(project_id).unwrap().start_new_step();
-        }
-    }
-
-    pub fn split_gesture(
-        &mut self,
-        project_id: ProjectID,
-        gesture_id: GestureID,
-        split_at: P2,
-        commit: bool,
-        _: &mut World,
-    ) {
-        let maybe_new_step = {
-            let current_gesture = self.get_current_version_of(gesture_id, project_id);
-
-            if let Some((split_at_idx, point_before, point_after)) =
-                LinePath::new(current_gesture.points.clone()).and_then(|path| {
-                    path.project(split_at)
-                        .and_then(|(split_along, _projected)| {
-                            path.distances
-                                .iter()
-                                .position(|point_i_along| *point_i_along >= split_along)
-                                .map(|idx| {
-                                    let point_before = path.along(split_along - 5.0);
-                                    let point_after = path.along(split_along + 5.0);
-                                    (idx, point_before, point_after)
-                                })
-                        })
-                })
-            {
-                let first_half = Gesture {
-                    points: current_gesture.points[..split_at_idx]
-                        .iter()
-                        .cloned()
-                        .chain(Some(point_before))
-                        .collect(),
-                    ..current_gesture.clone()
-                }; //.simplify()
-
-                let second_half = Gesture {
-                    points: Some(point_after)
-                        .into_iter()
-                        .chain(current_gesture.points[split_at_idx..].iter().cloned())
-                        .collect(),
-                    ..current_gesture.clone()
-                }; //.simplify()
-
-                Some(Plan::from_gestures(vec![
-                    (gesture_id, first_half),
-                    (GestureID::new(), second_half),
-                ]))
-            } else {
-                None
-            }
-        };
-
-        if let Some(new_step) = maybe_new_step {
-            self.projects
-                .get_mut(project_id)
-                .unwrap()
-                .set_ongoing_step(new_step);
-
-            if commit {
-                self.projects.get_mut(project_id).unwrap().start_new_step();
-            }
-
-            self.ui_state.invalidate(project_id);
-        }
     }
 
     pub fn set_intent(

@@ -18,24 +18,8 @@ impl<Logic: PlanningLogic> PlanManagerID<Logic> {
         world.send(self.as_raw(), MSG_PlanManager_get_project_preview_update::<Logic>(ui, project_id, known_result));
     }
     
-    pub fn start_new_gesture(self, project_id: ProjectID, new_gesture_id: GestureID, intent: Logic :: GestureIntent, start: P2, world: &mut World) {
-        world.send(self.as_raw(), MSG_PlanManager_start_new_gesture::<Logic>(project_id, new_gesture_id, intent, start));
-    }
-    
-    pub fn add_control_point(self, project_id: ProjectID, gesture_id: GestureID, new_point: P2, add_to_end: bool, commit: bool, world: &mut World) {
-        world.send(self.as_raw(), MSG_PlanManager_add_control_point(project_id, gesture_id, new_point, add_to_end, commit));
-    }
-    
-    pub fn insert_control_point(self, project_id: ProjectID, gesture_id: GestureID, new_point: P2, commit: bool, world: &mut World) {
-        world.send(self.as_raw(), MSG_PlanManager_insert_control_point(project_id, gesture_id, new_point, commit));
-    }
-    
-    pub fn move_control_point(self, project_id: ProjectID, gesture_id: GestureID, point_index: u32, new_position: P2, is_move_finished: bool, world: &mut World) {
-        world.send(self.as_raw(), MSG_PlanManager_move_control_point(project_id, gesture_id, point_index, new_position, is_move_finished));
-    }
-    
-    pub fn split_gesture(self, project_id: ProjectID, gesture_id: GestureID, split_at: P2, commit: bool, world: &mut World) {
-        world.send(self.as_raw(), MSG_PlanManager_split_gesture(project_id, gesture_id, split_at, commit));
+    pub fn start_new_gesture(self, project_id: ProjectID, new_gesture_id: GestureID, intent: Logic :: GestureIntent, world: &mut World) {
+        world.send(self.as_raw(), MSG_PlanManager_start_new_gesture::<Logic>(project_id, new_gesture_id, intent));
     }
     
     pub fn set_intent(self, project_id: ProjectID, gesture_id: GestureID, new_intent: Logic :: GestureIntent, is_move_finished: bool, world: &mut World) {
@@ -56,15 +40,7 @@ struct MSG_PlanManager_get_all_plans<Logic: PlanningLogic>(pub PlanningUIID < Lo
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_PlanManager_get_project_preview_update<Logic: PlanningLogic>(pub PlanningUIID < Logic >, pub ProjectID, pub KnownPlanResultState < Logic :: PrototypeKind >);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanManager_start_new_gesture<Logic: PlanningLogic>(pub ProjectID, pub GestureID, pub Logic :: GestureIntent, pub P2);
-#[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanManager_add_control_point(pub ProjectID, pub GestureID, pub P2, pub bool, pub bool);
-#[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanManager_insert_control_point(pub ProjectID, pub GestureID, pub P2, pub bool);
-#[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanManager_move_control_point(pub ProjectID, pub GestureID, pub u32, pub P2, pub bool);
-#[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_PlanManager_split_gesture(pub ProjectID, pub GestureID, pub P2, pub bool);
+struct MSG_PlanManager_start_new_gesture<Logic: PlanningLogic>(pub ProjectID, pub GestureID, pub Logic :: GestureIntent);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_PlanManager_set_intent<Logic: PlanningLogic>(pub ProjectID, pub GestureID, pub Logic :: GestureIntent, pub bool);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
@@ -91,32 +67,8 @@ pub fn auto_setup<Logic: PlanningLogic>(system: &mut ActorSystem) {
     );
     
     system.add_handler::<PlanManager<Logic>, _, _>(
-        |&MSG_PlanManager_start_new_gesture::<Logic>(project_id, new_gesture_id, ref intent, start), instance, world| {
-            instance.start_new_gesture(project_id, new_gesture_id, intent, start, world); Fate::Live
-        }, false
-    );
-    
-    system.add_handler::<PlanManager<Logic>, _, _>(
-        |&MSG_PlanManager_add_control_point(project_id, gesture_id, new_point, add_to_end, commit), instance, world| {
-            instance.add_control_point(project_id, gesture_id, new_point, add_to_end, commit, world); Fate::Live
-        }, false
-    );
-    
-    system.add_handler::<PlanManager<Logic>, _, _>(
-        |&MSG_PlanManager_insert_control_point(project_id, gesture_id, new_point, commit), instance, world| {
-            instance.insert_control_point(project_id, gesture_id, new_point, commit, world); Fate::Live
-        }, false
-    );
-    
-    system.add_handler::<PlanManager<Logic>, _, _>(
-        |&MSG_PlanManager_move_control_point(project_id, gesture_id, point_index, new_position, is_move_finished), instance, world| {
-            instance.move_control_point(project_id, gesture_id, point_index, new_position, is_move_finished, world); Fate::Live
-        }, false
-    );
-    
-    system.add_handler::<PlanManager<Logic>, _, _>(
-        |&MSG_PlanManager_split_gesture(project_id, gesture_id, split_at, commit), instance, world| {
-            instance.split_gesture(project_id, gesture_id, split_at, commit, world); Fate::Live
+        |&MSG_PlanManager_start_new_gesture::<Logic>(project_id, new_gesture_id, ref intent), instance, world| {
+            instance.start_new_gesture(project_id, new_gesture_id, intent, world); Fate::Live
         }, false
     );
     

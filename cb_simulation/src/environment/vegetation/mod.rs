@@ -256,7 +256,6 @@ pub fn spawn(world: &mut World, plan_manager: CBPlanManagerID) {
     let gestures = Some((
         GestureID::new(),
         Gesture::new(
-            CVec::new(),
             CBGestureIntent::Plant(PlantIntent::NaturalGrowth),
         ),
     ));

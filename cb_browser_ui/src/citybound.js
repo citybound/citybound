@@ -86,8 +86,6 @@ require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBro
 
             this.renderer = React.createRef();
             this.boundSetState = this.setState.bind(this);
-            // this.pendingUpdaters = [];
-            // this.boundSetState = (updater) => this.pendingUpdaters.push(updater);
         }
 
         componentDidMount() {
@@ -97,12 +95,6 @@ require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBro
         }
 
         onFrame() {
-            // for (let pendingUpdater of this.pendingUpdaters) {
-            //     this.setState(pendingUpdater);
-            // }
-
-            // this.pendingUpdaters = [];
-
             if (this.state.rendering.enabled) {
                 Camera.onFrame(this.state, this.boundSetState);
                 this.renderer.current.renderFrame();
