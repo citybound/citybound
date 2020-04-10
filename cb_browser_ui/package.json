@@ -2,7 +2,7 @@
   "scripts": {
     "build-js": "parcel build index.html --no-minify --log-level 3",
     "watch-js": "parcel watch index.html --no-hmr --log-level 3",
-    "build-rust": "cargo-web build && node copyWasm.js",
+    "build-rust": "cargo-web build --release && node copyWasm.js",
     "build": "npm run build-rust && npm run build-js",
     "start": "npm run build-rust && npm run watch-js"
   },
@@ -20,8 +20,11 @@
     "stacktrace-js": "^2.0.0"
   },
   "devDependencies": {
+    "@types/gl-matrix": "^2.4.5",
+    "@types/stacktrace-js": "^2.0.3",
+    "less": "^3.8.1",
     "parcel-bundler": "^1.12.4",
-    "less": "^3.8.1"
+    "typescript": "^3.8.3"
   },
   "less": {
     "javascriptEnabled": true

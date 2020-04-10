@@ -124,11 +124,13 @@ export function Tools(props) {
                         Recreational: { description: "Recreational", color: toCSS(fromLinFloat(colors["Recreational"])) },
                         Administrative: { description: "Administrative", color: toCSS(fromLinFloat(colors["Administrative"])) }
                     }}
-                    value={state.planning.canvasMode.intent && state.planning.canvasMode.intent.Zone && state.planning.canvasMode.intent.Zone.LandUse}
+                    value={state.planning.canvasMode.intent && state.planning.canvasMode.intent.Zone && state.planning.canvasMode.intent.Zone.config.land_use}
                     onChange={newLandUse => setState(oldState => update(oldState, {
                         planning: {
                             canvasMode: {
-                                intent: { $set: { Zone: { LandUse: newLandUse } } }
+                                intent: {
+                                    $set: { Zone: cbRustBrowser.new_zone_intent(newLandUse) }
+                                }
                             }
                         }
                     }))} />

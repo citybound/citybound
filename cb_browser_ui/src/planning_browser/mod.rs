@@ -2,7 +2,7 @@ use stdweb::serde::Serde;
 use kay::{World, Actor, External, ActorSystem, TypedID};
 use compact::{CHashMap};
 use std::collections::HashMap;
-use descartes::{LinePath, P2};
+use descartes::{LinePath, P2, EditArcLinePath, ResolutionStrategy, Closedness};
 use michelangelo::{MeshGrouper};
 use cb_planning::{
     Project, GestureID, PrototypeID, PlanHistory, PlanResult, PlanHistoryUpdate, ProjectUpdate,
@@ -11,7 +11,7 @@ use cb_planning::{
 use cb_planning::plan_manager::ProjectID;
 use cb_planning::plan_manager::ui::{PlanningUI, PlanningUIID};
 use planning::{CBPlanningLogic, CBPlanManagerID, CBGestureIntent, CBPrototypeKind};
-use land_use::zone_planning::{LandUse, LAND_USES, ZoneIntent};
+use land_use::zone_planning::{LandUse, LAND_USES, ZoneIntent, ZoneConfig};
 use browser_utils::{updated_groups_to_js, to_js_mesh, FrameListener, FrameListenerID};
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -37,21 +37,25 @@ pub fn start_new_gesture(
 use descartes::{Corner};
 
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
-pub fn with_control_point_added(intent: Serde<CBGestureIntent>, point: Serde<P2>, add_to_end: bool) -> Serde<CBGestureIntent> {
+pub fn with_control_point_added(
+    intent: Serde<CBGestureIntent>,
+    point: Serde<P2>,
+    add_to_end: bool,
+) -> Serde<CBGestureIntent> {
     Serde(match intent.0 {
-        CBGestureIntent::Road(road_intent) => {
-            CBGestureIntent::Road(RoadIntent {
-                path: road_intent.path.with_corner_added(add_to_end, Corner::new(point.0, None, None)),
-                ..road_intent
-            })
-        },
-        CBGestureIntent::Zone(zone_intent) => {
-            CBGestureIntent::Zone(ZoneIntent {
-                boundary: zone_intent.boundary.with_corner_added(add_to_end, Corner::new(point.0, None, None)),
-                ..zone_intent
-            })
-        }
-        other => other
+        CBGestureIntent::Road(road_intent) => CBGestureIntent::Road(RoadIntent {
+            path: road_intent
+                .path
+                .with_corner_added(add_to_end, Corner::new(point.0, None, None)),
+            ..road_intent
+        }),
+        CBGestureIntent::Zone(zone_intent) => CBGestureIntent::Zone(ZoneIntent {
+            boundary: zone_intent
+                .boundary
+                .with_corner_added(add_to_end, Corner::new(point.0, None, None)),
+            ..zone_intent
+        }),
+        other => other,
     })
 }
 
@@ -112,6 +116,22 @@ pub fn new_road_intent(n_lanes_forward: usize, n_lanes_backward: usize) -> Serde
             n_lanes_backward: n_lanes_backward as u8,
         },
     ))
+}
+
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
+pub fn new_zone_intent(new_land_use: Serde<LandUse>) -> Serde<ZoneIntent> {
+    Serde(ZoneIntent {
+        boundary: EditArcLinePath::new(
+            vec![],
+            ResolutionStrategy::AssumeLines,
+            Closedness::AlwaysClosed,
+        ),
+        config: ZoneConfig {
+            land_use: new_land_use.0,
+            max_height: None,
+            set_back: None,
+        },
+    })
 }
 
 #[derive(Compact, Clone)]

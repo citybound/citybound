@@ -1,7 +1,8 @@
 import React from 'react';
 import { Interactive3DShape } from '../browser_utils/Utils.js';
+import { vec3 } from 'gl-matrix';
 
-export default function ControlPointInteractable({ point, isFirst, isLast, onHover, onHoverEnd, onControlPointMoved, onEndClicked, finishDistance, gestureActive }) {
+export default function ControlPointInteractable({ point, isFirst, isLast, onHover, onHoverEnd, onControlPointMoved, gestureActive, onEndClicked, finishDistance }) {
     return <Interactive3DShape
         shape={{
             type: "circle",
@@ -20,7 +21,7 @@ export default function ControlPointInteractable({ point, isFirst, isLast, onHov
             if (e.drag) {
                 if (e.drag.end) {
                     if ((isFirst || isLast) && vec3.dist(e.drag.end, e.drag.start) < finishDistance) {
-                        onEndClicked(isLast)
+                        onEndClicked(isLast, e.drag.end)
                     } else {
                         onControlPointMoved(e.drag.end, true);
                     }

@@ -1,4 +1,4 @@
-const StackTrace = require("stacktrace-js");
+import StackTrace from "stacktrace-js";
 
 function displayError(prefix, error) {
     const el = document.getElementById("errors");
@@ -28,8 +28,13 @@ window.addEventListener('unhandledrejection', function (e) {
 });
 
 import Monet from 'monet';
-import React from 'react';
-import ReactDOM from 'react-dom';
+
+window.__REACT_DEVTOOLS_GLOBAL_HOOK__.inject = function () { };
+window.__REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE = function () { };
+
+import * as React from 'react';
+import * as ReactDOM from 'react-dom';
+
 import ContainerDimensions from 'react-container-dimensions';
 import update from 'immutability-helper';
 import * as Camera from './camera/Camera';
@@ -45,9 +50,60 @@ import * as Menu from './menu';
 import * as Utils from './browser_utils/Utils';
 import Stage from './stage/Stage';
 import colors from './colors';
+
+declare module '../target/wasm32-unknown-unknown/release/cb_browser_ui' {
+    type Intent = {};
+
+    export default interface CBRustAPI {
+        start(): void;
+
+        set_intent(projectId: string, gestureId: string, intent: Intent, doneAdding: boolean);
+
+        move_gesture_point(projectId: string, gestureId: string, pointIdx: number, position: [number, number], doneMoving: boolean): void;
+        start_new_gesture(projectId: string, gestureId: string, intent: Intent): void;
+        with_control_point_added(intent: Intent, point: [number, number], addToEnd: boolean): Intent;
+        insert_control_point(projectId: string, gestureId: string, point: [number, number], doneInserting: boolean);
+        split_gesture(projectId: string, gestureId: string, point: [number, number], doneSplitting: boolean);
+        set_n_lanes(projectId: string, gestureId: string, nLanesForward: number, nLanesBackward: number, doneChanging: boolean);
+    }
+}
+
+type CBRustAPI = import('../target/wasm32-unknown-unknown/release/cb_browser_ui').default;
+
+declare global {
+    interface Window {
+        update: typeof update;
+        cbRustBrowser: CBRustAPI;
+        __REACT_DEVTOOLS_GLOBAL_HOOK__: any;
+    }
+}
+
+export type SharedState = {
+    planning: Planning.PlanningSharedState,
+    transport: any,
+    landUse: any,
+    households: any,
+    vegetation: any,
+    debug: any,
+    uiMode: any,
+    system: {
+        networkingTurns: string
+    },
+    rendering: {
+        enabled: boolean
+    },
+    time: any,
+    camera: any,
+
+    menu: any,
+    settings: any
+}
+
+export type SetSharedState = (updater: (oldState: SharedState) => SharedState) => void;
+
 window.update = update;
 
-require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBrowser => {
+import('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(mod => mod.default as CBRustAPI).then(cbRustBrowser => {
     window.cbRustBrowser = cbRustBrowser;
 
     const settingSpecs = {
@@ -60,6 +116,10 @@ require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBro
     };
 
     class CityboundReactApp extends React.Component {
+        renderer: React.RefObject<Monet>;
+        state: SharedState;
+        boundSetState: SetSharedState;
+
         constructor(props) {
             super(props);
 
@@ -110,19 +170,19 @@ require('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(cbRustBro
                     <Camera.Camera state={this.state} {... { width, height }}>
                         {({ project2dTo3d, project3dTo2d, view, perspective }) =>
                             <div style={{ width, height }}>
-                                <div key="ui2dTools" className="ui2dTools">
+                                <div key="ui2dTools" className="ui2dTools" >
                                     <Planning.Tools state={this.state} setState={this.boundSetState} />
                                     <Menu.Tools state={this.state} setState={this.boundSetState} />
                                 </div>
-                                <div key="ui2d" className="ui2d">
+                                < div key="ui2d" className="ui2d" >
                                     <Time.Windows state={this.state} setState={this.boundSetState} />
                                     <Debug.Windows state={this.state} setState={this.boundSetState} />
                                     <Households.Windows state={this.state} setState={this.boundSetState} project3dTo2d={project3dTo2d} />
                                     <Menu.Windows state={this.state} setState={this.boundSetState} settingSpecs={settingSpecs} />
                                 </div>
 
-                                <Utils.Interactive3DContext.Provider value={interactive3Dshapes}>
-                                    <Utils.RenderContext.Provider value={layers}>
+                                <Utils.Interactive3DContext.Provider value={interactive3Dshapes} >
+                                    <Utils.RenderContext.Provider value={layers} >
 
                                         <Households.Shapes state={this.state} setState={this.boundSetState} />
 

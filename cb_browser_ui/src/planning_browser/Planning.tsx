@@ -5,11 +5,14 @@ import uuid from '../uuid';
 import { solidColorShader } from 'monet';
 import * as PlanningMenu from './PlanningMenu';
 export const Tools = PlanningMenu.Tools;
-import React from 'react'
+import * as React from 'react'
 import { RenderLayer, Interactive3DShape } from '../browser_utils/Utils';
 import { vec2 } from 'gl-matrix';
 import ControlPointInteractable from './ControlPointInteractable';
 import GestureCanvas from './GestureCanvas';
+import update from 'immutability-helper';
+import { SharedState, SetSharedState } from '../citybound';
+import { Intent } from '../wasm32-unknown-unknown/release/cb_browser_ui';
 
 const LAND_USES = [
     "Residential",
@@ -20,7 +23,52 @@ const LAND_USES = [
     "Administrative",
 ];
 
-export const initialState = {
+type BatchID = string;
+type GroupID = string;
+type GroupMesh = {};
+
+type Project = {
+    gestures: {}
+}
+
+export type PlanningSharedState = {
+    planningMode: null | "roads" | "zoning",
+    rendering: {
+        staticMeshes: {},
+        currentPreview: {
+            lanesToConstructGroups: Map<BatchID, Map<GroupID, GroupMesh>>,
+            lanesToConstructMarkerGroups: Map<BatchID, Map<GroupID, GroupMesh>>,
+            lanesToConstructMarkerGapsGroups: Map<BatchID, Map<GroupID, GroupMesh>>,
+            zoneGroups: Map<BatchID, Map<GroupID, GroupMesh>>,
+            zoneOutlineGroups: Map<BatchID, Map<GroupID, GroupMesh>>,
+            buildingOutlinesGroup: Map<BatchID, Map<GroupID, GroupMesh>>,
+        },
+        roadInfos: {}
+    },
+    master: {
+        gestures: {}
+    },
+    projects: {
+        [projectId: string]: {
+            undoable_history: Project[]
+            ongoing: Project
+        }
+    },
+    currentProject: null | string,
+    hoveredControlPoint: { gestureId?: string, pointIdx?: number },
+    hoveredInsertPoint: null | [number, number],
+    hoveredSplitPoint: null | { point: [number, number], direction: [number, number] },
+    hoveredChangeNLanesPoint: null,
+    canvasMode: {
+        intent: null | Intent,
+        currentGesture: string,
+        addToEnd: boolean,
+        previousClick: null | [number, number],
+        finishDistance: number
+    },
+}
+
+export const initialState: PlanningSharedState = {
     planningMode: null,
     rendering: {
         staticMeshes: {},
@@ -49,6 +97,7 @@ export const initialState = {
         currentGesture: null,
         addToEnd: true,
         previousClick: null,
+        finishDistance: 3
     },
 };
 
@@ -87,7 +136,7 @@ function getGestureAsOf(state, projectId, gestureId) {
 }
 
 function moveControlPoint(projectId, gestureId, pointIdx, newPosition, doneMoving) {
-    cbRustBrowser.move_gesture_point(projectId, gestureId, pointIdx, [newPosition[0], newPosition[1]], doneMoving);
+    window.cbRustBrowser.move_gesture_point(projectId, gestureId, pointIdx, [newPosition[0], newPosition[1]], doneMoving);
 
     if (!doneMoving) {
 
@@ -120,7 +169,7 @@ function moveControlPoint(projectId, gestureId, pointIdx, newPosition, doneMovin
 function startNewGesture(projectId, intent, startPoint) {
     let gestureId = uuid();
 
-    cbRustBrowser.start_new_gesture(projectId, gestureId, cbRustBrowser.with_control_point_added(intent, [startPoint[0], startPoint[1]], true));
+    window.cbRustBrowser.start_new_gesture(projectId, gestureId, window.cbRustBrowser.with_control_point_added(intent, [startPoint[0], startPoint[1]], true));
 
     return oldState => update(oldState, {
         planning: {
@@ -139,7 +188,7 @@ function addControlPoint(projectId, gestureId, point, addToEnd, doneAdding) {
     return oldState => {
         const currentIntent = getGestureAsOf(oldState, projectId, gestureId)?.intent;
         if (currentIntent) {
-            cbRustBrowser.set_intent(projectId, gestureId, cbRustBrowser.with_control_point_added(currentIntent, [point[0], point[1]], addToEnd), doneAdding);
+            window.cbRustBrowser.set_intent(projectId, gestureId, window.cbRustBrowser.with_control_point_added(currentIntent, [point[0], point[1]], addToEnd), doneAdding);
         } else {
             console.error("Couldn't get existing gesture state for gesture:" + gestureId);
         }
@@ -160,7 +209,7 @@ function addControlPoint(projectId, gestureId, point, addToEnd, doneAdding) {
 }
 
 function insertControlPoint(projectId, gestureId, point, doneInserting) {
-    cbRustBrowser.insert_control_point(projectId, gestureId, [point[0], point[1]], doneInserting);
+    window.cbRustBrowser.insert_control_point(projectId, gestureId, [point[0], point[1]], doneInserting);
 
     return oldState => update(oldState, {
         planning: {
@@ -170,7 +219,7 @@ function insertControlPoint(projectId, gestureId, point, doneInserting) {
 }
 
 function splitGesture(projectId, gestureId, splitAt, doneSplitting) {
-    cbRustBrowser.split_gesture(projectId, gestureId, [splitAt[0], splitAt[1]], doneSplitting);
+    window.cbRustBrowser.split_gesture(projectId, gestureId, [splitAt[0], splitAt[1]], doneSplitting);
 
     return oldState => update(oldState, {
         planning: {
@@ -180,7 +229,7 @@ function splitGesture(projectId, gestureId, splitAt, doneSplitting) {
 }
 
 function setNLanes(projectId, gestureId, nLanesForward, nLanesBackward, doneChanging) {
-    cbRustBrowser.set_n_lanes(projectId, gestureId, nLanesForward, nLanesBackward, doneChanging);
+    window.cbRustBrowser.set_n_lanes(projectId, gestureId, nLanesForward, nLanesBackward, doneChanging);
 
     return oldState => update(oldState, {
         planning: {
@@ -237,7 +286,7 @@ const shadersForLandUses = {
 // TODO: share constants with Rust somehow
 const LANE_DISTANCE = 0.8 * 3.9;
 
-export function ShapesAndLayers(props) {
+export function ShapesAndLayers(props: { state: SharedState, setState: SetSharedState }) {
     const { state, setState } = props;
     const controlPointsInstances = [];
     const controlPointsInteractables = [];
@@ -285,9 +334,10 @@ export function ShapesAndLayers(props) {
                         point={corner.position}
                         isFirst={isFirst}
                         isLast={isLast}
+
                         gestureActive={!!state.planning.canvasMode.currentGesture}
 
-                        onHover={() => setState(state => update(state, {
+                        onHover={() => setState((state: SharedState) => update(state, {
                             planning: {
                                 hoveredControlPoint: {
                                     $set: { gestureId, pointIdx }
@@ -310,13 +360,13 @@ export function ShapesAndLayers(props) {
 
                         finishDistance={state.settings.planning.finishGestureDistance}
 
-                        onEndClicked={(endClicked) => {
+                        onEndClicked={(endClicked, clickedPos) => {
                             setState(oldState => update(oldState, {
                                 planning: {
                                     canvasMode: {
                                         currentGesture: { $set: gestureId },
                                         addToEnd: { $set: endClicked },
-                                        previousClick: { $set: e.drag.start }
+                                        previousClick: { $set: clickedPos }
                                     }
                                 }
                             }))
