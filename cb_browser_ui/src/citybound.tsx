@@ -29,8 +29,10 @@ window.addEventListener('unhandledrejection', function (e) {
 
 import Monet from 'monet';
 
-window.__REACT_DEVTOOLS_GLOBAL_HOOK__.inject = function () { };
-window.__REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE = function () { };
+if (process.env.NODE_ENV === 'production') {
+    window.__REACT_DEVTOOLS_GLOBAL_HOOK__.inject = function () { };
+    window.__REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE = function () { };
+}
 
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';

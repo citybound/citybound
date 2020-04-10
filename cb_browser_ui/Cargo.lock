@@ -209,7 +209,9 @@ dependencies = [
 
 [[package]]
 name = "descartes"
-version = "0.1.19"
+version = "0.1.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39a1a6f53665f63f47374c4d816f3f504b36a00a63ac0deb3d4373987991943b"
 dependencies = [
  "compact",
  "compact_macros",
@@ -325,7 +327,9 @@ checksum = "b8b7a7c0c47db5545ed3fef7468ee7bb5b74691498139e4b3f6a20685dc6dd8e"
 
 [[package]]
 name = "kay"
-version = "0.5.0"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "782e0a8b540b2e6d9b57f037cef5727c7f59442fe6e8102988d8bb11dd883015"
 dependencies = [
  "byteorder 1.3.4",
  "chunky",

@@ -13,7 +13,7 @@ stdweb = "0.4.9"
 serde = "1.0"
 serde_derive = "1.0"
 compact_macros = "0.1.0"
-kay = {version = "0.5.0", path='../../rust-libs/kay', default-features = false, features = ["browser"]}
+kay = {version = "0.5.1", default-features = false, features = ["browser"]}
 cb_util = {path = "../cb_util"}
 cb_time = {path = "../cb_time"}
 cb_planning = {path = "../cb_planning"}
@@ -21,9 +21,6 @@ cb_planning = {path = "../cb_planning"}
 [dependencies.cb_simulation]
 path = "../cb_simulation"
 default-features = false
-
-[patch.crates-io]
-descartes = {path = "../../rust-libs/descartes"}
 
 [build-dependencies]
 kay_codegen = {version = "0.3.10", features = ["serde-serialization"]}
