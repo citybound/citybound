@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@types/gl-matrix": "^2.4.5",
+    "@types/react-dom": "^16.9.6",
     "@types/stacktrace-js": "^2.0.3",
     "less": "^3.8.1",
     "parcel-bundler": "^1.12.4",

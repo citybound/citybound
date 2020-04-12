@@ -45,16 +45,19 @@ import * as Transport from './transport_browser/Transport';
 import * as LandUse from './land_use_browser/LandUse';
 import * as Households from './households_browser/Households';
 import * as Vegetation from './vegetation_browser/Vegetation';
+import MainUIModes from './uiModes';
 import * as Time from './time_browser/Time';
 import * as Debug from './debug/Debug';
 import * as Settings from './settings';
-import * as Menu from './menu';
+import MainMenu, * as Menu from './menu';
 import * as Utils from './browser_utils/Utils';
 import Stage from './stage/Stage';
 import colors from './colors';
 
 declare module '../target/wasm32-unknown-unknown/release/cb_browser_ui' {
-    type Intent = {};
+    type Gesture = { intent: Intent };
+    type Intent = { Road?: { path: EditArcLinePath }, Zone?: { boundary: EditArcLinePath } };
+    type EditArcLinePath = { corners: { position: [number, number] }[] };
 
     export default interface CBRustAPI {
         start(): void;
@@ -76,8 +79,11 @@ declare global {
     interface Window {
         update: typeof update;
         cbRustBrowser: CBRustAPI;
+        cbversion: string;
         __REACT_DEVTOOLS_GLOBAL_HOOK__: any;
     }
+
+    const process: { env: any }
 }
 
 export type SharedState = {
@@ -87,7 +93,6 @@ export type SharedState = {
     households: any,
     vegetation: any,
     debug: any,
-    uiMode: any,
     system: {
         networkingTurns: string
     },
@@ -97,11 +102,20 @@ export type SharedState = {
     time: any,
     camera: any,
 
-    menu: any,
     settings: any
 }
 
 export type SetSharedState = (updater: (oldState: SharedState) => SharedState) => void;
+
+export function ToToolPortal(props: { children: React.ReactNode }) {
+    const toolsRoot = document.getElementById('tools-root');
+    return ReactDOM.createPortal(props.children, toolsRoot);
+}
+
+export function ToWindowPortal(props: { children: React.ReactNode }) {
+    const windowsRoot = document.getElementById('windows-root');
+    return ReactDOM.createPortal(props.children, windowsRoot);
+}
 
 window.update = update;
 
@@ -132,7 +146,6 @@ import('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(mod => mod
                 households: Households.initialState,
                 vegetation: Vegetation.initialState,
                 debug: Debug.initialState,
-                uiMode: null,
                 system: {
                     networkingTurns: ""
                 },
@@ -142,7 +155,6 @@ import('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(mod => mod
                 time: Time.initialState,
                 camera: Camera.initialState,
 
-                menu: Menu.initalState,
                 settings: Settings.loadSettings(settingSpecs)
             }
 
@@ -153,7 +165,6 @@ import('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(mod => mod
         componentDidMount() {
             Camera.bindInputs(this.state, this.boundSetState);
             Debug.bindInputs(this.state, this.boundSetState);
-            Planning.bindInputs(this.state, this.boundSetState);
         }
 
         onFrame() {
@@ -172,30 +183,25 @@ import('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(mod => mod
                     <Camera.Camera state={this.state} {... { width, height }}>
                         {({ project2dTo3d, project3dTo2d, view, perspective }) =>
                             <div style={{ width, height }}>
-                                <div key="ui2dTools" className="ui2dTools" >
-                                    <Planning.Tools state={this.state} setState={this.boundSetState} />
-                                    <Menu.Tools state={this.state} setState={this.boundSetState} />
-                                </div>
-                                < div key="ui2d" className="ui2d" >
-                                    <Time.Windows state={this.state} setState={this.boundSetState} />
-                                    <Debug.Windows state={this.state} setState={this.boundSetState} />
-                                    <Households.Windows state={this.state} setState={this.boundSetState} project3dTo2d={project3dTo2d} />
-                                    <Menu.Windows state={this.state} setState={this.boundSetState} settingSpecs={settingSpecs} />
-                                </div>
+                                <Utils.SettingsContext.Provider value={this.state.settings} >
+                                    <ToWindowPortal>
+                                        <Time.Windows state={this.state} setState={this.boundSetState} />
+                                        <Debug.Windows state={this.state} setState={this.boundSetState} />
+                                    </ToWindowPortal>
 
-                                <Utils.Interactive3DContext.Provider value={interactive3Dshapes} >
-                                    <Utils.RenderContext.Provider value={layers} >
+                                    <Utils.Interactive3DContext.Provider value={interactive3Dshapes} >
+                                        <Utils.RenderContext.Provider value={layers} >
+                                            <MainUIModes state={this.state} setState={this.boundSetState} project2dTo3d={project2dTo3d} project3dTo2d={project3dTo2d} />
 
-                                        <Households.Shapes state={this.state} setState={this.boundSetState} />
+                                            <LandUse.Layers state={this.state} />
+                                            <Vegetation.Layers state={this.state} />
+                                            <Transport.Layers state={this.state} />
 
-                                        <Planning.ShapesAndLayers state={this.state} setState={this.boundSetState} />
+                                        </Utils.RenderContext.Provider>
+                                    </Utils.Interactive3DContext.Provider>
 
-                                        <LandUse.Layers state={this.state} />
-                                        <Vegetation.Layers state={this.state} />
-                                        <Transport.Layers state={this.state} />
-
-                                    </Utils.RenderContext.Provider>
-                                </Utils.Interactive3DContext.Provider>
+                                    <MainMenu state={this.state} setState={this.boundSetState} settingSpecs={settingSpecs} />
+                                </Utils.SettingsContext.Provider>
 
                                 <Monet key="canvas" ref={this.renderer}
                                     retinaFactor={this.state.settings.rendering.retinaFactor}
@@ -218,11 +224,11 @@ import('../target/wasm32-unknown-unknown/release/cb_browser_ui').then(mod => mod
                             </div>
                         }</Camera.Camera>
                 }</ContainerDimensions>
-            </div>;
+            </div >;
         }
     }
 
-    window.cbReactApp = ReactDOM.render(<CityboundReactApp />, document.getElementById('app'));
+    window.cbReactApp = ReactDOM.render(<CityboundReactApp />, document.getElementById('layers-root'));
 
     cbRustBrowser.start();
 });
