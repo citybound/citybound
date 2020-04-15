@@ -29,7 +29,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 import Monet from 'monet';
 
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production' && window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
     window.__REACT_DEVTOOLS_GLOBAL_HOOK__.inject = function () { };
     window.__REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE = function () { };
 }
@@ -80,7 +80,7 @@ declare global {
         update: typeof update;
         cbRustBrowser: CBRustAPI;
         cbversion: string;
-        __REACT_DEVTOOLS_GLOBAL_HOOK__: any;
+        __REACT_DEVTOOLS_GLOBAL_HOOK__?: any;
     }
 
     const process: { env: any }
