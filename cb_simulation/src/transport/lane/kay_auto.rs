@@ -7,8 +7,8 @@ use super::*;
 
 
 
-impl Actor for Lane {
-    type ID = LaneID;
+impl Actor for CarLane {
+    type ID = CarLaneID;
 
     fn id(&self) -> Self::ID {
         self.id
@@ -19,34 +19,34 @@ impl Actor for Lane {
 }
 
 #[derive(Serialize, Deserialize)] #[serde(transparent)]
-pub struct LaneID {
+pub struct CarLaneID {
     _raw_id: RawID
 }
 
-impl Copy for LaneID {}
-impl Clone for LaneID { fn clone(&self) -> Self { *self } }
-impl ::std::fmt::Debug for LaneID {
+impl Copy for CarLaneID {}
+impl Clone for CarLaneID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for CarLaneID {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "LaneID({:?})", self._raw_id)
+        write!(f, "CarLaneID({:?})", self._raw_id)
     }
 }
-impl ::std::hash::Hash for LaneID {
+impl ::std::hash::Hash for CarLaneID {
     fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
         self._raw_id.hash(state);
     }
 }
-impl PartialEq for LaneID {
-    fn eq(&self, other: &LaneID) -> bool {
+impl PartialEq for CarLaneID {
+    fn eq(&self, other: &CarLaneID) -> bool {
         self._raw_id == other._raw_id
     }
 }
-impl Eq for LaneID {}
+impl Eq for CarLaneID {}
 
-impl TypedID for LaneID {
-    type Target = Lane;
+impl TypedID for CarLaneID {
+    type Target = CarLane;
 
     fn from_raw(id: RawID) -> Self {
-        LaneID { _raw_id: id }
+        CarLaneID { _raw_id: id }
     }
 
     fn as_raw(&self) -> RawID {
@@ -54,21 +54,21 @@ impl TypedID for LaneID {
     }
 }
 
-impl LaneID {
+impl CarLaneID {
     pub fn spawn(path: LinePath, on_intersection: bool, timings: CVec < bool >, world: &mut World) -> Self {
-        let id = LaneID::from_raw(world.allocate_instance_id::<Lane>());
-        let swarm = world.local_broadcast::<Lane>();
-        world.send(swarm, MSG_Lane_spawn(id, path, on_intersection, timings));
+        let id = CarLaneID::from_raw(world.allocate_instance_id::<CarLane>());
+        let swarm = world.local_broadcast::<CarLane>();
+        world.send(swarm, MSG_CarLane_spawn(id, path, on_intersection, timings));
         id
     }
 }
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Lane_spawn(pub LaneID, pub LinePath, pub bool, pub CVec < bool >);
+struct MSG_CarLane_spawn(pub CarLaneID, pub LinePath, pub bool, pub CVec < bool >);
 
 
-impl Actor for SwitchLane {
-    type ID = SwitchLaneID;
+impl Actor for CarSwitchLane {
+    type ID = CarSwitchLaneID;
 
     fn id(&self) -> Self::ID {
         self.id
@@ -79,34 +79,34 @@ impl Actor for SwitchLane {
 }
 
 #[derive(Serialize, Deserialize)] #[serde(transparent)]
-pub struct SwitchLaneID {
+pub struct CarSwitchLaneID {
     _raw_id: RawID
 }
 
-impl Copy for SwitchLaneID {}
-impl Clone for SwitchLaneID { fn clone(&self) -> Self { *self } }
-impl ::std::fmt::Debug for SwitchLaneID {
+impl Copy for CarSwitchLaneID {}
+impl Clone for CarSwitchLaneID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for CarSwitchLaneID {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "SwitchLaneID({:?})", self._raw_id)
+        write!(f, "CarSwitchLaneID({:?})", self._raw_id)
     }
 }
-impl ::std::hash::Hash for SwitchLaneID {
+impl ::std::hash::Hash for CarSwitchLaneID {
     fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
         self._raw_id.hash(state);
     }
 }
-impl PartialEq for SwitchLaneID {
-    fn eq(&self, other: &SwitchLaneID) -> bool {
+impl PartialEq for CarSwitchLaneID {
+    fn eq(&self, other: &CarSwitchLaneID) -> bool {
         self._raw_id == other._raw_id
     }
 }
-impl Eq for SwitchLaneID {}
+impl Eq for CarSwitchLaneID {}
 
-impl TypedID for SwitchLaneID {
-    type Target = SwitchLane;
+impl TypedID for CarSwitchLaneID {
+    type Target = CarSwitchLane;
 
     fn from_raw(id: RawID) -> Self {
-        SwitchLaneID { _raw_id: id }
+        CarSwitchLaneID { _raw_id: id }
     }
 
     fn as_raw(&self) -> RawID {
@@ -114,17 +114,77 @@ impl TypedID for SwitchLaneID {
     }
 }
 
-impl SwitchLaneID {
+impl CarSwitchLaneID {
     pub fn spawn(path: LinePath, world: &mut World) -> Self {
-        let id = SwitchLaneID::from_raw(world.allocate_instance_id::<SwitchLane>());
-        let swarm = world.local_broadcast::<SwitchLane>();
-        world.send(swarm, MSG_SwitchLane_spawn(id, path));
+        let id = CarSwitchLaneID::from_raw(world.allocate_instance_id::<CarSwitchLane>());
+        let swarm = world.local_broadcast::<CarSwitchLane>();
+        world.send(swarm, MSG_CarSwitchLane_spawn(id, path));
         id
     }
 }
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_SwitchLane_spawn(pub SwitchLaneID, pub LinePath);
+struct MSG_CarSwitchLane_spawn(pub CarSwitchLaneID, pub LinePath);
+
+
+impl Actor for Sidewalk {
+    type ID = SidewalkID;
+
+    fn id(&self) -> Self::ID {
+        self.id
+    }
+    unsafe fn set_id(&mut self, id: RawID) {
+        self.id = Self::ID::from_raw(id);
+    }
+}
+
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
+pub struct SidewalkID {
+    _raw_id: RawID
+}
+
+impl Copy for SidewalkID {}
+impl Clone for SidewalkID { fn clone(&self) -> Self { *self } }
+impl ::std::fmt::Debug for SidewalkID {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "SidewalkID({:?})", self._raw_id)
+    }
+}
+impl ::std::hash::Hash for SidewalkID {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl PartialEq for SidewalkID {
+    fn eq(&self, other: &SidewalkID) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl Eq for SidewalkID {}
+
+impl TypedID for SidewalkID {
+    type Target = Sidewalk;
+
+    fn from_raw(id: RawID) -> Self {
+        SidewalkID { _raw_id: id }
+    }
+
+    fn as_raw(&self) -> RawID {
+        self._raw_id
+    }
+}
+
+impl SidewalkID {
+    pub fn spawn(path: LinePath, on_intersection: bool, timings: CVec < bool >, world: &mut World) -> Self {
+        let id = SidewalkID::from_raw(world.allocate_instance_id::<Sidewalk>());
+        let swarm = world.local_broadcast::<Sidewalk>();
+        world.send(swarm, MSG_Sidewalk_spawn(id, path, on_intersection, timings));
+        id
+    }
+}
+
+#[derive(Compact, Clone)] #[allow(non_camel_case_types)]
+struct MSG_Sidewalk_spawn(pub SidewalkID, pub LinePath, pub bool, pub CVec < bool >);
 
 
 #[allow(unused_variables)]
@@ -132,15 +192,21 @@ struct MSG_SwitchLane_spawn(pub SwitchLaneID, pub LinePath);
 pub fn auto_setup(system: &mut ActorSystem) {
     
     
-    system.add_spawner::<Lane, _, _>(
-        |&MSG_Lane_spawn(id, ref path, on_intersection, ref timings), world| {
-            Lane::spawn(id, path, on_intersection, timings, world)
+    system.add_spawner::<CarLane, _, _>(
+        |&MSG_CarLane_spawn(id, ref path, on_intersection, ref timings), world| {
+            CarLane::spawn(id, path, on_intersection, timings, world)
         }, false
     );
     
-    system.add_spawner::<SwitchLane, _, _>(
-        |&MSG_SwitchLane_spawn(id, ref path), world| {
-            SwitchLane::spawn(id, path, world)
+    system.add_spawner::<CarSwitchLane, _, _>(
+        |&MSG_CarSwitchLane_spawn(id, ref path), world| {
+            CarSwitchLane::spawn(id, path, world)
+        }, false
+    );
+    
+    system.add_spawner::<Sidewalk, _, _>(
+        |&MSG_Sidewalk_spawn(id, ref path, on_intersection, ref timings), world| {
+            Sidewalk::spawn(id, path, on_intersection, timings, world)
         }, false
     );
 }

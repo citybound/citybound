@@ -253,7 +253,7 @@ pub fn calculate_prototypes(
     ];
 
     for prototype in current_result.prototypes.values() {
-        if let CBPrototypeKind::Road(RoadPrototype::Lane(LanePrototype(ref path, _))) =
+        if let CBPrototypeKind::Road(RoadPrototype::Lane(LanePrototype(ref path, ..))) =
             prototype.kind
         {
             let distance = (path.start() - P2::new(0.0, 0.0)).norm();

@@ -220,8 +220,8 @@ impl TypedID for AttacheeID {
 impl<Act: Actor + Attachee> TraitIDFrom<Act> for AttacheeID {}
 
 impl AttacheeID {
-    pub fn location_changed(self, old: Option < Location >, new: Option < Location >, world: &mut World) {
-        world.send(self.as_raw(), MSG_Attachee_location_changed(old, new));
+    pub fn location_changed(self, old: Option < Location >, new: Option < Location >, network_flavor: NetworkFlavor, world: &mut World) {
+        world.send(self.as_raw(), MSG_Attachee_location_changed(old, new, network_flavor));
     }
 
     pub fn register_trait(system: &mut ActorSystem) {
@@ -232,15 +232,15 @@ impl AttacheeID {
     pub fn register_implementor<Act: Actor + Attachee>(system: &mut ActorSystem) {
         system.register_implementor::<Act, AttacheeRepresentative>();
         system.add_handler::<Act, _, _>(
-            |&MSG_Attachee_location_changed(old, new), instance, world| {
-                instance.location_changed(old, new, world); Fate::Live
+            |&MSG_Attachee_location_changed(old, new, network_flavor), instance, world| {
+                instance.location_changed(old, new, network_flavor, world); Fate::Live
             }, false
         );
     }
 }
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Attachee_location_changed(pub Option < Location >, pub Option < Location >);
+struct MSG_Attachee_location_changed(pub Option < Location >, pub Option < Location >, pub NetworkFlavor);
 #[derive(Serialize, Deserialize)] #[serde(transparent)]
 pub struct RoughLocationID {
     _raw_id: RawID

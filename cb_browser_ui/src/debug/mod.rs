@@ -11,14 +11,19 @@ use transport::transport_planning::RoadLaneConfig;
 use descartes::{Corner};
 
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), js_export)]
-pub fn plan_grid(project_id: Serde<ProjectID>, n: Serde<isize>, n_lanes: Serde<u8>, spacing: Serde<f32>) {
+pub fn plan_grid(
+    project_id: Serde<ProjectID>,
+    n: Serde<isize>,
+    n_lanes: Serde<u8>,
+    spacing: Serde<f32>,
+) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
 
     let plan_manager = CBPlanManagerID::global_first(world);
 
-    use ::transport::transport_planning::RoadIntent;
-    use ::descartes::P2;
+    use transport::transport_planning::RoadIntent;
+    use descartes::P2;
 
     for x in -n.0 / 2..n.0 / 2 {
         let id = GestureID::new();
@@ -29,11 +34,14 @@ pub fn plan_grid(project_id: Serde<ProjectID>, n: Serde<isize>, n_lanes: Serde<u
             project_id.0,
             id,
             CBGestureIntent::Road(RoadIntent::new(
-                vec![Corner::new(p1, Some(d), Some(d)), Corner::new(p2, Some(d), Some(d))],
+                vec![
+                    Corner::new(p1, Some(d), Some(d)),
+                    Corner::new(p2, Some(d), Some(d)),
+                ],
                 RoadLaneConfig {
                     n_lanes_forward: n_lanes.0,
-                    n_lanes_backward: n_lanes.0
-                }
+                    n_lanes_backward: n_lanes.0,
+                },
             )),
             world,
         );
@@ -48,11 +56,14 @@ pub fn plan_grid(project_id: Serde<ProjectID>, n: Serde<isize>, n_lanes: Serde<u
             project_id.0,
             id,
             CBGestureIntent::Road(RoadIntent::new(
-                vec![Corner::new(p1, Some(d), Some(d)), Corner::new(p2, Some(d), Some(d))],
+                vec![
+                    Corner::new(p1, Some(d), Some(d)),
+                    Corner::new(p2, Some(d), Some(d)),
+                ],
                 RoadLaneConfig {
                     n_lanes_forward: n_lanes.0,
-                    n_lanes_backward: n_lanes.0
-                }
+                    n_lanes_backward: n_lanes.0,
+                },
             )),
             world,
         );
@@ -64,7 +75,7 @@ pub fn spawn_cars(tries_per_lane: usize) {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
     for _ in 0..tries_per_lane {
-        ::transport::lane::LaneID::global_broadcast(world).manually_spawn_car_add_lane(world);
+        ::transport::lane::CarLaneID::global_broadcast(world).manually_spawn_car_add_lane(world);
     }
 }
 
@@ -125,7 +136,7 @@ pub fn get_newest_log_messages() {
     let system = unsafe { &mut *SYSTEM };
     let world = &mut system.world();
 
-    use ::stdweb::unstable::TryInto;
+    use stdweb::unstable::TryInto;
 
     let last_log_entry: u32 = js! {
         return window.cbReactApp.state.debug.logLastEntry;

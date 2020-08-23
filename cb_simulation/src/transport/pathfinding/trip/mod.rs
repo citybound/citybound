@@ -3,11 +3,11 @@ use compact::CVec;
 use ordered_float::OrderedFloat;
 use cb_time::units::Instant;
 
-use transport::lane::LaneID;
+use transport::lane::CarLaneID;
 use super::{PreciseLocation, RoughLocationID, LocationRequester, LocationRequesterID};
 
 use itertools::Itertools;
-use super::super::lane::Lane;
+use super::super::lane::CarLane;
 
 use cb_util::log::{debug, warn};
 const LOG_T: &str = "Trips";
@@ -135,7 +135,8 @@ impl LocationRequester for Trip {
 
             if let (Some(source), Some(destination)) = (self.source, self.destination) {
                 // TODO: ugly: untyped RawID shenanigans
-                let source_as_lane: LaneLikeID = LaneLikeID::from_raw(source.link.as_raw());
+                let source_as_lane: CarLaneLikeID =
+                    CarLaneID::from_raw(source.link.as_raw()).into();
                 source_as_lane.add_car(
                     LaneCar {
                         trip: self.id,
@@ -176,7 +177,7 @@ impl LocationRequester for Trip {
 
 use cb_time::actors::{TimeID, Sleeper, SleeperID};
 use cb_time::units::Ticks;
-use super::super::microtraffic::{LaneLikeID, LaneCar, Obstacle};
+use super::super::microtraffic::{CarLaneLikeID, LaneCar, Obstacle};
 
 pub trait TripListener {
     fn trip_created(&mut self, trip: TripID, world: &mut World);
@@ -194,7 +195,7 @@ pub trait TripListener {
 pub struct TripCreator {
     id: TripCreatorID,
     time: TimeID,
-    lanes: CVec<LaneID>,
+    lanes: CVec<CarLaneID>,
 }
 
 impl TripCreator {
@@ -206,7 +207,7 @@ impl TripCreator {
         }
     }
 
-    pub fn add_lane_for_trip(&mut self, lane_id: LaneID, world: &mut World) {
+    pub fn add_lane_for_trip(&mut self, lane_id: CarLaneID, world: &mut World) {
         self.lanes.push(lane_id);
 
         if self.lanes.len() > 1 {
@@ -239,7 +240,7 @@ impl Sleeper for TripCreator {
 
 pub const DEBUG_MANUALLY_SPAWN_CARS: bool = false;
 
-impl Lane {
+impl CarLane {
     pub fn manually_spawn_car_add_lane(&self, world: &mut World) {
         if !self.connectivity.on_intersection {
             // TODO: ugly/wrong

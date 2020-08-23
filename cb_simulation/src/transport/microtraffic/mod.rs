@@ -1,15 +1,17 @@
-use kay::{ActorSystem, World, TypedID, Actor};
+use kay::{ActorSystem, World, TypedID, Actor, Fate};
 use compact::CVec;
 use ordered_float::OrderedFloat;
 use std::f32::INFINITY;
 use std::ops::{Deref, DerefMut};
 
-use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
-use super::lane::connectivity::{Interaction};
+use super::lane::{CarLane, CarLaneID, CarSwitchLane, CarSwitchLaneID, Sidewalk, SidewalkID};
+use super::lane::connectivity::{CarLaneInteraction, SidewalkInteraction};
 use super::pathfinding;
 
 mod intelligent_acceleration;
 use self::intelligent_acceleration::intelligent_acceleration;
+use descartes::{Band, LinePath, RoughEq, Intersect, N, WithUniqueOrthogonal, Segment};
+use itertools::Itertools;
 
 use cb_util::log::debug;
 const LOG_T: &str = "Microtraffic";
@@ -17,8 +19,8 @@ const LOG_T: &str = "Microtraffic";
 // TODO: move all iteration, updates, etc into one huge retain loop (see identical TODO below)
 
 #[derive(Compact, Clone)]
-pub struct Microtraffic {
-    pub obstacles: CVec<(Obstacle, LaneLikeID)>,
+pub struct CarMicrotraffic {
+    pub obstacles: CVec<(Obstacle, ObstacleContainerID)>,
     pub cars: CVec<LaneCar>,
     timings: CVec<bool>,
     pub green: bool,
@@ -26,9 +28,9 @@ pub struct Microtraffic {
     pub yellow_to_red: bool,
 }
 
-impl Microtraffic {
+impl CarMicrotraffic {
     pub fn new(timings: CVec<bool>) -> Self {
-        Microtraffic {
+        CarMicrotraffic {
             obstacles: CVec::new(),
             cars: CVec::new(),
             timings,
@@ -44,7 +46,7 @@ impl Microtraffic {
 const MICROTRAFFIC_UNREALISTIC_SLOWDOWN: f32 = 6.0;
 
 #[derive(Compact, Clone, Default)]
-pub struct TransferringMicrotraffic {
+pub struct CarSwitchMicrotraffic {
     pub left_obstacles: CVec<Obstacle>,
     pub right_obstacles: CVec<Obstacle>,
     pub cars: CVec<TransferringLaneCar>,
@@ -133,15 +135,37 @@ impl DerefMut for TransferringLaneCar {
 
 use cb_time::units::Instant;
 
-pub trait LaneLike {
+pub trait ObstacleContainer {
+    fn start_connecting_overlaps(&mut self, other: &CVec<ObstacleContainerID>, world: &mut World);
+
+    fn connect_overlaps(
+        &mut self,
+        other_obstacle_container: ObstacleContainerID,
+        other_path: &LinePath,
+        other_width: N,
+        reply_needed: bool,
+        world: &mut World,
+    );
+
+    fn add_obstacles(
+        &mut self,
+        obstacles: &CVec<Obstacle>,
+        from: ObstacleContainerID,
+        world: &mut World,
+    );
+
+    fn disconnect(&mut self, other: ObstacleContainerID, world: &mut World);
+    fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate;
+}
+
+pub trait CarLaneLike {
     fn add_car(
         &mut self,
         car: LaneCar,
-        from: Option<LaneLikeID>,
+        from: Option<CarLaneLikeID>,
         instant: Instant,
         world: &mut World,
     );
-    fn add_obstacles(&mut self, obstacles: &CVec<Obstacle>, from: LaneLikeID, world: &mut World);
 }
 
 use self::pathfinding::StoredRoutingEntry;
@@ -151,14 +175,15 @@ use cb_time::actors::{Temporal, TemporalID};
 const TRAFFIC_LOGIC_THROTTLING: usize = 10;
 const PATHFINDING_THROTTLING: usize = 10;
 
-impl LaneLike for Lane {
+impl CarLaneLike for CarLane {
     fn add_car(
         &mut self,
         car: LaneCar,
-        _from: Option<LaneLikeID>,
+        _from: Option<CarLaneLikeID>,
         instant: Instant,
         world: &mut World,
     ) {
+        // TODO: does this really happen, or is it ok to only hacke this logic in tick()?
         if let Some(self_as_location) = self.pathfinding.location {
             if car.destination.location == self_as_location
                 && *car.position >= car.destination.offset
@@ -220,8 +245,109 @@ impl LaneLike for Lane {
             );
         }
     }
+}
 
-    fn add_obstacles(&mut self, obstacles: &CVec<Obstacle>, from: LaneLikeID, _: &mut World) {
+const LANE_WIDTH_AS_OBSTACLE_CONTAINER: N = 4.5;
+
+impl ObstacleContainer for CarLane {
+    fn start_connecting_overlaps(
+        &mut self,
+        other_obstacle_containers: &CVec<ObstacleContainerID>,
+        world: &mut World,
+    ) {
+        for &other_obstacle_container in other_obstacle_containers.iter() {
+            other_obstacle_container.connect_overlaps(
+                self.id_as(),
+                self.construction.path.clone(),
+                LANE_WIDTH_AS_OBSTACLE_CONTAINER,
+                true,
+                world,
+            );
+        }
+    }
+
+    fn connect_overlaps(
+        &mut self,
+        other_id: ObstacleContainerID,
+        other_path: &LinePath,
+        other_width: N,
+        reply_needed: bool,
+        world: &mut World,
+    ) {
+        let &(ref lane_band, ref lane_outline) = {
+            let band = Band::new(
+                self.construction.path.clone(),
+                LANE_WIDTH_AS_OBSTACLE_CONTAINER,
+            );
+            let outline = band.outline();
+            &(band, outline)
+        };
+
+        let &(ref other_band, ref other_outline) = {
+            let band = Band::new(other_path.clone(), LANE_WIDTH_AS_OBSTACLE_CONTAINER);
+            let outline = band.outline();
+            &(band, outline)
+        };
+
+        let intersections = (lane_outline, other_outline).intersect();
+        if intersections.len() >= 2 {
+            if let ::itertools::MinMaxResult::MinMax(
+                (entry_intersection, entry_distance),
+                (exit_intersection, exit_distance),
+            ) = intersections
+                .iter()
+                .map(|intersection| {
+                    (
+                        intersection,
+                        lane_band.outline_distance_to_path_distance(intersection.along_a),
+                    )
+                })
+                .minmax_by_key(|&(_, distance)| OrderedFloat(distance))
+            {
+                let other_entry_distance =
+                    other_band.outline_distance_to_path_distance(entry_intersection.along_b);
+                let other_exit_distance =
+                    other_band.outline_distance_to_path_distance(exit_intersection.along_b);
+
+                let can_weave = other_path
+                    .direction_along(other_entry_distance)
+                    .rough_eq_by(self.construction.path.direction_along(entry_distance), 0.1)
+                    || other_path
+                        .direction_along(other_exit_distance)
+                        .rough_eq_by(self.construction.path.direction_along(exit_distance), 0.1);
+
+                self.connectivity
+                    .interactions
+                    .push(CarLaneInteraction::Conflicting {
+                        conflicting: other_id,
+                        start: entry_distance,
+                        conflicting_start: other_entry_distance.min(other_exit_distance),
+                        end: exit_distance,
+                        conflicting_end: other_exit_distance.max(other_entry_distance),
+                        can_weave,
+                    });
+            } else {
+                panic!("both entry and exit should exist")
+            }
+        }
+
+        if reply_needed {
+            other_id.connect_overlaps(
+                self.id_as(),
+                self.construction.path.clone(),
+                LANE_WIDTH_AS_OBSTACLE_CONTAINER,
+                false,
+                world,
+            );
+        }
+    }
+
+    fn add_obstacles(
+        &mut self,
+        obstacles: &CVec<Obstacle>,
+        from: ObstacleContainerID,
+        _: &mut World,
+    ) {
         self.microtraffic
             .obstacles
             .retain(|&(_, received_from)| received_from != from);
@@ -229,13 +355,51 @@ impl LaneLike for Lane {
             .obstacles
             .extend(obstacles.iter().map(|obstacle| (*obstacle, from)));
     }
+
+    fn disconnect(&mut self, other_id: ObstacleContainerID, world: &mut World) {
+        self.connectivity
+            .interactions
+            .retain(|interaction| interaction.direct_lane_partner() != Some(other_id.into()));
+
+        self.microtraffic.obstacles.drain();
+
+        let self_as_rough_location = self.id_as();
+
+        for car in self.microtraffic.cars.drain() {
+            car.trip.finish(
+                TripResult {
+                    location_now: Some(self_as_rough_location),
+                    fate: TripFate::HopDisconnected,
+                },
+                world,
+            );
+        }
+
+        ::transport::pathfinding::Link::on_disconnect(self);
+        other_id.on_confirm_disconnect(world);
+    }
+
+    fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate {
+        self.construction.disconnects_remaining -= 1;
+        if self.construction.disconnects_remaining == 0 {
+            self.finalize(
+                self.construction
+                    .unbuilding_for
+                    .expect("should be unbuilding"),
+                world,
+            );
+            Fate::Die
+        } else {
+            Fate::Live
+        }
+    }
 }
 
-impl Lane {
-    pub fn on_signal_changed(&mut self, from: LaneID, new_green: bool, _: &mut World) {
+impl CarLane {
+    pub fn on_signal_changed(&mut self, from: CarLaneID, new_green: bool, _: &mut World) {
         for interaction in self.connectivity.interactions.iter_mut() {
             match *interaction {
-                Interaction::Next {
+                CarLaneInteraction::Next {
                     next,
                     ref mut green,
                 } if next == from => *green = new_green,
@@ -245,7 +409,7 @@ impl Lane {
     }
 }
 
-impl Temporal for Lane {
+impl Temporal for CarLane {
     fn tick(&mut self, dt: f32, current_instant: Instant, world: &mut World) {
         let dt = dt / MICROTRAFFIC_UNREALISTIC_SLOWDOWN;
 
@@ -277,7 +441,7 @@ impl Temporal for Lane {
         // TODO: this is just a hacky way to update new lanes about existing lane's green
         if old_green != self.microtraffic.green || do_traffic {
             for interaction in &self.connectivity.interactions {
-                if let Interaction::Previous { previous, .. } = *interaction {
+                if let CarLaneInteraction::Previous { previous, .. } = *interaction {
                     previous.on_signal_changed(self.id, self.microtraffic.green, world);
                 }
             }
@@ -330,7 +494,7 @@ impl Temporal for Lane {
                 car.acceleration = next_car_acceleration.min(next_obstacle_acceleration);
 
                 if let Some(next_hop_interaction) = car.next_hop_interaction {
-                    if let Interaction::Next { green, .. } =
+                    if let CarLaneInteraction::Next { green, .. } =
                         self.connectivity.interactions[next_hop_interaction as usize]
                     {
                         if !green {
@@ -392,7 +556,7 @@ impl Temporal for Lane {
         }
 
         loop {
-            let maybe_switch_car: Option<(usize, LaneLikeID, f32)> = self
+            let maybe_switch_car: Option<(usize, CarLaneLikeID, f32)> = self
                 .microtraffic
                 .cars
                 .iter()
@@ -404,7 +568,7 @@ impl Temporal for Lane {
                     });
 
                     match interaction {
-                        Some(Interaction::Switch {
+                        Some(CarLaneInteraction::Switch {
                             start, end, via, ..
                         }) => {
                             if *car.position > start && *car.position > end - 300.0 {
@@ -413,7 +577,7 @@ impl Temporal for Lane {
                                 None
                             }
                         }
-                        Some(Interaction::Next { next, .. }) => {
+                        Some(CarLaneInteraction::Next { next, .. }) => {
                             if *car.position > self.construction.length {
                                 Some((i, next.into(), self.construction.length))
                             } else {
@@ -465,11 +629,11 @@ impl Temporal for Lane {
     }
 }
 
-impl LaneLike for SwitchLane {
+impl CarLaneLike for CarSwitchLane {
     fn add_car(
         &mut self,
         car: LaneCar,
-        maybe_from: Option<LaneLikeID>,
+        maybe_from: Option<CarLaneLikeID>,
         _tick: Instant,
         _: &mut World,
     ) {
@@ -496,8 +660,131 @@ impl LaneLike for SwitchLane {
             .cars
             .sort_by_key(|car| car.as_obstacle.position);
     }
+}
 
-    fn add_obstacles(&mut self, obstacles: &CVec<Obstacle>, from: LaneLikeID, world: &mut World) {
+use dimensions::{MAX_SWITCHING_LANE_DISTANCE, MIN_SWITCHING_LANE_LENGTH};
+
+impl ObstacleContainer for CarSwitchLane {
+    fn start_connecting_overlaps(&mut self, other: &CVec<ObstacleContainerID>, world: &mut World) {
+        // Does nothing, normal lanes start connecting
+        // TODO: verify this
+    }
+
+    fn connect_overlaps(
+        &mut self,
+        other_obstacle_container: ObstacleContainerID,
+        other_path: &LinePath,
+        other_width: N,
+        reply_needed: bool,
+        world: &mut World,
+    ) {
+        // make sure that other obstacle container is a car lane
+        // TODO: we really need a way to check actor IDs for type at runtime
+        if other_obstacle_container.as_raw().type_id
+            != CarLaneID::local_broadcast(world).as_raw().type_id
+        {
+            return;
+        };
+        let other_car_lane = CarLaneID::from_raw(other_obstacle_container.as_raw());
+
+        let projections = (
+            other_path.project_with_max_distance(
+                self.construction.path.start(),
+                MAX_SWITCHING_LANE_DISTANCE,
+                MAX_SWITCHING_LANE_DISTANCE,
+            ),
+            other_path.project_with_max_distance(
+                self.construction.path.end(),
+                MAX_SWITCHING_LANE_DISTANCE,
+                MAX_SWITCHING_LANE_DISTANCE,
+            ),
+        );
+        if let (
+            Some((start_on_other_distance, start_on_other)),
+            Some((end_on_other_distance, end_on_other)),
+        ) = projections
+        {
+            if start_on_other_distance < end_on_other_distance
+                && end_on_other_distance - start_on_other_distance > MIN_SWITCHING_LANE_LENGTH
+                && start_on_other
+                    .rough_eq_by(self.construction.path.start(), MAX_SWITCHING_LANE_DISTANCE)
+                && end_on_other.rough_eq_by(self.construction.path.end(), 3.0)
+            {
+                let mut distance_covered = 0.0;
+                let distance_map = self
+                    .construction
+                    .path
+                    .segments()
+                    .map(|segment| {
+                        distance_covered += segment.length();
+                        let segment_end_on_other_distance = other_path
+                            .project_with_tolerance(segment.end(), MAX_SWITCHING_LANE_DISTANCE)
+                            .expect("should contain switch lane segment end")
+                            .0;
+                        (
+                            distance_covered,
+                            segment_end_on_other_distance - start_on_other_distance,
+                        )
+                    })
+                    .collect();
+
+                let other_is_right = (start_on_other - self.construction.path.start())
+                    .dot(&self.construction.path.start_direction().orthogonal_right())
+                    > 0.0;
+
+                if other_is_right {
+                    self.connectivity.right = Some((
+                        other_car_lane,
+                        start_on_other_distance,
+                        end_on_other_distance,
+                    ));
+                    self.connectivity.right_distance_map = distance_map;
+                } else {
+                    self.connectivity.left = Some((
+                        other_car_lane,
+                        start_on_other_distance,
+                        end_on_other_distance,
+                    ));
+                    self.connectivity.left_distance_map = distance_map;
+                }
+
+                if let (
+                    Some((left, left_start_on_other_distance, left_end_on_other_distance)),
+                    Some((right, right_start_on_other_distance, right_end_on_other_distance)),
+                ) = (self.connectivity.left, self.connectivity.right)
+                {
+                    left.add_switch_lane_interaction(
+                        CarLaneInteraction::Switch {
+                            via: self.id,
+                            to: right,
+                            start: left_start_on_other_distance,
+                            end: left_end_on_other_distance,
+                            is_left: false,
+                        },
+                        world,
+                    );
+
+                    right.add_switch_lane_interaction(
+                        CarLaneInteraction::Switch {
+                            via: self.id,
+                            to: left,
+                            start: right_start_on_other_distance,
+                            end: right_end_on_other_distance,
+                            is_left: true,
+                        },
+                        world,
+                    );
+                }
+            }
+        }
+    }
+
+    fn add_obstacles(
+        &mut self,
+        obstacles: &CVec<Obstacle>,
+        from: ObstacleContainerID,
+        world: &mut World,
+    ) {
         if let (Some((left_id, ..)), Some(_)) = (self.connectivity.left, self.connectivity.right) {
             // TODO: ugly: untyped RawID shenanigans
             if left_id.as_raw() == from.as_raw() {
@@ -526,9 +813,36 @@ impl LaneLike for SwitchLane {
             );
         }
     }
+
+    fn disconnect(&mut self, other: ObstacleContainerID, world: &mut World) {
+        self.connectivity.left = self
+            .connectivity
+            .left
+            .filter(|(left_id, ..)| Into::<ObstacleContainerID>::into(*left_id) != other);
+        self.connectivity.right = self
+            .connectivity
+            .right
+            .filter(|(right_id, ..)| Into::<ObstacleContainerID>::into(*right_id) != other);
+        other.on_confirm_disconnect(world);
+    }
+
+    fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate {
+        self.construction.disconnects_remaining -= 1;
+        if self.construction.disconnects_remaining == 0 {
+            self.finalize(
+                self.construction
+                    .unbuilding_for
+                    .expect("should be unbuilding"),
+                world,
+            );
+            Fate::Die
+        } else {
+            Fate::Live
+        }
+    }
 }
 
-impl Temporal for SwitchLane {
+impl Temporal for CarSwitchLane {
     fn tick(&mut self, dt: f32, current_instant: Instant, world: &mut World) {
         let dt = dt / MICROTRAFFIC_UNREALISTIC_SLOWDOWN;
 
@@ -652,7 +966,7 @@ impl Temporal for SwitchLane {
                         || (*car.position > self.construction.length
                             && car.switch_acceleration > 0.0)
                     {
-                        let right_as_lane: LaneLikeID = right.into();
+                        let right_as_lane: CarLaneLikeID = right.into();
                         right_as_lane.add_car(
                             car.as_lane_car.offset_by(
                                 right_start + self.self_to_interaction_offset(*car.position, false),
@@ -666,7 +980,7 @@ impl Temporal for SwitchLane {
                         || (*car.position > self.construction.length
                             && car.switch_acceleration <= 0.0)
                     {
-                        let left_as_lane: LaneLikeID = left.into();
+                        let left_as_lane: CarLaneLikeID = left.into();
                         left_as_lane.add_car(
                             car.as_lane_car.offset_by(
                                 left_start + self.self_to_interaction_offset(*car.position, true),
@@ -708,8 +1022,11 @@ impl Temporal for SwitchLane {
                         }
                     })
                     .collect();
-                let left_as_lane: LaneLikeID = left.into();
-                left_as_lane.add_obstacles(obstacles, self.id_as(), world);
+                Into::<ObstacleContainerID>::into(left).add_obstacles(
+                    obstacles,
+                    self.id_as(),
+                    world,
+                );
             }
 
             if (current_instant.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING
@@ -729,8 +1046,11 @@ impl Temporal for SwitchLane {
                         }
                     })
                     .collect();
-                let right_as_lane: LaneLikeID = right.into();
-                right_as_lane.add_obstacles(obstacles, self.id_as(), world);
+                Into::<ObstacleContainerID>::into(right).add_obstacles(
+                    obstacles,
+                    self.id_as(),
+                    world,
+                );
             }
         }
     }
@@ -741,12 +1061,12 @@ pub fn setup(system: &mut ActorSystem) {
 }
 
 fn obstacles_for_interaction(
-    interaction: &Interaction,
+    interaction: &CarLaneInteraction,
     mut cars: ::std::slice::Iter<LaneCar>,
-    self_obstacles_iter: ::std::slice::Iter<(Obstacle, LaneLikeID)>,
+    self_obstacles_iter: ::std::slice::Iter<(Obstacle, ObstacleContainerID)>,
 ) -> Option<CVec<Obstacle>> {
     match *interaction {
-        Interaction::Conflicting {
+        CarLaneInteraction::Conflicting {
             start,
             conflicting_start,
             end,
@@ -778,13 +1098,13 @@ fn obstacles_for_interaction(
                 }
             }
         }
-        Interaction::Switch { start, end, .. } => Some(
+        CarLaneInteraction::Switch { start, end, .. } => Some(
             cars.skip_while(|car: &&LaneCar| *car.position + 2.0 * car.velocity < start)
                 .take_while(|car: &&LaneCar| *car.position < end)
                 .map(|car| car.as_obstacle)
                 .collect(),
         ),
-        Interaction::Previous {
+        CarLaneInteraction::Previous {
             previous_length, ..
         } => Some(
             cars.map(|car| &car.as_obstacle)
@@ -795,6 +1115,423 @@ fn obstacles_for_interaction(
                 .collect(),
         ),
         _ => None,
+    }
+}
+
+fn obstacles_for_sidewalk_interaction(
+    interaction: &SidewalkInteraction,
+    mut pedestrians: ::std::slice::Iter<Pedestrian>,
+    self_obstacles_iter: ::std::slice::Iter<(Obstacle, ObstacleContainerID)>,
+) -> Option<CVec<Obstacle>> {
+    match *interaction {
+        SidewalkInteraction::Conflicting {
+            start,
+            conflicting_start,
+            end,
+            ..
+        } => {
+            let in_overlap = |pedestrian: &Pedestrian| {
+                *pedestrian.position + 2.0 * pedestrian.velocity > start
+                    && *pedestrian.position - 2.0 < end
+            };
+            if pedestrians.any(in_overlap) {
+                Some(
+                    vec![Obstacle {
+                        position: OrderedFloat(conflicting_start),
+                        velocity: 0.0,
+                        max_velocity: 0.0,
+                    }]
+                    .into(),
+                )
+            } else {
+                Some(CVec::new())
+            }
+        }
+        _ => None,
+    }
+}
+
+#[derive(Compact, Clone)]
+pub struct SidewalkMicrotraffic {
+    pub obstacles: CVec<(Obstacle, ObstacleContainerID)>,
+    pub pedestrians: CVec<Pedestrian>,
+    timings: CVec<bool>,
+    pub green: bool,
+}
+
+impl SidewalkMicrotraffic {
+    pub fn new(timings: CVec<bool>) -> Self {
+        SidewalkMicrotraffic {
+            obstacles: CVec::new(),
+            pedestrians: CVec::new(),
+            timings,
+            green: false,
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct Pedestrian {
+    pub trip: TripID,
+    pub as_obstacle: Obstacle,
+    pub destination: pathfinding::PreciseLocation,
+    pub next_hop_interaction: Option<u8>,
+}
+
+impl Deref for Pedestrian {
+    type Target = Obstacle;
+
+    fn deref(&self) -> &Obstacle {
+        &self.as_obstacle
+    }
+}
+
+impl DerefMut for Pedestrian {
+    fn deref_mut(&mut self) -> &mut Obstacle {
+        &mut self.as_obstacle
+    }
+}
+
+impl Sidewalk {
+    pub fn add_pedestrian(&mut self, pedestrian: Pedestrian, instant: Instant, world: &mut World) {
+        // TODO: does this really happen, or is it ok to only hacke this logic in tick()?
+        if let Some(self_as_location) = self.pathfinding.location {
+            if pedestrian.destination.location == self_as_location
+                && *pedestrian.position >= pedestrian.destination.offset
+            {
+                pedestrian.trip.finish(
+                    TripResult {
+                        location_now: None,
+                        fate: TripFate::Success(instant),
+                    },
+                    world,
+                );
+
+                return;
+            }
+        }
+
+        let (maybe_next_hop_interaction, almost_there) =
+            if Some(pedestrian.destination.location) == self.pathfinding.location {
+                (None, true)
+            } else {
+                let maybe_hop = self
+                    .pathfinding
+                    .routes
+                    .get(pedestrian.destination.location)
+                    .or_else(|| {
+                        self.pathfinding
+                            .routes
+                            .get(pedestrian.destination.landmark_destination())
+                    })
+                    .map(|&StoredRoutingEntry { outgoing_idx, .. }| outgoing_idx as usize);
+
+                (maybe_hop, false)
+            };
+
+        if maybe_next_hop_interaction.is_some() || almost_there {
+            let routed_pedestrian = Pedestrian {
+                next_hop_interaction: maybe_next_hop_interaction.map(|hop| hop as u8),
+                ..pedestrian
+            };
+
+            self.microtraffic.pedestrians.push(routed_pedestrian);
+        } else {
+            pedestrian.trip.finish(
+                TripResult {
+                    location_now: Some(self.id_as()),
+                    fate: TripFate::NoRoute,
+                },
+                world,
+            );
+        }
+    }
+}
+
+impl ObstacleContainer for Sidewalk {
+    fn start_connecting_overlaps(
+        &mut self,
+        other_obstacle_containers: &CVec<ObstacleContainerID>,
+        world: &mut World,
+    ) {
+        for &other_obstacle_container in other_obstacle_containers.iter() {
+            other_obstacle_container.connect_overlaps(
+                self.id_as(),
+                self.construction.path.clone(),
+                LANE_WIDTH_AS_OBSTACLE_CONTAINER,
+                true,
+                world,
+            );
+        }
+    }
+
+    fn connect_overlaps(
+        &mut self,
+        other_id: ObstacleContainerID,
+        other_path: &LinePath,
+        other_width: N,
+        reply_needed: bool,
+        world: &mut World,
+    ) {
+        // make sure that other obstacle container is a car lane
+        // TODO: we really need a way to check actor IDs for type at runtime
+        if other_id.as_raw().type_id != CarLaneID::local_broadcast(world).as_raw().type_id {
+            return;
+        };
+
+        let other_car_lane = CarLaneID::from_raw(other_id.as_raw());
+
+        let &(ref lane_band, ref lane_outline) = {
+            let band = Band::new(
+                self.construction.path.clone(),
+                LANE_WIDTH_AS_OBSTACLE_CONTAINER,
+            );
+            let outline = band.outline();
+            &(band, outline)
+        };
+
+        let &(ref other_band, ref other_outline) = {
+            let band = Band::new(other_path.clone(), LANE_WIDTH_AS_OBSTACLE_CONTAINER);
+            let outline = band.outline();
+            &(band, outline)
+        };
+
+        let intersections = (lane_outline, other_outline).intersect();
+        if intersections.len() >= 2 {
+            if let ::itertools::MinMaxResult::MinMax(
+                (entry_intersection, entry_distance),
+                (exit_intersection, exit_distance),
+            ) = intersections
+                .iter()
+                .map(|intersection| {
+                    (
+                        intersection,
+                        lane_band.outline_distance_to_path_distance(intersection.along_a),
+                    )
+                })
+                .minmax_by_key(|&(_, distance)| OrderedFloat(distance))
+            {
+                let other_entry_distance =
+                    other_band.outline_distance_to_path_distance(entry_intersection.along_b);
+                let other_exit_distance =
+                    other_band.outline_distance_to_path_distance(exit_intersection.along_b);
+
+                self.connectivity
+                    .interactions
+                    .push(SidewalkInteraction::Conflicting {
+                        conflicting: other_car_lane,
+                        start: entry_distance,
+                        conflicting_start: other_entry_distance.min(other_exit_distance),
+                        end: exit_distance,
+                        conflicting_end: other_exit_distance.max(other_entry_distance),
+                    });
+            } else {
+                panic!("both entry and exit should exist")
+            }
+        }
+
+        if reply_needed {
+            other_id.connect_overlaps(
+                self.id_as(),
+                self.construction.path.clone(),
+                LANE_WIDTH_AS_OBSTACLE_CONTAINER,
+                false,
+                world,
+            );
+        }
+    }
+
+    fn add_obstacles(
+        &mut self,
+        obstacles: &CVec<Obstacle>,
+        from: ObstacleContainerID,
+        _: &mut World,
+    ) {
+        self.microtraffic
+            .obstacles
+            .retain(|&(_, received_from)| received_from != from);
+        self.microtraffic
+            .obstacles
+            .extend(obstacles.iter().map(|obstacle| (*obstacle, from)));
+    }
+
+    fn disconnect(&mut self, other_id: ObstacleContainerID, world: &mut World) {
+        self.connectivity
+            .interactions
+            .retain(|interaction| match interaction {
+                SidewalkInteraction::Conflicting { conflicting, .. } => {
+                    conflicting.into() != other_id
+                }
+                SidewalkInteraction::Next { next, .. } => next.into() != other_id,
+                SidewalkInteraction::Previous { previous, .. } => previous.into() != other_id,
+            });
+
+        self.microtraffic.obstacles.drain();
+
+        let self_as_rough_location = self.id_as();
+
+        for pedestrian in self.microtraffic.pedestrians.drain() {
+            pedestrian.trip.finish(
+                TripResult {
+                    location_now: Some(self_as_rough_location),
+                    fate: TripFate::HopDisconnected,
+                },
+                world,
+            );
+        }
+
+        ::transport::pathfinding::Link::on_disconnect(self);
+        other_id.on_confirm_disconnect(world);
+    }
+
+    fn on_confirm_disconnect(&mut self, world: &mut World) -> Fate {
+        self.construction.disconnects_remaining -= 1;
+        if self.construction.disconnects_remaining == 0 {
+            self.finalize(
+                self.construction
+                    .unbuilding_for
+                    .expect("should be unbuilding"),
+                world,
+            );
+            Fate::Die
+        } else {
+            Fate::Live
+        }
+    }
+}
+
+const PEDESTRIAN_STOP_DISTANCE: N = 2.0;
+
+impl Temporal for Sidewalk {
+    fn tick(&mut self, dt: f32, current_instant: Instant, world: &mut World) {
+        let dt = dt / MICROTRAFFIC_UNREALISTIC_SLOWDOWN;
+
+        let do_traffic = current_instant.ticks() % TRAFFIC_LOGIC_THROTTLING
+            == self.id.as_raw().instance_id as usize % TRAFFIC_LOGIC_THROTTLING;
+
+        self.microtraffic.green = if self.microtraffic.timings.is_empty() {
+            true
+        } else {
+            self.microtraffic.timings
+                [(current_instant.ticks() / 30) % self.microtraffic.timings.len()]
+        };
+
+        if current_instant.ticks() % PATHFINDING_THROTTLING
+            == self.id.as_raw().instance_id as usize % PATHFINDING_THROTTLING
+        {
+            self.pathfinding_tick(world);
+        }
+
+        if do_traffic {
+            for &mut pedestrian in self.microtraffic.pedestrians.iter_mut() {
+                let close_obstacle = self.microtraffic.obstacles.iter().any(|&(obstacle, _)| {
+                    obstacle.position > pedestrian.position
+                        && (*obstacle.position - *pedestrian.position < PEDESTRIAN_STOP_DISTANCE)
+                });
+
+                if close_obstacle || !self.microtraffic.green {
+                    pedestrian.velocity = 0.0;
+                } else {
+                    pedestrian.velocity = pedestrian.max_velocity;
+                }
+            }
+
+            for &mut pedestrian in self.microtraffic.pedestrians.iter_mut() {
+                *pedestrian.position += dt * pedestrian.velocity;
+            }
+
+            if let Some(self_as_location) = self.pathfinding.location {
+                self.microtraffic.pedestrians.retain(|pedestrian| {
+                    if pedestrian.destination.location == self_as_location
+                        && *pedestrian.position >= pedestrian.destination.offset
+                    {
+                        pedestrian.trip.finish(
+                            TripResult {
+                                location_now: None,
+                                fate: TripFate::Success(current_instant),
+                            },
+                            world,
+                        );
+
+                        false
+                    } else {
+                        true
+                    }
+                });
+            }
+
+            loop {
+                let maybe_switch_pedestrian: Option<(usize, SidewalkID, f32)> = self
+                    .microtraffic
+                    .pedestrians
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .filter_map(|(i, &pedestrian)| {
+                        let interaction = pedestrian.next_hop_interaction.map(|hop_interaction| {
+                            self.connectivity.interactions[hop_interaction as usize]
+                        });
+
+                        match interaction {
+                            Some(SidewalkInteraction::Next { next, .. }) => {
+                                if *pedestrian.position > self.construction.length {
+                                    Some((i, next.into(), self.construction.length))
+                                } else {
+                                    None
+                                }
+                            }
+                            Some(_) => unreachable!(
+                                "Pedestrian has a next hop that is not a Next sidewalk"
+                            ),
+                            None => None,
+                        }
+                    })
+                    .next();
+
+                if let Some((idx_to_remove, next_sidewalk, start)) = maybe_switch_pedestrian {
+                    let pedestrian = self.microtraffic.pedestrians.remove(idx_to_remove);
+                    next_sidewalk.add_pedestrian(
+                        Pedestrian {
+                            as_obstacle: pedestrian.offset_by(-start),
+                            ..pedestrian
+                        },
+                        current_instant,
+                        world,
+                    );
+                } else {
+                    break;
+                }
+
+                // ASSUMPTION: only one interaction per Lane/Lane pair
+                for interaction in self.connectivity.interactions.iter() {
+                    let pedestrians = self.microtraffic.pedestrians.iter();
+
+                    match interaction {
+                        SidewalkInteraction::Conflicting { conflicting, .. } => {
+                            if (current_instant.ticks() + 1) % TRAFFIC_LOGIC_THROTTLING
+                                == conflicting.as_raw().instance_id as usize
+                                    % TRAFFIC_LOGIC_THROTTLING
+                            {
+                                let maybe_obstacles = obstacles_for_sidewalk_interaction(
+                                    interaction,
+                                    pedestrians,
+                                    self.microtraffic.obstacles.iter(),
+                                );
+
+                                if let Some(obstacles) = maybe_obstacles {
+                                    Into::<ObstacleContainerID>::into(*conflicting).add_obstacles(
+                                        obstacles,
+                                        self.id_as(),
+                                        world,
+                                    );
+                                }
+                            }
+                        }
+                        _ => {} // Next or prev don't create obstacles
+                    }
+                }
+            }
+        }
     }
 }
 

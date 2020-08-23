@@ -1,11 +1,12 @@
 use compact::CVec;
-use descartes::{ArcLinePath, Intersect, WithUniqueOrthogonal,
-RoughEq};
+use descartes::{ArcLinePath, Intersect, WithUniqueOrthogonal, RoughEq};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
-use super::{IntersectionPrototype, IntersectionConnector, ConnectionRole, LANE_DISTANCE,
-LanePrototype, GestureSideID};
+use super::{
+    IntersectionPrototype, IntersectionConnector, ConnectionRole, LANE_DISTANCE, LanePrototype,
+    GestureSideID, LaneType,
+};
 
 pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
     // sort intersection connectors from inner to outer lanes
@@ -123,7 +124,10 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
         }
 
         for outgoing_group in intersection.outgoing.values_mut() {
-            let n_lanes = outgoing_group.len();
+            let n_car_lanes = outgoing_group
+                .iter()
+                .filter(|connector| connector.lane_type == LaneType::CarLane)
+                .count();
 
             let has_inner_turn = intersection.incoming.values().any(|incoming_group| {
                 let role = role_between_groups(incoming_group, outgoing_group);
@@ -139,27 +143,35 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
 
             let (n_inner_turn_lanes, n_outer_turn_lanes) =
                 match (has_inner_turn, has_straight, has_outer_turn) {
-                    (true, true, true) => ((n_lanes / 4).max(1), (n_lanes / 4).max(1)),
-                    (false, true, true) => (0, (n_lanes / 3).max(1)),
-                    (true, true, false) => ((n_lanes / 3).max(1), 0),
+                    (true, true, true) => ((n_car_lanes / 4).max(1), (n_car_lanes / 4).max(1)),
+                    (false, true, true) => (0, (n_car_lanes / 3).max(1)),
+                    (true, true, false) => ((n_car_lanes / 3).max(1), 0),
                     (false, _, false) => (0, 0),
-                    (true, false, false) => (n_lanes, 0),
-                    (false, false, true) => (0, n_lanes),
-                    (true, false, true) => ((n_lanes / 2).max(1), (n_lanes / 2).max(1)),
+                    (true, false, false) => (n_car_lanes, 0),
+                    (false, false, true) => (0, n_car_lanes),
+                    (true, false, true) => ((n_car_lanes / 2).max(1), (n_car_lanes / 2).max(1)),
                 };
 
-            for (l, outgoing_lane) in outgoing_group.iter_mut().enumerate() {
-                if l == 0 && has_inner_turn {
-                    outgoing_lane.role.u_turn = true;
-                }
-                if l < n_inner_turn_lanes {
-                    outgoing_lane.role.inner_turn = true;
-                }
-                if n_lanes < 3 || l >= n_inner_turn_lanes && l < n_lanes - n_outer_turn_lanes {
-                    outgoing_lane.role.straight = true;
-                }
-                if l >= n_lanes - n_outer_turn_lanes {
-                    outgoing_lane.role.outer_turn = true;
+            let mut car_lane_idx = 0;
+
+            for outgoing_lane in outgoing_group.iter_mut() {
+                if outgoing_lane.lane_type == LaneType::CarLane {
+                    if car_lane_idx == 0 && has_inner_turn {
+                        outgoing_lane.role.u_turn = true;
+                    }
+                    if car_lane_idx < n_inner_turn_lanes {
+                        outgoing_lane.role.inner_turn = true;
+                    }
+                    if n_car_lanes < 3
+                        || car_lane_idx >= n_inner_turn_lanes
+                            && car_lane_idx < n_car_lanes - n_outer_turn_lanes
+                    {
+                        outgoing_lane.role.straight = true;
+                    }
+                    if car_lane_idx >= n_car_lanes - n_outer_turn_lanes {
+                        outgoing_lane.role.outer_turn = true;
+                    }
+                    car_lane_idx += 1;
                 }
             }
         }
@@ -174,35 +186,42 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                     .map(|(outgoing_gesture_side_id, outgoing_group)| {
                         let role = role_between_groups(incoming_group, outgoing_group);
 
-                        let relevant_incoming_connectors = incoming_group
+                        let relevant_incoming_car_connectors = incoming_group
                             .iter()
                             .filter(|connector| {
-                                (role.u_turn && connector.role.u_turn)
-                                    || (role.inner_turn && connector.role.inner_turn)
-                                    || (role.straight && connector.role.straight)
-                                    || (role.outer_turn && connector.role.outer_turn)
+                                connector.lane_type == LaneType::CarLane
+                                    && ((role.u_turn && connector.role.u_turn)
+                                        || (role.inner_turn && connector.role.inner_turn)
+                                        || (role.straight && connector.role.straight)
+                                        || (role.outer_turn && connector.role.outer_turn))
                             })
                             .collect::<Vec<_>>();
-                        let relevant_incoming_len = relevant_incoming_connectors.len();
+                        let relevant_incoming_car_len = relevant_incoming_car_connectors.len();
 
-                        let relevant_outgoing_connectors = outgoing_group
+                        let relevant_outgoing_car_connectors = outgoing_group
                             .iter()
                             .filter(|connector| {
-                                (role.u_turn && connector.role.u_turn)
-                                    || (role.inner_turn && connector.role.inner_turn)
-                                    || (role.straight && connector.role.straight)
-                                    || (role.outer_turn && connector.role.outer_turn)
+                                connector.lane_type == LaneType::CarLane
+                                    && ((role.u_turn && connector.role.u_turn)
+                                        || (role.inner_turn && connector.role.inner_turn)
+                                        || (role.straight && connector.role.straight)
+                                        || (role.outer_turn && connector.role.outer_turn))
                             })
                             .collect::<Vec<_>>();
-                        let relevant_outgoing_len = relevant_outgoing_connectors.len();
+                        let relevant_outgoing_car_len = relevant_outgoing_car_connectors.len();
 
-                        let lanes = if relevant_incoming_len > 0 && relevant_outgoing_len > 0 {
-                            (0..relevant_incoming_len.max(relevant_outgoing_len))
+                        let car_lanes = if relevant_incoming_car_len > 0
+                            && relevant_outgoing_car_len > 0
+                        {
+                            (0..relevant_incoming_car_len.max(relevant_outgoing_car_len))
                                 .filter_map(|l| {
-                                    let start = relevant_incoming_connectors
-                                        [l.min(relevant_incoming_len - 1)];
-                                    let end = relevant_outgoing_connectors
-                                        [l.min(relevant_outgoing_len - 1)];
+                                    let start = relevant_incoming_car_connectors
+                                        [l.min(relevant_incoming_car_len - 1)];
+                                    let end = relevant_outgoing_car_connectors
+                                        [l.min(relevant_outgoing_car_len - 1)];
+
+                                    // TODO: create flattened Biarc for more reasonable lanes across
+                                    // intersection & especially sidewalks
                                     let path = ArcLinePath::biarc(
                                         start.position,
                                         start.direction,
@@ -211,16 +230,48 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                                     )?
                                     .to_line_path_with_max_angle(0.6);
 
-                                    Some(LanePrototype(path, CVec::new()))
+                                    Some(LanePrototype(path, CVec::new(), LaneType::CarLane))
                                 })
                                 .collect::<Vec<_>>()
                         } else {
                             vec![]
                         };
 
+                        let incoming_sidewalks = incoming_group
+                            .iter()
+                            .filter(|connector| connector.lane_type == LaneType::Sidewalk)
+                            .collect::<Vec<_>>();
+                        let outgoing_sidewalks = outgoing_group
+                            .iter()
+                            .filter(|connector| connector.lane_type == LaneType::Sidewalk)
+                            .collect::<Vec<_>>();
+
+                        let sidewalks =
+                            incoming_sidewalks
+                                .iter()
+                                .flat_map(|incoming_sidewalk_connector| {
+                                    outgoing_sidewalks.iter().filter_map(
+                                        |outgoing_sidewalk_connector| {
+                                            let path = ArcLinePath::biarc(
+                                                incoming_sidewalk_connector.position,
+                                                incoming_sidewalk_connector.direction,
+                                                outgoing_sidewalk_connector.position,
+                                                outgoing_sidewalk_connector.direction,
+                                            )?
+                                            .to_line_path_with_max_angle(0.6);
+
+                                            Some(LanePrototype(
+                                                path,
+                                                CVec::new(),
+                                                LaneType::Sidewalk,
+                                            ))
+                                        },
+                                    )
+                                });
+
                         (
                             (role, *incoming_gesture_side_id, *outgoing_gesture_side_id),
-                            lanes,
+                            car_lanes.into_iter().chain(sidewalks).collect::<Vec<_>>(),
                         )
                     })
                     .collect::<Vec<_>>()
@@ -241,7 +292,7 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
 
         fn compatible(lanes_a: &[LanePrototype], lanes_b: &[LanePrototype]) -> bool {
             lanes_a.iter().cartesian_product(lanes_b).all(
-                |(&LanePrototype(ref path_a, _), &LanePrototype(ref path_b, _))| {
+                |(&LanePrototype(ref path_a, ..), &LanePrototype(ref path_b, ..))| {
                     path_a.start().rough_eq_by(path_b.start(), 0.1)
                         || (!path_a.end().rough_eq_by(path_b.end(), 0.1)
                             && (path_a, path_b).intersect().is_empty())
@@ -364,7 +415,7 @@ pub fn create_connecting_lanes(intersection: &mut IntersectionPrototype) {
                 })
                 .collect();
 
-            for &mut LanePrototype(_, ref mut lane_timings) in lanes.iter_mut() {
+            for &mut LanePrototype(_, ref mut lane_timings, _) in lanes.iter_mut() {
                 *lane_timings = timings.clone()
             }
         }

@@ -2,7 +2,7 @@ use kay::{ActorSystem, World, Actor, Fate, TypedID};
 use compact::{CVec, COption};
 use descartes::P2;
 
-use transport::lane::LaneID;
+use transport::lane::CarLaneID;
 use cb_time::actors::TimeID;
 use cb_time::units::Ticks;
 use cb_planning::Prototype;
@@ -65,7 +65,8 @@ pub struct Building {
     id: BuildingID,
     units: CVec<Unit>,
     lot: Lot,
-    pub location: Option<PreciseLocation>,
+    pub lane_location: Option<PreciseLocation>,
+    pub sidewalk_location: Option<PreciseLocation>,
     style: BuildingStyle,
     being_destroyed_for: COption<CBConstructionID>,
     started_reconnect: bool,
@@ -89,7 +90,8 @@ impl Building {
             id,
             units: units_for_style(style),
             lot: lot.clone(),
-            location: None,
+            lane_location: None,
+            sidewalk_location: None,
             style,
             being_destroyed_for: COption(None),
             started_reconnect: false,
@@ -158,8 +160,11 @@ impl Building {
 
     pub fn finally_destroy(&mut self, world: &mut World) -> Fate {
         rendering::on_destroy(self.id, world);
-        if let Some(location) = self.location {
-            location.link.remove_attachee(self.id_as(), world);
+        if let Some(lane_location) = self.lane_location {
+            lane_location.link.remove_attachee(self.id_as(), world);
+        }
+        if let Some(sidewalk_location) = self.sidewalk_location {
+            sidewalk_location.link.remove_attachee(self.id_as(), world);
         }
         self.being_destroyed_for
             .unwrap()
@@ -211,8 +216,9 @@ use cb_time::units::Duration;
 impl Attachee for Building {
     fn location_changed(
         &mut self,
-        _old: Option<Location>,
+        old: Option<Location>,
         maybe_new: Option<Location>,
+        network_flavor: NetworkFlavor,
         world: &mut World,
     ) {
         if let Some(new) = maybe_new {
@@ -246,7 +252,7 @@ impl Sleeper for Building {
                 self.id,
                 world,
             );
-            LaneID::global_broadcast(world).try_reconnect_building(
+            CarLaneID::global_broadcast(world).try_reconnect_building(
                 self.id,
                 self.lot.best_road_connection().0,
                 world,

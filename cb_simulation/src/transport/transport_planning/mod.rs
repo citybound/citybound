@@ -2,7 +2,7 @@ use compact::{CHashMap, CVec};
 use descartes::{
     N, P2, V2, EditArcLinePath, Band, LinePath, ClosedLinePath, Area, Intersect,
     WithUniqueOrthogonal, RoughEq, PointContainer, AreaError, ArcOrLineSegment, Segment,
-    AreaEmbedding, AreaFilter, ResolutionStrategy, Closedness, VecLike, Corner
+    AreaEmbedding, AreaFilter, ResolutionStrategy, Closedness, VecLike, Corner,
 };
 use ordered_float::OrderedFloat;
 
@@ -18,10 +18,16 @@ use dimensions::{
     SWITCHING_LANE_OVERLAP_TOLERANCE,
 };
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum LaneType {
+    CarLane,
+    Sidewalk,
+}
+
+#[derive(Compact, Clone, Debug, Serialize, Deserialize)]
 pub struct RoadLaneConfig {
-    pub n_lanes_forward: u8,
-    pub n_lanes_backward: u8,
+    pub forward_lanes: CVec<LaneType>,
+    pub backward_lanes: CVec<LaneType>,
 }
 
 #[derive(Compact, Clone, Debug, Serialize, Deserialize)]
@@ -32,7 +38,14 @@ pub struct RoadIntent {
 
 impl RoadIntent {
     pub fn new<V: Into<VecLike<Corner>>>(corners: V, lane_config: RoadLaneConfig) -> Self {
-        RoadIntent { path: EditArcLinePath::new(corners, ResolutionStrategy::AssumeSmooth, Closedness::NeverClosed), lane_config }
+        RoadIntent {
+            path: EditArcLinePath::new(
+                corners,
+                ResolutionStrategy::AssumeSmooth,
+                Closedness::NeverClosed,
+            ),
+            lane_config,
+        }
     }
 }
 
@@ -63,15 +76,15 @@ impl RoadPrototype {
 }
 
 #[derive(Compact, Clone, Serialize, Deserialize, Debug)]
-pub struct LanePrototype(pub LinePath, pub CVec<bool>);
+pub struct LanePrototype(pub LinePath, pub CVec<bool>, pub LaneType);
 
 impl LanePrototype {
     pub fn morphable_from(&self, other: &LanePrototype) -> bool {
         match (self, other) {
             (
-                &LanePrototype(ref path_1, ref timings_1),
-                &LanePrototype(ref path_2, ref timings_2),
-            ) => path_1.rough_eq_by(path_2, 0.05) && timings_1[..] == timings_2[..],
+                &LanePrototype(ref path_1, ref timings_1, ref lane_type_1),
+                &LanePrototype(ref path_2, ref timings_2, ref lane_type_2),
+            ) => path_1.rough_eq_by(path_2, 0.05) && timings_1[..] == timings_2[..] && lane_type_1 == lane_type_2,
         }
     }
 }
@@ -102,10 +115,11 @@ pub struct IntersectionConnector {
     position: P2,
     direction: V2,
     role: ConnectionRole,
+    lane_type: LaneType,
 }
 
 impl IntersectionConnector {
-    fn new(position: P2, direction: V2) -> Self {
+    fn new(position: P2, direction: V2, lane_type: LaneType) -> Self {
         IntersectionConnector {
             position,
             direction,
@@ -115,6 +129,7 @@ impl IntersectionConnector {
                 inner_turn: false,
                 outer_turn: false,
             },
+            lane_type,
         }
     }
 }
@@ -198,14 +213,14 @@ pub fn calculate_prototypes(
             (
                 Band::new_asymmetric(
                     path.clone(),
-                    f32::from(road_intent.n_lanes_backward) * LANE_DISTANCE
-                        + if road_intent.n_lanes_backward > 0 {
+                    f32::from(road_intent.backward_lanes.len() as u16) * LANE_DISTANCE // TODO: figure out to float conversion
+                        + if road_intent.backward_lanes.len() > 0 {
                             1.2 * LANE_DISTANCE
                         } else {
                             0.4 * LANE_DISTANCE
                         },
-                    f32::from(road_intent.n_lanes_forward) * LANE_DISTANCE
-                        + if road_intent.n_lanes_forward > 0 {
+                    f32::from(road_intent.forward_lanes.len() as u16) * LANE_DISTANCE
+                        + if road_intent.forward_lanes.len() > 0 {
                             1.2 * LANE_DISTANCE
                         } else {
                             0.4 * LANE_DISTANCE
@@ -248,10 +263,10 @@ pub fn calculate_prototypes(
                 let orthogonal = direction.orthogonal_right();
                 let half_depth = direction * ROAD_CAP_DEPTH / 2.0;
                 let width_backward = orthogonal
-                    * (f32::from(road_intent.n_lanes_backward) * LANE_DISTANCE
+                    * (f32::from(road_intent.backward_lanes.len() as u16) * LANE_DISTANCE
                         + 0.4 * LANE_DISTANCE);
                 let width_forward = orthogonal
-                    * (f32::from(road_intent.n_lanes_forward) * LANE_DISTANCE
+                    * (f32::from(road_intent.forward_lanes.len() as u16) * LANE_DISTANCE
                         + 0.4 * LANE_DISTANCE);
                 (
                     Area::new_simple(
@@ -315,20 +330,22 @@ pub fn calculate_prototypes(
             .enumerate()
             .flat_map(
                 |(gesture_i, &(gesture_id, step_id, road_intent, ref path))| {
-                    (0..road_intent.n_lanes_forward)
-                        .map(|lane_i| {
+                    road_intent.forward_lanes.iter().enumerate()
+                        .map(|(lane_i, lane_type)| {
                             (
-                                CENTER_LANE_DISTANCE / 2.0 + f32::from(lane_i) * LANE_DISTANCE,
+                                CENTER_LANE_DISTANCE / 2.0 + f32::from(lane_i as u16) * LANE_DISTANCE,
                                 lane_i as i8 + 1,
+                                lane_type
                             )
                         })
-                        .chain((0..road_intent.n_lanes_backward).map(|lane_i| {
+                        .chain(road_intent.backward_lanes.iter().enumerate().map(|(lane_i, lane_type)| {
                             (
-                                -(CENTER_LANE_DISTANCE / 2.0 + f32::from(lane_i) * LANE_DISTANCE),
+                                -(CENTER_LANE_DISTANCE / 2.0 + f32::from(lane_i as u16) * LANE_DISTANCE),
                                 -(lane_i as i8) - 1,
+                                lane_type
                             )
                         }))
-                        .filter_map(|(offset, offset_i)| {
+                        .filter_map(|(offset, offset_i, lane_type)| {
                             path.shift_orthogonally(offset).map(|path| {
                                 (
                                     if offset < 0.0 {
@@ -338,6 +355,7 @@ pub fn calculate_prototypes(
                                     },
                                     PrototypeID::from_influences((gesture_id, step_id, offset_i)),
                                     if offset < 0.0 { path.reverse() } else { path },
+                                    lane_type
                                 )
                             })
                         })
@@ -348,7 +366,7 @@ pub fn calculate_prototypes(
 
         raw_lane_paths
             .into_iter()
-            .flat_map(|(gesture_side_id, lane_influence_id, raw_lane_path)| {
+            .flat_map(|(gesture_side_id, lane_influence_id, raw_lane_path, lane_type)| {
                 let mut start_trim = 0.0f32;
                 let mut start_influence = lane_influence_id;
                 let mut end_trim = raw_lane_path.length();
@@ -386,6 +404,7 @@ pub fn calculate_prototypes(
                                 IntersectionConnector::new(
                                     raw_lane_path.along(*entry_distance),
                                     raw_lane_path.direction_along(*entry_distance),
+                                    *lane_type
                                 ),
                             );
                             intersection.outgoing.push_at(
@@ -393,6 +412,7 @@ pub fn calculate_prototypes(
                                 IntersectionConnector::new(
                                     raw_lane_path.along(*exit_distance),
                                     raw_lane_path.direction_along(*exit_distance),
+                                    *lane_type
                                 ),
                             );
                             cuts.push((*entry_distance, *exit_distance, *intersection_id));
@@ -404,6 +424,7 @@ pub fn calculate_prototypes(
                                     IntersectionConnector::new(
                                         raw_lane_path.along(exit_distance),
                                         raw_lane_path.direction_along(exit_distance),
+                                        *lane_type
                                     ),
                                 );
                                 if exit_distance > start_trim {
@@ -417,6 +438,7 @@ pub fn calculate_prototypes(
                                     IntersectionConnector::new(
                                         raw_lane_path.along(entry_distance),
                                         raw_lane_path.direction_along(entry_distance),
+                                        *lane_type
                                     ),
                                 );
                                 if entry_distance < end_trim {
@@ -445,7 +467,7 @@ pub fn calculate_prototypes(
                             lane_influence_id.add_influences((exit_influence, entry_influence));
                         raw_lane_path
                             .subsection(exit_distance, entry_distance)
-                            .map(|subsection| (subsection, subsection_id))
+                            .map(|subsection| (subsection, subsection_id, lane_type))
                     })
                     .collect::<Vec<_>>()
             })
@@ -461,7 +483,7 @@ pub fn calculate_prototypes(
 
         let mut switch_lane_embedding = AreaEmbedding::new(30.0);
 
-        let right_lane_bands = intersected_lane_paths.iter().filter_map(|(path, id)| {
+        let right_lane_bands = intersected_lane_paths.iter().filter_map(|(path, id, _)| {
             path.shift_orthogonally(0.5 * LANE_DISTANCE + 0.5 * SWITCHING_LANE_OVERLAP_TOLERANCE)
                 .map(|right_path| {
                     let band =
@@ -474,7 +496,7 @@ pub fn calculate_prototypes(
             switch_lane_embedding.insert(band_area, SwitchLaneLabel::Right(id))
         }
 
-        let left_lane_bands = intersected_lane_paths.iter().filter_map(|(path, id)| {
+        let left_lane_bands = intersected_lane_paths.iter().filter_map(|(path, id, _)| {
             path.shift_orthogonally(-0.5 * LANE_DISTANCE - 0.5 * SWITCHING_LANE_OVERLAP_TOLERANCE)
                 .map(|left_path| {
                     let band = Band::new(left_path.clone(), SWITCHING_LANE_OVERLAP_TOLERANCE * 2.0);
@@ -541,11 +563,12 @@ pub fn calculate_prototypes(
         .chain(
             intersected_lane_paths
                 .into_iter()
-                .map(|(path, id)| Prototype {
+                .map(|(path, id, lane_type)| Prototype {
                     representative_position: path.points[0],
                     kind: CBPrototypeKind::Road(RoadPrototype::Lane(LanePrototype(
                         path,
                         CVec::new(),
+                        *lane_type
                     ))),
                     id,
                 }),

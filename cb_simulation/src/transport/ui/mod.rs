@@ -2,11 +2,12 @@ use descartes::{LinePath, Segment, WithUniqueOrthogonal};
 use compact::CVec;
 use kay::{ActorSystem, World, TypedID, RawID};
 use michelangelo::Mesh;
-use super::lane::{Lane, LaneID, SwitchLane, SwitchLaneID};
+use super::lane::{CarLane, CarLaneID, CarSwitchLane, CarSwitchLaneID};
 use transport::pathfinding::trip::TripID;
 
-use dimensions::{LANE_DISTANCE, LANE_WIDTH, LANE_MARKER_WIDTH, LANE_MARKER_DASH_GAP,
-LANE_MARKER_DASH_LENGTH};
+use dimensions::{
+    LANE_DISTANCE, LANE_WIDTH, LANE_MARKER_WIDTH, LANE_MARKER_DASH_GAP, LANE_MARKER_DASH_LENGTH,
+};
 
 use itertools::Itertools;
 
@@ -37,7 +38,7 @@ pub trait TransportUI {
     fn on_car_info(&mut self, from_lane: RawID, infos: &CVec<CarRenderInfo>, _: &mut World);
 }
 
-impl Lane {
+impl CarLane {
     fn car_info(&self) -> CVec<CarRenderInfo> {
         let mut cars_iter = self.microtraffic.cars.iter();
         let mut car_infos = CVec::with_capacity(self.microtraffic.cars.len());
@@ -93,7 +94,7 @@ pub fn switch_marker_gap_mesh(path: &LinePath) -> Mesh {
         .sum()
 }
 
-impl Lane {
+impl CarLane {
     pub fn get_render_info(&mut self, ui: TransportUIID, world: &mut World) {
         ui.on_lane_constructed(
             self.id.as_raw(),
@@ -105,7 +106,7 @@ impl Lane {
     }
 }
 
-impl SwitchLane {
+impl CarSwitchLane {
     pub fn get_render_info(&mut self, ui: TransportUIID, world: &mut World) {
         ui.on_lane_constructed(
             self.id.as_raw(),
@@ -117,7 +118,7 @@ impl SwitchLane {
     }
 }
 
-impl SwitchLane {
+impl CarSwitchLane {
     fn car_info(&self) -> CVec<CarRenderInfo> {
         let mut cars_iter = self.microtraffic.cars.iter();
         let mut car_infos = CVec::with_capacity(self.microtraffic.cars.len());
@@ -148,7 +149,7 @@ impl SwitchLane {
     }
 }
 
-pub fn on_build(lane: &Lane, world: &mut World) {
+pub fn on_build(lane: &CarLane, world: &mut World) {
     TransportUIID::global_broadcast(world).on_lane_constructed(
         lane.id.as_raw(),
         lane.construction.path.clone(),
@@ -158,7 +159,7 @@ pub fn on_build(lane: &Lane, world: &mut World) {
     );
 }
 
-pub fn on_build_switch(lane: &SwitchLane, world: &mut World) {
+pub fn on_build_switch(lane: &CarSwitchLane, world: &mut World) {
     TransportUIID::global_broadcast(world).on_lane_constructed(
         lane.id.as_raw(),
         lane.construction.path.clone(),
@@ -168,7 +169,7 @@ pub fn on_build_switch(lane: &SwitchLane, world: &mut World) {
     );
 }
 
-pub fn on_unbuild(lane: &Lane, world: &mut World) {
+pub fn on_unbuild(lane: &CarLane, world: &mut World) {
     TransportUIID::global_broadcast(world).on_lane_destructed(
         lane.id.as_raw(),
         false,
@@ -177,7 +178,7 @@ pub fn on_unbuild(lane: &Lane, world: &mut World) {
     );
 }
 
-pub fn on_unbuild_switch(lane: &SwitchLane, world: &mut World) {
+pub fn on_unbuild_switch(lane: &CarSwitchLane, world: &mut World) {
     TransportUIID::global_broadcast(world).on_lane_destructed(lane.id.as_raw(), true, false, world);
 }
 

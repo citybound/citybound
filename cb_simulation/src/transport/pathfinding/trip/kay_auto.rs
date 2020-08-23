@@ -210,7 +210,7 @@ impl TripCreatorID {
         id
     }
     
-    pub fn add_lane_for_trip(self, lane_id: LaneID, world: &mut World) {
+    pub fn add_lane_for_trip(self, lane_id: CarLaneID, world: &mut World) {
         world.send(self.as_raw(), MSG_TripCreator_add_lane_for_trip(lane_id));
     }
 }
@@ -218,7 +218,7 @@ impl TripCreatorID {
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_TripCreator_spawn(pub TripCreatorID, pub TimeID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_TripCreator_add_lane_for_trip(pub LaneID);
+struct MSG_TripCreator_add_lane_for_trip(pub CarLaneID);
 
 impl Into<SleeperID> for TripCreatorID {
     fn into(self) -> SleeperID {
@@ -227,14 +227,14 @@ impl Into<SleeperID> for TripCreatorID {
 }
 
 
-impl LaneID {
+impl CarLaneID {
     pub fn manually_spawn_car_add_lane(self, world: &mut World) {
-        world.send(self.as_raw(), MSG_Lane_manually_spawn_car_add_lane());
+        world.send(self.as_raw(), MSG_CarLane_manually_spawn_car_add_lane());
     }
 }
 
 #[derive(Copy, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Lane_manually_spawn_car_add_lane();
+struct MSG_CarLane_manually_spawn_car_add_lane();
 
 
 impl Actor for FailedTripDebugger {
@@ -337,8 +337,8 @@ pub fn auto_setup(system: &mut ActorSystem) {
         }, false
     );
     
-    system.add_handler::<Lane, _, _>(
-        |&MSG_Lane_manually_spawn_car_add_lane(), instance, world| {
+    system.add_handler::<CarLane, _, _>(
+        |&MSG_CarLane_manually_spawn_car_add_lane(), instance, world| {
             instance.manually_spawn_car_add_lane(world); Fate::Live
         }, false
     );

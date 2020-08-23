@@ -10,6 +10,12 @@ const LOG_T: &str = "Pathfinding";
 
 use cb_util::log::{debug};
 
+#[derive(Copy, Clone)]
+pub enum NetworkFlavor {
+    CarNetwork,
+    PedestrianNetwork,
+}
+
 pub trait Link: Actor {
     fn core(&self) -> &PathfindingCore;
     fn core_mut(&mut self) -> &mut PathfindingCore;
@@ -272,6 +278,7 @@ pub struct LinkConnection {
 
 #[derive(Compact, Clone, Default)]
 pub struct PathfindingCore {
+    pub network_flavor: NetworkFlavor,
     pub location: Option<Location>,
     pub hops_from_landmark: u8,
     pub learned_landmark_from: Option<LinkID>,
@@ -329,6 +336,7 @@ pub trait Attachee {
         &mut self,
         _old: Option<Location>,
         new: Option<Location>,
+        network_flavor: NetworkFlavor,
         world: &mut World,
     );
 }

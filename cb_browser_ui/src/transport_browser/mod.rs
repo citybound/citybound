@@ -38,8 +38,8 @@ pub struct BrowserTransportUINonPersistedState {
 impl BrowserTransportUI {
     pub fn spawn(id: BrowserTransportUIID, world: &mut World) -> BrowserTransportUI {
         {
-            ::transport::lane::LaneID::global_broadcast(world).get_render_info(id.into(), world);
-            ::transport::lane::SwitchLaneID::global_broadcast(world)
+            ::transport::lane::CarLaneID::global_broadcast(world).get_render_info(id.into(), world);
+            ::transport::lane::CarSwitchLaneID::global_broadcast(world)
                 .get_render_info(id.into(), world);
         }
 
@@ -58,8 +58,9 @@ impl BrowserTransportUI {
 
 impl FrameListener for BrowserTransportUI {
     fn on_frame(&mut self, world: &mut World) {
-        ::transport::lane::LaneID::global_broadcast(world).get_car_info(self.id_as(), world);
-        ::transport::lane::SwitchLaneID::global_broadcast(world).get_car_info(self.id_as(), world);
+        ::transport::lane::CarLaneID::global_broadcast(world).get_car_info(self.id_as(), world);
+        ::transport::lane::CarSwitchLaneID::global_broadcast(world)
+            .get_car_info(self.id_as(), world);
 
         let mut car_instances = Vec::with_capacity(600_000);
 
@@ -78,7 +79,7 @@ impl FrameListener for BrowserTransportUI {
             }))
         }
 
-        use ::stdweb::unstable::TryInto;
+        use stdweb::unstable::TryInto;
 
         let car_color_vals: Vec<::stdweb::Value> = js! {
             return require("../../../src/colors").default.carColors;
@@ -107,7 +108,7 @@ impl TransportUI for BrowserTransportUI {
         on_intersection: bool,
         _world: &mut World,
     ) {
-        use ::transport::ui::{lane_mesh, marker_mesh, switch_marker_gap_mesh};
+        use transport::ui::{lane_mesh, marker_mesh, switch_marker_gap_mesh};
         if is_switch {
             let updated_lane_marker_gaps_groups = self
                 .lane_marker_gaps_grouper

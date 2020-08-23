@@ -99,7 +99,7 @@ export function PlanningMenu(
                     (mode) => {
                         setPlanningMode(mode);
                         if (mode === 'roads') {
-                            setIntent({ Road: cbRustBrowser.new_road_intent(1, 1) })
+                            setIntent({ Road: cbRustBrowser.new_road_intent(2, 2) })
                         } else {
                             setIntent(null);
                         }

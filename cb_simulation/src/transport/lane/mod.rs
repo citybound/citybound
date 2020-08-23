@@ -4,32 +4,32 @@ use descartes::{N, LinePath};
 
 use super::construction::ConstructionInfo;
 pub mod connectivity;
-use self::connectivity::{ConnectivityInfo, SwitchConnectivityInfo};
-use super::microtraffic::{Microtraffic, TransferringMicrotraffic};
+use self::connectivity::{ConnectivityInfo, CarSwitchConnectivityInfo, SidewalkConnectivityInfo};
+use super::microtraffic::{CarMicrotraffic, CarSwitchMicrotraffic, SidewalkMicrotraffic};
 use super::pathfinding::PathfindingCore;
 
 #[derive(Compact, Clone)]
-pub struct Lane {
-    pub id: LaneID,
+pub struct CarLane {
+    pub id: CarLaneID,
     pub construction: ConstructionInfo,
     pub connectivity: ConnectivityInfo,
-    pub microtraffic: Microtraffic,
+    pub microtraffic: CarMicrotraffic,
     pub pathfinding: PathfindingCore,
 }
 
-impl Lane {
+impl CarLane {
     pub fn spawn(
-        id: LaneID,
+        id: CarLaneID,
         path: &LinePath,
         on_intersection: bool,
         timings: &CVec<bool>,
         world: &mut World,
     ) -> Self {
-        let lane = Lane {
+        let lane = CarLane {
             id,
             construction: ConstructionInfo::from_path(path.clone()),
             connectivity: ConnectivityInfo::new(on_intersection),
-            microtraffic: Microtraffic::new(timings.clone()),
+            microtraffic: CarMicrotraffic::new(timings.clone()),
             pathfinding: PathfindingCore::default(),
         };
 
@@ -40,24 +40,24 @@ impl Lane {
 }
 
 #[derive(Compact, Clone)]
-pub struct SwitchLane {
-    pub id: SwitchLaneID,
+pub struct CarSwitchLane {
+    pub id: CarSwitchLaneID,
     pub construction: ConstructionInfo,
-    pub connectivity: SwitchConnectivityInfo,
-    pub microtraffic: TransferringMicrotraffic,
+    pub connectivity: CarSwitchConnectivityInfo,
+    pub microtraffic: CarSwitchMicrotraffic,
 }
 
-impl SwitchLane {
-    pub fn spawn(id: SwitchLaneID, path: &LinePath, _: &mut World) -> SwitchLane {
-        SwitchLane {
+impl CarSwitchLane {
+    pub fn spawn(id: CarSwitchLaneID, path: &LinePath, _: &mut World) -> CarSwitchLane {
+        CarSwitchLane {
             id,
             construction: ConstructionInfo::from_path(path.clone()),
-            connectivity: SwitchConnectivityInfo::default(),
-            microtraffic: TransferringMicrotraffic::default(),
+            connectivity: CarSwitchConnectivityInfo::default(),
+            microtraffic: CarSwitchMicrotraffic::default(),
         }
     }
 
-    pub fn other_side(&self, side: LaneID) -> Option<LaneID> {
+    pub fn other_side(&self, side: CarLaneID) -> Option<CarLaneID> {
         if let Some((left, ..)) = self.connectivity.left {
             if side == left {
                 return self.connectivity.right.map(|(right, ..)| right);
@@ -123,9 +123,41 @@ impl SwitchLane {
     }
 }
 
+#[derive(Compact, Clone)]
+pub struct Sidewalk {
+    pub id: SidewalkID,
+    pub construction: ConstructionInfo,
+    pub connectivity: SidewalkConnectivityInfo,
+    pub microtraffic: SidewalkMicrotraffic,
+    pub pathfinding: PathfindingCore,
+}
+
+impl Sidewalk {
+    pub fn spawn(
+        id: SidewalkID,
+        path: &LinePath,
+        on_intersection: bool,
+        timings: &CVec<bool>,
+        world: &mut World,
+    ) -> Self {
+        let sidewalk = Sidewalk {
+            id,
+            construction: ConstructionInfo::from_path(path.clone()),
+            connectivity: SidewalkConnectivityInfo::new(on_intersection),
+            microtraffic: SidewalkMicrotraffic::new(timings.clone()),
+            pathfinding: PathfindingCore::default(),
+        };
+
+        super::ui::on_build_sidewalk(&sidewalk, world);
+
+        sidewalk
+    }
+}
+
 pub fn setup(system: &mut ActorSystem) {
-    system.register::<Lane>();
-    system.register::<SwitchLane>();
+    system.register::<CarLane>();
+    system.register::<CarSwitchLane>();
+    system.register::<Sidewalk>();
     auto_setup(system);
 }
 

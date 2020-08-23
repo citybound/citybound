@@ -100,38 +100,38 @@ struct MSG_TransportUI_on_car_info(pub RawID, pub CVec < CarRenderInfo >);
 
 
 
-impl LaneID {
+impl CarLaneID {
     pub fn get_car_info(self, ui: TransportUIID, world: &mut World) {
-        world.send(self.as_raw(), MSG_Lane_get_car_info(ui));
+        world.send(self.as_raw(), MSG_CarLane_get_car_info(ui));
     }
     
     pub fn get_render_info(self, ui: TransportUIID, world: &mut World) {
-        world.send(self.as_raw(), MSG_Lane_get_render_info(ui));
+        world.send(self.as_raw(), MSG_CarLane_get_render_info(ui));
     }
 }
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Lane_get_car_info(pub TransportUIID);
+struct MSG_CarLane_get_car_info(pub TransportUIID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_Lane_get_render_info(pub TransportUIID);
+struct MSG_CarLane_get_render_info(pub TransportUIID);
 
 
 
 
-impl SwitchLaneID {
+impl CarSwitchLaneID {
     pub fn get_render_info(self, ui: TransportUIID, world: &mut World) {
-        world.send(self.as_raw(), MSG_SwitchLane_get_render_info(ui));
+        world.send(self.as_raw(), MSG_CarSwitchLane_get_render_info(ui));
     }
     
     pub fn get_car_info(self, ui: TransportUIID, world: &mut World) {
-        world.send(self.as_raw(), MSG_SwitchLane_get_car_info(ui));
+        world.send(self.as_raw(), MSG_CarSwitchLane_get_car_info(ui));
     }
 }
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_SwitchLane_get_render_info(pub TransportUIID);
+struct MSG_CarSwitchLane_get_render_info(pub TransportUIID);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
-struct MSG_SwitchLane_get_car_info(pub TransportUIID);
+struct MSG_CarSwitchLane_get_car_info(pub TransportUIID);
 
 
 #[allow(unused_variables)]
@@ -139,26 +139,26 @@ struct MSG_SwitchLane_get_car_info(pub TransportUIID);
 pub fn auto_setup(system: &mut ActorSystem) {
     TransportUIID::register_trait(system);
     
-    system.add_handler::<Lane, _, _>(
-        |&MSG_Lane_get_car_info(ui), instance, world| {
+    system.add_handler::<CarLane, _, _>(
+        |&MSG_CarLane_get_car_info(ui), instance, world| {
             instance.get_car_info(ui, world); Fate::Live
         }, false
     );
     
-    system.add_handler::<Lane, _, _>(
-        |&MSG_Lane_get_render_info(ui), instance, world| {
+    system.add_handler::<CarLane, _, _>(
+        |&MSG_CarLane_get_render_info(ui), instance, world| {
             instance.get_render_info(ui, world); Fate::Live
         }, false
     );
     
-    system.add_handler::<SwitchLane, _, _>(
-        |&MSG_SwitchLane_get_render_info(ui), instance, world| {
+    system.add_handler::<CarSwitchLane, _, _>(
+        |&MSG_CarSwitchLane_get_render_info(ui), instance, world| {
             instance.get_render_info(ui, world); Fate::Live
         }, false
     );
     
-    system.add_handler::<SwitchLane, _, _>(
-        |&MSG_SwitchLane_get_car_info(ui), instance, world| {
+    system.add_handler::<CarSwitchLane, _, _>(
+        |&MSG_CarSwitchLane_get_car_info(ui), instance, world| {
             instance.get_car_info(ui, world); Fate::Live
         }, false
     );
