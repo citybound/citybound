@@ -1,0 +1,148 @@
+ResWindowedFacDc:
+  FacadeDecoration:
+    prop: SmallWindow
+    color:
+      - Constant: 0.7
+      - Constant: 0.6
+      - Constant: 0.6
+    spacing:
+      Random:
+        - 3.0
+        - 5.0
+        - windowSpacing
+
+ResWindowedFac:
+  Facade:
+    Face:
+      - Specific: WhiteWall
+      - - Specific:
+            rule: ResWindowedFacDc
+
+FamilyHouseFund:
+  Fundament:
+    major_axis_angle_rel_to_road:
+      Constant: 0.0
+    offset_on_minor_axis:
+      Constant: 0.0
+    width:
+      Random:
+        - 5.0
+        - 12.0
+        - fundWidth
+    max_length:
+      Random:
+        - 10.0
+        - 18.0
+        - fundMaxLength
+    padding:
+      Constant: 5.0
+
+FamilyHouseFloor:
+  Floor:
+    height:
+      Random:
+        - 2.1
+        - 3.0
+        - floorHeight
+    widen_by_next:
+      Constant: 0.0
+    extend_by_next:
+      Constant: 0.0
+    front:
+      rule: ResWindowedFac
+    back:
+      rule: ResWindowedFac
+    left:
+      rule: ResWindowedFac
+    right:
+      rule: ResWindowedFac
+
+FamilyHouseRoof:
+  Roof:
+    height:
+      Random:
+        - 2.0
+        - 5.0
+        - roofHeight
+    gable_depth_front:
+      Random:
+        - 0.0
+        - 3.0
+        - gableDepth
+    gable_depth_back:
+      Random:
+        - 0.0
+        - 3.0
+        - gableDepth
+    roof_material:
+      Specific: TiledRoof
+    gable_material:
+      Specific: TiledRoof
+
+FamilyHouseCorp:
+  Corpus:
+    fundament:
+      rule: FamilyHouseFund
+    n_floors:
+      Random:
+        - 1
+        - 2
+        - nFloors
+    floor_rules:
+      - Specific:
+          rule: FamilyHouseFloor
+    roof:
+      rule: FamilyHouseRoof
+
+FamilyHouseLotBn:
+  LotBoundary:
+    fence_height:
+      Random:
+        - 0.5
+        - 1.5
+        - fenceHeight
+    fence_material:
+      Specific: WoodenFence
+    fence_gap_offset_ratio:
+      Random:
+        - 0.1
+        - 0.9
+        - fenceGapPoint
+    fence_gap_width_ratio:
+      Constant: 0.2
+
+FamilyHousePavg:
+  Paving:
+    paving_material:
+      Specific: LotAsphalt
+    start_point_offset_ratio:
+      Random:
+        - 0.1
+        - 0.9
+        - fenceGapPoint
+    end_point_corpus:
+      Constant: 0
+    end_point_corpus_side:
+      Specific: Left
+    end_point_offset_ratio:
+      Constant: 0.5
+    width:
+      Random:
+        - 1.0
+        - 3.0
+        - pavementWidth
+
+FamilyHouseLot:
+  Lot:
+    boundary_rule:
+      rule: FamilyHouseLotBn
+    ground_rule: ~
+    paving_rules:
+      - rule: FamilyHousePavg
+
+FamilyHouse:
+  Building:
+    corpi:
+      - rule: FamilyHouseCorp
+    lot:
+      rule: FamilyHouseLot

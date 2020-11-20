@@ -1,18 +1,19 @@
 use kay::{ActorSystem, World, TypedID};
-use compact::{COption, CHashMap};
+use compact::{CHashMap};
 use descartes::{N, P2, V2, WithUniqueOrthogonal, LinePath, ClosedLinePath, PrimitiveArea, Area};
 use cb_util::random::{Rng, seed};
 use cb_util::config_manager::Name;
 use michelangelo::{Vertex, Mesh, Instance, Surface, FlatSurface, Sculpture};
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::BufReader;
+use std::iter::FromIterator;
 
 pub mod materials_and_props;
 use self::materials_and_props::{BuildingMaterial, BuildingProp};
 
 pub mod language;
-use self::language::{Choice, Variable, ArchitectureRule, BuildingRule, FacadeRule, RuleRef,
-FacadeDecorationRule, CorpusRule, FundamentRule, FloorRule, RoofRule, PavingRule, LotRule,
-LotBoundaryRule, CorpusSide,};
+use self::language::{ArchitectureRule, BuildingRule, RuleRef};
 
 use super::{Lot, BuildingStyle};
 
@@ -77,109 +78,6 @@ impl BuildingGeometryCollector {
             props: self.props,
         }
     }
-}
-
-fn default_rules() -> CHashMap<Name, ArchitectureRule> {
-    vec![
-        (
-            "ResWindowedFacDc",
-            ArchitectureRule::FacadeDecoration(FacadeDecorationRule {
-                prop: BuildingProp::SmallWindow,
-                color: [
-                    Variable::Constant(0.7),
-                    Variable::Constant(0.6),
-                    Variable::Constant(0.6),
-                ],
-                spacing: Variable::new_random(3.0, 5.0, "windowSpacing"),
-            }),
-        ),
-        (
-            "ResWindowedFac",
-            ArchitectureRule::Facade(FacadeRule::Face(
-                Choice::Specific(BuildingMaterial::WhiteWall),
-                vec![Choice::Specific(RuleRef::of("ResWindowedFacDc"))].into(),
-            )),
-        ),
-        (
-            "FamilyHouseFund",
-            ArchitectureRule::Fundament(FundamentRule {
-                major_axis_angle_rel_to_road: Variable::Constant(0.0),
-                offset_on_minor_axis: Variable::Constant(0.0),
-                width: Variable::new_random(5.0, 12.0, "fundWidth"),
-                max_length: Variable::new_random(10.0, 18.0, "fundMaxLength"),
-                padding: Variable::Constant(5.0),
-            }),
-        ),
-        (
-            "FamilyHouseFloor",
-            ArchitectureRule::Floor(FloorRule {
-                height: Variable::new_random(2.1, 3.0, "floorHeight"),
-                widen_by_next: Variable::Constant(0.0),
-                extend_by_next: Variable::Constant(0.0),
-                front: RuleRef::of("ResWindowedFac"),
-                back: RuleRef::of("ResWindowedFac"),
-                left: RuleRef::of("ResWindowedFac"),
-                right: RuleRef::of("ResWindowedFac"),
-            }),
-        ),
-        (
-            "FamilyHouseRoof",
-            ArchitectureRule::Roof(RoofRule {
-                height: Variable::new_random(2.0, 5.0, "roofHeight"),
-                gable_depth_front: Variable::new_random(0.0, 3.0, "gableDepth"),
-                gable_depth_back: Variable::new_random(0.0, 3.0, "gableDepth"),
-                roof_material: Choice::Specific(BuildingMaterial::TiledRoof),
-                gable_material: Choice::Specific(BuildingMaterial::TiledRoof),
-            }),
-        ),
-        (
-            "FamilyHouseCorp",
-            ArchitectureRule::Corpus(CorpusRule {
-                fundament: RuleRef::of("FamilyHouseFund"),
-                n_floors: Variable::new_random(1, 2, "nFloors"),
-                floor_rules: vec![Choice::Specific(RuleRef::of("FamilyHouseFloor"))].into(),
-                roof: RuleRef::of("FamilyHouseRoof"),
-            }),
-        ),
-        (
-            "FamilyHouseLotBn",
-            ArchitectureRule::LotBoundary(LotBoundaryRule {
-                fence_height: Variable::new_random(0.5, 1.5, "fenceHeight"),
-                fence_material: Choice::Specific(BuildingMaterial::WoodenFence),
-                fence_gap_offset_ratio: Variable::new_random(0.1, 0.9, "fenceGapPoint"),
-                fence_gap_width_ratio: Variable::Constant(0.2),
-            }),
-        ),
-        (
-            "FamilyHousePavg",
-            ArchitectureRule::Paving(PavingRule {
-                start_point_offset_ratio: Variable::new_random(0.1, 0.9, "fenceGapPoint"),
-                end_point_corpus: Variable::Constant(0),
-                end_point_corpus_side: Choice::Specific(CorpusSide::Left),
-                end_point_offset_ratio: Variable::Constant(0.5),
-                width: Variable::new_random(1.0, 3.0, "pavementWidth"),
-                paving_material: Choice::Specific(BuildingMaterial::LotAsphalt),
-            }),
-        ),
-        (
-            "FamilyHouseLot",
-            ArchitectureRule::Lot(LotRule {
-                boundary_rule: COption(Some(RuleRef::of("FamilyHouseLotBn"))),
-                ground_rule: COption(None),
-                paving_rules: vec![RuleRef::of("FamilyHousePavg")].into(),
-            }),
-        ),
-        (
-            "FamilyHouse",
-            ArchitectureRule::Building(BuildingRule {
-                corpi: vec![RuleRef::of("FamilyHouseCorp")].into(),
-                lot: RuleRef::of("FamilyHouseLot"),
-            }),
-        ),
-    ]
-    .into_iter()
-    .map(|(name, rule)| (Name::from(name).unwrap(), rule))
-    .collect()
 }
 
 pub fn footprint_area(lot: &Lot, building_style: BuildingStyle, extra_padding: N) -> Area {
@@ -273,7 +171,7 @@ pub fn build_building(
                     (
                         BuildingProp::WideDoor,
                         vec![{
-                            let position = P2::from_coordinates(
+                            let position = P2::from(
                                 (entrance_footprint.front_right.coords
                                     + entrance_footprint.back_right.coords)
                                     / 2.0,
@@ -294,7 +192,7 @@ pub fn build_building(
             }
         }
         BuildingStyle::Field => {
-            use ::economy::households::household_kinds::*;
+            use economy::households::household_kinds::*;
 
             let material = if let Some(farm) = household_ids.get(0) {
                 let farm_type_id = farm.as_raw().type_id;
@@ -354,7 +252,7 @@ pub fn build_building(
                 props: vec![(
                     BuildingProp::WideDoor,
                     vec![{
-                        let position = P2::from_coordinates(
+                        let position = P2::from(
                             (entrance_footprint.front_right.coords
                                 + entrance_footprint.back_right.coords)
                                 / 2.0,
@@ -429,7 +327,7 @@ pub fn build_building(
                     (
                         BuildingProp::WideDoor,
                         vec![{
-                            let position = P2::from_coordinates(
+                            let position = P2::from(
                                 (entrance_footprint.front_right.coords
                                     + entrance_footprint.back_right.coords)
                                     / 2.0,
@@ -637,9 +535,16 @@ pub fn generate_house_footprint<R: Rng>(
 
 pub fn setup(system: &mut ActorSystem) {
     system.register::<cb_util::config_manager::ConfigManager<ArchitectureRule>>();
-    cb_util::config_manager::auto_setup::<ArchitectureRule>(system);
+    system.register::<cb_util::config_manager::ConfigFileWatcher<ArchitectureRule>>();
+    cb_util::config_manager::auto_setup::<ArchitectureRule, ArchitectureRule>(system);
 }
 
 pub fn spawn(world: &mut World) {
-    cb_util::config_manager::ConfigManagerID::<ArchitectureRule>::spawn(default_rules(), world);
+    let config_manager =
+        cb_util::config_manager::ConfigManagerID::<ArchitectureRule>::spawn(CHashMap::new(), world);
+    cb_util::config_manager::ConfigFileWatcherID::spawn(
+        config_manager,
+        "modding/architecture_rules.yaml".to_owned().into(),
+        world,
+    );
 }

@@ -160,6 +160,10 @@ impl<C: Config> ConfigManagerID<C> {
     pub fn update_entry(self, name: Name, maybe_value: COption < C >, world: &mut World) {
         world.send(self.as_raw(), MSG_ConfigManager_update_entry::<C>(name, maybe_value));
     }
+    
+    pub fn update_all_entries(self, entries: CHashMap < Name , C >, world: &mut World) {
+        world.send(self.as_raw(), MSG_ConfigManager_update_all_entries::<C>(entries));
+    }
 }
 
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
@@ -168,11 +172,84 @@ struct MSG_ConfigManager_spawn<C: Config>(pub ConfigManagerID<C>, pub CHashMap <
 struct MSG_ConfigManager_request_current<C: Config>(pub ConfigUserID < C >);
 #[derive(Compact, Clone)] #[allow(non_camel_case_types)]
 struct MSG_ConfigManager_update_entry<C: Config>(pub Name, pub COption < C >);
+#[derive(Compact, Clone)] #[allow(non_camel_case_types)]
+struct MSG_ConfigManager_update_all_entries<C: Config>(pub CHashMap < Name , C >);
 
+
+impl<CD: Config + DeserializeOwned> Actor for ConfigFileWatcher<CD> {
+    type ID = ConfigFileWatcherID<CD>;
+
+    fn id(&self) -> Self::ID {
+        self.id
+    }
+    unsafe fn set_id(&mut self, id: RawID) {
+        self.id = Self::ID::from_raw(id);
+    }
+}
+
+#[derive(Serialize, Deserialize)] #[serde(transparent)]
+pub struct ConfigFileWatcherID<CD: Config + DeserializeOwned> {
+    _raw_id: RawID, _marker: ::std::marker::PhantomData<Box<(CD)>>
+}
+
+impl<CD: Config + DeserializeOwned> Copy for ConfigFileWatcherID<CD> {}
+impl<CD: Config + DeserializeOwned> Clone for ConfigFileWatcherID<CD> { fn clone(&self) -> Self { *self } }
+impl<CD: Config + DeserializeOwned> ::std::fmt::Debug for ConfigFileWatcherID<CD> {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "ConfigFileWatcherID<CD>({:?})", self._raw_id)
+    }
+}
+impl<CD: Config + DeserializeOwned> ::std::hash::Hash for ConfigFileWatcherID<CD> {
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        self._raw_id.hash(state);
+    }
+}
+impl<CD: Config + DeserializeOwned> PartialEq for ConfigFileWatcherID<CD> {
+    fn eq(&self, other: &ConfigFileWatcherID<CD>) -> bool {
+        self._raw_id == other._raw_id
+    }
+}
+impl<CD: Config + DeserializeOwned> Eq for ConfigFileWatcherID<CD> {}
+
+impl<CD: Config + DeserializeOwned> TypedID for ConfigFileWatcherID<CD> {
+    type Target = ConfigFileWatcher<CD>;
+
+    fn from_raw(id: RawID) -> Self {
+        ConfigFileWatcherID { _raw_id: id, _marker: ::std::marker::PhantomData }
+    }
+
+    fn as_raw(&self) -> RawID {
+        self._raw_id
+    }
+}
+
+impl<CD: Config + DeserializeOwned> ConfigFileWatcherID<CD> {
+    pub fn spawn(target: ConfigManagerID < CD >, file: CString, world: &mut World) -> Self {
+        let id = ConfigFileWatcherID::<CD>::from_raw(world.allocate_instance_id::<ConfigFileWatcher<CD>>());
+        let swarm = world.local_broadcast::<ConfigFileWatcher<CD>>();
+        world.send(swarm, MSG_ConfigFileWatcher_spawn::<CD>(id, target, file));
+        id
+    }
+    
+    pub fn reload(self, world: &mut World) {
+        world.send(self.as_raw(), MSG_ConfigFileWatcher_reload());
+    }
+}
+
+#[derive(Compact, Clone)] #[allow(non_camel_case_types)]
+struct MSG_ConfigFileWatcher_spawn<CD: Config + DeserializeOwned>(pub ConfigFileWatcherID<CD>, pub ConfigManagerID < CD >, pub CString);
+#[derive(Copy, Clone)] #[allow(non_camel_case_types)]
+struct MSG_ConfigFileWatcher_reload();
+
+impl<CD: Config + DeserializeOwned> Into<TemporalID> for ConfigFileWatcherID<CD> {
+    fn into(self) -> TemporalID {
+        TemporalID::from_raw(self.as_raw())
+    }
+}
 
 #[allow(unused_variables)]
 #[allow(unused_mut)]
-pub fn auto_setup<C: Config>(system: &mut ActorSystem) {
+pub fn auto_setup<C: Config, CD: Config + DeserializeOwned>(system: &mut ActorSystem) {
     ConfigUserID::<C>::register_trait(system);
     
     system.add_spawner::<ConfigManager<C>, _, _>(
@@ -190,6 +267,24 @@ pub fn auto_setup<C: Config>(system: &mut ActorSystem) {
     system.add_handler::<ConfigManager<C>, _, _>(
         |&MSG_ConfigManager_update_entry::<C>(name, ref maybe_value), instance, world| {
             instance.update_entry(name, maybe_value, world); Fate::Live
+        }, false
+    );
+    
+    system.add_handler::<ConfigManager<C>, _, _>(
+        |&MSG_ConfigManager_update_all_entries::<C>(ref entries), instance, world| {
+            instance.update_all_entries(entries, world); Fate::Live
+        }, false
+    );
+    TemporalID::register_implementor::<ConfigFileWatcher<CD>>(system);
+    system.add_spawner::<ConfigFileWatcher<CD>, _, _>(
+        |&MSG_ConfigFileWatcher_spawn::<CD>(id, target, ref file), world| {
+            ConfigFileWatcher::<CD>::spawn(id, target, file, world)
+        }, false
+    );
+    
+    system.add_handler::<ConfigFileWatcher<CD>, _, _>(
+        |&MSG_ConfigFileWatcher_reload(), instance, world| {
+            instance.reload(world); Fate::Live
         }, false
     );
 }

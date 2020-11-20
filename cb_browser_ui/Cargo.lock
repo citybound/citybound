@@ -153,6 +153,7 @@ name = "cb_util"
 version = "0.3.0"
 dependencies = [
  "arrayvec",
+ "cb_time",
  "compact",
  "compact_macros",
  "fnv",
@@ -187,9 +188,9 @@ dependencies = [
 
 [[package]]
 name = "compact"
-version = "0.2.15"
+version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5064b5adc90b4aec62b2a85248f246e97191c351af2e610e62ba7b922b792fd7"
+checksum = "7ba5242af24d35eb6275ea2ee77e4d8f88978340789b921e47f6bf08809eeef5"
 dependencies = [
  "lazy_static",
  "primal",

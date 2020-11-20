@@ -15,6 +15,15 @@ compact = { version = "0.2.13", features = ["serde-serialization"] }
 compact_macros = "0.1.0"
 arrayvec = {version = "0.4.10", features = ["serde-1"]}
 kay = {version = "0.5.1", default-features = false, features = ["serde-serialization"] }
+notify = {version = "4.0.12",optional = true}
+serde_yaml = {version = "0.8", optional = true}
+
+
+[dependencies.cb_time]
+path = "../cb_time"
 
 [build-dependencies]
 kay_codegen = {version = "0.3.10", features = ["serde-serialization"]}
+
+[features]
+server = ['notify', 'serde_yaml']

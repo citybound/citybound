@@ -60,7 +60,7 @@ impl<T: Clone + Compact> Choice<T> {
     }
 }
 
-#[derive(Compact, Clone)]
+#[derive(Compact, Clone, Serialize, Deserialize)]
 pub enum ArchitectureRule {
     Building(BuildingRule),
     Corpus(CorpusRule),
@@ -80,6 +80,7 @@ impl Config for ArchitectureRule {}
 #[derive(Serialize, Deserialize)]
 pub struct RuleRef<V> {
     rule: Name,
+    #[serde(skip_serializing, default)]
     _marker: ::std::marker::PhantomData<V>,
 }
 

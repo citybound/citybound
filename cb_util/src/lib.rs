@@ -5,6 +5,10 @@ extern crate fnv;
 extern crate uuid;
 extern crate arrayvec;
 extern crate kay;
+extern crate cb_time;
+#[cfg(feature = "server")]
+extern crate notify;
+extern crate serde;
 
 pub extern crate compact;
 #[macro_use]
