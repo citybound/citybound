@@ -51,6 +51,16 @@ Recommended setup:
 
 * Open the displayed address in your browser
 
+## Compiling and running Citybound in Docker
+
+To run Citybound from a Docker container, run the following command:
+
+```bash
+docker-compose up
+```
+
+Then, open [http://localhost:1234](http://localhost:1234) in your browser to begin playing.
+
 ## Guidelines
 
 * **Make sure to <a href="https://www.clahub.com/agreements/citybound/citybound">sign the Contributor License Agreement</a>.**
