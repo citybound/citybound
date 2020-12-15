@@ -2,6 +2,7 @@ pub use rand::{Rng, RngCore, thread_rng};
 pub use uuid::Uuid;
 use fnv::FnvHasher;
 use std::hash::{Hash, Hasher};
+use uuid::{Builder, Version};
 
 // A hashing function with hopefully low correlation between seeds
 // but not necessarily good randomness of sequential probes on the same seed
@@ -40,5 +41,7 @@ pub fn seed<S: Hash>(seed: S) -> FnvRng {
 }
 
 pub fn uuid() -> Uuid {
-    Uuid::from_random_bytes(thread_rng().gen())
+    Builder::from_bytes(thread_rng().gen())
+    .set_version(Version::Random)
+    .build()
 }
