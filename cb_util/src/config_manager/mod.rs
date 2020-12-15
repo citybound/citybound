@@ -71,7 +71,7 @@ use notify::Watcher;
 #[cfg(feature = "server")]
 struct ConfigFileWatcherState {
     receiver: Receiver<notify::DebouncedEvent>,
-    watcher: notify::FsEventWatcher,
+    watcher: notify::RecommendedWatcher,
 }
 
 #[derive(Compact, Clone)]
